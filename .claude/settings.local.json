@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:cql.hl7.org)",
+      "WebFetch(domain:cds-hooks.hl7.org)",
+      "WebSearch",
+      "Bash(docker-compose build:*)",
+      "WebFetch(domain:javadoc.io)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:mvnrepository.com)",
+      "WebFetch(domain:central.sonatype.com)"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+# Docker-specific configuration
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cql-platform
+
+# FHIR Configuration for Docker environment
+fhir:
+  server:
+    url: ${FHIR_SERVER_URL:http://hapi-fhir:8080/fhir}
+  terminology:
+    url: ${FHIR_TERMINOLOGY_URL:http://tx.fhir.org/r4}
+
+# Logging
+logging:
+  level:
+    com.cqlplatform: INFO
+    org.opencds.cqf: WARN
+    ca.uhn.fhir: WARN

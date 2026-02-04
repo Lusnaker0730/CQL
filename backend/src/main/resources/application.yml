@@ -1,0 +1,75 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cql-platform
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# CQL Platform Configuration
+cql:
+  translation:
+    enable-annotations: true
+    enable-locators: true
+    enable-result-types: true
+    validate-units: true
+    signature-level: All
+  execution:
+    debug-mode: false
+    enable-expression-caching: true
+
+# FHIR Configuration
+fhir:
+  server:
+    url: http://hapi.fhir.org/baseR4
+  terminology:
+    url: http://tx.fhir.org/r4
+
+# CDS Hooks Configuration
+cds:
+  hooks:
+    enabled: true
+    services:
+      - id: diabetes-management
+        title: Diabetes Management
+        description: CDS for diabetes patient management
+        hook: patient-view
+      - id: medication-check
+        title: Medication Interaction Check
+        description: Check for potential drug interactions
+        hook: order-select
+
+# Measure Configuration
+measure:
+  reporting:
+    default-period-start: "2024-01-01"
+    default-period-end: "2024-12-31"
+
+# Logging
+logging:
+  level:
+    com.cqlplatform: DEBUG
+    org.opencds.cqf: INFO
+    ca.uhn.fhir: INFO
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
