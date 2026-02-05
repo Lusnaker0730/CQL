@@ -1,15 +1,21 @@
 package com.cqlplatform.service.cds;
 
+import com.cqlplatform.entity.CdsServiceConfigEntity;
+import com.cqlplatform.entity.CdsServicePrefetchEntity;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.cds.*;
+import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.cqlplatform.service.cql.CqlExecutionService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,7 +23,116 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CdsHooksService {
 
     private final CqlExecutionService executionService;
+    private final CdsServiceConfigRepository repository;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    public void loadServicesFromDatabase() {
+        log.info("Loading CDS services from database...");
+        List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
+        for (CdsServiceConfigEntity entity : entities) {
+            CdsServiceConfig config = entityToConfig(entity);
+            serviceConfigs.put(config.getId(), config);
+            log.info("Loaded CDS service: {}", config.getId());
+        }
+        log.info("Loaded {} CDS services from database", entities.size());
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse createService(CdsServiceConfigRequest request) {
+        if (repository.existsById(request.getId())) {
+            throw new IllegalArgumentException("Service with ID '" + request.getId() + "' already exists");
+        }
+
+        CdsServiceConfigEntity entity = requestToEntity(request);
+        entity = repository.save(entity);
+
+        CdsServiceConfig config = entityToConfig(entity);
+        if (Boolean.TRUE.equals(entity.getEnabled())) {
+            serviceConfigs.put(config.getId(), config);
+        }
+
+        log.info("Created CDS service: {}", entity.getId());
+        return entityToResponse(entity);
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse updateService(String id, CdsServiceConfigRequest request) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+
+        entity.setHook(request.getHook());
+        entity.setTitle(request.getTitle());
+        entity.setDescription(request.getDescription());
+        entity.setCqlContent(request.getCqlContent());
+        entity.setCqlLibraryId(request.getCqlLibraryId());
+        entity.setDefaultIndicator(request.getDefaultIndicator());
+        entity.setEnabled(request.getEnabled() != null ? request.getEnabled() : true);
+
+        entity.clearPrefetchItems();
+        if (request.getPrefetch() != null) {
+            for (Map.Entry<String, String> entry : request.getPrefetch().entrySet()) {
+                CdsServicePrefetchEntity prefetch = CdsServicePrefetchEntity.builder()
+                        .prefetchKey(entry.getKey())
+                        .query(entry.getValue())
+                        .build();
+                entity.addPrefetchItem(prefetch);
+            }
+        }
+
+        entity = repository.save(entity);
+
+        if (Boolean.TRUE.equals(entity.getEnabled())) {
+            serviceConfigs.put(id, entityToConfig(entity));
+        } else {
+            serviceConfigs.remove(id);
+        }
+
+        log.info("Updated CDS service: {}", id);
+        return entityToResponse(entity);
+    }
+
+    @Transactional
+    public void deleteService(String id) {
+        if (!repository.existsById(id)) {
+            throw new IllegalArgumentException("Service not found: " + id);
+        }
+        repository.deleteById(id);
+        serviceConfigs.remove(id);
+        log.info("Deleted CDS service: {}", id);
+    }
+
+    @Transactional(readOnly = true)
+    public CdsServiceConfigResponse getService(String id) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+        return entityToResponse(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getAllServices() {
+        return repository.findAll().stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse toggleServiceEnabled(String id, boolean enabled) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+
+        entity.setEnabled(enabled);
+        entity = repository.save(entity);
+
+        if (enabled) {
+            serviceConfigs.put(id, entityToConfig(entity));
+        } else {
+            serviceConfigs.remove(id);
+        }
+
+        log.info("Toggled CDS service {} enabled: {}", id, enabled);
+        return entityToResponse(entity);
+    }
 
     public void registerService(CdsServiceConfig config) {
         serviceConfigs.put(config.getId(), config);
@@ -214,6 +329,77 @@ public class CdsHooksService {
                                 .query("MedicationRequest?patient={{context.patientId}}")
                                 .build()
                 ))
+                .build();
+    }
+
+    private CdsServiceConfigEntity requestToEntity(CdsServiceConfigRequest request) {
+        CdsServiceConfigEntity entity = CdsServiceConfigEntity.builder()
+                .id(request.getId())
+                .hook(request.getHook())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .cqlContent(request.getCqlContent())
+                .cqlLibraryId(request.getCqlLibraryId())
+                .defaultIndicator(request.getDefaultIndicator())
+                .enabled(request.getEnabled() != null ? request.getEnabled() : true)
+                .prefetchItems(new ArrayList<>())
+                .build();
+
+        if (request.getPrefetch() != null) {
+            for (Map.Entry<String, String> entry : request.getPrefetch().entrySet()) {
+                CdsServicePrefetchEntity prefetch = CdsServicePrefetchEntity.builder()
+                        .prefetchKey(entry.getKey())
+                        .query(entry.getValue())
+                        .build();
+                entity.addPrefetchItem(prefetch);
+            }
+        }
+
+        return entity;
+    }
+
+    private CdsServiceConfig entityToConfig(CdsServiceConfigEntity entity) {
+        Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch = new HashMap<>();
+        if (entity.getPrefetchItems() != null) {
+            for (CdsServicePrefetchEntity p : entity.getPrefetchItems()) {
+                prefetch.put(p.getPrefetchKey(), CdsServiceDefinition.PrefetchTemplate.builder()
+                        .query(p.getQuery())
+                        .build());
+            }
+        }
+
+        return CdsServiceConfig.builder()
+                .id(entity.getId())
+                .hook(entity.getHook())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .cqlContent(entity.getCqlContent())
+                .cqlLibraryId(entity.getCqlLibraryId())
+                .defaultIndicator(entity.getDefaultIndicator())
+                .prefetch(prefetch.isEmpty() ? null : prefetch)
+                .build();
+    }
+
+    private CdsServiceConfigResponse entityToResponse(CdsServiceConfigEntity entity) {
+        Map<String, String> prefetch = new HashMap<>();
+        if (entity.getPrefetchItems() != null) {
+            for (CdsServicePrefetchEntity p : entity.getPrefetchItems()) {
+                prefetch.put(p.getPrefetchKey(), p.getQuery());
+            }
+        }
+
+        return CdsServiceConfigResponse.builder()
+                .id(entity.getId())
+                .hook(entity.getHook())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .cqlContent(entity.getCqlContent())
+                .cqlLibraryId(entity.getCqlLibraryId())
+                .defaultIndicator(entity.getDefaultIndicator())
+                .enabled(entity.getEnabled())
+                .prefetch(prefetch.isEmpty() ? null : prefetch)
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 

@@ -9,6 +9,31 @@ spring:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
 
+  # H2 Database Configuration
+  datasource:
+    url: jdbc:h2:file:./data/cqlplatform;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  # H2 Console (for development)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
 # CQL Platform Configuration
 cql:
   translation:
