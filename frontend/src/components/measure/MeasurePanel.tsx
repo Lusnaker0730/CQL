@@ -165,7 +165,7 @@ export default function MeasurePanel() {
                   />
                 </Stack>
 
-                {result.groups.map((group) => (
+                {result.groups?.map((group) => (
                   <Box key={group.groupId} mb={2}>
                     <Typography variant="subtitle1" gutterBottom>
                       {group.description || `Group: ${group.groupId}`}
@@ -202,7 +202,7 @@ export default function MeasurePanel() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {group.populations.map((pop: PopulationResult) => (
+                          {group.populations?.map((pop: PopulationResult) => (
                             <TableRow key={pop.populationId}>
                               <TableCell>{getPopulationLabel(pop.populationType)}</TableCell>
                               <TableCell align="right">

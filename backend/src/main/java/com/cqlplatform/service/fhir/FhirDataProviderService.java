@@ -117,6 +117,39 @@ public class FhirDataProviderService {
         }
     }
 
+    public java.util.List<String> getAllPatientIds(String fhirServerUrl) {
+        IGenericClient client = createClient(fhirServerUrl);
+        java.util.List<String> patientIds = new java.util.ArrayList<>();
+
+        try {
+            Bundle bundle = client.search()
+                    .forResource("Patient")
+                    .returnBundle(Bundle.class)
+                    .execute();
+
+            while (bundle != null) {
+                if (bundle.hasEntry()) {
+                    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                        if (entry.getResource() instanceof Patient) {
+                            patientIds.add(entry.getResource().getIdElement().getIdPart());
+                        }
+                    }
+                }
+
+                if (bundle.getLink(Bundle.LINK_NEXT) != null) {
+                    bundle = client.loadPage().next(bundle).execute();
+                } else {
+                    bundle = null;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch all patients", e);
+            throw new RuntimeException("Failed to fetch patient list: " + e.getMessage(), e);
+        }
+
+        return patientIds;
+    }
+
     public int getRetrieveCount() {
         return retrieveCount.getAndSet(0);
     }

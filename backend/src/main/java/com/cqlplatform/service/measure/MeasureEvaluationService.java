@@ -14,206 +14,232 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.*;
 
+import com.cqlplatform.service.fhir.FhirDataProviderService; // Add import
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class MeasureEvaluationService {
 
-    private final CqlExecutionService cqlExecutionService;
+        private final CqlExecutionService cqlExecutionService;
+        private final FhirDataProviderService fhirDataProviderService; // Add injection
 
-    @Value("${measure.reporting.default-period-start:2024-01-01}")
-    private String defaultPeriodStart;
+        @Value("${measure.reporting.default-period-start:2024-01-01}")
+        private String defaultPeriodStart;
 
-    @Value("${measure.reporting.default-period-end:2024-12-31}")
-    private String defaultPeriodEnd;
+        @Value("${measure.reporting.default-period-end:2024-12-31}")
+        private String defaultPeriodEnd;
 
-    public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
-        log.info("Evaluating measure: {} for patient: {}",
-                request.getMeasureId(), request.getPatientId());
+        public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
+                log.info("Evaluating measure: {} for patient: {}",
+                                request.getMeasureId(), request.getPatientId());
 
-        LocalDate periodStart = request.getPeriodStart() != null ?
-                request.getPeriodStart() : LocalDate.parse(defaultPeriodStart);
-        LocalDate periodEnd = request.getPeriodEnd() != null ?
-                request.getPeriodEnd() : LocalDate.parse(defaultPeriodEnd);
+                LocalDate periodStart = request.getPeriodStart() != null ? request.getPeriodStart()
+                                : LocalDate.parse(defaultPeriodStart);
+                LocalDate periodEnd = request.getPeriodEnd() != null ? request.getPeriodEnd()
+                                : LocalDate.parse(defaultPeriodEnd);
 
-        try {
-            CqlExecutionRequest execRequest = new CqlExecutionRequest();
-            execRequest.setCql(request.getMeasureCql());
-            execRequest.setPatientId(request.getPatientId());
-            execRequest.setFhirServerUrl(request.getFhirServerUrl());
+                try {
+                        List<String> patientsToEvaluate;
+                        if (request.getPatientId() != null && !request.getPatientId().isBlank()) {
+                                patientsToEvaluate = List.of(request.getPatientId());
+                        } else {
+                                patientsToEvaluate = fhirDataProviderService
+                                                .getAllPatientIds(request.getFhirServerUrl());
+                        }
 
-            Map<String, Object> parameters = new HashMap<>();
-            parameters.put("Measurement Period",
-                    new org.opencds.cqf.cql.engine.runtime.Interval(
-                            new org.opencds.cqf.cql.engine.runtime.Date(
-                                    periodStart.getYear(), periodStart.getMonthValue(), periodStart.getDayOfMonth()),
-                            true,
-                            new org.opencds.cqf.cql.engine.runtime.Date(
-                                    periodEnd.getYear(), periodEnd.getMonthValue(), periodEnd.getDayOfMonth()),
-                            true
-                    ));
-            execRequest.setParameters(parameters);
+                        log.info("Evaluating for {} patients", patientsToEvaluate.size());
 
-            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+                        Map<String, Integer> populationCounts = new HashMap<>();
+                        populationCounts.put("Initial Population", 0);
+                        populationCounts.put("Denominator", 0);
+                        populationCounts.put("Denominator Exclusions", 0);
+                        populationCounts.put("Denominator Exceptions", 0);
+                        populationCounts.put("Numerator", 0);
+                        populationCounts.put("Numerator Exclusions", 0);
 
-            return buildMeasureResult(request, execResponse, periodStart, periodEnd);
+                        for (String patientId : patientsToEvaluate) {
+                                CqlExecutionRequest execRequest = new CqlExecutionRequest();
+                                execRequest.setCql(request.getMeasureCql());
+                                execRequest.setPatientId(patientId);
+                                execRequest.setFhirServerUrl(request.getFhirServerUrl());
 
-        } catch (Exception e) {
-            log.error("Measure evaluation failed", e);
-            return MeasureEvaluationResult.builder()
-                    .measureId(request.getMeasureId())
-                    .status("error")
-                    .periodStart(periodStart)
-                    .periodEnd(periodEnd)
-                    .build();
-        }
-    }
+                                Map<String, Object> parameters = new HashMap<>();
+                                parameters.put("Measurement Period",
+                                                new org.opencds.cqf.cql.engine.runtime.Interval(
+                                                                new org.opencds.cqf.cql.engine.runtime.Date(
+                                                                                periodStart.getYear(),
+                                                                                periodStart.getMonthValue(),
+                                                                                periodStart.getDayOfMonth()),
+                                                                true,
+                                                                new org.opencds.cqf.cql.engine.runtime.Date(
+                                                                                periodEnd.getYear(),
+                                                                                periodEnd.getMonthValue(),
+                                                                                periodEnd.getDayOfMonth()),
+                                                                true));
+                                execRequest.setParameters(parameters);
 
-    private MeasureEvaluationResult buildMeasureResult(
-            MeasureEvaluationRequest request,
-            CqlExecutionResponse execResponse,
-            LocalDate periodStart,
-            LocalDate periodEnd) {
+                                try {
+                                        CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+                                        aggregateResults(populationCounts, execResponse.getResults());
+                                } catch (Exception e) {
+                                        log.error("Failed evaluation for patient {}", patientId, e);
+                                }
+                        }
 
-        Map<String, CqlExecutionResponse.ExpressionResult> results = execResponse.getResults();
+                        return buildAggregatedResult(request, populationCounts, periodStart, periodEnd,
+                                        patientsToEvaluate.size());
 
-        Integer initialPopulation = extractPopulationCount(results, "Initial Population");
-        Integer denominator = extractPopulationCount(results, "Denominator");
-        Integer denominatorExclusions = extractPopulationCount(results, "Denominator Exclusions");
-        Integer denominatorExceptions = extractPopulationCount(results, "Denominator Exceptions");
-        Integer numerator = extractPopulationCount(results, "Numerator");
-        Integer numeratorExclusions = extractPopulationCount(results, "Numerator Exclusions");
-
-        List<PopulationResult> populations = new ArrayList<>();
-
-        populations.add(PopulationResult.builder()
-                .populationType("initial-population")
-                .populationId("initial-population")
-                .count(initialPopulation)
-                .subjectIds(initialPopulation != null && initialPopulation > 0 ?
-                        List.of(request.getPatientId()) : List.of())
-                .build());
-
-        populations.add(PopulationResult.builder()
-                .populationType("denominator")
-                .populationId("denominator")
-                .count(denominator)
-                .subjectIds(denominator != null && denominator > 0 ?
-                        List.of(request.getPatientId()) : List.of())
-                .build());
-
-        if (denominatorExclusions != null) {
-            populations.add(PopulationResult.builder()
-                    .populationType("denominator-exclusion")
-                    .populationId("denominator-exclusion")
-                    .count(denominatorExclusions)
-                    .build());
+                } catch (Exception e) {
+                        log.error("Measure evaluation failed", e);
+                        return MeasureEvaluationResult.builder()
+                                        .measureId(request.getMeasureId())
+                                        .status("error")
+                                        .periodStart(periodStart)
+                                        .periodEnd(periodEnd)
+                                        .build();
+                }
         }
 
-        if (denominatorExceptions != null) {
-            populations.add(PopulationResult.builder()
-                    .populationType("denominator-exception")
-                    .populationId("denominator-exception")
-                    .count(denominatorExceptions)
-                    .build());
+        private void aggregateResults(Map<String, Integer> counts,
+                        Map<String, CqlExecutionResponse.ExpressionResult> results) {
+                for (String key : counts.keySet()) {
+                        Integer count = extractPopulationCount(results, key);
+                        if (count != null && count > 0) {
+                                counts.put(key, counts.get(key) + count);
+                        }
+                }
         }
 
-        populations.add(PopulationResult.builder()
-                .populationType("numerator")
-                .populationId("numerator")
-                .count(numerator)
-                .subjectIds(numerator != null && numerator > 0 ?
-                        List.of(request.getPatientId()) : List.of())
-                .build());
+        private MeasureEvaluationResult buildAggregatedResult(
+                        MeasureEvaluationRequest request,
+                        Map<String, Integer> counts,
+                        LocalDate periodStart,
+                        LocalDate periodEnd,
+                        int totalPatients) {
 
-        if (numeratorExclusions != null) {
-            populations.add(PopulationResult.builder()
-                    .populationType("numerator-exclusion")
-                    .populationId("numerator-exclusion")
-                    .count(numeratorExclusions)
-                    .build());
+                Integer initialPopulation = counts.get("Initial Population");
+                Integer denominator = counts.get("Denominator");
+                Integer denominatorExclusions = counts.get("Denominator Exclusions");
+                Integer denominatorExceptions = counts.get("Denominator Exceptions");
+                Integer numerator = counts.get("Numerator");
+                Integer numeratorExclusions = counts.get("Numerator Exclusions");
+
+                List<PopulationResult> populations = new ArrayList<>();
+
+                populations.add(PopulationResult.builder()
+                                .populationType("initial-population")
+                                .populationId("initial-population")
+                                .count(initialPopulation)
+                                .build());
+
+                populations.add(PopulationResult.builder()
+                                .populationType("denominator")
+                                .populationId("denominator")
+                                .count(denominator)
+                                .build());
+
+                if (denominatorExclusions > 0) {
+                        populations.add(PopulationResult.builder()
+                                        .populationType("denominator-exclusion")
+                                        .populationId("denominator-exclusion")
+                                        .count(denominatorExclusions)
+                                        .build());
+                }
+
+                if (denominatorExceptions > 0) {
+                        populations.add(PopulationResult.builder()
+                                        .populationType("denominator-exception")
+                                        .populationId("denominator-exception")
+                                        .count(denominatorExceptions)
+                                        .build());
+                }
+
+                populations.add(PopulationResult.builder()
+                                .populationType("numerator")
+                                .populationId("numerator")
+                                .count(numerator)
+                                .build());
+
+                if (numeratorExclusions > 0) {
+                        populations.add(PopulationResult.builder()
+                                        .populationType("numerator-exclusion")
+                                        .populationId("numerator-exclusion")
+                                        .count(numeratorExclusions)
+                                        .build());
+                }
+
+                Double measureScore = calculateMeasureScore(denominator, denominatorExclusions, numerator);
+
+                GroupResult groupResult = GroupResult.builder()
+                                .groupId("group-1")
+                                .description("Primary measure group (Total Patients: " + totalPatients + ")")
+                                .populations(populations)
+                                .measureScore(measureScore)
+                                .measureScoreUnit("percentage")
+                                .build();
+
+                return MeasureEvaluationResult.builder()
+                                .measureId(request.getMeasureId())
+                                .measureName(request.getMeasureId())
+                                .status("complete")
+                                .periodStart(periodStart)
+                                .periodEnd(periodEnd)
+                                .reportType(request.getReportType())
+                                .groups(List.of(groupResult))
+                                .build();
         }
 
-        Double measureScore = calculateMeasureScore(denominator, denominatorExclusions, numerator);
+        private Integer extractPopulationCount(
+                        Map<String, CqlExecutionResponse.ExpressionResult> results,
+                        String populationName) {
 
-        GroupResult groupResult = GroupResult.builder()
-                .groupId("group-1")
-                .description("Primary measure group")
-                .populations(populations)
-                .measureScore(measureScore)
-                .measureScoreUnit("percentage")
-                .build();
+                CqlExecutionResponse.ExpressionResult result = results.get(populationName);
+                if (result == null) {
+                        return null;
+                }
 
-        Map<String, Object> supplementalData = new HashMap<>();
-        for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : results.entrySet()) {
-            String name = entry.getKey();
-            if (!isPopulationExpression(name)) {
-                supplementalData.put(name, entry.getValue().getDisplayValue());
-            }
+                Object value = result.getValue();
+                if (value instanceof Boolean) {
+                        return (Boolean) value ? 1 : 0;
+                } else if (value instanceof Number) {
+                        return ((Number) value).intValue();
+                } else if (value instanceof Iterable<?> iterable) {
+                        int count = 0;
+                        var iterator = iterable.iterator();
+                        while (iterator.hasNext()) {
+                                iterator.next();
+                                count++;
+                        }
+                        return count;
+                }
+
+                return null;
         }
 
-        return MeasureEvaluationResult.builder()
-                .measureId(request.getMeasureId())
-                .measureName(request.getMeasureId())
-                .status("complete")
-                .periodStart(periodStart)
-                .periodEnd(periodEnd)
-                .reportType(request.getReportType())
-                .groups(List.of(groupResult))
-                .supplementalData(supplementalData.isEmpty() ? null : supplementalData)
-                .build();
-    }
+        private Double calculateMeasureScore(Integer denominator, Integer exclusions, Integer numerator) {
+                if (denominator == null || denominator == 0) {
+                        return null;
+                }
 
-    private Integer extractPopulationCount(
-            Map<String, CqlExecutionResponse.ExpressionResult> results,
-            String populationName) {
+                int effectiveDenominator = denominator - (exclusions != null ? exclusions : 0);
+                if (effectiveDenominator <= 0) {
+                        return null;
+                }
 
-        CqlExecutionResponse.ExpressionResult result = results.get(populationName);
-        if (result == null) {
-            return null;
+                int effectiveNumerator = numerator != null ? numerator : 0;
+                return (double) effectiveNumerator / effectiveDenominator * 100;
         }
 
-        Object value = result.getValue();
-        if (value instanceof Boolean) {
-            return (Boolean) value ? 1 : 0;
-        } else if (value instanceof Number) {
-            return ((Number) value).intValue();
-        } else if (value instanceof Iterable<?> iterable) {
-            int count = 0;
-            var iterator = iterable.iterator();
-            while (iterator.hasNext()) {
-                iterator.next();
-                count++;
-            }
-            return count;
+        private boolean isPopulationExpression(String name) {
+                return name.equals("Initial Population") ||
+                                name.equals("Denominator") ||
+                                name.equals("Denominator Exclusions") ||
+                                name.equals("Denominator Exceptions") ||
+                                name.equals("Numerator") ||
+                                name.equals("Numerator Exclusions") ||
+                                name.equals("Measure Population") ||
+                                name.equals("Measure Population Exclusions") ||
+                                name.equals("Measure Observation");
         }
-
-        return null;
-    }
-
-    private Double calculateMeasureScore(Integer denominator, Integer exclusions, Integer numerator) {
-        if (denominator == null || denominator == 0) {
-            return null;
-        }
-
-        int effectiveDenominator = denominator - (exclusions != null ? exclusions : 0);
-        if (effectiveDenominator <= 0) {
-            return null;
-        }
-
-        int effectiveNumerator = numerator != null ? numerator : 0;
-        return (double) effectiveNumerator / effectiveDenominator * 100;
-    }
-
-    private boolean isPopulationExpression(String name) {
-        return name.equals("Initial Population") ||
-                name.equals("Denominator") ||
-                name.equals("Denominator Exclusions") ||
-                name.equals("Denominator Exceptions") ||
-                name.equals("Numerator") ||
-                name.equals("Numerator Exclusions") ||
-                name.equals("Measure Population") ||
-                name.equals("Measure Population Exclusions") ||
-                name.equals("Measure Observation");
-    }
 }

@@ -9,7 +9,17 @@
       "WebFetch(domain:javadoc.io)",
       "Bash(gh api:*)",
       "WebFetch(domain:mvnrepository.com)",
-      "WebFetch(domain:central.sonatype.com)"
+      "WebFetch(domain:central.sonatype.com)",
+      "Bash(docker-compose logs:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(mvn compile:*)",
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

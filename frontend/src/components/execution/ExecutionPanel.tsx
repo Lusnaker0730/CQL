@@ -136,7 +136,7 @@ export default function ExecutionPanel() {
 
         {errors.length > 0 && (
           <Alert severity="error">
-            {errors.map((error, i) => (
+            {errors?.map((error, i) => (
               <div key={i}>{error}</div>
             ))}
           </Alert>

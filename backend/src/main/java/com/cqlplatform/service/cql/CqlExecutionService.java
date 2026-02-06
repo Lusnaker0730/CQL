@@ -24,6 +24,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
 import java.util.*;
+import org.cqframework.cql.cql2elm.LibrarySourceProvider;
+import org.hl7.elm.r1.VersionedIdentifier;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor
@@ -44,9 +49,24 @@ public class CqlExecutionService {
             // Translate CQL to ELM
             ModelManager modelManager = new ModelManager();
             LibraryManager libraryManager = new LibraryManager(modelManager);
+
+            // Register Library Source Provider to load FHIRHelpers from classpath resources
+            libraryManager.getLibrarySourceLoader()
+                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
+
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
 
             org.hl7.elm.r1.Library elmLibrary = translator.toELM();
+            org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
+
+            // Register the source of the translated library so the engine can find it
+            if (libraryId != null) {
+                libraryManager.getLibrarySourceLoader().registerProvider(
+                        new InMemoryLibrarySourceProvider(
+                                libraryId.getId(),
+                                libraryId.getVersion(),
+                                request.getCql()));
+            }
 
             String fhirServerUrl = request.getFhirServerUrl() != null ? request.getFhirServerUrl()
                     : defaultFhirServerUrl;
@@ -70,7 +90,6 @@ public class CqlExecutionService {
             // Create CQL Engine
             CqlEngine engine = new CqlEngine(environment);
 
-            org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
             Set<String> expressions = determineExpressions(request, elmLibrary);
 
             // Evaluate
@@ -172,5 +191,26 @@ public class CqlExecutionService {
             return ((ZonedDateTime) value).toString();
         }
         return value.getClass().getSimpleName() + ": " + value.toString();
+    }
+
+    private static class InMemoryLibrarySourceProvider implements LibrarySourceProvider {
+        private final String libraryName;
+        private final String libraryVersion;
+        private final String cqlContent;
+
+        public InMemoryLibrarySourceProvider(String name, String version, String content) {
+            this.libraryName = name;
+            this.libraryVersion = version;
+            this.cqlContent = content;
+        }
+
+        @Override
+        public InputStream getLibrarySource(VersionedIdentifier libraryIdentifier) {
+            if (libraryName.equals(libraryIdentifier.getId()) &&
+                    (libraryVersion == null || libraryVersion.equals(libraryIdentifier.getVersion()))) {
+                return new ByteArrayInputStream(cqlContent.getBytes(StandardCharsets.UTF_8));
+            }
+            return null;
+        }
     }
 }

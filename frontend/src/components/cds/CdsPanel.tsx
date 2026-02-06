@@ -32,7 +32,7 @@ import { useCdsServices, useInvokeCdsService } from '../../hooks/useCdsHooks'
 import type { CdsCard, CdsServiceDefinition } from '../../types'
 
 export default function CdsPanel() {
-  const { data: servicesData, isLoading: loadingServices } = useCdsServices()
+  const { data: servicesData, isLoading: loadingServices, isError: servicesError } = useCdsServices()
   const invokeMutation = useInvokeCdsService()
 
   const [selectedService, setSelectedService] = useState<string>('')
@@ -40,7 +40,7 @@ export default function CdsPanel() {
   const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
   const [cards, setCards] = useState<CdsCard[]>([])
 
-  const services = servicesData?.services || []
+  const services = Array.isArray(servicesData?.services) ? servicesData.services : []
 
   const handleInvoke = async () => {
     if (!selectedService || !patientId) return
@@ -153,6 +153,12 @@ export default function CdsPanel() {
         <Divider />
 
         {loadingServices && <CircularProgress />}
+
+        {servicesError && (
+          <Alert severity="error">
+            Failed to load CDS services. Please check the backend connection.
+          </Alert>
+        )}
 
         {invokeMutation.isError && (
           <Alert severity="error">

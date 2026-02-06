@@ -29,6 +29,10 @@ public class CqlTranslationService {
             ModelManager modelManager = new ModelManager();
             LibraryManager libraryManager = new LibraryManager(modelManager);
 
+            // Register Library Source Provider to load FHIRHelpers from classpath resources
+            libraryManager.getLibrarySourceLoader()
+                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
+
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
             Library library = translator.toELM();
 
@@ -80,6 +84,10 @@ public class CqlTranslationService {
         try {
             ModelManager modelManager = new ModelManager();
             LibraryManager libraryManager = new LibraryManager(modelManager);
+
+            // Register Library Source Provider to load FHIRHelpers from classpath resources
+            libraryManager.getLibrarySourceLoader()
+                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
 
             CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
 
