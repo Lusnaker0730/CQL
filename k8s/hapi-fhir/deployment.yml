@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hapi-fhir
+  namespace: cql-platform
+  labels:
+    app: hapi-fhir
+    app.kubernetes.io/part-of: cql-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hapi-fhir
+  template:
+    metadata:
+      labels:
+        app: hapi-fhir
+    spec:
+      containers:
+        - name: hapi-fhir
+          image: hapiproject/hapi:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: hapi.fhir.default_encoding
+              value: "json"
+            - name: hapi.fhir.fhir_version
+              value: "R4"
+            - name: hapi.fhir.allow_external_references
+              value: "true"
+            - name: hapi.fhir.allow_multiple_delete
+              value: "true"
+            - name: hapi.fhir.reuse_cached_search_results_millis
+              value: "-1"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /fhir/metadata
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /fhir/metadata
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: hapi-data
+              mountPath: /data/hapi
+      volumes:
+        - name: hapi-data
+          emptyDir: {}

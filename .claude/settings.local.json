@@ -57,7 +57,8 @@
       "Bash(mvn dependency:tree:*)",
       "Bash(mvn dependency:build-classpath:*)",
       "Bash(./mvnw test:*)",
-      "Bash(mvn clean test:*)"
+      "Bash(mvn clean test:*)",
+      "Bash(git -C D:/CQL log --oneline -20)"
     ]
   }
 }

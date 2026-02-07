@@ -1,0 +1,17 @@
+# Environment files (may contain secrets)
+.env
+*.env
+!*.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes and data
+docker/postgres-backup/
