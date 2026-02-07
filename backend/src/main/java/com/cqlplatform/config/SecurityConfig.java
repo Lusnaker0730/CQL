@@ -59,6 +59,7 @@ public class SecurityConfig {
                         // H2 console (dev only)
                         .requestMatchers("/h2-console/**").permitAll()
                         // ADMIN only endpoints
+                        .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").hasRole("ADMIN")
                         // All other API endpoints require authentication
                         .requestMatchers("/api/**").authenticated()

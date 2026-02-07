@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   Box,
   Grid,
@@ -13,13 +13,15 @@ import {
 import {
   Translate as TranslateIcon,
   Save as SaveIcon,
+  FileDownload as ExportIcon,
+  FileUpload as ImportIcon,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import CqlEditor from '../components/editor/CqlEditor'
 import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
 import type { RootState } from '../store'
-import { useTranslate, useCreateLibrary } from '../hooks/useCql'
+import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata } from '../hooks/useCql'
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 
 interface TabPanelProps {
@@ -39,9 +41,13 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function EditorPage() {
   const { cqlContent, isTranslating, errors, elmJson } = useSelector((state: RootState) => state.editor)
   const [rightPanelTab, setRightPanelTab] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const translateMutation = useTranslate()
   const saveLibraryMutation = useCreateLibrary()
+  const exportMutation = useExportLibrary()
+  const importMutation = useImportLibrary()
+  const { data: libraryMetadata } = useLibrariesMetadata()
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
 
   const handleTranslate = () => {
@@ -52,8 +58,59 @@ export default function EditorPage() {
     saveLibraryMutation.mutate({ cql: cqlContent })
   }
 
+  const handleExport = () => {
+    // Save current library first, then export
+    saveLibraryMutation.mutate(
+      { cql: cqlContent },
+      {
+        onSuccess: (library) => {
+          exportMutation.mutate(library.id, {
+            onSuccess: (fhirLibrary) => {
+              const blob = new Blob([JSON.stringify(fhirLibrary, null, 2)], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `${library.name}-${library.version}.fhir.json`
+              a.click()
+              URL.revokeObjectURL(url)
+            },
+          })
+        },
+      }
+    )
+  }
+
+  const handleImport = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const fhirLibrary = JSON.parse(event.target?.result as string)
+        importMutation.mutate(fhirLibrary)
+      } catch {
+        // Invalid JSON
+      }
+    }
+    reader.readAsText(file)
+    // Reset so the same file can be selected again
+    e.target.value = ''
+  }
+
   return (
     <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        accept=".json"
+        style={{ display: 'none' }}
+      />
       <Grid container spacing={2} sx={{ height: '100%' }}>
         <Grid item xs={12} md={7} sx={{ height: '100%' }}>
           <Paper
@@ -117,6 +174,40 @@ export default function EditorPage() {
                   >
                     Save Library
                   </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ExportIcon />}
+                    onClick={handleExport}
+                    disabled={!cqlContent || errors.length > 0}
+                    sx={{
+                      borderColor: 'rgba(27,58,92,0.3)',
+                      color: 'secondary.main',
+                      '&:hover': {
+                        borderColor: 'secondary.main',
+                        bgcolor: 'rgba(27,58,92,0.04)',
+                      },
+                    }}
+                  >
+                    Export
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ImportIcon />}
+                    onClick={handleImport}
+                    disabled={importMutation.isPending}
+                    sx={{
+                      borderColor: 'rgba(27,58,92,0.3)',
+                      color: 'secondary.main',
+                      '&:hover': {
+                        borderColor: 'secondary.main',
+                        bgcolor: 'rgba(27,58,92,0.04)',
+                      },
+                    }}
+                  >
+                    Import
+                  </Button>
                 </Stack>
               </Stack>
             </Box>
@@ -125,6 +216,7 @@ export default function EditorPage() {
                 height="100%"
                 onTranslate={handleTranslate}
                 terminologyIssues={terminologyResults.filter((r) => r.status !== 'valid')}
+                libraryMetadata={libraryMetadata}
               />
             </Box>
           </Paper>

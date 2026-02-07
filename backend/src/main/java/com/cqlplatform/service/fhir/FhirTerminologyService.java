@@ -11,11 +11,16 @@ import org.hl7.fhir.r4.model.*;
 import org.opencds.cqf.cql.engine.fhir.terminology.R4FhirTerminologyProvider;
 import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ import java.util.List;
 public class FhirTerminologyService {
 
     private final FhirContext fhirContext;
+    private final CacheManager cacheManager;
 
     @Value("${fhir.terminology.url:http://tx.fhir.org/r4}")
     private String defaultTerminologyServerUrl;
@@ -181,6 +187,34 @@ public class FhirTerminologyService {
     private List<ValueSet> searchValueSetsFallback(String searchTerm, Throwable t) {
         log.warn("Circuit breaker fallback for searchValueSets: {}", t.getMessage());
         return new ArrayList<>();
+    }
+
+    public void evictCache(String cacheName) {
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache != null) {
+            cache.clear();
+            log.info("Evicted cache: {}", cacheName);
+        } else {
+            log.warn("Cache not found: {}", cacheName);
+        }
+    }
+
+    public Map<String, Map<String, Object>> getCacheStats() {
+        Map<String, Map<String, Object>> stats = new HashMap<>();
+        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "vsacValueSets")) {
+            Cache cache = cacheManager.getCache(name);
+            if (cache instanceof CaffeineCache caffeineCache) {
+                com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCache = caffeineCache.getNativeCache();
+                com.github.benmanes.caffeine.cache.stats.CacheStats cacheStats = nativeCache.stats();
+                Map<String, Object> cacheInfo = new HashMap<>();
+                cacheInfo.put("size", nativeCache.estimatedSize());
+                cacheInfo.put("hitCount", cacheStats.hitCount());
+                cacheInfo.put("missCount", cacheStats.missCount());
+                cacheInfo.put("hitRate", cacheStats.hitRate());
+                stats.put(name, cacheInfo);
+            }
+        }
+        return stats;
     }
 
     public record CodeLookupResult(

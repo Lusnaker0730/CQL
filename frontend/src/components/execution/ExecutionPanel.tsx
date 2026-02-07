@@ -18,32 +18,38 @@ import {
   Chip,
   Collapse,
   IconButton,
+  FormControlLabel,
+  Switch,
 } from '@mui/material'
 import {
   PlayArrow as PlayIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Timer as TimerIcon,
+  BugReport as DebugIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import { setPatientId, setFhirServerUrl } from '../../store/executionSlice'
 import { useExecute } from '../../hooks/useCql'
+import DebugPanel from './DebugPanel'
 
 export default function ExecutionPanel() {
   const dispatch = useDispatch()
   const { cqlContent } = useSelector((state: RootState) => state.editor)
-  const { patientId, fhirServerUrl, isExecuting, results, errors, executionTimeMs } = useSelector(
+  const { patientId, fhirServerUrl, isExecuting, results, errors, executionTimeMs, debugTrace } = useSelector(
     (state: RootState) => state.execution
   )
   const executeMutation = useExecute()
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set())
+  const [debugMode, setDebugMode] = useState(false)
 
   const handleExecute = () => {
     executeMutation.mutate({
       cql: cqlContent,
       patientId: patientId || undefined,
       fhirServerUrl: fhirServerUrl || undefined,
+      debugMode,
     })
   }
 
@@ -117,26 +123,54 @@ export default function ExecutionPanel() {
           placeholder="e.g., example-patient-1"
         />
 
-        <Button
-          variant="contained"
-          startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
-          onClick={handleExecute}
-          disabled={isExecuting || !cqlContent}
-          fullWidth
-          sx={{
-            py: 1.2,
-            background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-            fontSize: '0.95rem',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-            },
-            '&.Mui-disabled': {
-              background: 'rgba(0,0,0,0.12)',
-            },
-          }}
-        >
-          {isExecuting ? 'Executing...' : 'Execute CQL'}
-        </Button>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Button
+            variant="contained"
+            startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
+            onClick={handleExecute}
+            disabled={isExecuting || !cqlContent}
+            fullWidth
+            sx={{
+              py: 1.2,
+              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+              fontSize: '0.95rem',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+              },
+              '&.Mui-disabled': {
+                background: 'rgba(0,0,0,0.12)',
+              },
+            }}
+          >
+            {isExecuting ? 'Executing...' : 'Execute CQL'}
+          </Button>
+        </Stack>
+
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={debugMode}
+              onChange={(e) => setDebugMode(e.target.checked)}
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: 'secondary.main',
+                },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: 'secondary.main',
+                },
+              }}
+            />
+          }
+          label={
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
+              <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
+                Debug Mode
+              </Typography>
+            </Stack>
+          }
+        />
 
         {executionTimeMs !== null && (
           <Chip
@@ -246,6 +280,8 @@ export default function ExecutionPanel() {
             </TableContainer>
           </Box>
         )}
+
+        {debugTrace && <DebugPanel trace={debugTrace} />}
       </Stack>
     </Paper>
   )

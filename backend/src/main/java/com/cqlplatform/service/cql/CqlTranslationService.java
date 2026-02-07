@@ -4,6 +4,7 @@ import com.cqlplatform.exception.CqlTranslationException;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.CqlTranslationResponse.*;
+import com.cqlplatform.repository.CqlLibraryRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,9 @@ import java.util.stream.Collectors;
 public class CqlTranslationService {
 
     @Autowired(required = false)
+    private CqlLibraryRepository libraryRepository;
+
+    @Autowired(required = false)
     private Timer cqlTranslationTimer;
 
     @Autowired(required = false)
@@ -45,6 +49,12 @@ public class CqlTranslationService {
         try {
             ModelManager modelManager = new ModelManager();
             LibraryManager libraryManager = new LibraryManager(modelManager);
+
+            // Register database provider first so user libraries take precedence
+            if (libraryRepository != null) {
+                libraryManager.getLibrarySourceLoader()
+                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
+            }
 
             // Register Library Source Provider to load FHIRHelpers from classpath resources
             libraryManager.getLibrarySourceLoader()
@@ -105,6 +115,12 @@ public class CqlTranslationService {
         try {
             ModelManager modelManager = new ModelManager();
             LibraryManager libraryManager = new LibraryManager(modelManager);
+
+            // Register database provider first so user libraries take precedence
+            if (libraryRepository != null) {
+                libraryManager.getLibrarySourceLoader()
+                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
+            }
 
             // Register Library Source Provider to load FHIRHelpers from classpath resources
             libraryManager.getLibrarySourceLoader()

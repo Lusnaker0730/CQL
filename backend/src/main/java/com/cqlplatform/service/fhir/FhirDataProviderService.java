@@ -217,6 +217,62 @@ public class FhirDataProviderService {
         return new ArrayList<>();
     }
 
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "executeTransactionFallback")
+    @Retry(name = "fhirDataProvider")
+    public Bundle executeTransaction(String fhirServerUrl, Bundle bundle) {
+        if (bundle.getType() != Bundle.BundleType.BATCH && bundle.getType() != Bundle.BundleType.TRANSACTION) {
+            throw new IllegalArgumentException("Bundle type must be BATCH or TRANSACTION");
+        }
+        IGenericClient client = createClient(fhirServerUrl);
+        try {
+            return client.transaction().withBundle(bundle).execute();
+        } catch (Exception e) {
+            log.error("Failed to execute FHIR transaction", e);
+            throw new RuntimeException("FHIR transaction failed: " + e.getMessage(), e);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Bundle executeTransactionFallback(String fhirServerUrl, Bundle bundle, Throwable t) {
+        log.warn("Circuit breaker fallback for executeTransaction: {}", t.getMessage());
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
+    }
+
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "searchPatientsByDemographicsFallback")
+    @Retry(name = "fhirDataProvider")
+    public Bundle searchPatientsByDemographics(String fhirServerUrl,
+                                                String family, String given, String birthdate, String identifier) {
+        IGenericClient client = createClient(fhirServerUrl);
+        try {
+            var search = client.search().forResource(Patient.class);
+
+            if (family != null && !family.isBlank()) {
+                search = search.where(Patient.FAMILY.matches().value(family));
+            }
+            if (given != null && !given.isBlank()) {
+                search = search.where(Patient.GIVEN.matches().value(given));
+            }
+            if (birthdate != null && !birthdate.isBlank()) {
+                search = search.where(Patient.BIRTHDATE.exactly().day(birthdate));
+            }
+            if (identifier != null && !identifier.isBlank()) {
+                search = search.where(Patient.IDENTIFIER.exactly().code(identifier));
+            }
+
+            return search.returnBundle(Bundle.class).execute();
+        } catch (Exception e) {
+            log.error("Failed to search patients by demographics", e);
+            throw new RuntimeException("Patient demographics search failed: " + e.getMessage(), e);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Bundle searchPatientsByDemographicsFallback(String fhirServerUrl,
+                                                         String family, String given, String birthdate, String identifier, Throwable t) {
+        log.warn("Circuit breaker fallback for searchPatientsByDemographics: {}", t.getMessage());
+        return new Bundle();
+    }
+
     public int getAndResetRetrieveCount() {
         return retrieveCount.getAndSet(0);
     }

@@ -35,6 +35,11 @@ fhir:
   terminology:
     url: http://localhost:9999/fhir
 
+vsac:
+  api:
+    url: http://localhost:9999/vsac
+    key: test-key
+
 cql:
   translation:
     enable-annotations: true

@@ -92,6 +92,12 @@ fhir:
     connect-timeout-ms: 5000
     socket-timeout-ms: 30000
 
+# VSAC Configuration
+vsac:
+  api:
+    url: ${VSAC_API_URL:https://cts.nlm.nih.gov/fhir/}
+    key: ${VSAC_API_KEY:}
+
 # CDS Hooks Configuration
 cds:
   hooks:
@@ -175,6 +181,10 @@ resilience4j:
         baseConfig: default
         failureRateThreshold: 60
         waitDurationInOpenState: 60s
+      vsacService:
+        baseConfig: default
+        failureRateThreshold: 60
+        waitDurationInOpenState: 120s
 
   retry:
     configs:
@@ -198,3 +208,7 @@ resilience4j:
         baseConfig: default
         maxAttempts: 4
         waitDuration: 2s
+      vsacService:
+        baseConfig: default
+        maxAttempts: 3
+        waitDuration: 3s

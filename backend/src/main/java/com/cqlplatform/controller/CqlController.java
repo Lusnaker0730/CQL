@@ -4,6 +4,8 @@ import com.cqlplatform.model.*;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import com.cqlplatform.service.cql.FhirLibraryService;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,6 +25,7 @@ public class CqlController {
     private final CqlTranslationService translationService;
     private final CqlExecutionService executionService;
     private final CqlLibraryService libraryService;
+    private final FhirLibraryService fhirLibraryService;
 
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
@@ -89,5 +92,43 @@ public class CqlController {
     public ResponseEntity<Void> deleteLibrary(@PathVariable String id) {
         libraryService.deleteLibrary(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/libraries/latest/{name}")
+    @Operation(summary = "Get Latest Library Version", description = "Returns the latest version of a library by name")
+    public ResponseEntity<CqlLibrary> getLatestLibrary(@PathVariable String name) {
+        return libraryService.getLatestLibrary(name)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/libraries/versions/{name}")
+    @Operation(summary = "Get Library Versions", description = "Returns all versions of a library sorted descending")
+    public ResponseEntity<List<CqlLibrary>> getLibraryVersions(@PathVariable String name) {
+        List<CqlLibrary> versions = libraryService.getLibraryVersions(name);
+        return ResponseEntity.ok(versions);
+    }
+
+    @GetMapping("/libraries/metadata")
+    @Operation(summary = "Get Library Metadata", description = "Returns lightweight metadata for all libraries")
+    public ResponseEntity<List<LibraryMetadataDTO>> getLibrariesMetadata() {
+        List<CqlLibrary> libraries = libraryService.getAllLibraries();
+        List<LibraryMetadataDTO> metadata = libraries.stream()
+                .map(LibraryMetadataDTO::fromLibrary)
+                .toList();
+        return ResponseEntity.ok(metadata);
+    }
+
+    @GetMapping("/libraries/{id}/fhir")
+    @Operation(summary = "Export as FHIR Library", description = "Exports a CQL library as a FHIR R4 Library resource")
+    public ResponseEntity<Object> exportFhirLibrary(@PathVariable String id) {
+        return ResponseEntity.ok(fhirLibraryService.exportAsFhirLibrary(id));
+    }
+
+    @PostMapping("/libraries/import/fhir")
+    @Operation(summary = "Import FHIR Library", description = "Imports a FHIR R4 Library resource containing CQL")
+    public ResponseEntity<CqlLibrary> importFhirLibrary(@RequestBody JsonNode fhirLibrary) {
+        CqlLibrary library = fhirLibraryService.importFhirLibrary(fhirLibrary);
+        return ResponseEntity.ok(library);
     }
 }

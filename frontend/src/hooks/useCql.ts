@@ -15,6 +15,7 @@ import {
   setExecutionTimeMs,
 } from '../store/executionSlice'
 import type { CqlTranslationRequest, CqlExecutionRequest } from '../types'
+import { setDebugTrace } from '../store/executionSlice'
 
 export function useTranslate() {
   const dispatch = useDispatch()
@@ -79,14 +80,17 @@ export function useExecute() {
         dispatch(setResults(data.results))
         dispatch(setExecutionErrors([]))
         dispatch(setExecutionTimeMs(data.metadata?.executionTimeMs || null))
+        dispatch(setDebugTrace(data.debugTrace || null))
       } else {
         dispatch(setResults({}))
         dispatch(setExecutionErrors(data.errors || ['Execution failed']))
+        dispatch(setDebugTrace(null))
       }
     },
     onError: (error: Error) => {
       dispatch(setIsExecuting(false))
       dispatch(setExecutionErrors([error.message]))
+      dispatch(setDebugTrace(null))
     },
   })
 }
@@ -125,6 +129,31 @@ export function useDeleteLibrary() {
     mutationFn: (id: string) => cqlApi.deleteLibrary(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['libraries'] })
+    },
+  })
+}
+
+export function useLibrariesMetadata() {
+  return useQuery({
+    queryKey: ['libraries-metadata'],
+    queryFn: () => cqlApi.getLibrariesMetadata(),
+  })
+}
+
+export function useExportLibrary() {
+  return useMutation({
+    mutationFn: (id: string) => cqlApi.exportFhirLibrary(id),
+  })
+}
+
+export function useImportLibrary() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (fhirLibrary: unknown) => cqlApi.importFhirLibrary(fhirLibrary),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+      queryClient.invalidateQueries({ queryKey: ['libraries-metadata'] })
     },
   })
 }

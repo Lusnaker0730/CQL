@@ -1,15 +1,17 @@
 package com.cqlplatform.service.cql;
 
+import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
+import com.cqlplatform.repository.CqlLibraryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,8 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CqlLibraryService {
 
     private final CqlTranslationService translationService;
-    private final Map<String, CqlLibrary> libraryStore = new ConcurrentHashMap<>();
+    private final CqlLibraryRepository libraryRepository;
 
+    @Transactional
     public CqlLibrary saveLibrary(String cqlContent, String description) {
         CqlTranslationRequest request = new CqlTranslationRequest();
         request.setCql(cqlContent);
@@ -30,72 +33,137 @@ public class CqlLibraryService {
 
         String libraryId = response.getMetadata().getLibraryId();
         String version = response.getMetadata().getLibraryVersion();
-        String id = libraryId + "-" + version;
 
         List<String> dependencies = new ArrayList<>();
         if (response.getMetadata().getIncludes() != null) {
             dependencies.addAll(response.getMetadata().getIncludes());
         }
 
-        CqlLibrary library = CqlLibrary.builder()
-                .id(id)
-                .name(libraryId)
-                .version(version)
-                .cqlContent(cqlContent)
-                .elmJson(response.getElmJson())
-                .description(description)
-                .status("active")
-                .dependencies(dependencies)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+        // Check if this name+version already exists and update it
+        Optional<CqlLibraryEntity> existing = libraryRepository.findByNameAndVersion(libraryId, version);
+        CqlLibraryEntity entity;
+        if (existing.isPresent()) {
+            entity = existing.get();
+            entity.setCqlContent(cqlContent);
+            entity.setElmJson(response.getElmJson());
+            entity.setDescription(description);
+            entity.setDependencyList(dependencies);
+        } else {
+            entity = CqlLibraryEntity.builder()
+                    .name(libraryId)
+                    .version(version)
+                    .cqlContent(cqlContent)
+                    .elmJson(response.getElmJson())
+                    .description(description)
+                    .status("active")
+                    .dependencyList(dependencies)
+                    .build();
+        }
 
-        libraryStore.put(id, library);
+        entity = libraryRepository.save(entity);
         log.info("Saved library: {} version {}", libraryId, version);
 
-        return library;
+        return entityToModel(entity);
     }
 
+    @Transactional(readOnly = true)
     public Optional<CqlLibrary> getLibrary(String id) {
-        return Optional.ofNullable(libraryStore.get(id));
+        return parseId(id)
+                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .map(this::entityToModel);
     }
 
+    @Transactional(readOnly = true)
     public Optional<CqlLibrary> getLibraryByNameAndVersion(String name, String version) {
-        return libraryStore.values().stream()
-                .filter(lib -> lib.getName().equals(name) && lib.getVersion().equals(version))
-                .findFirst();
+        return libraryRepository.findByNameAndVersion(name, version)
+                .map(this::entityToModel);
     }
 
+    @Transactional(readOnly = true)
     public List<CqlLibrary> getAllLibraries() {
-        return new ArrayList<>(libraryStore.values());
+        return libraryRepository.findAll().stream()
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<CqlLibrary> searchLibraries(String searchTerm) {
         if (searchTerm == null || searchTerm.isBlank()) {
             return getAllLibraries();
         }
-
-        String lowerSearch = searchTerm.toLowerCase();
-        return libraryStore.values().stream()
-                .filter(lib -> lib.getName().toLowerCase().contains(lowerSearch) ||
-                        (lib.getDescription() != null && lib.getDescription().toLowerCase().contains(lowerSearch)))
-                .toList();
+        return libraryRepository
+                .findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(searchTerm, searchTerm)
+                .stream()
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
     }
 
+    @Transactional
     public void deleteLibrary(String id) {
-        libraryStore.remove(id);
+        parseId(id).flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .ifPresent(libraryRepository::delete);
         log.info("Deleted library: {}", id);
     }
 
+    @Transactional
     public CqlLibrary updateLibrary(String id, String cqlContent, String description) {
-        CqlLibrary existing = libraryStore.get(id);
-        if (existing == null) {
+        Optional<CqlLibraryEntity> existing = parseId(id)
+                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]));
+
+        if (existing.isEmpty()) {
             throw new IllegalArgumentException("Library not found: " + id);
         }
 
-        CqlLibrary updated = saveLibrary(cqlContent, description != null ? description : existing.getDescription());
-        libraryStore.remove(id);
+        String existingDesc = existing.get().getDescription();
+        CqlLibrary updated = saveLibrary(cqlContent, description != null ? description : existingDesc);
+
+        // If the new translation produced a different name-version, remove old entry
+        String newId = updated.getName() + "-" + updated.getVersion();
+        if (!newId.equals(id)) {
+            parseId(id).flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                    .ifPresent(libraryRepository::delete);
+        }
 
         return updated;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<CqlLibrary> getLatestLibrary(String name) {
+        List<CqlLibraryEntity> versions = libraryRepository.findByName(name);
+        if (versions.isEmpty()) return Optional.empty();
+
+        return versions.stream()
+                .max(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()))
+                .map(this::entityToModel);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CqlLibrary> getLibraryVersions(String name) {
+        return libraryRepository.findByName(name).stream()
+                .sorted(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()).reversed())
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    private CqlLibrary entityToModel(CqlLibraryEntity entity) {
+        return CqlLibrary.builder()
+                .id(entity.getName() + "-" + entity.getVersion())
+                .name(entity.getName())
+                .version(entity.getVersion())
+                .cqlContent(entity.getCqlContent())
+                .elmJson(entity.getElmJson())
+                .description(entity.getDescription())
+                .status(entity.getStatus())
+                .dependencies(entity.getDependencyList())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private Optional<String[]> parseId(String id) {
+        if (id == null) return Optional.empty();
+        int lastDash = id.lastIndexOf('-');
+        if (lastDash <= 0 || lastDash >= id.length() - 1) return Optional.empty();
+        return Optional.of(new String[]{id.substring(0, lastDash), id.substring(lastDash + 1)});
     }
 }

@@ -5,6 +5,7 @@ import type {
   CqlExecutionRequest,
   CqlExecutionResponse,
   CqlLibrary,
+  LibraryMetadata,
   CdsServiceDefinition,
   CdsRequest,
   CdsResponse,
@@ -20,6 +21,12 @@ import type {
   ValueSetExpansion,
   CodeLookupResult,
   CodeValidationResult,
+  FhirValidationResult,
+  PatientSearchParams,
+  BulkExportParams,
+  BulkExportKickOffResult,
+  BulkExportStatusResult,
+  CacheStats,
 } from '../types'
 
 const api = axios.create({
@@ -110,6 +117,31 @@ export const cqlApi = {
 
   deleteLibrary: async (id: string): Promise<void> => {
     await api.delete(`/cql/libraries/${id}`)
+  },
+
+  getLatestLibrary: async (name: string): Promise<CqlLibrary> => {
+    const response = await api.get<CqlLibrary>(`/cql/libraries/latest/${encodeURIComponent(name)}`)
+    return response.data
+  },
+
+  getLibraryVersions: async (name: string): Promise<CqlLibrary[]> => {
+    const response = await api.get<CqlLibrary[]>(`/cql/libraries/versions/${encodeURIComponent(name)}`)
+    return response.data
+  },
+
+  getLibrariesMetadata: async (): Promise<LibraryMetadata[]> => {
+    const response = await api.get<LibraryMetadata[]>('/cql/libraries/metadata')
+    return response.data
+  },
+
+  exportFhirLibrary: async (id: string): Promise<unknown> => {
+    const response = await api.get(`/cql/libraries/${id}/fhir`)
+    return response.data
+  },
+
+  importFhirLibrary: async (fhirLibrary: unknown): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>('/cql/libraries/import/fhir', fhirLibrary)
+    return response.data
   },
 }
 
@@ -231,5 +263,76 @@ export const fhirApi = {
     const params = new URLSearchParams({ system, code })
     const response = await api.get<CodeLookupResult>(`/fhir/CodeSystem/$lookup?${params.toString()}`)
     return response.data
+  },
+
+  validateResource: async (resourceJson: string): Promise<FhirValidationResult> => {
+    const response = await api.post<FhirValidationResult>('/fhir/$validate', resourceJson, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return response.data
+  },
+
+  searchPatientsByDemographics: async (
+    params: PatientSearchParams,
+    fhirServer?: string
+  ): Promise<unknown> => {
+    const queryParams = new URLSearchParams()
+    if (params.family) queryParams.append('family', params.family)
+    if (params.given) queryParams.append('given', params.given)
+    if (params.birthdate) queryParams.append('birthdate', params.birthdate)
+    if (params.identifier) queryParams.append('identifier', params.identifier)
+    if (fhirServer) queryParams.append('fhirServer', fhirServer)
+    const response = await api.get(`/fhir/Patient/$search-by-demographics?${queryParams.toString()}`)
+    return response.data
+  },
+
+  executeTransaction: async (bundleJson: string, fhirServer?: string): Promise<unknown> => {
+    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
+    const response = await api.post(`/fhir/Bundle/$transaction${params}`, bundleJson, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return response.data
+  },
+
+  vsacGetValueSet: async (oid: string): Promise<unknown> => {
+    const response = await api.get(`/fhir/vsac/ValueSet/${encodeURIComponent(oid)}`)
+    return response.data
+  },
+
+  vsacExpandValueSet: async (oid: string): Promise<unknown> => {
+    const response = await api.get(`/fhir/vsac/ValueSet/${encodeURIComponent(oid)}/$expand`)
+    return response.data
+  },
+
+  vsacSearchValueSets: async (title?: string): Promise<ValueSetSearchResult[]> => {
+    const params = title ? `?title=${encodeURIComponent(title)}` : ''
+    const response = await api.get<ValueSetSearchResult[]>(`/fhir/vsac/ValueSet${params}`)
+    return response.data
+  },
+
+  kickOffExport: async (params: BulkExportParams): Promise<BulkExportKickOffResult> => {
+    const queryParams = new URLSearchParams({ fhirServer: params.fhirServer })
+    if (params.exportType) queryParams.append('exportType', params.exportType)
+    if (params._outputFormat) queryParams.append('_outputFormat', params._outputFormat)
+    if (params._since) queryParams.append('_since', params._since)
+    if (params._type) queryParams.append('_type', params._type)
+    const response = await api.post<BulkExportKickOffResult>(`/fhir/$export?${queryParams.toString()}`)
+    return response.data
+  },
+
+  pollExportStatus: async (statusUrl: string): Promise<BulkExportStatusResult> => {
+    const response = await api.get<BulkExportStatusResult>(
+      `/fhir/$export-status?statusUrl=${encodeURIComponent(statusUrl)}`
+    )
+    return response.data
+  },
+
+  getCacheStats: async (): Promise<CacheStats> => {
+    const response = await api.get<CacheStats>('/fhir/cache/stats')
+    return response.data
+  },
+
+  evictCache: async (cacheName: string): Promise<void> => {
+    await api.delete(`/fhir/cache/${encodeURIComponent(cacheName)}`)
   },
 }

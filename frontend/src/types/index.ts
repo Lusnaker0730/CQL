@@ -85,6 +85,7 @@ export interface CqlExecutionResponse {
   results: Record<string, ExpressionResult>
   errors?: string[]
   metadata?: ExecutionMetadata
+  debugTrace?: DebugTrace
 }
 
 export interface ExpressionResult {
@@ -295,4 +296,93 @@ export interface TerminologyValidationItem {
   code?: string
   status: 'valid' | 'invalid' | 'error'
   detail?: string
+}
+
+// FHIR Validation types
+export interface FhirValidationResult {
+  valid: boolean
+  issues: FhirValidationIssue[]
+}
+
+export interface FhirValidationIssue {
+  severity: string
+  location: string
+  message: string
+}
+
+// Patient search types
+export interface PatientSearchParams {
+  family?: string
+  given?: string
+  birthdate?: string
+  identifier?: string
+}
+
+// Bulk Export types
+export interface BulkExportParams {
+  fhirServer: string
+  exportType?: string
+  _outputFormat?: string
+  _since?: string
+  _type?: string
+}
+
+export interface BulkExportKickOffResult {
+  statusUrl: string
+  exportType: string
+  startedAt: string
+}
+
+export interface BulkExportStatusResult {
+  status: string
+  retryAfterSeconds: number
+  output: BulkExportOutput[]
+  errorMessage: string | null
+}
+
+export interface BulkExportOutput {
+  type: string
+  url: string
+  count: number
+}
+
+// Cache types
+export interface CacheStats {
+  [cacheName: string]: {
+    size: number
+    hitCount: number
+    missCount: number
+    hitRate: number
+  }
+}
+
+// Library metadata for IntelliSense
+export interface LibraryMetadata {
+  name: string
+  version: string
+  expressions: string[]
+  valueSets: string[]
+  codes: string[]
+  functions: string[]
+}
+
+// Debug trace types
+export interface DebugTrace {
+  expressionTraces: ExpressionTrace[]
+  retrieveTraces: RetrieveTrace[]
+  totalTimeMs: number
+}
+
+export interface ExpressionTrace {
+  name: string
+  resultType: string
+  resultDisplay: string
+  evaluationTimeMs: number
+  order: number
+}
+
+export interface RetrieveTrace {
+  resourceType: string
+  resourceCount: number
+  retrieveTimeMs: number
 }

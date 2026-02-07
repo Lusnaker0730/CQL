@@ -12,7 +12,7 @@ public final class InputValidator {
             "MedicationRequest", "MedicationStatement", "AllergyIntolerance",
             "Immunization", "DiagnosticReport", "CarePlan", "CareTeam",
             "Goal", "ServiceRequest", "Practitioner", "Organization",
-            "Location", "Device", "Specimen", "Bundle",
+            "Location", "Device", "Specimen", "Bundle", "Subscription",
             "ValueSet", "CodeSystem", "Library", "Measure", "MeasureReport",
             "Questionnaire", "QuestionnaireResponse", "Coverage",
             "Claim", "ExplanationOfBenefit", "DocumentReference",
@@ -21,6 +21,8 @@ public final class InputValidator {
 
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9._-]{1,128}$");
     private static final Pattern SAFE_PARAMS_PATTERN = Pattern.compile("^[a-zA-Z0-9._:/?&=,| -]{0,2000}$");
+    private static final Pattern DATE_PARAM_PATTERN = Pattern.compile("^\\d{4}(-\\d{2}(-\\d{2})?)?$");
+    private static final Pattern NAME_PARAM_PATTERN = Pattern.compile("^[a-zA-Z' \\-]{1,100}$");
 
     public static boolean isValidFhirResourceType(String resourceType) {
         return resourceType != null && ALLOWED_FHIR_RESOURCE_TYPES.contains(resourceType);
@@ -37,5 +39,13 @@ public final class InputValidator {
     public static boolean isValidUrl(String url) {
         if (url == null) return true;
         return url.startsWith("http://") || url.startsWith("https://");
+    }
+
+    public static boolean isValidDateParam(String date) {
+        return date == null || DATE_PARAM_PATTERN.matcher(date).matches();
+    }
+
+    public static boolean isValidNameParam(String name) {
+        return name == null || NAME_PARAM_PATTERN.matcher(name).matches();
     }
 }

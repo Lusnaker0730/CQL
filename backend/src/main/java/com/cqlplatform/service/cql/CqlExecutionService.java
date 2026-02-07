@@ -3,8 +3,11 @@ package com.cqlplatform.service.cql;
 import com.cqlplatform.exception.CqlExecutionException;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
+import com.cqlplatform.model.CqlExecutionResponse.DebugTrace;
 import com.cqlplatform.model.CqlExecutionResponse.ExecutionMetadata;
 import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
+import com.cqlplatform.model.CqlExecutionResponse.ExpressionTrace;
+import com.cqlplatform.repository.CqlLibraryRepository;
 import com.cqlplatform.service.fhir.FhirDataProviderService;
 import com.cqlplatform.service.fhir.FhirTerminologyService;
 import io.micrometer.core.instrument.Counter;
@@ -40,6 +43,7 @@ public class CqlExecutionService {
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
     private final Executor cqlExecutionExecutor;
+    private final CqlLibraryRepository libraryRepository;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer cqlExecutionTimer;
@@ -59,10 +63,12 @@ public class CqlExecutionService {
     public CqlExecutionService(
             FhirDataProviderService dataProviderService,
             FhirTerminologyService terminologyService,
-            @Qualifier("cqlExecutionExecutor") Executor cqlExecutionExecutor) {
+            @Qualifier("cqlExecutionExecutor") Executor cqlExecutionExecutor,
+            CqlLibraryRepository libraryRepository) {
         this.dataProviderService = dataProviderService;
         this.terminologyService = terminologyService;
         this.cqlExecutionExecutor = cqlExecutionExecutor;
+        this.libraryRepository = libraryRepository;
     }
 
     public CqlExecutionResponse execute(CqlExecutionRequest request) {
@@ -109,6 +115,12 @@ public class CqlExecutionService {
             ModelManager modelManager = new ModelManager();
             LibraryManager libraryManager = new LibraryManager(modelManager);
 
+            // Register database provider first so user libraries take precedence
+            if (libraryRepository != null) {
+                libraryManager.getLibrarySourceLoader()
+                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
+            }
+
             // Register Library Source Provider to load FHIRHelpers from classpath resources
             libraryManager.getLibrarySourceLoader()
                     .registerProvider(new ClasspathLibrarySourceProvider("cql"));
@@ -143,6 +155,14 @@ public class CqlExecutionService {
             } else {
                 retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
             }
+
+            // Wrap in tracing provider when debug mode is enabled
+            TracingRetrieveProvider tracingProvider = null;
+            if (request.isDebugMode()) {
+                tracingProvider = new TracingRetrieveProvider(retrieveProvider);
+                retrieveProvider = tracingProvider;
+            }
+
             CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
 
             // Create data providers map
@@ -157,57 +177,131 @@ public class CqlExecutionService {
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
 
-            // Evaluate
-            EvaluationResult evaluationResult;
-            if (request.getPatientId() != null) {
-                String patientId = request.getPatientId();
-                if (!patientId.startsWith("Patient/")) {
-                    patientId = "Patient/" + patientId;
-                }
-                evaluationResult = engine.evaluate(
-                        elmLibrary.getIdentifier(),
-                        expressions,
-                        org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
-                        request.getParameters(),
-                        null);
-            } else {
-                evaluationResult = engine.evaluate(
-                        elmLibrary.getIdentifier(),
-                        expressions,
-                        null,
-                        request.getParameters(),
-                        null);
-            }
-
             Map<String, ExpressionResult> results = new LinkedHashMap<>();
-            for (String expressionName : expressions) {
-                try {
-                    org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
-                            .get(expressionName);
-                    Object value = exprResult != null ? exprResult.value() : null;
-                    results.put(expressionName, ExpressionResult.builder()
-                            .name(expressionName)
-                            .value(value)
-                            .valueType(value != null ? value.getClass().getSimpleName() : "null")
-                            .displayValue(formatDisplayValue(value))
-                            .build());
-                } catch (Exception e) {
-                    log.warn("Failed to get result for expression: {}", expressionName, e);
-                    results.put(expressionName, ExpressionResult.builder()
-                            .name(expressionName)
-                            .value(null)
-                            .valueType("Error")
-                            .displayValue("Error: " + e.getMessage())
-                            .build());
+            List<ExpressionTrace> expressionTraces = new ArrayList<>();
+            int traceOrder = 0;
+
+            if (request.isDebugMode()) {
+                // Debug mode: evaluate each expression individually for per-expression timing
+                for (String expressionName : expressions) {
+                    long exprStart = System.currentTimeMillis();
+                    try {
+                        Set<String> singleExpr = Set.of(expressionName);
+                        EvaluationResult evalResult;
+                        if (request.getPatientId() != null) {
+                            String pid = request.getPatientId();
+                            if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
+                            evalResult = engine.evaluate(
+                                    elmLibrary.getIdentifier(), singleExpr,
+                                    org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), pid),
+                                    request.getParameters(), null);
+                        } else {
+                            evalResult = engine.evaluate(
+                                    elmLibrary.getIdentifier(), singleExpr,
+                                    null, request.getParameters(), null);
+                        }
+                        long exprTime = System.currentTimeMillis() - exprStart;
+
+                        org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                                evalResult.expressionResults.get(expressionName);
+                        Object value = exprResult != null ? exprResult.value() : null;
+                        String valueType = value != null ? value.getClass().getSimpleName() : "null";
+
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName)
+                                .value(value)
+                                .valueType(valueType)
+                                .displayValue(formatDisplayValue(value))
+                                .build());
+
+                        expressionTraces.add(ExpressionTrace.builder()
+                                .name(expressionName)
+                                .resultType(valueType)
+                                .resultDisplay(formatDisplayValue(value))
+                                .evaluationTimeMs(exprTime)
+                                .order(traceOrder++)
+                                .build());
+                    } catch (Exception e) {
+                        long exprTime = System.currentTimeMillis() - exprStart;
+                        log.warn("Failed to evaluate expression in debug mode: {}", expressionName, e);
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName)
+                                .value(null)
+                                .valueType("Error")
+                                .displayValue("Error: " + e.getMessage())
+                                .build());
+                        expressionTraces.add(ExpressionTrace.builder()
+                                .name(expressionName)
+                                .resultType("Error")
+                                .resultDisplay("Error: " + e.getMessage())
+                                .evaluationTimeMs(exprTime)
+                                .order(traceOrder++)
+                                .build());
+                    }
+                }
+            } else {
+                // Normal mode: evaluate all expressions at once
+                EvaluationResult evaluationResult;
+                if (request.getPatientId() != null) {
+                    String patientId = request.getPatientId();
+                    if (!patientId.startsWith("Patient/")) {
+                        patientId = "Patient/" + patientId;
+                    }
+                    evaluationResult = engine.evaluate(
+                            elmLibrary.getIdentifier(),
+                            expressions,
+                            org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
+                            request.getParameters(),
+                            null);
+                } else {
+                    evaluationResult = engine.evaluate(
+                            elmLibrary.getIdentifier(),
+                            expressions,
+                            null,
+                            request.getParameters(),
+                            null);
+                }
+
+                for (String expressionName : expressions) {
+                    try {
+                        org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
+                                .get(expressionName);
+                        Object value = exprResult != null ? exprResult.value() : null;
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName)
+                                .value(value)
+                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                .displayValue(formatDisplayValue(value))
+                                .build());
+                    } catch (Exception e) {
+                        log.warn("Failed to get result for expression: {}", expressionName, e);
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName)
+                                .value(null)
+                                .valueType("Error")
+                                .displayValue("Error: " + e.getMessage())
+                                .build());
+                    }
                 }
             }
 
             long executionTime = System.currentTimeMillis() - startTime;
 
+            // Build debug trace if enabled
+            DebugTrace debugTrace = null;
+            if (request.isDebugMode()) {
+                debugTrace = DebugTrace.builder()
+                        .expressionTraces(expressionTraces)
+                        .retrieveTraces(tracingProvider != null ? tracingProvider.getTraces() : List.of())
+                        .totalTimeMs(executionTime)
+                        .build();
+            }
+
             return CqlExecutionResponse.builder()
                     .success(true)
                     .patientId(request.getPatientId())
                     .results(results)
+                    .debugTrace(debugTrace)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .libraryId(libraryId != null ? libraryId.getId() : null)

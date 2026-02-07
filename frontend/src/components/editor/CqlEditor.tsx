@@ -4,9 +4,10 @@ import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'
+import type { LibraryInfo } from '../../utils/cqlSyntax'
 import { setCqlContent, setCursorPosition } from '../../store/editorSlice'
 import type { RootState } from '../../store'
-import type { TerminologyValidationItem } from '../../types'
+import type { TerminologyValidationItem, LibraryMetadata } from '../../types'
 
 interface CqlEditorProps {
   height?: string | number
@@ -14,6 +15,7 @@ interface CqlEditorProps {
   onTranslate?: () => void
   onExecute?: () => void
   terminologyIssues?: TerminologyValidationItem[]
+  libraryMetadata?: LibraryMetadata[]
 }
 
 export default function CqlEditor({
@@ -22,18 +24,32 @@ export default function CqlEditor({
   onTranslate,
   onExecute,
   terminologyIssues,
+  libraryMetadata,
 }: CqlEditorProps) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings } = useSelector((state: RootState) => state.editor)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
   const lastExternalContent = useRef(cqlContent)
+  const librariesRef = useRef<LibraryInfo[]>([])
+
+  // Keep libraries ref in sync
+  useEffect(() => {
+    if (libraryMetadata) {
+      librariesRef.current = libraryMetadata.map((m) => ({
+        name: m.name,
+        version: m.version,
+        expressions: m.expressions,
+        functions: m.functions,
+      }))
+    }
+  }, [libraryMetadata])
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
 
-    registerCqlLanguage(monaco)
+    registerCqlLanguage(monaco, librariesRef.current)
 
     editor.updateOptions({
       theme: 'cql-theme',

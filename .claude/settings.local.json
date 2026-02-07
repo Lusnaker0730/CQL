@@ -61,7 +61,9 @@
       "Bash(git -C D:/CQL log --oneline -20)",
       "Bash(npm run lint)",
       "Bash(mvn verify:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(./mvnw clean test:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

@@ -7,10 +7,15 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Cache;
+import org.springframework.cache.caffeine.CaffeineCache;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
@@ -53,11 +58,22 @@ public class CqlConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
-        cacheManager.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(60, TimeUnit.MINUTES)
-                .recordStats());
+        SimpleCacheManager cacheManager = new SimpleCacheManager();
+        cacheManager.setCaches(List.of(
+                buildCache("valueSets", 500, 2, TimeUnit.HOURS),
+                buildCache("codeValidation", 2000, 1, TimeUnit.HOURS),
+                buildCache("codeLookup", 1000, 2, TimeUnit.HOURS),
+                buildCache("cqlValidation", 500, 30, TimeUnit.MINUTES),
+                buildCache("vsacValueSets", 200, 4, TimeUnit.HOURS)
+        ));
         return cacheManager;
+    }
+
+    private CaffeineCache buildCache(String name, int maxSize, long duration, TimeUnit unit) {
+        return new CaffeineCache(name, Caffeine.newBuilder()
+                .maximumSize(maxSize)
+                .expireAfterWrite(duration, unit)
+                .recordStats()
+                .build());
     }
 }
