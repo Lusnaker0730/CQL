@@ -76,6 +76,12 @@ export default function MeasurePanel() {
     return 'error'
   }
 
+  const getScoreHex = (score: number): string => {
+    if (score >= 80) return '#2E7D32'
+    if (score >= 60) return '#ED6C02'
+    return '#D32F2F'
+  }
+
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>
@@ -134,8 +140,17 @@ export default function MeasurePanel() {
           onClick={handleEvaluate}
           disabled={evaluateMutation.isPending || !cqlContent}
           startIcon={
-            evaluateMutation.isPending ? <CircularProgress size={20} /> : <AssessmentIcon />
+            evaluateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <AssessmentIcon />
           }
+          sx={{
+            background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+            },
+            '&.Mui-disabled': {
+              background: 'rgba(0,0,0,0.12)',
+            },
+          }}
         >
           {evaluateMutation.isPending ? 'Evaluating...' : 'Evaluate Measure'}
         </Button>
@@ -154,7 +169,9 @@ export default function MeasurePanel() {
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                   <Box>
-                    <Typography variant="h6">{result.measureName || result.measureId}</Typography>
+                    <Typography variant="h6" sx={{ color: 'secondary.main' }}>
+                      {result.measureName || result.measureId}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {result.periodStart} - {result.periodEnd}
                     </Typography>
@@ -167,27 +184,34 @@ export default function MeasurePanel() {
 
                 {result.groups?.map((group) => (
                   <Box key={group.groupId} mb={2}>
-                    <Typography variant="subtitle1" gutterBottom>
+                    <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.primary' }}>
                       {group.description || `Group: ${group.groupId}`}
                     </Typography>
 
                     {group.measureScore !== undefined && group.measureScore !== null && (
-                      <Box mb={2}>
-                        <Stack direction="row" justifyContent="space-between" mb={1}>
-                          <Typography variant="body2">Measure Score</Typography>
-                          <Typography
-                            variant="body2"
-                            fontWeight="bold"
-                            color={`${getScoreColor(group.measureScore)}.main`}
-                          >
-                            {group.measureScore.toFixed(1)}%
-                          </Typography>
-                        </Stack>
+                      <Box mb={3} sx={{ textAlign: 'center' }}>
+                        <Typography
+                          sx={{
+                            fontSize: '3rem',
+                            fontWeight: 700,
+                            color: getScoreHex(group.measureScore),
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          {group.measureScore.toFixed(1)}%
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                          Measure Score
+                        </Typography>
                         <LinearProgress
                           variant="determinate"
                           value={Math.min(group.measureScore, 100)}
                           color={getScoreColor(group.measureScore) as 'success' | 'warning' | 'error'}
-                          sx={{ height: 8, borderRadius: 4 }}
+                          sx={{
+                            height: 10,
+                            borderRadius: 5,
+                            bgcolor: 'rgba(13,115,119,0.08)',
+                          }}
                         />
                       </Box>
                     )}
@@ -204,7 +228,11 @@ export default function MeasurePanel() {
                         <TableBody>
                           {group.populations?.map((pop: PopulationResult) => (
                             <TableRow key={pop.populationId}>
-                              <TableCell>{getPopulationLabel(pop.populationType)}</TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                                  {getPopulationLabel(pop.populationType)}
+                                </Typography>
+                              </TableCell>
                               <TableCell align="right">
                                 <Chip
                                   label={pop.count ?? 'N/A'}
@@ -236,10 +264,13 @@ export default function MeasurePanel() {
                       component="pre"
                       sx={{
                         p: 2,
-                        bgcolor: 'grey.100',
-                        borderRadius: 1,
+                        bgcolor: '#F8FAFB',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(13,115,119,0.1)',
                         fontSize: '0.75rem',
                         overflow: 'auto',
+                        fontFamily: '"Consolas", monospace',
+                        color: 'text.primary',
                       }}
                     >
                       {JSON.stringify(result.supplementalData, null, 2)}

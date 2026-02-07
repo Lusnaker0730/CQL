@@ -7,6 +7,7 @@ import com.cqlplatform.service.cds.CdsHooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,12 +17,13 @@ import java.util.Map;
 @RestController
 @RequestMapping("/cds-services")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "CDS Hooks", description = "CDS Hooks Service APIs")
 public class CdsHooksController {
 
     private final CdsHooksService cdsHooksService;
 
-    @GetMapping
+    @GetMapping({"", "/"})
     @Operation(summary = "Discovery", description = "Returns available CDS services")
     public ResponseEntity<Map<String, List<CdsServiceDefinition>>> discovery() {
         List<CdsServiceDefinition> services = cdsHooksService.getServiceDefinitions();
@@ -33,6 +35,10 @@ public class CdsHooksController {
     public ResponseEntity<CdsResponse> invokeService(
             @PathVariable String serviceId,
             @RequestBody CdsRequest request) {
+        log.info("CDS invoke: serviceId={}, hook={}, fhirServer={}, prefetchKeys={}, patientId={}",
+                serviceId, request.getHook(), request.getFhirServer(),
+                request.getPrefetch() != null ? request.getPrefetch().keySet() : "null",
+                request.getContext() != null ? request.getContext().getPatientId() : "null");
         CdsResponse response = cdsHooksService.invokeService(serviceId, request);
         return ResponseEntity.ok(response);
     }

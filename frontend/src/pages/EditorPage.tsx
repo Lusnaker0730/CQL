@@ -54,21 +54,47 @@ export default function EditorPage() {
     <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
       <Grid container spacing={2} sx={{ height: '100%' }}>
         <Grid item xs={12} md={7} sx={{ height: '100%' }}>
-          <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Paper
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              borderLeft: '3px solid',
+              borderLeftColor: 'primary.main',
+              overflow: 'hidden',
+            }}
+          >
+            <Box
+              sx={{
+                p: 1,
+                px: 1.5,
+                background: 'linear-gradient(135deg, rgba(13,115,119,0.06) 0%, rgba(20,163,168,0.03) 100%)',
+                borderBottom: '1px solid',
+                borderColor: 'rgba(13,115,119,0.1)',
+              }}
+            >
               <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
-                <Typography variant="subtitle1" fontWeight="medium">
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main' }}>
                   CQL Editor
                 </Typography>
                 <Stack direction="row" spacing={1}>
                   <Button
                     size="small"
-                    variant="outlined"
+                    variant="contained"
                     startIcon={
-                      isTranslating ? <CircularProgress size={16} /> : <TranslateIcon />
+                      isTranslating ? <CircularProgress size={16} color="inherit" /> : <TranslateIcon />
                     }
                     onClick={handleTranslate}
                     disabled={isTranslating || !cqlContent}
+                    sx={{
+                      background: 'linear-gradient(135deg, #1B3A5C 0%, #2D5F8A 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #0F2440 0%, #1B3A5C 100%)',
+                      },
+                      '&.Mui-disabled': {
+                        background: 'rgba(0,0,0,0.12)',
+                      },
+                    }}
                   >
                     {isTranslating ? 'Translating...' : 'Translate'}
                   </Button>
@@ -78,6 +104,14 @@ export default function EditorPage() {
                     startIcon={<SaveIcon />}
                     onClick={handleSaveLibrary}
                     disabled={saveLibraryMutation.isPending || errors.length > 0}
+                    sx={{
+                      borderColor: 'rgba(13,115,119,0.4)',
+                      color: 'primary.dark',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        bgcolor: 'rgba(13,115,119,0.04)',
+                      },
+                    }}
                   >
                     Save Library
                   </Button>
@@ -94,11 +128,24 @@ export default function EditorPage() {
         </Grid>
 
         <Grid item xs={12} md={5} sx={{ height: '100%' }}>
-          <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Paper
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              borderLeft: '3px solid',
+              borderLeftColor: 'secondary.main',
+              overflow: 'hidden',
+            }}
+          >
             <Tabs
               value={rightPanelTab}
               onChange={(_, v) => setRightPanelTab(v)}
-              sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+              sx={{
+                borderBottom: '1px solid',
+                borderColor: 'rgba(13,115,119,0.1)',
+                bgcolor: 'rgba(27,58,92,0.03)',
+              }}
             >
               <Tab label="ELM / Errors" />
               <Tab label="Execute" />

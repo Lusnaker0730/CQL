@@ -90,7 +90,22 @@ export default function CqlEditor({
   }, [errors, warnings])
 
   return (
-    <Box sx={{ height, width: '100%', border: '1px solid #e0e0e0', borderRadius: 1 }}>
+    <Box
+      sx={{
+        height,
+        width: '100%',
+        border: '1px solid',
+        borderColor: 'rgba(13,115,119,0.15)',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        transition: 'all 0.2s ease',
+        boxShadow: 'inset 0 1px 3px rgba(13,115,119,0.06)',
+        '&:focus-within': {
+          borderColor: 'primary.main',
+          boxShadow: '0 0 0 3px rgba(13,115,119,0.12), inset 0 1px 3px rgba(13,115,119,0.06)',
+        },
+      }}
+    >
       <Editor
         height="100%"
         defaultLanguage="cql"

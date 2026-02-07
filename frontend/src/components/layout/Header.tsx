@@ -5,10 +5,10 @@ import {
   Button,
   Stack,
   IconButton,
-  useTheme,
+  Box,
 } from '@mui/material'
 import {
-  Code as CodeIcon,
+  LocalHospital as MedicalIcon,
   GitHub as GitHubIcon,
   Brightness4 as DarkModeIcon,
 } from '@mui/icons-material'
@@ -24,54 +24,117 @@ const navItems = [
 export default function Header() {
   const navigate = useNavigate()
   const location = useLocation()
-  const theme = useTheme()
 
   return (
-    <AppBar position="static" elevation={1}>
+    <AppBar position="static" elevation={0}>
       <Toolbar>
-        <CodeIcon sx={{ mr: 1 }} />
-        <Typography
-          variant="h6"
-          component="div"
-          sx={{ flexGrow: 0, mr: 4, cursor: 'pointer' }}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            mr: 4,
+            cursor: 'pointer',
+          }}
           onClick={() => navigate('/')}
         >
-          CQL Platform
-        </Typography>
-
-        <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
-          {navItems.map((item) => (
-            <Button
-              key={item.path}
-              color="inherit"
-              onClick={() => navigate(item.path)}
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: '10px',
+              background: 'rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid rgba(255,255,255,0.2)',
+            }}
+          >
+            <MedicalIcon sx={{ fontSize: 22, color: 'white' }} />
+          </Box>
+          <Box>
+            <Typography
+              variant="h6"
+              component="div"
               sx={{
-                borderBottom:
-                  location.pathname === item.path
-                    ? `2px solid ${theme.palette.common.white}`
-                    : 'none',
-                borderRadius: 0,
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                },
+                fontWeight: 700,
+                fontSize: '1.05rem',
+                lineHeight: 1.2,
+                letterSpacing: '0.02em',
               }}
             >
-              {item.label}
-            </Button>
-          ))}
+              CQL Platform
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: '0.65rem',
+                opacity: 0.7,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                lineHeight: 1,
+              }}
+            >
+              Clinical Quality Language
+            </Typography>
+          </Box>
+        </Box>
+
+        <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1 }}>
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path
+            return (
+              <Button
+                key={item.path}
+                color="inherit"
+                onClick={() => navigate(item.path)}
+                sx={{
+                  borderRadius: '20px',
+                  px: 2,
+                  py: 0.5,
+                  fontSize: '0.85rem',
+                  fontWeight: isActive ? 600 : 400,
+                  backgroundColor: isActive
+                    ? 'rgba(255,255,255,0.18)'
+                    : 'transparent',
+                  '&:hover': {
+                    backgroundColor: isActive
+                      ? 'rgba(255,255,255,0.22)'
+                      : 'rgba(255,255,255,0.08)',
+                  },
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {item.label}
+              </Button>
+            )
+          })}
         </Stack>
 
-        <Stack direction="row" spacing={1}>
-          <IconButton color="inherit" title="Toggle dark mode">
-            <DarkModeIcon />
+        <Stack direction="row" spacing={0.5}>
+          <IconButton
+            color="inherit"
+            title="Toggle dark mode"
+            sx={{
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+              transition: 'background-color 0.2s ease',
+            }}
+          >
+            <DarkModeIcon sx={{ fontSize: 20 }} />
           </IconButton>
           <IconButton
             color="inherit"
             href="https://github.com"
             target="_blank"
             title="GitHub"
+            sx={{
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+              transition: 'background-color 0.2s ease',
+            }}
           >
-            <GitHubIcon />
+            <GitHubIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Stack>
       </Toolbar>

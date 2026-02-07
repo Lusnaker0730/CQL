@@ -98,6 +98,32 @@ export interface CdsServiceDefinition {
   prefetch?: Record<string, { query: string }>
 }
 
+export interface CdsServiceConfigRequest {
+  id: string
+  hook: string
+  title: string
+  description?: string
+  cqlContent?: string
+  cqlLibraryId?: string
+  defaultIndicator?: string
+  enabled?: boolean
+  prefetch?: Record<string, string>
+}
+
+export interface CdsServiceConfigResponse {
+  id: string
+  hook: string
+  title: string
+  description?: string
+  cqlContent?: string
+  cqlLibraryId?: string
+  defaultIndicator?: string
+  enabled: boolean
+  prefetch?: Record<string, string>
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface CdsRequest {
   hook: string
   hookInstance: string

@@ -9,11 +9,11 @@ export default function Footer() {
     <Box
       component="footer"
       sx={{
-        py: 1,
+        py: 0.75,
         px: 2,
-        bgcolor: 'grey.100',
+        bgcolor: 'background.paper',
         borderTop: '1px solid',
-        borderColor: 'grey.300',
+        borderColor: 'rgba(13,115,119,0.1)',
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -21,19 +21,46 @@ export default function Footer() {
           <Typography variant="caption" color="text.secondary">
             Ln {cursorPosition.line}, Col {cursorPosition.column}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {errors.length > 0 ? (
-              <span style={{ color: 'red' }}>{errors.length} errors</span>
-            ) : (
-              <span style={{ color: 'green' }}>No errors</span>
-            )}
+          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box
+              component="span"
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                display: 'inline-block',
+                bgcolor: errors.length > 0 ? 'error.main' : 'success.main',
+                boxShadow: errors.length > 0
+                  ? '0 0 0 2px rgba(211,47,47,0.2)'
+                  : '0 0 0 2px rgba(46,125,50,0.2)',
+                ...(errors.length === 0 && {
+                  animation: 'pulse 2s ease-in-out infinite',
+                  '@keyframes pulse': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.6 },
+                  },
+                }),
+              }}
+            />
+            <Box component="span" sx={{ color: errors.length > 0 ? 'error.main' : 'success.main' }}>
+              {errors.length > 0 ? `${errors.length} errors` : 'No errors'}
+            </Box>
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {warnings.length > 0 ? (
-              <span style={{ color: 'orange' }}>{warnings.length} warnings</span>
-            ) : (
-              <span>No warnings</span>
-            )}
+          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box
+              component="span"
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                display: 'inline-block',
+                bgcolor: warnings.length > 0 ? 'warning.main' : 'text.disabled',
+                boxShadow: warnings.length > 0 ? '0 0 0 2px rgba(237,108,2,0.2)' : 'none',
+              }}
+            />
+            <Box component="span" sx={{ color: warnings.length > 0 ? 'warning.main' : 'text.secondary' }}>
+              {warnings.length > 0 ? `${warnings.length} warnings` : 'No warnings'}
+            </Box>
           </Typography>
         </Stack>
 
@@ -43,7 +70,12 @@ export default function Footer() {
             target="_blank"
             rel="noopener"
             variant="caption"
-            color="text.secondary"
+            sx={{
+              color: 'text.secondary',
+              textDecoration: 'none',
+              transition: 'color 0.2s ease',
+              '&:hover': { color: 'primary.main' },
+            }}
           >
             CQL Specification
           </Link>
@@ -52,7 +84,12 @@ export default function Footer() {
             target="_blank"
             rel="noopener"
             variant="caption"
-            color="text.secondary"
+            sx={{
+              color: 'text.secondary',
+              textDecoration: 'none',
+              transition: 'color 0.2s ease',
+              '&:hover': { color: 'primary.main' },
+            }}
           >
             CDS Hooks
           </Link>
@@ -61,7 +98,12 @@ export default function Footer() {
             target="_blank"
             rel="noopener"
             variant="caption"
-            color="text.secondary"
+            sx={{
+              color: 'text.secondary',
+              textDecoration: 'none',
+              transition: 'color 0.2s ease',
+              '&:hover': { color: 'primary.main' },
+            }}
           >
             FHIR
           </Link>

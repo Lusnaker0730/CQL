@@ -7,9 +7,15 @@ import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.cds.*;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.cqlplatform.service.cql.CqlExecutionService;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
+import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +30,8 @@ public class CdsHooksService {
 
     private final CqlExecutionService executionService;
     private final CdsServiceConfigRepository repository;
+    private final FhirContext fhirContext;
+    private final ObjectMapper objectMapper;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -36,6 +44,44 @@ public class CdsHooksService {
             log.info("Loaded CDS service: {}", config.getId());
         }
         log.info("Loaded {} CDS services from database", entities.size());
+
+        // Load built-in BMI Service
+        loadBmiService();
+    }
+
+    private void loadBmiService() {
+        try {
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.ClassPathResource(
+                    "cql/BMI_CDS.cql");
+            String cqlContent = new String(
+                    org.springframework.util.FileCopyUtils.copyToByteArray(resource.getInputStream()),
+                    java.nio.charset.StandardCharsets.UTF_8);
+
+            Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch = new HashMap<>();
+            prefetch.put("patient", CdsServiceDefinition.PrefetchTemplate.builder()
+                    .query("Patient/{{context.patientId}}")
+                    .build());
+            prefetch.put("observations", CdsServiceDefinition.PrefetchTemplate.builder()
+                    .query("Observation?patient={{context.patientId}}&category=vital-signs")
+                    .build());
+
+            CdsServiceConfig bmiConfig = CdsServiceConfig.builder()
+                    .id("bmi-classifier")
+                    .hook("patient-view")
+                    .title("BMI Classification")
+                    .description("Calculates BMI and provides health recommendations")
+                    .cqlLibraryId("BMI_CDS")
+                    .cqlContent(cqlContent)
+                    .defaultIndicator("info")
+                    .prefetch(prefetch)
+                    .build();
+
+            serviceConfigs.put(bmiConfig.getId(), bmiConfig);
+            log.info("Loaded built-in CDS service: bmi-classifier");
+
+        } catch (Exception e) {
+            log.error("Failed to load built-in BMI service", e);
+        }
     }
 
     @Transactional
@@ -179,9 +225,28 @@ public class CdsHooksService {
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(config.getCqlContent());
             execRequest.setPatientId(request.getContext() != null ? request.getContext().getPatientId() : null);
-            execRequest.setFhirServerUrl(request.getFhirServer());
+            // Parse prefetch data into FHIR resources for in-memory CQL execution
+            RetrieveProvider prefetchProvider = buildPrefetchProvider(request);
 
-            CqlExecutionResponse execResponse = executionService.execute(execRequest);
+            // Only use the client's fhirServer if prefetch is not available
+            // and the server appears to be R4 compatible (our CQL requires R4).
+            // Otherwise, fall back to the default FHIR server.
+            if (prefetchProvider == null) {
+                String fhirServer = request.getFhirServer();
+                if (fhirServer != null && (fhirServer.contains("/r2/") || fhirServer.contains("/dstu2/"))) {
+                    log.warn("Client FHIR server is DSTU2 ({}), falling back to default R4 server", fhirServer);
+                    execRequest.setFhirServerUrl(null); // will use default
+                } else {
+                    execRequest.setFhirServerUrl(fhirServer);
+                }
+            }
+
+            CqlExecutionResponse execResponse;
+            if (prefetchProvider != null) {
+                execResponse = executionService.executeWithProvider(execRequest, prefetchProvider);
+            } else {
+                execResponse = executionService.execute(execRequest);
+            }
 
             return buildCardsFromExecution(config, execResponse);
         } catch (Exception e) {
@@ -190,6 +255,48 @@ public class CdsHooksService {
                     .cards(List.of(createErrorCard(e.getMessage())))
                     .build();
         }
+    }
+
+    private RetrieveProvider buildPrefetchProvider(CdsRequest request) {
+        if (request.getPrefetch() == null || request.getPrefetch().isEmpty()) {
+            log.info("No prefetch data provided, will use FHIR server");
+            return null;
+        }
+
+        String patientId = request.getContext() != null ? request.getContext().getPatientId() : null;
+        List<Resource> resources = new ArrayList<>();
+        IParser jsonParser = fhirContext.newJsonParser();
+
+        for (Map.Entry<String, Object> entry : request.getPrefetch().entrySet()) {
+            try {
+                String json = objectMapper.writeValueAsString(entry.getValue());
+                Resource resource = (Resource) jsonParser.parseResource(json);
+
+                if (resource instanceof Bundle bundle) {
+                    // Extract individual resources from Bundle
+                    if (bundle.hasEntry()) {
+                        for (Bundle.BundleEntryComponent bundleEntry : bundle.getEntry()) {
+                            if (bundleEntry.hasResource()) {
+                                resources.add(bundleEntry.getResource());
+                            }
+                        }
+                    }
+                } else {
+                    resources.add(resource);
+                }
+                log.info("Parsed prefetch key '{}': {}", entry.getKey(), resource.fhirType());
+            } catch (Exception e) {
+                log.warn("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
+            }
+        }
+
+        if (resources.isEmpty()) {
+            log.info("No usable resources found in prefetch data");
+            return null;
+        }
+
+        log.info("Built prefetch provider with {} resources", resources.size());
+        return new PrefetchRetrieveProvider(resources, patientId);
     }
 
     private CdsResponse handleDefaultService(String serviceId, CdsRequest request) {
@@ -223,8 +330,7 @@ public class CdsHooksService {
                                 .uuid(UUID.randomUUID().toString())
                                 .label("Review Medications")
                                 .isRecommended(false)
-                                .build()
-                ))
+                                .build()))
                 .build());
 
         return CdsResponse.builder().cards(cards).build();
@@ -249,9 +355,16 @@ public class CdsHooksService {
     private CdsResponse buildCardsFromExecution(CdsServiceConfig config, CqlExecutionResponse execResponse) {
         List<CdsResponse.Card> cards = new ArrayList<>();
 
+        log.info("Building cards from CQL execution. Success: {}, Results count: {}",
+                execResponse.isSuccess(),
+                execResponse.getResults() != null ? execResponse.getResults().size() : 0);
+
         if (execResponse.getResults() != null) {
-            for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults().entrySet()) {
+            for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults()
+                    .entrySet()) {
                 Object value = entry.getValue().getValue();
+                log.info("Expression '{}': value={}, type={}",
+                        entry.getKey(), value, entry.getValue().getValueType());
 
                 if (value instanceof Boolean && (Boolean) value) {
                     cards.add(CdsResponse.Card.builder()
@@ -263,6 +376,27 @@ public class CdsHooksService {
                                     .label(config.getTitle())
                                     .build())
                             .build());
+                } else if (value != null && value.getClass().getSimpleName().contains("Tuple")) {
+                    try {
+                        String summary = getField(value, "summary");
+                        String detail = getField(value, "detail");
+                        String indicator = getField(value, "indicator");
+                        String sourceLabel = getField(value, "sourceLabel");
+
+                        if (summary != null) {
+                            cards.add(CdsResponse.Card.builder()
+                                    .uuid(UUID.randomUUID().toString())
+                                    .summary(summary)
+                                    .detail(detail)
+                                    .indicator(indicator != null ? indicator : "info")
+                                    .source(CdsResponse.Source.builder()
+                                            .label(sourceLabel != null ? sourceLabel : config.getTitle())
+                                            .build())
+                                    .build());
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to parse Tuple result for card", e);
+                    }
                 }
             }
         }
@@ -272,6 +406,18 @@ public class CdsHooksService {
         }
 
         return CdsResponse.builder().cards(cards).build();
+    }
+
+    private String getField(Object tuple, String fieldName) {
+        try {
+            java.lang.reflect.Method getElements = tuple.getClass().getMethod("getElements");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> elements = (Map<String, Object>) getElements.invoke(tuple);
+            Object val = elements.get(fieldName);
+            return val != null ? val.toString() : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private CdsResponse.Card createInfoCard(String summary, String detail) {
@@ -310,8 +456,7 @@ public class CdsHooksService {
                                 .build(),
                         "conditions", CdsServiceDefinition.PrefetchTemplate.builder()
                                 .query("Condition?patient={{context.patientId}}")
-                                .build()
-                ))
+                                .build()))
                 .build();
     }
 
@@ -327,8 +472,7 @@ public class CdsHooksService {
                                 .build(),
                         "medications", CdsServiceDefinition.PrefetchTemplate.builder()
                                 .query("MedicationRequest?patient={{context.patientId}}")
-                                .build()
-                ))
+                                .build()))
                 .build();
     }
 

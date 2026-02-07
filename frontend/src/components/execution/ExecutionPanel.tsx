@@ -23,6 +23,7 @@ import {
   PlayArrow as PlayIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Timer as TimerIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState } from '../../store'
@@ -58,7 +59,7 @@ export default function ExecutionPanel() {
 
   const renderValue = (value: unknown): React.ReactNode => {
     if (value === null || value === undefined) {
-      return <Chip label="null" size="small" />
+      return <Chip label="null" size="small" sx={{ bgcolor: 'rgba(84,110,122,0.1)', color: 'text.secondary' }} />
     }
     if (typeof value === 'boolean') {
       return (
@@ -70,10 +71,10 @@ export default function ExecutionPanel() {
       )
     }
     if (typeof value === 'number') {
-      return <Typography variant="body2">{value}</Typography>
+      return <Typography variant="body2" sx={{ color: 'primary.dark', fontWeight: 600 }}>{value}</Typography>
     }
     if (typeof value === 'string') {
-      return <Typography variant="body2">"{value}"</Typography>
+      return <Typography variant="body2" sx={{ color: 'text.primary' }}>"{value}"</Typography>
     }
     if (Array.isArray(value)) {
       return (
@@ -118,18 +119,37 @@ export default function ExecutionPanel() {
 
         <Button
           variant="contained"
-          startIcon={isExecuting ? <CircularProgress size={20} /> : <PlayIcon />}
+          startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
           onClick={handleExecute}
           disabled={isExecuting || !cqlContent}
           fullWidth
+          sx={{
+            py: 1.2,
+            background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+            fontSize: '0.95rem',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+            },
+            '&.Mui-disabled': {
+              background: 'rgba(0,0,0,0.12)',
+            },
+          }}
         >
           {isExecuting ? 'Executing...' : 'Execute CQL'}
         </Button>
 
         {executionTimeMs !== null && (
-          <Typography variant="body2" color="text.secondary">
-            Execution time: {executionTimeMs}ms
-          </Typography>
+          <Chip
+            icon={<TimerIcon sx={{ fontSize: 16 }} />}
+            label={`${executionTimeMs}ms`}
+            size="small"
+            sx={{
+              alignSelf: 'flex-start',
+              bgcolor: 'rgba(13,115,119,0.08)',
+              color: 'primary.dark',
+              fontWeight: 600,
+            }}
+          />
         )}
 
         <Divider />
@@ -166,6 +186,7 @@ export default function ExecutionPanel() {
                             <IconButton
                               size="small"
                               onClick={() => toggleExpanded(name)}
+                              sx={{ color: 'primary.main' }}
                             >
                               {expandedResults.has(name) ? (
                                 <ExpandLessIcon />
@@ -176,12 +197,21 @@ export default function ExecutionPanel() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
                             {name}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip label={result.valueType} size="small" variant="outlined" />
+                          <Chip
+                            label={result.valueType}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              borderColor: 'rgba(27,58,92,0.3)',
+                              color: 'secondary.main',
+                              fontWeight: 500,
+                            }}
+                          />
                         </TableCell>
                         <TableCell>{renderValue(result.value)}</TableCell>
                       </TableRow>
@@ -193,11 +223,14 @@ export default function ExecutionPanel() {
                                 component="pre"
                                 sx={{
                                   p: 2,
-                                  bgcolor: 'grey.100',
-                                  borderRadius: 1,
+                                  bgcolor: '#F8FAFB',
+                                  borderRadius: '8px',
+                                  border: '1px solid rgba(13,115,119,0.1)',
                                   fontSize: '0.75rem',
                                   overflow: 'auto',
                                   maxHeight: 200,
+                                  fontFamily: '"Consolas", monospace',
+                                  color: 'text.primary',
                                 }}
                               >
                                 {JSON.stringify(result.value, null, 2)}

@@ -42,6 +42,10 @@ public class CqlExecutionService {
     private String defaultFhirServerUrl;
 
     public CqlExecutionResponse execute(CqlExecutionRequest request) {
+        return executeWithProvider(request, null);
+    }
+
+    public CqlExecutionResponse executeWithProvider(CqlExecutionRequest request, RetrieveProvider prefetchProvider) {
         log.debug("Executing CQL for patient: {}", request.getPatientId());
         long startTime = System.currentTimeMillis();
 
@@ -74,10 +78,15 @@ public class CqlExecutionService {
             // Setup terminology provider
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
 
-            // Setup data provider
+            // Setup data provider - use prefetch if available, otherwise REST
             R4FhirModelResolver modelResolver = new R4FhirModelResolver();
-            RetrieveProvider retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl,
-                    terminologyProvider);
+            RetrieveProvider retrieveProvider;
+            if (prefetchProvider != null) {
+                log.info("Using prefetch data provider for CQL execution");
+                retrieveProvider = prefetchProvider;
+            } else {
+                retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
+            }
             CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
 
             // Create data providers map
@@ -113,7 +122,9 @@ public class CqlExecutionService {
             Map<String, ExpressionResult> results = new LinkedHashMap<>();
             for (String expressionName : expressions) {
                 try {
-                    Object value = evaluationResult.expressionResults.get(expressionName);
+                    org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                            evaluationResult.expressionResults.get(expressionName);
+                    Object value = exprResult != null ? exprResult.value() : null;
                     results.put(expressionName, ExpressionResult.builder()
                             .name(expressionName)
                             .value(value)

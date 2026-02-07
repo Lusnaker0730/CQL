@@ -1,3 +1,4 @@
+import React from 'react'
 import { useMemo } from 'react'
 import { Box, Typography, Paper, Tabs, Tab, Chip, Stack } from '@mui/material'
 import { useSelector } from 'react-redux'
@@ -78,7 +79,7 @@ export default function ElmViewer() {
               <Typography variant="subtitle2" color="text.secondary">
                 Library
               </Typography>
-              <Typography>
+              <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
                 {metadata.libraryId} v{metadata.version}
               </Typography>
             </Box>
@@ -93,7 +94,13 @@ export default function ElmViewer() {
                     key={i}
                     label={`${u.localIdentifier} v${u.version}`}
                     size="small"
-                    sx={{ mr: 1, mb: 1 }}
+                    sx={{
+                      mr: 1,
+                      mb: 1,
+                      bgcolor: 'rgba(13,115,119,0.08)',
+                      color: 'primary.dark',
+                      fontWeight: 500,
+                    }}
                   />
                 ))}
               </Box>
@@ -109,7 +116,13 @@ export default function ElmViewer() {
                     key={i}
                     label={`${inc.localIdentifier} (${inc.path} v${inc.version})`}
                     size="small"
-                    sx={{ mr: 1, mb: 1 }}
+                    sx={{
+                      mr: 1,
+                      mb: 1,
+                      bgcolor: 'rgba(27,58,92,0.08)',
+                      color: 'secondary.main',
+                      fontWeight: 500,
+                    }}
                   />
                 ))}
               </Box>
@@ -121,7 +134,18 @@ export default function ElmViewer() {
                   Parameters
                 </Typography>
                 {metadata.parameters.map((p: { name: string }, i: number) => (
-                  <Chip key={i} label={p.name} size="small" sx={{ mr: 1, mb: 1 }} />
+                  <Chip
+                    key={i}
+                    label={p.name}
+                    size="small"
+                    sx={{
+                      mr: 1,
+                      mb: 1,
+                      bgcolor: 'rgba(13,115,119,0.08)',
+                      color: 'primary.dark',
+                      fontWeight: 500,
+                    }}
+                  />
                 ))}
               </Box>
             )}
@@ -132,7 +156,18 @@ export default function ElmViewer() {
                   Value Sets
                 </Typography>
                 {metadata.valueSets.map((vs: { name: string }, i: number) => (
-                  <Chip key={i} label={vs.name} size="small" sx={{ mr: 1, mb: 1 }} />
+                  <Chip
+                    key={i}
+                    label={vs.name}
+                    size="small"
+                    sx={{
+                      mr: 1,
+                      mb: 1,
+                      bgcolor: 'rgba(46,125,50,0.08)',
+                      color: 'success.dark',
+                      fontWeight: 500,
+                    }}
+                  />
                 ))}
               </Box>
             )}
@@ -148,7 +183,12 @@ export default function ElmViewer() {
                     label={`${stmt.name}${stmt.context ? ` (${stmt.context})` : ''}`}
                     size="small"
                     variant="outlined"
-                    sx={{ mr: 1, mb: 1 }}
+                    sx={{
+                      mr: 1,
+                      mb: 1,
+                      borderColor: 'rgba(13,115,119,0.3)',
+                      color: 'primary.dark',
+                    }}
                   />
                 ))}
               </Box>
@@ -165,11 +205,21 @@ export default function ElmViewer() {
         {errors.length > 0 ? (
           <Stack spacing={1}>
             {errors.map((error, i) => (
-              <Paper key={i} sx={{ p: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
-                <Typography variant="body2" fontWeight="bold">
+              <Paper
+                key={i}
+                elevation={0}
+                sx={{
+                  p: 2,
+                  bgcolor: 'rgba(211,47,47,0.06)',
+                  borderLeft: '4px solid',
+                  borderLeftColor: 'error.main',
+                  borderRadius: '0 8px 8px 0',
+                }}
+              >
+                <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
                   Line {error.startLine}:{error.startColumn}
                 </Typography>
-                <Typography variant="body2">{error.message}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
               </Paper>
             ))}
           </Stack>
@@ -182,11 +232,21 @@ export default function ElmViewer() {
         {warnings.length > 0 ? (
           <Stack spacing={1}>
             {warnings.map((warning, i) => (
-              <Paper key={i} sx={{ p: 2, bgcolor: 'warning.light' }}>
-                <Typography variant="body2" fontWeight="bold">
+              <Paper
+                key={i}
+                elevation={0}
+                sx={{
+                  p: 2,
+                  bgcolor: 'rgba(237,108,2,0.06)',
+                  borderLeft: '4px solid',
+                  borderLeftColor: 'warning.main',
+                  borderRadius: '0 8px 8px 0',
+                }}
+              >
+                <Typography variant="body2" fontWeight="bold" sx={{ color: 'warning.dark' }}>
                   Line {warning.startLine}:{warning.startColumn}
                 </Typography>
-                <Typography variant="body2">{warning.message}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.primary' }}>{warning.message}</Typography>
               </Paper>
             ))}
           </Stack>
@@ -201,11 +261,14 @@ export default function ElmViewer() {
             component="pre"
             sx={{
               p: 2,
-              bgcolor: 'grey.100',
-              borderRadius: 1,
+              bgcolor: '#F8FAFB',
+              borderRadius: '8px',
+              border: '1px solid rgba(13,115,119,0.1)',
               overflow: 'auto',
               fontSize: '0.75rem',
               maxHeight: 400,
+              fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+              color: 'text.primary',
             }}
           >
             {JSON.stringify(parsedElm, null, 2)}
@@ -219,5 +282,3 @@ export default function ElmViewer() {
     </Paper>
   )
 }
-
-import React from 'react'

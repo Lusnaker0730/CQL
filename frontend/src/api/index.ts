@@ -8,6 +8,8 @@ import type {
   CdsServiceDefinition,
   CdsRequest,
   CdsResponse,
+  CdsServiceConfigRequest,
+  CdsServiceConfigResponse,
   MeasureEvaluationRequest,
   MeasureEvaluationResult,
 } from '../types'
@@ -76,6 +78,41 @@ export const cdsHooksApi = {
 
   invoke: async (serviceId: string, request: CdsRequest): Promise<CdsResponse> => {
     const response = await cdsApi.post<CdsResponse>(`/${serviceId}`, request)
+    return response.data
+  },
+
+  // CDS Service Management APIs
+  getAllServices: async (): Promise<CdsServiceConfigResponse[]> => {
+    const response = await api.get<CdsServiceConfigResponse[]>('/cds/services')
+    return response.data
+  },
+
+  getService: async (id: string): Promise<CdsServiceConfigResponse> => {
+    const response = await api.get<CdsServiceConfigResponse>(`/cds/services/${id}`)
+    return response.data
+  },
+
+  createService: async (request: CdsServiceConfigRequest): Promise<CdsServiceConfigResponse> => {
+    const response = await api.post<CdsServiceConfigResponse>('/cds/services', request)
+    return response.data
+  },
+
+  updateService: async (id: string, request: CdsServiceConfigRequest): Promise<CdsServiceConfigResponse> => {
+    const response = await api.put<CdsServiceConfigResponse>(`/cds/services/${id}`, request)
+    return response.data
+  },
+
+  deleteService: async (id: string): Promise<void> => {
+    await api.delete(`/cds/services/${id}`)
+  },
+
+  enableService: async (id: string): Promise<CdsServiceConfigResponse> => {
+    const response = await api.patch<CdsServiceConfigResponse>(`/cds/services/${id}/enable`)
+    return response.data
+  },
+
+  disableService: async (id: string): Promise<CdsServiceConfigResponse> => {
+    const response = await api.patch<CdsServiceConfigResponse>(`/cds/services/${id}/disable`)
     return response.data
   },
 }

@@ -158,7 +158,16 @@ export default function FhirBrowser() {
               variant="contained"
               onClick={handleSearch}
               disabled={searchMutation.isPending}
-              startIcon={searchMutation.isPending ? <CircularProgress size={20} /> : <SearchIcon />}
+              startIcon={searchMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+              sx={{
+                background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+                },
+                '&.Mui-disabled': {
+                  background: 'rgba(0,0,0,0.12)',
+                },
+              }}
             >
               {searchMutation.isPending ? 'Searching...' : 'Search'}
             </Button>
@@ -173,17 +182,28 @@ export default function FhirBrowser() {
               <Box>
                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
                   <Typography variant="subtitle2">Results</Typography>
-                  <Chip label={`${getResourceCount(searchResult)} resources`} size="small" />
+                  <Chip
+                    label={`${getResourceCount(searchResult)} resources`}
+                    size="small"
+                    sx={{
+                      bgcolor: 'rgba(13,115,119,0.1)',
+                      color: 'primary.dark',
+                      fontWeight: 600,
+                    }}
+                  />
                 </Stack>
                 <Box
                   component="pre"
                   sx={{
                     p: 2,
-                    bgcolor: 'grey.100',
-                    borderRadius: 1,
+                    bgcolor: '#F8FAFB',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(13,115,119,0.1)',
                     fontSize: '0.75rem',
                     overflow: 'auto',
                     maxHeight: 400,
+                    fontFamily: '"Consolas", monospace',
+                    color: 'text.primary',
                   }}
                 >
                   {formatJson(searchResult) as string}
@@ -208,7 +228,16 @@ export default function FhirBrowser() {
               variant="contained"
               onClick={handleRead}
               disabled={readMutation.isPending || !resourceId}
-              startIcon={readMutation.isPending ? <CircularProgress size={20} /> : <SearchIcon />}
+              startIcon={readMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+              sx={{
+                background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+                },
+                '&.Mui-disabled': {
+                  background: 'rgba(0,0,0,0.12)',
+                },
+              }}
             >
               {readMutation.isPending ? 'Loading...' : 'Read Resource'}
             </Button>
@@ -228,11 +257,14 @@ export default function FhirBrowser() {
                   component="pre"
                   sx={{
                     p: 2,
-                    bgcolor: 'grey.100',
-                    borderRadius: 1,
+                    bgcolor: '#F8FAFB',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(13,115,119,0.1)',
                     fontSize: '0.75rem',
                     overflow: 'auto',
                     maxHeight: 400,
+                    fontFamily: '"Consolas", monospace',
+                    color: 'text.primary',
                   }}
                 >
                   {formatJson(readResult) as string}

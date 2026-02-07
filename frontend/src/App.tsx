@@ -11,7 +11,13 @@ export default function App() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
-      <Box component="main" sx={{ flexGrow: 1 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          background: 'linear-gradient(180deg, #EDF2F6 0%, #F4F7F9 50%, #F9FBFC 100%)',
+        }}
+      >
         <Routes>
           <Route path="/" element={<EditorPage />} />
           <Route path="/cds" element={<CdsPage />} />
