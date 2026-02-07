@@ -72,6 +72,7 @@ public class MeasureEvaluationService {
             populationCounts.put("Numerator", 0);
             populationCounts.put("Numerator Exclusions", 0);
 
+            int errorCount = 0;
             for (String patientId : patientsToEvaluate) {
                 CqlExecutionRequest execRequest = new CqlExecutionRequest();
                 execRequest.setCql(request.getMeasureCql());
@@ -95,8 +96,20 @@ public class MeasureEvaluationService {
                     CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
                     aggregateResults(populationCounts, execResponse.getResults());
                 } catch (Exception e) {
+                    errorCount++;
                     log.error("Failed evaluation for patient {}", patientId, e);
                 }
+            }
+
+            if (errorCount == patientsToEvaluate.size()) {
+                if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
+                if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+                return MeasureEvaluationResult.builder()
+                        .measureId(request.getMeasureId())
+                        .status("error")
+                        .periodStart(periodStart)
+                        .periodEnd(periodEnd)
+                        .build();
             }
 
             MeasureEvaluationResult result = buildAggregatedResult(request, populationCounts, periodStart, periodEnd,

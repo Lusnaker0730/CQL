@@ -267,3 +267,5 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: D:/CQL/backend/d
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81)
 	at org.h2.mvstore.MVStore.<init>(MVStore.java:286)
 	... 59 more
+2026-02-07 20:28:24.559252+08:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLNonTransientException: The object is already closed [90007-224]

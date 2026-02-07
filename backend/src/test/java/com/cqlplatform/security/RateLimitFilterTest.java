@@ -65,7 +65,6 @@ class RateLimitFilterTest {
     @Test
     void shouldSkipWhenDisabled() throws Exception {
         ReflectionTestUtils.setField(filter, "enabled", false);
-        when(request.getMethod()).thenReturn("GET");
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -93,9 +92,6 @@ class RateLimitFilterTest {
 
     @Test
     void shouldTrackPerClientBuckets() throws Exception {
-        StringWriter sw = new StringWriter();
-        when(response.getWriter()).thenReturn(new PrintWriter(sw));
-
         // Exhaust client A
         when(request.getRemoteAddr()).thenReturn("client-a");
         when(request.getMethod()).thenReturn("GET");

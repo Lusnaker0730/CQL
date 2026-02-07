@@ -1,7 +1,7 @@
 # CQL Platform Production Roadmap
 
 > Updated: 2026-02-07
-> Current State: Phase 2 In Progress (~70% production-ready)
+> Current State: Phase 2 Complete (~75% production-ready)
 > Target: Healthcare production deployment
 
 ---
@@ -11,7 +11,7 @@
 | Category | Score | Status |
 |----------|-------|--------|
 | Security | 75% | GOOD - JWT/RBAC, TLS, encryption, audit, rate limiting, XSS |
-| Testing | 60% | IN PROGRESS - Backend/frontend/E2E tests written, fixing compilation issues |
+| Testing | 80% | GOOD - 185 backend tests passing, frontend/E2E tests written |
 | Database | 70% | GOOD - PostgreSQL + Flyway + encrypted PHI |
 | Monitoring | 70% | GOOD - Prometheus + Grafana + structured logging + tracing + alerts |
 | CI/CD | 0% | CRITICAL - No pipeline |
@@ -70,9 +70,9 @@
 
 ---
 
-## Phase 2: Testing & Monitoring - IN PROGRESS
+## Phase 2: Testing & Monitoring - COMPLETE
 
-> Code written, needs compilation fixes before tests pass
+> All 185 backend tests passing (0 failures, 0 errors)
 
 - [x] Write unit tests for all backend services (>70% coverage)
 - [x] Write integration tests with Spring Boot test contexts
@@ -84,8 +84,12 @@
 - [x] Implement distributed tracing (OpenTelemetry)
 - [x] Add error tracking (AOP-based with Micrometer counters)
 - [x] Set up alerting rules for critical failures
-- [ ] Fix `@MockBean` import in 6 controller test files (Spring Boot 3.2 compatibility)
-- [ ] Run full test suite and fix any remaining failures
+- [x] Fix `@MockBean` import in 6 controller test files (Spring Boot 3.2 compatibility)
+- [x] Fix Mockito/ByteBuddy Java 23 compatibility (upgraded to Mockito 5.14.2 + ByteBuddy 1.15.10)
+- [x] Fix Jackson version for HAPI FHIR 7.0.0 compatibility (upgraded to Jackson 2.17.2)
+- [x] Fix AuthController to return 401 on bad credentials (was 500)
+- [x] Fix MeasureEvaluationService to return "error" when all patient evaluations fail
+- [x] Run full test suite — all 185 tests passing
 
 ### Details
 
@@ -96,7 +100,13 @@
 - Integration: AuthIntegrationTest, CdsServicePersistenceIntegrationTest
 - Test config: `application-test.yml` (H2 in-memory, Flyway disabled, rate limiting off)
 
-**Known issue:** 6 controller tests use `import org.springframework.boot.test.mock.bean.MockBean` which fails to compile. Needs investigation — the package should exist in `spring-boot-test-3.2.0.jar` but the compiler reports it missing. May need to verify the local Maven cache or switch to `@MockitoBean` from Spring Framework 6.2+.
+**Resolved issues:**
+- `@MockBean` import fixed: changed from `o.s.b.t.mock.bean.MockBean` (Spring Boot 3.4+) to `o.s.b.t.mock.mockito.MockBean` (correct for Spring Boot 3.2.0)
+- Mockito/ByteBuddy upgraded to 5.14.2/1.15.10 for Java 23 compatibility (inline mock maker)
+- Jackson upgraded to 2.17.2 via `jackson-bom.version` property (HAPI FHIR 7.0.0 requires `Separators$Spacing` from Jackson 2.17+)
+- Maven Surefire configured with `-XX:+EnableDynamicAgentLoading` for Java 23
+- AuthController now properly returns HTTP 401 for bad credentials instead of 500
+- MeasureEvaluationService returns "error" status when all patient evaluations fail (previously returned "complete")
 
 **Frontend Tests (17 files written)**
 - Infrastructure: vitest.config.ts, setup.ts, test-utils.tsx, MSW mock handlers + server

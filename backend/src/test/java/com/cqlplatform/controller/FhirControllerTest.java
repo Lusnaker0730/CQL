@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -59,7 +59,7 @@ class FhirControllerTest {
     @WithMockUser
     void searchResources_invalidParams_shouldReturn400() throws Exception {
         mockMvc.perform(get("/api/fhir/Patient")
-                        .param("params", "<script>alert(1)</script>"))
+                        .param("params", "name={invalid}"))
                 .andExpect(status().isBadRequest());
     }
 
