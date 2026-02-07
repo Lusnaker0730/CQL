@@ -240,7 +240,7 @@ export const cqlTokensProvider: languages.IMonarchLanguage = {
     '>>>=',
   ],
 
-  symbols: /[=><!~?:&|+\-*\/\^%]+/,
+  symbols: /[=><!~?:&|+\-*/^%]+/,
 
   escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
 
@@ -260,7 +260,7 @@ export const cqlTokensProvider: languages.IMonarchLanguage = {
 
       { include: '@whitespace' },
 
-      [/[{}()\[\]]/, '@brackets'],
+      [/[{}()[\]]/, '@brackets'],
 
       [/[<>](?!@symbols)/, '@brackets'],
 
@@ -274,7 +274,7 @@ export const cqlTokensProvider: languages.IMonarchLanguage = {
         },
       ],
 
-      [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+      [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
       [/\d+/, 'number'],
 
       [/[;,.]/, 'delimiter'],
@@ -292,10 +292,10 @@ export const cqlTokensProvider: languages.IMonarchLanguage = {
     ],
 
     comment: [
-      [/[^\/*]+/, 'comment'],
+      [/[^/*]+/, 'comment'],
       [/\/\*/, 'comment', '@push'],
       ['\\*/', 'comment', '@pop'],
-      [/[\/*]/, 'comment'],
+      [/[/*]/, 'comment'],
     ],
 
     string_double: [

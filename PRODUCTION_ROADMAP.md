@@ -1,7 +1,7 @@
 # CQL Platform Production Roadmap
 
 > Updated: 2026-02-07
-> Current State: Phase 2 Complete (~75% production-ready)
+> Current State: Phase 3 Complete (~85% production-ready)
 > Target: Healthcare production deployment
 
 ---
@@ -10,11 +10,12 @@
 
 | Category | Score | Status |
 |----------|-------|--------|
-| Security | 75% | GOOD - JWT/RBAC, TLS, encryption, audit, rate limiting, XSS |
+| Security | 85% | GOOD - JWT/RBAC, TLS, encryption, audit, rate limiting, XSS, hardened headers, secrets externalized |
 | Testing | 80% | GOOD - 185 backend tests passing, frontend/E2E tests written |
-| Database | 70% | GOOD - PostgreSQL + Flyway + encrypted PHI |
-| Monitoring | 70% | GOOD - Prometheus + Grafana + structured logging + tracing + alerts |
-| CI/CD | 0% | CRITICAL - No pipeline |
+| Database | 80% | GOOD - PostgreSQL + Flyway + encrypted PHI + backup/restore + WAL archiving |
+| Monitoring | 75% | GOOD - Prometheus + Grafana + structured logging + tracing + alerts + reverse proxy access |
+| CI/CD | 80% | GOOD - GitHub Actions CI/CD, Dependabot, Trivy scanning, GHCR deployment |
+| Infrastructure | 80% | GOOD - K8s manifests, resource limits, restart policies, network policies, secrets management |
 | Frontend Features | 70% | GOOD - Core features complete |
 | Backend Features | 80% | GOOD - Core services + auth implemented |
 | CQL Engine | 80% | GOOD - Fully functional |
@@ -133,31 +134,73 @@
 
 ---
 
-## Phase 3: CI/CD & Infrastructure (2 weeks)
+## Phase 3: CI/CD & Infrastructure - COMPLETE
 
-> Required for DevOps
+> All items implemented
 
-- [ ] Create GitHub Actions pipeline (build, test, lint, deploy)
-- [ ] Set up Kubernetes manifests or Helm chart
-- [ ] Add secrets management (Vault or K8s secrets)
-- [ ] Configure reverse proxy / API gateway
-- [ ] Set up database backups (daily + point-in-time recovery)
-- [ ] Add container resource limits (CPU/memory)
-- [ ] Add restart policies for Docker services
-- [ ] Remove exposed development ports (8080, 8090)
-- [ ] Add dependency vulnerability scanning (Snyk/Dependabot)
+- [x] Create GitHub Actions pipeline (build, test, lint, deploy)
+- [x] Set up Kubernetes manifests (plain manifests, no Helm)
+- [x] Add secrets management (env files + K8s secrets)
+- [x] Configure reverse proxy / API gateway (Nginx with Grafana/Prometheus proxies)
+- [x] Set up database backups (daily pg_dump + point-in-time WAL recovery)
+- [x] Add container resource limits (CPU/memory on all services)
+- [x] Add restart policies for Docker services (`unless-stopped`)
+- [x] Remove exposed development ports (prod: only port 80, dev overlay re-exposes all)
+- [x] Add dependency vulnerability scanning (Dependabot + Trivy)
 
 ### Details
 
-**Current infrastructure**
-- Docker Compose with 4 services (postgres, backend, frontend, hapi-fhir)
-- Health checks configured, backend waits for postgres healthy
-- TLS config ready (uncomment in application.yml)
-- Secrets via environment variables (DB_PASSWORD, JWT_SECRET, ENCRYPTION_KEY)
-- No CI/CD pipeline at all
-- No container orchestration
-- No API gateway
-- Backend/HAPI ports exposed directly
+**Secrets Management (IMPLEMENTED)**
+- `docker/.env.example` — template with placeholder values (committed to git)
+- `docker/.env` — real dev values (gitignored via root `.gitignore`)
+- `docker-compose.yml` uses `${VAR}` references for all secrets (DB password, JWT secret, encryption key, Grafana password)
+- `application.yml` no longer has insecure default fallbacks for JWT_SECRET and ENCRYPTION_KEY
+- Dev-only defaults moved to `application-dev.yml` (only active with `dev` Spring profile)
+
+**Docker Compose Hardening (IMPLEMENTED)**
+- Base `docker-compose.yml` is production-safe: only frontend exposes port 80
+- `docker-compose.dev.yml` overlay re-exposes all ports (5432, 8080, 5173, 8090, 9090, 3000)
+- `restart: unless-stopped` on all 6 services
+- Resource limits: backend 2CPU/1GB, postgres 1CPU/512MB, hapi-fhir 1CPU/1GB, frontend 0.5CPU/256MB, prometheus 0.5CPU/512MB, grafana 0.5CPU/256MB
+- PostgreSQL WAL archiving enabled for point-in-time recovery
+- `postgres-backup` volume for backup storage
+- Dev: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`
+- Prod: `docker compose up`
+
+**Reverse Proxy Enhancements (IMPLEMENTED)**
+- Nginx proxies `/grafana/` to grafana:3000 (with WebSocket upgrade for live dashboards)
+- Nginx proxies `/prometheus/` to prometheus:9090
+- `/api/health` passes through to actuator/health
+- `/actuator/` blocked (returns 404)
+- Strengthened headers: X-Frame-Options DENY, HSTS (1 year), Content-Security-Policy, Permissions-Policy, Referrer-Policy
+- Grafana configured with `GF_SERVER_ROOT_URL` and `GF_SERVER_SERVE_FROM_SUB_PATH` for sub-path serving
+
+**Database Backups (IMPLEMENTED)**
+- `docker/scripts/backup-db.sh` — compressed pg_dump with 30-day retention
+- `docker/scripts/restore-db.sh` — restore from backup with safety confirmation
+- WAL archiving to `/backups/wal/` for point-in-time recovery
+
+**GitHub Actions CI Pipeline (IMPLEMENTED)**
+- `ci.yml` — 5 jobs: backend-test (Maven verify), frontend-lint (ESLint + tsc), frontend-test (vitest coverage), docker-build (BuildKit cache), security-scan (Trivy CRITICAL/HIGH)
+- `deploy.yml` — triggered on successful CI on main, builds and pushes to GitHub Container Registry (ghcr.io)
+- Concurrency control to cancel in-progress runs on same branch
+- Docker layer caching via GitHub Actions cache
+
+**Dependency Vulnerability Scanning (IMPLEMENTED)**
+- `dependabot.yml` — 6 ecosystems: Maven, npm (frontend), npm (e2e), Docker (backend), Docker (frontend), GitHub Actions
+- Weekly schedule with grouped updates (spring-boot, hapi-fhir, cql-framework, mui, testing)
+
+**Kubernetes Manifests (IMPLEMENTED — 16 files)**
+- `k8s/namespace.yml` — `cql-platform` namespace
+- `k8s/configmap.yml` — non-secret config (DB URL, FHIR URLs, Spring profile)
+- `k8s/secrets.yml` — template with base64 placeholders
+- `k8s/postgres/` — StatefulSet (1 replica, 10Gi PVC), ClusterIP Service
+- `k8s/backend/` — Deployment (2 replicas, rolling update, startup/liveness/readiness probes), ClusterIP Service
+- `k8s/frontend/` — Deployment (2 replicas), ClusterIP Service
+- `k8s/hapi-fhir/` — Deployment (1 replica), ClusterIP Service
+- `k8s/monitoring/` — Prometheus + Grafana Deployments, Services, ConfigMap
+- `k8s/ingress.yml` — Nginx Ingress with TLS, rate limiting, security headers
+- `k8s/network-policy.yml` — 6 policies: postgres (backend only), backend (frontend + prometheus + ingress), hapi-fhir (backend only), frontend (ingress only), prometheus (ingress only), grafana (ingress only)
 
 ---
 
@@ -260,7 +303,7 @@
 - **Frontend**: React + TypeScript + MUI + Monaco Editor + Redux + React Query
 - **Backend**: Java Spring Boot 3.2.0 + HAPI FHIR 7.0.0 + CQL Engine
 - **Database**: PostgreSQL 16 (production) / H2 (dev profile) with JPA/Hibernate + Flyway
-- **Infrastructure**: Docker Compose (6 services: postgres, backend, frontend, hapi-fhir, prometheus, grafana)
+- **Infrastructure**: Docker Compose (6 services) + Kubernetes manifests + GitHub Actions CI/CD + Nginx reverse proxy
 
 ### Key Files
 | Component | Path |
@@ -278,4 +321,10 @@
 | Measure Service | `backend/src/main/java/com/cqlplatform/service/measure/MeasureEvaluationService.java` |
 | FHIR Provider | `backend/src/main/java/com/cqlplatform/service/fhir/FhirDataProviderService.java` |
 | Docker Compose | `docker/docker-compose.yml` |
+| Docker Dev Overlay | `docker/docker-compose.dev.yml` |
+| Nginx Config | `docker/nginx.conf` |
+| CI Pipeline | `.github/workflows/ci.yml` |
+| CD Pipeline | `.github/workflows/deploy.yml` |
+| K8s Manifests | `k8s/` |
+| DB Backup Script | `docker/scripts/backup-db.sh` |
 | Theme | `frontend/src/theme.ts` |

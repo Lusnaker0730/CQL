@@ -3,7 +3,6 @@ import { configureStore } from '@reduxjs/toolkit'
 import executionReducer, {
   setPatientId,
   setFhirServerUrl,
-  setIsExecuting,
   setResults,
   setExecutionErrors,
   setExecutionTimeMs,

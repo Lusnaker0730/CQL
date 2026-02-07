@@ -17,7 +17,7 @@ function createTestStore(preloadedState?: Record<string, unknown>) {
       execution: executionReducer,
       auth: authReducer,
     },
-    preloadedState: preloadedState as any,
+    preloadedState: preloadedState as Record<string, unknown>,
   })
 }
 
@@ -62,5 +62,6 @@ function customRender(
   return { ...render(ui, { wrapper: Wrapper, ...renderOptions }), store, queryClient }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export * from '@testing-library/react'
 export { customRender as render }

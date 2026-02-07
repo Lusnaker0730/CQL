@@ -58,7 +58,8 @@
       "Bash(mvn dependency:build-classpath:*)",
       "Bash(./mvnw test:*)",
       "Bash(mvn clean test:*)",
-      "Bash(git -C D:/CQL log --oneline -20)"
+      "Bash(git -C D:/CQL log --oneline -20)",
+      "Bash(npm run lint)"
     ]
   }
 }
