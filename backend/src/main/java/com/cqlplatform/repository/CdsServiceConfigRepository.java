@@ -24,4 +24,13 @@ public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConf
     List<CdsServiceConfigEntity> findAllEnabledWithPrefetch();
 
     boolean existsById(String id);
+
+    List<CdsServiceConfigEntity> findByServiceNameOrderByVersionDesc(String serviceName);
+
+    @Query("SELECT c FROM CdsServiceConfigEntity c WHERE c.serviceName = :serviceName AND c.enabled = true " +
+            "AND c.version = (SELECT MAX(c2.version) FROM CdsServiceConfigEntity c2 WHERE c2.serviceName = :serviceName AND c2.enabled = true)")
+    Optional<CdsServiceConfigEntity> findLatestEnabledByServiceName(String serviceName);
+
+    @Query("SELECT MAX(c.version) FROM CdsServiceConfigEntity c WHERE c.serviceName = :serviceName")
+    Optional<Integer> findMaxVersionByServiceName(String serviceName);
 }

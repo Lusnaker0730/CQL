@@ -33,6 +33,13 @@ import {
   IconButton,
   Switch,
   FormControlLabel,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material'
 import {
   Info as InfoIcon,
@@ -42,6 +49,8 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  History as HistoryIcon,
+  Analytics as AnalyticsIcon,
 } from '@mui/icons-material'
 import {
   useCdsServices,
@@ -50,8 +59,20 @@ import {
   useCreateCdsService,
   useUpdateCdsService,
   useDeleteCdsService,
+  useSubmitCdsFeedback,
+  useCdsServiceVersions,
+  useRollbackCdsService,
+  useCdsAnalytics,
+  useSandboxInvoke,
 } from '../../hooks/useCdsHooks'
-import type { CdsCard, CdsServiceDefinition, CdsServiceConfigRequest, CdsServiceConfigResponse } from '../../types'
+import type {
+  CdsCard,
+  CdsResponse,
+  CdsServiceDefinition,
+  CdsServiceConfigRequest,
+  CdsServiceConfigResponse,
+  CdsServiceAnalytics,
+} from '../../types'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -88,9 +109,11 @@ export default function CdsPanel() {
         CDS Hooks
       </Typography>
 
-      <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+      <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
         <Tab label="Invoke Service" />
         <Tab label="Manage Services" />
+        <Tab label="Analytics" icon={<AnalyticsIcon />} iconPosition="start" />
+        <Tab label="Sandbox" />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
@@ -98,6 +121,12 @@ export default function CdsPanel() {
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
         <ManageServicesPanel />
+      </TabPanel>
+      <TabPanel value={tabValue} index={2}>
+        <AnalyticsPanel />
+      </TabPanel>
+      <TabPanel value={tabValue} index={3}>
+        <SandboxPanel />
       </TabPanel>
     </Paper>
   )
@@ -108,17 +137,27 @@ function InvokeServicePanel() {
   const { data: serviceConfigs } = useCdsServiceConfigs()
   const dispatch = useDispatch()
   const invokeMutation = useInvokeCdsService()
+  const feedbackMutation = useSubmitCdsFeedback()
 
   const [selectedService, setSelectedService] = useState<string>('')
   const [patientId, setPatientId] = useState('')
   const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
-  const [cards, setCards] = useState<CdsCard[]>([])
+  const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
+  const [overrideCardUuid, setOverrideCardUuid] = useState('')
+  const [overrideReason, setOverrideReason] = useState('')
 
   const services = Array.isArray(servicesData?.services) ? servicesData.services : []
+  const cards = cdsResponse?.cards ?? []
 
   useEffect(() => {
     if (selectedService && serviceConfigs) {
-      const config = serviceConfigs.find(s => s.id === selectedService)
+      const config = serviceConfigs.find((s) => s.id === selectedService)
       if (config && config.cqlContent) {
         dispatch(setCqlContent(config.cqlContent))
       }
@@ -143,9 +182,50 @@ function InvokeServicePanel() {
           },
         },
       })
-      setCards(response.cards)
+      setCdsResponse(response)
     } catch (error) {
       console.error('CDS invocation failed:', error)
+    }
+  }
+
+  const handleAccept = async (cardUuid: string) => {
+    try {
+      await feedbackMutation.mutateAsync({
+        serviceId: selectedService,
+        feedback: {
+          feedback: [{ card: cardUuid, outcome: 'accepted' }],
+        },
+      })
+      setSnackbar({ open: true, message: 'Feedback submitted: accepted', severity: 'success' })
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to submit feedback', severity: 'error' })
+    }
+  }
+
+  const handleOverrideClick = (cardUuid: string) => {
+    setOverrideCardUuid(cardUuid)
+    setOverrideReason('')
+    setOverrideDialogOpen(true)
+  }
+
+  const handleOverrideSubmit = async () => {
+    try {
+      await feedbackMutation.mutateAsync({
+        serviceId: selectedService,
+        feedback: {
+          feedback: [
+            {
+              card: overrideCardUuid,
+              outcome: 'overridden',
+              overrideReason: { code: 'override', display: overrideReason || 'No reason provided' },
+            },
+          ],
+        },
+      })
+      setOverrideDialogOpen(false)
+      setSnackbar({ open: true, message: 'Feedback submitted: overridden', severity: 'success' })
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to submit feedback', severity: 'error' })
     }
   }
 
@@ -177,11 +257,7 @@ function InvokeServicePanel() {
     <Stack spacing={2}>
       <FormControl fullWidth size="small">
         <InputLabel>CDS Service</InputLabel>
-        <Select
-          value={selectedService}
-          onChange={(e) => setSelectedService(e.target.value)}
-          label="CDS Service"
-        >
+        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label="CDS Service">
           {services.map((service: CdsServiceDefinition) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
@@ -243,15 +319,11 @@ function InvokeServicePanel() {
       {loadingServices && <CircularProgress />}
 
       {servicesError && (
-        <Alert severity="error">
-          Failed to load CDS services. Please check the backend connection.
-        </Alert>
+        <Alert severity="error">Failed to load CDS services. Please check the backend connection.</Alert>
       )}
 
       {invokeMutation.isError && (
-        <Alert severity="error">
-          Failed to invoke CDS service: {(invokeMutation.error as Error).message}
-        </Alert>
+        <Alert severity="error">Failed to invoke CDS service: {(invokeMutation.error as Error).message}</Alert>
       )}
 
       {cards.length > 0 && (
@@ -306,18 +378,25 @@ function InvokeServicePanel() {
                         {card.suggestions.map((suggestion) => (
                           <ListItem key={suggestion.uuid}>
                             <ListItemIcon>
-                              {suggestion.isRecommended ? (
-                                <CheckIcon color="success" />
-                              ) : (
-                                <InfoIcon color="action" />
-                              )}
+                              {suggestion.isRecommended ? <CheckIcon color="success" /> : <InfoIcon color="action" />}
                             </ListItemIcon>
                             <ListItemText
                               primary={suggestion.label}
-                              secondary={
-                                suggestion.isRecommended ? 'Recommended' : undefined
-                              }
+                              secondary={suggestion.isRecommended ? 'Recommended' : undefined}
                             />
+                            {suggestion.actions && suggestion.actions.length > 0 && (
+                              <Stack direction="row" spacing={0.5}>
+                                {suggestion.actions.map((action, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    label={`${action.type}${action.description ? ': ' + action.description : ''}`}
+                                    size="small"
+                                    color={action.type === 'delete' ? 'error' : 'primary'}
+                                    variant="outlined"
+                                  />
+                                ))}
+                              </Stack>
+                            )}
                           </ListItem>
                         ))}
                       </List>
@@ -352,8 +431,12 @@ function InvokeServicePanel() {
                   )}
                 </CardContent>
                 <CardActions sx={{ px: 2, pb: 1.5 }}>
-                  <Button size="small" sx={{ color: 'success.main' }}>Accept</Button>
-                  <Button size="small" sx={{ color: 'text.secondary' }}>Override</Button>
+                  <Button size="small" sx={{ color: 'success.main' }} onClick={() => handleAccept(card.uuid)}>
+                    Accept
+                  </Button>
+                  <Button size="small" sx={{ color: 'text.secondary' }} onClick={() => handleOverrideClick(card.uuid)}>
+                    Override
+                  </Button>
                 </CardActions>
               </Card>
             ))}
@@ -361,11 +444,59 @@ function InvokeServicePanel() {
         </Box>
       )}
 
+      {/* System Actions */}
+      {cdsResponse?.systemActions && cdsResponse.systemActions.length > 0 && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            System Actions ({cdsResponse.systemActions.length})
+          </Typography>
+          <List dense>
+            {cdsResponse.systemActions.map((action, i) => (
+              <ListItem key={i}>
+                <ListItemText
+                  primary={`${action.type}: ${action.description || 'No description'}`}
+                  secondary={action.resourceId ? `Resource: ${action.resourceId}` : undefined}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Alert>
+      )}
+
       {cards.length === 0 && !invokeMutation.isPending && selectedService && (
         <Typography variant="body2" color="text.secondary" textAlign="center">
           No cards returned. Invoke a CDS service to see results.
         </Typography>
       )}
+
+      {/* Override Dialog */}
+      <Dialog open={overrideDialogOpen} onClose={() => setOverrideDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Override Reason</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Reason for override"
+            value={overrideReason}
+            onChange={(e) => setOverrideReason(e.target.value)}
+            fullWidth
+            multiline
+            rows={3}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOverrideDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleOverrideSubmit} variant="contained" color="warning">
+            Submit Override
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+      />
     </Stack>
   )
 }
@@ -375,6 +506,7 @@ function ManageServicesPanel() {
   const createMutation = useCreateCdsService()
   const updateMutation = useUpdateCdsService()
   const deleteMutation = useDeleteCdsService()
+  const rollbackMutation = useRollbackCdsService()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<CdsServiceConfigResponse | null>(null)
@@ -387,6 +519,11 @@ function ManageServicesPanel() {
     defaultIndicator: 'info',
     enabled: true,
   })
+
+  // Versioning state
+  const [versionsDialogOpen, setVersionsDialogOpen] = useState(false)
+  const [versionsServiceName, setVersionsServiceName] = useState<string | null>(null)
+  const { data: versions } = useCdsServiceVersions(versionsServiceName)
 
   const handleOpenCreate = () => {
     setEditingService(null)
@@ -445,6 +582,20 @@ function ManageServicesPanel() {
     }
   }
 
+  const handleShowVersions = (serviceName: string) => {
+    setVersionsServiceName(serviceName)
+    setVersionsDialogOpen(true)
+  }
+
+  const handleRollback = async (serviceName: string, version: number) => {
+    try {
+      await rollbackMutation.mutateAsync({ serviceName, version })
+      setVersionsDialogOpen(false)
+    } catch (error) {
+      console.error('Failed to rollback:', error)
+    }
+  }
+
   if (isLoading) return <CircularProgress />
   if (isError) return <Alert severity="error">Failed to load services</Alert>
 
@@ -487,11 +638,15 @@ function ManageServicesPanel() {
           <CardContent sx={{ pb: 1 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
               <Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
-                  {service.title}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
+                    {service.title}
+                  </Typography>
+                  {service.version && <Chip label={`v${service.version}`} size="small" variant="outlined" />}
+                </Stack>
                 <Typography variant="body2" color="text.secondary">
                   ID: {service.id} | Hook: {service.hook}
+                  {service.serviceName && service.serviceName !== service.id && ` | Name: ${service.serviceName}`}
                 </Typography>
                 {service.description && (
                   <Typography variant="body2" sx={{ mt: 1, color: 'text.primary' }}>
@@ -505,6 +660,15 @@ function ManageServicesPanel() {
                   color={service.enabled ? 'success' : 'default'}
                   size="small"
                 />
+                {service.serviceName && (
+                  <IconButton
+                    size="small"
+                    onClick={() => handleShowVersions(service.serviceName!)}
+                    title="View versions"
+                  >
+                    <HistoryIcon fontSize="small" />
+                  </IconButton>
+                )}
                 <IconButton size="small" onClick={() => handleOpenEdit(service)} sx={{ color: 'primary.main' }}>
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -517,6 +681,7 @@ function ManageServicesPanel() {
         </Card>
       ))}
 
+      {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{editingService ? 'Edit CDS Service' : 'Create CDS Service'}</DialogTitle>
         <DialogContent>
@@ -609,7 +774,9 @@ function ManageServicesPanel() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleClose} sx={{ color: 'text.secondary' }}>Cancel</Button>
+          <Button onClick={handleClose} sx={{ color: 'text.secondary' }}>
+            Cancel
+          </Button>
           <Button
             onClick={handleSave}
             variant="contained"
@@ -625,6 +792,308 @@ function ManageServicesPanel() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Versions Dialog */}
+      <Dialog open={versionsDialogOpen} onClose={() => setVersionsDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Service Versions: {versionsServiceName}</DialogTitle>
+        <DialogContent>
+          {versions && versions.length > 0 ? (
+            <List>
+              {versions.map((v) => (
+                <ListItem
+                  key={v.id}
+                  secondaryAction={
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleRollback(versionsServiceName!, v.version!)}
+                      disabled={rollbackMutation.isPending}
+                    >
+                      {v.enabled ? 'Active' : 'Rollback'}
+                    </Button>
+                  }
+                >
+                  <ListItemText
+                    primary={`v${v.version} - ${v.title}`}
+                    secondary={`Hook: ${v.hook} | ${v.enabled ? 'Enabled' : 'Disabled'} | ${v.createdAt || ''}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No versions found.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVersionsDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
+  )
+}
+
+function AnalyticsPanel() {
+  const { data: analytics, isLoading, isError } = useCdsAnalytics()
+
+  if (isLoading) return <CircularProgress />
+  if (isError) return <Alert severity="error">Failed to load analytics</Alert>
+
+  if (!analytics || analytics.length === 0) {
+    return (
+      <Alert severity="info">No analytics data available yet. Invoke CDS services to generate analytics.</Alert>
+    )
+  }
+
+  return (
+    <TableContainer>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Service</TableCell>
+            <TableCell align="right">Invocations</TableCell>
+            <TableCell align="right">Errors</TableCell>
+            <TableCell align="right">Error Rate</TableCell>
+            <TableCell align="right">Avg Time (ms)</TableCell>
+            <TableCell align="right">Accepted</TableCell>
+            <TableCell align="right">Overridden</TableCell>
+            <TableCell>Last Invoked</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {analytics.map((row: CdsServiceAnalytics) => (
+            <TableRow key={row.serviceId}>
+              <TableCell>{row.serviceId}</TableCell>
+              <TableCell align="right">{row.invocationCount}</TableCell>
+              <TableCell align="right">{row.errorCount}</TableCell>
+              <TableCell
+                align="right"
+                sx={{ color: row.errorRate > 10 ? 'error.main' : row.errorRate > 5 ? 'warning.main' : 'inherit' }}
+              >
+                {row.errorRate}%
+              </TableCell>
+              <TableCell align="right">{row.avgResponseTimeMs}</TableCell>
+              <TableCell align="right">{row.feedbackAcceptedCount}</TableCell>
+              <TableCell align="right">{row.feedbackOverriddenCount}</TableCell>
+              <TableCell>{row.lastInvokedAt ? new Date(row.lastInvokedAt).toLocaleString() : '-'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
+
+function SandboxPanel() {
+  const { data: servicesData } = useCdsServices()
+  const sandboxMutation = useSandboxInvoke()
+
+  const [selectedService, setSelectedService] = useState('')
+  const [patientId, setPatientId] = useState('test-patient-1')
+  const [testDataJson, setTestDataJson] = useState(
+    JSON.stringify(
+      {
+        patient: {
+          resourceType: 'Patient',
+          id: 'test-patient-1',
+          name: [{ given: ['Test'], family: 'Patient' }],
+          gender: 'male',
+          birthDate: '1980-01-01',
+        },
+        observations: {
+          resourceType: 'Bundle',
+          type: 'searchset',
+          entry: [
+            {
+              resource: {
+                resourceType: 'Observation',
+                id: 'obs-1',
+                status: 'final',
+                category: [
+                  {
+                    coding: [
+                      {
+                        system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+                        code: 'vital-signs',
+                      },
+                    ],
+                  },
+                ],
+                code: {
+                  coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body Weight' }],
+                },
+                subject: { reference: 'Patient/test-patient-1' },
+                valueQuantity: { value: 85, unit: 'kg' },
+              },
+            },
+          ],
+        },
+      },
+      null,
+      2
+    )
+  )
+  const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
+
+  const services = Array.isArray(servicesData?.services) ? servicesData.services : []
+
+  const handleSandboxInvoke = async () => {
+    if (!selectedService) return
+    const service = services.find((s) => s.id === selectedService)
+    if (!service) return
+
+    try {
+      const testData = JSON.parse(testDataJson)
+      const response = await sandboxMutation.mutateAsync({
+        serviceId: selectedService,
+        request: {
+          serviceId: selectedService,
+          hook: service.hook,
+          hookInstance: crypto.randomUUID(),
+          context: { patientId },
+          testData,
+        },
+      })
+      setSandboxResponse(response)
+    } catch (error) {
+      console.error('Sandbox invocation failed:', error)
+    }
+  }
+
+  const getIndicatorColor = (indicator: string) => {
+    switch (indicator) {
+      case 'critical':
+        return 'error'
+      case 'warning':
+        return 'warning'
+      case 'info':
+      default:
+        return 'info'
+    }
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Alert severity="info">
+        Test CDS services without a real FHIR server. Provide test data as FHIR resources below.
+      </Alert>
+
+      <FormControl fullWidth size="small">
+        <InputLabel>CDS Service</InputLabel>
+        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label="CDS Service">
+          {services.map((service: CdsServiceDefinition) => (
+            <MenuItem key={service.id} value={service.id}>
+              {service.title} ({service.hook})
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <TextField
+        label="Patient ID"
+        value={patientId}
+        onChange={(e) => setPatientId(e.target.value)}
+        size="small"
+        fullWidth
+      />
+
+      <TextField
+        label="Test Data (JSON)"
+        value={testDataJson}
+        onChange={(e) => setTestDataJson(e.target.value)}
+        size="small"
+        fullWidth
+        multiline
+        rows={12}
+        sx={{
+          '& .MuiInputBase-root': {
+            fontFamily: '"Consolas", monospace',
+            fontSize: '0.85rem',
+          },
+        }}
+      />
+
+      <Button
+        variant="contained"
+        onClick={handleSandboxInvoke}
+        disabled={!selectedService || sandboxMutation.isPending}
+        startIcon={sandboxMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
+        sx={{
+          background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+          },
+          '&.Mui-disabled': {
+            background: 'rgba(0,0,0,0.12)',
+          },
+        }}
+      >
+        {sandboxMutation.isPending ? 'Invoking...' : 'Invoke in Sandbox'}
+      </Button>
+
+      {sandboxMutation.isError && (
+        <Alert severity="error">Sandbox invocation failed: {(sandboxMutation.error as Error).message}</Alert>
+      )}
+
+      {sandboxResponse && sandboxResponse.cards && sandboxResponse.cards.length > 0 && (
+        <Box>
+          <Typography variant="subtitle1" gutterBottom>
+            Sandbox Results ({sandboxResponse.cards.length} cards)
+          </Typography>
+          <Stack spacing={2}>
+            {sandboxResponse.cards.map((card: CdsCard) => (
+              <Card
+                key={card.uuid}
+                variant="outlined"
+                sx={{
+                  borderLeft: 4,
+                  borderLeftColor: `${getIndicatorColor(card.indicator)}.main`,
+                }}
+              >
+                <CardContent>
+                  <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                    <Chip
+                      label={card.indicator}
+                      size="small"
+                      color={getIndicatorColor(card.indicator) as 'info' | 'warning' | 'error'}
+                    />
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {card.summary}
+                    </Typography>
+                  </Stack>
+                  {card.detail && (
+                    <Typography variant="body2" color="text.secondary">
+                      {card.detail}
+                    </Typography>
+                  )}
+                  {card.suggestions && card.suggestions.length > 0 && (
+                    <Box mt={1}>
+                      <Typography variant="caption" fontWeight="bold">
+                        Suggestions:
+                      </Typography>
+                      {card.suggestions.map((s) => (
+                        <Chip key={s.uuid} label={s.label} size="small" sx={{ ml: 0.5 }} variant="outlined" />
+                      ))}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        </Box>
+      )}
+
+      {sandboxResponse?.systemActions && sandboxResponse.systemActions.length > 0 && (
+        <Alert severity="info">
+          <Typography variant="subtitle2">System Actions</Typography>
+          {sandboxResponse.systemActions.map((action, i) => (
+            <Typography key={i} variant="body2">
+              {action.type}: {action.description || 'No description'}
+            </Typography>
+          ))}
+        </Alert>
+      )}
     </Stack>
   )
 }

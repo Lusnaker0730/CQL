@@ -5,6 +5,9 @@ import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.MeasureEvaluationRequest;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.*;
+import com.cqlplatform.model.measure.GroupDefinition;
+import com.cqlplatform.model.measure.MeasureDefinition;
+import com.cqlplatform.model.measure.StratifierDefinition;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.fhir.FhirDataProviderService;
 import io.micrometer.core.instrument.Counter;
@@ -28,6 +31,9 @@ public class MeasureEvaluationService {
     private final FhirDataProviderService fhirDataProviderService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MeasureReportService measureReportService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer measureEvaluationTimer;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -46,10 +52,17 @@ public class MeasureEvaluationService {
     private int measureTimeoutSeconds;
 
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
+        return evaluateMeasure(request, null, null);
+    }
+
+    public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request,
+                                                    Long measureDefinitionId,
+                                                    MeasureDefinition measureDefinition) {
         log.info("Evaluating measure: {} for patient: {}",
                 request.getMeasureId(), request.getPatientId());
         if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
         Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;
+        long startTime = System.currentTimeMillis();
 
         LocalDate periodStart = request.getPeriodStart() != null ? request.getPeriodStart()
                 : LocalDate.parse(defaultPeriodStart);
@@ -74,6 +87,10 @@ public class MeasureEvaluationService {
             populationCounts.put("Denominator Exceptions", 0);
             populationCounts.put("Numerator", 0);
             populationCounts.put("Numerator Exclusions", 0);
+
+            // Stratification tracking: stratifierId -> strataValue -> populationType -> count
+            Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
+            List<StratifierDefinition> stratifiers = getStratifiers(measureDefinition);
 
             int errorCount = 0;
             long deadline = System.currentTimeMillis() + (measureTimeoutSeconds * 1000L);
@@ -103,6 +120,12 @@ public class MeasureEvaluationService {
                 try {
                     CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
                     aggregateResults(populationCounts, execResponse.getResults());
+
+                    // Evaluate stratifiers for this patient
+                    if (!stratifiers.isEmpty()) {
+                        evaluateStratifiers(stratifiers, execResponse.getResults(),
+                                populationCounts, stratificationData);
+                    }
                 } catch (Exception e) {
                     errorCount++;
                     log.error("Failed evaluation for patient {}", patientId, e);
@@ -121,8 +144,13 @@ public class MeasureEvaluationService {
             }
 
             MeasureEvaluationResult result = buildAggregatedResult(request, populationCounts, periodStart, periodEnd,
-                    patientsToEvaluate.size());
+                    patientsToEvaluate.size(), stratificationData);
             if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+
+            // Auto-save report
+            long durationMs = System.currentTimeMillis() - startTime;
+            autoSaveReport(result, measureDefinitionId, request.getFhirServerUrl(), durationMs);
+
             return result;
 
         } catch (Exception e) {
@@ -135,6 +163,66 @@ public class MeasureEvaluationService {
                     .periodStart(periodStart)
                     .periodEnd(periodEnd)
                     .build();
+        }
+    }
+
+    private List<StratifierDefinition> getStratifiers(MeasureDefinition definition) {
+        if (definition == null || definition.getGroupDefinitions() == null) {
+            return Collections.emptyList();
+        }
+        List<StratifierDefinition> all = new ArrayList<>();
+        for (GroupDefinition group : definition.getGroupDefinitions()) {
+            if (group.getStratifiers() != null) {
+                all.addAll(group.getStratifiers());
+            }
+        }
+        return all;
+    }
+
+    private void evaluateStratifiers(List<StratifierDefinition> stratifiers,
+                                     Map<String, CqlExecutionResponse.ExpressionResult> results,
+                                     Map<String, Integer> populationCounts,
+                                     Map<String, Map<String, Map<String, Integer>>> stratificationData) {
+        for (StratifierDefinition stratifier : stratifiers) {
+            String stratId = stratifier.getStratifierId();
+            String expression = stratifier.getCriteriaExpression();
+
+            CqlExecutionResponse.ExpressionResult stratResult = results.get(expression);
+            if (stratResult == null) continue;
+
+            String strataValue = String.valueOf(stratResult.getValue());
+            if (strataValue == null || "null".equals(strataValue)) continue;
+
+            Map<String, Map<String, Integer>> strataMap = stratificationData
+                    .computeIfAbsent(stratId, k -> new HashMap<>());
+            Map<String, Integer> popCounts = strataMap
+                    .computeIfAbsent(strataValue, k -> new HashMap<>());
+
+            // Increment population counts for this stratum based on current patient
+            for (Map.Entry<String, Integer> entry : populationCounts.entrySet()) {
+                // We track per-patient: if the population count changed (patient contributed),
+                // increment this stratum's count
+                popCounts.merge(entry.getKey(), 0, (a, b) -> a + b);
+            }
+
+            // Check each population and add 1 if the patient is in it
+            for (String popName : List.of("Initial Population", "Denominator", "Numerator",
+                    "Denominator Exclusions", "Denominator Exceptions", "Numerator Exclusions")) {
+                Integer count = extractPopulationCount(results, popName);
+                if (count != null && count > 0) {
+                    popCounts.merge(popName, 1, (a, b) -> a + b);
+                }
+            }
+        }
+    }
+
+    private void autoSaveReport(MeasureEvaluationResult result, Long measureDefinitionId,
+                                String fhirServerUrl, long durationMs) {
+        if (measureReportService == null) return;
+        try {
+            measureReportService.saveReport(result, measureDefinitionId, fhirServerUrl, null, durationMs);
+        } catch (Exception e) {
+            log.warn("Failed to auto-save measure report, evaluation result is still valid", e);
         }
     }
 
@@ -153,7 +241,8 @@ public class MeasureEvaluationService {
             Map<String, Integer> counts,
             LocalDate periodStart,
             LocalDate periodEnd,
-            int totalPatients) {
+            int totalPatients,
+            Map<String, Map<String, Map<String, Integer>>> stratificationData) {
 
         Integer initialPopulation = counts.get("Initial Population");
         Integer denominator = counts.get("Denominator");
@@ -208,12 +297,16 @@ public class MeasureEvaluationService {
 
         Double measureScore = calculateMeasureScore(denominator, denominatorExclusions, numerator);
 
+        // Build stratifier results
+        List<StratifierResult> stratifierResults = buildStratifierResults(stratificationData);
+
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
                 .description("Primary measure group (Total Patients: " + totalPatients + ")")
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit("percentage")
+                .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
                 .build();
 
         return MeasureEvaluationResult.builder()
@@ -225,6 +318,45 @@ public class MeasureEvaluationService {
                 .reportType(request.getReportType())
                 .groups(List.of(groupResult))
                 .build();
+    }
+
+    private List<StratifierResult> buildStratifierResults(
+            Map<String, Map<String, Map<String, Integer>>> stratificationData) {
+        List<StratifierResult> results = new ArrayList<>();
+
+        for (Map.Entry<String, Map<String, Map<String, Integer>>> stratEntry : stratificationData.entrySet()) {
+            String stratId = stratEntry.getKey();
+            for (Map.Entry<String, Map<String, Integer>> strataEntry : stratEntry.getValue().entrySet()) {
+                String strataValue = strataEntry.getKey();
+                Map<String, Integer> popCounts = strataEntry.getValue();
+
+                List<PopulationResult> stratPops = new ArrayList<>();
+                for (Map.Entry<String, Integer> popEntry : popCounts.entrySet()) {
+                    String popType = popEntry.getKey().toLowerCase().replace(" ", "-")
+                            .replace("exclusions", "exclusion")
+                            .replace("exceptions", "exception");
+                    stratPops.add(PopulationResult.builder()
+                            .populationType(popType)
+                            .populationId(popType)
+                            .count(popEntry.getValue())
+                            .build());
+                }
+
+                Integer denom = popCounts.getOrDefault("Denominator", 0);
+                Integer denomExcl = popCounts.getOrDefault("Denominator Exclusions", 0);
+                Integer numer = popCounts.getOrDefault("Numerator", 0);
+                Double stratScore = calculateMeasureScore(denom, denomExcl, numer);
+
+                results.add(StratifierResult.builder()
+                        .strataId(stratId)
+                        .strataValue(strataValue)
+                        .populations(stratPops)
+                        .measureScore(stratScore)
+                        .build());
+            }
+        }
+
+        return results;
     }
 
     private Integer extractPopulationCount(

@@ -1,6 +1,8 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.model.cds.CdsServiceAnalyticsDTO;
 import com.cqlplatform.model.cds.CdsServiceConfigResponse;
+import com.cqlplatform.service.cds.CdsAnalyticsService;
 import com.cqlplatform.service.cds.CdsHooksService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,9 @@ class CdsServiceConfigControllerTest {
 
     @MockBean
     private CdsHooksService cdsHooksService;
+
+    @MockBean
+    private CdsAnalyticsService analyticsService;
 
     private static final String CREATE_REQUEST = """
             {"id":"test-svc","hook":"patient-view","title":"Test Service","description":"desc","cqlContent":"library T version '1.0'"}
@@ -146,5 +151,38 @@ class CdsServiceConfigControllerTest {
         mockMvc.perform(patch("/api/cds/services/svc-1/disable"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enabled").value(false));
+    }
+
+    @Test
+    @WithMockUser
+    void createService_invalidHookType_shouldReturn400() throws Exception {
+        when(cdsHooksService.createService(any()))
+                .thenThrow(new IllegalArgumentException("Invalid hook type: 'bad-hook'"));
+
+        String badRequest = """
+                {"id":"bad-svc","hook":"bad-hook","title":"Bad Service"}
+                """;
+
+        mockMvc.perform(post("/api/cds/services")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(badRequest))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    @WithMockUser
+    void getAnalytics_shouldReturnData() throws Exception {
+        CdsServiceAnalyticsDTO dto = CdsServiceAnalyticsDTO.builder()
+                .serviceId("svc-1").invocationCount(10).errorCount(2)
+                .avgResponseTimeMs(150.0).errorRate(20.0)
+                .feedbackAcceptedCount(5).feedbackOverriddenCount(1)
+                .build();
+        when(analyticsService.getAllServiceAnalytics()).thenReturn(List.of(dto));
+
+        mockMvc.perform(get("/api/cds/services/analytics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].serviceId").value("svc-1"))
+                .andExpect(jsonPath("$[0].invocationCount").value(10));
     }
 }

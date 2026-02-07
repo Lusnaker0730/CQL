@@ -1,0 +1,257 @@
+import { useState } from 'react'
+import {
+  Paper,
+  Typography,
+  Stack,
+  TextField,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+  Alert,
+  CircularProgress,
+} from '@mui/material'
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Upload as UploadIcon,
+  Download as DownloadIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { measureApi } from '../../api'
+import type { MeasureDefinition } from '../../types'
+
+interface MeasureLibraryProps {
+  onSelectMeasure?: (measure: MeasureDefinition) => void
+}
+
+export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps) {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importJson, setImportJson] = useState('')
+  const [newMeasure, setNewMeasure] = useState<Partial<MeasureDefinition>>({
+    name: '',
+    version: '1.0.0',
+    title: '',
+    description: '',
+    status: 'draft',
+    scoringType: 'proportion',
+  })
+
+  const { data: measures = [], isLoading } = useQuery({
+    queryKey: ['measures', search],
+    queryFn: () => measureApi.getMeasures(search || undefined),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (def: MeasureDefinition) => measureApi.createMeasure(def),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['measures'] })
+      setCreateOpen(false)
+      setNewMeasure({ name: '', version: '1.0.0', title: '', description: '', status: 'draft', scoringType: 'proportion' })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => measureApi.deleteMeasure(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
+  })
+
+  const importMutation = useMutation({
+    mutationFn: (json: unknown) => measureApi.importFhirMeasure(json),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['measures'] })
+      setImportOpen(false)
+      setImportJson('')
+    },
+  })
+
+  const handleCreate = () => {
+    createMutation.mutate(newMeasure as MeasureDefinition)
+  }
+
+  const handleImport = () => {
+    try {
+      const parsed = JSON.parse(importJson)
+      importMutation.mutate(parsed)
+    } catch {
+      alert('Invalid JSON')
+    }
+  }
+
+  const handleExport = async (id: number) => {
+    try {
+      const data = await measureApi.exportFhirMeasure(id)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `measure-${id}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Export failed', err)
+    }
+  }
+
+  return (
+    <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">Measure Library</Typography>
+        <Stack direction="row" spacing={1}>
+          <Button size="small" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>
+            Import FHIR
+          </Button>
+          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}
+            sx={{ background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)' }}>
+            New Measure
+          </Button>
+        </Stack>
+      </Stack>
+
+      <TextField
+        size="small"
+        fullWidth
+        placeholder="Search measures..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
+        sx={{ mb: 2 }}
+      />
+
+      {isLoading && <CircularProgress size={24} />}
+
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Version</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Scoring</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {measures.map((m) => (
+              <TableRow
+                key={m.id}
+                hover
+                sx={{ cursor: 'pointer' }}
+                onClick={() => onSelectMeasure?.(m)}
+              >
+                <TableCell>
+                  <Typography variant="body2" fontWeight={500}>{m.title || m.name}</Typography>
+                  {m.title && (
+                    <Typography variant="caption" color="text.secondary">{m.name}</Typography>
+                  )}
+                </TableCell>
+                <TableCell>{m.version}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={m.status}
+                    size="small"
+                    color={m.status === 'active' ? 'success' : m.status === 'draft' ? 'default' : 'warning'}
+                  />
+                </TableCell>
+                <TableCell>{m.scoringType}</TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleExport(m.id!) }}>
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id!) }}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+            {!isLoading && measures.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <Typography variant="body2" color="text.secondary">
+                    No measures found. Create one or import a FHIR Measure.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create Measure Definition</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Name" required size="small" fullWidth
+              value={newMeasure.name} onChange={(e) => setNewMeasure({ ...newMeasure, name: e.target.value })} />
+            <TextField label="Version" size="small" fullWidth
+              value={newMeasure.version} onChange={(e) => setNewMeasure({ ...newMeasure, version: e.target.value })} />
+            <TextField label="Title" size="small" fullWidth
+              value={newMeasure.title} onChange={(e) => setNewMeasure({ ...newMeasure, title: e.target.value })} />
+            <TextField label="Description" size="small" fullWidth multiline rows={2}
+              value={newMeasure.description} onChange={(e) => setNewMeasure({ ...newMeasure, description: e.target.value })} />
+            <TextField label="Scoring Type" select size="small" fullWidth
+              value={newMeasure.scoringType} onChange={(e) => setNewMeasure({ ...newMeasure, scoringType: e.target.value })}>
+              <MenuItem value="proportion">Proportion</MenuItem>
+              <MenuItem value="ratio">Ratio</MenuItem>
+              <MenuItem value="continuous-variable">Continuous Variable</MenuItem>
+              <MenuItem value="cohort">Cohort</MenuItem>
+              <MenuItem value="composite">Composite</MenuItem>
+            </TextField>
+            <TextField label="CQL Content" size="small" fullWidth multiline rows={4}
+              value={newMeasure.cqlContent || ''} onChange={(e) => setNewMeasure({ ...newMeasure, cqlContent: e.target.value })} />
+            {createMutation.isError && (
+              <Alert severity="error">{(createMutation.error as Error).message}</Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={handleCreate} variant="contained" disabled={!newMeasure.name || createMutation.isPending}>
+            {createMutation.isPending ? 'Creating...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Import FHIR Measure</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="FHIR Measure JSON"
+            fullWidth
+            multiline
+            rows={12}
+            value={importJson}
+            onChange={(e) => setImportJson(e.target.value)}
+            placeholder='Paste a FHIR Measure resource JSON here...'
+            sx={{ mt: 1 }}
+          />
+          {importMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>{(importMutation.error as Error).message}</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportOpen(false)}>Cancel</Button>
+          <Button onClick={handleImport} variant="contained" disabled={!importJson || importMutation.isPending}>
+            {importMutation.isPending ? 'Importing...' : 'Import'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
+  )
+}

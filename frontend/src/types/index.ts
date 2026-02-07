@@ -145,6 +145,8 @@ export interface CdsServiceConfigResponse {
   cqlLibraryId?: string
   defaultIndicator?: string
   enabled: boolean
+  version?: number
+  serviceName?: string
   prefetch?: Record<string, string>
   createdAt?: string
   updatedAt?: string
@@ -203,6 +205,38 @@ export interface SystemAction {
   type: string
   description?: string
   resource?: unknown
+  resourceId?: string
+}
+
+export interface CdsFeedbackItem {
+  card: string
+  outcome: 'accepted' | 'overridden'
+  acceptedSuggestions?: { id: string }[]
+  overrideReason?: { code: string; display: string }
+  outcomeTimestamp?: string
+}
+
+export interface CdsFeedbackRequest {
+  feedback: CdsFeedbackItem[]
+}
+
+export interface CdsServiceAnalytics {
+  serviceId: string
+  invocationCount: number
+  errorCount: number
+  avgResponseTimeMs: number
+  errorRate: number
+  lastInvokedAt?: string
+  feedbackAcceptedCount: number
+  feedbackOverriddenCount: number
+}
+
+export interface CdsSandboxRequest {
+  serviceId: string
+  hook: string
+  hookInstance?: string
+  context?: { userId?: string; patientId?: string; encounterId?: string }
+  testData?: Record<string, unknown>
 }
 
 export interface MeasureEvaluationRequest {
@@ -247,6 +281,109 @@ export interface StratifierResult {
   strataValue: string
   populations: PopulationResult[]
   measureScore?: number
+}
+
+// Measure Definition types
+export interface MeasureDefinition {
+  id?: number
+  name: string
+  version: string
+  title?: string
+  description?: string
+  status: string
+  scoringType: string
+  cqlLibraryId?: string
+  cqlContent?: string
+  fhirMeasureJson?: string
+  groupDefinitions?: GroupDefinition[]
+  compositeScoring?: string
+  componentMeasureIds?: number[]
+  createdBy?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface GroupDefinition {
+  groupId: string
+  description?: string
+  populations?: PopulationDefinition[]
+  stratifiers?: StratifierDefinition[]
+}
+
+export interface PopulationDefinition {
+  populationType: string
+  criteriaExpression: string
+  description?: string
+}
+
+export interface StratifierDefinition {
+  stratifierId: string
+  criteriaExpression: string
+  description?: string
+}
+
+export interface MeasureReport {
+  id: number
+  measureDefinitionId?: number
+  measureName: string
+  status?: string
+  reportType?: string
+  periodStart: string
+  periodEnd: string
+  scoringType?: string
+  measureScore?: number
+  totalPatients?: number
+  resultJson: string
+  evaluationResult?: MeasureEvaluationResult
+  fhirServerUrl?: string
+  evaluatedBy?: string
+  evaluationDurationMs?: number
+  createdAt: string
+}
+
+export interface MeasureSchedule {
+  id?: number
+  measureDefinitionId: number
+  cronExpression: string
+  fhirServerUrl?: string
+  periodType: string
+  enabled: boolean
+  lastRunAt?: string
+  lastRunStatus?: string
+  nextRunAt?: string
+  createdBy?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface MeasureComparisonResult {
+  measureName: string
+  period1: PeriodSummary
+  period2: PeriodSummary
+  scoreDelta?: number
+  scorePercentChange?: number
+  populationDeltas?: Record<string, number>
+  trend: string
+}
+
+export interface PeriodSummary {
+  periodStart: string
+  periodEnd: string
+  measureScore?: number
+  totalPatients?: number
+  populationCounts?: Record<string, number>
+}
+
+export interface MeasureTrendResult {
+  measureName: string
+  dataPoints: TrendDataPoint[]
+}
+
+export interface TrendDataPoint {
+  periodStart: string
+  periodEnd: string
+  score?: number
+  populationCounts?: Record<string, number>
 }
 
 // Terminology types

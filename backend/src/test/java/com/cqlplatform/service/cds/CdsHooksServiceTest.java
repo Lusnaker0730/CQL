@@ -232,4 +232,39 @@ class CdsHooksServiceTest {
 
         assertThat(response.getCards().get(0).getSuggestions()).isNotEmpty();
     }
+
+    @Test
+    void invokeService_hookMismatch_shouldThrow() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("patient-view-service")
+                .hook("patient-view")
+                .title("Patient View Service")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .build();
+        cdsHooksService.registerService(config);
+
+        CdsRequest request = new CdsRequest();
+        request.setHook("order-select"); // mismatch
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        assertThatThrownBy(() -> cdsHooksService.invokeService("patient-view-service", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Hook type mismatch");
+    }
+
+    @Test
+    void createService_invalidHookType_shouldThrow() {
+        com.cqlplatform.model.cds.CdsServiceConfigRequest request =
+                com.cqlplatform.model.cds.CdsServiceConfigRequest.builder()
+                        .id("bad-hook-svc")
+                        .hook("invalid-hook")
+                        .title("Bad Hook Service")
+                        .build();
+
+        assertThatThrownBy(() -> cdsHooksService.createService(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid hook type");
+    }
 }

@@ -11,8 +11,16 @@ import type {
   CdsResponse,
   CdsServiceConfigRequest,
   CdsServiceConfigResponse,
+  CdsFeedbackRequest,
+  CdsServiceAnalytics,
+  CdsSandboxRequest,
   MeasureEvaluationRequest,
   MeasureEvaluationResult,
+  MeasureDefinition,
+  MeasureReport,
+  MeasureSchedule,
+  MeasureComparisonResult,
+  MeasureTrendResult,
   LoginRequest,
   RegisterRequest,
   AuthResponse,
@@ -197,9 +205,43 @@ export const cdsHooksApi = {
     const response = await api.patch<CdsServiceConfigResponse>(`/cds/services/${id}/disable`)
     return response.data
   },
+
+  // Feedback
+  submitFeedback: async (serviceId: string, feedback: CdsFeedbackRequest): Promise<void> => {
+    await cdsApi.post(`/${serviceId}/feedback`, feedback)
+  },
+
+  // Versioning
+  getServiceVersions: async (serviceName: string): Promise<CdsServiceConfigResponse[]> => {
+    const response = await api.get<CdsServiceConfigResponse[]>(`/cds/services/${serviceName}/versions`)
+    return response.data
+  },
+
+  rollbackService: async (serviceName: string, version: number): Promise<CdsServiceConfigResponse> => {
+    const response = await api.post<CdsServiceConfigResponse>(`/cds/services/${serviceName}/rollback/${version}`)
+    return response.data
+  },
+
+  // Analytics
+  getAllAnalytics: async (): Promise<CdsServiceAnalytics[]> => {
+    const response = await api.get<CdsServiceAnalytics[]>('/cds/services/analytics')
+    return response.data
+  },
+
+  getServiceAnalytics: async (serviceId: string): Promise<CdsServiceAnalytics> => {
+    const response = await api.get<CdsServiceAnalytics>(`/cds/services/${serviceId}/analytics`)
+    return response.data
+  },
+
+  // Sandbox
+  sandboxInvoke: async (serviceId: string, request: CdsSandboxRequest): Promise<CdsResponse> => {
+    const response = await cdsApi.post<CdsResponse>(`/${serviceId}/sandbox`, request)
+    return response.data
+  },
 }
 
 export const measureApi = {
+  // Evaluation
   evaluate: async (request: MeasureEvaluationRequest): Promise<MeasureEvaluationResult> => {
     const response = await api.post<MeasureEvaluationResult>('/measures/evaluate', request)
     return response.data
@@ -220,6 +262,115 @@ export const measureApi = {
       `/measures/${measureId}/$evaluate-measure?${params.toString()}`,
       {}
     )
+    return response.data
+  },
+
+  // Measure Definition CRUD
+  getMeasures: async (search?: string): Promise<MeasureDefinition[]> => {
+    const params = search ? { search } : {}
+    const response = await api.get<MeasureDefinition[]>('/measures', { params })
+    return response.data
+  },
+
+  getMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const response = await api.get<MeasureDefinition>(`/measures/${id}`)
+    return response.data
+  },
+
+  createMeasure: async (definition: MeasureDefinition): Promise<MeasureDefinition> => {
+    const response = await api.post<MeasureDefinition>('/measures', definition)
+    return response.data
+  },
+
+  updateMeasure: async (id: number, definition: MeasureDefinition): Promise<MeasureDefinition> => {
+    const response = await api.put<MeasureDefinition>(`/measures/${id}`, definition)
+    return response.data
+  },
+
+  deleteMeasure: async (id: number): Promise<void> => {
+    await api.delete(`/measures/${id}`)
+  },
+
+  // FHIR Import/Export
+  importFhirMeasure: async (fhirMeasure: unknown): Promise<MeasureDefinition> => {
+    const response = await api.post<MeasureDefinition>('/measures/import/fhir', fhirMeasure)
+    return response.data
+  },
+
+  exportFhirMeasure: async (id: number): Promise<unknown> => {
+    const response = await api.get(`/measures/${id}/fhir`)
+    return response.data
+  },
+
+  // Reports
+  getReports: async (): Promise<MeasureReport[]> => {
+    const response = await api.get<MeasureReport[]>('/measures/reports')
+    return response.data
+  },
+
+  getReportsForMeasure: async (measureId: number): Promise<MeasureReport[]> => {
+    const response = await api.get<MeasureReport[]>(`/measures/${measureId}/reports`)
+    return response.data
+  },
+
+  getReport: async (reportId: number): Promise<MeasureReport> => {
+    const response = await api.get<MeasureReport>(`/measures/reports/${reportId}`)
+    return response.data
+  },
+
+  deleteReport: async (reportId: number): Promise<void> => {
+    await api.delete(`/measures/reports/${reportId}`)
+  },
+
+  exportReport: async (reportId: number, format: string): Promise<Blob> => {
+    const response = await api.get(`/measures/reports/${reportId}/export`, {
+      params: { format },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  // Schedules
+  getSchedules: async (measureId: number): Promise<MeasureSchedule[]> => {
+    const response = await api.get<MeasureSchedule[]>(`/measures/${measureId}/schedules`)
+    return response.data
+  },
+
+  createSchedule: async (measureId: number, schedule: Partial<MeasureSchedule>): Promise<MeasureSchedule> => {
+    const response = await api.post<MeasureSchedule>(`/measures/${measureId}/schedules`, schedule)
+    return response.data
+  },
+
+  updateSchedule: async (scheduleId: number, schedule: Partial<MeasureSchedule>): Promise<MeasureSchedule> => {
+    const response = await api.put<MeasureSchedule>(`/measures/schedules/${scheduleId}`, schedule)
+    return response.data
+  },
+
+  deleteSchedule: async (scheduleId: number): Promise<void> => {
+    await api.delete(`/measures/schedules/${scheduleId}`)
+  },
+
+  triggerSchedule: async (scheduleId: number): Promise<MeasureEvaluationResult> => {
+    const response = await api.post<MeasureEvaluationResult>(`/measures/schedules/${scheduleId}/trigger`)
+    return response.data
+  },
+
+  // Comparison & Trends
+  comparePeriods: async (
+    measureName: string,
+    p1Start: string,
+    p1End: string,
+    p2Start: string,
+    p2End: string
+  ): Promise<MeasureComparisonResult> => {
+    const params = new URLSearchParams({ measureName, p1Start, p1End, p2Start, p2End })
+    const response = await api.get<MeasureComparisonResult>(`/measures/compare?${params.toString()}`)
+    return response.data
+  },
+
+  getTrend: async (measureName: string, periods: number = 4): Promise<MeasureTrendResult> => {
+    const params = new URLSearchParams({ measureName, periods: periods.toString() })
+    const response = await api.get<MeasureTrendResult>(`/measures/trend?${params.toString()}`)
     return response.data
   },
 }

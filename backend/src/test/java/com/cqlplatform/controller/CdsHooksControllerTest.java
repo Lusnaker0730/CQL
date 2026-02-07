@@ -68,7 +68,17 @@ class CdsHooksControllerTest {
     void feedback_shouldReturn200WithoutAuth() throws Exception {
         mockMvc.perform(post("/cds-services/test-service/feedback")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"card\":\"uuid\",\"outcome\":\"accepted\"}"))
+                        .content("{\"feedback\":[{\"card\":\"uuid\",\"outcome\":\"accepted\"}]}"))
+                .andExpect(status().isOk());
+
+        verify(cdsHooksService).processFeedback(eq("test-service"), any());
+    }
+
+    @Test
+    void feedback_withOverride_shouldReturn200() throws Exception {
+        mockMvc.perform(post("/cds-services/test-service/feedback")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"feedback\":[{\"card\":\"uuid\",\"outcome\":\"overridden\",\"overrideReason\":{\"code\":\"reason\",\"display\":\"Clinical reason\"}}]}"))
                 .andExpect(status().isOk());
     }
 
@@ -78,5 +88,45 @@ class CdsHooksControllerTest {
 
         mockMvc.perform(get("/cds-services/"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void sandbox_withoutAuth_shouldReturn401() throws Exception {
+        mockMvc.perform(post("/cds-services/test-service/sandbox")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"serviceId\":\"test-service\",\"hook\":\"patient-view\",\"context\":{\"patientId\":\"p1\"},\"testData\":{}}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser
+    void sandbox_withAuth_shouldReturn200() throws Exception {
+        CdsResponse response = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder()
+                        .uuid(UUID.randomUUID().toString())
+                        .summary("Sandbox Card")
+                        .indicator("info")
+                        .source(CdsResponse.Source.builder().label("Test").build())
+                        .build()))
+                .build();
+        when(cdsHooksService.invokeService(eq("test-service"), any())).thenReturn(response);
+
+        mockMvc.perform(post("/cds-services/test-service/sandbox")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"serviceId\":\"test-service\",\"hook\":\"patient-view\",\"context\":{\"patientId\":\"p1\"},\"testData\":{}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cards[0].summary").value("Sandbox Card"));
+    }
+
+    @Test
+    void invoke_hookMismatch_shouldReturn400() throws Exception {
+        when(cdsHooksService.invokeService(eq("test-service"), any()))
+                .thenThrow(new IllegalArgumentException("Hook type mismatch"));
+
+        mockMvc.perform(post("/cds-services/test-service")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"hook\":\"order-select\",\"context\":{\"patientId\":\"p1\"}}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Hook type mismatch"));
     }
 }

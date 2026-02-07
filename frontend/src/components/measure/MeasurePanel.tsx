@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Paper,
@@ -19,15 +19,28 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Autocomplete,
+  Collapse,
+  IconButton,
 } from '@mui/material'
-import { Assessment as AssessmentIcon } from '@mui/icons-material'
-import { useMutation } from '@tanstack/react-query'
+import {
+  Assessment as AssessmentIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Schedule as ScheduleIcon,
+} from '@mui/icons-material'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../../api'
-import type { MeasureEvaluationResult, PopulationResult } from '../../types'
+import type { MeasureEvaluationResult, PopulationResult, MeasureDefinition, StratifierResult } from '../../types'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
+import MeasureScheduleManager from './MeasureScheduleManager'
 
-export default function MeasurePanel() {
+interface MeasurePanelProps {
+  selectedMeasure?: MeasureDefinition | null
+}
+
+export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [measureId, setMeasureId] = useState('custom-measure')
   const [patientId, setPatientId] = useState('')
@@ -35,17 +48,41 @@ export default function MeasurePanel() {
   const [periodEnd, setPeriodEnd] = useState('2024-12-31')
   const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
+  const [selectedDef, setSelectedDef] = useState<MeasureDefinition | null>(null)
+  const [stratExpanded, setStratExpanded] = useState(false)
+  const [showSchedules, setShowSchedules] = useState(false)
+
+  const { data: measures = [] } = useQuery({
+    queryKey: ['measures'],
+    queryFn: () => measureApi.getMeasures(),
+  })
+
+  useEffect(() => {
+    if (selectedMeasure) {
+      setSelectedDef(selectedMeasure)
+      setMeasureId(selectedMeasure.id?.toString() || selectedMeasure.name)
+    }
+  }, [selectedMeasure])
 
   const evaluateMutation = useMutation({
-    mutationFn: () =>
-      measureApi.evaluate({
+    mutationFn: () => {
+      if (selectedDef?.id) {
+        return measureApi.evaluateMeasure(
+          selectedDef.id.toString(),
+          patientId || undefined,
+          periodStart,
+          periodEnd
+        )
+      }
+      return measureApi.evaluate({
         measureId,
         measureCql: cqlContent,
         patientId: patientId || undefined,
         periodStart,
         periodEnd,
         fhirServerUrl: fhirServer,
-      }),
+      })
+    },
     onSuccess: (data) => {
       setResult(data)
     },
@@ -82,6 +119,10 @@ export default function MeasurePanel() {
     return '#D32F2F'
   }
 
+  if (showSchedules && selectedDef) {
+    return <MeasureScheduleManager measure={selectedDef} onClose={() => setShowSchedules(false)} />
+  }
+
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>
@@ -89,13 +130,32 @@ export default function MeasurePanel() {
       </Typography>
 
       <Stack spacing={2}>
-        <TextField
-          label="Measure ID"
-          value={measureId}
-          onChange={(e) => setMeasureId(e.target.value)}
+        <Autocomplete
           size="small"
-          fullWidth
+          options={measures}
+          getOptionLabel={(m) => `${m.title || m.name} v${m.version}`}
+          value={selectedDef}
+          onChange={(_, value) => {
+            setSelectedDef(value)
+            if (value) {
+              setMeasureId(value.id?.toString() || value.name)
+            }
+          }}
+          renderInput={(params) => (
+            <TextField {...params} label="Select Saved Measure (optional)" />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
         />
+
+        {!selectedDef && (
+          <TextField
+            label="Measure ID"
+            value={measureId}
+            onChange={(e) => setMeasureId(e.target.value)}
+            size="small"
+            fullWidth
+          />
+        )}
 
         <TextField
           label="FHIR Server URL"
@@ -135,25 +195,38 @@ export default function MeasurePanel() {
           />
         </Stack>
 
-        <Button
-          variant="contained"
-          onClick={handleEvaluate}
-          disabled={evaluateMutation.isPending || !cqlContent}
-          startIcon={
-            evaluateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <AssessmentIcon />
-          }
-          sx={{
-            background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-            },
-            '&.Mui-disabled': {
-              background: 'rgba(0,0,0,0.12)',
-            },
-          }}
-        >
-          {evaluateMutation.isPending ? 'Evaluating...' : 'Evaluate Measure'}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            onClick={handleEvaluate}
+            disabled={evaluateMutation.isPending || (!cqlContent && !selectedDef)}
+            startIcon={
+              evaluateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <AssessmentIcon />
+            }
+            sx={{
+              flex: 1,
+              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
+              },
+              '&.Mui-disabled': {
+                background: 'rgba(0,0,0,0.12)',
+              },
+            }}
+          >
+            {evaluateMutation.isPending ? 'Evaluating...' : 'Evaluate Measure'}
+          </Button>
+          {selectedDef && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ScheduleIcon />}
+              onClick={() => setShowSchedules(true)}
+            >
+              Schedules
+            </Button>
+          )}
+        </Stack>
 
         <Divider />
 
@@ -252,6 +325,70 @@ export default function MeasurePanel() {
                         </TableBody>
                       </Table>
                     </TableContainer>
+
+                    {/* Stratification Results */}
+                    {group.stratifiers && group.stratifiers.length > 0 && (
+                      <Box mt={2}>
+                        <Stack direction="row" alignItems="center" spacing={1}
+                          onClick={() => setStratExpanded(!stratExpanded)}
+                          sx={{ cursor: 'pointer' }}>
+                          <IconButton size="small">
+                            {stratExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                          <Typography variant="subtitle2">
+                            Stratification ({group.stratifiers.length} strata)
+                          </Typography>
+                        </Stack>
+                        <Collapse in={stratExpanded}>
+                          <TableContainer sx={{ mt: 1 }}>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Stratum</TableCell>
+                                  <TableCell>Value</TableCell>
+                                  <TableCell align="right">Score</TableCell>
+                                  <TableCell>Populations</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {group.stratifiers.map((strat: StratifierResult, idx: number) => (
+                                  <TableRow key={idx}>
+                                    <TableCell>
+                                      <Typography variant="body2" fontWeight={500}>{strat.strataId}</Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Chip label={strat.strataValue} size="small" />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      {strat.measureScore != null && (
+                                        <Typography variant="body2" sx={{
+                                          color: getScoreHex(strat.measureScore),
+                                          fontWeight: 600,
+                                        }}>
+                                          {strat.measureScore.toFixed(1)}%
+                                        </Typography>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                                        {strat.populations?.map((pop, pidx) => (
+                                          <Chip
+                                            key={pidx}
+                                            label={`${getPopulationLabel(pop.populationType)}: ${pop.count ?? 0}`}
+                                            size="small"
+                                            variant="outlined"
+                                          />
+                                        ))}
+                                      </Stack>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Collapse>
+                      </Box>
+                    )}
                   </Box>
                 ))}
 

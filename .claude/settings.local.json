@@ -63,7 +63,9 @@
       "Bash(mvn verify:*)",
       "Bash(npx eslint:*)",
       "Bash(./mvnw clean test:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(dir:*)",
+      "Bash(xargs:*)"
     ]
   }
 }

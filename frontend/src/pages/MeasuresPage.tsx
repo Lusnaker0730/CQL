@@ -1,8 +1,21 @@
-import { Box, Grid, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
 import MeasurePanel from '../components/measure/MeasurePanel'
+import MeasureLibrary from '../components/measure/MeasureLibrary'
+import MeasureReportHistory from '../components/measure/MeasureReportHistory'
+import MeasureComparison from '../components/measure/MeasureComparison'
 import CqlEditor from '../components/editor/CqlEditor'
+import type { MeasureDefinition } from '../types'
 
 export default function MeasuresPage() {
+  const [tab, setTab] = useState(0)
+  const [selectedMeasure, setSelectedMeasure] = useState<MeasureDefinition | null>(null)
+
+  const handleSelectMeasure = (measure: MeasureDefinition) => {
+    setSelectedMeasure(measure)
+    setTab(1) // Switch to Evaluate tab
+  }
+
   return (
     <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
       <Box sx={{ mb: 2 }}>
@@ -24,14 +37,37 @@ export default function MeasuresPage() {
         </Typography>
       </Box>
 
-      <Grid container spacing={2} sx={{ height: 'calc(100% - 90px)' }}>
-        <Grid item xs={12} md={6}>
-          <CqlEditor height="100%" />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <MeasurePanel />
-        </Grid>
-      </Grid>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab label="Library" />
+        <Tab label="Evaluate" />
+        <Tab label="Reports" />
+        <Tab label="Comparison" />
+      </Tabs>
+
+      <Box sx={{ height: 'calc(100% - 140px)' }}>
+        {tab === 0 && (
+          <MeasureLibrary onSelectMeasure={handleSelectMeasure} />
+        )}
+
+        {tab === 1 && (
+          <Grid container spacing={2} sx={{ height: '100%' }}>
+            <Grid item xs={12} md={6}>
+              <CqlEditor height="100%" />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <MeasurePanel selectedMeasure={selectedMeasure} />
+            </Grid>
+          </Grid>
+        )}
+
+        {tab === 2 && (
+          <MeasureReportHistory />
+        )}
+
+        {tab === 3 && (
+          <MeasureComparison />
+        )}
+      </Box>
     </Box>
   )
 }

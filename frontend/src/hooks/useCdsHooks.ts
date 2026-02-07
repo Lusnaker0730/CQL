@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cdsHooksApi } from '../api'
-import type { CdsRequest, CdsServiceConfigRequest } from '../types'
+import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest } from '../types'
 
 export function useCdsServices() {
   return useQuery({
@@ -54,5 +54,48 @@ export function useDeleteCdsService() {
       queryClient.invalidateQueries({ queryKey: ['cds-services'] })
       queryClient.invalidateQueries({ queryKey: ['cds-service-configs'] })
     },
+  })
+}
+
+export function useSubmitCdsFeedback() {
+  return useMutation({
+    mutationFn: ({ serviceId, feedback }: { serviceId: string; feedback: CdsFeedbackRequest }) =>
+      cdsHooksApi.submitFeedback(serviceId, feedback),
+  })
+}
+
+export function useCdsServiceVersions(serviceName: string | null) {
+  return useQuery({
+    queryKey: ['cds-service-versions', serviceName],
+    queryFn: () => cdsHooksApi.getServiceVersions(serviceName!),
+    enabled: !!serviceName,
+  })
+}
+
+export function useRollbackCdsService() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ serviceName, version }: { serviceName: string; version: number }) =>
+      cdsHooksApi.rollbackService(serviceName, version),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cds-services'] })
+      queryClient.invalidateQueries({ queryKey: ['cds-service-configs'] })
+      queryClient.invalidateQueries({ queryKey: ['cds-service-versions'] })
+    },
+  })
+}
+
+export function useCdsAnalytics() {
+  return useQuery({
+    queryKey: ['cds-analytics'],
+    queryFn: () => cdsHooksApi.getAllAnalytics(),
+    refetchInterval: 30000,
+  })
+}
+
+export function useSandboxInvoke() {
+  return useMutation({
+    mutationFn: ({ serviceId, request }: { serviceId: string; request: CdsSandboxRequest }) =>
+      cdsHooksApi.sandboxInvoke(serviceId, request),
   })
 }

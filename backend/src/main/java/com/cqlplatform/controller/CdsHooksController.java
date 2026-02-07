@@ -1,8 +1,6 @@
 package com.cqlplatform.controller;
 
-import com.cqlplatform.model.cds.CdsRequest;
-import com.cqlplatform.model.cds.CdsResponse;
-import com.cqlplatform.model.cds.CdsServiceDefinition;
+import com.cqlplatform.model.cds.*;
 import com.cqlplatform.service.cds.CdsHooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,22 +30,53 @@ public class CdsHooksController {
 
     @PostMapping("/{serviceId}")
     @Operation(summary = "Invoke CDS Service", description = "Invokes a specific CDS service")
-    public ResponseEntity<CdsResponse> invokeService(
+    public ResponseEntity<?> invokeService(
             @PathVariable String serviceId,
             @RequestBody CdsRequest request) {
         log.info("CDS invoke: serviceId={}, hook={}, fhirServer={}, prefetchKeys={}, patientId={}",
                 serviceId, request.getHook(), request.getFhirServer(),
                 request.getPrefetch() != null ? request.getPrefetch().keySet() : "null",
                 request.getContext() != null ? request.getContext().getPatientId() : "null");
-        CdsResponse response = cdsHooksService.invokeService(serviceId, request);
-        return ResponseEntity.ok(response);
+        try {
+            CdsResponse response = cdsHooksService.invokeService(serviceId, request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/{serviceId}/feedback")
     @Operation(summary = "Submit Feedback", description = "Submit feedback for a CDS service invocation")
-    public ResponseEntity<Void> submitFeedback(
+    public ResponseEntity<?> submitFeedback(
             @PathVariable String serviceId,
-            @RequestBody Map<String, Object> feedback) {
-        return ResponseEntity.ok().build();
+            @RequestBody CdsFeedbackRequest feedback) {
+        try {
+            cdsHooksService.processFeedback(serviceId, feedback);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{serviceId}/sandbox")
+    @Operation(summary = "Sandbox Invoke", description = "Invoke a CDS service in sandbox mode with test data")
+    public ResponseEntity<?> sandboxInvoke(
+            @PathVariable String serviceId,
+            @RequestBody CdsSandboxRequest sandboxRequest) {
+        log.info("CDS sandbox invoke: serviceId={}", serviceId);
+        try {
+            CdsRequest cdsRequest = new CdsRequest();
+            cdsRequest.setHook(sandboxRequest.getHook());
+            cdsRequest.setHookInstance(sandboxRequest.getHookInstance() != null
+                    ? sandboxRequest.getHookInstance() : java.util.UUID.randomUUID().toString());
+            cdsRequest.setContext(sandboxRequest.getContext());
+            // Use testData as prefetch, no fhirServer → forces PrefetchRetrieveProvider
+            cdsRequest.setPrefetch(sandboxRequest.getTestData());
+
+            CdsResponse response = cdsHooksService.invokeService(serviceId, cdsRequest);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

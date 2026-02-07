@@ -1,12 +1,15 @@
 package com.cqlplatform.service.cds;
 
+import com.cqlplatform.entity.CdsFeedbackEntity;
 import com.cqlplatform.entity.CdsServiceConfigEntity;
 import com.cqlplatform.entity.CdsServicePrefetchEntity;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.cds.*;
+import com.cqlplatform.repository.CdsFeedbackRepository;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.cqlplatform.service.cql.CqlExecutionService;
+import com.cqlplatform.validation.HookTypeValidator;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +28,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.FileCopyUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -49,16 +53,33 @@ public class CdsHooksService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter cdsInvocationErrorCounter;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private CdsAnalyticsService analyticsService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private CdsFeedbackRepository feedbackRepository;
+
     @PostConstruct
     public void loadServicesFromDatabase() {
         log.info("Loading CDS services from database...");
         List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
+
+        // For versioning: group by serviceName, keep only latest enabled version
+        Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
         for (CdsServiceConfigEntity entity : entities) {
+            String key = entity.getServiceName() != null ? entity.getServiceName() : entity.getId();
+            CdsServiceConfigEntity existing = latestByServiceName.get(key);
+            if (existing == null || entity.getVersion() > existing.getVersion()) {
+                latestByServiceName.put(key, entity);
+            }
+        }
+
+        for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
             CdsServiceConfig config = entityToConfig(entity);
             serviceConfigs.put(config.getId(), config);
-            log.info("Loaded CDS service: {}", config.getId());
+            log.info("Loaded CDS service: {} (v{})", config.getId(), entity.getVersion());
         }
-        log.info("Loaded {} CDS services from database", entities.size());
+        log.info("Loaded {} CDS services from database", latestByServiceName.size());
 
         // Load built-in BMI Service
         loadBmiService();
@@ -100,24 +121,43 @@ public class CdsHooksService {
 
     @Transactional
     public CdsServiceConfigResponse createService(CdsServiceConfigRequest request) {
-        if (repository.existsById(request.getId())) {
-            throw new IllegalArgumentException("Service with ID '" + request.getId() + "' already exists");
+        HookTypeValidator.validate(request.getHook());
+
+        // Versioning: use request.getId() as serviceName
+        String serviceName = request.getId();
+        Optional<Integer> maxVersion = repository.findMaxVersionByServiceName(serviceName);
+        int newVersion = maxVersion.map(v -> v + 1).orElse(1);
+
+        String actualId = newVersion > 1 ? serviceName + "-v" + newVersion : serviceName;
+
+        if (repository.existsById(actualId)) {
+            throw new IllegalArgumentException("Service with ID '" + actualId + "' already exists");
         }
 
         CdsServiceConfigEntity entity = requestToEntity(request);
+        entity.setId(actualId);
+        entity.setServiceName(serviceName);
+        entity.setVersion(newVersion);
         entity = repository.save(entity);
 
         CdsServiceConfig config = entityToConfig(entity);
         if (Boolean.TRUE.equals(entity.getEnabled())) {
+            // Remove older versions from cache, add latest
+            serviceConfigs.entrySet().removeIf(e -> {
+                CdsServiceConfig c = e.getValue();
+                return serviceName.equals(c.getServiceName());
+            });
             serviceConfigs.put(config.getId(), config);
         }
 
-        log.info("Created CDS service: {}", entity.getId());
+        log.info("Created CDS service: {} (v{})", entity.getId(), newVersion);
         return entityToResponse(entity);
     }
 
     @Transactional
     public CdsServiceConfigResponse updateService(String id, CdsServiceConfigRequest request) {
+        HookTypeValidator.validate(request.getHook());
+
         CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
 
@@ -213,6 +253,7 @@ public class CdsHooksService {
                     .hook(config.getHook())
                     .title(config.getTitle())
                     .description(config.getDescription())
+                    .version(config.getVersion())
                     .prefetch(config.getPrefetch())
                     .build());
         }
@@ -230,6 +271,7 @@ public class CdsHooksService {
         log.info("Invoking CDS service: {} for patient: {}", serviceId, patientId);
         if (cdsInvocationCounter != null) cdsInvocationCounter.increment();
         Timer.Sample sample = cdsInvocationTimer != null ? Timer.start() : null;
+        long startTime = System.currentTimeMillis();
 
         CdsServiceConfig config = serviceConfigs.get(serviceId);
 
@@ -237,6 +279,13 @@ public class CdsHooksService {
             CdsResponse response = handleDefaultService(serviceId, request);
             if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
             return response;
+        }
+
+        // Validate hook type matches config
+        if (request.getHook() != null && !request.getHook().equals(config.getHook())) {
+            throw new IllegalArgumentException(
+                    "Hook type mismatch: request hook '" + request.getHook() +
+                            "' does not match service hook '" + config.getHook() + "'");
         }
 
         try {
@@ -268,16 +317,130 @@ public class CdsHooksService {
 
             CdsResponse response = buildCardsFromExecution(config, execResponse);
             if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+
+            // Record analytics
+            if (analyticsService != null) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                analyticsService.recordInvocation(serviceId, elapsed, true);
+            }
+
             return response;
         } catch (Exception e) {
             if (cdsInvocationErrorCounter != null) cdsInvocationErrorCounter.increment();
             if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+
+            // Record analytics for error
+            if (analyticsService != null) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                analyticsService.recordInvocation(serviceId, elapsed, false);
+            }
+
             log.error("CDS service invocation failed", e);
             return CdsResponse.builder()
                     .cards(List.of(createErrorCard(e.getMessage())))
                     .build();
         }
     }
+
+    // --- Feedback ---
+
+    @Transactional
+    public void processFeedback(String serviceId, CdsFeedbackRequest request) {
+        // Validate service exists
+        if (!repository.existsById(serviceId) && !serviceConfigs.containsKey(serviceId)) {
+            throw new IllegalArgumentException("Service not found: " + serviceId);
+        }
+
+        if (request.getFeedback() == null || request.getFeedback().isEmpty()) {
+            return;
+        }
+
+        if (feedbackRepository == null) {
+            log.warn("Feedback repository not available, skipping feedback persistence");
+            return;
+        }
+
+        for (CdsFeedbackRequest.FeedbackItem item : request.getFeedback()) {
+            CdsFeedbackEntity entity = CdsFeedbackEntity.builder()
+                    .serviceId(serviceId)
+                    .cardUuid(item.getCard())
+                    .outcome(item.getOutcome())
+                    .outcomeTimestamp(item.getOutcomeTimestamp() != null
+                            ? LocalDateTime.parse(item.getOutcomeTimestamp()) : null)
+                    .acceptedSuggestions(item.getAcceptedSuggestions() != null
+                            ? serializeToJson(item.getAcceptedSuggestions()) : null)
+                    .build();
+
+            if (item.getOverrideReason() != null) {
+                entity.setOverrideReasonCode(item.getOverrideReason().getCode());
+                entity.setOverrideReasonDisplay(item.getOverrideReason().getDisplay());
+            }
+
+            feedbackRepository.save(entity);
+        }
+
+        log.info("Processed {} feedback items for service {}", request.getFeedback().size(), serviceId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsFeedbackEntity> getFeedback(String serviceId) {
+        if (feedbackRepository == null) {
+            return List.of();
+        }
+        return feedbackRepository.findByServiceIdOrderByCreatedAtDesc(serviceId);
+    }
+
+    private String serializeToJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            log.warn("Failed to serialize to JSON", e);
+            return null;
+        }
+    }
+
+    // --- Versioning ---
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getServiceVersions(String serviceName) {
+        return repository.findByServiceNameOrderByVersionDesc(serviceName).stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse rollbackService(String serviceName, int targetVersion) {
+        List<CdsServiceConfigEntity> versions = repository.findByServiceNameOrderByVersionDesc(serviceName);
+
+        if (versions.isEmpty()) {
+            throw new IllegalArgumentException("No service found with name: " + serviceName);
+        }
+
+        CdsServiceConfigEntity targetEntity = versions.stream()
+                .filter(v -> v.getVersion() == targetVersion)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Version " + targetVersion + " not found for service: " + serviceName));
+
+        // Disable all versions
+        for (CdsServiceConfigEntity v : versions) {
+            v.setEnabled(false);
+            repository.save(v);
+            serviceConfigs.remove(v.getId());
+        }
+
+        // Enable target version
+        targetEntity.setEnabled(true);
+        targetEntity = repository.save(targetEntity);
+
+        CdsServiceConfig config = entityToConfig(targetEntity);
+        serviceConfigs.put(config.getId(), config);
+
+        log.info("Rolled back service {} to version {}", serviceName, targetVersion);
+        return entityToResponse(targetEntity);
+    }
+
+    // --- Prefetch provider ---
 
     private RetrieveProvider buildPrefetchProvider(CdsRequest request) {
         if (request.getPrefetch() == null || request.getPrefetch().isEmpty()) {
@@ -376,6 +539,7 @@ public class CdsHooksService {
 
     private CdsResponse buildCardsFromExecution(CdsServiceConfig config, CqlExecutionResponse execResponse) {
         List<CdsResponse.Card> cards = new ArrayList<>();
+        List<CdsResponse.SystemAction> systemActions = new ArrayList<>();
 
         log.info("Building cards from CQL execution. Success: {}, Results count: {}",
                 execResponse.isSuccess(),
@@ -388,6 +552,12 @@ public class CdsHooksService {
                 Object value = entry.getValue().getValue();
                 log.info("Expression '{}': value={}, type={}",
                         entry.getKey(), value, entry.getValue().getValueType());
+
+                // Handle SystemActions expression
+                if ("SystemActions".equals(entry.getKey()) && value instanceof Iterable) {
+                    systemActions.addAll(parseSystemActions(value));
+                    continue;
+                }
 
                 if (value instanceof Boolean && (Boolean) value) {
                     cards.add(CdsResponse.Card.builder()
@@ -405,6 +575,10 @@ public class CdsHooksService {
                         String detail = getField(value, "detail");
                         String indicator = getField(value, "indicator");
                         String sourceLabel = getField(value, "sourceLabel");
+                        String selectionBehavior = getField(value, "selectionBehavior");
+
+                        // Parse suggestions from Tuple
+                        List<CdsResponse.Suggestion> suggestions = parseSuggestions(value);
 
                         if (summary != null) {
                             cards.add(CdsResponse.Card.builder()
@@ -415,6 +589,8 @@ public class CdsHooksService {
                                     .source(CdsResponse.Source.builder()
                                             .label(sourceLabel != null ? sourceLabel : config.getTitle())
                                             .build())
+                                    .selectionBehavior(selectionBehavior)
+                                    .suggestions(suggestions.isEmpty() ? null : suggestions)
                                     .build());
                         }
                     } catch (Exception e) {
@@ -428,19 +604,135 @@ public class CdsHooksService {
             cards.add(createInfoCard(config.getTitle(), "No recommendations at this time."));
         }
 
-        return CdsResponse.builder().cards(cards).build();
+        return CdsResponse.builder()
+                .cards(cards)
+                .systemActions(systemActions.isEmpty() ? null : systemActions)
+                .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getTupleElements(Object tuple) {
+        try {
+            java.lang.reflect.Method getElements = tuple.getClass().getMethod("getElements");
+            return (Map<String, Object>) getElements.invoke(tuple);
+        } catch (Exception e) {
+            return Collections.emptyMap();
+        }
     }
 
     private String getField(Object tuple, String fieldName) {
-        try {
-            java.lang.reflect.Method getElements = tuple.getClass().getMethod("getElements");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> elements = (Map<String, Object>) getElements.invoke(tuple);
-            Object val = elements.get(fieldName);
-            return val != null ? val.toString() : null;
-        } catch (Exception e) {
-            return null;
+        Map<String, Object> elements = getTupleElements(tuple);
+        Object val = elements.get(fieldName);
+        return val != null ? val.toString() : null;
+    }
+
+    private Object getObjectField(Object tuple, String fieldName) {
+        Map<String, Object> elements = getTupleElements(tuple);
+        return elements.get(fieldName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> getListField(Object tuple, String fieldName) {
+        Object val = getObjectField(tuple, fieldName);
+        if (val instanceof List) {
+            return (List<Object>) val;
         }
+        return Collections.emptyList();
+    }
+
+    private Boolean getBooleanField(Object tuple, String fieldName) {
+        Object val = getObjectField(tuple, fieldName);
+        if (val instanceof Boolean) {
+            return (Boolean) val;
+        }
+        return null;
+    }
+
+    private List<CdsResponse.Suggestion> parseSuggestions(Object cardTuple) {
+        List<Object> suggestionsRaw = getListField(cardTuple, "suggestions");
+        List<CdsResponse.Suggestion> suggestions = new ArrayList<>();
+
+        for (Object suggObj : suggestionsRaw) {
+            if (suggObj != null && suggObj.getClass().getSimpleName().contains("Tuple")) {
+                String label = getField(suggObj, "label");
+                Boolean isRecommended = getBooleanField(suggObj, "isRecommended");
+                List<CdsResponse.Action> actions = parseActions(suggObj);
+
+                suggestions.add(CdsResponse.Suggestion.builder()
+                        .uuid(UUID.randomUUID().toString())
+                        .label(label)
+                        .isRecommended(isRecommended)
+                        .actions(actions.isEmpty() ? null : actions)
+                        .build());
+            }
+        }
+
+        return suggestions;
+    }
+
+    private List<CdsResponse.Action> parseActions(Object suggestionTuple) {
+        List<Object> actionsRaw = getListField(suggestionTuple, "actions");
+        List<CdsResponse.Action> actions = new ArrayList<>();
+
+        for (Object actionObj : actionsRaw) {
+            if (actionObj != null && actionObj.getClass().getSimpleName().contains("Tuple")) {
+                String type = getField(actionObj, "type");
+                String description = getField(actionObj, "description");
+                String resourceJson = getField(actionObj, "resource");
+                String resourceId = getField(actionObj, "resourceId");
+
+                Object resource = null;
+                if (resourceJson != null) {
+                    try {
+                        resource = objectMapper.readValue(resourceJson, Map.class);
+                    } catch (Exception e) {
+                        resource = resourceJson;
+                    }
+                }
+
+                actions.add(CdsResponse.Action.builder()
+                        .type(type)
+                        .description(description)
+                        .resource(resource)
+                        .resourceId(resourceId)
+                        .build());
+            }
+        }
+
+        return actions;
+    }
+
+    private List<CdsResponse.SystemAction> parseSystemActions(Object value) {
+        List<CdsResponse.SystemAction> systemActions = new ArrayList<>();
+
+        if (value instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                if (item != null && item.getClass().getSimpleName().contains("Tuple")) {
+                    String type = getField(item, "type");
+                    String description = getField(item, "description");
+                    String resourceJson = getField(item, "resource");
+                    String resourceId = getField(item, "resourceId");
+
+                    Object resource = null;
+                    if (resourceJson != null) {
+                        try {
+                            resource = objectMapper.readValue(resourceJson, Map.class);
+                        } catch (Exception e) {
+                            resource = resourceJson;
+                        }
+                    }
+
+                    systemActions.add(CdsResponse.SystemAction.builder()
+                            .type(type)
+                            .description(description)
+                            .resource(resource)
+                            .resourceId(resourceId)
+                            .build());
+                }
+            }
+        }
+
+        return systemActions;
     }
 
     private CdsResponse.Card createInfoCard(String summary, String detail) {
@@ -509,6 +801,8 @@ public class CdsHooksService {
                 .cqlLibraryId(request.getCqlLibraryId())
                 .defaultIndicator(request.getDefaultIndicator())
                 .enabled(request.getEnabled() != null ? request.getEnabled() : true)
+                .serviceName(request.getId())
+                .version(1)
                 .prefetchItems(new ArrayList<>())
                 .build();
 
@@ -543,6 +837,8 @@ public class CdsHooksService {
                 .cqlContent(entity.getCqlContent())
                 .cqlLibraryId(entity.getCqlLibraryId())
                 .defaultIndicator(entity.getDefaultIndicator())
+                .version(entity.getVersion())
+                .serviceName(entity.getServiceName())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
                 .build();
     }
@@ -564,6 +860,8 @@ public class CdsHooksService {
                 .cqlLibraryId(entity.getCqlLibraryId())
                 .defaultIndicator(entity.getDefaultIndicator())
                 .enabled(entity.getEnabled())
+                .version(entity.getVersion())
+                .serviceName(entity.getServiceName())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -580,6 +878,8 @@ public class CdsHooksService {
         private String cqlLibraryId;
         private String cqlContent;
         private String defaultIndicator;
+        private Integer version;
+        private String serviceName;
         private Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch;
     }
 }

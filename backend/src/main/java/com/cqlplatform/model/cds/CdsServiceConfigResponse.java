@@ -24,6 +24,8 @@ public class CdsServiceConfigResponse {
     private String cqlLibraryId;
     private String defaultIndicator;
     private Boolean enabled;
+    private Integer version;
+    private String serviceName;
     private Map<String, String> prefetch;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

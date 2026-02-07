@@ -41,6 +41,13 @@ public class CdsServiceConfigEntity {
     @Builder.Default
     private Boolean enabled = true;
 
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Integer version = 1;
+
+    @Column(name = "service_name", length = 100)
+    private String serviceName;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         // SMART on FHIR configuration
                         .requestMatchers("/.well-known/smart-configuration").permitAll()
+                        // CDS Hooks sandbox requires authentication
+                        .requestMatchers(HttpMethod.POST, "/cds-services/*/sandbox").authenticated()
                         // CDS Hooks discovery and invocation (external EHR systems)
                         .requestMatchers("/cds-services/**").permitAll()
                         // Actuator health & prometheus
@@ -61,6 +63,7 @@ public class SecurityConfig {
                         // ADMIN only endpoints
                         .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/measures/**").hasRole("ADMIN")
                         // All other API endpoints require authentication
                         .requestMatchers("/api/**").authenticated()
                         // Allow everything else (static resources, etc.)
