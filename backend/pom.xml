@@ -22,7 +22,7 @@
     <properties>
         <java.version>17</java.version>
         <cql.version>3.29.0</cql.version>
-        <hapi.fhir.version>7.0.0</hapi.fhir.version>
+        <hapi.fhir.version>8.6.5</hapi.fhir.version>
         <mockito.version>5.14.2</mockito.version>
         <byte-buddy.version>1.15.10</byte-buddy.version>
         <jackson-bom.version>2.17.2</jackson-bom.version>
