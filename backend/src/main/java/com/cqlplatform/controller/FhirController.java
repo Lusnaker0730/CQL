@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.FhirDataProviderService;
 import com.cqlplatform.service.fhir.FhirTerminologyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +34,16 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer,
             @RequestParam(required = false) String params) {
 
+        if (!InputValidator.isValidFhirResourceType(resourceType)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR resource type: " + resourceType + "\"}");
+        }
+        if (!InputValidator.isValidSearchParams(params)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid search parameters\"}");
+        }
+        if (!InputValidator.isValidUrl(fhirServer)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        }
+
         Bundle bundle = dataProviderService.searchResources(fhirServer, resourceType, params);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
         return ResponseEntity.ok()
@@ -46,6 +57,13 @@ public class FhirController {
             @PathVariable String resourceType,
             @PathVariable String id,
             @RequestParam(required = false) String fhirServer) {
+
+        if (!InputValidator.isValidFhirResourceType(resourceType)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR resource type\"}");
+        }
+        if (!InputValidator.isValidResourceId(id)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid resource ID\"}");
+        }
 
         Resource resource = dataProviderService.getResource(fhirServer, resourceType, id);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);

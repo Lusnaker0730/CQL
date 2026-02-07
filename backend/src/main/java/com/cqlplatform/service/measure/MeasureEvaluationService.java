@@ -7,6 +7,8 @@ import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.*;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.fhir.FhirDataProviderService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opencds.cqf.cql.engine.runtime.Date;
@@ -25,6 +27,15 @@ public class MeasureEvaluationService {
     private final CqlExecutionService cqlExecutionService;
     private final FhirDataProviderService fhirDataProviderService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Timer measureEvaluationTimer;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter measureEvaluationCounter;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter measureEvaluationErrorCounter;
+
     @Value("${measure.reporting.default-period-start:2024-01-01}")
     private String defaultPeriodStart;
 
@@ -34,6 +45,8 @@ public class MeasureEvaluationService {
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
         log.info("Evaluating measure: {} for patient: {}",
                 request.getMeasureId(), request.getPatientId());
+        if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
+        Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;
 
         LocalDate periodStart = request.getPeriodStart() != null ? request.getPeriodStart()
                 : LocalDate.parse(defaultPeriodStart);
@@ -86,10 +99,14 @@ public class MeasureEvaluationService {
                 }
             }
 
-            return buildAggregatedResult(request, populationCounts, periodStart, periodEnd,
+            MeasureEvaluationResult result = buildAggregatedResult(request, populationCounts, periodStart, periodEnd,
                     patientsToEvaluate.size());
+            if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+            return result;
 
         } catch (Exception e) {
+            if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
+            if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
             log.error("Measure evaluation failed", e);
             return MeasureEvaluationResult.builder()
                     .measureId(request.getMeasureId())

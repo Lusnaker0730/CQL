@@ -4,6 +4,8 @@ import com.cqlplatform.exception.CqlTranslationException;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.CqlTranslationResponse.*;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.CqlCompilerException;
@@ -11,6 +13,7 @@ import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.hl7.elm.r1.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -22,11 +25,22 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CqlTranslationService {
 
+    @Autowired(required = false)
+    private Timer cqlTranslationTimer;
+
+    @Autowired(required = false)
+    private Counter cqlTranslationCounter;
+
+    @Autowired(required = false)
+    private Counter cqlTranslationErrorCounter;
+
     public CqlTranslationResponse translate(CqlTranslationRequest request) {
         if (request.getCql() == null || request.getCql().isBlank()) {
             throw new IllegalArgumentException("CQL content must not be null or empty");
         }
         log.debug("Translating CQL: {}", request.getCql().substring(0, Math.min(100, request.getCql().length())));
+        if (cqlTranslationCounter != null) cqlTranslationCounter.increment();
+        Timer.Sample sample = cqlTranslationTimer != null ? Timer.start() : null;
 
         try {
             ModelManager modelManager = new ModelManager();
@@ -62,15 +76,19 @@ public class CqlTranslationService {
             String elmJson = translator.toJson();
             TranslationMetadata metadata = extractMetadata(library);
 
-            return CqlTranslationResponse.builder()
+            CqlTranslationResponse response = CqlTranslationResponse.builder()
                     .success(true)
                     .elmJson(elmJson)
                     .errors(errors)
                     .warnings(warnings)
                     .metadata(metadata)
                     .build();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            return response;
 
         } catch (Exception e) {
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
             log.error("Translation failed", e);
             throw new CqlTranslationException("Translation failed: " + e.getMessage());
         }

@@ -1,0 +1,59 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  flyway:
+    enabled: false
+
+  h2:
+    console:
+      enabled: false
+
+jwt:
+  secret: TestSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!TestExtra
+  expiration-ms: 3600000
+
+rate-limit:
+  enabled: false
+  requests-per-minute: 1000
+
+encryption:
+  secret-key: TestEncryptionKeyMustBeExact32B!
+
+fhir:
+  server:
+    url: http://localhost:9999/fhir
+  terminology:
+    url: http://localhost:9999/fhir
+
+cql:
+  translation:
+    enable-annotations: true
+    enable-locators: true
+    enable-result-types: true
+    validate-units: true
+    signature-level: All
+
+smart:
+  issuer: http://localhost:8080
+  authorization-endpoint: http://localhost:8080/api/auth/login
+  token-endpoint: http://localhost:8080/api/auth/login
+
+logging:
+  level:
+    com.cqlplatform: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

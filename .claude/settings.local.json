@@ -50,7 +50,12 @@
       "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\RestFhirRetrieveProvider.class\")",
       "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\SearchParamFhirRetrieveProvider.class\")",
       "Bash(./mvnw compile:*)",
-      "Bash(mvn clean compile:*)"
+      "Bash(mvn clean compile:*)",
+      "Bash(mvn help:effective-pom:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MDQ2MzQ4OSwiZXhwIjoxNzcwNTQ5ODg5fQ.Q-Eg_NFKZJLcPoy_LQC9OC5EuK8TYPWEGpnjZSdd77HUpypoocNf6aWhPghfC_VZrUij-Vkl1ZLR6R5l-OTjmQ\")",
+      "Bash(mvn test:*)",
+      "Bash(mvn dependency:tree:*)",
+      "Bash(mvn dependency:build-classpath:*)"
     ]
   }
 }

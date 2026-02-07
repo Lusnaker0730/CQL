@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cqlplatform
+      POSTGRES_USER: cqlplatform
+      POSTGRES_PASSWORD: cqlplatform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cql-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cqlplatform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ../backend
@@ -9,10 +27,17 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - DB_URL=jdbc:postgresql://postgres:5432/cqlplatform
+      - DB_USERNAME=cqlplatform
+      - DB_PASSWORD=cqlplatform
+      - JWT_SECRET=CQLPlatformSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!
       - FHIR_SERVER_URL=http://launch.smarthealthit.org/v/r4/fhir
       - FHIR_TERMINOLOGY_URL=http://tx.fhir.org/r4
     depends_on:
-      - hapi-fhir
+      postgres:
+        condition: service_healthy
+      hapi-fhir:
+        condition: service_started
     networks:
       - cql-network
     healthcheck:
@@ -54,9 +79,45 @@ services:
       timeout: 10s
       retries: 5
 
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cql-network
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - cql-network
+
 networks:
   cql-network:
     driver: bridge
 
 volumes:
+  postgres-data:
   hapi-data:
+  prometheus-data:
+  grafana-data:

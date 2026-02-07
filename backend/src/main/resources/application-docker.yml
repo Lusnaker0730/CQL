@@ -1,23 +1,18 @@
-# Docker-specific configuration
-server:
-  port: 8080
-
+# Docker profile - PostgreSQL database
 spring:
-  application:
-    name: cql-platform
-
-  # H2 In-Memory Database for Docker
   datasource:
-    url: jdbc:h2:mem:cqlplatform;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/cqlplatform}
+    username: ${DB_USERNAME:cqlplatform}
+    password: ${DB_PASSWORD:cqlplatform}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create
-    show-sql: false
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
 
   h2:
     console:
@@ -36,4 +31,4 @@ logging:
     com.cqlplatform: DEBUG
     org.opencds.cqf: INFO
     ca.uhn.fhir: INFO
-    ca.uhn.fhir.rest.client: DEBUG
+    org.flywaydb: INFO

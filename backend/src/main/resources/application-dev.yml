@@ -1,0 +1,24 @@
+# Development profile - H2 in-memory database
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/cqlplatform;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+
+  # Disable Flyway for H2 dev mode (use Hibernate auto DDL)
+  flyway:
+    enabled: false
+
+  # H2 Console (development only)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false

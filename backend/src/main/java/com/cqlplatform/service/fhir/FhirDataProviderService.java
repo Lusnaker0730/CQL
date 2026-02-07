@@ -25,6 +25,9 @@ public class FhirDataProviderService {
 
     private final FhirContext fhirContext;
 
+    @Value("${fhir.server.url:http://launch.smarthealthit.org/v/r4/fhir}")
+    private String defaultFhirServerUrl;
+
     private final AtomicInteger retrieveCount = new AtomicInteger(0);
 
     public IGenericClient createClient(String fhirServerUrl) {
@@ -164,7 +167,7 @@ public class FhirDataProviderService {
         return patientIds;
     }
 
-    public int getRetrieveCount() {
+    public int getAndResetRetrieveCount() {
         return retrieveCount.getAndSet(0);
     }
 

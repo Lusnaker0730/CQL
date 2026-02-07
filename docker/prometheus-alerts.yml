@@ -1,0 +1,85 @@
+groups:
+  - name: cql-platform-alerts
+    rules:
+      # High HTTP error rate (>5% of requests returning 5xx over 5 minutes)
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_server_requests_seconds_count{status=~"5..",application="cql-platform"}[5m])
+            /
+            rate(http_server_requests_seconds_count{application="cql-platform"}[5m])
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP error rate detected"
+          description: "More than 5% of HTTP requests are returning 5xx errors for {{ $labels.uri }}"
+
+      # High P95 latency (>5 seconds over 5 minutes)
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_server_requests_seconds_bucket{application="cql-platform"}[5m])
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency detected"
+          description: "P95 latency is above 5 seconds for {{ $labels.uri }}"
+
+      # CQL execution failures
+      - alert: CqlExecutionFailures
+        expr: rate(cql_execution_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CQL execution failures detected"
+          description: "CQL execution error rate is {{ $value }} errors/second"
+
+      # CDS invocation failures
+      - alert: CdsInvocationFailures
+        expr: rate(cds_invocation_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CDS invocation failures detected"
+          description: "CDS invocation error rate is {{ $value }} errors/second"
+
+      # Service down (no scrape for 1 minute)
+      - alert: ServiceDown
+        expr: up{job="cql-platform"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CQL Platform service is down"
+          description: "The CQL Platform backend has been unreachable for more than 1 minute"
+
+      # High JVM heap usage (>85%)
+      - alert: HighHeapUsage
+        expr: |
+          (
+            jvm_memory_used_bytes{area="heap",application="cql-platform"}
+            /
+            jvm_memory_max_bytes{area="heap",application="cql-platform"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage"
+          description: "JVM heap usage is above 85% (current: {{ $value | humanizePercentage }})"
+
+      # Measure evaluation failures
+      - alert: MeasureEvaluationFailures
+        expr: rate(measure_evaluation_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Measure evaluation failures detected"
+          description: "Measure evaluation error rate is {{ $value }} errors/second"

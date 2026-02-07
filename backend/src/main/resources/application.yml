@@ -1,43 +1,64 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+  # TLS/HTTPS Configuration - uncomment and provide keystore for production
+  # ssl:
+  #   enabled: true
+  #   key-store: classpath:keystore.p12
+  #   key-store-password: ${SSL_KEYSTORE_PASSWORD}
+  #   key-store-type: PKCS12
+  #   key-alias: cqlplatform
 
 spring:
   application:
     name: cql-platform
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   jackson:
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
 
-  # H2 Database Configuration
+  # Default datasource - PostgreSQL (overridden by dev profile for H2)
   datasource:
-    url: jdbc:h2:file:./data/cqlplatform;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cqlplatform}
+    username: ${DB_USERNAME:cqlplatform}
+    password: ${DB_PASSWORD:cqlplatform}
+    driver-class-name: org.postgresql.Driver
 
   # JPA Configuration
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         format_sql: true
 
-  # H2 Console (for development)
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-      settings:
-        web-allow-others: false
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 
 # JWT Configuration
 jwt:
-  secret: CQLPlatformSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!
-  expiration-ms: 86400000  # 24 hours
+  secret: ${JWT_SECRET:CQLPlatformSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!}
+  expiration-ms: ${JWT_EXPIRATION:86400000}  # 24 hours
+
+# Rate Limiting
+rate-limit:
+  enabled: true
+  requests-per-minute: ${RATE_LIMIT_RPM:60}
+
+# PHI Encryption
+encryption:
+  secret-key: ${ENCRYPTION_KEY:DefaultEncryptionKeyMustBeExactly32B}
+
+# SMART on FHIR Configuration
+smart:
+  issuer: ${SMART_ISSUER:http://localhost:8080}
+  authorization-endpoint: ${SMART_AUTH_ENDPOINT:http://localhost:8080/api/auth/login}
+  token-endpoint: ${SMART_TOKEN_ENDPOINT:http://localhost:8080/api/auth/login}
 
 # CQL Platform Configuration
 cql:
@@ -54,9 +75,9 @@ cql:
 # FHIR Configuration
 fhir:
   server:
-    url: http://launch.smarthealthit.org/v/r4/fhir
+    url: ${FHIR_SERVER_URL:http://launch.smarthealthit.org/v/r4/fhir}
   terminology:
-    url: http://tx.fhir.org/r4
+    url: ${FHIR_TERMINOLOGY_URL:http://tx.fhir.org/r4}
 
 # CDS Hooks Configuration
 cds:
@@ -85,15 +106,26 @@ logging:
     org.opencds.cqf: INFO
     ca.uhn.fhir: INFO
 
-# Actuator
+# Actuator & Metrics
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when_authorized
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: 1.0
 
 # OpenAPI
 springdoc:

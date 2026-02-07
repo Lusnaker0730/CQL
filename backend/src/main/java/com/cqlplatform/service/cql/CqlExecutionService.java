@@ -7,6 +7,8 @@ import com.cqlplatform.model.CqlExecutionResponse.ExecutionMetadata;
 import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
 import com.cqlplatform.service.fhir.FhirDataProviderService;
 import com.cqlplatform.service.fhir.FhirTerminologyService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlTranslator;
@@ -38,6 +40,15 @@ public class CqlExecutionService {
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Timer cqlExecutionTimer;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter cqlExecutionCounter;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter cqlExecutionErrorCounter;
+
     @Value("${fhir.server.url:http://hapi.fhir.org/baseR4}")
     private String defaultFhirServerUrl;
 
@@ -47,6 +58,8 @@ public class CqlExecutionService {
 
     public CqlExecutionResponse executeWithProvider(CqlExecutionRequest request, RetrieveProvider prefetchProvider) {
         log.debug("Executing CQL for patient: {}", request.getPatientId());
+        if (cqlExecutionCounter != null) cqlExecutionCounter.increment();
+        Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
         try {
@@ -149,7 +162,7 @@ public class CqlExecutionService {
 
             long executionTime = System.currentTimeMillis() - startTime;
 
-            return CqlExecutionResponse.builder()
+            CqlExecutionResponse response = CqlExecutionResponse.builder()
                     .success(true)
                     .patientId(request.getPatientId())
                     .results(results)
@@ -161,8 +174,12 @@ public class CqlExecutionService {
                             .resourcesRetrieved(dataProviderService.getAndResetRetrieveCount())
                             .build())
                     .build();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            return response;
 
         } catch (Exception e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             log.error("CQL execution failed", e);
             throw new CqlExecutionException("Execution failed: " + e.getMessage(), e);
         }

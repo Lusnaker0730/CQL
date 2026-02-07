@@ -10,6 +10,8 @@ import com.cqlplatform.service.cql.CqlExecutionService;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,15 @@ public class CdsHooksService {
     private final ObjectMapper objectMapper;
     private final FhirDataProviderService fhirDataProviderService;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Timer cdsInvocationTimer;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter cdsInvocationCounter;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter cdsInvocationErrorCounter;
 
     @PostConstruct
     public void loadServicesFromDatabase() {
@@ -220,11 +231,15 @@ public class CdsHooksService {
     public CdsResponse invokeService(String serviceId, CdsRequest request) {
         String patientId = request.getContext() != null ? request.getContext().getPatientId() : "unknown";
         log.info("Invoking CDS service: {} for patient: {}", serviceId, patientId);
+        if (cdsInvocationCounter != null) cdsInvocationCounter.increment();
+        Timer.Sample sample = cdsInvocationTimer != null ? Timer.start() : null;
 
         CdsServiceConfig config = serviceConfigs.get(serviceId);
 
         if (config == null) {
-            return handleDefaultService(serviceId, request);
+            CdsResponse response = handleDefaultService(serviceId, request);
+            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+            return response;
         }
 
         try {
@@ -254,8 +269,12 @@ public class CdsHooksService {
                 execResponse = executionService.execute(execRequest);
             }
 
-            return buildCardsFromExecution(config, execResponse);
+            CdsResponse response = buildCardsFromExecution(config, execResponse);
+            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+            return response;
         } catch (Exception e) {
+            if (cdsInvocationErrorCounter != null) cdsInvocationErrorCounter.increment();
+            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
             log.error("CDS service invocation failed", e);
             return CdsResponse.builder()
                     .cards(List.of(createErrorCard(e.getMessage())))

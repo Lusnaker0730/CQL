@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.cqlplatform.security.EncryptionConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,7 +24,8 @@ public class UserEntity {
     @Column(nullable = false)
     private String password;
 
-    @Column(length = 100)
+    @Column(length = 500)
+    @Convert(converter = EncryptionConverter.class)
     private String email;
 
     @Enumerated(EnumType.STRING)
