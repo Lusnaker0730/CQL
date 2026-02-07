@@ -1,8 +1,29 @@
 import React from 'react'
 import { useMemo } from 'react'
-import { Box, Typography, Paper, Tabs, Tab, Chip, Stack } from '@mui/material'
+import {
+  Box,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
+} from '@mui/material'
+import {
+  CheckCircle as ValidIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+} from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
+import type { TerminologyValidationItem } from '../../types'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -18,7 +39,12 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   )
 }
 
-export default function ElmViewer() {
+interface ElmViewerProps {
+  terminologyResults?: TerminologyValidationItem[]
+  isTermValidating?: boolean
+}
+
+export default function ElmViewer({ terminologyResults = [], isTermValidating = false }: ElmViewerProps) {
   const { elmJson, errors, warnings } = useSelector((state: RootState) => state.editor)
   const [tabValue, setTabValue] = React.useState(0)
 
@@ -70,6 +96,22 @@ export default function ElmViewer() {
           }
         />
         <Tab label="ELM JSON" />
+        <Tab
+          label={
+            <Stack direction="row" spacing={1} alignItems="center">
+              <span>Terminology</span>
+              {isTermValidating ? (
+                <CircularProgress size={14} />
+              ) : terminologyResults.length > 0 ? (
+                <Chip
+                  label={terminologyResults.length}
+                  size="small"
+                  color={terminologyResults.every((r) => r.status === 'valid') ? 'success' : 'warning'}
+                />
+              ) : null}
+            </Stack>
+          }
+        />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
@@ -276,6 +318,67 @@ export default function ElmViewer() {
         ) : (
           <Typography color="text.secondary">
             No ELM data available. Translate CQL to view ELM JSON.
+          </Typography>
+        )}
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={4}>
+        {isTermValidating ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={20} />
+            <Typography color="text.secondary">Validating terminology references...</Typography>
+          </Box>
+        ) : terminologyResults.length > 0 ? (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, width: 40 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Reference</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Detail</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {terminologyResults.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      {item.status === 'valid' ? (
+                        <ValidIcon fontSize="small" color="success" />
+                      ) : item.status === 'error' ? (
+                        <ErrorIcon fontSize="small" color="error" />
+                      ) : (
+                        <InfoIcon fontSize="small" color="warning" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={item.type}
+                        size="small"
+                        variant="outlined"
+                        color={item.type === 'valueset' ? 'success' : item.type === 'code' ? 'primary' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                        {item.url || (item.system ? `${item.system} | ${item.code}` : item.code || '—')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">{item.detail || '—'}</Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography color="text.secondary">
+            No terminology references found. Translate CQL to validate terminology.
           </Typography>
         )}
       </TabPanel>

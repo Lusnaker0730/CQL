@@ -4,6 +4,9 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
+import com.cqlplatform.exception.FhirServerUnavailableException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.*;
@@ -32,7 +35,7 @@ public class FhirDataProviderService {
 
     public IGenericClient createClient(String fhirServerUrl) {
         String serverUrl = fhirServerUrl != null ? fhirServerUrl : defaultFhirServerUrl;
-        System.out.println("SCREAMING_LOG: Creating FHIR Client for URL: " + serverUrl);
+        log.debug("Creating FHIR Client for URL: {}", serverUrl);
         IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
 
         LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
@@ -44,16 +47,15 @@ public class FhirDataProviderService {
     }
 
     public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider) {
-        System.out.println("SCREAMING_LOG: Creating RetrieveProvider for URL: " + fhirServerUrl);
+        log.debug("Creating RetrieveProvider for URL: {}", fhirServerUrl);
         IGenericClient client = createClient(fhirServerUrl);
         SearchParameterResolver searchParameterResolver = new SearchParameterResolver(fhirContext);
 
-        // DEBUG: Verify connection of resolver
         try {
-            System.out.println("SCREAMING_LOG: Resolver check - Observation.patient path: "
-                    + searchParameterResolver.getSearchParameterDefinition("Observation", "patient").getPath());
+            log.debug("Resolver check - Observation.patient path: {}",
+                    searchParameterResolver.getSearchParameterDefinition("Observation", "patient").getPath());
         } catch (Exception e) {
-            System.out.println("SCREAMING_LOG: Resolver check FAILED: " + e.getMessage());
+            log.debug("Resolver check failed: {}", e.getMessage());
         }
 
         RestFhirRetrieveProvider retrieveProvider = new RestFhirRetrieveProvider(
@@ -69,6 +71,8 @@ public class FhirDataProviderService {
         return url != null ? url : defaultFhirServerUrl;
     }
 
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "searchResourcesFallback")
+    @Retry(name = "fhirDataProvider")
     public Bundle searchResources(String fhirServerUrl, String resourceType, String searchParams) {
         IGenericClient client = createClient(fhirServerUrl);
         try {
@@ -83,6 +87,14 @@ public class FhirDataProviderService {
         }
     }
 
+    @SuppressWarnings("unused")
+    private Bundle searchResourcesFallback(String fhirServerUrl, String resourceType, String searchParams, Throwable t) {
+        log.warn("Circuit breaker fallback for searchResources: {}", t.getMessage());
+        return new Bundle();
+    }
+
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "getResourceFallback")
+    @Retry(name = "fhirDataProvider")
     public Resource getResource(String fhirServerUrl, String resourceType, String id) {
         IGenericClient client = createClient(fhirServerUrl);
         try {
@@ -96,6 +108,14 @@ public class FhirDataProviderService {
         }
     }
 
+    @SuppressWarnings("unused")
+    private Resource getResourceFallback(String fhirServerUrl, String resourceType, String id, Throwable t) {
+        log.warn("Circuit breaker fallback for getResource: {}", t.getMessage());
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
+    }
+
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "createResourceFallback")
+    @Retry(name = "fhirDataProvider")
     public Resource createResource(String fhirServerUrl, Resource resource) {
         IGenericClient client = createClient(fhirServerUrl);
         try {
@@ -109,6 +129,14 @@ public class FhirDataProviderService {
         }
     }
 
+    @SuppressWarnings("unused")
+    private Resource createResourceFallback(String fhirServerUrl, Resource resource, Throwable t) {
+        log.warn("Circuit breaker fallback for createResource: {}", t.getMessage());
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
+    }
+
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "updateResourceFallback")
+    @Retry(name = "fhirDataProvider")
     public Resource updateResource(String fhirServerUrl, Resource resource) {
         IGenericClient client = createClient(fhirServerUrl);
         try {
@@ -122,6 +150,14 @@ public class FhirDataProviderService {
         }
     }
 
+    @SuppressWarnings("unused")
+    private Resource updateResourceFallback(String fhirServerUrl, Resource resource, Throwable t) {
+        log.warn("Circuit breaker fallback for updateResource: {}", t.getMessage());
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
+    }
+
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "deleteResourceFallback")
+    @Retry(name = "fhirDataProvider")
     public void deleteResource(String fhirServerUrl, String resourceType, String id) {
         IGenericClient client = createClient(fhirServerUrl);
         try {
@@ -134,9 +170,17 @@ public class FhirDataProviderService {
         }
     }
 
-    public java.util.List<String> getAllPatientIds(String fhirServerUrl) {
+    @SuppressWarnings("unused")
+    private void deleteResourceFallback(String fhirServerUrl, String resourceType, String id, Throwable t) {
+        log.warn("Circuit breaker fallback for deleteResource: {}", t.getMessage());
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
+    }
+
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "getAllPatientIdsFallback")
+    @Retry(name = "fhirDataProvider")
+    public List<String> getAllPatientIds(String fhirServerUrl) {
         IGenericClient client = createClient(fhirServerUrl);
-        java.util.List<String> patientIds = new java.util.ArrayList<>();
+        List<String> patientIds = new ArrayList<>();
 
         try {
             Bundle bundle = client.search()
@@ -167,6 +211,12 @@ public class FhirDataProviderService {
         return patientIds;
     }
 
+    @SuppressWarnings("unused")
+    private List<String> getAllPatientIdsFallback(String fhirServerUrl, Throwable t) {
+        log.warn("Circuit breaker fallback for getAllPatientIds: {}", t.getMessage());
+        return new ArrayList<>();
+    }
+
     public int getAndResetRetrieveCount() {
         return retrieveCount.getAndSet(0);
     }
@@ -187,6 +237,8 @@ public class FhirDataProviderService {
     }
 
     private static class CountingRetrieveProvider implements RetrieveProvider {
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CountingRetrieveProvider.class);
+
         private final RetrieveProvider delegate;
         private final AtomicInteger counter;
         private final FhirContext fhirContext;
@@ -206,8 +258,8 @@ public class FhirDataProviderService {
                 Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes,
                 String valueSet, String datePath, String dateLowPath,
                 String dateHighPath, org.opencds.cqf.cql.engine.runtime.Interval dateRange) {
-            System.out.println("SCREAMING_LOG: Retrieve called for DataType: " + dataType + ", Codes: " + codes
-                    + ", Context: " + context + ", ContextPath: " + contextPath + ", ContextValue: " + contextValue);
+            log.debug("Retrieve called for DataType: {}, Context: {}, ContextPath: {}, ContextValue: {}",
+                    dataType, context, contextPath, contextValue);
 
             Iterable<Object> results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
                     codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
@@ -217,26 +269,23 @@ public class FhirDataProviderService {
                 results.forEach(resultList::add);
             }
 
-            // MANUAL FALLBACK: If Engine failed to get Observation data for Patient, try
-            // manual client
+            // MANUAL FALLBACK: If Engine failed to get Observation data for Patient, try manual client
             if (resultList.isEmpty() && "Observation".equals(dataType) && "Patient".equals(context)
                     && contextValue != null) {
-                System.out.println("SCREAMING_LOG: Delegate returned 0 results. Triggering FALLBACK MANUAL SEARCH.");
+                log.debug("Delegate returned 0 results. Triggering fallback manual search.");
                 try {
                     IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
-                    // Ensure logging is active on backup client
                     LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
                     loggingInterceptor.setLogRequestSummary(true);
                     loggingInterceptor.setLogResponseSummary(true);
                     fallbackClient.registerInterceptor(loggingInterceptor);
 
-                    // Handle ContextValue: If it is "Patient/ID", extract ID.
                     String patientId = contextValue.toString();
                     if (patientId.startsWith("Patient/")) {
                         patientId = patientId.replace("Patient/", "");
                     }
 
-                    System.out.println("SCREAMING_LOG: Fallback using Patient ID: " + patientId);
+                    log.debug("Fallback using Patient ID: {}", patientId);
 
                     Bundle bundle = fallbackClient.search()
                             .forResource("Observation")
@@ -245,22 +294,20 @@ public class FhirDataProviderService {
                             .execute();
 
                     if (bundle.hasEntry()) {
-                        System.out.println(
-                                "SCREAMING_LOG: Fallback Search Found: " + bundle.getEntry().size() + " entries.");
+                        log.debug("Fallback search found: {} entries", bundle.getEntry().size());
                         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
                             resultList.add(entry.getResource());
                         }
                     } else {
-                        System.out.println("SCREAMING_LOG: Fallback Search also returned 0 entries.");
+                        log.debug("Fallback search also returned 0 entries.");
                     }
                 } catch (Exception e) {
-                    System.out.println("SCREAMING_LOG: Fallback Search Failed: " + e.getMessage());
-                    e.printStackTrace();
+                    log.debug("Fallback search failed: {}", e.getMessage());
                 }
             }
 
             int currentCount = resultList.size();
-            System.out.println("SCREAMING_LOG: Final result count passed to Engine: " + currentCount);
+            log.debug("Final result count passed to Engine: {}", currentCount);
 
             counter.addAndGet(currentCount);
             return resultList;

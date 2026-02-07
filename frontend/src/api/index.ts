@@ -16,6 +16,10 @@ import type {
   RegisterRequest,
   AuthResponse,
   User,
+  ValueSetSearchResult,
+  ValueSetExpansion,
+  CodeLookupResult,
+  CodeValidationResult,
 } from '../types'
 
 const api = axios.create({
@@ -204,16 +208,28 @@ export const fhirApi = {
     return response.data
   },
 
-  expandValueSet: async (url: string, filter?: string): Promise<unknown> => {
+  expandValueSet: async (url: string, filter?: string): Promise<ValueSetExpansion> => {
     const params = new URLSearchParams({ url })
     if (filter) params.append('filter', filter)
-    const response = await api.get(`/fhir/ValueSet/$expand?${params.toString()}`)
+    const response = await api.get<ValueSetExpansion>(`/fhir/ValueSet/$expand?${params.toString()}`)
     return response.data
   },
 
-  searchValueSets: async (title?: string): Promise<unknown[]> => {
+  searchValueSets: async (title?: string): Promise<ValueSetSearchResult[]> => {
     const params = title ? `?title=${encodeURIComponent(title)}` : ''
-    const response = await api.get(`/fhir/ValueSet${params}`)
+    const response = await api.get<ValueSetSearchResult[]>(`/fhir/ValueSet${params}`)
+    return response.data
+  },
+
+  validateCode: async (system: string, code: string, valueSetUrl: string): Promise<CodeValidationResult> => {
+    const params = new URLSearchParams({ system, code, url: valueSetUrl })
+    const response = await api.get<CodeValidationResult>(`/fhir/CodeSystem/$validate-code?${params.toString()}`)
+    return response.data
+  },
+
+  lookupCode: async (system: string, code: string): Promise<CodeLookupResult> => {
+    const params = new URLSearchParams({ system, code })
+    const response = await api.get<CodeLookupResult>(`/fhir/CodeSystem/$lookup?${params.toString()}`)
     return response.data
   },
 }

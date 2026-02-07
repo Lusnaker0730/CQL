@@ -1,6 +1,7 @@
 package com.cqlplatform.config;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.apache.ApacheRestfulClientFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,8 +29,19 @@ public class CqlConfig {
     private boolean validateUnits;
 
     @Bean
-    public FhirContext fhirContext() {
-        return FhirContext.forR4();
+    public FhirContext fhirContext(
+            @Value("${fhir.client.pool-max-total:20}") int poolMaxTotal,
+            @Value("${fhir.client.pool-default-per-route:10}") int poolDefaultPerRoute,
+            @Value("${fhir.client.connect-timeout-ms:5000}") int connectTimeout,
+            @Value("${fhir.client.socket-timeout-ms:30000}") int socketTimeout) {
+        FhirContext ctx = FhirContext.forR4();
+        ApacheRestfulClientFactory clientFactory = new ApacheRestfulClientFactory(ctx);
+        clientFactory.setPoolMaxTotal(poolMaxTotal);
+        clientFactory.setPoolMaxPerRoute(poolDefaultPerRoute);
+        clientFactory.setConnectTimeout(connectTimeout);
+        clientFactory.setSocketTimeout(socketTimeout);
+        ctx.setRestfulClientFactory(clientFactory);
+        return ctx;
     }
 
     @Bean

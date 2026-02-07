@@ -1,10 +1,13 @@
 package com.cqlplatform.config;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
 public class MetricsConfig {
@@ -102,6 +105,33 @@ public class MetricsConfig {
         return Counter.builder("measure.evaluation.errors")
                 .description("Measure evaluation errors")
                 .tag("operation", "evaluate")
+                .register(registry);
+    }
+
+    @Bean
+    public Gauge cqlExecutionQueueSize(MeterRegistry registry,
+            @Qualifier("cqlExecutionExecutor") ThreadPoolTaskExecutor executor) {
+        return Gauge.builder("cql.execution.queue.size", executor,
+                e -> e.getThreadPoolExecutor().getQueue().size())
+                .description("Current CQL execution queue depth")
+                .register(registry);
+    }
+
+    @Bean
+    public Gauge cqlExecutionPoolActive(MeterRegistry registry,
+            @Qualifier("cqlExecutionExecutor") ThreadPoolTaskExecutor executor) {
+        return Gauge.builder("cql.execution.pool.active", executor,
+                e -> e.getThreadPoolExecutor().getActiveCount())
+                .description("Active CQL execution threads")
+                .register(registry);
+    }
+
+    @Bean
+    public Gauge cqlExecutionPoolSize(MeterRegistry registry,
+            @Qualifier("cqlExecutionExecutor") ThreadPoolTaskExecutor executor) {
+        return Gauge.builder("cql.execution.pool.size", executor,
+                e -> e.getThreadPoolExecutor().getPoolSize())
+                .description("Current CQL execution pool size")
                 .register(registry);
     }
 }

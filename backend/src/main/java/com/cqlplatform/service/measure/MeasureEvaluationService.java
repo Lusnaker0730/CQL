@@ -42,6 +42,9 @@ public class MeasureEvaluationService {
     @Value("${measure.reporting.default-period-end:2024-12-31}")
     private String defaultPeriodEnd;
 
+    @Value("${cql.execution.measure-timeout-seconds:120}")
+    private int measureTimeoutSeconds;
+
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
         log.info("Evaluating measure: {} for patient: {}",
                 request.getMeasureId(), request.getPatientId());
@@ -73,7 +76,12 @@ public class MeasureEvaluationService {
             populationCounts.put("Numerator Exclusions", 0);
 
             int errorCount = 0;
+            long deadline = System.currentTimeMillis() + (measureTimeoutSeconds * 1000L);
             for (String patientId : patientsToEvaluate) {
+                if (System.currentTimeMillis() > deadline) {
+                    log.warn("Measure evaluation timed out after {}s", measureTimeoutSeconds);
+                    break;
+                }
                 CqlExecutionRequest execRequest = new CqlExecutionRequest();
                 execRequest.setCql(request.getMeasureCql());
                 execRequest.setPatientId(patientId);

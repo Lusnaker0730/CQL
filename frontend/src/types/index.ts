@@ -247,3 +247,52 @@ export interface StratifierResult {
   populations: PopulationResult[]
   measureScore?: number
 }
+
+// Terminology types
+export interface ValueSetSearchResult {
+  id: string
+  url: string
+  name: string
+  title: string
+}
+
+export interface ValueSetExpansion {
+  url: string
+  name?: string
+  title?: string
+  expansion: {
+    total?: number
+    contains: ValueSetCode[]
+  }
+}
+
+export interface ValueSetCode {
+  system: string
+  code: string
+  display: string
+}
+
+export interface CodeLookupResult {
+  system: string
+  code: string
+  name: string
+  display: string
+  designations: string[]
+}
+
+export interface CodeValidationResult {
+  result: boolean
+  system: string
+  code: string
+  valueSet: string
+}
+
+export interface TerminologyValidationItem {
+  type: 'valueset' | 'code' | 'codesystem'
+  name: string
+  url?: string
+  system?: string
+  code?: string
+  status: 'valid' | 'invalid' | 'error'
+  detail?: string
+}

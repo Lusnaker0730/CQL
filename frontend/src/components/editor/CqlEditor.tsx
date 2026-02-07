@@ -6,12 +6,14 @@ import { useDispatch, useSelector } from 'react-redux'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'
 import { setCqlContent, setCursorPosition } from '../../store/editorSlice'
 import type { RootState } from '../../store'
+import type { TerminologyValidationItem } from '../../types'
 
 interface CqlEditorProps {
   height?: string | number
   readOnly?: boolean
   onTranslate?: () => void
   onExecute?: () => void
+  terminologyIssues?: TerminologyValidationItem[]
 }
 
 export default function CqlEditor({
@@ -19,11 +21,13 @@ export default function CqlEditor({
   readOnly = false,
   onTranslate,
   onExecute,
+  terminologyIssues,
 }: CqlEditorProps) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings } = useSelector((state: RootState) => state.editor)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const lastExternalContent = useRef(cqlContent)
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
@@ -54,11 +58,24 @@ export default function CqlEditor({
   const handleChange: OnChange = useCallback(
     (value) => {
       if (value !== undefined) {
+        lastExternalContent.current = value
         dispatch(setCqlContent(value))
       }
     },
     [dispatch]
   )
+
+  // Sync content from Redux only when it changes externally (e.g., loading a library)
+  useEffect(() => {
+    if (!editorRef.current) return
+    if (cqlContent !== lastExternalContent.current) {
+      lastExternalContent.current = cqlContent
+      const currentValue = editorRef.current.getValue()
+      if (currentValue !== cqlContent) {
+        editorRef.current.setValue(cqlContent)
+      }
+    }
+  }, [cqlContent])
 
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return
@@ -86,8 +103,33 @@ export default function CqlEditor({
       })),
     ]
 
+    // Add terminology issue markers
+    if (terminologyIssues && terminologyIssues.length > 0) {
+      const content = model.getValue()
+      const lines = content.split('\n')
+
+      for (const issue of terminologyIssues) {
+        // Search for the terminology reference name in the editor content
+        const searchName = `"${issue.name}"`
+        for (let i = 0; i < lines.length; i++) {
+          const col = lines[i].indexOf(searchName)
+          if (col !== -1) {
+            markers.push({
+              severity: monaco.MarkerSeverity.Info,
+              message: `Terminology: ${issue.detail || `${issue.type} "${issue.name}" could not be validated`}`,
+              startLineNumber: i + 1,
+              startColumn: col + 1,
+              endLineNumber: i + 1,
+              endColumn: col + 1 + searchName.length,
+            })
+            break
+          }
+        }
+      }
+    }
+
     monaco.editor.setModelMarkers(model, 'cql', markers)
-  }, [errors, warnings])
+  }, [errors, warnings, terminologyIssues])
 
   return (
     <Box
@@ -109,7 +151,7 @@ export default function CqlEditor({
       <Editor
         height="100%"
         defaultLanguage="cql"
-        value={cqlContent}
+        defaultValue={cqlContent}
         onChange={handleChange}
         onMount={handleEditorDidMount}
         loading={<CircularProgress />}
@@ -124,7 +166,7 @@ export default function CqlEditor({
           wordWrap: 'on',
           folding: true,
           bracketPairColorization: { enabled: true },
-          formatOnPaste: true,
+          formatOnPaste: false,
           formatOnType: true,
         }}
       />

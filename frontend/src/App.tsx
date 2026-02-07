@@ -6,6 +6,7 @@ import EditorPage from './pages/EditorPage'
 import CdsPage from './pages/CdsPage'
 import MeasuresPage from './pages/MeasuresPage'
 import FhirPage from './pages/FhirPage'
+import TerminologyPage from './pages/TerminologyPage'
 import LoginPage from './pages/LoginPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 
@@ -31,6 +32,7 @@ export default function App() {
                   <Route path="/cds" element={<CdsPage />} />
                   <Route path="/measures" element={<MeasuresPage />} />
                   <Route path="/fhir" element={<FhirPage />} />
+                  <Route path="/terminology" element={<TerminologyPage />} />
                 </Routes>
               </Box>
               <Footer />

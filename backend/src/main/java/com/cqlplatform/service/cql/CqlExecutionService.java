@@ -9,7 +9,6 @@ import com.cqlplatform.service.fhir.FhirDataProviderService;
 import com.cqlplatform.service.fhir.FhirTerminologyService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.LibraryManager;
@@ -21,11 +20,13 @@ import org.opencds.cqf.cql.engine.execution.EvaluationResult;
 import org.opencds.cqf.cql.engine.fhir.model.R4FhirModelResolver;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.*;
 import org.cqframework.cql.cql2elm.LibrarySourceProvider;
 import org.hl7.elm.r1.VersionedIdentifier;
 import java.io.ByteArrayInputStream;
@@ -33,12 +34,12 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class CqlExecutionService {
 
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
+    private final Executor cqlExecutionExecutor;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer cqlExecutionTimer;
@@ -52,6 +53,18 @@ public class CqlExecutionService {
     @Value("${fhir.server.url:http://hapi.fhir.org/baseR4}")
     private String defaultFhirServerUrl;
 
+    @Value("${cql.execution.timeout-seconds:30}")
+    private int timeoutSeconds;
+
+    public CqlExecutionService(
+            FhirDataProviderService dataProviderService,
+            FhirTerminologyService terminologyService,
+            @Qualifier("cqlExecutionExecutor") Executor cqlExecutionExecutor) {
+        this.dataProviderService = dataProviderService;
+        this.terminologyService = terminologyService;
+        this.cqlExecutionExecutor = cqlExecutionExecutor;
+    }
+
     public CqlExecutionResponse execute(CqlExecutionRequest request) {
         return executeWithProvider(request, null);
     }
@@ -62,6 +75,35 @@ public class CqlExecutionService {
         Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
+        try {
+            CompletableFuture<CqlExecutionResponse> future = CompletableFuture.supplyAsync(
+                    () -> doExecute(request, prefetchProvider, startTime), cqlExecutionExecutor);
+
+            CqlExecutionResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            return response;
+
+        } catch (TimeoutException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("CQL execution timed out after " + timeoutSeconds + "s");
+        } catch (ExecutionException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            Throwable cause = e.getCause();
+            if (cause instanceof CqlExecutionException) {
+                throw (CqlExecutionException) cause;
+            }
+            throw new CqlExecutionException("Execution failed: " + cause.getMessage(), cause);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("CQL execution was interrupted", e);
+        }
+    }
+
+    private CqlExecutionResponse doExecute(CqlExecutionRequest request, RetrieveProvider prefetchProvider, long startTime) {
         try {
             // Translate CQL to ELM
             ModelManager modelManager = new ModelManager();
@@ -162,7 +204,7 @@ public class CqlExecutionService {
 
             long executionTime = System.currentTimeMillis() - startTime;
 
-            CqlExecutionResponse response = CqlExecutionResponse.builder()
+            return CqlExecutionResponse.builder()
                     .success(true)
                     .patientId(request.getPatientId())
                     .results(results)
@@ -174,12 +216,8 @@ public class CqlExecutionService {
                             .resourcesRetrieved(dataProviderService.getAndResetRetrieveCount())
                             .build())
                     .build();
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
-            return response;
 
         } catch (Exception e) {
-            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             log.error("CQL execution failed", e);
             throw new CqlExecutionException("Execution failed: " + e.getMessage(), e);
         }

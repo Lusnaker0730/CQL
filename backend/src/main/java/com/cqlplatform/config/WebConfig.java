@@ -39,26 +39,9 @@ public class WebConfig implements WebMvcConfigurer {
                     HttpServletResponse response, FilterChain filterChain)
                     throws ServletException, IOException {
 
+                // Only add the PNA header; standard CORS is handled by corsFilter()
                 String origin = request.getHeader("Origin");
-
-                if ("OPTIONS".equalsIgnoreCase(request.getMethod()) && origin != null) {
-                    // Handle CORS + PNA preflight completely
-                    if (isAllowedOrigin(origin)) {
-                        response.setHeader("Access-Control-Allow-Origin", origin);
-                        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH");
-                        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
-                        response.setHeader("Access-Control-Allow-Credentials", "true");
-                        response.setHeader("Access-Control-Allow-Private-Network", "true");
-                        response.setHeader("Access-Control-Max-Age", "3600");
-                        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-                        return;
-                    }
-                }
-
-                // For non-preflight requests, still add PNA and CORS headers
                 if (origin != null && isAllowedOrigin(origin)) {
-                    response.setHeader("Access-Control-Allow-Origin", origin);
-                    response.setHeader("Access-Control-Allow-Credentials", "true");
                     response.setHeader("Access-Control-Allow-Private-Network", "true");
                 }
 

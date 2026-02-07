@@ -59,7 +59,9 @@
       "Bash(./mvnw test:*)",
       "Bash(mvn clean test:*)",
       "Bash(git -C D:/CQL log --oneline -20)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(mvn verify:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

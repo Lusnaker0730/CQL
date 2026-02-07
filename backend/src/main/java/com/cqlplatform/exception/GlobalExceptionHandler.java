@@ -1,5 +1,6 @@
 package com.cqlplatform.exception;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,28 @@ public class GlobalExceptionHandler {
                 .details(errors)
                 .build();
         return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(FhirServerUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleFhirServerUnavailableException(FhirServerUnavailableException ex) {
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("FHIR Server Unavailable")
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ResponseEntity<ErrorResponse> handleCircuitBreakerOpenException(CallNotPermittedException ex) {
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("Service Circuit Breaker Open")
+                .message("FHIR service is temporarily unavailable due to repeated failures. Please try again later.")
+                .build();
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
 
     @ExceptionHandler(Exception.class)

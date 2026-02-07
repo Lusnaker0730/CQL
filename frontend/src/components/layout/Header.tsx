@@ -25,6 +25,7 @@ const navItems = [
   { label: 'CDS Hooks', path: '/cds' },
   { label: 'Measures', path: '/measures' },
   { label: 'FHIR Browser', path: '/fhir' },
+  { label: 'Terminology', path: '/terminology' },
 ]
 
 export default function Header() {

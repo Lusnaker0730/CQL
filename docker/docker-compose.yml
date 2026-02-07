@@ -62,6 +62,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    stop_grace_period: 35s
     deploy:
       resources:
         limits:
@@ -153,6 +154,23 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    depends_on:
+      - prometheus
+    networks:
+      - cql-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
 
 networks:
   cql-network:

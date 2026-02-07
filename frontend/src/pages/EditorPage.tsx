@@ -20,6 +20,7 @@ import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
 import type { RootState } from '../store'
 import { useTranslate, useCreateLibrary } from '../hooks/useCql'
+import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -36,11 +37,12 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 export default function EditorPage() {
-  const { cqlContent, isTranslating, errors } = useSelector((state: RootState) => state.editor)
+  const { cqlContent, isTranslating, errors, elmJson } = useSelector((state: RootState) => state.editor)
   const [rightPanelTab, setRightPanelTab] = useState(0)
 
   const translateMutation = useTranslate()
   const saveLibraryMutation = useCreateLibrary()
+  const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
 
   const handleTranslate = () => {
     translateMutation.mutate({ cql: cqlContent })
@@ -122,6 +124,7 @@ export default function EditorPage() {
               <CqlEditor
                 height="100%"
                 onTranslate={handleTranslate}
+                terminologyIssues={terminologyResults.filter((r) => r.status !== 'valid')}
               />
             </Box>
           </Paper>
@@ -152,7 +155,10 @@ export default function EditorPage() {
             </Tabs>
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
               <TabPanel value={rightPanelTab} index={0}>
-                <ElmViewer />
+                <ElmViewer
+                  terminologyResults={terminologyResults}
+                  isTermValidating={isTermValidating}
+                />
               </TabPanel>
               <TabPanel value={rightPanelTab} index={1}>
                 <ExecutionPanel />
