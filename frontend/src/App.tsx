@@ -6,26 +6,38 @@ import EditorPage from './pages/EditorPage'
 import CdsPage from './pages/CdsPage'
 import MeasuresPage from './pages/MeasuresPage'
 import FhirPage from './pages/FhirPage'
+import LoginPage from './pages/LoginPage'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 
 export default function App() {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          background: 'linear-gradient(180deg, #EDF2F6 0%, #F4F7F9 50%, #F9FBFC 100%)',
-        }}
-      >
-        <Routes>
-          <Route path="/" element={<EditorPage />} />
-          <Route path="/cds" element={<CdsPage />} />
-          <Route path="/measures" element={<MeasuresPage />} />
-          <Route path="/fhir" element={<FhirPage />} />
-        </Routes>
-      </Box>
-      <Footer />
-    </Box>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+              <Header />
+              <Box
+                component="main"
+                sx={{
+                  flexGrow: 1,
+                  background: 'linear-gradient(180deg, #EDF2F6 0%, #F4F7F9 50%, #F9FBFC 100%)',
+                }}
+              >
+                <Routes>
+                  <Route path="/" element={<EditorPage />} />
+                  <Route path="/cds" element={<CdsPage />} />
+                  <Route path="/measures" element={<MeasuresPage />} />
+                  <Route path="/fhir" element={<FhirPage />} />
+                </Routes>
+              </Box>
+              <Footer />
+            </Box>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   )
 }

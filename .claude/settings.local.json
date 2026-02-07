@@ -48,7 +48,9 @@
       "Bash(javap:*)",
       "Bash(\"C:\\\\Program Files\\\\Common Files\\\\Oracle\\\\Java\\\\javapath\\\\javap.exe\" -c -p \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\RestFhirRetrieveProvider.class\")",
       "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\RestFhirRetrieveProvider.class\")",
-      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\SearchParamFhirRetrieveProvider.class\")"
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\SearchParamFhirRetrieveProvider.class\")",
+      "Bash(./mvnw compile:*)",
+      "Bash(mvn clean compile:*)"
     ]
   }
 }

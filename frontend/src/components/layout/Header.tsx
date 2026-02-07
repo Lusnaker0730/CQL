@@ -6,13 +6,19 @@ import {
   Stack,
   IconButton,
   Box,
+  Chip,
 } from '@mui/material'
 import {
   LocalHospital as MedicalIcon,
   GitHub as GitHubIcon,
   Brightness4 as DarkModeIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useSelector, useDispatch } from 'react-redux'
+import type { RootState } from '../../store'
+import { logout } from '../../store/authSlice'
 
 const navItems = [
   { label: 'Editor', path: '/' },
@@ -24,6 +30,13 @@ const navItems = [
 export default function Header() {
   const navigate = useNavigate()
   const location = useLocation()
+  const dispatch = useDispatch()
+  const user = useSelector((state: RootState) => state.auth.user)
+
+  const handleLogout = () => {
+    dispatch(logout())
+    navigate('/login')
+  }
 
   return (
     <AppBar position="static" elevation={0}>
@@ -111,7 +124,21 @@ export default function Header() {
           })}
         </Stack>
 
-        <Stack direction="row" spacing={0.5}>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          {user && (
+            <Chip
+              icon={<PersonIcon sx={{ color: 'rgba(255,255,255,0.8) !important', fontSize: 16 }} />}
+              label={user.username}
+              size="small"
+              sx={{
+                color: 'white',
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                mr: 0.5,
+                '& .MuiChip-label': { fontSize: '0.8rem' },
+              }}
+            />
+          )}
           <IconButton
             color="inherit"
             title="Toggle dark mode"
@@ -135,6 +162,18 @@ export default function Header() {
             }}
           >
             <GitHubIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <IconButton
+            color="inherit"
+            onClick={handleLogout}
+            title="Logout"
+            sx={{
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+              transition: 'background-color 0.2s ease',
+            }}
+          >
+            <LogoutIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Stack>
       </Toolbar>

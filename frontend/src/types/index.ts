@@ -1,3 +1,28 @@
+// Auth types
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface RegisterRequest {
+  username: string
+  password: string
+  email?: string
+}
+
+export interface AuthResponse {
+  token: string
+  username: string
+  role: string
+  expiresIn: number
+}
+
+export interface User {
+  username: string
+  email: string
+  role: string
+}
+
 export interface CqlTranslationRequest {
   cql: string
   enableAnnotations?: boolean

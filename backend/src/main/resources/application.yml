@@ -34,6 +34,11 @@ spring:
       settings:
         web-allow-others: false
 
+# JWT Configuration
+jwt:
+  secret: CQLPlatformSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!
+  expiration-ms: 86400000  # 24 hours
+
 # CQL Platform Configuration
 cql:
   translation:

@@ -46,7 +46,7 @@ public class WebConfig implements WebMvcConfigurer {
                     if (isAllowedOrigin(origin)) {
                         response.setHeader("Access-Control-Allow-Origin", origin);
                         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH");
-                        response.setHeader("Access-Control-Allow-Headers", "*");
+                        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
                         response.setHeader("Access-Control-Allow-Credentials", "true");
                         response.setHeader("Access-Control-Allow-Private-Network", "true");
                         response.setHeader("Access-Control-Max-Age", "3600");
@@ -78,7 +78,8 @@ public class WebConfig implements WebMvcConfigurer {
                 "http://localhost:*",
                 "http://127.0.0.1:*"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
-        config.setAllowedHeaders(Arrays.asList("*"));
+        config.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"));
+        config.setExposedHeaders(Arrays.asList("Authorization"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
