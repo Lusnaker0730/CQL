@@ -5,7 +5,6 @@ import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
 import com.cqlplatform.model.cds.*;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.cqlplatform.service.cql.CqlExecutionService;
-import com.cqlplatform.service.fhir.FhirDataProviderService;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,10 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,8 +26,6 @@ class CdsHooksServiceTest {
     private CqlExecutionService executionService;
     @Mock
     private CdsServiceConfigRepository repository;
-    @Mock
-    private FhirDataProviderService fhirDataProviderService;
 
     private CdsHooksService cdsHooksService;
 
@@ -38,7 +33,7 @@ class CdsHooksServiceTest {
     void setUp() {
         FhirContext fhirContext = FhirContext.forR4();
         ObjectMapper objectMapper = new ObjectMapper();
-        cdsHooksService = new CdsHooksService(executionService, repository, fhirContext, objectMapper, fhirDataProviderService);
+        cdsHooksService = new CdsHooksService(executionService, repository, fhirContext, objectMapper);
     }
 
     @Test

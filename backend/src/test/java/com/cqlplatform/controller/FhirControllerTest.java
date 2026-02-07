@@ -1,6 +1,5 @@
 package com.cqlplatform.controller;
 
-import ca.uhn.fhir.context.FhirContext;
 import com.cqlplatform.service.fhir.FhirDataProviderService;
 import com.cqlplatform.service.fhir.FhirTerminologyService;
 import org.hl7.fhir.r4.model.*;
@@ -13,9 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;

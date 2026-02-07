@@ -29,8 +29,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import com.cqlplatform.service.fhir.FhirDataProviderService;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -40,7 +38,6 @@ public class CdsHooksService {
     private final CdsServiceConfigRepository repository;
     private final FhirContext fhirContext;
     private final ObjectMapper objectMapper;
-    private final FhirDataProviderService fhirDataProviderService;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)

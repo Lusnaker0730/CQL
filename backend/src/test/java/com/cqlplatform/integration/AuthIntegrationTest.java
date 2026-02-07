@@ -1,6 +1,5 @@
 package com.cqlplatform.integration;
 
-import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -31,9 +29,6 @@ class AuthIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
@@ -47,7 +42,7 @@ class AuthIntegrationTest {
     @Test
     void registerAndLogin_fullFlow() throws Exception {
         // Register
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"integuser\",\"password\":\"password123\",\"email\":\"integ@test.com\"}"))
                 .andExpect(status().isOk())

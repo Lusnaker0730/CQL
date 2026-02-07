@@ -16,10 +16,8 @@ import java.util.stream.Collectors;
 public class PrefetchRetrieveProvider implements RetrieveProvider {
 
     private final Map<String, List<Resource>> resourcesByType = new HashMap<>();
-    private final String patientId;
 
     public PrefetchRetrieveProvider(List<Resource> resources, String patientId) {
-        this.patientId = patientId;
         for (Resource resource : resources) {
             resourcesByType
                     .computeIfAbsent(resource.fhirType(), k -> new ArrayList<>())
