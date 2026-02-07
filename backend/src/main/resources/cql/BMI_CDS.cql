@@ -6,23 +6,21 @@ include FHIRHelpers version '4.0.1' called FHIRHelpers
 
 codesystem "LOINC": 'http://loinc.org'
 
-code "Body weight": '29463-7' from "LOINC" display 'Body weight'
-code "Body height": '8302-2' from "LOINC" display 'Body height'
+code "Body Weight": '29463-7' from "LOINC" display 'Body Weight'
+code "Body Height": '8302-2' from "LOINC" display 'Body Height'
 
 context Patient
 
 define "Most Recent Weight":
-  Last([Observation: "Body weight"] O
-    where O.status = 'final'
-      and (O.value as Quantity).value is not null
-    sort by effective
+  Last([Observation] O
+    where exists(O.code.coding C where C.code = '29463-7')
+    sort by effective.value
   )
 
 define "Most Recent Height":
-  Last([Observation: "Body height"] O
-    where O.status = 'final'
-      and (O.value as Quantity).value is not null
-    sort by effective
+  Last([Observation] O
+    where exists(O.code.coding C where C.code = '8302-2')
+    sort by effective.value
   )
 
 define "Weight in Kg":

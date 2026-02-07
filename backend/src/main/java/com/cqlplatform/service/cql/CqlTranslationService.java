@@ -23,6 +23,9 @@ import java.util.stream.Collectors;
 public class CqlTranslationService {
 
     public CqlTranslationResponse translate(CqlTranslationRequest request) {
+        if (request.getCql() == null || request.getCql().isBlank()) {
+            throw new IllegalArgumentException("CQL content must not be null or empty");
+        }
         log.debug("Translating CQL: {}", request.getCql().substring(0, Math.min(100, request.getCql().length())));
 
         try {

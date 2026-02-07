@@ -72,8 +72,9 @@ public class CqlExecutionService {
                                 request.getCql()));
             }
 
-            String fhirServerUrl = request.getFhirServerUrl() != null ? request.getFhirServerUrl()
-                    : defaultFhirServerUrl;
+            String fhirServerUrl = request.getFhirServerUrl() != null
+                    ? request.getFhirServerUrl() : defaultFhirServerUrl;
+            log.debug("Using FHIR server URL: {}", fhirServerUrl);
 
             // Setup terminology provider
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
@@ -104,10 +105,14 @@ public class CqlExecutionService {
             // Evaluate
             EvaluationResult evaluationResult;
             if (request.getPatientId() != null) {
+                String patientId = request.getPatientId();
+                if (!patientId.startsWith("Patient/")) {
+                    patientId = "Patient/" + patientId;
+                }
                 evaluationResult = engine.evaluate(
                         elmLibrary.getIdentifier(),
                         expressions,
-                        org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), request.getPatientId()),
+                        org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
                         request.getParameters(),
                         null);
             } else {
@@ -122,8 +127,8 @@ public class CqlExecutionService {
             Map<String, ExpressionResult> results = new LinkedHashMap<>();
             for (String expressionName : expressions) {
                 try {
-                    org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                            evaluationResult.expressionResults.get(expressionName);
+                    org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
+                            .get(expressionName);
                     Object value = exprResult != null ? exprResult.value() : null;
                     results.put(expressionName, ExpressionResult.builder()
                             .name(expressionName)
@@ -153,7 +158,7 @@ public class CqlExecutionService {
                             .libraryId(libraryId.getId())
                             .libraryVersion(libraryId.getVersion())
                             .fhirServerUrl(fhirServerUrl)
-                            .resourcesRetrieved(dataProviderService.getRetrieveCount())
+                            .resourcesRetrieved(dataProviderService.getAndResetRetrieveCount())
                             .build())
                     .build();
 

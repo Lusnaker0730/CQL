@@ -9,7 +9,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - FHIR_SERVER_URL=http://hapi-fhir:8080/fhir
+      - FHIR_SERVER_URL=http://launch.smarthealthit.org/v/r4/fhir
       - FHIR_TERMINOLOGY_URL=http://tx.fhir.org/r4
     depends_on:
       - hapi-fhir

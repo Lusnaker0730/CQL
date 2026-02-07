@@ -19,9 +19,15 @@ import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.FileCopyUtils;
+
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
+import com.cqlplatform.service.fhir.FhirDataProviderService;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +38,7 @@ public class CdsHooksService {
     private final CdsServiceConfigRepository repository;
     private final FhirContext fhirContext;
     private final ObjectMapper objectMapper;
+    private final FhirDataProviderService fhirDataProviderService;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -51,11 +58,10 @@ public class CdsHooksService {
 
     private void loadBmiService() {
         try {
-            org.springframework.core.io.Resource resource = new org.springframework.core.io.ClassPathResource(
-                    "cql/BMI_CDS.cql");
+            ClassPathResource resource = new ClassPathResource("cql/BMI_CDS.cql");
             String cqlContent = new String(
-                    org.springframework.util.FileCopyUtils.copyToByteArray(resource.getInputStream()),
-                    java.nio.charset.StandardCharsets.UTF_8);
+                    FileCopyUtils.copyToByteArray(resource.getInputStream()),
+                    StandardCharsets.UTF_8);
 
             Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch = new HashMap<>();
             prefetch.put("patient", CdsServiceDefinition.PrefetchTemplate.builder()
@@ -212,8 +218,8 @@ public class CdsHooksService {
     }
 
     public CdsResponse invokeService(String serviceId, CdsRequest request) {
-        log.info("Invoking CDS service: {} for patient: {}",
-                serviceId, request.getContext() != null ? request.getContext().getPatientId() : "unknown");
+        String patientId = request.getContext() != null ? request.getContext().getPatientId() : "unknown";
+        log.info("Invoking CDS service: {} for patient: {}", serviceId, patientId);
 
         CdsServiceConfig config = serviceConfigs.get(serviceId);
 
@@ -358,6 +364,7 @@ public class CdsHooksService {
         log.info("Building cards from CQL execution. Success: {}, Results count: {}",
                 execResponse.isSuccess(),
                 execResponse.getResults() != null ? execResponse.getResults().size() : 0);
+        log.info("Execution Metadata: {}", execResponse.getMetadata());
 
         if (execResponse.getResults() != null) {
             for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults()

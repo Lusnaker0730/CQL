@@ -26,13 +26,14 @@ spring:
 # FHIR Configuration for Docker environment
 fhir:
   server:
-    url: ${FHIR_SERVER_URL:http://hapi-fhir:8080/fhir}
+    url: ${FHIR_SERVER_URL:http://launch.smarthealthit.org/v/r4/fhir}
   terminology:
     url: ${FHIR_TERMINOLOGY_URL:http://tx.fhir.org/r4}
 
 # Logging
 logging:
   level:
-    com.cqlplatform: INFO
-    org.opencds.cqf: WARN
-    ca.uhn.fhir: WARN
+    com.cqlplatform: DEBUG
+    org.opencds.cqf: INFO
+    ca.uhn.fhir: INFO
+    ca.uhn.fhir.rest.client: DEBUG

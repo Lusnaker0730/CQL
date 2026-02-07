@@ -33,7 +33,22 @@
       "Bash(ls:*)",
       "Bash(npm install:*)",
       "Bash(node_modules/.bin/tsc:*)",
-      "Bash(node_modules/.bin/vite build:*)"
+      "Bash(node_modules/.bin/vite build:*)",
+      "Bash(xargs cat:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(jar tf:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"& { [System.IO.Compression.ZipFile]::OpenRead\\(''C:\\\\Users\\\\alumi\\\\.m2\\\\repository\\\\info\\\\cqframework\\\\engine-fhir\\\\3.29.0\\\\engine-fhir-3.29.0.jar''\\).Entries | Where-Object { $_FullName -match ''retrieve|SearchParam'' } | ForEach-Object { $_FullName } }\")",
+      "Bash(powershell -Command \"Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::OpenRead\\(''C:\\\\Users\\\\alumi\\\\.m2\\\\repository\\\\info\\\\cqframework\\\\engine-fhir\\\\3.29.0\\\\engine-fhir-3.29.0.jar''\\).Entries | Where-Object { $_FullName -match ''retrieve|SearchParam'' } | ForEach-Object { $_FullName }\")",
+      "Bash(where:*)",
+      "Bash(\"/c/Program Files/Eclipse Adoptium/jdk-17.0.13.11-hotspot/bin/jar\" tf \"C:\\\\Users\\\\alumi\\\\.m2\\\\repository\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine.fhir\\\\2.4.0\\\\engine.fhir-2.4.0.jar\")",
+      "Bash(java:*)",
+      "Bash(python3:*)",
+      "Bash(unzip:*)",
+      "Bash(javap:*)",
+      "Bash(\"C:\\\\Program Files\\\\Common Files\\\\Oracle\\\\Java\\\\javapath\\\\javap.exe\" -c -p \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\RestFhirRetrieveProvider.class\")",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\RestFhirRetrieveProvider.class\")",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap\" -p -c \"C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--CQL\\\\ca011c9d-9f31-4dd1-a747-1e2b17efb3d1\\\\scratchpad\\\\engine-fhir\\\\org\\\\opencds\\\\cqf\\\\cql\\\\engine\\\\fhir\\\\retrieve\\\\SearchParamFhirRetrieveProvider.class\")"
     ]
   }
 }

@@ -49,7 +49,7 @@ cql:
 # FHIR Configuration
 fhir:
   server:
-    url: http://hapi.fhir.org/baseR4
+    url: http://launch.smarthealthit.org/v/r4/fhir
   terminology:
     url: http://tx.fhir.org/r4
 
