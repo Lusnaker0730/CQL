@@ -35,6 +35,7 @@ import type { MeasureEvaluationResult, PopulationResult, MeasureDefinition, Stra
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import MeasureScheduleManager from './MeasureScheduleManager'
+import { validateDateRange, validateFhirUrl } from '../../utils/validation'
 
 interface MeasurePanelProps {
   selectedMeasure?: MeasureDefinition | null
@@ -51,6 +52,8 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   const [selectedDef, setSelectedDef] = useState<MeasureDefinition | null>(null)
   const [stratExpanded, setStratExpanded] = useState(false)
   const [showSchedules, setShowSchedules] = useState(false)
+  const [dateError, setDateError] = useState<string | null>(null)
+  const [fhirError, setFhirError] = useState<string | null>(null)
 
   const { data: measures = [] } = useQuery({
     queryKey: ['measures'],
@@ -89,6 +92,11 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   })
 
   const handleEvaluate = () => {
+    const dateErr = validateDateRange(periodStart, periodEnd)
+    const fhirErr = validateFhirUrl(fhirServer)
+    setDateError(dateErr)
+    setFhirError(fhirErr)
+    if (dateErr || fhirErr) return
     evaluateMutation.mutate()
   }
 
@@ -160,7 +168,13 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
         <TextField
           label="FHIR Server URL"
           value={fhirServer}
-          onChange={(e) => setFhirServer(e.target.value)}
+          onChange={(e) => {
+            setFhirServer(e.target.value)
+            setFhirError(null)
+          }}
+          onBlur={() => setFhirError(validateFhirUrl(fhirServer))}
+          error={!!fhirError}
+          helperText={fhirError}
           size="small"
           fullWidth
         />
@@ -179,19 +193,28 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             label="Period Start"
             type="date"
             value={periodStart}
-            onChange={(e) => setPeriodStart(e.target.value)}
+            onChange={(e) => {
+              setPeriodStart(e.target.value)
+              setDateError(null)
+            }}
             size="small"
             fullWidth
             InputLabelProps={{ shrink: true }}
+            error={!!dateError}
           />
           <TextField
             label="Period End"
             type="date"
             value={periodEnd}
-            onChange={(e) => setPeriodEnd(e.target.value)}
+            onChange={(e) => {
+              setPeriodEnd(e.target.value)
+              setDateError(null)
+            }}
             size="small"
             fullWidth
             InputLabelProps={{ shrink: true }}
+            error={!!dateError}
+            helperText={dateError}
           />
         </Stack>
 

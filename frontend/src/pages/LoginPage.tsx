@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { authApi } from '../api'
 import { setCredentials } from '../store/authSlice'
+import { validateUsername, validatePassword } from '../utils/validation'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -26,10 +27,34 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({})
+
+  const validateFields = (): boolean => {
+    const errors: { username?: string; password?: string } = {}
+    const usernameErr = validateUsername(username)
+    const passwordErr = validatePassword(password)
+    if (usernameErr) errors.username = usernameErr
+    if (passwordErr) errors.password = passwordErr
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleBlur = (field: 'username' | 'password') => {
+    if (field === 'username') {
+      const err = validateUsername(username)
+      setFieldErrors((prev) => ({ ...prev, username: err || undefined }))
+    } else {
+      const err = validatePassword(password)
+      setFieldErrors((prev) => ({ ...prev, password: err || undefined }))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!validateFields()) return
+
     setLoading(true)
 
     try {
@@ -102,10 +127,13 @@ export default function LoginPage() {
               label="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onBlur={() => handleBlur('username')}
               margin="normal"
               required
               autoFocus
               autoComplete="username"
+              error={!!fieldErrors.username}
+              helperText={fieldErrors.username}
             />
             <TextField
               fullWidth
@@ -113,9 +141,12 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => handleBlur('password')}
               margin="normal"
               required
               autoComplete={isRegister ? 'new-password' : 'current-password'}
+              error={!!fieldErrors.password}
+              helperText={fieldErrors.password}
             />
             {isRegister && (
               <TextField
@@ -152,6 +183,7 @@ export default function LoginPage() {
                 onClick={() => {
                   setIsRegister(!isRegister)
                   setError('')
+                  setFieldErrors({})
                 }}
               >
                 {isRegister

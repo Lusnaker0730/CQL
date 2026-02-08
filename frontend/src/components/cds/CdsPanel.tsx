@@ -33,7 +33,6 @@ import {
   IconButton,
   Switch,
   FormControlLabel,
-  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -73,6 +72,10 @@ import type {
   CdsServiceConfigResponse,
   CdsServiceAnalytics,
 } from '../../types'
+import { useNotification } from '../../hooks/useNotification'
+import HelpTooltip from '../common/HelpTooltip'
+import { helpContent } from '../../constants/helpContent'
+import { validateRequired, validateFhirUrl } from '../../utils/validation'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -139,15 +142,13 @@ function InvokeServicePanel() {
   const invokeMutation = useInvokeCdsService()
   const feedbackMutation = useSubmitCdsFeedback()
 
+  const { showNotification } = useNotification()
+
   const [selectedService, setSelectedService] = useState<string>('')
   const [patientId, setPatientId] = useState('')
   const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
+  const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
   const [overrideCardUuid, setOverrideCardUuid] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
@@ -196,9 +197,9 @@ function InvokeServicePanel() {
           feedback: [{ card: cardUuid, outcome: 'accepted' }],
         },
       })
-      setSnackbar({ open: true, message: 'Feedback submitted: accepted', severity: 'success' })
+      showNotification('Feedback submitted: accepted', 'success')
     } catch {
-      setSnackbar({ open: true, message: 'Failed to submit feedback', severity: 'error' })
+      showNotification('Failed to submit feedback', 'error')
     }
   }
 
@@ -223,9 +224,9 @@ function InvokeServicePanel() {
         },
       })
       setOverrideDialogOpen(false)
-      setSnackbar({ open: true, message: 'Feedback submitted: overridden', severity: 'success' })
+      showNotification('Feedback submitted: overridden', 'success')
     } catch {
-      setSnackbar({ open: true, message: 'Failed to submit feedback', severity: 'error' })
+      showNotification('Failed to submit feedback', 'error')
     }
   }
 
@@ -281,7 +282,13 @@ function InvokeServicePanel() {
       <TextField
         label="FHIR Server URL"
         value={fhirServer}
-        onChange={(e) => setFhirServer(e.target.value)}
+        onChange={(e) => {
+          setFhirServer(e.target.value)
+          setFhirServerError(null)
+        }}
+        onBlur={() => setFhirServerError(validateFhirUrl(fhirServer))}
+        error={!!fhirServerError}
+        helperText={fhirServerError}
         size="small"
         fullWidth
       />
@@ -491,12 +498,6 @@ function InvokeServicePanel() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
     </Stack>
   )
 }
@@ -519,6 +520,8 @@ function ManageServicesPanel() {
     defaultIndicator: 'info',
     enabled: true,
   })
+
+  const [formErrors, setFormErrors] = useState<{ id?: string; title?: string }>({})
 
   // Versioning state
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false)
@@ -560,6 +563,17 @@ function ManageServicesPanel() {
   }
 
   const handleSave = async () => {
+    const errors: { id?: string; title?: string } = {}
+    const idErr = validateRequired(formData.id, 'Service ID')
+    const titleErr = validateRequired(formData.title, 'Title')
+    if (idErr) errors.id = idErr
+    if (titleErr) errors.title = titleErr
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+    setFormErrors({})
+
     try {
       if (editingService) {
         await updateMutation.mutateAsync({ id: editingService.id, request: formData })
@@ -689,36 +703,48 @@ function ManageServicesPanel() {
             <TextField
               label="Service ID"
               value={formData.id}
-              onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, id: e.target.value })
+                setFormErrors((prev) => ({ ...prev, id: undefined }))
+              }}
               size="small"
               fullWidth
               disabled={!!editingService}
-              helperText="Unique identifier for the service (cannot be changed after creation)"
+              helperText={formErrors.id || 'Unique identifier for the service (cannot be changed after creation)'}
+              error={!!formErrors.id}
             />
 
             <TextField
               label="Title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value })
+                setFormErrors((prev) => ({ ...prev, title: undefined }))
+              }}
               size="small"
               fullWidth
               required
+              error={!!formErrors.title}
+              helperText={formErrors.title}
             />
 
-            <FormControl fullWidth size="small">
-              <InputLabel>Hook Type</InputLabel>
-              <Select
-                value={formData.hook}
-                onChange={(e) => setFormData({ ...formData, hook: e.target.value })}
-                label="Hook Type"
-              >
-                {HOOK_TYPES.map((hook) => (
-                  <MenuItem key={hook} value={hook}>
-                    {hook}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FormControl fullWidth size="small">
+                <InputLabel>Hook Type</InputLabel>
+                <Select
+                  value={formData.hook}
+                  onChange={(e) => setFormData({ ...formData, hook: e.target.value })}
+                  label="Hook Type"
+                >
+                  {HOOK_TYPES.map((hook) => (
+                    <MenuItem key={hook} value={hook}>
+                      {hook}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <HelpTooltip text={helpContent.cds.hookType} />
+            </Stack>
 
             <TextField
               label="Description"

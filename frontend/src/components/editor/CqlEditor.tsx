@@ -8,6 +8,7 @@ import type { LibraryInfo } from '../../utils/cqlSyntax'
 import { setCqlContent, setCursorPosition } from '../../store/editorSlice'
 import type { RootState } from '../../store'
 import type { TerminologyValidationItem, LibraryMetadata } from '../../types'
+import { usePreferences } from '../../hooks/usePreferences'
 
 interface CqlEditorProps {
   height?: string | number
@@ -28,6 +29,7 @@ export default function CqlEditor({
 }: CqlEditorProps) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings } = useSelector((state: RootState) => state.editor)
+  const { preferences } = usePreferences()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
   const lastExternalContent = useRef(cqlContent)
@@ -173,13 +175,13 @@ export default function CqlEditor({
         loading={<CircularProgress />}
         options={{
           readOnly,
-          minimap: { enabled: false },
-          fontSize: 14,
+          minimap: { enabled: preferences.editorMinimap },
+          fontSize: preferences.editorFontSize,
           lineNumbers: 'on',
           scrollBeyondLastLine: false,
           automaticLayout: true,
-          tabSize: 2,
-          wordWrap: 'on',
+          tabSize: preferences.editorTabSize,
+          wordWrap: preferences.editorWordWrap,
           folding: true,
           bracketPairColorization: { enabled: true },
           formatOnPaste: false,

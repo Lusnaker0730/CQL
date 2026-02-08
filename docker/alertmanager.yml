@@ -20,17 +20,17 @@ route:
 receivers:
   - name: 'default'
     webhook_configs:
-      - url: '${ALERT_WEBHOOK_URL:http://localhost:9095/webhook}'
+      - url: 'http://localhost:9095/webhook'
         send_resolved: true
 
   - name: 'pager'
     webhook_configs:
-      - url: '${PAGER_WEBHOOK_URL:http://localhost:9095/pager}'
+      - url: 'http://localhost:9095/pager'
         send_resolved: true
 
   - name: 'slack'
     webhook_configs:
-      - url: '${SLACK_WEBHOOK_URL:http://localhost:9095/slack}'
+      - url: 'http://localhost:9095/slack'
         send_resolved: true
 
 inhibit_rules:

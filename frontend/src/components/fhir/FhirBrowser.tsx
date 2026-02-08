@@ -19,6 +19,9 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
+import HelpTooltip from '../common/HelpTooltip'
+import { helpContent } from '../../constants/helpContent'
+import { validateFhirUrl } from '../../utils/validation'
 
 const FHIR_RESOURCE_TYPES = [
   'Patient',
@@ -58,6 +61,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function FhirBrowser() {
   const [tabValue, setTabValue] = useState(0)
   const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
+  const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [resourceType, setResourceType] = useState('Patient')
   const [searchParams, setSearchParams] = useState('')
   const [resourceId, setResourceId] = useState('')
@@ -114,13 +118,22 @@ export default function FhirBrowser() {
       </Typography>
 
       <Stack spacing={2}>
-        <TextField
-          label="FHIR Server URL"
-          value={fhirServer}
-          onChange={(e) => setFhirServer(e.target.value)}
-          size="small"
-          fullWidth
-        />
+        <Stack direction="row" spacing={1} alignItems="flex-start">
+          <TextField
+            label="FHIR Server URL"
+            value={fhirServer}
+            onChange={(e) => {
+              setFhirServer(e.target.value)
+              setFhirServerError(null)
+            }}
+            onBlur={() => setFhirServerError(validateFhirUrl(fhirServer))}
+            error={!!fhirServerError}
+            helperText={fhirServerError}
+            size="small"
+            fullWidth
+          />
+          <HelpTooltip text={helpContent.fhir.serverUrl} />
+        </Stack>
 
         <FormControl fullWidth size="small">
           <InputLabel>Resource Type</InputLabel>

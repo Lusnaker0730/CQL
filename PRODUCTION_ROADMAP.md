@@ -1,7 +1,7 @@
 # CQL Platform Production Roadmap
 
 > Updated: 2026-02-08
-> Current State: Phase 5 CQL Editor + FHIR Integration + CDS Hooks + eCQM Complete (~96% production-ready)
+> Current State: Phase 5 COMPLETE — All features + Frontend UX (~98% production-ready)
 > Target: Healthcare production deployment
 
 ---
@@ -17,7 +17,7 @@
 | CI/CD | 80% | GOOD - GitHub Actions CI/CD, Dependabot, Trivy scanning, GHCR deployment |
 | Infrastructure | 85% | GOOD - K8s manifests, resource limits, restart policies, network policies, secrets management, graceful shutdown |
 | Resilience | 85% | GOOD - Circuit breakers, retry, connection pooling, execution timeouts, request queuing |
-| Frontend Features | 80% | GOOD - Core features + IntelliSense + snippets + debug panel + import/export |
+| Frontend Features | 92% | GOOD - Core features + IntelliSense + snippets + debug panel + import/export + error boundaries + notifications + preferences + dark mode + library history + validation + inline help |
 | Backend Features | 90% | GOOD - Core services + auth + resilience + FHIR integration + VSAC |
 | CQL Engine | 90% | GOOD - Fully functional with execution timeouts + debug tracing + library dependency resolution + versioning |
 | CDS Hooks | 90% | GOOD - Feedback, card/system actions, hook validation, versioning, analytics, sandbox |
@@ -599,14 +599,80 @@
 - `frontend/src/components/measure/MeasureScheduleManager.tsx`
 - `frontend/src/components/measure/MeasureComparison.tsx`
 
-### Frontend UX
-- [ ] Add React Error Boundaries (prevent white screen crashes)
-- [ ] Add global toast/notification system
-- [ ] Add user preferences (editor settings, theme, default FHIR server)
-- [ ] Add recent/favorites for CQL libraries
-- [ ] Add client-side input validation on all forms
-- [ ] Make backend URL environment-configurable
-- [ ] Add inline help and user documentation
+### Frontend UX - COMPLETE
+- [x] Add React Error Boundaries (prevent white screen crashes)
+- [x] Add global toast/notification system
+- [x] Add user preferences (editor settings, theme, default FHIR server)
+- [x] Add recent/favorites for CQL libraries
+- [x] Add client-side input validation on all forms
+- [x] Make backend URL environment-configurable
+- [x] Add inline help and user documentation
+
+#### Details
+
+**Environment Configuration (IMPLEMENTED)**
+- `VITE_API_URL` and `VITE_CDS_URL` environment variables with `/api` and `/cds-services` defaults
+- `.env.example` template for deployment configuration
+- TypeScript `ImportMetaEnv` declarations in `vite-env.d.ts`
+
+**Global Notification System (IMPLEMENTED)**
+- `NotificationContext` with `showNotification(message, severity, duration?)` API
+- `GlobalNotification` component with stacked Snackbar/Alert (top-right, z-index 9999, auto-dismiss)
+- `useNotification` hook replaces per-component Snackbar patterns (CdsPanel migrated)
+
+**React Error Boundaries (IMPLEMENTED)**
+- `ErrorBoundary` class component with `getDerivedStateFromError`, fallback Paper with error icon + "Try Again" button
+- Dev mode shows stack trace for debugging
+- Top-level boundary wraps entire app; per-route boundaries for isolated recovery (Editor, CDS, Measures, FHIR, Terminology)
+
+**User Preferences (IMPLEMENTED)**
+- `PreferencesContext` with localStorage persistence (`cql-platform-preferences` key)
+- Settings: editorFontSize, editorTabSize, editorWordWrap, editorMinimap, themeMode (light/dark), defaultFhirServerUrl
+- `PreferencesDialog` with sliders, dropdowns, toggles, and reset button
+- `theme.ts` refactored: `createAppTheme(mode: PaletteMode)` with full dark palette (backgrounds, text, AppBar)
+- `main.tsx` uses `ThemedApp` inner component with `useMemo` for reactive theme switching
+- Header: dark mode toggle button (sun/moon icon), Settings gear button
+- CqlEditor: reads fontSize, tabSize, wordWrap, minimap from preferences
+- ExecutionPanel: initializes FHIR server URL from preferences
+
+**Recent/Favorites for CQL Libraries (IMPLEMENTED)**
+- `LibraryHistoryContext` tracks recent (last 10) and favorites (Set) in localStorage
+- `LibraryQuickAccess` sidebar: collapsible Favorites/Recent sections, star toggle, click-to-load, clear button
+- EditorPage layout changed to 3-column (2/5.5/4.5) on md+; sidebar hidden on xs
+- Save/export actions add library to recent history
+
+**Client-Side Input Validation (IMPLEMENTED)**
+- Pure validation functions: `validateUsername`, `validatePassword`, `validateFhirUrl`, `validateJson`, `validateDateRange`, `validateHookType`, `validateRequired`
+- LoginPage: per-field error state, validate on blur + submit, MUI error/helperText props
+- CdsPanel: FHIR URL validation, service ID/title required validation in create/edit dialog
+- MeasurePanel: date range validation (start before end), FHIR URL validation
+- FhirBrowser: FHIR server URL format validation on blur
+
+**Inline Help & Documentation (IMPLEMENTED)**
+- `helpContent.ts`: structured help strings for editor, CDS hooks, FHIR, and 6-section quick-start guide
+- `HelpTooltip` component: `(?)` icon with MUI Tooltip for contextual help
+- `HelpDrawer`: right-anchored Drawer with quick-start guide sections
+- Header: Help icon button opens HelpDrawer
+- EditorPage: HelpTooltips next to Translate, Save, Export, Import buttons
+- CdsPanel: HelpTooltip for hook type selector
+- FhirBrowser: HelpTooltip for FHIR server URL
+
+**New Files Created:**
+- `frontend/.env.example`
+- `frontend/src/contexts/NotificationContext.tsx`
+- `frontend/src/contexts/PreferencesContext.tsx`
+- `frontend/src/contexts/LibraryHistoryContext.tsx`
+- `frontend/src/hooks/useNotification.ts`
+- `frontend/src/hooks/usePreferences.ts`
+- `frontend/src/hooks/useLibraryHistory.ts`
+- `frontend/src/components/common/GlobalNotification.tsx`
+- `frontend/src/components/common/ErrorBoundary.tsx`
+- `frontend/src/components/common/PreferencesDialog.tsx`
+- `frontend/src/components/common/HelpTooltip.tsx`
+- `frontend/src/components/common/HelpDrawer.tsx`
+- `frontend/src/components/editor/LibraryQuickAccess.tsx`
+- `frontend/src/utils/validation.ts`
+- `frontend/src/constants/helpContent.ts`
 
 ---
 
@@ -681,3 +747,12 @@
 | Load Test | `load-tests/k6-load-test.js` |
 | Runbooks | `docs/runbooks/` |
 | Theme | `frontend/src/theme.ts` |
+| Error Boundary | `frontend/src/components/common/ErrorBoundary.tsx` |
+| Notification Context | `frontend/src/contexts/NotificationContext.tsx` |
+| Preferences Context | `frontend/src/contexts/PreferencesContext.tsx` |
+| Library History Context | `frontend/src/contexts/LibraryHistoryContext.tsx` |
+| Preferences Dialog | `frontend/src/components/common/PreferencesDialog.tsx` |
+| Help Drawer | `frontend/src/components/common/HelpDrawer.tsx` |
+| Library Quick Access | `frontend/src/components/editor/LibraryQuickAccess.tsx` |
+| Validation Utils | `frontend/src/utils/validation.ts` |
+| Help Content | `frontend/src/constants/helpContent.ts` |

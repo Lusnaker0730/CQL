@@ -38,7 +38,7 @@ import type {
 } from '../types'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -154,10 +154,19 @@ export const cqlApi = {
 }
 
 const cdsApi = axios.create({
-  baseURL: '/cds-services',
+  baseURL: import.meta.env.VITE_CDS_URL || '/cds-services',
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+// Attach JWT token for sandbox requests
+cdsApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
 })
 
 export const cdsHooksApi = {

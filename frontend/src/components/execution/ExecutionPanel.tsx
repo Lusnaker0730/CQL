@@ -33,6 +33,7 @@ import type { RootState } from '../../store'
 import { setPatientId, setFhirServerUrl } from '../../store/executionSlice'
 import { useExecute } from '../../hooks/useCql'
 import DebugPanel from './DebugPanel'
+import { usePreferences } from '../../hooks/usePreferences'
 
 export default function ExecutionPanel() {
   const dispatch = useDispatch()
@@ -40,6 +41,14 @@ export default function ExecutionPanel() {
   const { patientId, fhirServerUrl, isExecuting, results, errors, executionTimeMs, debugTrace } = useSelector(
     (state: RootState) => state.execution
   )
+  const { preferences } = usePreferences()
+
+  // Set default FHIR server URL from preferences if not already set
+  React.useEffect(() => {
+    if (!fhirServerUrl && preferences.defaultFhirServerUrl) {
+      dispatch(setFhirServerUrl(preferences.defaultFhirServerUrl))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const executeMutation = useExecute()
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set())
   const [debugMode, setDebugMode] = useState(false)

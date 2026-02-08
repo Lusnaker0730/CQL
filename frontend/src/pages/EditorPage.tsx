@@ -20,9 +20,13 @@ import { useSelector } from 'react-redux'
 import CqlEditor from '../components/editor/CqlEditor'
 import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
+import LibraryQuickAccess from '../components/editor/LibraryQuickAccess'
+import HelpTooltip from '../components/common/HelpTooltip'
 import type { RootState } from '../store'
 import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata } from '../hooks/useCql'
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
+import { useLibraryHistory } from '../hooks/useLibraryHistory'
+import { helpContent } from '../constants/helpContent'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -42,6 +46,7 @@ export default function EditorPage() {
   const { cqlContent, isTranslating, errors, elmJson } = useSelector((state: RootState) => state.editor)
   const [rightPanelTab, setRightPanelTab] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { addToRecent } = useLibraryHistory()
 
   const translateMutation = useTranslate()
   const saveLibraryMutation = useCreateLibrary()
@@ -55,15 +60,22 @@ export default function EditorPage() {
   }
 
   const handleSaveLibrary = () => {
-    saveLibraryMutation.mutate({ cql: cqlContent })
-  }
-
-  const handleExport = () => {
-    // Save current library first, then export
     saveLibraryMutation.mutate(
       { cql: cqlContent },
       {
         onSuccess: (library) => {
+          addToRecent({ id: library.id, name: library.name, version: library.version })
+        },
+      }
+    )
+  }
+
+  const handleExport = () => {
+    saveLibraryMutation.mutate(
+      { cql: cqlContent },
+      {
+        onSuccess: (library) => {
+          addToRecent({ id: library.id, name: library.name, version: library.version })
           exportMutation.mutate(library.id, {
             onSuccess: (fhirLibrary) => {
               const blob = new Blob([JSON.stringify(fhirLibrary, null, 2)], { type: 'application/json' })
@@ -98,7 +110,6 @@ export default function EditorPage() {
       }
     }
     reader.readAsText(file)
-    // Reset so the same file can be selected again
     e.target.value = ''
   }
 
@@ -112,7 +123,11 @@ export default function EditorPage() {
         style={{ display: 'none' }}
       />
       <Grid container spacing={2} sx={{ height: '100%' }}>
-        <Grid item xs={12} md={7} sx={{ height: '100%' }}>
+        <Grid item xs={12} md={2} sx={{ height: '100%', display: { xs: 'none', md: 'block' } }}>
+          <LibraryQuickAccess />
+        </Grid>
+
+        <Grid item xs={12} md={5.5} sx={{ height: '100%' }}>
           <Paper
             sx={{
               height: '100%',
@@ -136,7 +151,7 @@ export default function EditorPage() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main' }}>
                   CQL Editor
                 </Typography>
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
                   <Button
                     size="small"
                     variant="contained"
@@ -157,6 +172,7 @@ export default function EditorPage() {
                   >
                     {isTranslating ? 'Translating...' : 'Translate'}
                   </Button>
+                  <HelpTooltip text={helpContent.editor.translate} />
                   <Button
                     size="small"
                     variant="outlined"
@@ -174,6 +190,7 @@ export default function EditorPage() {
                   >
                     Save Library
                   </Button>
+                  <HelpTooltip text={helpContent.editor.save} />
                   <Button
                     size="small"
                     variant="outlined"
@@ -191,6 +208,7 @@ export default function EditorPage() {
                   >
                     Export
                   </Button>
+                  <HelpTooltip text={helpContent.editor.export} />
                   <Button
                     size="small"
                     variant="outlined"
@@ -208,6 +226,7 @@ export default function EditorPage() {
                   >
                     Import
                   </Button>
+                  <HelpTooltip text={helpContent.editor.import} />
                 </Stack>
               </Stack>
             </Box>
@@ -222,7 +241,7 @@ export default function EditorPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={5} sx={{ height: '100%' }}>
+        <Grid item xs={12} md={4.5} sx={{ height: '100%' }}>
           <Paper
             sx={{
               height: '100%',
