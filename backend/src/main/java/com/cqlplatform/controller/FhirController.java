@@ -282,7 +282,19 @@ public class FhirController {
         // Detect VSAC URLs and route to VsacService which has proper auth
         if (url.contains("cts.nlm.nih.gov/fhir/ValueSet/")) {
             String oid = url.substring(url.lastIndexOf("/") + 1);
-            expanded = vsacService.expandValueSetByOid(oid);
+            try {
+                expanded = vsacService.expandValueSetByOid(oid);
+            } catch (Exception e) {
+                // VSAC failed — try generic terminology service as fallback
+                try {
+                    expanded = terminologyService.expandValueSet(url, filter);
+                } catch (Exception e2) {
+                    // Both VSAC and generic service failed
+                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body("{\"resourceType\":\"OperationOutcome\",\"issue\":[{\"severity\":\"error\",\"code\":\"transient\",\"diagnostics\":\"VSAC ValueSet expansion failed. Ensure VSAC_API_KEY is configured. OID: " + oid + "\"}]}");
+                }
+            }
         } else {
             expanded = terminologyService.expandValueSet(url, filter);
         }

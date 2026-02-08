@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface UserFavoriteRepository extends JpaRepository<UserFavoriteEntity, Long> {
     List<UserFavoriteEntity> findByUsernameOrderByCreatedAtDesc(String username);
-    Optional<UserFavoriteEntity> findByUsernameAndLibraryId(String username, Long libraryId);
-    void deleteByUsernameAndLibraryId(String username, Long libraryId);
-    boolean existsByUsernameAndLibraryId(String username, Long libraryId);
+    Optional<UserFavoriteEntity> findByUsernameAndLibraryId(String username, String libraryId);
+    void deleteByUsernameAndLibraryId(String username, String libraryId);
+    boolean existsByUsernameAndLibraryId(String username, String libraryId);
 }

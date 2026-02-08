@@ -41,10 +41,10 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
     enabled: search.length > 0,
   })
 
-  const handleSelect = async (libraryId: number) => {
+  const handleSelect = async (libraryId: string) => {
     setLoading(true)
     try {
-      const library = await cqlApi.getLibrary(String(libraryId))
+      const library = await cqlApi.getLibrary(libraryId)
       onSelect(library.cqlContent)
       onClose()
     } catch {
@@ -138,7 +138,7 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
               {searchResults.map((lib) => (
                 <ListItemButton
                   key={lib.id}
-                  onClick={() => handleSelect(Number(lib.id))}
+                  onClick={() => handleSelect(lib.id)}
                   disabled={loading}
                 >
                   <ListItemText

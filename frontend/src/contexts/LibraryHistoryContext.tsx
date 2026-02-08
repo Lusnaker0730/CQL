@@ -30,31 +30,29 @@ export function LibraryHistoryProvider({ children }: { children: ReactNode }) {
   const addRecentMutation = useAddRecent()
   const clearRecentMutation = useClearRecent()
 
-  // Build a Set of library IDs that are favorited (as strings for compatibility)
-  const favoriteIds = new Set(favoritesData.map((f) => String(f.libraryId)))
+  // Build a Set of library IDs that are favorited
+  const favoriteIds = new Set(favoritesData.map((f) => f.libraryId))
 
   // Convert API data to the legacy format for backward compatibility
   const recent: LibraryHistoryItem[] = recentData.map((r) => ({
-    id: String(r.libraryId),
+    id: r.libraryId,
     name: r.libraryName,
     version: r.libraryVersion,
     accessedAt: new Date(r.accessedAt).getTime(),
   }))
 
   const addToRecent = useCallback((item: { id: string; name: string; version: string }) => {
-    const libraryId = Number(item.id)
-    if (!isNaN(libraryId)) {
-      addRecentMutation.mutate(libraryId)
+    if (item.id) {
+      addRecentMutation.mutate(item.id)
     }
   }, [addRecentMutation])
 
   const toggleFavorite = useCallback((id: string) => {
-    const libraryId = Number(id)
-    if (isNaN(libraryId)) return
+    if (!id) return
     if (favoriteIds.has(id)) {
-      removeFavoriteMutation.mutate(libraryId)
+      removeFavoriteMutation.mutate(id)
     } else {
-      addFavoriteMutation.mutate(libraryId)
+      addFavoriteMutation.mutate(id)
     }
   }, [favoriteIds, addFavoriteMutation, removeFavoriteMutation])
 

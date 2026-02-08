@@ -23,7 +23,7 @@ public class UserFavoriteEntity {
     private String username;
 
     @Column(name = "library_id", nullable = false)
-    private Long libraryId;
+    private String libraryId;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

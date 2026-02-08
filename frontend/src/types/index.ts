@@ -519,7 +519,7 @@ export interface LibraryMetadata {
 // User library preferences
 export interface UserFavorite {
   id: number
-  libraryId: number
+  libraryId: string
   libraryName: string
   libraryVersion: string
   createdAt: string
@@ -527,7 +527,7 @@ export interface UserFavorite {
 
 export interface UserRecent {
   id: number
-  libraryId: number
+  libraryId: string
   libraryName: string
   libraryVersion: string
   accessedAt: string

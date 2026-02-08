@@ -162,11 +162,11 @@ export const userPrefsApi = {
     return response.data
   },
 
-  addFavorite: async (libraryId: number): Promise<void> => {
+  addFavorite: async (libraryId: string): Promise<void> => {
     await api.post(`/cql/user-prefs/favorites/${libraryId}`)
   },
 
-  removeFavorite: async (libraryId: number): Promise<void> => {
+  removeFavorite: async (libraryId: string): Promise<void> => {
     await api.delete(`/cql/user-prefs/favorites/${libraryId}`)
   },
 
@@ -175,7 +175,7 @@ export const userPrefsApi = {
     return response.data
   },
 
-  addRecent: async (libraryId: number): Promise<void> => {
+  addRecent: async (libraryId: string): Promise<void> => {
     await api.post(`/cql/user-prefs/recent/${libraryId}`)
   },
 

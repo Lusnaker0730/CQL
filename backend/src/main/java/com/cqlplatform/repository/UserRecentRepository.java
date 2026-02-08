@@ -13,8 +13,8 @@ import java.util.Optional;
 @Repository
 public interface UserRecentRepository extends JpaRepository<UserRecentEntity, Long> {
     List<UserRecentEntity> findByUsernameOrderByAccessedAtDesc(String username);
-    Optional<UserRecentEntity> findByUsernameAndLibraryId(String username, Long libraryId);
-    void deleteByUsernameAndLibraryId(String username, Long libraryId);
+    Optional<UserRecentEntity> findByUsernameAndLibraryId(String username, String libraryId);
+    void deleteByUsernameAndLibraryId(String username, String libraryId);
     long countByUsername(String username);
     void deleteAllByUsername(String username);
 

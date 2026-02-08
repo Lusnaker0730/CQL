@@ -14,13 +14,13 @@ context Patient
 define "Most Recent Weight":
   Last([Observation] O
     where exists(O.code.coding C where C.code = '29463-7')
-    sort by effective.value
+    sort by FHIRHelpers.ToDateTime(effective as FHIR.dateTime)
   )
 
 define "Most Recent Height":
   Last([Observation] O
     where exists(O.code.coding C where C.code = '8302-2')
-    sort by effective.value
+    sort by FHIRHelpers.ToDateTime(effective as FHIR.dateTime)
   )
 
 define "Weight in Kg":

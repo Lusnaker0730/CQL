@@ -23,7 +23,7 @@ public class UserRecentEntity {
     private String username;
 
     @Column(name = "library_id", nullable = false)
-    private Long libraryId;
+    private String libraryId;
 
     @Column(name = "library_name", length = 200)
     private String libraryName;
