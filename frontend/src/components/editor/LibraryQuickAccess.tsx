@@ -18,18 +18,22 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   DeleteSweep as ClearIcon,
+  LocalHospital as TwcdiIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
 import { useDispatch } from 'react-redux'
 import { setCqlContent } from '../../store/editorSlice'
 import { cqlApi } from '../../api'
+import { TWCDI_TEMPLATES } from '../../constants/twcdiTemplates'
 
 export default function LibraryQuickAccess() {
   const { recent, toggleFavorite, isFavorite, clearRecent } = useLibraryHistory()
   const dispatch = useDispatch()
   const [favoritesOpen, setFavoritesOpen] = useState(true)
   const [recentOpen, setRecentOpen] = useState(true)
+  const [twcdiOpen, setTwcdiOpen] = useState(false)
+
 
   const favoriteItems = recent.filter((r) => isFavorite(r.id))
 
@@ -177,6 +181,41 @@ export default function LibraryQuickAccess() {
             ))}
           </List>
         )}
+      </Collapse>
+
+      <Divider />
+
+      {/* TWCDI Templates */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        onClick={() => setTwcdiOpen(!twcdiOpen)}
+      >
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <TwcdiIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+          <Typography variant="subtitle2">TWCDI Templates</Typography>
+        </Stack>
+        {twcdiOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+      </Stack>
+      <Collapse in={twcdiOpen}>
+        <List dense disablePadding>
+          {TWCDI_TEMPLATES.map((template) => (
+            <ListItemButton
+              key={template.name}
+              onClick={() => dispatch(setCqlContent(template.cql))}
+              sx={{ py: 0.25 }}
+            >
+              <ListItemText
+                primary={template.name}
+                secondary={template.description}
+                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
       </Collapse>
     </Paper>
   )

@@ -14,6 +14,7 @@ export const helpContent = {
   },
   fhir: {
     serverUrl: 'The base URL of a FHIR R4 server. Default is the public HAPI FHIR server. You can point to your own server for testing.',
+    bulkExport: 'Initiate a FHIR Bulk Data Export ($export). System exports all resources; Patient/Group exports scope to a compartment. Results are NDJSON files.',
   },
   quickStart: [
     {

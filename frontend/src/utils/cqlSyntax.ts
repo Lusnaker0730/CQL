@@ -198,6 +198,8 @@ export const cqlTokensProvider: languages.IMonarchLanguage = {
     'Composition',
     'DocumentReference',
     'Binary',
+    'Medication',
+    'ImagingStudy',
   ],
 
   operators: [
@@ -603,6 +605,320 @@ export const cqlBuiltInFunctions: languages.CompletionItem[] = [
   { label: 'Flatten', kind: 1, insertText: 'Flatten(${1:list})', insertTextRules: 4, documentation: 'Flattens a list of lists' },
 ] as languages.CompletionItem[]
 
+// TWCDI (Taiwan Core Data for Interoperability) snippet completions
+export const twcdiCompletionItems: languages.CompletionItem[] = [
+  {
+    label: 'TWCDI: Library Header',
+    kind: 14,
+    insertText: `library \${1:TWCoreLibrary} version '\${2:1.0.0}'
+using FHIR version '4.0.1'
+include FHIRHelpers version '4.0.1' called FHIRHelpers
+
+// Taiwan Core code systems
+codesystem "LOINC": 'http://loinc.org'
+codesystem "ICD-10-CM-TW": 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw'
+codesystem "NHI Medication": 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw'
+
+context Patient`,
+    insertTextRules: 4,
+    documentation: 'Complete TW Core CQL library header with Taiwan code systems',
+  },
+  {
+    label: 'TWCDI: Blood Pressure',
+    kind: 14,
+    insertText: `codesystem "LOINC": 'http://loinc.org'
+code "BP Panel": '85354-9' from "LOINC" display 'Blood Pressure Panel'
+
+define "Blood Pressure Readings":
+  [Observation: "BP Panel"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Most Recent BP":
+  Last("Blood Pressure Readings")`,
+    insertTextRules: 4,
+    documentation: 'TW Core blood pressure observation query',
+  },
+  {
+    label: 'TWCDI: Body Weight & Height',
+    kind: 14,
+    insertText: `code "Weight Code": '29463-7' from "LOINC" display 'Body Weight'
+code "Height Code": '8302-2' from "LOINC" display 'Body Height'
+
+define "Body Weight":
+  [Observation: "Weight Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Body Height":
+  [Observation: "Height Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core body weight and height queries',
+  },
+  {
+    label: 'TWCDI: BMI',
+    kind: 14,
+    insertText: `code "BMI Code": '39156-5' from "LOINC" display 'BMI'
+
+define "BMI Results":
+  [Observation: "BMI Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Most Recent BMI":
+  Last("BMI Results")`,
+    insertTextRules: 4,
+    documentation: 'TW Core BMI observation query',
+  },
+  {
+    label: 'TWCDI: Heart Rate',
+    kind: 14,
+    insertText: `code "HR Code": '8867-4' from "LOINC" display 'Heart Rate'
+
+define "Heart Rate":
+  [Observation: "HR Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core heart rate observation query',
+  },
+  {
+    label: 'TWCDI: Temperature',
+    kind: 14,
+    insertText: `code "Temp Code": '8310-5' from "LOINC" display 'Body Temperature'
+
+define "Body Temperature":
+  [Observation: "Temp Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core body temperature query',
+  },
+  {
+    label: 'TWCDI: SpO2',
+    kind: 14,
+    insertText: `code "SpO2 Code": '2708-6' from "LOINC" display 'Oxygen Saturation'
+
+define "SpO2":
+  [Observation: "SpO2 Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core oxygen saturation (SpO2) query',
+  },
+  {
+    label: 'TWCDI: HbA1c',
+    kind: 14,
+    insertText: `code "HbA1c Code": '4548-4' from "LOINC" display 'Hemoglobin A1c'
+
+define "HbA1c Results":
+  [Observation: "HbA1c Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Most Recent HbA1c":
+  Last("HbA1c Results")`,
+    insertTextRules: 4,
+    documentation: 'TW Core HbA1c lab result query',
+  },
+  {
+    label: 'TWCDI: Glucose',
+    kind: 14,
+    insertText: `code "Glucose Code": '2345-7' from "LOINC" display 'Glucose'
+
+define "Glucose Results":
+  [Observation: "Glucose Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core glucose lab result query',
+  },
+  {
+    label: 'TWCDI: eGFR',
+    kind: 14,
+    insertText: `code "eGFR Code": '48642-3' from "LOINC" display 'eGFR'
+
+define "eGFR Results":
+  [Observation: "eGFR Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core eGFR (kidney function) query',
+  },
+  {
+    label: 'TWCDI: Lipid Panel',
+    kind: 14,
+    insertText: `code "Cholesterol Code": '2093-3' from "LOINC" display 'Total Cholesterol'
+code "LDL Code": '2089-1' from "LOINC" display 'LDL Cholesterol'
+code "HDL Code": '2085-9' from "LOINC" display 'HDL Cholesterol'
+code "Triglycerides Code": '2571-8' from "LOINC" display 'Triglycerides'
+
+define "Total Cholesterol":
+  [Observation: "Cholesterol Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "LDL Cholesterol":
+  [Observation: "LDL Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "HDL Cholesterol":
+  [Observation: "HDL Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Triglycerides":
+  [Observation: "Triglycerides Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core lipid panel queries (cholesterol, LDL, HDL, triglycerides)',
+  },
+  {
+    label: 'TWCDI: CBC',
+    kind: 14,
+    insertText: `code "WBC Code": '6690-2' from "LOINC" display 'WBC'
+code "Hemoglobin Code": '718-7' from "LOINC" display 'Hemoglobin'
+code "Platelets Code": '777-3' from "LOINC" display 'Platelets'
+
+define "WBC":
+  [Observation: "WBC Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Hemoglobin":
+  [Observation: "Hemoglobin Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc
+
+define "Platelets":
+  [Observation: "Platelets Code"] O
+    where O.status in { 'final', 'amended', 'corrected' }
+    sort by issued desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core CBC (Complete Blood Count) queries',
+  },
+  {
+    label: 'TWCDI: Active Medications',
+    kind: 14,
+    insertText: `define "Active Medications":
+  [MedicationRequest] M
+    where M.status = 'active'
+      and M.intent = 'order'
+    sort by authoredOn desc
+
+define "Medication Statements":
+  [MedicationStatement] M
+    where M.status = 'active'`,
+    insertTextRules: 4,
+    documentation: 'TW Core active medication queries',
+  },
+  {
+    label: 'TWCDI: Allergies',
+    kind: 14,
+    insertText: `define "Active Allergies":
+  [AllergyIntolerance] A
+    where A.clinicalStatus.coding[0].code = 'active'
+
+define "High Risk Allergies":
+  [AllergyIntolerance] A
+    where A.criticality = 'high'
+      and A.clinicalStatus.coding[0].code = 'active'`,
+    insertTextRules: 4,
+    documentation: 'TW Core allergy and intolerance queries',
+  },
+  {
+    label: 'TWCDI: Conditions',
+    kind: 14,
+    insertText: `define "Active Conditions":
+  [Condition] C
+    where C.clinicalStatus.coding[0].code = 'active'
+    sort by recordedDate desc
+
+define "Confirmed Diagnoses":
+  [Condition] C
+    where C.verificationStatus.coding[0].code = 'confirmed'
+    sort by recordedDate desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core condition and diagnosis queries',
+  },
+  {
+    label: 'TWCDI: Encounters',
+    kind: 14,
+    insertText: `define "Recent Encounters":
+  [Encounter] E
+    where E.status = 'finished'
+    sort by period.start desc
+
+define "Inpatient Encounters":
+  [Encounter] E
+    where E.class.code = 'IMP'
+    sort by period.start desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core encounter queries',
+  },
+  {
+    label: 'TWCDI: Procedures',
+    kind: 14,
+    insertText: `define "Completed Procedures":
+  [Procedure] P
+    where P.status = 'completed'
+    sort by performed desc`,
+    insertTextRules: 4,
+    documentation: 'TW Core procedure queries',
+  },
+  {
+    label: 'TWCDI: Immunizations',
+    kind: 14,
+    insertText: `define "Completed Immunizations":
+  [Immunization] I
+    where I.status = 'completed'
+    sort by occurrence desc
+
+define "Immunization Count":
+  Count("Completed Immunizations")`,
+    insertTextRules: 4,
+    documentation: 'TW Core immunization queries',
+  },
+] as languages.CompletionItem[]
+
+// TW Core code system declaration snippets
+export const twCodeSystemSnippets: languages.CompletionItem[] = [
+  {
+    label: 'TW codesystem: LOINC',
+    kind: 14,
+    insertText: 'codesystem "LOINC": \'http://loinc.org\'',
+    documentation: 'LOINC code system (used for labs & vitals in TW Core)',
+  },
+  {
+    label: 'TW codesystem: ICD-10-CM-TW',
+    kind: 14,
+    insertText: 'codesystem "ICD-10-CM-TW": \'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw\'',
+    documentation: 'Taiwan ICD-10-CM code system for diagnoses',
+  },
+  {
+    label: 'TW codesystem: ICD-10-PCS-TW',
+    kind: 14,
+    insertText: 'codesystem "ICD-10-PCS-TW": \'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw\'',
+    documentation: 'Taiwan ICD-10-PCS code system for procedures',
+  },
+  {
+    label: 'TW codesystem: NHI Medication',
+    kind: 14,
+    insertText: 'codesystem "NHI Medication": \'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw\'',
+    documentation: 'Taiwan NHI medication code system',
+  },
+  {
+    label: 'TW codesystem: NHI Procedure',
+    kind: 14,
+    insertText: 'codesystem "NHI Procedure": \'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-service-payment-tw\'',
+    documentation: 'Taiwan NHI medical service payment code system',
+  },
+] as languages.CompletionItem[]
+
 // FHIR R4 resource property map for dot-completion
 export const fhirResourceProperties: Record<string, Array<{ name: string; type: string; doc: string }>> = {
   Patient: [
@@ -700,6 +1016,15 @@ export const fhirResourceProperties: Record<string, Array<{ name: string; type: 
     { name: 'patient', type: 'Reference(Patient)', doc: 'Who the sensitivity is for' },
     { name: 'criticality', type: 'code', doc: 'low | high | unable-to-assess' },
   ],
+  Medication: [
+    { name: 'id', type: 'string', doc: 'Logical id' },
+    { name: 'code', type: 'CodeableConcept', doc: 'Codes that identify this medication' },
+    { name: 'status', type: 'code', doc: 'active | inactive | entered-in-error' },
+    { name: 'manufacturer', type: 'Reference(Organization)', doc: 'Manufacturer of the item' },
+    { name: 'form', type: 'CodeableConcept', doc: 'Dose form (tablet, capsule, etc.)' },
+    { name: 'amount', type: 'Ratio', doc: 'Amount of drug in package' },
+    { name: 'ingredient', type: 'List<BackboneElement>', doc: 'Active or inactive ingredient' },
+  ],
 }
 
 export interface LibraryInfo {
@@ -760,10 +1085,12 @@ export function provideCqlCompletions(
     }
   }
 
-  // Default: all snippets + built-in functions
+  // Default: all snippets + built-in functions + TWCDI completions
   const suggestions = [
     ...cqlCompletionItems.map((item) => ({ ...item, range })),
     ...cqlBuiltInFunctions.map((item) => ({ ...item, range })),
+    ...twcdiCompletionItems.map((item) => ({ ...item, range })),
+    ...twCodeSystemSnippets.map((item) => ({ ...item, range })),
   ]
 
   return { suggestions }

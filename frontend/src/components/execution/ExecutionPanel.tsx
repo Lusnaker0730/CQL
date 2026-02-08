@@ -34,6 +34,7 @@ import { setPatientId, setFhirServerUrl } from '../../store/executionSlice'
 import { useExecute } from '../../hooks/useCql'
 import DebugPanel from './DebugPanel'
 import { usePreferences } from '../../hooks/usePreferences'
+import FhirServerUrlField from '../common/FhirServerUrlField'
 
 export default function ExecutionPanel() {
   const dispatch = useDispatch()
@@ -115,12 +116,10 @@ export default function ExecutionPanel() {
       </Typography>
 
       <Stack spacing={2}>
-        <TextField
-          label="FHIR Server URL"
+        <FhirServerUrlField
           value={fhirServerUrl}
-          onChange={(e) => dispatch(setFhirServerUrl(e.target.value))}
-          size="small"
-          fullWidth
+          onChange={(value) => dispatch(setFhirServerUrl(value))}
+          selfValidate
         />
 
         <TextField

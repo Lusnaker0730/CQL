@@ -75,7 +75,8 @@ import type {
 import { useNotification } from '../../hooks/useNotification'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
-import { validateRequired, validateFhirUrl } from '../../utils/validation'
+import { validateRequired } from '../../utils/validation'
+import FhirServerUrlField from '../common/FhirServerUrlField'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -279,18 +280,14 @@ function InvokeServicePanel() {
         </Box>
       )}
 
-      <TextField
-        label="FHIR Server URL"
+      <FhirServerUrlField
         value={fhirServer}
-        onChange={(e) => {
-          setFhirServer(e.target.value)
+        onChange={(value) => {
+          setFhirServer(value)
           setFhirServerError(null)
         }}
-        onBlur={() => setFhirServerError(validateFhirUrl(fhirServer))}
         error={!!fhirServerError}
         helperText={fhirServerError}
-        size="small"
-        fullWidth
       />
 
       <TextField

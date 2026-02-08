@@ -260,7 +260,7 @@ public class MeasureEvaluationService {
                 customExpressions.put(key, existing + increment);
             } else if (value instanceof Iterable<?> iterable) {
                 int count = 0;
-                for (Object ignored : iterable) count++;
+                for (Object _ignored : iterable) count++;
                 int existing = customExpressions.containsKey(key)
                         ? ((Number) customExpressions.get(key)).intValue() : 0;
                 customExpressions.put(key, existing + count);

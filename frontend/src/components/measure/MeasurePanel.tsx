@@ -37,6 +37,7 @@ import type { RootState } from '../../store'
 import { setCqlContent } from '../../store/editorSlice'
 import MeasureScheduleManager from './MeasureScheduleManager'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
+import FhirServerUrlField from '../common/FhirServerUrlField'
 
 interface MeasurePanelProps {
   selectedMeasure?: MeasureDefinition | null
@@ -187,18 +188,14 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
           />
         )}
 
-        <TextField
-          label="FHIR Server URL"
+        <FhirServerUrlField
           value={fhirServer}
-          onChange={(e) => {
-            setFhirServer(e.target.value)
+          onChange={(value) => {
+            setFhirServer(value)
             setFhirError(null)
           }}
-          onBlur={() => setFhirError(validateFhirUrl(fhirServer))}
           error={!!fhirError}
           helperText={fhirError}
-          size="small"
-          fullWidth
         />
 
         <TextField

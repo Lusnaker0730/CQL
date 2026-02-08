@@ -5,7 +5,6 @@ import {
   DialogActions,
   Button,
   Stack,
-  TextField,
   FormControl,
   InputLabel,
   Select,
@@ -18,6 +17,7 @@ import {
   Box,
 } from '@mui/material'
 import { usePreferences } from '../../hooks/usePreferences'
+import FhirServerUrlField from './FhirServerUrlField'
 
 interface PreferencesDialogProps {
   open: boolean
@@ -117,12 +117,11 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
             Defaults
           </Typography>
 
-          <TextField
+          <FhirServerUrlField
             label="Default FHIR Server URL"
             value={preferences.defaultFhirServerUrl}
-            onChange={(e) => updatePreferences({ defaultFhirServerUrl: e.target.value })}
-            size="small"
-            fullWidth
+            onChange={(value) => updatePreferences({ defaultFhirServerUrl: value })}
+            selfValidate
           />
         </Stack>
       </DialogContent>
