@@ -24,6 +24,7 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Upload as UploadIcon,
   Download as DownloadIcon,
   Search as SearchIcon,
@@ -40,6 +41,8 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editMeasure, setEditMeasure] = useState<MeasureDefinition | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importJson, setImportJson] = useState('')
   const [newMeasure, setNewMeasure] = useState<Partial<MeasureDefinition>>({
@@ -78,6 +81,30 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setImportJson('')
     },
   })
+
+  const updateMutation = useMutation({
+    mutationFn: (def: MeasureDefinition) => measureApi.updateMeasure(def.id!, def),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['measures'] })
+      setEditOpen(false)
+      setEditMeasure(null)
+    },
+  })
+
+  const handleEdit = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const full = await measureApi.getMeasure(id)
+      setEditMeasure(full)
+      setEditOpen(true)
+    } catch (err) {
+      console.error('Failed to load measure', err)
+    }
+  }
+
+  const handleUpdate = () => {
+    if (editMeasure) updateMutation.mutate(editMeasure)
+  }
 
   const handleCreate = () => {
     createMutation.mutate(newMeasure as MeasureDefinition)
@@ -169,6 +196,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 </TableCell>
                 <TableCell>{m.scoringType}</TableCell>
                 <TableCell align="right">
+                  <IconButton size="small" onClick={(e) => handleEdit(m.id!, e)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
                   <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleExport(m.id!) }}>
                     <DownloadIcon fontSize="small" />
                   </IconButton>
@@ -225,6 +255,55 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             {createMutation.isPending ? 'Creating...' : 'Create'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Measure Definition</DialogTitle>
+        {editMeasure && (
+          <>
+            <DialogContent>
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <TextField label="Name" required size="small" fullWidth
+                  value={editMeasure.name} onChange={(e) => setEditMeasure({ ...editMeasure, name: e.target.value })} />
+                <Stack direction="row" spacing={2}>
+                  <TextField label="Version" size="small" fullWidth
+                    value={editMeasure.version} onChange={(e) => setEditMeasure({ ...editMeasure, version: e.target.value })} />
+                  <TextField label="Status" select size="small" fullWidth
+                    value={editMeasure.status} onChange={(e) => setEditMeasure({ ...editMeasure, status: e.target.value })}>
+                    <MenuItem value="draft">Draft</MenuItem>
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="retired">Retired</MenuItem>
+                  </TextField>
+                </Stack>
+                <TextField label="Title" size="small" fullWidth
+                  value={editMeasure.title || ''} onChange={(e) => setEditMeasure({ ...editMeasure, title: e.target.value })} />
+                <TextField label="Description" size="small" fullWidth multiline rows={2}
+                  value={editMeasure.description || ''} onChange={(e) => setEditMeasure({ ...editMeasure, description: e.target.value })} />
+                <TextField label="Scoring Type" select size="small" fullWidth
+                  value={editMeasure.scoringType} onChange={(e) => setEditMeasure({ ...editMeasure, scoringType: e.target.value })}>
+                  <MenuItem value="proportion">Proportion</MenuItem>
+                  <MenuItem value="ratio">Ratio</MenuItem>
+                  <MenuItem value="continuous-variable">Continuous Variable</MenuItem>
+                  <MenuItem value="cohort">Cohort</MenuItem>
+                  <MenuItem value="composite">Composite</MenuItem>
+                </TextField>
+                <TextField label="CQL Content" size="small" fullWidth multiline rows={12}
+                  value={editMeasure.cqlContent || ''} onChange={(e) => setEditMeasure({ ...editMeasure, cqlContent: e.target.value })}
+                  InputProps={{ sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' } }} />
+                {updateMutation.isError && (
+                  <Alert severity="error">{(updateMutation.error as Error).message}</Alert>
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={handleUpdate} variant="contained" disabled={!editMeasure.name || updateMutation.isPending}>
+                {updateMutation.isPending ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
 
       {/* Import Dialog */}

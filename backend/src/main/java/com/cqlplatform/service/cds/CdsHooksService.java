@@ -24,10 +24,6 @@ import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.util.FileCopyUtils;
-
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,43 +76,6 @@ public class CdsHooksService {
             log.info("Loaded CDS service: {} (v{})", config.getId(), entity.getVersion());
         }
         log.info("Loaded {} CDS services from database", latestByServiceName.size());
-
-        // Load built-in BMI Service
-        loadBmiService();
-    }
-
-    private void loadBmiService() {
-        try {
-            ClassPathResource resource = new ClassPathResource("cql/BMI_CDS.cql");
-            String cqlContent = new String(
-                    FileCopyUtils.copyToByteArray(resource.getInputStream()),
-                    StandardCharsets.UTF_8);
-
-            Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch = new HashMap<>();
-            prefetch.put("patient", CdsServiceDefinition.PrefetchTemplate.builder()
-                    .query("Patient/{{context.patientId}}")
-                    .build());
-            prefetch.put("observations", CdsServiceDefinition.PrefetchTemplate.builder()
-                    .query("Observation?patient={{context.patientId}}&category=vital-signs")
-                    .build());
-
-            CdsServiceConfig bmiConfig = CdsServiceConfig.builder()
-                    .id("bmi-classifier")
-                    .hook("patient-view")
-                    .title("BMI Classification")
-                    .description("Calculates BMI and provides health recommendations")
-                    .cqlLibraryId("BMI_CDS")
-                    .cqlContent(cqlContent)
-                    .defaultIndicator("info")
-                    .prefetch(prefetch)
-                    .build();
-
-            serviceConfigs.put(bmiConfig.getId(), bmiConfig);
-            log.info("Loaded built-in CDS service: bmi-classifier");
-
-        } catch (Exception e) {
-            log.error("Failed to load built-in BMI service", e);
-        }
     }
 
     @Transactional

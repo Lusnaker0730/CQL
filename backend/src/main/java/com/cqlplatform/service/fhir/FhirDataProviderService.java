@@ -325,40 +325,44 @@ public class FhirDataProviderService {
                 results.forEach(resultList::add);
             }
 
-            // MANUAL FALLBACK: If Engine failed to get Observation data for Patient, try manual client
-            if (resultList.isEmpty() && "Observation".equals(dataType) && "Patient".equals(context)
-                    && contextValue != null) {
-                log.debug("Delegate returned 0 results. Triggering fallback manual search.");
-                try {
-                    IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
-                    LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
-                    loggingInterceptor.setLogRequestSummary(true);
-                    loggingInterceptor.setLogResponseSummary(true);
-                    fallbackClient.registerInterceptor(loggingInterceptor);
+            // MANUAL FALLBACK: If delegate returned 0 results, try manual FHIR client
+            if (resultList.isEmpty() && contextValue != null) {
+                String patientId = contextValue.toString();
+                if (patientId.startsWith("Patient/")) {
+                    patientId = patientId.substring("Patient/".length());
+                }
 
-                    String patientId = contextValue.toString();
-                    if (patientId.startsWith("Patient/")) {
-                        patientId = patientId.replace("Patient/", "");
-                    }
-
-                    log.debug("Fallback using Patient ID: {}", patientId);
-
-                    Bundle bundle = fallbackClient.search()
-                            .forResource("Observation")
-                            .where(new TokenClientParam("patient").exactly().code(patientId))
-                            .returnBundle(Bundle.class)
-                            .execute();
-
-                    if (bundle.hasEntry()) {
-                        log.debug("Fallback search found: {} entries", bundle.getEntry().size());
-                        for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-                            resultList.add(entry.getResource());
+                if ("Patient".equals(dataType) && "Patient".equals(context)) {
+                    // Fallback: read Patient by ID directly
+                    log.debug("Patient retrieve returned 0, fallback read for ID: {}", patientId);
+                    try {
+                        IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
+                        Patient patient = fallbackClient.read().resource(Patient.class).withId(patientId).execute();
+                        if (patient != null) {
+                            resultList.add(patient);
                         }
-                    } else {
-                        log.debug("Fallback search also returned 0 entries.");
+                    } catch (Exception e) {
+                        log.debug("Patient fallback read failed: {}", e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.debug("Fallback search failed: {}", e.getMessage());
+                } else if ("Observation".equals(dataType) && "Patient".equals(context)) {
+                    // Fallback: search Observations by patient
+                    log.debug("Observation retrieve returned 0, fallback search for patient: {}", patientId);
+                    try {
+                        IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
+                        Bundle bundle = fallbackClient.search()
+                                .forResource("Observation")
+                                .where(new TokenClientParam("patient").exactly().code(patientId))
+                                .returnBundle(Bundle.class)
+                                .execute();
+
+                        if (bundle.hasEntry()) {
+                            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                                resultList.add(entry.getResource());
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.debug("Observation fallback search failed: {}", e.getMessage());
+                    }
                 }
             }
 

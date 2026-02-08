@@ -47,6 +47,18 @@ export default function CqlEditor({
     }
   }, [libraryMetadata])
 
+  // Clean smart quotes, zero-width chars, and non-breaking spaces from pasted text
+  const sanitizePastedText = (text: string): string => {
+    return text
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')   // zero-width chars
+      .replace(/\u00A0/g, ' ')                        // non-breaking space → space
+      .replace(/[\u2018\u2019\u201A]/g, "'")           // smart single quotes → '
+      .replace(/[\u201C\u201D\u201E]/g, '"')           // smart double quotes → "
+      .replace(/\u2013/g, '-')                         // en-dash → -
+      .replace(/\u2014/g, '--')                        // em-dash → --
+      .replace(/\u2026/g, '...')                       // ellipsis → ...
+  }
+
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
@@ -56,6 +68,37 @@ export default function CqlEditor({
     editor.updateOptions({
       theme: 'cql-theme',
     })
+
+    // Sanitize pasted content from ChatGPT/LLM outputs
+    editor.onDidPaste(() => {
+      const model = editor.getModel()
+      if (!model) return
+      const content = model.getValue()
+      const cleaned = sanitizePastedText(content)
+      if (cleaned !== content) {
+        const selections = editor.getSelections()
+        model.setValue(cleaned)
+        if (selections) editor.setSelections(selections)
+      }
+    })
+
+    // Fallback paste handler using Clipboard API for browsers that block execCommand('paste')
+    const domNode = editor.getDomNode()
+    if (domNode) {
+      domNode.addEventListener('paste', (e: ClipboardEvent) => {
+        const clipboardData = e.clipboardData?.getData('text/plain')
+        if (clipboardData && editor.getModel()) {
+          const cleaned = sanitizePastedText(clipboardData)
+          const selections = editor.getSelections()
+          if (selections && selections.length > 0) {
+            editor.executeEdits('paste', selections.map(sel => ({
+              range: sel,
+              text: cleaned,
+            })))
+          }
+        }
+      })
+    }
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       onTranslate?.()

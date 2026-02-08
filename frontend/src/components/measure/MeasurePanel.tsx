@@ -32,8 +32,9 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureEvaluationResult, PopulationResult, MeasureDefinition, StratifierResult } from '../../types'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import type { RootState } from '../../store'
+import { setCqlContent } from '../../store/editorSlice'
 import MeasureScheduleManager from './MeasureScheduleManager'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
 
@@ -42,6 +43,7 @@ interface MeasurePanelProps {
 }
 
 export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
+  const dispatch = useDispatch()
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [measureId, setMeasureId] = useState('custom-measure')
   const [patientId, setPatientId] = useState('')
@@ -64,8 +66,18 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
     if (selectedMeasure) {
       setSelectedDef(selectedMeasure)
       setMeasureId(selectedMeasure.id?.toString() || selectedMeasure.name)
+      if (selectedMeasure.cqlContent) {
+        dispatch(setCqlContent(selectedMeasure.cqlContent))
+      } else if (selectedMeasure.id) {
+        measureApi.getMeasure(selectedMeasure.id).then((full) => {
+          setSelectedDef(full)
+          if (full.cqlContent) {
+            dispatch(setCqlContent(full.cqlContent))
+          }
+        })
+      }
     }
-  }, [selectedMeasure])
+  }, [selectedMeasure, dispatch])
 
   const evaluateMutation = useMutation({
     mutationFn: () => {
@@ -74,7 +86,8 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
           selectedDef.id.toString(),
           patientId || undefined,
           periodStart,
-          periodEnd
+          periodEnd,
+          fhirServer
         )
       }
       return measureApi.evaluate({
@@ -143,10 +156,19 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
           options={measures}
           getOptionLabel={(m) => `${m.title || m.name} v${m.version}`}
           value={selectedDef}
-          onChange={(_, value) => {
+          onChange={async (_, value) => {
             setSelectedDef(value)
             if (value) {
               setMeasureId(value.id?.toString() || value.name)
+              if (value.cqlContent) {
+                dispatch(setCqlContent(value.cqlContent))
+              } else if (value.id) {
+                const full = await measureApi.getMeasure(value.id)
+                setSelectedDef(full)
+                if (full.cqlContent) {
+                  dispatch(setCqlContent(full.cqlContent))
+                }
+              }
             }
           }}
           renderInput={(params) => (

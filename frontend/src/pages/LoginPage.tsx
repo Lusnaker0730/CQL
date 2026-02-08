@@ -32,9 +32,13 @@ export default function LoginPage() {
   const validateFields = (): boolean => {
     const errors: { username?: string; password?: string } = {}
     const usernameErr = validateUsername(username)
-    const passwordErr = validatePassword(password)
     if (usernameErr) errors.username = usernameErr
-    if (passwordErr) errors.password = passwordErr
+    if (isRegister) {
+      const passwordErr = validatePassword(password)
+      if (passwordErr) errors.password = passwordErr
+    } else {
+      if (!password) errors.password = 'Password is required'
+    }
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -44,7 +48,7 @@ export default function LoginPage() {
       const err = validateUsername(username)
       setFieldErrors((prev) => ({ ...prev, username: err || undefined }))
     } else {
-      const err = validatePassword(password)
+      const err = isRegister ? validatePassword(password) : (!password ? 'Password is required' : null)
       setFieldErrors((prev) => ({ ...prev, password: err || undefined }))
     }
   }

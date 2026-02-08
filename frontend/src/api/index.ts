@@ -260,7 +260,8 @@ export const measureApi = {
     measureId: string,
     subject?: string,
     periodStart?: string,
-    periodEnd?: string
+    periodEnd?: string,
+    fhirServerUrl?: string
   ): Promise<MeasureEvaluationResult> => {
     const params = new URLSearchParams()
     if (subject) params.append('subject', subject)
@@ -269,7 +270,7 @@ export const measureApi = {
 
     const response = await api.post<MeasureEvaluationResult>(
       `/measures/${measureId}/$evaluate-measure?${params.toString()}`,
-      {}
+      { fhirServerUrl }
     )
     return response.data
   },

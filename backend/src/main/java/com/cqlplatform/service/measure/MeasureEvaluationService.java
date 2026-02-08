@@ -88,6 +88,9 @@ public class MeasureEvaluationService {
             populationCounts.put("Numerator", 0);
             populationCounts.put("Numerator Exclusions", 0);
 
+            Set<String> standardPopulations = new HashSet<>(populationCounts.keySet());
+            Map<String, Object> customExpressions = new LinkedHashMap<>();
+
             // Stratification tracking: stratifierId -> strataValue -> populationType -> count
             Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
             List<StratifierDefinition> stratifiers = getStratifiers(measureDefinition);
@@ -120,6 +123,7 @@ public class MeasureEvaluationService {
                 try {
                     CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
                     aggregateResults(populationCounts, execResponse.getResults());
+                    aggregateCustomExpressions(customExpressions, execResponse.getResults(), standardPopulations);
 
                     // Evaluate stratifiers for this patient
                     if (!stratifiers.isEmpty()) {
@@ -144,7 +148,7 @@ public class MeasureEvaluationService {
             }
 
             MeasureEvaluationResult result = buildAggregatedResult(request, populationCounts, periodStart, periodEnd,
-                    patientsToEvaluate.size(), stratificationData);
+                    patientsToEvaluate.size(), stratificationData, customExpressions);
             if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
 
             // Auto-save report
@@ -236,13 +240,42 @@ public class MeasureEvaluationService {
         }
     }
 
+    private void aggregateCustomExpressions(Map<String, Object> customExpressions,
+            Map<String, CqlExecutionResponse.ExpressionResult> results,
+            Set<String> standardPopulations) {
+        if (results == null) return;
+        for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : results.entrySet()) {
+            String key = entry.getKey();
+            if (standardPopulations.contains(key)) continue;
+            Object value = entry.getValue().getValue();
+            if (value instanceof Number) {
+                int intVal = ((Number) value).intValue();
+                int existing = customExpressions.containsKey(key)
+                        ? ((Number) customExpressions.get(key)).intValue() : 0;
+                customExpressions.put(key, existing + intVal);
+            } else if (value instanceof Boolean) {
+                int increment = (Boolean) value ? 1 : 0;
+                int existing = customExpressions.containsKey(key)
+                        ? ((Number) customExpressions.get(key)).intValue() : 0;
+                customExpressions.put(key, existing + increment);
+            } else if (value instanceof Iterable<?> iterable) {
+                int count = 0;
+                for (Object ignored : iterable) count++;
+                int existing = customExpressions.containsKey(key)
+                        ? ((Number) customExpressions.get(key)).intValue() : 0;
+                customExpressions.put(key, existing + count);
+            }
+        }
+    }
+
     private MeasureEvaluationResult buildAggregatedResult(
             MeasureEvaluationRequest request,
             Map<String, Integer> counts,
             LocalDate periodStart,
             LocalDate periodEnd,
             int totalPatients,
-            Map<String, Map<String, Map<String, Integer>>> stratificationData) {
+            Map<String, Map<String, Map<String, Integer>>> stratificationData,
+            Map<String, Object> customExpressions) {
 
         Integer initialPopulation = counts.get("Initial Population");
         Integer denominator = counts.get("Denominator");
@@ -317,6 +350,7 @@ public class MeasureEvaluationService {
                 .periodEnd(periodEnd)
                 .reportType(request.getReportType())
                 .groups(List.of(groupResult))
+                .supplementalData(customExpressions.isEmpty() ? null : customExpressions)
                 .build();
     }
 
