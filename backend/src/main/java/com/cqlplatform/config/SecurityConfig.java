@@ -52,8 +52,12 @@ public class SecurityConfig {
                         .requestMatchers("/.well-known/smart-configuration").permitAll()
                         // CDS Hooks sandbox requires authentication
                         .requestMatchers(HttpMethod.POST, "/cds-services/*/sandbox").authenticated()
+                        // Per-user CDS endpoints (API key auth handled in filter)
+                        .requestMatchers("/cds-services/u/**").permitAll()
                         // CDS Hooks discovery and invocation (external EHR systems)
                         .requestMatchers("/cds-services/**").permitAll()
+                        // User API key management
+                        .requestMatchers("/api/user/api-keys/**").authenticated()
                         // Actuator health & prometheus
                         .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                         // Swagger/OpenAPI
@@ -62,7 +66,8 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         // ADMIN only endpoints
                         .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").hasRole("ADMIN")
+                        // CDS service deletion: ownership enforced in controller (allows user to delete own)
+                        .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/measures/**").hasRole("ADMIN")
                         // All other API endpoints require authentication
                         .requestMatchers("/api/**").authenticated()

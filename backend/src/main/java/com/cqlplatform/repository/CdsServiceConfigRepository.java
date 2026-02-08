@@ -23,6 +23,20 @@ public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConf
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems WHERE c.enabled = true")
     List<CdsServiceConfigEntity> findAllEnabledWithPrefetch();
 
+    List<CdsServiceConfigEntity> findByOwnerUsername(String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.ownerUsername = :username OR c.shared = true")
+    List<CdsServiceConfigEntity> findByOwnerUsernameOrSharedTrue(String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.ownerUsername = :username AND c.enabled = true")
+    List<CdsServiceConfigEntity> findByOwnerUsernameAndEnabledTrue(String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.shared = true AND c.enabled = true")
+    List<CdsServiceConfigEntity> findBySharedTrueAndEnabledTrue();
+
     boolean existsById(String id);
 
     List<CdsServiceConfigEntity> findByServiceNameOrderByVersionDesc(String serviceName);

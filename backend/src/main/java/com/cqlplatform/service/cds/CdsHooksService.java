@@ -80,6 +80,11 @@ public class CdsHooksService {
 
     @Transactional
     public CdsServiceConfigResponse createService(CdsServiceConfigRequest request) {
+        return createService(request, null);
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse createService(CdsServiceConfigRequest request, String ownerUsername) {
         HookTypeValidator.validate(request.getHook());
 
         // Versioning: use request.getId() as serviceName
@@ -97,6 +102,9 @@ public class CdsHooksService {
         entity.setId(actualId);
         entity.setServiceName(serviceName);
         entity.setVersion(newVersion);
+        if (ownerUsername != null) {
+            entity.setOwnerUsername(ownerUsername);
+        }
         entity = repository.save(entity);
 
         CdsServiceConfig config = entityToConfig(entity);
@@ -110,6 +118,16 @@ public class CdsHooksService {
         }
 
         log.info("Created CDS service: {} (v{})", entity.getId(), newVersion);
+        return entityToResponse(entity);
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse toggleShared(String id, boolean shared) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+        entity.setShared(shared);
+        entity = repository.save(entity);
+        log.info("Set service {} shared={}", id, shared);
         return entityToResponse(entity);
     }
 
@@ -173,6 +191,63 @@ public class CdsHooksService {
         return repository.findAll().stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getServicesForUser(String username) {
+        return repository.findByOwnerUsernameOrSharedTrue(username).stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getServicesByOwner(String username) {
+        return repository.findByOwnerUsername(username).stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<CdsServiceDefinition> getServiceDefinitionsForUser(String username) {
+        List<CdsServiceDefinition> definitions = new ArrayList<>();
+        List<CdsServiceConfigEntity> entities = repository.findByOwnerUsernameAndEnabledTrue(username);
+
+        for (CdsServiceConfigEntity entity : entities) {
+            CdsServiceConfig config = entityToConfig(entity);
+            definitions.add(CdsServiceDefinition.builder()
+                    .id(config.getId())
+                    .hook(config.getHook())
+                    .title(config.getTitle())
+                    .description(config.getDescription())
+                    .version(config.getVersion())
+                    .prefetch(config.getPrefetch())
+                    .build());
+        }
+
+        return definitions;
+    }
+
+    public List<CdsServiceDefinition> getSharedServiceDefinitions() {
+        List<CdsServiceDefinition> definitions = new ArrayList<>();
+        List<CdsServiceConfigEntity> entities = repository.findBySharedTrueAndEnabledTrue();
+
+        for (CdsServiceConfigEntity entity : entities) {
+            CdsServiceConfig config = entityToConfig(entity);
+            definitions.add(CdsServiceDefinition.builder()
+                    .id(config.getId())
+                    .hook(config.getHook())
+                    .title(config.getTitle())
+                    .description(config.getDescription())
+                    .version(config.getVersion())
+                    .prefetch(config.getPrefetch())
+                    .build());
+        }
+
+        if (definitions.isEmpty()) {
+            definitions.add(createDefaultDiabetesService());
+            definitions.add(createDefaultMedicationService());
+        }
+
+        return definitions;
     }
 
     @Transactional
@@ -821,6 +896,8 @@ public class CdsHooksService {
                 .enabled(entity.getEnabled())
                 .version(entity.getVersion())
                 .serviceName(entity.getServiceName())
+                .ownerUsername(entity.getOwnerUsername())
+                .shared(entity.getShared())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

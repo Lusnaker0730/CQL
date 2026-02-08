@@ -38,7 +38,7 @@ class CdsHooksControllerTest {
                 CdsServiceDefinition.builder()
                         .id("test-service").hook("patient-view").title("Test").build()
         );
-        when(cdsHooksService.getServiceDefinitions()).thenReturn(services);
+        when(cdsHooksService.getSharedServiceDefinitions()).thenReturn(services);
 
         mockMvc.perform(get("/cds-services"))
                 .andExpect(status().isOk())
@@ -84,7 +84,7 @@ class CdsHooksControllerTest {
 
     @Test
     void discovery_trailingSlash_shouldAlsoWork() throws Exception {
-        when(cdsHooksService.getServiceDefinitions()).thenReturn(List.of());
+        when(cdsHooksService.getSharedServiceDefinitions()).thenReturn(List.of());
 
         mockMvc.perform(get("/cds-services/"))
                 .andExpect(status().isOk());

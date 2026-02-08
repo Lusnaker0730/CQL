@@ -26,6 +26,8 @@ public class CdsServiceConfigResponse {
     private Boolean enabled;
     private Integer version;
     private String serviceName;
+    private String ownerUsername;
+    private Boolean shared;
     private Map<String, String> prefetch;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

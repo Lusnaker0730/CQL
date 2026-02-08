@@ -37,6 +37,13 @@ public class CdsServiceConfigEntity {
     @Column(name = "default_indicator", length = 20)
     private String defaultIndicator;
 
+    @Column(name = "owner_username")
+    private String ownerUsername;
+
+    @Column(name = "is_shared")
+    @Builder.Default
+    private Boolean shared = false;
+
     @Column(name = "enabled", nullable = false)
     @Builder.Default
     private Boolean enabled = true;

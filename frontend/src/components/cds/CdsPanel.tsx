@@ -50,6 +50,7 @@ import {
   Delete as DeleteIcon,
   History as HistoryIcon,
   Analytics as AnalyticsIcon,
+  VpnKey as KeyIcon,
 } from '@mui/icons-material'
 import {
   useCdsServices,
@@ -77,6 +78,7 @@ import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
 import { validateRequired } from '../../utils/validation'
 import FhirServerUrlField from '../common/FhirServerUrlField'
+import ApiKeyManager from './ApiKeyManager'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -118,6 +120,7 @@ export default function CdsPanel() {
         <Tab label="Manage Services" />
         <Tab label="Analytics" icon={<AnalyticsIcon />} iconPosition="start" />
         <Tab label="Sandbox" />
+        <Tab label="API Keys" icon={<KeyIcon />} iconPosition="start" />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
@@ -131,6 +134,9 @@ export default function CdsPanel() {
       </TabPanel>
       <TabPanel value={tabValue} index={3}>
         <SandboxPanel />
+      </TabPanel>
+      <TabPanel value={tabValue} index={4}>
+        <ApiKeyManager />
       </TabPanel>
     </Paper>
   )
@@ -634,63 +640,86 @@ function ManageServicesPanel() {
         <Alert severity="info">No CDS services configured. Create one to get started.</Alert>
       )}
 
-      {services?.map((service) => (
-        <Card
-          key={service.id}
-          variant="outlined"
-          sx={{
-            transition: 'all 0.25s ease',
-            '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 6px 20px rgba(13,115,119,0.12)',
-            },
-          }}
-        >
-          <CardContent sx={{ pb: 1 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box>
+      {services?.map((service) => {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+        const isOwner = !service.ownerUsername || service.ownerUsername === currentUser?.username
+        const isShared = service.shared
+        const ownershipLabel = isShared ? 'Shared' : isOwner ? 'Mine' : `Owner: ${service.ownerUsername}`
+
+        return (
+          <Card
+            key={service.id}
+            variant="outlined"
+            sx={{
+              transition: 'all 0.25s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(13,115,119,0.12)',
+              },
+            }}
+          >
+            <CardContent sx={{ pb: 1 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Box>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
+                      {service.title}
+                    </Typography>
+                    {service.version && <Chip label={`v${service.version}`} size="small" variant="outlined" />}
+                    <Chip
+                      label={ownershipLabel}
+                      size="small"
+                      color={isShared ? 'primary' : isOwner ? 'default' : 'secondary'}
+                      variant="outlined"
+                    />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    ID: {service.id} | Hook: {service.hook}
+                    {service.serviceName && service.serviceName !== service.id && ` | Name: ${service.serviceName}`}
+                  </Typography>
+                  {service.description && (
+                    <Typography variant="body2" sx={{ mt: 1, color: 'text.primary' }}>
+                      {service.description}
+                    </Typography>
+                  )}
+                </Box>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
-                    {service.title}
-                  </Typography>
-                  {service.version && <Chip label={`v${service.version}`} size="small" variant="outlined" />}
-                </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  ID: {service.id} | Hook: {service.hook}
-                  {service.serviceName && service.serviceName !== service.id && ` | Name: ${service.serviceName}`}
-                </Typography>
-                {service.description && (
-                  <Typography variant="body2" sx={{ mt: 1, color: 'text.primary' }}>
-                    {service.description}
-                  </Typography>
-                )}
-              </Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Chip
-                  label={service.enabled ? 'Enabled' : 'Disabled'}
-                  color={service.enabled ? 'success' : 'default'}
-                  size="small"
-                />
-                {service.serviceName && (
+                  <Chip
+                    label={service.enabled ? 'Enabled' : 'Disabled'}
+                    color={service.enabled ? 'success' : 'default'}
+                    size="small"
+                  />
+                  {service.serviceName && (
+                    <IconButton
+                      size="small"
+                      onClick={() => handleShowVersions(service.serviceName!)}
+                      title="View versions"
+                    >
+                      <HistoryIcon fontSize="small" />
+                    </IconButton>
+                  )}
                   <IconButton
                     size="small"
-                    onClick={() => handleShowVersions(service.serviceName!)}
-                    title="View versions"
+                    onClick={() => handleOpenEdit(service)}
+                    sx={{ color: 'primary.main' }}
+                    disabled={!isOwner && !isShared}
                   >
-                    <HistoryIcon fontSize="small" />
+                    <EditIcon fontSize="small" />
                   </IconButton>
-                )}
-                <IconButton size="small" onClick={() => handleOpenEdit(service)} sx={{ color: 'primary.main' }}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton size="small" color="error" onClick={() => handleDelete(service.id)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDelete(service.id)}
+                    disabled={!isOwner}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
               </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        )
+      })}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleClose} maxWidth="md" fullWidth>

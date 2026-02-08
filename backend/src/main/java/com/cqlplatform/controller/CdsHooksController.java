@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,10 +23,12 @@ public class CdsHooksController {
 
     private final CdsHooksService cdsHooksService;
 
+    // --- Global discovery (shared services only) ---
+
     @GetMapping({"", "/"})
-    @Operation(summary = "Discovery", description = "Returns available CDS services")
+    @Operation(summary = "Discovery", description = "Returns shared/global CDS services")
     public ResponseEntity<Map<String, List<CdsServiceDefinition>>> discovery() {
-        List<CdsServiceDefinition> services = cdsHooksService.getServiceDefinitions();
+        List<CdsServiceDefinition> services = cdsHooksService.getSharedServiceDefinitions();
         return ResponseEntity.ok(Map.of("services", services));
     }
 
@@ -70,10 +74,47 @@ public class CdsHooksController {
             cdsRequest.setHookInstance(sandboxRequest.getHookInstance() != null
                     ? sandboxRequest.getHookInstance() : java.util.UUID.randomUUID().toString());
             cdsRequest.setContext(sandboxRequest.getContext());
-            // Use testData as prefetch, no fhirServer → forces PrefetchRetrieveProvider
+            // Use testData as prefetch, no fhirServer -> forces PrefetchRetrieveProvider
             cdsRequest.setPrefetch(sandboxRequest.getTestData());
 
             CdsResponse response = cdsHooksService.invokeService(serviceId, cdsRequest);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // --- Per-user CDS endpoints (API key authenticated) ---
+
+    @GetMapping("/u/{username}")
+    @Operation(summary = "Per-user Discovery", description = "Returns CDS services for a specific user (API key auth)")
+    public ResponseEntity<Map<String, List<CdsServiceDefinition>>> perUserDiscovery(
+            @PathVariable String username) {
+        // Auth is handled by the JwtAuthenticationFilter (API key path)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.getName().equals(username)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        log.info("Per-user CDS discovery for: {}", username);
+        List<CdsServiceDefinition> services = cdsHooksService.getServiceDefinitionsForUser(username);
+        return ResponseEntity.ok(Map.of("services", services));
+    }
+
+    @PostMapping("/u/{username}/{serviceId}")
+    @Operation(summary = "Per-user Hook Invocation", description = "Invokes a CDS service for a specific user (API key auth)")
+    public ResponseEntity<?> perUserInvokeService(
+            @PathVariable String username,
+            @PathVariable String serviceId,
+            @RequestBody CdsRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.getName().equals(username)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        log.info("Per-user CDS invoke: user={}, serviceId={}", username, serviceId);
+        try {
+            CdsResponse response = cdsHooksService.invokeService(serviceId, request);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

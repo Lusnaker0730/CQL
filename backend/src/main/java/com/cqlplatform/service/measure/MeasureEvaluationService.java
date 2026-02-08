@@ -258,12 +258,10 @@ public class MeasureEvaluationService {
                 int existing = customExpressions.containsKey(key)
                         ? ((Number) customExpressions.get(key)).intValue() : 0;
                 customExpressions.put(key, existing + increment);
-            } else if (value instanceof Iterable<?> iterable) {
-                int count = 0;
-                for (Object _ignored : iterable) count++;
+            } else if (value instanceof Collection<?> collection) {
                 int existing = customExpressions.containsKey(key)
                         ? ((Number) customExpressions.get(key)).intValue() : 0;
-                customExpressions.put(key, existing + count);
+                customExpressions.put(key, existing + collection.size());
             }
         }
     }

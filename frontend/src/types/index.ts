@@ -147,9 +147,21 @@ export interface CdsServiceConfigResponse {
   enabled: boolean
   version?: number
   serviceName?: string
+  ownerUsername?: string
+  shared?: boolean
   prefetch?: Record<string, string>
   createdAt?: string
   updatedAt?: string
+}
+
+export interface ApiKey {
+  id: number
+  name: string
+  key?: string
+  keyPreview?: string
+  createdAt: string
+  lastUsedAt?: string
+  active: boolean
 }
 
 export interface CdsRequest {

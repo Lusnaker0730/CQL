@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,11 +33,28 @@ public class CdsServiceConfigController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private CdsAnalyticsService analyticsService;
 
+    private String getCurrentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : null;
+    }
+
+    private boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_ADMIN"));
+    }
+
     @GetMapping
-    @Operation(summary = "List all CDS services", description = "Returns all configured CDS services")
+    @Operation(summary = "List CDS services", description = "Returns user's own + shared services")
     public ResponseEntity<List<CdsServiceConfigResponse>> getAllServices() {
-        log.info("Listing all CDS services");
-        return ResponseEntity.ok(cdsHooksService.getAllServices());
+        String username = getCurrentUsername();
+        log.info("Listing CDS services for user: {}", username);
+        if (isAdmin()) {
+            return ResponseEntity.ok(cdsHooksService.getAllServices());
+        }
+        return ResponseEntity.ok(cdsHooksService.getServicesForUser(username));
     }
 
     @GetMapping("/{id}")
@@ -49,11 +69,12 @@ public class CdsServiceConfigController {
     }
 
     @PostMapping
-    @Operation(summary = "Create a CDS service", description = "Creates a new CDS service configuration")
+    @Operation(summary = "Create a CDS service", description = "Creates a new CDS service configuration owned by current user")
     public ResponseEntity<?> createService(@Valid @RequestBody CdsServiceConfigRequest request) {
-        log.info("Creating CDS service: {}", request.getId());
+        String username = getCurrentUsername();
+        log.info("Creating CDS service: {} for user: {}", request.getId(), username);
         try {
-            CdsServiceConfigResponse response = cdsHooksService.createService(request);
+            CdsServiceConfigResponse response = cdsHooksService.createService(request, username);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -61,12 +82,18 @@ public class CdsServiceConfigController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update a CDS service", description = "Updates an existing CDS service configuration")
+    @Operation(summary = "Update a CDS service", description = "Updates an existing CDS service (must own or be admin)")
     public ResponseEntity<?> updateService(
             @PathVariable String id,
             @Valid @RequestBody CdsServiceConfigRequest request) {
-        log.info("Updating CDS service: {}", id);
+        String username = getCurrentUsername();
+        log.info("Updating CDS service: {} by user: {}", id, username);
         try {
+            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
+            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You can only modify your own services"));
+            }
             CdsServiceConfigResponse response = cdsHooksService.updateService(id, request);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -75,10 +102,16 @@ public class CdsServiceConfigController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete a CDS service", description = "Deletes a CDS service configuration")
+    @Operation(summary = "Delete a CDS service", description = "Deletes a CDS service (must own or be admin)")
     public ResponseEntity<?> deleteService(@PathVariable String id) {
-        log.info("Deleting CDS service: {}", id);
+        String username = getCurrentUsername();
+        log.info("Deleting CDS service: {} by user: {}", id, username);
         try {
+            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
+            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You can only delete your own services"));
+            }
             cdsHooksService.deleteService(id);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
@@ -107,6 +140,22 @@ public class CdsServiceConfigController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PatchMapping("/{id}/share")
+    @Operation(summary = "Toggle service sharing", description = "Toggle shared status (admin only)")
+    public ResponseEntity<?> toggleShared(@PathVariable String id, @RequestParam boolean shared) {
+        if (!isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Only admins can share/unshare services"));
+        }
+        log.info("Setting service {} shared={}", id, shared);
+        try {
+            CdsServiceConfigResponse response = cdsHooksService.toggleShared(id, shared);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { cdsHooksApi } from '../api'
+import { cdsHooksApi, apiKeyApi } from '../api'
 import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest } from '../types'
 
 export function useCdsServices() {
@@ -97,5 +97,33 @@ export function useSandboxInvoke() {
   return useMutation({
     mutationFn: ({ serviceId, request }: { serviceId: string; request: CdsSandboxRequest }) =>
       cdsHooksApi.sandboxInvoke(serviceId, request),
+  })
+}
+
+// API Key hooks
+export function useApiKeys() {
+  return useQuery({
+    queryKey: ['api-keys'],
+    queryFn: () => apiKeyApi.listKeys(),
+  })
+}
+
+export function useGenerateApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => apiKeyApi.generateKey(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys'] })
+    },
+  })
+}
+
+export function useRevokeApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiKeyApi.revokeKey(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys'] })
+    },
   })
 }

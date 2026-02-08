@@ -14,6 +14,7 @@ import type {
   CdsFeedbackRequest,
   CdsServiceAnalytics,
   CdsSandboxRequest,
+  ApiKey,
   MeasureEvaluationRequest,
   MeasureEvaluationResult,
   MeasureDefinition,
@@ -246,6 +247,22 @@ export const cdsHooksApi = {
   sandboxInvoke: async (serviceId: string, request: CdsSandboxRequest): Promise<CdsResponse> => {
     const response = await cdsApi.post<CdsResponse>(`/${serviceId}/sandbox`, request)
     return response.data
+  },
+}
+
+export const apiKeyApi = {
+  listKeys: async (): Promise<ApiKey[]> => {
+    const response = await api.get<ApiKey[]>('/user/api-keys')
+    return response.data
+  },
+
+  generateKey: async (name: string): Promise<ApiKey> => {
+    const response = await api.post<ApiKey>('/user/api-keys', { name })
+    return response.data
+  },
+
+  revokeKey: async (id: number): Promise<void> => {
+    await api.delete(`/user/api-keys/${id}`)
   },
 }
 
