@@ -5,7 +5,7 @@ ALTER TABLE cds_service_config ADD COLUMN is_shared BOOLEAN DEFAULT FALSE;
 
 -- Create user API keys table for external EHR integration
 CREATE TABLE user_api_keys (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
     api_key VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255),

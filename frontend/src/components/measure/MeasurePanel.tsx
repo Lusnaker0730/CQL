@@ -293,9 +293,15 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                   </Box>
                   <Chip
                     label={result.status}
-                    color={result.status === 'complete' ? 'success' : 'warning'}
+                    color={result.status === 'complete' ? 'success' : result.status === 'error' ? 'error' : 'warning'}
                   />
                 </Stack>
+
+                {result.status === 'error' && result.errorMessage && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {result.errorMessage}
+                  </Alert>
+                )}
 
                 {result.groups?.map((group) => (
                   <Box key={group.groupId} mb={2}>

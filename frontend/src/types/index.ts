@@ -270,6 +270,7 @@ export interface MeasureEvaluationResult {
   reportType: string
   groups: MeasureGroupResult[]
   supplementalData?: Record<string, unknown>
+  errorMessage?: string
 }
 
 export interface MeasureGroupResult {

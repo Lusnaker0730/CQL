@@ -22,6 +22,11 @@ spring:
   flyway:
     enabled: false
 
+# VSAC API Key (NLM UMLS)
+vsac:
+  api:
+    key: f3706380-94ff-4cf3-a75c-445363bdfe23
+
   # H2 Console (development only)
   h2:
     console:

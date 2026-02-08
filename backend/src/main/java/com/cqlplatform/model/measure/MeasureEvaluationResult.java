@@ -18,6 +18,7 @@ public class MeasureEvaluationResult {
     private String reportType;
     private List<GroupResult> groups;
     private Map<String, Object> supplementalData;
+    private String errorMessage;
 
     @Data
     @Builder

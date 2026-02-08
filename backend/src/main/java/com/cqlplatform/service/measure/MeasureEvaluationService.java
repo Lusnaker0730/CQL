@@ -142,6 +142,7 @@ public class MeasureEvaluationService {
                 return MeasureEvaluationResult.builder()
                         .measureId(request.getMeasureId())
                         .status("error")
+                        .errorMessage("All " + errorCount + " patient evaluations failed. Check server logs for details.")
                         .periodStart(periodStart)
                         .periodEnd(periodEnd)
                         .build();
@@ -164,6 +165,7 @@ public class MeasureEvaluationService {
             return MeasureEvaluationResult.builder()
                     .measureId(request.getMeasureId())
                     .status("error")
+                    .errorMessage(e.getMessage())
                     .periodStart(periodStart)
                     .periodEnd(periodEnd)
                     .build();
