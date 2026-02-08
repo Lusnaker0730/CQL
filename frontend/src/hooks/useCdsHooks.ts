@@ -85,6 +85,18 @@ export function useRollbackCdsService() {
   })
 }
 
+export function useToggleCdsServiceShared() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, shared }: { id: string; shared: boolean }) =>
+      cdsHooksApi.toggleShared(id, shared),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cds-services'] })
+      queryClient.invalidateQueries({ queryKey: ['cds-service-configs'] })
+    },
+  })
+}
+
 export function useCdsAnalytics() {
   return useQuery({
     queryKey: ['cds-analytics'],

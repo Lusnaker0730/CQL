@@ -273,12 +273,19 @@ public class FhirController {
     }
 
     @GetMapping("/ValueSet/$expand")
-    @Operation(summary = "Expand ValueSet", description = "Expand a ValueSet")
+    @Operation(summary = "Expand ValueSet", description = "Expand a ValueSet (auto-routes VSAC URLs to VSAC service)")
     public ResponseEntity<String> expandValueSet(
             @RequestParam String url,
             @RequestParam(required = false) String filter) {
 
-        ValueSet expanded = terminologyService.expandValueSet(url, filter);
+        ValueSet expanded;
+        // Detect VSAC URLs and route to VsacService which has proper auth
+        if (url.contains("cts.nlm.nih.gov/fhir/ValueSet/")) {
+            String oid = url.substring(url.lastIndexOf("/") + 1);
+            expanded = vsacService.expandValueSetByOid(oid);
+        } else {
+            expanded = terminologyService.expandValueSet(url, filter);
+        }
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expanded);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)

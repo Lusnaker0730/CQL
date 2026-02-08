@@ -1,4 +1,6 @@
-import { createContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useCallback, type ReactNode } from 'react'
+import { useFavorites, useRecent, useAddFavorite, useRemoveFavorite, useAddRecent, useClearRecent } from '../hooks/useLibraryPrefs'
+import type { UserFavorite, UserRecent } from '../types'
 
 export interface LibraryHistoryItem {
   id: string
@@ -10,6 +12,8 @@ export interface LibraryHistoryItem {
 export interface LibraryHistoryContextType {
   recent: LibraryHistoryItem[]
   favorites: Set<string>
+  favoritesList: UserFavorite[]
+  recentList: UserRecent[]
   addToRecent: (item: { id: string; name: string; version: string }) => void
   toggleFavorite: (id: string) => void
   isFavorite: (id: string) => boolean
@@ -18,64 +22,60 @@ export interface LibraryHistoryContextType {
 
 export const LibraryHistoryContext = createContext<LibraryHistoryContextType | null>(null)
 
-const RECENT_KEY = 'cql-recent-libraries'
-const FAVORITES_KEY = 'cql-favorite-libraries'
-const MAX_RECENT = 10
-
-function loadRecent(): LibraryHistoryItem[] {
-  try {
-    const stored = localStorage.getItem(RECENT_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
-
-function loadFavorites(): Set<string> {
-  try {
-    const stored = localStorage.getItem(FAVORITES_KEY)
-    return stored ? new Set(JSON.parse(stored)) : new Set()
-  } catch {
-    return new Set()
-  }
-}
-
 export function LibraryHistoryProvider({ children }: { children: ReactNode }) {
-  const [recent, setRecent] = useState<LibraryHistoryItem[]>(loadRecent)
-  const [favorites, setFavorites] = useState<Set<string>>(loadFavorites)
+  const { data: favoritesData = [] } = useFavorites()
+  const { data: recentData = [] } = useRecent()
+  const addFavoriteMutation = useAddFavorite()
+  const removeFavoriteMutation = useRemoveFavorite()
+  const addRecentMutation = useAddRecent()
+  const clearRecentMutation = useClearRecent()
+
+  // Build a Set of library IDs that are favorited (as strings for compatibility)
+  const favoriteIds = new Set(favoritesData.map((f) => String(f.libraryId)))
+
+  // Convert API data to the legacy format for backward compatibility
+  const recent: LibraryHistoryItem[] = recentData.map((r) => ({
+    id: String(r.libraryId),
+    name: r.libraryName,
+    version: r.libraryVersion,
+    accessedAt: new Date(r.accessedAt).getTime(),
+  }))
 
   const addToRecent = useCallback((item: { id: string; name: string; version: string }) => {
-    setRecent((prev) => {
-      const filtered = prev.filter((r) => r.id !== item.id)
-      const next = [{ ...item, accessedAt: Date.now() }, ...filtered].slice(0, MAX_RECENT)
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next))
-      return next
-    })
-  }, [])
+    const libraryId = Number(item.id)
+    if (!isNaN(libraryId)) {
+      addRecentMutation.mutate(libraryId)
+    }
+  }, [addRecentMutation])
 
   const toggleFavorite = useCallback((id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify([...next]))
-      return next
-    })
-  }, [])
+    const libraryId = Number(id)
+    if (isNaN(libraryId)) return
+    if (favoriteIds.has(id)) {
+      removeFavoriteMutation.mutate(libraryId)
+    } else {
+      addFavoriteMutation.mutate(libraryId)
+    }
+  }, [favoriteIds, addFavoriteMutation, removeFavoriteMutation])
 
-  const isFavorite = useCallback((id: string) => favorites.has(id), [favorites])
+  const isFavorite = useCallback((id: string) => favoriteIds.has(id), [favoriteIds])
 
-  const clearRecent = useCallback(() => {
-    setRecent([])
-    localStorage.removeItem(RECENT_KEY)
-  }, [])
+  const clearRecentHandler = useCallback(() => {
+    clearRecentMutation.mutate()
+  }, [clearRecentMutation])
 
   return (
     <LibraryHistoryContext.Provider
-      value={{ recent, favorites, addToRecent, toggleFavorite, isFavorite, clearRecent }}
+      value={{
+        recent,
+        favorites: favoriteIds,
+        favoritesList: favoritesData,
+        recentList: recentData,
+        addToRecent,
+        toggleFavorite,
+        isFavorite,
+        clearRecent: clearRecentHandler,
+      }}
     >
       {children}
     </LibraryHistoryContext.Provider>

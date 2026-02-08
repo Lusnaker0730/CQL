@@ -28,7 +28,9 @@ import {
   Upload as UploadIcon,
   Download as DownloadIcon,
   Search as SearchIcon,
+  LibraryBooks as LibraryBooksIcon,
 } from '@mui/icons-material'
+import LibraryPicker from '../common/LibraryPicker'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureDefinition } from '../../types'
@@ -45,6 +47,8 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const [editMeasure, setEditMeasure] = useState<MeasureDefinition | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importJson, setImportJson] = useState('')
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
+  const [libraryPickerTarget, setLibraryPickerTarget] = useState<'create' | 'edit'>('create')
   const [newMeasure, setNewMeasure] = useState<Partial<MeasureDefinition>>({
     name: '',
     version: '1.0.0',
@@ -242,6 +246,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               <MenuItem value="cohort">Cohort</MenuItem>
               <MenuItem value="composite">Composite</MenuItem>
             </TextField>
+            <Stack direction="row" justifyContent="flex-end">
+              <Button size="small" startIcon={<LibraryBooksIcon />}
+                onClick={() => { setLibraryPickerTarget('create'); setLibraryPickerOpen(true) }}
+                sx={{ color: 'primary.main' }}>
+                Load from Library
+              </Button>
+            </Stack>
             <TextField label="CQL Content" size="small" fullWidth multiline rows={4}
               value={newMeasure.cqlContent || ''} onChange={(e) => setNewMeasure({ ...newMeasure, cqlContent: e.target.value })} />
             {createMutation.isError && (
@@ -288,6 +299,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   <MenuItem value="cohort">Cohort</MenuItem>
                   <MenuItem value="composite">Composite</MenuItem>
                 </TextField>
+                <Stack direction="row" justifyContent="flex-end">
+                  <Button size="small" startIcon={<LibraryBooksIcon />}
+                    onClick={() => { setLibraryPickerTarget('edit'); setLibraryPickerOpen(true) }}
+                    sx={{ color: 'primary.main' }}>
+                    Load from Library
+                  </Button>
+                </Stack>
                 <TextField label="CQL Content" size="small" fullWidth multiline rows={12}
                   value={editMeasure.cqlContent || ''} onChange={(e) => setEditMeasure({ ...editMeasure, cqlContent: e.target.value })}
                   InputProps={{ sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' } }} />
@@ -331,6 +349,18 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </Button>
         </DialogActions>
       </Dialog>
+
+      <LibraryPicker
+        open={libraryPickerOpen}
+        onClose={() => setLibraryPickerOpen(false)}
+        onSelect={(cql) => {
+          if (libraryPickerTarget === 'create') {
+            setNewMeasure({ ...newMeasure, cqlContent: cql })
+          } else if (editMeasure) {
+            setEditMeasure({ ...editMeasure, cqlContent: cql })
+          }
+        }}
+      />
     </Paper>
   )
 }

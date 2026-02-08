@@ -26,6 +26,8 @@ import type {
   RegisterRequest,
   AuthResponse,
   User,
+  UserFavorite,
+  UserRecent,
   ValueSetSearchResult,
   ValueSetExpansion,
   CodeLookupResult,
@@ -154,6 +156,34 @@ export const cqlApi = {
   },
 }
 
+export const userPrefsApi = {
+  getFavorites: async (): Promise<UserFavorite[]> => {
+    const response = await api.get<UserFavorite[]>('/cql/user-prefs/favorites')
+    return response.data
+  },
+
+  addFavorite: async (libraryId: number): Promise<void> => {
+    await api.post(`/cql/user-prefs/favorites/${libraryId}`)
+  },
+
+  removeFavorite: async (libraryId: number): Promise<void> => {
+    await api.delete(`/cql/user-prefs/favorites/${libraryId}`)
+  },
+
+  getRecent: async (): Promise<UserRecent[]> => {
+    const response = await api.get<UserRecent[]>('/cql/user-prefs/recent')
+    return response.data
+  },
+
+  addRecent: async (libraryId: number): Promise<void> => {
+    await api.post(`/cql/user-prefs/recent/${libraryId}`)
+  },
+
+  clearRecent: async (): Promise<void> => {
+    await api.delete('/cql/user-prefs/recent')
+  },
+}
+
 const cdsApi = axios.create({
   baseURL: import.meta.env.VITE_CDS_URL || '/cds-services',
   headers: {
@@ -213,6 +243,11 @@ export const cdsHooksApi = {
 
   disableService: async (id: string): Promise<CdsServiceConfigResponse> => {
     const response = await api.patch<CdsServiceConfigResponse>(`/cds/services/${id}/disable`)
+    return response.data
+  },
+
+  toggleShared: async (id: string, shared: boolean): Promise<CdsServiceConfigResponse> => {
+    const response = await api.patch<CdsServiceConfigResponse>(`/cds/services/${id}/share?shared=${shared}`)
     return response.data
   },
 

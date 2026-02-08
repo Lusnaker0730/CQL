@@ -4,17 +4,21 @@ import {
   Grid,
   Paper,
   Button,
+  IconButton,
   Stack,
   Tabs,
   Tab,
   Typography,
   CircularProgress,
+  Tooltip,
 } from '@mui/material'
 import {
   Translate as TranslateIcon,
   Save as SaveIcon,
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import CqlEditor from '../components/editor/CqlEditor'
@@ -45,8 +49,9 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function EditorPage() {
   const { cqlContent, isTranslating, errors, elmJson } = useSelector((state: RootState) => state.editor)
   const [rightPanelTab, setRightPanelTab] = useState(0)
+  const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { addToRecent } = useLibraryHistory()
+  const { addToRecent, toggleFavorite, isFavorite } = useLibraryHistory()
 
   const translateMutation = useTranslate()
   const saveLibraryMutation = useCreateLibrary()
@@ -64,6 +69,7 @@ export default function EditorPage() {
       { cql: cqlContent },
       {
         onSuccess: (library) => {
+          setLastSavedLibraryId(library.id)
           addToRecent({ id: library.id, name: library.name, version: library.version })
         },
       }
@@ -190,6 +196,17 @@ export default function EditorPage() {
                   >
                     Save Library
                   </Button>
+                  {lastSavedLibraryId && (
+                    <Tooltip title={isFavorite(lastSavedLibraryId) ? 'Remove from favorites' : 'Add to favorites'}>
+                      <IconButton
+                        size="small"
+                        onClick={() => toggleFavorite(lastSavedLibraryId)}
+                        sx={{ color: isFavorite(lastSavedLibraryId) ? 'warning.main' : 'text.secondary' }}
+                      >
+                        {isFavorite(lastSavedLibraryId) ? <StarIcon /> : <StarBorderIcon />}
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   <HelpTooltip text={helpContent.editor.save} />
                   <Button
                     size="small"

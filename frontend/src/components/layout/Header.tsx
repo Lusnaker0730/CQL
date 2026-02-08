@@ -93,7 +93,7 @@ export default function Header() {
                   letterSpacing: '0.02em',
                 }}
               >
-                CQL Platform
+                CGMH CQL Platform
               </Typography>
               <Typography
                 sx={{

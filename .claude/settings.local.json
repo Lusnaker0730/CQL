@@ -74,7 +74,9 @@
       "WebFetch(domain:twcore.hapi.fhir.tw)",
       "Bash(tasklist:*)",
       "Bash(wmic process where \"name=''java.exe''\" get ProcessId,CommandLine)",
-      "Bash(mvn --version:*)"
+      "Bash(mvn --version:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MDUyOTUyMiwiZXhwIjoxNzcwNjE1OTIyfQ.80UcEi7EuBgfUJvoibUvRP8bmttvBoVzbnX1jyKTVzJ29PbkIqUfwIo9Jk1mPv1PDMZPPKKHW4kyMcIsm9KpTg\":*)"
     ]
   }
 }

@@ -28,14 +28,11 @@ import { cqlApi } from '../../api'
 import { TWCDI_TEMPLATES } from '../../constants/twcdiTemplates'
 
 export default function LibraryQuickAccess() {
-  const { recent, toggleFavorite, isFavorite, clearRecent } = useLibraryHistory()
+  const { recent, favoritesList, toggleFavorite, isFavorite, clearRecent } = useLibraryHistory()
   const dispatch = useDispatch()
   const [favoritesOpen, setFavoritesOpen] = useState(true)
   const [recentOpen, setRecentOpen] = useState(true)
   const [twcdiOpen, setTwcdiOpen] = useState(false)
-
-
-  const favoriteItems = recent.filter((r) => isFavorite(r.id))
 
   const handleLoadLibrary = async (id: string) => {
     try {
@@ -86,28 +83,28 @@ export default function LibraryQuickAccess() {
         {favoritesOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
       <Collapse in={favoritesOpen}>
-        {favoriteItems.length === 0 ? (
+        {favoritesList.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
             No favorites yet. Star a library to add it here.
           </Typography>
         ) : (
           <List dense disablePadding>
-            {favoriteItems.map((item) => (
-              <ListItemButton key={item.id} onClick={() => handleLoadLibrary(item.id)} sx={{ py: 0.25 }}>
+            {favoritesList.map((item) => (
+              <ListItemButton key={item.libraryId} onClick={() => handleLoadLibrary(String(item.libraryId))} sx={{ py: 0.25 }}>
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <IconButton
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation()
-                      toggleFavorite(item.id)
+                      toggleFavorite(String(item.libraryId))
                     }}
                   >
                     <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
                   </IconButton>
                 </ListItemIcon>
                 <ListItemText
-                  primary={item.name}
-                  secondary={`v${item.version}`}
+                  primary={item.libraryName}
+                  secondary={`v${item.libraryVersion}`}
                   primaryTypographyProps={{ variant: 'body2', noWrap: true }}
                   secondaryTypographyProps={{ variant: 'caption' }}
                 />

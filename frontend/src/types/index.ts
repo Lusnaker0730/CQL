@@ -516,6 +516,23 @@ export interface LibraryMetadata {
   functions: string[]
 }
 
+// User library preferences
+export interface UserFavorite {
+  id: number
+  libraryId: number
+  libraryName: string
+  libraryVersion: string
+  createdAt: string
+}
+
+export interface UserRecent {
+  id: number
+  libraryId: number
+  libraryName: string
+  libraryVersion: string
+  accessedAt: string
+}
+
 // Debug trace types
 export interface DebugTrace {
   expressionTraces: ExpressionTrace[]

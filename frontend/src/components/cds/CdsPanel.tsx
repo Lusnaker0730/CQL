@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { setCqlContent } from '../../store/editorSlice'
+import type { RootState } from '../../store'
 
 import {
   Box,
@@ -51,6 +52,10 @@ import {
   History as HistoryIcon,
   Analytics as AnalyticsIcon,
   VpnKey as KeyIcon,
+  Save as SaveIcon,
+  Code as CodeIcon,
+  Share as ShareIcon,
+  LibraryBooks as LibraryBooksIcon,
 } from '@mui/icons-material'
 import {
   useCdsServices,
@@ -62,6 +67,7 @@ import {
   useSubmitCdsFeedback,
   useCdsServiceVersions,
   useRollbackCdsService,
+  useToggleCdsServiceShared,
   useCdsAnalytics,
   useSandboxInvoke,
 } from '../../hooks/useCdsHooks'
@@ -79,6 +85,7 @@ import { helpContent } from '../../constants/helpContent'
 import { validateRequired } from '../../utils/validation'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import ApiKeyManager from './ApiKeyManager'
+import LibraryPicker from '../common/LibraryPicker'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -506,14 +513,19 @@ function InvokeServicePanel() {
 }
 
 function ManageServicesPanel() {
+  const dispatch = useDispatch()
+  const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const { data: services, isLoading, isError } = useCdsServiceConfigs()
   const createMutation = useCreateCdsService()
   const updateMutation = useUpdateCdsService()
   const deleteMutation = useDeleteCdsService()
   const rollbackMutation = useRollbackCdsService()
+  const shareMutation = useToggleCdsServiceShared()
+  const { showNotification } = useNotification()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<CdsServiceConfigResponse | null>(null)
+  const [activeServiceId, setActiveServiceId] = useState<string | null>(null)
   const [formData, setFormData] = useState<CdsServiceConfigRequest>({
     id: '',
     hook: 'patient-view',
@@ -525,6 +537,7 @@ function ManageServicesPanel() {
   })
 
   const [formErrors, setFormErrors] = useState<{ id?: string; title?: string }>({})
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
 
   // Versioning state
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false)
@@ -613,6 +626,42 @@ function ManageServicesPanel() {
     }
   }
 
+  const handleSelectService = (service: CdsServiceConfigResponse) => {
+    if (activeServiceId === service.id) {
+      setActiveServiceId(null)
+      return
+    }
+    setActiveServiceId(service.id)
+    if (service.cqlContent) {
+      dispatch(setCqlContent(service.cqlContent))
+    }
+  }
+
+  const handleSaveCqlToService = async () => {
+    if (!activeServiceId) return
+    const service = services?.find((s) => s.id === activeServiceId)
+    if (!service) return
+
+    try {
+      await updateMutation.mutateAsync({
+        id: service.id,
+        request: {
+          id: service.id,
+          hook: service.hook,
+          title: service.title,
+          description: service.description || '',
+          cqlContent: cqlContent,
+          cqlLibraryId: service.cqlLibraryId,
+          defaultIndicator: service.defaultIndicator || 'info',
+          enabled: service.enabled,
+        },
+      })
+      showNotification('CQL content saved to service', 'success')
+    } catch (error) {
+      console.error('Failed to save CQL to service:', error)
+    }
+  }
+
   if (isLoading) return <CircularProgress />
   if (isError) return <Alert severity="error">Failed to load services</Alert>
 
@@ -636,6 +685,26 @@ function ManageServicesPanel() {
         </Button>
       </Box>
 
+      {activeServiceId && (
+        <Alert
+          severity="info"
+          icon={<CodeIcon />}
+          action={
+            <Button
+              color="primary"
+              size="small"
+              startIcon={<SaveIcon />}
+              onClick={handleSaveCqlToService}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? 'Saving...' : 'Save CQL'}
+            </Button>
+          }
+        >
+          Editing <strong>{services?.find((s) => s.id === activeServiceId)?.title}</strong> — edit CQL in the left editor, then click Save.
+        </Alert>
+      )}
+
       {services?.length === 0 && (
         <Alert severity="info">No CDS services configured. Create one to get started.</Alert>
       )}
@@ -650,8 +719,15 @@ function ManageServicesPanel() {
           <Card
             key={service.id}
             variant="outlined"
+            onClick={() => handleSelectService(service)}
             sx={{
               transition: 'all 0.25s ease',
+              cursor: 'pointer',
+              ...(activeServiceId === service.id && {
+                borderColor: 'primary.main',
+                borderWidth: 2,
+                bgcolor: 'rgba(13,115,119,0.04)',
+              }),
               '&:hover': {
                 transform: 'translateY(-2px)',
                 boxShadow: '0 6px 20px rgba(13,115,119,0.12)',
@@ -692,7 +768,7 @@ function ManageServicesPanel() {
                   {service.serviceName && (
                     <IconButton
                       size="small"
-                      onClick={() => handleShowVersions(service.serviceName!)}
+                      onClick={(e) => { e.stopPropagation(); handleShowVersions(service.serviceName!) }}
                       title="View versions"
                     >
                       <HistoryIcon fontSize="small" />
@@ -700,7 +776,18 @@ function ManageServicesPanel() {
                   )}
                   <IconButton
                     size="small"
-                    onClick={() => handleOpenEdit(service)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      shareMutation.mutate({ id: service.id, shared: !service.shared })
+                    }}
+                    sx={{ color: service.shared ? 'primary.main' : 'text.secondary' }}
+                    title={service.shared ? 'Unshare service' : 'Share service'}
+                  >
+                    <ShareIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); handleOpenEdit(service) }}
                     sx={{ color: 'primary.main' }}
                     disabled={!isOwner && !isShared}
                   >
@@ -709,7 +796,7 @@ function ManageServicesPanel() {
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={() => handleDelete(service.id)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(service.id) }}
                     disabled={!isOwner}
                   >
                     <DeleteIcon fontSize="small" />
@@ -797,6 +884,16 @@ function ManageServicesPanel() {
               </Select>
             </FormControl>
 
+            <Stack direction="row" justifyContent="flex-end">
+              <Button
+                size="small"
+                startIcon={<LibraryBooksIcon />}
+                onClick={() => setLibraryPickerOpen(true)}
+                sx={{ color: 'primary.main' }}
+              >
+                Load from Library
+              </Button>
+            </Stack>
             <TextField
               label="CQL Content"
               value={formData.cqlContent}
@@ -811,6 +908,11 @@ function ManageServicesPanel() {
                   fontFamily: '"Consolas", monospace',
                 },
               }}
+            />
+            <LibraryPicker
+              open={libraryPickerOpen}
+              onClose={() => setLibraryPickerOpen(false)}
+              onSelect={(cql) => setFormData({ ...formData, cqlContent: cql })}
             />
 
             <FormControlLabel
