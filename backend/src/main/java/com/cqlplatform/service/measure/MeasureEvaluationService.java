@@ -80,6 +80,21 @@ public class MeasureEvaluationService {
 
             log.info("Evaluating for {} patients", patientsToEvaluate.size());
 
+            if (patientsToEvaluate.isEmpty()) {
+                if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
+                if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+                String msg = (request.getPatientId() != null && !request.getPatientId().isBlank())
+                        ? "Patient not found: " + request.getPatientId()
+                        : "No patients found on FHIR server. Verify the server URL and that patient data exists.";
+                return MeasureEvaluationResult.builder()
+                        .measureId(request.getMeasureId())
+                        .status("error")
+                        .errorMessage(msg)
+                        .periodStart(periodStart)
+                        .periodEnd(periodEnd)
+                        .build();
+            }
+
             Map<String, Integer> populationCounts = new HashMap<>();
             populationCounts.put("Initial Population", 0);
             populationCounts.put("Denominator", 0);

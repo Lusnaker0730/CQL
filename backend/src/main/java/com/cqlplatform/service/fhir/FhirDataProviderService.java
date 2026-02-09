@@ -214,7 +214,8 @@ public class FhirDataProviderService {
     @SuppressWarnings("unused")
     private List<String> getAllPatientIdsFallback(String fhirServerUrl, Throwable t) {
         log.warn("Circuit breaker fallback for getAllPatientIds: {}", t.getMessage());
-        return new ArrayList<>();
+        throw new FhirServerUnavailableException(
+                "Unable to fetch patient list from FHIR server: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "executeTransactionFallback")
