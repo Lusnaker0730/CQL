@@ -74,13 +74,12 @@ public class VsacService {
             Parameters params = new Parameters();
             params.addParameter("url", new UriType("http://cts.nlm.nih.gov/fhir/ValueSet/" + oid));
 
-            Parameters result = client.operation()
+            return client.operation()
                     .onType(ValueSet.class)
                     .named("$expand")
                     .withParameters(params)
+                    .returnResourceType(ValueSet.class)
                     .execute();
-
-            return (ValueSet) result.getParameter("return").getResource();
         } catch (Exception e) {
             log.error("Failed to expand ValueSet from VSAC: {}", oid, e);
             throw new RuntimeException("VSAC ValueSet expansion failed: " + e.getMessage(), e);

@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   IconButton,
   Dialog,
   DialogTitle,
@@ -31,6 +30,8 @@ import {
   LibraryBooks as LibraryBooksIcon,
 } from '@mui/icons-material'
 import LibraryPicker from '../common/LibraryPicker'
+import GradientButton from '../common/GradientButton'
+import StatusChip from '../common/StatusChip'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureDefinition } from '../../types'
@@ -146,10 +147,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           <Button size="small" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>
             Import FHIR
           </Button>
-          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}
-            sx={{ background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)' }}>
+          <GradientButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
             New Measure
-          </Button>
+          </GradientButton>
         </Stack>
       </Stack>
 
@@ -192,11 +192,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 </TableCell>
                 <TableCell>{m.version}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={m.status}
-                    size="small"
-                    color={m.status === 'active' ? 'success' : m.status === 'draft' ? 'default' : 'warning'}
-                  />
+                  <StatusChip status={m.status || 'draft'} />
                 </TableCell>
                 <TableCell>{m.scoringType}</TableCell>
                 <TableCell align="right">

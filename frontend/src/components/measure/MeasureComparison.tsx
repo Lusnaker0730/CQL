@@ -19,6 +19,7 @@ import {
   CompareArrows as CompareIcon,
   Timeline as TimelineIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureComparisonResult, MeasureTrendResult } from '../../types'
@@ -93,16 +94,14 @@ export default function MeasureComparison() {
           value={p2End} onChange={(e) => setP2End(e.target.value)}
           InputLabelProps={{ shrink: true }} />
       </Stack>
-      <Button
-        variant="contained"
+      <GradientButton
         startIcon={<CompareIcon />}
         onClick={() => compareMutation.mutate()}
         disabled={!measureName || compareMutation.isPending}
-        size="small"
-        sx={{ mb: 2, background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)' }}
+        sx={{ mb: 2 }}
       >
         {compareMutation.isPending ? 'Comparing...' : 'Compare'}
-      </Button>
+      </GradientButton>
 
       {compareMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{(compareMutation.error as Error).message}</Alert>

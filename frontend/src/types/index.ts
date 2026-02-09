@@ -553,3 +553,37 @@ export interface RetrieveTrace {
   resourceCount: number
   retrieveTimeMs: number
 }
+
+// Test Case types
+export interface TestCase {
+  id?: number
+  measureDefinitionId?: number
+  title: string
+  description?: string
+  patientBundleJson?: string
+  expectedPopulations?: Record<string, boolean>
+  status?: string
+  lastRunResultJson?: string
+  lastRunActualPopulations?: Record<string, boolean>
+  lastRunAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface TestCaseRunResult {
+  testCaseId: number
+  testCaseTitle: string
+  status: string
+  expectedPopulations?: Record<string, boolean>
+  actualPopulations?: Record<string, boolean>
+  comparisons?: PopulationComparison[]
+  errorMessage?: string
+  executionTimeMs?: number
+}
+
+export interface PopulationComparison {
+  populationType: string
+  expected?: boolean
+  actual?: boolean
+  match: boolean
+}

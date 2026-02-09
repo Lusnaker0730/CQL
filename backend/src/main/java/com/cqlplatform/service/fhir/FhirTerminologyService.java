@@ -53,24 +53,12 @@ public class FhirTerminologyService {
                 params.addParameter("filter", new StringType(filter));
             }
 
-            Parameters result = client.operation()
+            return client.operation()
                     .onType(ValueSet.class)
                     .named("$expand")
                     .withParameters(params)
+                    .returnResourceType(ValueSet.class)
                     .execute();
-
-            // Some servers return the ValueSet in a "return" parameter, others inline
-            Parameters.ParametersParameterComponent returnParam = result.getParameter("return");
-            if (returnParam != null && returnParam.getResource() instanceof ValueSet vs) {
-                return vs;
-            }
-            // Fallback: iterate parameters for a ValueSet resource
-            for (Parameters.ParametersParameterComponent param : result.getParameter()) {
-                if (param.getResource() instanceof ValueSet vs) {
-                    return vs;
-                }
-            }
-            throw new RuntimeException("ValueSet expansion returned no ValueSet resource");
         } catch (Exception e) {
             log.error("Failed to expand ValueSet: {}", valueSetUrl, e);
             throw new RuntimeException("ValueSet expansion failed: " + e.getMessage(), e);

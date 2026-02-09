@@ -2,11 +2,11 @@ import { useState } from 'react'
 import {
   TextField,
   Stack,
-  Button,
   CircularProgress,
   Alert,
 } from '@mui/material'
 import { CheckCircle as ValidateIcon } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useValidateCode } from '../../hooks/useTerminology'
 
 export default function CodeValidationTab() {
@@ -50,19 +50,16 @@ export default function CodeValidationTab() {
         placeholder="http://cts.nlm.nih.gov/fhir/ValueSet/..."
       />
 
-      <Button
-        variant="contained"
+      <GradientButton
         onClick={handleValidate}
         disabled={validateMutation.isPending || !system || !code || !valueSetUrl}
         startIcon={validateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <ValidateIcon />}
         sx={{
-          background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-          '&:hover': { background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)' },
           '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' },
         }}
       >
         {validateMutation.isPending ? 'Validating...' : 'Validate Code'}
-      </Button>
+      </GradientButton>
 
       {validateMutation.isError && (
         <Alert severity="error">

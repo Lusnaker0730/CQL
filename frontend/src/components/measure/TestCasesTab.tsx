@@ -1,0 +1,260 @@
+import { useState } from 'react'
+import {
+  Box,
+  Typography,
+  Stack,
+  Button,
+  IconButton,
+  Alert,
+  CircularProgress,
+  Chip,
+  Paper,
+  Divider,
+  Tooltip,
+} from '@mui/material'
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  PlayArrow as RunIcon,
+  PlaylistPlay as RunAllIcon,
+  Edit as EditIcon,
+  CheckCircle as PassIcon,
+  Cancel as FailIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as PendingIcon,
+} from '@mui/icons-material'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { measureApi } from '../../api'
+import GradientButton from '../common/GradientButton'
+import HelpTooltip from '../common/HelpTooltip'
+import { helpContent } from '../../constants/helpContent'
+import type { MeasureDefinition, TestCase, TestCaseRunResult } from '../../types'
+import TestCaseEditor from './TestCaseEditor'
+import TestCaseResultComponent from './TestCaseResult'
+
+interface TestCasesTabProps {
+  measure: MeasureDefinition
+}
+
+const STATUS_ICON: Record<string, React.ReactNode> = {
+  pass: <PassIcon sx={{ fontSize: 16, color: 'success.main' }} />,
+  fail: <FailIcon sx={{ fontSize: 16, color: 'error.main' }} />,
+  error: <ErrorIcon sx={{ fontSize: 16, color: 'warning.main' }} />,
+  pending: <PendingIcon sx={{ fontSize: 16, color: 'text.disabled' }} />,
+}
+
+export default function TestCasesTab({ measure }: TestCasesTabProps) {
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState<TestCase | null | 'new'>(null)
+  const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
+
+  const { data: testCases = [], isLoading } = useQuery({
+    queryKey: ['test-cases', measure.id],
+    queryFn: () => measureApi.getTestCases(measure.id!),
+    enabled: !!measure.id,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.deleteTestCase(measure.id!, testCaseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
+  })
+
+  const runOneMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.runTestCase(measure.id!, testCaseId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+      setRunResults((prev) => {
+        const filtered = prev.filter((r) => r.testCaseId !== result.testCaseId)
+        return [...filtered, result]
+      })
+    },
+  })
+
+  const runAllMutation = useMutation({
+    mutationFn: () => measureApi.runAllTestCases(measure.id!),
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+      setRunResults(results)
+    },
+  })
+
+  const passCount = testCases.filter((tc) => tc.status === 'pass').length
+  const failCount = testCases.filter((tc) => tc.status === 'fail').length
+  const totalCount = testCases.length
+
+  if (editing !== null) {
+    return (
+      <TestCaseEditor
+        measure={measure}
+        testCase={editing === 'new' ? null : editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => setEditing(null)}
+      />
+    )
+  }
+
+  return (
+    <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="h6">Test Cases</Typography>
+          <HelpTooltip text={helpContent.measures.testCases} />
+          {totalCount > 0 && (
+            <Stack direction="row" spacing={0.5}>
+              <Chip
+                label={`${passCount}/${totalCount} pass`}
+                size="small"
+                color={passCount === totalCount && totalCount > 0 ? 'success' : 'default'}
+                sx={{ height: 22, fontSize: '0.75rem' }}
+              />
+              {failCount > 0 && (
+                <Chip
+                  label={`${failCount} fail`}
+                  size="small"
+                  color="error"
+                  sx={{ height: 22, fontSize: '0.75rem' }}
+                />
+              )}
+            </Stack>
+          )}
+        </Stack>
+        <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            startIcon={<RunAllIcon />}
+            onClick={() => runAllMutation.mutate()}
+            disabled={testCases.length === 0 || runAllMutation.isPending}
+            sx={{
+              borderColor: 'rgba(13,115,119,0.4)',
+              color: 'primary.dark',
+            }}
+            variant="outlined"
+          >
+            {runAllMutation.isPending ? 'Running...' : 'Run All'}
+          </Button>
+          <GradientButton
+            startIcon={<AddIcon />}
+            onClick={() => setEditing('new')}
+          >
+            Add Test Case
+          </GradientButton>
+        </Stack>
+      </Stack>
+
+      {!measure.cqlContent && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Save CQL content in the CQL tab first before running test cases.
+        </Alert>
+      )}
+
+      {runAllMutation.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {(runAllMutation.error as Error).message}
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : testCases.length === 0 ? (
+        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary" gutterBottom>
+            No test cases yet
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Create test cases with expected population outcomes to validate your measure logic.
+          </Typography>
+          <Button
+            startIcon={<AddIcon />}
+            onClick={() => setEditing('new')}
+            variant="outlined"
+          >
+            Create First Test Case
+          </Button>
+        </Paper>
+      ) : (
+        <Stack spacing={1.5}>
+          {testCases.map((tc) => {
+            const result = runResults.find((r) => r.testCaseId === tc.id)
+            return (
+              <Paper key={tc.id} variant="outlined" sx={{ overflow: 'hidden' }}>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ px: 2, py: 1 }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                    {STATUS_ICON[tc.status || 'pending']}
+                    <Typography variant="body2" fontWeight={500} noWrap>
+                      {tc.title}
+                    </Typography>
+                    {tc.description && (
+                      <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
+                        {tc.description}
+                      </Typography>
+                    )}
+                  </Stack>
+
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    {tc.expectedPopulations && (
+                      <Stack direction="row" spacing={0.25}>
+                        {Object.entries(tc.expectedPopulations)
+                          .filter(([, v]) => v)
+                          .map(([key]) => (
+                            <Chip
+                              key={key}
+                              label={key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).substring(0, 3)}
+                              size="small"
+                              sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }}
+                            />
+                          ))}
+                      </Stack>
+                    )}
+                    <Tooltip title="Run this test case">
+                      <IconButton
+                        size="small"
+                        onClick={() => runOneMutation.mutate(tc.id!)}
+                        disabled={runOneMutation.isPending}
+                      >
+                        {runOneMutation.isPending && runOneMutation.variables === tc.id
+                          ? <CircularProgress size={16} />
+                          : <RunIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton size="small" onClick={() => setEditing(tc)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => deleteMutation.mutate(tc.id!)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Stack>
+
+                {result && (
+                  <>
+                    <Divider />
+                    <Box sx={{ px: 1, py: 0.5 }}>
+                      <TestCaseResultComponent result={result} />
+                    </Box>
+                  </>
+                )}
+              </Paper>
+            )
+          })}
+        </Stack>
+      )}
+    </Box>
+  )
+}

@@ -1,0 +1,317 @@
+package com.cqlplatform.service.measure;
+
+import com.cqlplatform.entity.TestCaseEntity;
+import com.cqlplatform.model.CqlExecutionRequest;
+import com.cqlplatform.model.CqlExecutionResponse;
+import com.cqlplatform.model.measure.*;
+import com.cqlplatform.repository.TestCaseRepository;
+import com.cqlplatform.service.cql.CqlExecutionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class TestCaseService {
+
+    private final TestCaseRepository repository;
+    private final MeasureDefinitionService definitionService;
+    private final CqlExecutionService cqlExecutionService;
+
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
+
+    // ===== CRUD =====
+
+    @Transactional(readOnly = true)
+    public List<TestCase> getTestCasesForMeasure(Long measureDefinitionId) {
+        return repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId)
+                .stream()
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<TestCase> getById(Long id) {
+        return repository.findById(id).map(this::entityToModel);
+    }
+
+    @Transactional
+    public TestCase create(Long measureDefinitionId, TestCase testCase) {
+        // Verify measure exists
+        definitionService.getById(measureDefinitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+
+        TestCaseEntity entity = modelToEntity(testCase);
+        entity.setMeasureDefinitionId(measureDefinitionId);
+        entity = repository.save(entity);
+        log.info("Created test case '{}' for measure {}", entity.getTitle(), measureDefinitionId);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public TestCase update(Long id, TestCase testCase) {
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+
+        entity.setTitle(testCase.getTitle());
+        entity.setDescription(testCase.getDescription());
+        entity.setPatientBundleJson(testCase.getPatientBundleJson());
+        entity.setExpectedPopulationMap(testCase.getExpectedPopulations() != null
+                ? testCase.getExpectedPopulations() : new LinkedHashMap<>());
+
+        entity = repository.save(entity);
+        log.info("Updated test case '{}'", entity.getTitle());
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        repository.deleteById(id);
+        log.info("Deleted test case {}", id);
+    }
+
+    // ===== Execution =====
+
+    @Transactional
+    public TestCaseRunResult runTestCase(Long testCaseId) {
+        TestCaseEntity entity = repository.findById(testCaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + testCaseId));
+
+        MeasureDefinition measure = definitionService.getById(entity.getMeasureDefinitionId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Measure not found: " + entity.getMeasureDefinitionId()));
+
+        TestCaseRunResult result = executeTestCase(entity, measure);
+
+        // Update entity with results
+        entity.setStatus(result.getStatus());
+        entity.setLastRunAt(LocalDateTime.now());
+        entity.setLastRunActualPopulationMap(result.getActualPopulations() != null
+                ? result.getActualPopulations() : new LinkedHashMap<>());
+        try {
+            entity.setLastRunResultJson(MAPPER.writeValueAsString(result));
+        } catch (Exception e) {
+            entity.setLastRunResultJson("{}");
+        }
+        repository.save(entity);
+
+        return result;
+    }
+
+    @Transactional
+    public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId) {
+        MeasureDefinition measure = definitionService.getById(measureDefinitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+
+        List<TestCaseEntity> entities = repository
+                .findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+
+        List<TestCaseRunResult> results = new ArrayList<>();
+        for (TestCaseEntity entity : entities) {
+            TestCaseRunResult result = executeTestCase(entity, measure);
+
+            // Update entity with results
+            entity.setStatus(result.getStatus());
+            entity.setLastRunAt(LocalDateTime.now());
+            entity.setLastRunActualPopulationMap(result.getActualPopulations() != null
+                    ? result.getActualPopulations() : new LinkedHashMap<>());
+            try {
+                entity.setLastRunResultJson(MAPPER.writeValueAsString(result));
+            } catch (Exception e) {
+                entity.setLastRunResultJson("{}");
+            }
+            repository.save(entity);
+
+            results.add(result);
+        }
+
+        return results;
+    }
+
+    private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure) {
+        long startTime = System.currentTimeMillis();
+
+        if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
+            return TestCaseRunResult.builder()
+                    .testCaseId(entity.getId())
+                    .testCaseTitle(entity.getTitle())
+                    .status("error")
+                    .errorMessage("Measure has no CQL content")
+                    .build();
+        }
+
+        try {
+            // Execute CQL with the test case's patient context
+            CqlExecutionRequest execRequest = new CqlExecutionRequest();
+            execRequest.setCql(measure.getCqlContent());
+
+            // If patient bundle JSON is provided, we execute in context
+            // The patient ID is extracted from the bundle or defaults to a test ID
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            execRequest.setPatientId(patientId);
+
+            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+
+            if (!execResponse.isSuccess()) {
+                return TestCaseRunResult.builder()
+                        .testCaseId(entity.getId())
+                        .testCaseTitle(entity.getTitle())
+                        .status("error")
+                        .errorMessage(execResponse.getErrors() != null
+                                ? String.join("; ", execResponse.getErrors()) : "Execution failed")
+                        .executionTimeMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+
+            // Build actual populations from CQL results
+            Map<String, Boolean> actualPopulations = buildActualPopulations(execResponse, measure);
+            Map<String, Boolean> expectedPopulations = entity.getExpectedPopulationMap();
+
+            // Compare expected vs actual
+            List<TestCaseRunResult.PopulationComparison> comparisons = buildComparisons(
+                    expectedPopulations, actualPopulations);
+
+            boolean allMatch = comparisons.stream().allMatch(TestCaseRunResult.PopulationComparison::isMatch);
+
+            return TestCaseRunResult.builder()
+                    .testCaseId(entity.getId())
+                    .testCaseTitle(entity.getTitle())
+                    .status(allMatch ? "pass" : "fail")
+                    .expectedPopulations(expectedPopulations)
+                    .actualPopulations(actualPopulations)
+                    .comparisons(comparisons)
+                    .executionTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to execute test case '{}'", entity.getTitle(), e);
+            return TestCaseRunResult.builder()
+                    .testCaseId(entity.getId())
+                    .testCaseTitle(entity.getTitle())
+                    .status("error")
+                    .errorMessage(e.getMessage())
+                    .executionTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+        }
+    }
+
+    private Map<String, Boolean> buildActualPopulations(CqlExecutionResponse response,
+                                                         MeasureDefinition measure) {
+        Map<String, Boolean> actual = new LinkedHashMap<>();
+        Map<String, CqlExecutionResponse.ExpressionResult> results = response.getResults();
+        if (results == null) return actual;
+
+        // Map population criteria expressions to population types
+        if (measure.getGroupDefinitions() != null) {
+            for (GroupDefinition group : measure.getGroupDefinitions()) {
+                if (group.getPopulations() != null) {
+                    for (PopulationDefinition pop : group.getPopulations()) {
+                        String exprName = pop.getCriteriaExpression();
+                        if (exprName != null && results.containsKey(exprName)) {
+                            CqlExecutionResponse.ExpressionResult exprResult = results.get(exprName);
+                            actual.put(pop.getPopulationType(), isTruthy(exprResult));
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no group definitions, try standard population expression names
+        if (actual.isEmpty()) {
+            for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : results.entrySet()) {
+                actual.put(entry.getKey(), isTruthy(entry.getValue()));
+            }
+        }
+
+        return actual;
+    }
+
+    private boolean isTruthy(CqlExecutionResponse.ExpressionResult result) {
+        if (result == null || result.getValue() == null) return false;
+        Object val = result.getValue();
+        if (val instanceof Boolean) return (Boolean) val;
+        if (val instanceof Number) return ((Number) val).intValue() > 0;
+        if (val instanceof Collection) return !((Collection<?>) val).isEmpty();
+        // Non-null, non-false = truthy (e.g. a retrieved resource exists)
+        return true;
+    }
+
+    private List<TestCaseRunResult.PopulationComparison> buildComparisons(
+            Map<String, Boolean> expected, Map<String, Boolean> actual) {
+        Set<String> allKeys = new LinkedHashSet<>();
+        if (expected != null) allKeys.addAll(expected.keySet());
+        allKeys.addAll(actual.keySet());
+
+        List<TestCaseRunResult.PopulationComparison> comparisons = new ArrayList<>();
+        for (String key : allKeys) {
+            Boolean exp = expected != null ? expected.get(key) : null;
+            Boolean act = actual.get(key);
+            comparisons.add(TestCaseRunResult.PopulationComparison.builder()
+                    .populationType(key)
+                    .expected(exp)
+                    .actual(act)
+                    .match(Objects.equals(exp, act))
+                    .build());
+        }
+        return comparisons;
+    }
+
+    private String extractPatientIdFromBundle(String bundleJson) {
+        if (bundleJson == null || bundleJson.isBlank()) return "test-patient";
+        try {
+            var node = MAPPER.readTree(bundleJson);
+            var entries = node.get("entry");
+            if (entries != null && entries.isArray()) {
+                for (var entry : entries) {
+                    var resource = entry.get("resource");
+                    if (resource != null && "Patient".equals(resource.path("resourceType").asText())) {
+                        String id = resource.path("id").asText(null);
+                        if (id != null) return id;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not extract patient ID from bundle, using default", e);
+        }
+        return "test-patient";
+    }
+
+    // ===== Entity ↔ Model Conversion =====
+
+    private TestCase entityToModel(TestCaseEntity entity) {
+        return TestCase.builder()
+                .id(entity.getId())
+                .measureDefinitionId(entity.getMeasureDefinitionId())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .patientBundleJson(entity.getPatientBundleJson())
+                .expectedPopulations(entity.getExpectedPopulationMap())
+                .status(entity.getStatus())
+                .lastRunResultJson(entity.getLastRunResultJson())
+                .lastRunActualPopulations(entity.getLastRunActualPopulationMap())
+                .lastRunAt(entity.getLastRunAt())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private TestCaseEntity modelToEntity(TestCase model) {
+        return TestCaseEntity.builder()
+                .title(model.getTitle())
+                .description(model.getDescription())
+                .patientBundleJson(model.getPatientBundleJson())
+                .expectedPopulationMap(model.getExpectedPopulations() != null
+                        ? model.getExpectedPopulations() : new LinkedHashMap<>())
+                .status(model.getStatus() != null ? model.getStatus() : "pending")
+                .build();
+    }
+}

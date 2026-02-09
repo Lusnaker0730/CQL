@@ -11,6 +11,12 @@ export const helpContent = {
   },
   measures: {
     scoringType: 'Proportion: ratio of numerator/denominator. Continuous Variable: statistical measure of population values. Cohort: simple count of population members.',
+    details: 'Define the measure metadata: name, version, status, and scoring type. These fields map to FHIR Measure resource attributes.',
+    cql: 'Write or edit the CQL logic that powers this measure. Translate to validate syntax, then save to persist changes.',
+    populationCriteria: 'Map CQL expressions to measure populations (Initial Population, Denominator, Numerator, etc.). Each population references a CQL expression that returns true/false for patient membership.',
+    evaluate: 'Run this measure against patient data from a FHIR server. Results show population counts, individual patient membership, and optional stratifiers.',
+    testCases: 'Create patient test cases with expected population outcomes. Run tests to verify your measure logic produces correct results before deployment.',
+    reports: 'View historical evaluation reports for this measure. Compare results across runs to track changes over time.',
   },
   fhir: {
     serverUrl: 'The base URL of a FHIR R4 server. Default is the public HAPI FHIR server. You can point to your own server for testing.',

@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material'
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '../../hooks/useCdsHooks'
 import { useNotification } from '../../hooks/useNotification'
+import GradientButton from '../common/GradientButton'
 
 export default function ApiKeyManager() {
   const { data: keys, isLoading, isError } = useApiKeys()
@@ -108,23 +109,15 @@ export default function ApiKeyManager() {
 
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Typography variant="subtitle1">API Keys</Typography>
-        <Button
+        <GradientButton
           startIcon={<AddIcon />}
-          variant="contained"
-          size="small"
           onClick={() => {
             setCreateDialogOpen(true)
             setNewlyCreatedKey(null)
           }}
-          sx={{
-            background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-            },
-          }}
         >
           Generate New Key
-        </Button>
+        </GradientButton>
       </Box>
 
       {(!keys || keys.length === 0) && (
@@ -237,19 +230,12 @@ export default function ApiKeyManager() {
             {newlyCreatedKey ? 'Done' : 'Cancel'}
           </Button>
           {!newlyCreatedKey && (
-            <Button
+            <GradientButton
               onClick={handleGenerate}
-              variant="contained"
               disabled={!keyName.trim() || generateMutation.isPending}
-              sx={{
-                background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-                },
-              }}
             >
               {generateMutation.isPending ? 'Generating...' : 'Generate'}
-            </Button>
+            </GradientButton>
           )}
         </DialogActions>
       </Dialog>

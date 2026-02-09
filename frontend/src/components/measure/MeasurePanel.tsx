@@ -29,6 +29,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Schedule as ScheduleIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureEvaluationResult, PopulationResult, MeasureDefinition, StratifierResult } from '../../types'
@@ -238,8 +239,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
         </Stack>
 
         <Stack direction="row" spacing={1}>
-          <Button
-            variant="contained"
+          <GradientButton
             onClick={handleEvaluate}
             disabled={evaluateMutation.isPending || (!cqlContent && !selectedDef)}
             startIcon={
@@ -247,17 +247,13 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             }
             sx={{
               flex: 1,
-              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-              },
               '&.Mui-disabled': {
                 background: 'rgba(0,0,0,0.12)',
               },
             }}
           >
             {evaluateMutation.isPending ? 'Evaluating...' : 'Evaluate Measure'}
-          </Button>
+          </GradientButton>
           {selectedDef && (
             <Button
               variant="outlined"

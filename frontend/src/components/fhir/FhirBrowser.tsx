@@ -30,6 +30,7 @@ import {
   Stop as StopIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import HelpTooltip from '../common/HelpTooltip'
@@ -291,23 +292,18 @@ export default function FhirBrowser() {
               helperText="Enter FHIR search parameters"
             />
 
-            <Button
-              variant="contained"
+            <GradientButton
               onClick={handleSearch}
               disabled={searchMutation.isPending}
               startIcon={searchMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
               sx={{
-                background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-                },
                 '&.Mui-disabled': {
                   background: 'rgba(0,0,0,0.12)',
                 },
               }}
             >
               {searchMutation.isPending ? 'Searching...' : 'Search'}
-            </Button>
+            </GradientButton>
 
             {searchMutation.isError && (
               <Alert severity="error">
@@ -361,23 +357,18 @@ export default function FhirBrowser() {
               placeholder="e.g., example-patient-1"
             />
 
-            <Button
-              variant="contained"
+            <GradientButton
               onClick={handleRead}
               disabled={readMutation.isPending || !resourceId}
               startIcon={readMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
               sx={{
-                background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-                },
                 '&.Mui-disabled': {
                   background: 'rgba(0,0,0,0.12)',
                 },
               }}
             >
               {readMutation.isPending ? 'Loading...' : 'Read Resource'}
-            </Button>
+            </GradientButton>
 
             {readMutation.isError && (
               <Alert severity="error">
@@ -466,23 +457,18 @@ export default function FhirBrowser() {
                   </Select>
                 </FormControl>
 
-                <Button
-                  variant="contained"
+                <GradientButton
                   onClick={handleStartExport}
                   disabled={exportMutation.isPending}
                   startIcon={exportMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <ExportIcon />}
                   sx={{
-                    background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-                    },
                     '&.Mui-disabled': {
                       background: 'rgba(0,0,0,0.12)',
                     },
                   }}
                 >
                   {exportMutation.isPending ? 'Starting Export...' : 'Start Export'}
-                </Button>
+                </GradientButton>
               </>
             )}
 

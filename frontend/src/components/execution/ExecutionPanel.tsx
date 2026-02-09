@@ -3,7 +3,6 @@ import {
   Box,
   Paper,
   TextField,
-  Button,
   Typography,
   Stack,
   Divider,
@@ -28,6 +27,7 @@ import {
   Timer as TimerIcon,
   BugReport as DebugIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useDispatch, useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import { setPatientId, setFhirServerUrl } from '../../store/executionSlice'
@@ -132,26 +132,21 @@ export default function ExecutionPanel() {
         />
 
         <Stack direction="row" spacing={2} alignItems="center">
-          <Button
-            variant="contained"
+          <GradientButton
             startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
             onClick={handleExecute}
             disabled={isExecuting || !cqlContent}
             fullWidth
             sx={{
               py: 1.2,
-              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
               fontSize: '0.95rem',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-              },
               '&.Mui-disabled': {
                 background: 'rgba(0,0,0,0.12)',
               },
             }}
           >
             {isExecuting ? 'Executing...' : 'Execute CQL'}
-          </Button>
+          </GradientButton>
         </Stack>
 
         <FormControlLabel

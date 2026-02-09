@@ -38,6 +38,8 @@ import type {
   BulkExportKickOffResult,
   BulkExportStatusResult,
   CacheStats,
+  TestCase,
+  TestCaseRunResult,
 } from '../types'
 
 const api = axios.create({
@@ -353,6 +355,12 @@ export const measureApi = {
     await api.delete(`/measures/${id}`)
   },
 
+  // CQL Expressions (for population criteria mapping)
+  getCqlExpressions: async (measureId: number): Promise<{ name: string; context: string; accessLevel: string; resultType: string | null }[]> => {
+    const response = await api.get(`/measures/${measureId}/cql-expressions`)
+    return response.data
+  },
+
   // FHIR Import/Export
   importFhirMeasure: async (fhirMeasure: unknown): Promise<MeasureDefinition> => {
     const response = await api.post<MeasureDefinition>('/measures/import/fhir', fhirMeasure)
@@ -433,6 +441,41 @@ export const measureApi = {
   getTrend: async (measureName: string, periods: number = 4): Promise<MeasureTrendResult> => {
     const params = new URLSearchParams({ measureName, periods: periods.toString() })
     const response = await api.get<MeasureTrendResult>(`/measures/trend?${params.toString()}`)
+    return response.data
+  },
+
+  // Test Cases
+  getTestCases: async (measureId: number): Promise<TestCase[]> => {
+    const response = await api.get<TestCase[]>(`/measures/${measureId}/test-cases`)
+    return response.data
+  },
+
+  getTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
+    const response = await api.get<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}`)
+    return response.data
+  },
+
+  createTestCase: async (measureId: number, testCase: TestCase): Promise<TestCase> => {
+    const response = await api.post<TestCase>(`/measures/${measureId}/test-cases`, testCase)
+    return response.data
+  },
+
+  updateTestCase: async (measureId: number, testCaseId: number, testCase: TestCase): Promise<TestCase> => {
+    const response = await api.put<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}`, testCase)
+    return response.data
+  },
+
+  deleteTestCase: async (measureId: number, testCaseId: number): Promise<void> => {
+    await api.delete(`/measures/${measureId}/test-cases/${testCaseId}`)
+  },
+
+  runTestCase: async (measureId: number, testCaseId: number): Promise<TestCaseRunResult> => {
+    const response = await api.post<TestCaseRunResult>(`/measures/${measureId}/test-cases/${testCaseId}/run`)
+    return response.data
+  },
+
+  runAllTestCases: async (measureId: number): Promise<TestCaseRunResult[]> => {
+    const response = await api.post<TestCaseRunResult[]>(`/measures/${measureId}/test-cases/run`)
     return response.data
   },
 }

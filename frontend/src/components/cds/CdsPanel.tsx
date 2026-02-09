@@ -86,6 +86,7 @@ import { validateRequired } from '../../utils/validation'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import ApiKeyManager from './ApiKeyManager'
 import LibraryPicker from '../common/LibraryPicker'
+import GradientButton from '../common/GradientButton'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -313,23 +314,18 @@ function InvokeServicePanel() {
         helperText="Leave empty if service doesn't require patient context"
       />
 
-      <Button
-        variant="contained"
+      <GradientButton
         onClick={handleInvoke}
         disabled={!selectedService || invokeMutation.isPending}
         startIcon={invokeMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
         sx={{
-          background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-          '&:hover': {
-            background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-          },
           '&.Mui-disabled': {
             background: 'rgba(0,0,0,0.12)',
           },
         }}
       >
         {invokeMutation.isPending ? 'Invoking...' : 'Invoke Service'}
-      </Button>
+      </GradientButton>
 
       <Divider />
 
@@ -669,20 +665,12 @@ function ManageServicesPanel() {
     <Stack spacing={2}>
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Typography variant="subtitle1">Configured Services</Typography>
-        <Button
+        <GradientButton
           startIcon={<AddIcon />}
-          variant="contained"
-          size="small"
           onClick={handleOpenCreate}
-          sx={{
-            background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-            },
-          }}
         >
           New Service
-        </Button>
+        </GradientButton>
       </Box>
 
       {activeServiceId && (
@@ -931,19 +919,12 @@ function ManageServicesPanel() {
           <Button onClick={handleClose} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button
+          <GradientButton
             onClick={handleSave}
-            variant="contained"
             disabled={!formData.id || !formData.title || createMutation.isPending || updateMutation.isPending}
-            sx={{
-              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-              },
-            }}
           >
             {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save'}
-          </Button>
+          </GradientButton>
         </DialogActions>
       </Dialog>
 
@@ -1168,23 +1149,18 @@ function SandboxPanel() {
         }}
       />
 
-      <Button
-        variant="contained"
+      <GradientButton
         onClick={handleSandboxInvoke}
         disabled={!selectedService || sandboxMutation.isPending}
         startIcon={sandboxMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
         sx={{
-          background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-          '&:hover': {
-            background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)',
-          },
           '&.Mui-disabled': {
             background: 'rgba(0,0,0,0.12)',
           },
         }}
       >
         {sandboxMutation.isPending ? 'Invoking...' : 'Invoke in Sandbox'}
-      </Button>
+      </GradientButton>
 
       {sandboxMutation.isError && (
         <Alert severity="error">Sandbox invocation failed: {(sandboxMutation.error as Error).message}</Alert>

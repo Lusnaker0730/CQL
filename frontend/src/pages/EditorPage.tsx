@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import {
   Box,
   Grid,
@@ -11,6 +11,7 @@ import {
   Typography,
   CircularProgress,
   Tooltip,
+  ToggleButton,
 } from '@mui/material'
 import {
   Translate as TranslateIcon,
@@ -19,14 +20,17 @@ import {
   FileUpload as ImportIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
+  Construction as BuilderIcon,
 } from '@mui/icons-material'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import CqlEditor from '../components/editor/CqlEditor'
 import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
 import LibraryQuickAccess from '../components/editor/LibraryQuickAccess'
+import CqlBuilderPanel from '../components/builder/CqlBuilderPanel'
 import HelpTooltip from '../components/common/HelpTooltip'
 import type { RootState } from '../store'
+import { setCqlContent } from '../store/editorSlice'
 import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata } from '../hooks/useCql'
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
@@ -47,8 +51,10 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 export default function EditorPage() {
-  const { cqlContent, isTranslating, errors, elmJson } = useSelector((state: RootState) => state.editor)
+  const dispatch = useDispatch()
+  const { cqlContent, isTranslating, errors, elmJson, cursorPosition } = useSelector((state: RootState) => state.editor)
   const [rightPanelTab, setRightPanelTab] = useState(0)
+  const [showBuilder, setShowBuilder] = useState(false)
   const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { addToRecent, toggleFavorite, isFavorite } = useLibraryHistory()
@@ -118,6 +124,17 @@ export default function EditorPage() {
     reader.readAsText(file)
     e.target.value = ''
   }
+
+  const handleInsertSnippet = useCallback(
+    (snippet: string) => {
+      const lines = cqlContent.split('\n')
+      const lineIdx = Math.min(cursorPosition.line - 1, lines.length)
+      // Insert the snippet at the end of the current line, with blank line separation
+      lines.splice(lineIdx + 1, 0, '', snippet, '')
+      dispatch(setCqlContent(lines.join('\n')))
+    },
+    [cqlContent, cursorPosition, dispatch]
+  )
 
   return (
     <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
@@ -244,6 +261,29 @@ export default function EditorPage() {
                     Import
                   </Button>
                   <HelpTooltip text={helpContent.editor.import} />
+                  <Tooltip title={showBuilder ? 'Hide Builder Panel' : 'Show Builder Panel'}>
+                    <ToggleButton
+                      size="small"
+                      value="builder"
+                      selected={showBuilder}
+                      onChange={() => setShowBuilder((prev) => !prev)}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: showBuilder ? 'primary.main' : 'rgba(13,115,119,0.3)',
+                        color: showBuilder ? 'primary.main' : 'text.secondary',
+                        bgcolor: showBuilder ? 'rgba(13,115,119,0.08)' : 'transparent',
+                        px: 1,
+                        '&:hover': {
+                          bgcolor: 'rgba(13,115,119,0.08)',
+                        },
+                      }}
+                    >
+                      <BuilderIcon sx={{ fontSize: 18, mr: 0.5 }} />
+                      <Typography variant="caption" sx={{ textTransform: 'none' }}>
+                        Builder
+                      </Typography>
+                    </ToggleButton>
+                  </Tooltip>
                 </Stack>
               </Stack>
             </Box>
@@ -265,33 +305,39 @@ export default function EditorPage() {
               display: 'flex',
               flexDirection: 'column',
               borderLeft: '3px solid',
-              borderLeftColor: 'secondary.main',
+              borderLeftColor: showBuilder ? 'primary.main' : 'secondary.main',
               overflow: 'hidden',
             }}
           >
-            <Tabs
-              value={rightPanelTab}
-              onChange={(_, v) => setRightPanelTab(v)}
-              sx={{
-                borderBottom: '1px solid',
-                borderColor: 'rgba(13,115,119,0.1)',
-                bgcolor: 'rgba(27,58,92,0.03)',
-              }}
-            >
-              <Tab label="ELM / Errors" />
-              <Tab label="Execute" />
-            </Tabs>
-            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-              <TabPanel value={rightPanelTab} index={0}>
-                <ElmViewer
-                  terminologyResults={terminologyResults}
-                  isTermValidating={isTermValidating}
-                />
-              </TabPanel>
-              <TabPanel value={rightPanelTab} index={1}>
-                <ExecutionPanel />
-              </TabPanel>
-            </Box>
+            {showBuilder ? (
+              <CqlBuilderPanel onInsertSnippet={handleInsertSnippet} />
+            ) : (
+              <>
+                <Tabs
+                  value={rightPanelTab}
+                  onChange={(_, v) => setRightPanelTab(v)}
+                  sx={{
+                    borderBottom: '1px solid',
+                    borderColor: 'rgba(13,115,119,0.1)',
+                    bgcolor: 'rgba(27,58,92,0.03)',
+                  }}
+                >
+                  <Tab label="ELM / Errors" />
+                  <Tab label="Execute" />
+                </Tabs>
+                <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+                  <TabPanel value={rightPanelTab} index={0}>
+                    <ElmViewer
+                      terminologyResults={terminologyResults}
+                      isTermValidating={isTermValidating}
+                    />
+                  </TabPanel>
+                  <TabPanel value={rightPanelTab} index={1}>
+                    <ExecutionPanel />
+                  </TabPanel>
+                </Box>
+              </>
+            )}
           </Paper>
         </Grid>
       </Grid>

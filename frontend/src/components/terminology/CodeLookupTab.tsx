@@ -11,6 +11,7 @@ import {
   Paper,
 } from '@mui/material'
 import { Search as SearchIcon, ContentCopy as CopyIcon } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useLookupCode } from '../../hooks/useTerminology'
 
 const CODE_SYSTEMS = [
@@ -80,19 +81,16 @@ export default function CodeLookupTab() {
         onKeyDown={(e) => { if (e.key === 'Enter') handleLookup() }}
       />
 
-      <Button
-        variant="contained"
+      <GradientButton
         onClick={handleLookup}
         disabled={lookupMutation.isPending || !system || !code}
         startIcon={lookupMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
         sx={{
-          background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-          '&:hover': { background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)' },
           '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' },
         }}
       >
         {lookupMutation.isPending ? 'Looking up...' : 'Lookup Code'}
-      </Button>
+      </GradientButton>
 
       {lookupMutation.isError && (
         <Alert severity="error">

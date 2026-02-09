@@ -2,7 +2,10 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.MeasureReportEntity;
 import com.cqlplatform.entity.MeasureScheduleEntity;
+import com.cqlplatform.model.CqlTranslationRequest;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
+import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.measure.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -30,6 +34,8 @@ public class MeasureController {
     private final MeasureReportExportService exportService;
     private final ScheduledMeasureEvaluationService scheduleService;
     private final MeasureComparisonService comparisonService;
+    private final CqlTranslationService translationService;
+    private final TestCaseService testCaseService;
 
     // ===== Measure Definition CRUD =====
 
@@ -88,6 +94,27 @@ public class MeasureController {
     public ResponseEntity<ObjectNode> exportFhirMeasure(@PathVariable Long id) {
         ObjectNode fhirMeasure = fhirMeasureService.exportAsFhirMeasure(id);
         return ResponseEntity.ok(fhirMeasure);
+    }
+
+    // ===== CQL Expressions =====
+
+    @GetMapping("/{id}/cql-expressions")
+    @Operation(summary = "Get CQL Expressions", description = "Parse a measure's CQL and return available expression names for population mapping")
+    public ResponseEntity<List<CqlTranslationResponse.ExpressionInfo>> getCqlExpressions(@PathVariable Long id) {
+        return definitionService.getById(id)
+                .map(def -> {
+                    if (def.getCqlContent() == null || def.getCqlContent().isBlank()) {
+                        return ResponseEntity.ok(Collections.<CqlTranslationResponse.ExpressionInfo>emptyList());
+                    }
+                    CqlTranslationRequest request = new CqlTranslationRequest();
+                    request.setCql(def.getCqlContent());
+                    CqlTranslationResponse response = translationService.translate(request);
+                    if (response.getMetadata() != null && response.getMetadata().getExpressions() != null) {
+                        return ResponseEntity.ok(response.getMetadata().getExpressions());
+                    }
+                    return ResponseEntity.ok(Collections.<CqlTranslationResponse.ExpressionInfo>emptyList());
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     // ===== Evaluation =====
@@ -251,5 +278,67 @@ public class MeasureController {
             @RequestParam(defaultValue = "4") int periods) {
         MeasureTrendResult trend = comparisonService.getTrend(measureName, periods);
         return ResponseEntity.ok(trend);
+    }
+
+    // ===== Test Cases =====
+
+    @GetMapping("/{measureId}/test-cases")
+    @Operation(summary = "List Test Cases", description = "List test cases for a measure")
+    public ResponseEntity<List<TestCase>> listTestCases(@PathVariable Long measureId) {
+        return ResponseEntity.ok(testCaseService.getTestCasesForMeasure(measureId));
+    }
+
+    @GetMapping("/{measureId}/test-cases/{testCaseId}")
+    @Operation(summary = "Get Test Case", description = "Get a specific test case")
+    public ResponseEntity<TestCase> getTestCase(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId) {
+        return testCaseService.getById(testCaseId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{measureId}/test-cases")
+    @Operation(summary = "Create Test Case", description = "Create a new test case for a measure")
+    public ResponseEntity<TestCase> createTestCase(
+            @PathVariable Long measureId,
+            @RequestBody TestCase testCase) {
+        TestCase created = testCaseService.create(measureId, testCase);
+        return ResponseEntity.ok(created);
+    }
+
+    @PutMapping("/{measureId}/test-cases/{testCaseId}")
+    @Operation(summary = "Update Test Case", description = "Update a test case")
+    public ResponseEntity<TestCase> updateTestCase(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId,
+            @RequestBody TestCase testCase) {
+        TestCase updated = testCaseService.update(testCaseId, testCase);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{measureId}/test-cases/{testCaseId}")
+    @Operation(summary = "Delete Test Case", description = "Delete a test case")
+    public ResponseEntity<Void> deleteTestCase(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId) {
+        testCaseService.delete(testCaseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/run")
+    @Operation(summary = "Run Test Case", description = "Execute a single test case against the measure's CQL")
+    public ResponseEntity<TestCaseRunResult> runTestCase(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId) {
+        TestCaseRunResult result = testCaseService.runTestCase(testCaseId);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{measureId}/test-cases/run")
+    @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure")
+    public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(@PathVariable Long measureId) {
+        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId);
+        return ResponseEntity.ok(results);
     }
 }

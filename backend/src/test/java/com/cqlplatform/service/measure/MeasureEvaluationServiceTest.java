@@ -9,7 +9,6 @@ import com.cqlplatform.service.fhir.FhirDataProviderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -32,13 +31,24 @@ class MeasureEvaluationServiceTest {
     @Mock
     private FhirDataProviderService fhirDataProviderService;
 
-    @InjectMocks
+    private PatientDiscoveryService patientDiscoveryService;
+    private PopulationEvaluator populationEvaluator;
+    private StratifierEvaluator stratifierEvaluator;
+    private MeasureScoreCalculator scoreCalculator;
     private MeasureEvaluationService measureService;
 
     @BeforeEach
     void setUp() {
+        patientDiscoveryService = new PatientDiscoveryService(fhirDataProviderService);
+        populationEvaluator = new PopulationEvaluator();
+        scoreCalculator = new MeasureScoreCalculator();
+        stratifierEvaluator = new StratifierEvaluator(populationEvaluator, scoreCalculator);
+        measureService = new MeasureEvaluationService(
+                cqlExecutionService, patientDiscoveryService,
+                populationEvaluator, stratifierEvaluator, scoreCalculator);
         ReflectionTestUtils.setField(measureService, "defaultPeriodStart", "2024-01-01");
         ReflectionTestUtils.setField(measureService, "defaultPeriodEnd", "2024-12-31");
+        ReflectionTestUtils.setField(measureService, "measureTimeoutSeconds", 120);
     }
 
     private CqlExecutionResponse buildExecResponse(Map<String, Object> results) {

@@ -27,6 +27,7 @@ import {
   Delete as DeleteIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureSchedule, MeasureDefinition } from '../../types'
@@ -93,10 +94,9 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}
-            sx={{ background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)' }}>
+          <GradientButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
             Add Schedule
-          </Button>
+          </GradientButton>
           {onClose && <Button size="small" onClick={onClose}>Close</Button>}
         </Stack>
       </Stack>

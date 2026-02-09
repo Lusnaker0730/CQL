@@ -1,23 +1,36 @@
 import { useState } from 'react'
 import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
-import MeasurePanel from '../components/measure/MeasurePanel'
 import MeasureLibrary from '../components/measure/MeasureLibrary'
-import MeasureReportHistory from '../components/measure/MeasureReportHistory'
+import MeasureEditor from '../components/measure/MeasureEditor'
 import MeasureComparison from '../components/measure/MeasureComparison'
-import CqlEditor from '../components/editor/CqlEditor'
+import { measureApi } from '../api'
 import type { MeasureDefinition } from '../types'
 
 export default function MeasuresPage() {
-  const [tab, setTab] = useState(0)
+  const [topTab, setTopTab] = useState(0)
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureDefinition | null>(null)
 
-  const handleSelectMeasure = (measure: MeasureDefinition) => {
-    setSelectedMeasure(measure)
-    setTab(1) // Switch to Evaluate tab
+  const handleSelectMeasure = async (measure: MeasureDefinition) => {
+    // Load full measure data if we only have summary
+    if (measure.id && !measure.cqlContent) {
+      try {
+        const full = await measureApi.getMeasure(measure.id)
+        setSelectedMeasure(full)
+      } catch {
+        setSelectedMeasure(measure)
+      }
+    } else {
+      setSelectedMeasure(measure)
+    }
+    setTopTab(0) // Switch to Measures tab
+  }
+
+  const handleMeasureUpdate = (updated: MeasureDefinition) => {
+    setSelectedMeasure(updated)
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: 'calc(100vh - 120px)', p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
           Quality Measures (eCQM)
@@ -32,39 +45,42 @@ export default function MeasuresPage() {
           }}
         />
         <Typography variant="body2" color="text.secondary">
-          Evaluate electronic Clinical Quality Measures using CQL. Define your measure logic in the
-          editor and evaluate against patient data.
+          Define, evaluate, and analyze electronic Clinical Quality Measures using CQL.
         </Typography>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label="Library" />
-        <Tab label="Evaluate" />
-        <Tab label="Reports" />
-        <Tab label="Comparison" />
+      <Tabs value={topTab} onChange={(_, v) => setTopTab(v)} sx={{ mb: 2 }}>
+        <Tab label="Measures" />
+        <Tab label="Comparison & Trends" />
       </Tabs>
 
-      <Box sx={{ height: 'calc(100% - 140px)' }}>
-        {tab === 0 && (
-          <MeasureLibrary onSelectMeasure={handleSelectMeasure} />
-        )}
-
-        {tab === 1 && (
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        {topTab === 0 && (
           <Grid container spacing={2} sx={{ height: '100%' }}>
-            <Grid item xs={12} md={6}>
-              <CqlEditor height="100%" />
+            {/* Left panel: Measure Library */}
+            <Grid item xs={12} md={selectedMeasure ? 4 : 12} sx={{ height: '100%' }}>
+              <MeasureLibrary onSelectMeasure={handleSelectMeasure} />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <MeasurePanel selectedMeasure={selectedMeasure} />
-            </Grid>
+
+            {/* Right panel: Measure Editor */}
+            {selectedMeasure && (
+              <Grid item xs={12} md={8} sx={{ height: '100%' }}>
+                <MeasureEditor
+                  measure={selectedMeasure}
+                  onMeasureUpdate={handleMeasureUpdate}
+                />
+              </Grid>
+            )}
+
+            {!selectedMeasure && (
+              <Box sx={{ display: 'none' }}>
+                {/* Placeholder — library takes full width when no measure selected */}
+              </Box>
+            )}
           </Grid>
         )}
 
-        {tab === 2 && (
-          <MeasureReportHistory />
-        )}
-
-        {tab === 3 && (
+        {topTab === 1 && (
           <MeasureComparison />
         )}
       </Box>
