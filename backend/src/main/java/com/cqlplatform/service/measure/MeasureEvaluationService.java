@@ -9,12 +9,15 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.opencds.cqf.cql.engine.runtime.Date;
+import org.opencds.cqf.cql.engine.runtime.DateTime;
 import org.opencds.cqf.cql.engine.runtime.Interval;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
 /**
@@ -167,13 +170,9 @@ public class MeasureEvaluationService {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("Measurement Period",
                 new Interval(
-                        new Date(context.getPeriodStart().getYear(),
-                                context.getPeriodStart().getMonthValue(),
-                                context.getPeriodStart().getDayOfMonth()),
+                        new DateTime(OffsetDateTime.of(context.getPeriodStart(), LocalTime.MIN, ZoneOffset.UTC)),
                         true,
-                        new Date(context.getPeriodEnd().getYear(),
-                                context.getPeriodEnd().getMonthValue(),
-                                context.getPeriodEnd().getDayOfMonth()),
+                        new DateTime(OffsetDateTime.of(context.getPeriodEnd(), LocalTime.MAX, ZoneOffset.UTC)),
                         true));
         execRequest.setParameters(parameters);
 

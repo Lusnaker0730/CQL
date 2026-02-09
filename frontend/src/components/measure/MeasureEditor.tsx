@@ -61,6 +61,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [auditDialogOpen, setAuditDialogOpen] = useState(false)
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
   const queryClient = useQueryClient()
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
@@ -197,6 +198,17 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             {measure.title || measure.name}
           </Typography>
           <StatusChip status={measure.status || 'draft'} />
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            v{measure.version}
+          </Typography>
+          <Button
+            size="small"
+            startIcon={<HistoryIcon />}
+            onClick={(e) => setVersionAnchor(e.currentTarget)}
+            sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary', minWidth: 'auto' }}
+          >
+            Versioning
+          </Button>
         </Stack>
         <Stack direction="row" spacing={0.5} alignItems="center">
           <Button
@@ -277,31 +289,6 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               Retire
             </Button>
           )}
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-          <Button
-            size="small"
-            startIcon={<VersionIcon />}
-            onClick={() => setVersionDialogOpen(true)}
-            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-          >
-            Version
-          </Button>
-          <Button
-            size="small"
-            startIcon={<HistoryIcon />}
-            onClick={() => setHistoryDialogOpen(true)}
-            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-          >
-            History
-          </Button>
-          <Button
-            size="small"
-            startIcon={<CompareIcon />}
-            onClick={() => { setHistoryDialogOpen(false); setDiffDialogOpen(true) }}
-            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-          >
-            Compare
-          </Button>
           <WorkflowIndicator measure={measure} />
         </Stack>
       </Stack>
@@ -402,6 +389,22 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => handleExport('cql')}>CQL Only</MenuItem>
         <MenuItem onClick={() => handleExport('elm')}>ELM Only</MenuItem>
         <MenuItem onClick={() => handleExport('hqmf')}>HQMF (XML)</MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={versionAnchor}
+        open={Boolean(versionAnchor)}
+        onClose={() => setVersionAnchor(null)}
+      >
+        <MenuItem onClick={() => { setVersionAnchor(null); setVersionDialogOpen(true) }}>
+          <VersionIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> Create Version
+        </MenuItem>
+        <MenuItem onClick={() => { setVersionAnchor(null); setHistoryDialogOpen(true) }}>
+          <HistoryIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> Version History
+        </MenuItem>
+        <MenuItem onClick={() => { setVersionAnchor(null); setDiffDialogOpen(true) }}>
+          <CompareIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> Compare Versions
+        </MenuItem>
       </Menu>
     </Paper>
   )

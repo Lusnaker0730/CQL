@@ -85,7 +85,7 @@ fhir:
   server:
     url: ${FHIR_SERVER_URL:http://launch.smarthealthit.org/v/r4/fhir}
   terminology:
-    url: ${FHIR_TERMINOLOGY_URL:http://tx.fhir.org/r4}
+    url: ${FHIR_TERMINOLOGY_URL:https://tx.fhir.org/r4}
   implementation-guides:
     enabled: ${FHIR_IG_ENABLED:true}
   client:

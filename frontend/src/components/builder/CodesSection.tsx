@@ -44,7 +44,7 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const lookupMutation = useLookupCode()
-  const { data: searchResults, isFetching: isSearching } = useSearchCodes(systemUrl, debouncedSearch)
+  const { data: searchResults, isFetching: isSearching, isError: isSearchError } = useSearchCodes(systemUrl, debouncedSearch)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchText), 500)
@@ -214,7 +214,12 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
                   </List>
                 </Paper>
               )}
-              {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && (
+              {debouncedSearch.length >= 2 && !isSearching && isSearchError && (
+                <Alert severity="warning" sx={{ py: 0, fontSize: '0.8rem' }}>
+                  Search failed — terminology server may be unavailable. Try again later.
+                </Alert>
+              )}
+              {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && !isSearchError && (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
                   No results found
                 </Typography>

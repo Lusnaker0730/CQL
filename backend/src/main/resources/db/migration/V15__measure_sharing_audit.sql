@@ -8,7 +8,7 @@ CREATE INDEX IF NOT EXISTS idx_measure_def_access ON measure_definition(access_l
 
 -- Measure audit trail
 CREATE TABLE IF NOT EXISTS measure_audit (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     measure_id BIGINT NOT NULL,
     action VARCHAR(50) NOT NULL,
     performed_by VARCHAR(100),

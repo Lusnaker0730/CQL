@@ -231,11 +231,11 @@ export default function EditorPage() {
                 borderColor: 'rgba(13,115,119,0.1)',
               }}
             >
-              <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main' }}>
+              <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main', whiteSpace: 'nowrap' }}>
                   CQL Editor
                 </Typography>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
                   <Button
                     size="small"
                     variant="contained"

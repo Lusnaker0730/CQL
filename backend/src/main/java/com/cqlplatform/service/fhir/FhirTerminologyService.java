@@ -25,6 +25,11 @@ import java.util.Map;
 @Slf4j
 public class FhirTerminologyService {
 
+    private static final List<String> FALLBACK_TERMINOLOGY_SERVERS = List.of(
+            "https://tx.fhir.org/r4",
+            "https://r4.ontoserver.csiro.au/fhir"
+    );
+
     private static final Map<String, String> IMPLICIT_VALUESET_URLS = Map.of(
             "http://loinc.org", "http://loinc.org/vs",
             "http://snomed.info/sct", "http://snomed.info/sct?fhir_vs",
@@ -37,7 +42,7 @@ public class FhirTerminologyService {
     private final CacheManager cacheManager;
     private final FhirImplementationGuideService igService;
 
-    @Value("${fhir.terminology.url:http://tx.fhir.org/r4}")
+    @Value("${fhir.terminology.url:https://tx.fhir.org/r4}")
     private String defaultTerminologyServerUrl;
 
     public FhirTerminologyService(FhirContext fhirContext,
@@ -214,35 +219,22 @@ public class FhirTerminologyService {
     @CircuitBreaker(name = "fhirTerminology", fallbackMethod = "searchCodesFallback")
     @Retry(name = "fhirTerminology")
     public List<CodeSearchResult> searchCodes(String system, String text, int maxResults) {
-        log.debug("Searching codes in {} for '{}' (max {})", system, text, maxResults);
-        String implicitVsUrl = IMPLICIT_VALUESET_URLS.getOrDefault(system, system + "?fhir_vs");
-        IGenericClient client = fhirContext.newRestfulGenericClient(defaultTerminologyServerUrl);
+        log.info("Searching codes in {} for '{}' (max {})", system, text, maxResults);
 
         List<CodeSearchResult> results = new ArrayList<>();
-        try {
-            Parameters params = new Parameters();
-            params.addParameter("url", new UriType(implicitVsUrl));
-            params.addParameter("filter", new StringType(text));
-            params.addParameter("count", new IntegerType(maxResults));
 
-            ValueSet expanded = client.operation()
-                    .onType(ValueSet.class)
-                    .named("$expand")
-                    .withParameters(params)
-                    .returnResourceType(ValueSet.class)
-                    .execute();
+        // Try primary terminology server
+        results = tryExpandOnServer(defaultTerminologyServerUrl, system, text, maxResults);
 
-            if (expanded.hasExpansion() && expanded.getExpansion().hasContains()) {
-                for (ValueSet.ValueSetExpansionContainsComponent concept : expanded.getExpansion().getContains()) {
-                    results.add(new CodeSearchResult(
-                            concept.getSystem() != null ? concept.getSystem() : system,
-                            concept.getCode(),
-                            concept.getDisplay()
-                    ));
+        // If primary returned empty, try fallback servers
+        if (results.isEmpty()) {
+            for (String fallbackUrl : FALLBACK_TERMINOLOGY_SERVERS) {
+                if (!fallbackUrl.equals(defaultTerminologyServerUrl)) {
+                    log.info("Primary server returned no results, trying fallback: {}", fallbackUrl);
+                    results = tryExpandOnServer(fallbackUrl, system, text, maxResults);
+                    if (!results.isEmpty()) break;
                 }
             }
-        } catch (Exception e) {
-            log.warn("Remote code search failed for system {}: {}", system, e.getMessage());
         }
 
         // Merge local IG results if available
@@ -268,6 +260,40 @@ public class FhirTerminologyService {
         }
 
         return results.size() > maxResults ? results.subList(0, maxResults) : results;
+    }
+
+    private List<CodeSearchResult> tryExpandOnServer(String serverUrl, String system, String text, int maxResults) {
+        List<CodeSearchResult> results = new ArrayList<>();
+        try {
+            String implicitVsUrl = IMPLICIT_VALUESET_URLS.getOrDefault(system, system + "?fhir_vs");
+            IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
+
+            Parameters params = new Parameters();
+            params.addParameter("url", new UriType(implicitVsUrl));
+            params.addParameter("filter", new StringType(text));
+            params.addParameter("count", new IntegerType(maxResults));
+
+            ValueSet expanded = client.operation()
+                    .onType(ValueSet.class)
+                    .named("$expand")
+                    .withParameters(params)
+                    .returnResourceType(ValueSet.class)
+                    .execute();
+
+            if (expanded.hasExpansion() && expanded.getExpansion().hasContains()) {
+                for (ValueSet.ValueSetExpansionContainsComponent concept : expanded.getExpansion().getContains()) {
+                    results.add(new CodeSearchResult(
+                            concept.getSystem() != null ? concept.getSystem() : system,
+                            concept.getCode(),
+                            concept.getDisplay()
+                    ));
+                }
+            }
+            log.info("Server {} returned {} results for '{}' in {}", serverUrl, results.size(), text, system);
+        } catch (Exception e) {
+            log.warn("Code search failed on server {} for system {}: {}", serverUrl, system, e.getMessage());
+        }
+        return results;
     }
 
     @SuppressWarnings("unused")
