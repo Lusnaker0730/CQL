@@ -19,6 +19,7 @@ import type {
   MeasureEvaluationResult,
   MeasureDefinition,
   MeasureAuditEntry,
+  ValidationReport,
   MeasureReport,
   MeasureSchedule,
   MeasureComparisonResult,
@@ -48,6 +49,11 @@ import type {
   ProfileSummary,
   ValueSetSummary,
   CodeSystemSummary,
+  BundleImportResult,
+  DashboardSummary,
+  BatchEvaluationRequest,
+  BatchEvaluationResult,
+  RepositoryLibrary,
 } from '../types'
 
 const api = axios.create({
@@ -213,6 +219,17 @@ export const cqlApi = {
 
   getSharedLibraries: async (username: string): Promise<CqlLibrary[]> => {
     const response = await api.get<CqlLibrary[]>(`/cql/libraries/shared/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  // CQL Repository
+  getRepositoryLibraries: async (): Promise<RepositoryLibrary[]> => {
+    const response = await api.get<RepositoryLibrary[]>('/cql/libraries/repository')
+    return response.data
+  },
+
+  importRepositoryLibrary: async (name: string): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>(`/cql/libraries/repository/${encodeURIComponent(name)}/import`)
     return response.data
   },
 
@@ -630,9 +647,67 @@ export const measureApi = {
     return response.data
   },
 
+  // Validation
+  validateMeasure: async (id: number): Promise<ValidationReport> => {
+    const response = await api.post<ValidationReport>(`/measures/${id}/validate`)
+    return response.data
+  },
+
+  quickValidateMeasure: async (id: number): Promise<ValidationReport> => {
+    const response = await api.post<ValidationReport>(`/measures/${id}/validate/quick`)
+    return response.data
+  },
+
   // Audit Trail
   getAuditTrail: async (id: number): Promise<MeasureAuditEntry[]> => {
     const response = await api.get<MeasureAuditEntry[]>(`/measures/${id}/audit`)
+    return response.data
+  },
+
+  // Bundle Export/Import
+  exportBundle: async (id: number, format: string = 'json'): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/bundle`, {
+      params: { format },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportCql: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/cql`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportElm: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/elm`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportHqmf: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/hqmf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  importBundle: async (json: unknown): Promise<BundleImportResult> => {
+    const response = await api.post<BundleImportResult>('/measures/import/bundle', json)
+    return response.data
+  },
+
+  // Dashboard
+  getDashboard: async (): Promise<DashboardSummary> => {
+    const response = await api.get<DashboardSummary>('/measures/dashboard')
+    return response.data
+  },
+
+  // Batch Evaluation
+  batchEvaluate: async (request: BatchEvaluationRequest): Promise<BatchEvaluationResult> => {
+    const response = await api.post<BatchEvaluationResult>('/measures/batch-evaluate', request)
     return response.data
   },
 }

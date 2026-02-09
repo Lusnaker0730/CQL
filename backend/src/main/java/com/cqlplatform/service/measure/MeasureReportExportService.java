@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 public class MeasureReportExportService {
 
     private final MeasureReportService reportService;
+    private final QrdaExportService qrdaExportService;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
@@ -34,6 +35,7 @@ public class MeasureReportExportService {
         return switch (format.toLowerCase()) {
             case "csv" -> exportAsCsv(report);
             case "excel" -> exportAsExcel(report);
+            case "qrda3" -> exportAsQrdaIII(report);
             default -> exportAsFhir(report);
         };
     }
@@ -115,6 +117,15 @@ public class MeasureReportExportService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize FHIR MeasureReport", e);
         }
+    }
+
+    private ResponseEntity<byte[]> exportAsQrdaIII(MeasureReportEntity report) {
+        String qrda = qrdaExportService.exportQrdaIII(report);
+        byte[] xmlBytes = qrda.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=qrda3-report-" + report.getId() + ".xml")
+                .contentType(MediaType.APPLICATION_XML)
+                .body(xmlBytes);
     }
 
     private ResponseEntity<byte[]> exportAsCsv(MeasureReportEntity report) {

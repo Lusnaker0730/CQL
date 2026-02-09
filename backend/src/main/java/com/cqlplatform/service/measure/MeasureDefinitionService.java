@@ -157,18 +157,73 @@ public class MeasureDefinitionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, String> compare(Long oldId, Long newId) {
+    public Map<String, Object> compare(Long oldId, Long newId) {
         MeasureDefinition oldMeasure = getById(oldId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + oldId));
         MeasureDefinition newMeasure = getById(newId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + newId));
 
-        Map<String, String> result = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("oldCql", oldMeasure.getCqlContent() != null ? oldMeasure.getCqlContent() : "");
         result.put("newCql", newMeasure.getCqlContent() != null ? newMeasure.getCqlContent() : "");
         result.put("oldVersion", oldMeasure.getVersion());
         result.put("newVersion", newMeasure.getVersion());
+
+        // Enhanced: metadata changes
+        List<String> metadataChanges = new ArrayList<>();
+        diffField(metadataChanges, "Title", oldMeasure.getTitle(), newMeasure.getTitle());
+        diffField(metadataChanges, "Description", oldMeasure.getDescription(), newMeasure.getDescription());
+        diffField(metadataChanges, "Status", oldMeasure.getStatus(), newMeasure.getStatus());
+        diffField(metadataChanges, "Scoring Type", oldMeasure.getScoringType(), newMeasure.getScoringType());
+        diffField(metadataChanges, "Steward", oldMeasure.getSteward(), newMeasure.getSteward());
+        diffField(metadataChanges, "Rationale", oldMeasure.getRationale(), newMeasure.getRationale());
+        result.put("metadataChanges", metadataChanges);
+
+        // Enhanced: population changes
+        List<String> populationChanges = computePopulationChanges(oldMeasure, newMeasure);
+        result.put("populationChanges", populationChanges);
+
         return result;
+    }
+
+    private void diffField(List<String> changes, String fieldName, String oldVal, String newVal) {
+        String o = oldVal != null ? oldVal : "";
+        String n = newVal != null ? newVal : "";
+        if (!o.equals(n)) {
+            if (o.isEmpty()) {
+                changes.add(fieldName + " added: \"" + n + "\"");
+            } else if (n.isEmpty()) {
+                changes.add(fieldName + " removed (was: \"" + o + "\")");
+            } else {
+                changes.add(fieldName + " changed: \"" + o + "\" → \"" + n + "\"");
+            }
+        }
+    }
+
+    private List<String> computePopulationChanges(MeasureDefinition oldM, MeasureDefinition newM) {
+        List<String> changes = new ArrayList<>();
+        var oldGroups = oldM.getGroupDefinitions() != null ? oldM.getGroupDefinitions() : List.<com.cqlplatform.model.measure.GroupDefinition>of();
+        var newGroups = newM.getGroupDefinitions() != null ? newM.getGroupDefinitions() : List.<com.cqlplatform.model.measure.GroupDefinition>of();
+
+        int maxGroups = Math.max(oldGroups.size(), newGroups.size());
+        for (int i = 0; i < maxGroups; i++) {
+            if (i >= oldGroups.size()) {
+                changes.add("Group " + newGroups.get(i).getGroupId() + " added");
+                continue;
+            }
+            if (i >= newGroups.size()) {
+                changes.add("Group " + oldGroups.get(i).getGroupId() + " removed");
+                continue;
+            }
+            var og = oldGroups.get(i);
+            var ng = newGroups.get(i);
+            int oldPopCount = og.getPopulations() != null ? og.getPopulations().size() : 0;
+            int newPopCount = ng.getPopulations() != null ? ng.getPopulations().size() : 0;
+            if (oldPopCount != newPopCount) {
+                changes.add(og.getGroupId() + ": population count changed " + oldPopCount + " → " + newPopCount);
+            }
+        }
+        return changes;
     }
 
     private String bumpVersion(String version, String type) {

@@ -5,6 +5,7 @@ import com.cqlplatform.entity.MeasureScheduleEntity;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
+import com.cqlplatform.model.measure.ValidationReport;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.measure.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -39,6 +40,11 @@ public class MeasureController {
     private final MeasureComparisonService comparisonService;
     private final CqlTranslationService translationService;
     private final TestCaseService testCaseService;
+    private final MeasureValidationService validationService;
+    private final FhirMeasureBundleService bundleService;
+    private final FhirMeasureBundleImportService bundleImportService;
+    private final HqmfExportService hqmfExportService;
+    private final BatchEvaluationService batchEvaluationService;
 
     // ===== Measure Definition CRUD =====
 
@@ -97,6 +103,71 @@ public class MeasureController {
     public ResponseEntity<ObjectNode> exportFhirMeasure(@PathVariable Long id) {
         ObjectNode fhirMeasure = fhirMeasureService.exportAsFhirMeasure(id);
         return ResponseEntity.ok(fhirMeasure);
+    }
+
+    // ===== Bundle Export/Import =====
+
+    @GetMapping("/{id}/export/bundle")
+    @Operation(summary = "Export FHIR Bundle", description = "Exports a complete FHIR Bundle with Measure, Library, and ValueSet resources")
+    public ResponseEntity<byte[]> exportBundle(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "json") String format) {
+        if ("xml".equalsIgnoreCase(format)) {
+            String xml = bundleService.exportAsBundleXml(id);
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=measure-bundle-" + id + ".xml")
+                    .header("Content-Type", "application/fhir+xml")
+                    .body(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        var bundle = bundleService.exportAsBundle(id);
+        try {
+            byte[] json = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .writerWithDefaultPrettyPrinter().writeValueAsBytes(bundle);
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=measure-bundle-" + id + ".json")
+                    .header("Content-Type", "application/fhir+json")
+                    .body(json);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize bundle", e);
+        }
+    }
+
+    @GetMapping("/{id}/export/cql")
+    @Operation(summary = "Export CQL Only", description = "Exports the CQL content of a measure")
+    public ResponseEntity<byte[]> exportCql(@PathVariable Long id) {
+        String cql = bundleService.exportCqlOnly(id);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=measure-" + id + ".cql")
+                .header("Content-Type", "text/cql")
+                .body(cql.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/{id}/export/elm")
+    @Operation(summary = "Export ELM Only", description = "Exports the ELM JSON translation of a measure's CQL")
+    public ResponseEntity<byte[]> exportElm(@PathVariable Long id) {
+        String elm = bundleService.exportElmOnly(id);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=measure-" + id + "-elm.json")
+                .header("Content-Type", "application/elm+json")
+                .body(elm.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @PostMapping("/import/bundle")
+    @Operation(summary = "Import FHIR Bundle", description = "Imports a FHIR Bundle containing Measure, Library, and ValueSet resources")
+    public ResponseEntity<FhirMeasureBundleImportService.BundleImportResult> importBundle(
+            @RequestBody JsonNode bundleJson) {
+        var result = bundleImportService.importBundle(bundleJson);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}/export/hqmf")
+    @Operation(summary = "Export HQMF", description = "Exports a measure as HQMF R2.1 XML for CMS submission")
+    public ResponseEntity<byte[]> exportHqmf(@PathVariable Long id) {
+        String hqmf = hqmfExportService.exportHqmf(id);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=measure-" + id + "-hqmf.xml")
+                .header("Content-Type", "application/xml")
+                .body(hqmf.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     // ===== CQL Expressions =====
@@ -374,11 +445,11 @@ public class MeasureController {
     }
 
     @GetMapping("/version-compare")
-    @Operation(summary = "Compare Measure Versions", description = "Returns CQL content of two measure versions for diff comparison")
-    public ResponseEntity<Map<String, String>> compareMeasureVersions(
+    @Operation(summary = "Compare Measure Versions", description = "Returns CQL content and structured diff of two measure versions")
+    public ResponseEntity<Map<String, Object>> compareMeasureVersions(
             @RequestParam Long oldId,
             @RequestParam Long newId) {
-        Map<String, String> comparison = definitionService.compare(oldId, newId);
+        Map<String, Object> comparison = definitionService.compare(oldId, newId);
         return ResponseEntity.ok(comparison);
     }
 
@@ -473,6 +544,92 @@ public class MeasureController {
             @RequestBody Map<String, String> request) {
         String currentUser = request.getOrDefault("currentUser", "anonymous");
         return ResponseEntity.ok(definitionService.retireMeasure(id, currentUser));
+    }
+
+    // ===== Validation =====
+
+    @PostMapping("/{id}/validate")
+    @Operation(summary = "Validate Measure", description = "Runs full validation on a measure (CQL, populations, metadata, test cases, QI-Core)")
+    public ResponseEntity<ValidationReport> validateMeasure(@PathVariable Long id) {
+        ValidationReport report = validationService.validateFull(id);
+        return ResponseEntity.ok(report);
+    }
+
+    @PostMapping("/{id}/validate/quick")
+    @Operation(summary = "Quick Validate Measure", description = "Runs lightweight validation (CQL + populations only)")
+    public ResponseEntity<ValidationReport> quickValidateMeasure(@PathVariable Long id) {
+        ValidationReport report = validationService.validateQuick(id);
+        return ResponseEntity.ok(report);
+    }
+
+    // ===== Dashboard =====
+
+    @GetMapping("/dashboard")
+    @Operation(summary = "Measure Dashboard", description = "Returns summary statistics for all measures")
+    public ResponseEntity<Map<String, Object>> getDashboard() {
+        List<MeasureDefinition> all = definitionService.getAll();
+        Map<String, Object> dashboard = new java.util.LinkedHashMap<>();
+        dashboard.put("totalMeasures", all.size());
+
+        Map<String, Long> byStatus = all.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        m -> m.getStatus() != null ? m.getStatus() : "draft",
+                        java.util.stream.Collectors.counting()));
+        dashboard.put("byStatus", byStatus);
+
+        Map<String, Long> byScoring = all.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        m -> m.getScoringType() != null ? m.getScoringType() : "proportion",
+                        java.util.stream.Collectors.counting()));
+        dashboard.put("byScoring", byScoring);
+
+        Map<String, Long> bySteward = all.stream()
+                .filter(m -> m.getSteward() != null && !m.getSteward().isBlank())
+                .collect(java.util.stream.Collectors.groupingBy(
+                        MeasureDefinition::getSteward,
+                        java.util.stream.Collectors.counting()));
+        dashboard.put("bySteward", bySteward);
+
+        // Recent evaluations
+        List<MeasureReportEntity> recentReports = reportService.getRecentReports();
+        List<Map<String, Object>> recentEvaluations = recentReports.stream()
+                .limit(10)
+                .map(r -> {
+                    Map<String, Object> re = new java.util.LinkedHashMap<>();
+                    re.put("id", r.getId());
+                    re.put("measureName", r.getMeasureName());
+                    re.put("score", r.getMeasureScore());
+                    re.put("status", r.getStatus());
+                    re.put("createdAt", r.getCreatedAt());
+                    return re;
+                })
+                .toList();
+        dashboard.put("recentEvaluations", recentEvaluations);
+
+        // Pending review
+        List<Map<String, Object>> pendingReview = all.stream()
+                .filter(m -> "in-review".equals(m.getStatus()))
+                .map(m -> {
+                    Map<String, Object> pr = new java.util.LinkedHashMap<>();
+                    pr.put("id", m.getId());
+                    pr.put("name", m.getTitle() != null ? m.getTitle() : m.getName());
+                    pr.put("version", m.getVersion());
+                    pr.put("owner", m.getOwnerUsername());
+                    return pr;
+                })
+                .toList();
+        dashboard.put("pendingReview", pendingReview);
+
+        return ResponseEntity.ok(dashboard);
+    }
+
+    // ===== Batch Evaluation =====
+
+    @PostMapping("/batch-evaluate")
+    @Operation(summary = "Batch Evaluate", description = "Evaluates multiple measures and returns per-measure results")
+    public ResponseEntity<BatchEvaluationService.BatchResult> batchEvaluate(
+            @RequestBody BatchEvaluationService.BatchEvaluationRequest request) {
+        return ResponseEntity.ok(batchEvaluationService.evaluateBatch(request));
     }
 
     // ===== Audit Trail =====

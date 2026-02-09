@@ -3,6 +3,7 @@ import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
 import MeasureLibrary from '../components/measure/MeasureLibrary'
 import MeasureEditor from '../components/measure/MeasureEditor'
 import MeasureComparison from '../components/measure/MeasureComparison'
+import MeasureDashboardPage from './MeasureDashboardPage'
 import { measureApi } from '../api'
 import type { MeasureDefinition } from '../types'
 
@@ -22,7 +23,7 @@ export default function MeasuresPage() {
     } else {
       setSelectedMeasure(measure)
     }
-    setTopTab(0) // Switch to Measures tab
+    setTopTab(1) // Switch to Measures tab
   }
 
   const handleMeasureUpdate = (updated: MeasureDefinition) => {
@@ -50,12 +51,17 @@ export default function MeasuresPage() {
       </Box>
 
       <Tabs value={topTab} onChange={(_, v) => setTopTab(v)} sx={{ mb: 2 }}>
+        <Tab label="Dashboard" />
         <Tab label="Measures" />
         <Tab label="Comparison & Trends" />
       </Tabs>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
         {topTab === 0 && (
+          <MeasureDashboardPage />
+        )}
+
+        {topTab === 1 && (
           <Grid container spacing={2} sx={{ height: '100%' }}>
             {/* Left panel: Measure Library */}
             <Grid item xs={12} md={selectedMeasure ? 4 : 12} sx={{ height: '100%' }}>
@@ -80,7 +86,7 @@ export default function MeasuresPage() {
           </Grid>
         )}
 
-        {topTab === 1 && (
+        {topTab === 2 && (
           <MeasureComparison />
         )}
       </Box>

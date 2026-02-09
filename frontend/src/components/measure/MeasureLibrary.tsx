@@ -35,10 +35,13 @@ import {
   Lock as PrivateIcon,
   Group as SharedIcon,
   Public as PublicIcon,
+  PlaylistPlay as BatchIcon,
 } from '@mui/icons-material'
+import { Checkbox } from '@mui/material'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import StatusChip from '../common/StatusChip'
+import BatchEvaluationDialog from './BatchEvaluationDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureDefinition } from '../../types'
@@ -62,6 +65,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const [editMeasure, setEditMeasure] = useState<MeasureDefinition | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importJson, setImportJson] = useState('')
+  const [importType, setImportType] = useState<'measure' | 'bundle'>('measure')
+  const [selectedMeasureIds, setSelectedMeasureIds] = useState<Set<number>>(new Set())
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
   const [libraryPickerTarget, setLibraryPickerTarget] = useState<'create' | 'edit'>('create')
   const [newMeasure, setNewMeasure] = useState<Partial<MeasureDefinition>>({
@@ -117,6 +123,15 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     },
   })
 
+  const importBundleMutation = useMutation({
+    mutationFn: (json: unknown) => measureApi.importBundle(json),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['measures'] })
+      setImportOpen(false)
+      setImportJson('')
+    },
+  })
+
   const updateMutation = useMutation({
     mutationFn: (def: MeasureDefinition) => measureApi.updateMeasure(def.id!, def),
     onSuccess: () => {
@@ -148,7 +163,12 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const handleImport = () => {
     try {
       const parsed = JSON.parse(importJson)
-      importMutation.mutate(parsed)
+      // Auto-detect Bundle vs single Measure
+      if (parsed.resourceType === 'Bundle' || importType === 'bundle') {
+        importBundleMutation.mutate(parsed)
+      } else {
+        importMutation.mutate(parsed)
+      }
     } catch {
       alert('Invalid JSON')
     }
@@ -174,6 +194,17 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">Measure Library</Typography>
         <Stack direction="row" spacing={1}>
+          {selectedMeasureIds.size > 0 && (
+            <Button
+              size="small"
+              startIcon={<BatchIcon />}
+              onClick={() => setBatchDialogOpen(true)}
+              color="info"
+              variant="outlined"
+            >
+              Batch Evaluate ({selectedMeasureIds.size})
+            </Button>
+          )}
           <Button size="small" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>
             Import FHIR
           </Button>
@@ -210,6 +241,20 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox" width={40}>
+                <Checkbox
+                  size="small"
+                  checked={measures.length > 0 && selectedMeasureIds.size === measures.length}
+                  indeterminate={selectedMeasureIds.size > 0 && selectedMeasureIds.size < measures.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedMeasureIds(new Set(measures.map((m) => m.id!)))
+                    } else {
+                      setSelectedMeasureIds(new Set())
+                    }
+                  }}
+                />
+              </TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Version</TableCell>
               <TableCell>Status</TableCell>
@@ -226,6 +271,22 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 sx={{ cursor: 'pointer' }}
                 onClick={() => onSelectMeasure?.(m)}
               >
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    size="small"
+                    checked={selectedMeasureIds.has(m.id!)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      const next = new Set(selectedMeasureIds)
+                      if (e.target.checked) {
+                        next.add(m.id!)
+                      } else {
+                        next.delete(m.id!)
+                      }
+                      setSelectedMeasureIds(next)
+                    }}
+                  />
+                </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Tooltip title={m.accessLevel || 'private'}>
@@ -266,7 +327,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             ))}
             {!isLoading && measures.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <Typography variant="body2" color="text.secondary">
                     No measures found. Create one or import a FHIR Measure.
                   </Typography>
@@ -378,26 +439,50 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
       {/* Import Dialog */}
       <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Import FHIR Measure</DialogTitle>
+        <DialogTitle>Import FHIR Resource</DialogTitle>
         <DialogContent>
           <TextField
-            label="FHIR Measure JSON"
+            select
+            label="Import Type"
+            size="small"
+            fullWidth
+            value={importType}
+            onChange={(e) => setImportType(e.target.value as 'measure' | 'bundle')}
+            sx={{ mt: 1, mb: 2 }}
+          >
+            <MenuItem value="measure">FHIR Measure (single resource)</MenuItem>
+            <MenuItem value="bundle">FHIR Bundle (Measure + Libraries + ValueSets)</MenuItem>
+          </TextField>
+          <TextField
+            label={importType === 'bundle' ? 'FHIR Bundle JSON' : 'FHIR Measure JSON'}
             fullWidth
             multiline
             rows={12}
             value={importJson}
             onChange={(e) => setImportJson(e.target.value)}
-            placeholder='Paste a FHIR Measure resource JSON here...'
-            sx={{ mt: 1 }}
+            placeholder={importType === 'bundle'
+              ? 'Paste a FHIR Bundle containing Measure, Library, and ValueSet resources...'
+              : 'Paste a FHIR Measure resource JSON here...'}
           />
           {importMutation.isError && (
             <Alert severity="error" sx={{ mt: 1 }}>{(importMutation.error as Error).message}</Alert>
           )}
+          {importBundleMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>{(importBundleMutation.error as Error).message}</Alert>
+          )}
+          {importBundleMutation.isSuccess && (
+            <Alert severity="success" sx={{ mt: 1 }}>
+              Bundle imported: {importBundleMutation.data.librariesImported} libraries imported,{' '}
+              {importBundleMutation.data.librariesSkipped} skipped,{' '}
+              {importBundleMutation.data.valueSetsFound} value sets found.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setImportOpen(false)}>Cancel</Button>
-          <Button onClick={handleImport} variant="contained" disabled={!importJson || importMutation.isPending}>
-            {importMutation.isPending ? 'Importing...' : 'Import'}
+          <Button onClick={handleImport} variant="contained"
+            disabled={!importJson || importMutation.isPending || importBundleMutation.isPending}>
+            {(importMutation.isPending || importBundleMutation.isPending) ? 'Importing...' : 'Import'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -412,6 +497,12 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             setEditMeasure({ ...editMeasure, cqlContent: cql })
           }
         }}
+      />
+
+      <BatchEvaluationDialog
+        open={batchDialogOpen}
+        onClose={() => setBatchDialogOpen(false)}
+        measureIds={Array.from(selectedMeasureIds)}
       />
     </Paper>
   )

@@ -82,7 +82,9 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MDU0OTE3MCwiZXhwIjoxNzcwNjM1NTcwfQ.BcH59pibbYxWsxhNersVtJe3b8oeuo88VAbGVyFkSEw8005e0pd470fxVHrS8B-FHUzu_RSRsVKQhJ8Sw-wrGg\")",
       "Bash(git status:*)",
       "Bash(git reset:*)",
-      "Bash(tar:*)"
+      "Bash(tar:*)",
+      "Bash(mvn help:evaluate:*)",
+      "Bash(mvn clean test-compile:*)"
     ]
   }
 }

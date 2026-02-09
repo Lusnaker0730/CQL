@@ -346,6 +346,24 @@ export interface MeasureAuditEntry {
   createdAt: string
 }
 
+// Validation types
+export interface ValidationReport {
+  issues: ValidationIssue[]
+  errorCount: number
+  warningCount: number
+  infoCount: number
+  valid: boolean
+  validationTimeMs: number
+}
+
+export interface ValidationIssue {
+  severity: 'ERROR' | 'WARNING' | 'INFO'
+  category: 'CQL' | 'POPULATIONS' | 'METADATA' | 'TEST_CASES' | 'QI_CORE'
+  message: string
+  field?: string
+  fixHint?: string
+}
+
 export interface MeasureReference {
   type: string
   reference: string
@@ -376,6 +394,8 @@ export interface GroupDefinition {
   stratifiers?: StratifierDefinition[]
   observations?: ObservationDefinition[]
   scoringUnit?: string
+  rateIndex?: number
+  rateDescription?: string
 }
 
 export interface PopulationDefinition {
@@ -709,4 +729,63 @@ export interface VersionComparison {
   newCql: string
   oldVersion: string
   newVersion: string
+  metadataChanges?: string[]
+  populationChanges?: string[]
+}
+
+// Bundle import result
+export interface BundleImportResult {
+  measure: MeasureDefinition
+  librariesImported: number
+  librariesSkipped: number
+  valueSetsFound: number
+}
+
+// Dashboard types
+export interface DashboardSummary {
+  totalMeasures: number
+  byStatus: Record<string, number>
+  byScoring: Record<string, number>
+  bySteward: Record<string, number>
+  recentEvaluations: DashboardEvaluation[]
+  pendingReview: DashboardPendingReview[]
+}
+
+export interface DashboardEvaluation {
+  id: number
+  measureName: string
+  score?: number
+  status?: string
+  createdAt?: string
+}
+
+export interface DashboardPendingReview {
+  id: number
+  name: string
+  version: string
+  owner?: string
+}
+
+// Batch evaluation
+export interface BatchEvaluationRequest {
+  measureIds: number[]
+  fhirServerUrl?: string
+  periodStart?: string
+  periodEnd?: string
+}
+
+export interface BatchEvaluationResult {
+  results: MeasureEvaluationResult[]
+  totalMeasures: number
+  successCount: number
+  errorCount: number
+  totalDurationMs: number
+}
+
+// CQL Repository
+export interface RepositoryLibrary {
+  name: string
+  version: string
+  description: string
+  filename: string
 }

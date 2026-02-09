@@ -185,6 +185,12 @@ public class MeasureEvaluationService {
                                                  int totalPatients) {
         Map<String, Integer> counts = state.populationCounts;
 
+        // Check if measure has multiple group definitions
+        MeasureDefinition def = context.getMeasureDefinition();
+        if (def != null && def.getGroupDefinitions() != null && def.getGroupDefinitions().size() > 1) {
+            return buildMultiGroupResult(context, state, totalPatients);
+        }
+
         List<PopulationResult> populations = new ArrayList<>();
         populations.add(populationResult("initial-population", counts.get("Initial Population")));
         populations.add(populationResult("denominator", counts.get("Denominator")));
@@ -221,6 +227,67 @@ public class MeasureEvaluationService {
                 .periodEnd(context.getPeriodEnd())
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
+                .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .build();
+    }
+
+    private MeasureEvaluationResult buildMultiGroupResult(MeasureEvaluationContext context,
+                                                           AggregationState state,
+                                                           int totalPatients) {
+        MeasureDefinition def = context.getMeasureDefinition();
+        Map<String, Integer> counts = state.populationCounts;
+        List<GroupResult> groups = new ArrayList<>();
+
+        for (var groupDef : def.getGroupDefinitions()) {
+            List<PopulationResult> populations = new ArrayList<>();
+
+            if (groupDef.getPopulations() != null) {
+                for (var popDef : groupDef.getPopulations()) {
+                    // Map population expression name to aggregated count
+                    String exprName = popDef.getCriteriaExpression();
+                    Integer count = counts.getOrDefault(exprName, 0);
+                    populations.add(populationResult(popDef.getPopulationType(), count));
+                }
+            }
+
+            // Compute score per group
+            Integer denom = populations.stream()
+                    .filter(p -> "denominator".equals(p.getPopulationType()))
+                    .map(PopulationResult::getCount)
+                    .findFirst().orElse(0);
+            Integer denomEx = populations.stream()
+                    .filter(p -> "denominator-exclusion".equals(p.getPopulationType()))
+                    .map(PopulationResult::getCount)
+                    .findFirst().orElse(0);
+            Integer numer = populations.stream()
+                    .filter(p -> "numerator".equals(p.getPopulationType()))
+                    .map(PopulationResult::getCount)
+                    .findFirst().orElse(0);
+
+            Double score = scoreCalculator.calculateProportionScore(denom, denomEx, numer);
+
+            String desc = groupDef.getDescription() != null ? groupDef.getDescription() : "";
+            if (groupDef.getRateDescription() != null) {
+                desc = groupDef.getRateDescription() + (desc.isEmpty() ? "" : " - " + desc);
+            }
+
+            groups.add(GroupResult.builder()
+                    .groupId(groupDef.getGroupId())
+                    .description(desc + " (Total Patients: " + totalPatients + ")")
+                    .populations(populations)
+                    .measureScore(score)
+                    .measureScoreUnit("percentage")
+                    .build());
+        }
+
+        return MeasureEvaluationResult.builder()
+                .measureId(context.getMeasureId())
+                .measureName(context.getMeasureId())
+                .status("complete")
+                .periodStart(context.getPeriodStart())
+                .periodEnd(context.getPeriodEnd())
+                .reportType(context.getReportType())
+                .groups(groups)
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
                 .build();
     }

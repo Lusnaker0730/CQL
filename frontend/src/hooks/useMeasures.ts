@@ -85,10 +85,37 @@ export function useRetireMeasure() {
   })
 }
 
+export function useValidateMeasure() {
+  return useMutation({
+    mutationFn: (id: number) => measureApi.validateMeasure(id),
+  })
+}
+
+export function useQuickValidateMeasure() {
+  return useMutation({
+    mutationFn: (id: number) => measureApi.quickValidateMeasure(id),
+  })
+}
+
 export function useMeasureAuditTrail(measureId: number | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['measure-audit', measureId],
     queryFn: () => measureApi.getAuditTrail(measureId!),
     enabled: enabled && !!measureId,
+  })
+}
+
+export function useDashboard() {
+  return useQuery({
+    queryKey: ['measure-dashboard'],
+    queryFn: () => measureApi.getDashboard(),
+    staleTime: 30000,
+  })
+}
+
+export function useBatchEvaluate() {
+  return useMutation({
+    mutationFn: (request: { measureIds: number[]; fhirServerUrl?: string; periodStart?: string; periodEnd?: string }) =>
+      measureApi.batchEvaluate(request),
   })
 }

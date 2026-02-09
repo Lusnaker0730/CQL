@@ -19,4 +19,6 @@ public class GroupDefinition {
     private List<StratifierDefinition> stratifiers;
     private List<ObservationDefinition> observations;
     private String scoringUnit;
+    private Integer rateIndex;
+    private String rateDescription;
 }

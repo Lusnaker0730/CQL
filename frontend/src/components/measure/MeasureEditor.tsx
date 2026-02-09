@@ -20,7 +20,9 @@ import {
   Cancel as RejectIcon,
   Archive as RetireIcon,
   Assignment as AuditIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material'
+import { Menu, MenuItem } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MeasureDefinition } from '../../types'
 import { measureApi } from '../../api'
@@ -37,6 +39,7 @@ import VersionHistoryDialog from '../editor/VersionHistoryDialog'
 import VersionDiffDialog from '../editor/VersionDiffDialog'
 import MeasureShareDialog from './MeasureShareDialog'
 import AuditTrailDialog from './AuditTrailDialog'
+import MeasureValidationPanel from './MeasureValidationPanel'
 import {
   useSubmitForReview,
   useApproveMeasure,
@@ -57,6 +60,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [auditDialogOpen, setAuditDialogOpen] = useState(false)
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
   const queryClient = useQueryClient()
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
@@ -116,6 +120,48 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
     return measureApi.compareMeasureVersions(oldNum, newNum)
   }
 
+  const handleExport = async (format: string) => {
+    setExportAnchor(null)
+    if (!measure.id) return
+    try {
+      let blob: Blob
+      let filename: string
+      switch (format) {
+        case 'bundle-json':
+          blob = await measureApi.exportBundle(measure.id, 'json')
+          filename = `${measure.name}-bundle.json`
+          break
+        case 'bundle-xml':
+          blob = await measureApi.exportBundle(measure.id, 'xml')
+          filename = `${measure.name}-bundle.xml`
+          break
+        case 'cql':
+          blob = await measureApi.exportCql(measure.id)
+          filename = `${measure.name}.cql`
+          break
+        case 'elm':
+          blob = await measureApi.exportElm(measure.id)
+          filename = `${measure.name}-elm.json`
+          break
+        case 'hqmf':
+          blob = await measureApi.exportHqmf(measure.id)
+          filename = `${measure.name}-hqmf.xml`
+          break
+        default:
+          return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setWorkflowAlert({ severity: 'error', message: 'Export failed: ' + (err as Error).message })
+      setTimeout(() => setWorkflowAlert(null), 5000)
+    }
+  }
+
   const historyVersions = historyData.map((m) => ({
     id: m.id!,
     version: m.version,
@@ -168,6 +214,14 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             sx={{ textTransform: 'none', fontSize: '0.75rem' }}
           >
             Audit
+          </Button>
+          <Button
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={(e) => setExportAnchor(e.currentTarget)}
+            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Export
           </Button>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           {/* Workflow actions based on current status */}
@@ -267,6 +321,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <Tab label="Evaluate" />
           <Tab label="Test Cases" />
           <Tab label="Reports" />
+          <Tab label="Validate" />
         </Tabs>
       </Box>
 
@@ -290,6 +345,12 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
             <MeasureReportHistory />
           </Box>
+        )}
+        {tab === 6 && (
+          <MeasureValidationPanel
+            measureId={measure.id}
+            onNavigateToTab={(tabIndex) => setTab(tabIndex)}
+          />
         )}
       </Box>
 
@@ -330,6 +391,18 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         measureId={measure.id}
         measureName={measure.title || measure.name}
       />
+
+      <Menu
+        anchorEl={exportAnchor}
+        open={Boolean(exportAnchor)}
+        onClose={() => setExportAnchor(null)}
+      >
+        <MenuItem onClick={() => handleExport('bundle-json')}>FHIR Bundle (JSON)</MenuItem>
+        <MenuItem onClick={() => handleExport('bundle-xml')}>FHIR Bundle (XML)</MenuItem>
+        <MenuItem onClick={() => handleExport('cql')}>CQL Only</MenuItem>
+        <MenuItem onClick={() => handleExport('elm')}>ELM Only</MenuItem>
+        <MenuItem onClick={() => handleExport('hqmf')}>HQMF (XML)</MenuItem>
+      </Menu>
     </Paper>
   )
 }

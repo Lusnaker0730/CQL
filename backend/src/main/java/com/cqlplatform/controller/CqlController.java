@@ -26,6 +26,7 @@ public class CqlController {
     private final CqlExecutionService executionService;
     private final CqlLibraryService libraryService;
     private final FhirLibraryService fhirLibraryService;
+    private final com.cqlplatform.service.cql.CqlRepositoryService repositoryService;
 
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
@@ -129,6 +130,21 @@ public class CqlController {
     @Operation(summary = "Import FHIR Library", description = "Imports a FHIR R4 Library resource containing CQL")
     public ResponseEntity<CqlLibrary> importFhirLibrary(@RequestBody JsonNode fhirLibrary) {
         CqlLibrary library = fhirLibraryService.importFhirLibrary(fhirLibrary);
+        return ResponseEntity.ok(library);
+    }
+
+    // ===== CQL Repository =====
+
+    @GetMapping("/libraries/repository")
+    @Operation(summary = "List Repository Libraries", description = "Lists pre-built CQL library templates available for import")
+    public ResponseEntity<List<com.cqlplatform.service.cql.CqlRepositoryService.RepositoryLibrary>> listRepositoryLibraries() {
+        return ResponseEntity.ok(repositoryService.listRepositoryLibraries());
+    }
+
+    @PostMapping("/libraries/repository/{name}/import")
+    @Operation(summary = "Import Repository Library", description = "Imports a pre-built CQL library template into user's libraries")
+    public ResponseEntity<CqlLibrary> importRepositoryLibrary(@PathVariable String name) {
+        CqlLibrary library = repositoryService.importFromRepository(name);
         return ResponseEntity.ok(library);
     }
 

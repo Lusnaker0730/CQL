@@ -13,6 +13,7 @@ import {
   Chip,
   Tabs,
   Tab,
+  CircularProgress,
 } from '@mui/material'
 import {
   Star as StarIcon,
@@ -25,8 +26,11 @@ import {
   Public as PublicIcon,
   Group as SharedIcon,
   Lock as PrivateIcon,
+  Inventory as RepositoryIcon,
+  Download as ImportIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
 import { useLibraries } from '../../hooks/useCql'
 import { useDispatch } from 'react-redux'
@@ -43,13 +47,26 @@ const ACCESS_ICON = {
 export default function LibraryQuickAccess() {
   const { recent, favoritesList, toggleFavorite, isFavorite, clearRecent } = useLibraryHistory()
   const dispatch = useDispatch()
+  const queryClient = useQueryClient()
   const [favoritesOpen, setFavoritesOpen] = useState(true)
   const [recentOpen, setRecentOpen] = useState(true)
   const [twcdiOpen, setTwcdiOpen] = useState(false)
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browseFilter, setBrowseFilter] = useState(0) // 0=All, 1=My, 2=Shared, 3=Public
+  const [repoOpen, setRepoOpen] = useState(false)
 
   const { data: allLibraries = [] } = useLibraries()
+
+  const { data: repoLibraries = [], isLoading: repoLoading } = useQuery({
+    queryKey: ['cql-repository'],
+    queryFn: () => cqlApi.getRepositoryLibraries(),
+    enabled: repoOpen,
+  })
+
+  const importRepoMutation = useMutation({
+    mutationFn: (name: string) => cqlApi.importRepositoryLibrary(name),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['libraries'] }),
+  })
 
   const currentUser = (() => {
     try { return JSON.parse(localStorage.getItem('user') || '{}').username || '' }
@@ -258,6 +275,58 @@ export default function LibraryQuickAccess() {
                   primaryTypographyProps={{ variant: 'body2', noWrap: true }}
                   secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
                 />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
+      </Collapse>
+
+      <Divider />
+
+      {/* CQL Repository */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        onClick={() => setRepoOpen(!repoOpen)}
+      >
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <RepositoryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+          <Typography variant="subtitle2">Repository</Typography>
+        </Stack>
+        {repoOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+      </Stack>
+      <Collapse in={repoOpen}>
+        {repoLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+            <CircularProgress size={18} />
+          </Box>
+        ) : repoLibraries.length === 0 ? (
+          <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+            No repository libraries available.
+          </Typography>
+        ) : (
+          <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
+            {repoLibraries.map((lib) => (
+              <ListItemButton key={lib.name} sx={{ py: 0.25 }}>
+                <ListItemText
+                  primary={lib.name}
+                  secondary={`v${lib.version} — ${lib.description}`}
+                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    importRepoMutation.mutate(lib.name)
+                  }}
+                  disabled={importRepoMutation.isPending}
+                  title="Import to your libraries"
+                >
+                  <ImportIcon sx={{ fontSize: 16 }} />
+                </IconButton>
               </ListItemButton>
             ))}
           </List>

@@ -44,7 +44,7 @@ export default function MeasureReportHistory() {
     setExportAnchor(null)
     try {
       const blob = await measureApi.exportReport(reportId, format)
-      const ext = format === 'csv' ? 'csv' : format === 'excel' ? 'xlsx' : 'json'
+      const ext = format === 'csv' ? 'csv' : format === 'excel' ? 'xlsx' : format === 'qrda3' ? 'xml' : 'json'
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -195,6 +195,9 @@ export default function MeasureReportHistory() {
         </MenuItem>
         <MenuItem onClick={() => exportAnchor && handleExport(exportAnchor.id, 'excel')}>
           Excel (XLSX)
+        </MenuItem>
+        <MenuItem onClick={() => exportAnchor && handleExport(exportAnchor.id, 'qrda3')}>
+          QRDA III (XML)
         </MenuItem>
       </Menu>
     </Paper>

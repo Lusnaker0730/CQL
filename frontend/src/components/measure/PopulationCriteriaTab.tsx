@@ -471,14 +471,32 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
                 )}
               </Stack>
 
-              <TextField
-                label="Group Description"
-                size="small"
-                fullWidth
-                value={group.description || ''}
-                onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
-                sx={{ mb: 2 }}
-              />
+              <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                <TextField
+                  label="Group Description"
+                  size="small"
+                  fullWidth
+                  value={group.description || ''}
+                  onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
+                />
+                <TextField
+                  label="Rate #"
+                  size="small"
+                  type="number"
+                  sx={{ width: 90 }}
+                  value={group.rateIndex ?? ''}
+                  onChange={(e) => updateGroup(groupIdx, 'rateIndex', e.target.value ? parseInt(e.target.value) : undefined)}
+                  helperText="For multi-rate"
+                />
+                <TextField
+                  label="Rate Description"
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                  value={group.rateDescription || ''}
+                  onChange={(e) => updateGroup(groupIdx, 'rateDescription', e.target.value)}
+                  helperText="e.g. 'Rate 1: Screening'"
+                />
+              </Stack>
 
               <TextField
                 select
