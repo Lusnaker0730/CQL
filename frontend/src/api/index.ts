@@ -31,6 +31,7 @@ import type {
   ValueSetSearchResult,
   ValueSetExpansion,
   CodeLookupResult,
+  CodeSearchResult,
   CodeValidationResult,
   FhirValidationResult,
   PatientSearchParams,
@@ -176,6 +177,52 @@ export const cqlApi = {
 
   compareLibraryVersions: async (oldId: string, newId: string): Promise<VersionComparison> => {
     const response = await api.get<VersionComparison>(`/cql/libraries/compare?oldId=${encodeURIComponent(oldId)}&newId=${encodeURIComponent(newId)}`)
+    return response.data
+  },
+
+  // Sharing & Permissions
+  shareLibrary: async (id: string, targetUsername: string): Promise<CqlLibrary> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/share`, { targetUsername, currentUser })
+    return response.data
+  },
+
+  unshareLibrary: async (id: string, targetUsername: string): Promise<CqlLibrary> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/unshare`, { targetUsername, currentUser })
+    return response.data
+  },
+
+  transferOwnership: async (id: string, newOwner: string): Promise<CqlLibrary> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/transfer`, { newOwner, currentUser })
+    return response.data
+  },
+
+  setAccessLevel: async (id: string, accessLevel: string): Promise<CqlLibrary> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.put<CqlLibrary>(`/cql/libraries/${id}/access`, { accessLevel, currentUser })
+    return response.data
+  },
+
+  getLibrariesByOwner: async (username: string): Promise<CqlLibrary[]> => {
+    const response = await api.get<CqlLibrary[]>(`/cql/libraries/owner/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  getSharedLibraries: async (username: string): Promise<CqlLibrary[]> => {
+    const response = await api.get<CqlLibrary[]>(`/cql/libraries/shared/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  // Dependency Analysis
+  getDependencies: async (id: string): Promise<CqlLibrary[]> => {
+    const response = await api.get<CqlLibrary[]>(`/cql/libraries/${id}/dependencies`)
+    return response.data
+  },
+
+  getDependents: async (name: string): Promise<CqlLibrary[]> => {
+    const response = await api.get<CqlLibrary[]>(`/cql/libraries/dependents/${encodeURIComponent(name)}`)
     return response.data
   },
 }
@@ -561,6 +608,12 @@ export const fhirApi = {
   lookupCode: async (system: string, code: string): Promise<CodeLookupResult> => {
     const params = new URLSearchParams({ system, code })
     const response = await api.get<CodeLookupResult>(`/fhir/CodeSystem/$lookup?${params.toString()}`)
+    return response.data
+  },
+
+  searchCodes: async (system: string, text: string, maxResults: number = 20): Promise<CodeSearchResult[]> => {
+    const params = new URLSearchParams({ system, text, maxResults: maxResults.toString() })
+    const response = await api.get<CodeSearchResult[]>(`/fhir/CodeSystem/$search-codes?${params.toString()}`)
     return response.data
   },
 

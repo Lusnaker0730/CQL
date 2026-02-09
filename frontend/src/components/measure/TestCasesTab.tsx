@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -27,6 +27,8 @@ import {
   HourglassEmpty as PendingIcon,
   ExpandMore as ExpandMoreIcon,
   Calculate as CalcIcon,
+  FileDownload as ExportIcon,
+  FileUpload as ImportIcon,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
@@ -102,6 +104,82 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
     },
   })
 
+  const importRef = React.useRef<HTMLInputElement>(null)
+
+  const exportSingleTestCase = (tc: TestCase) => {
+    const exportData = {
+      title: tc.title,
+      description: tc.description,
+      series: tc.series,
+      expectedPopulations: tc.expectedPopulations,
+      patientBundleJson: tc.patientBundleJson,
+    }
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${tc.title.replace(/[^a-z0-9]/gi, '_')}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportAllTestCases = () => {
+    if (testCases.length === 0) return
+    const exportData = testCases.map((tc) => ({
+      title: tc.title,
+      description: tc.description,
+      series: tc.series,
+      expectedPopulations: tc.expectedPopulations,
+      patientBundleJson: tc.patientBundleJson,
+    }))
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${measure.name || 'measure'}-test-cases.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      const rawItems: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
+      const results: TestCase[] = []
+      for (const raw of rawItems) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const item = raw as any
+        // Support MADiE format: detect by checking for 'json' or 'patientBundleJson' field
+        const bundleJson = item.patientBundleJson || item.json
+          || (item.resourceType === 'Bundle' ? JSON.stringify(item) : undefined)
+        const tc: TestCase = {
+          title: item.title || item.name || file.name.replace(/\.json$/, ''),
+          description: item.description || '',
+          series: item.series || item.groupName || undefined,
+          expectedPopulations: item.expectedPopulations || item.groupPopulationValues?.reduce(
+            (acc: Record<string, boolean>, p: { name: string; expected: boolean }) => {
+              acc[p.name] = p.expected
+              return acc
+            }, {}
+          ) || {},
+          patientBundleJson: typeof bundleJson === 'string' ? bundleJson : JSON.stringify(bundleJson),
+        }
+        results.push(await measureApi.createTestCase(measure.id!, tc))
+      }
+      return results
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+      if (importRef.current) importRef.current.value = ''
+    },
+  })
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) importMutation.mutate(file)
+  }
+
   const passCount = testCases.filter((tc) => tc.status === 'pass').length
   const failCount = testCases.filter((tc) => tc.status === 'fail').length
   const totalCount = testCases.length
@@ -155,6 +233,9 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
               <IconButton size="small" onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
                 {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" />}
               </IconButton>
+            </Tooltip>
+            <Tooltip title="Export JSON">
+              <IconButton size="small" onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title="Edit">
               <IconButton size="small" onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
@@ -239,6 +320,27 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
           >
             {runAllMutation.isPending ? 'Running...' : 'Run All'}
           </Button>
+          <Button
+            size="small"
+            startIcon={<ExportIcon />}
+            onClick={exportAllTestCases}
+            disabled={testCases.length === 0}
+            variant="outlined"
+            sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
+          >
+            Export All
+          </Button>
+          <Button
+            size="small"
+            startIcon={<ImportIcon />}
+            onClick={() => importRef.current?.click()}
+            variant="outlined"
+            disabled={importMutation.isPending}
+            sx={{ borderColor: 'rgba(13,115,119,0.4)', color: 'primary.dark' }}
+          >
+            {importMutation.isPending ? 'Importing...' : 'Import'}
+          </Button>
+          <input ref={importRef} type="file" accept=".json" hidden onChange={handleFileImport} />
           <GradientButton
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
@@ -257,6 +359,18 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
       {runAllMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {(runAllMutation.error as Error).message}
+        </Alert>
+      )}
+
+      {importMutation.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Import failed: {(importMutation.error as Error).message}
+        </Alert>
+      )}
+
+      {importMutation.isSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Test cases imported successfully.
         </Alert>
       )}
 

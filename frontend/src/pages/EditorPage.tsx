@@ -24,6 +24,7 @@ import {
   History as HistoryIcon,
   CompareArrows as CompareIcon,
   NewReleases as VersionIcon,
+  Share as ShareIcon,
 } from '@mui/icons-material'
 import { useSelector, useDispatch } from 'react-redux'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -33,13 +34,15 @@ import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
 import LibraryQuickAccess from '../components/editor/LibraryQuickAccess'
 import CqlBuilderPanel from '../components/builder/CqlBuilderPanel'
+import LibraryDependencyPanel from '../components/editor/LibraryDependencyPanel'
+import LibraryShareDialog from '../components/editor/LibraryShareDialog'
 import HelpTooltip from '../components/common/HelpTooltip'
 import CreateVersionDialog from '../components/editor/CreateVersionDialog'
 import VersionHistoryDialog from '../components/editor/VersionHistoryDialog'
 import VersionDiffDialog from '../components/editor/VersionDiffDialog'
 import type { RootState } from '../store'
 import { setCqlContent } from '../store/editorSlice'
-import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata } from '../hooks/useCql'
+import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata, useLibrary } from '../hooks/useCql'
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
@@ -71,6 +74,7 @@ export default function EditorPage() {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [diffDialogOpen, setDiffDialogOpen] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
 
   const libraryMatch = cqlContent.match(/library\s+(\S+)(?:\s+version\s+'([^']+)')?/)
   const libraryName = libraryMatch?.[1] || ''
@@ -121,6 +125,7 @@ export default function EditorPage() {
   const importMutation = useImportLibrary()
   const { data: libraryMetadata } = useLibrariesMetadata()
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
+  const { data: currentLibrary } = useLibrary(lastSavedLibraryId)
 
   const handleTranslate = () => {
     translateMutation.mutate({ cql: cqlContent })
@@ -320,6 +325,23 @@ export default function EditorPage() {
                   <Button
                     size="small"
                     variant="outlined"
+                    startIcon={<ShareIcon />}
+                    onClick={() => setShareDialogOpen(true)}
+                    disabled={!lastSavedLibraryId}
+                    sx={{
+                      borderColor: 'rgba(27,58,92,0.3)',
+                      color: 'secondary.main',
+                      '&:hover': {
+                        borderColor: 'secondary.main',
+                        bgcolor: 'rgba(27,58,92,0.04)',
+                      },
+                    }}
+                  >
+                    Share
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
                     startIcon={<VersionIcon />}
                     onClick={() => setVersionDialogOpen(true)}
                     disabled={!libraryName}
@@ -431,6 +453,7 @@ export default function EditorPage() {
                 >
                   <Tab label="ELM / Errors" />
                   <Tab label="Execute" />
+                  <Tab label="Dependencies" />
                 </Tabs>
                 <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
                   <TabPanel value={rightPanelTab} index={0}>
@@ -441,6 +464,13 @@ export default function EditorPage() {
                   </TabPanel>
                   <TabPanel value={rightPanelTab} index={1}>
                     <ExecutionPanel />
+                  </TabPanel>
+                  <TabPanel value={rightPanelTab} index={2}>
+                    <LibraryDependencyPanel
+                      libraryId={lastSavedLibraryId}
+                      libraryName={libraryName || null}
+                      onLoadLibrary={(lib) => dispatch(setCqlContent(lib.cqlContent))}
+                    />
                   </TabPanel>
                 </Box>
               </>
@@ -468,6 +498,11 @@ export default function EditorPage() {
         onClose={() => setDiffDialogOpen(false)}
         versions={diffVersions}
         onCompare={handleCompare}
+      />
+      <LibraryShareDialog
+        open={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        library={currentLibrary ?? null}
       />
     </Box>
   )

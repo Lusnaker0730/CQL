@@ -157,6 +157,9 @@ public class CqlLibraryService {
                 .description(entity.getDescription())
                 .status(entity.getStatus())
                 .dependencies(entity.getDependencyList())
+                .ownerUsername(entity.getOwnerUsername())
+                .sharedWith(entity.getSharedWithList())
+                .accessLevel(entity.getAccessLevel())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -229,6 +232,132 @@ public class CqlLibraryService {
         result.put("oldVersion", oldLib.getVersion());
         result.put("newVersion", newLib.getVersion());
         return result;
+    }
+
+    // ===== Sharing & Permissions =====
+
+    @Transactional
+    public CqlLibrary shareLibrary(String id, String targetUsername, String currentUser) {
+        CqlLibraryEntity entity = parseId(id)
+                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
+
+        if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
+            throw new IllegalArgumentException("Only the owner can share this library");
+        }
+
+        List<String> shared = new ArrayList<>(entity.getSharedWithList());
+        if (!shared.contains(targetUsername)) {
+            shared.add(targetUsername);
+        }
+        entity.setSharedWithList(shared);
+        if ("private".equals(entity.getAccessLevel())) {
+            entity.setAccessLevel("shared");
+        }
+        entity = libraryRepository.save(entity);
+        log.info("Shared library {} with user {}", id, targetUsername);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public CqlLibrary unshareLibrary(String id, String targetUsername, String currentUser) {
+        CqlLibraryEntity entity = parseId(id)
+                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
+
+        if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
+            throw new IllegalArgumentException("Only the owner can modify sharing");
+        }
+
+        List<String> shared = new ArrayList<>(entity.getSharedWithList());
+        shared.remove(targetUsername);
+        entity.setSharedWithList(shared);
+        if (shared.isEmpty() && "shared".equals(entity.getAccessLevel())) {
+            entity.setAccessLevel("private");
+        }
+        entity = libraryRepository.save(entity);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public CqlLibrary transferOwnership(String id, String newOwner, String currentUser) {
+        CqlLibraryEntity entity = parseId(id)
+                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
+
+        if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
+            throw new IllegalArgumentException("Only the owner can transfer ownership");
+        }
+
+        entity.setOwnerUsername(newOwner);
+        entity = libraryRepository.save(entity);
+        log.info("Transferred library {} from {} to {}", id, currentUser, newOwner);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public CqlLibrary setAccessLevel(String id, String accessLevel, String currentUser) {
+        CqlLibraryEntity entity = parseId(id)
+                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
+
+        if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
+            throw new IllegalArgumentException("Only the owner can change access level");
+        }
+
+        entity.setAccessLevel(accessLevel);
+        entity = libraryRepository.save(entity);
+        return entityToModel(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CqlLibrary> getLibrariesByOwner(String ownerUsername) {
+        return libraryRepository.findByOwnerUsername(ownerUsername).stream()
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CqlLibrary> getSharedLibraries(String username) {
+        return libraryRepository.findAll().stream()
+                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    // ===== Dependency Analysis =====
+
+    @Transactional(readOnly = true)
+    public List<CqlLibrary> getDependents(String libraryName) {
+        // Find all libraries that include this library in their dependencies
+        return libraryRepository.findByDependenciesContaining(libraryName).stream()
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CqlLibrary> getDependencies(String id) {
+        CqlLibrary library = getLibrary(id)
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
+
+        List<CqlLibrary> result = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        collectDependencies(library, result, visited);
+        return result;
+    }
+
+    private void collectDependencies(CqlLibrary library, List<CqlLibrary> result, Set<String> visited) {
+        if (library.getDependencies() == null) return;
+        for (String dep : library.getDependencies()) {
+            if (visited.contains(dep)) continue;
+            visited.add(dep);
+            // dep format is "LibraryName version 'x.y.z'" — extract name
+            String depName = dep.split("\\s+")[0].replace("\"", "");
+            getLatestLibrary(depName).ifPresent(depLib -> {
+                result.add(depLib);
+                collectDependencies(depLib, result, visited);
+            });
+        }
     }
 
     private String bumpVersion(String version, String type) {

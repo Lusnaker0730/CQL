@@ -17,6 +17,9 @@ public class CqlLibrary {
     private String description;
     private String status;
     private List<String> dependencies;
+    private String ownerUsername;
+    private List<String> sharedWith;
+    private String accessLevel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

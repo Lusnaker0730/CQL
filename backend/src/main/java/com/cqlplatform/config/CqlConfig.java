@@ -63,7 +63,8 @@ public class CqlConfig {
                 buildCache("codeValidation", 2000, 1, TimeUnit.HOURS),
                 buildCache("codeLookup", 1000, 2, TimeUnit.HOURS),
                 buildCache("cqlValidation", 500, 30, TimeUnit.MINUTES),
-                buildCache("vsacValueSets", 200, 4, TimeUnit.HOURS)
+                buildCache("vsacValueSets", 200, 4, TimeUnit.HOURS),
+                buildCache("codeSearch", 500, 1, TimeUnit.HOURS)
         ));
         return cacheManager;
     }

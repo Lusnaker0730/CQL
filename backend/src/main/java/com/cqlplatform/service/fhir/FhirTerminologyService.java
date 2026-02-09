@@ -25,6 +25,14 @@ import java.util.Map;
 @Slf4j
 public class FhirTerminologyService {
 
+    private static final Map<String, String> IMPLICIT_VALUESET_URLS = Map.of(
+            "http://loinc.org", "http://loinc.org/vs",
+            "http://snomed.info/sct", "http://snomed.info/sct?fhir_vs",
+            "http://hl7.org/fhir/sid/icd-10-cm", "http://hl7.org/fhir/sid/icd-10-cm?fhir_vs",
+            "http://www.nlm.nih.gov/research/umls/rxnorm", "http://www.nlm.nih.gov/research/umls/rxnorm?fhir_vs",
+            "http://www.ama-assn.org/go/cpt", "http://www.ama-assn.org/go/cpt?fhir_vs"
+    );
+
     private final FhirContext fhirContext;
     private final CacheManager cacheManager;
     private final FhirImplementationGuideService igService;
@@ -202,6 +210,89 @@ public class FhirTerminologyService {
         return new ArrayList<>();
     }
 
+    @Cacheable(value = "codeSearch", key = "#system + ':' + #text + ':' + #maxResults")
+    @CircuitBreaker(name = "fhirTerminology", fallbackMethod = "searchCodesFallback")
+    @Retry(name = "fhirTerminology")
+    public List<CodeSearchResult> searchCodes(String system, String text, int maxResults) {
+        log.debug("Searching codes in {} for '{}' (max {})", system, text, maxResults);
+        String implicitVsUrl = IMPLICIT_VALUESET_URLS.getOrDefault(system, system + "?fhir_vs");
+        IGenericClient client = fhirContext.newRestfulGenericClient(defaultTerminologyServerUrl);
+
+        List<CodeSearchResult> results = new ArrayList<>();
+        try {
+            Parameters params = new Parameters();
+            params.addParameter("url", new UriType(implicitVsUrl));
+            params.addParameter("filter", new StringType(text));
+            params.addParameter("count", new IntegerType(maxResults));
+
+            ValueSet expanded = client.operation()
+                    .onType(ValueSet.class)
+                    .named("$expand")
+                    .withParameters(params)
+                    .returnResourceType(ValueSet.class)
+                    .execute();
+
+            if (expanded.hasExpansion() && expanded.getExpansion().hasContains()) {
+                for (ValueSet.ValueSetExpansionContainsComponent concept : expanded.getExpansion().getContains()) {
+                    results.add(new CodeSearchResult(
+                            concept.getSystem() != null ? concept.getSystem() : system,
+                            concept.getCode(),
+                            concept.getDisplay()
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Remote code search failed for system {}: {}", system, e.getMessage());
+        }
+
+        // Merge local IG results if available
+        if (igService != null && igService.isLoaded()) {
+            try {
+                CodeSystem cs = igService.getCodeSystemByUrl(system);
+                if (cs != null && cs.hasConcept()) {
+                    String lowerText = text.toLowerCase();
+                    for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
+                        boolean matches = (concept.getCode() != null && concept.getCode().toLowerCase().contains(lowerText))
+                                || (concept.getDisplay() != null && concept.getDisplay().toLowerCase().contains(lowerText));
+                        if (matches) {
+                            CodeSearchResult localResult = new CodeSearchResult(system, concept.getCode(), concept.getDisplay());
+                            if (!results.contains(localResult)) {
+                                results.add(localResult);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Local IG code search failed: {}", e.getMessage());
+            }
+        }
+
+        return results.size() > maxResults ? results.subList(0, maxResults) : results;
+    }
+
+    @SuppressWarnings("unused")
+    private List<CodeSearchResult> searchCodesFallback(String system, String text, int maxResults, Throwable t) {
+        log.warn("Circuit breaker fallback for searchCodes: {}", t.getMessage());
+        // Try local IG only
+        if (igService != null && igService.isLoaded()) {
+            List<CodeSearchResult> results = new ArrayList<>();
+            CodeSystem cs = igService.getCodeSystemByUrl(system);
+            if (cs != null && cs.hasConcept()) {
+                String lowerText = text.toLowerCase();
+                for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
+                    boolean matches = (concept.getCode() != null && concept.getCode().toLowerCase().contains(lowerText))
+                            || (concept.getDisplay() != null && concept.getDisplay().toLowerCase().contains(lowerText));
+                    if (matches) {
+                        results.add(new CodeSearchResult(system, concept.getCode(), concept.getDisplay()));
+                    }
+                    if (results.size() >= maxResults) break;
+                }
+            }
+            return results;
+        }
+        return new ArrayList<>();
+    }
+
     public void evictCache(String cacheName) {
         Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
@@ -214,7 +305,7 @@ public class FhirTerminologyService {
 
     public Map<String, Map<String, Object>> getCacheStats() {
         Map<String, Map<String, Object>> stats = new HashMap<>();
-        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "vsacValueSets")) {
+        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "vsacValueSets", "codeSearch")) {
             Cache cache = cacheManager.getCache(name);
             if (cache instanceof CaffeineCache caffeineCache) {
                 com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCache = caffeineCache.getNativeCache();
@@ -258,5 +349,11 @@ public class FhirTerminologyService {
             String name,
             String display,
             List<String> designations
+    ) {}
+
+    public record CodeSearchResult(
+            String system,
+            String code,
+            String display
     ) {}
 }

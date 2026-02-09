@@ -23,6 +23,14 @@ export function useLookupCode() {
   })
 }
 
+export function useSearchCodes(system: string, text: string) {
+  return useQuery({
+    queryKey: ['searchCodes', system, text],
+    queryFn: () => fhirApi.searchCodes(system, text),
+    enabled: !!system && !!text && text.length >= 2,
+  })
+}
+
 export function useValidateCode() {
   return useMutation({
     mutationFn: ({ system, code, valueSetUrl }: { system: string; code: string; valueSetUrl: string }) =>

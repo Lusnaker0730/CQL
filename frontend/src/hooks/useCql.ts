@@ -158,6 +158,66 @@ export function useImportLibrary() {
   })
 }
 
+export function useLibraryDependencies(id: string | null) {
+  return useQuery({
+    queryKey: ['library-dependencies', id],
+    queryFn: () => (id ? cqlApi.getDependencies(id) : []),
+    enabled: !!id,
+  })
+}
+
+export function useLibraryDependents(name: string | null) {
+  return useQuery({
+    queryKey: ['library-dependents', name],
+    queryFn: () => (name ? cqlApi.getDependents(name) : []),
+    enabled: !!name,
+  })
+}
+
+export function useShareLibrary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, targetUsername }: { id: string; targetUsername: string }) =>
+      cqlApi.shareLibrary(id, targetUsername),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+    },
+  })
+}
+
+export function useUnshareLibrary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, targetUsername }: { id: string; targetUsername: string }) =>
+      cqlApi.unshareLibrary(id, targetUsername),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+    },
+  })
+}
+
+export function useTransferOwnership() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, newOwner }: { id: string; newOwner: string }) =>
+      cqlApi.transferOwnership(id, newOwner),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+    },
+  })
+}
+
+export function useSetAccessLevel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, accessLevel }: { id: string; accessLevel: string }) =>
+      cqlApi.setAccessLevel(id, accessLevel),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+    },
+  })
+}
+
 export function useCqlEditor() {
   const editor = useSelector((state: RootState) => state.editor)
   const execution = useSelector((state: RootState) => state.execution)

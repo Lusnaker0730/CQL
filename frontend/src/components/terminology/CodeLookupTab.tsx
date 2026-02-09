@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   TextField,
@@ -9,10 +9,23 @@ import {
   Alert,
   Chip,
   Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Divider,
+  Collapse,
 } from '@mui/material'
-import { Search as SearchIcon, ContentCopy as CopyIcon } from '@mui/icons-material'
+import {
+  Search as SearchIcon,
+  ContentCopy as CopyIcon,
+  ManageSearch as TextSearchIcon,
+} from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
-import { useLookupCode } from '../../hooks/useTerminology'
+import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 
 const CODE_SYSTEMS = [
   { label: 'LOINC', url: 'http://loinc.org' },
@@ -25,7 +38,16 @@ const CODE_SYSTEMS = [
 export default function CodeLookupTab() {
   const [system, setSystem] = useState('')
   const [code, setCode] = useState('')
+  const [searchText, setSearchText] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [showTextSearch, setShowTextSearch] = useState(false)
   const lookupMutation = useLookupCode()
+  const { data: searchResults, isFetching: isSearching } = useSearchCodes(system, debouncedSearch)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchText), 500)
+    return () => clearTimeout(timer)
+  }, [searchText])
 
   const handleLookup = () => {
     if (system && code) {
@@ -39,6 +61,11 @@ export default function CodeLookupTab() {
     const systemLabel = CODE_SYSTEMS.find((cs) => cs.url === d.system)?.label || d.system
     const cql = `code "${d.display}": '${d.code}' from "${systemLabel}"`
     navigator.clipboard.writeText(cql)
+  }
+
+  const handleSelectSearchResult = (resultCode: string) => {
+    setCode(resultCode)
+    lookupMutation.mutate({ system, code: resultCode })
   }
 
   return (
@@ -70,6 +97,86 @@ export default function CodeLookupTab() {
         fullWidth
         placeholder="http://loinc.org"
       />
+
+      {/* Text Search Section */}
+      <Box>
+        <Button
+          size="small"
+          startIcon={<TextSearchIcon />}
+          onClick={() => setShowTextSearch(!showTextSearch)}
+          sx={{ mb: 0.5 }}
+        >
+          {showTextSearch ? 'Hide Text Search' : 'Search by Text'}
+        </Button>
+        <Collapse in={showTextSearch}>
+          <Stack spacing={1.5} sx={{ p: 1.5, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
+            <TextField
+              label="Search text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              size="small"
+              fullWidth
+              placeholder='e.g., "blood pressure"'
+              disabled={!system}
+              helperText={!system ? 'Select a code system first' : undefined}
+              InputProps={{
+                endAdornment: isSearching ? <CircularProgress size={18} /> : null,
+              }}
+            />
+            {searchResults && searchResults.length > 0 && (
+              <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 250 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, py: 0.75 }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 600, py: 0.75 }}>Display</TableCell>
+                      <TableCell sx={{ width: 40, py: 0.75 }} />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {searchResults.map((r) => (
+                      <TableRow
+                        key={r.code}
+                        hover
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => handleSelectSearchResult(r.code)}
+                      >
+                        <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                          {r.code}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>
+                          {r.display}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const label = CODE_SYSTEMS.find((cs) => cs.url === r.system)?.label || r.system
+                              navigator.clipboard.writeText(
+                                `code "${r.display}": '${r.code}' from "${label}"`
+                              )
+                            }}
+                          >
+                            <CopyIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+            {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                No results found for &quot;{debouncedSearch}&quot;
+              </Typography>
+            )}
+          </Stack>
+        </Collapse>
+      </Box>
+
+      <Divider />
 
       <TextField
         label="Code"

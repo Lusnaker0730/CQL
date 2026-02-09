@@ -17,4 +17,10 @@ public interface CqlLibraryRepository extends JpaRepository<CqlLibraryEntity, Lo
     List<CqlLibraryEntity> findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String name, String description);
 
     boolean existsByNameAndVersion(String name, String version);
+
+    List<CqlLibraryEntity> findByOwnerUsername(String ownerUsername);
+
+    List<CqlLibraryEntity> findByAccessLevel(String accessLevel);
+
+    List<CqlLibraryEntity> findByDependenciesContaining(String libraryName);
 }

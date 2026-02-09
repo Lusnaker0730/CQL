@@ -43,12 +43,27 @@ public class CqlLibraryEntity {
     @Builder.Default
     private String status = "active";
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
+    @Column(name = "shared_with", columnDefinition = "TEXT")
+    @Builder.Default
+    private String sharedWith = "[]";
+
+    @Column(name = "access_level", length = 20)
+    @Builder.Default
+    private String accessLevel = "private";
+
     @Column(name = "dependencies", columnDefinition = "TEXT")
     private String dependencies;
 
     @Transient
     @Builder.Default
     private List<String> dependencyList = new ArrayList<>();
+
+    @Transient
+    @Builder.Default
+    private List<String> sharedWithList = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -61,17 +76,20 @@ public class CqlLibraryEntity {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         serializeDependencies();
+        serializeSharedWith();
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
         serializeDependencies();
+        serializeSharedWith();
     }
 
     @PostLoad
     protected void onLoad() {
         deserializeDependencies();
+        deserializeSharedWith();
     }
 
     private void serializeDependencies() {
@@ -95,6 +113,30 @@ public class CqlLibraryEntity {
             }
         } else {
             dependencyList = new ArrayList<>();
+        }
+    }
+
+    private void serializeSharedWith() {
+        if (sharedWithList != null && !sharedWithList.isEmpty()) {
+            try {
+                sharedWith = MAPPER.writeValueAsString(sharedWithList);
+            } catch (JsonProcessingException e) {
+                sharedWith = "[]";
+            }
+        } else {
+            sharedWith = "[]";
+        }
+    }
+
+    private void deserializeSharedWith() {
+        if (sharedWith != null && !sharedWith.isBlank()) {
+            try {
+                sharedWithList = MAPPER.readValue(sharedWith, new TypeReference<>() {});
+            } catch (JsonProcessingException e) {
+                sharedWithList = new ArrayList<>();
+            }
+        } else {
+            sharedWithList = new ArrayList<>();
         }
     }
 }

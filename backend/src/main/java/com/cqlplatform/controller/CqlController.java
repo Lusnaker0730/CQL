@@ -158,4 +158,80 @@ public class CqlController {
         Map<String, String> comparison = libraryService.compare(oldId, newId);
         return ResponseEntity.ok(comparison);
     }
+
+    // ===== Library Sharing & Permissions =====
+
+    @PostMapping("/libraries/{id}/share")
+    @Operation(summary = "Share Library", description = "Shares a library with another user")
+    public ResponseEntity<CqlLibrary> shareLibrary(
+            @PathVariable String id,
+            @RequestBody Map<String, String> request) {
+        String targetUsername = request.get("targetUsername");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        CqlLibrary library = libraryService.shareLibrary(id, targetUsername, currentUser);
+        return ResponseEntity.ok(library);
+    }
+
+    @PostMapping("/libraries/{id}/unshare")
+    @Operation(summary = "Unshare Library", description = "Removes sharing for a user")
+    public ResponseEntity<CqlLibrary> unshareLibrary(
+            @PathVariable String id,
+            @RequestBody Map<String, String> request) {
+        String targetUsername = request.get("targetUsername");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        CqlLibrary library = libraryService.unshareLibrary(id, targetUsername, currentUser);
+        return ResponseEntity.ok(library);
+    }
+
+    @PostMapping("/libraries/{id}/transfer")
+    @Operation(summary = "Transfer Library Ownership", description = "Transfers ownership to another user")
+    public ResponseEntity<CqlLibrary> transferOwnership(
+            @PathVariable String id,
+            @RequestBody Map<String, String> request) {
+        String newOwner = request.get("newOwner");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        CqlLibrary library = libraryService.transferOwnership(id, newOwner, currentUser);
+        return ResponseEntity.ok(library);
+    }
+
+    @PutMapping("/libraries/{id}/access")
+    @Operation(summary = "Set Access Level", description = "Sets library access level (private/shared/public)")
+    public ResponseEntity<CqlLibrary> setAccessLevel(
+            @PathVariable String id,
+            @RequestBody Map<String, String> request) {
+        String accessLevel = request.get("accessLevel");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        CqlLibrary library = libraryService.setAccessLevel(id, accessLevel, currentUser);
+        return ResponseEntity.ok(library);
+    }
+
+    @GetMapping("/libraries/owner/{username}")
+    @Operation(summary = "Get Libraries by Owner", description = "Returns all libraries owned by a user")
+    public ResponseEntity<List<CqlLibrary>> getLibrariesByOwner(@PathVariable String username) {
+        List<CqlLibrary> libraries = libraryService.getLibrariesByOwner(username);
+        return ResponseEntity.ok(libraries);
+    }
+
+    @GetMapping("/libraries/shared/{username}")
+    @Operation(summary = "Get Shared Libraries", description = "Returns libraries shared with a user or public")
+    public ResponseEntity<List<CqlLibrary>> getSharedLibraries(@PathVariable String username) {
+        List<CqlLibrary> libraries = libraryService.getSharedLibraries(username);
+        return ResponseEntity.ok(libraries);
+    }
+
+    // ===== Dependency Analysis =====
+
+    @GetMapping("/libraries/{id}/dependencies")
+    @Operation(summary = "Get Library Dependencies", description = "Returns the full dependency tree for a library")
+    public ResponseEntity<List<CqlLibrary>> getDependencies(@PathVariable String id) {
+        List<CqlLibrary> dependencies = libraryService.getDependencies(id);
+        return ResponseEntity.ok(dependencies);
+    }
+
+    @GetMapping("/libraries/dependents/{name}")
+    @Operation(summary = "Get Library Dependents", description = "Returns all libraries that depend on the given library")
+    public ResponseEntity<List<CqlLibrary>> getDependents(@PathVariable String name) {
+        List<CqlLibrary> dependents = libraryService.getDependents(name);
+        return ResponseEntity.ok(dependents);
+    }
 }

@@ -112,6 +112,9 @@ export interface CqlLibrary {
   description?: string
   status: string
   dependencies: string[]
+  ownerUsername?: string
+  sharedWith?: string[]
+  accessLevel?: string
   createdAt: string
   updatedAt: string
 }
@@ -469,6 +472,12 @@ export interface CodeLookupResult {
   name: string
   display: string
   designations: string[]
+}
+
+export interface CodeSearchResult {
+  system: string
+  code: string
+  display: string
 }
 
 export interface CodeValidationResult {

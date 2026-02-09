@@ -10,6 +10,9 @@ import {
   Divider,
   Collapse,
   Box,
+  Chip,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import {
   Star as StarIcon,
@@ -19,13 +22,23 @@ import {
   ExpandLess as ExpandLessIcon,
   DeleteSweep as ClearIcon,
   LocalHospital as TwcdiIcon,
+  Public as PublicIcon,
+  Group as SharedIcon,
+  Lock as PrivateIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
+import { useLibraries } from '../../hooks/useCql'
 import { useDispatch } from 'react-redux'
 import { setCqlContent } from '../../store/editorSlice'
 import { cqlApi } from '../../api'
 import { TWCDI_TEMPLATES } from '../../constants/twcdiTemplates'
+
+const ACCESS_ICON = {
+  private: <PrivateIcon sx={{ fontSize: 12 }} />,
+  shared: <SharedIcon sx={{ fontSize: 12 }} />,
+  public: <PublicIcon sx={{ fontSize: 12 }} />,
+}
 
 export default function LibraryQuickAccess() {
   const { recent, favoritesList, toggleFavorite, isFavorite, clearRecent } = useLibraryHistory()
@@ -33,6 +46,22 @@ export default function LibraryQuickAccess() {
   const [favoritesOpen, setFavoritesOpen] = useState(true)
   const [recentOpen, setRecentOpen] = useState(true)
   const [twcdiOpen, setTwcdiOpen] = useState(false)
+  const [browseOpen, setBrowseOpen] = useState(false)
+  const [browseFilter, setBrowseFilter] = useState(0) // 0=All, 1=My, 2=Shared, 3=Public
+
+  const { data: allLibraries = [] } = useLibraries()
+
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}').username || '' }
+    catch { return '' }
+  })()
+
+  const filteredLibraries = allLibraries.filter((lib) => {
+    if (browseFilter === 1) return lib.ownerUsername === currentUser
+    if (browseFilter === 2) return lib.sharedWith?.includes(currentUser) || lib.accessLevel === 'shared'
+    if (browseFilter === 3) return lib.accessLevel === 'public'
+    return true
+  })
 
   const handleLoadLibrary = async (id: string) => {
     try {
@@ -173,6 +202,61 @@ export default function LibraryQuickAccess() {
                   secondary={`v${item.version}`}
                   primaryTypographyProps={{ variant: 'body2', noWrap: true }}
                   secondaryTypographyProps={{ variant: 'caption' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
+      </Collapse>
+
+      <Divider />
+
+      {/* Browse Libraries with filter tabs */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        onClick={() => setBrowseOpen(!browseOpen)}
+      >
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <SharedIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+          <Typography variant="subtitle2">Browse</Typography>
+          <Chip label={filteredLibraries.length} size="small" sx={{ height: 16, fontSize: '0.65rem' }} />
+        </Stack>
+        {browseOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+      </Stack>
+      <Collapse in={browseOpen}>
+        <Tabs
+          value={browseFilter}
+          onChange={(_, v) => setBrowseFilter(v)}
+          variant="fullWidth"
+          sx={{
+            minHeight: 28,
+            '& .MuiTab-root': { minHeight: 28, py: 0, fontSize: '0.7rem', minWidth: 0 },
+          }}
+        >
+          <Tab label="All" />
+          <Tab label="My" />
+          <Tab label="Shared" />
+          <Tab label="Public" />
+        </Tabs>
+        {filteredLibraries.length === 0 ? (
+          <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+            No libraries found.
+          </Typography>
+        ) : (
+          <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
+            {filteredLibraries.map((lib) => (
+              <ListItemButton key={lib.id} onClick={() => handleLoadLibrary(lib.id)} sx={{ py: 0.25 }}>
+                <ListItemIcon sx={{ minWidth: 24 }}>
+                  {ACCESS_ICON[lib.accessLevel as keyof typeof ACCESS_ICON] || ACCESS_ICON.private}
+                </ListItemIcon>
+                <ListItemText
+                  primary={lib.name}
+                  secondary={`v${lib.version} - ${lib.status}`}
+                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
                 />
               </ListItemButton>
             ))}

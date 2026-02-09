@@ -423,6 +423,18 @@ public class FhirController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/CodeSystem/$search-codes")
+    @Operation(summary = "Search Codes", description = "Search for codes by text within a code system")
+    public ResponseEntity<java.util.List<FhirTerminologyService.CodeSearchResult>> searchCodes(
+            @RequestParam String system,
+            @RequestParam String text,
+            @RequestParam(defaultValue = "20") int maxResults) {
+
+        java.util.List<FhirTerminologyService.CodeSearchResult> results =
+                terminologyService.searchCodes(system, text, maxResults);
+        return ResponseEntity.ok(results);
+    }
+
     @GetMapping("/ValueSet")
     @Operation(summary = "Search ValueSets", description = "Search for ValueSets")
     public ResponseEntity<List<Map<String, String>>> searchValueSets(
