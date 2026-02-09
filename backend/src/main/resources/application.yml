@@ -86,6 +86,8 @@ fhir:
     url: ${FHIR_SERVER_URL:http://launch.smarthealthit.org/v/r4/fhir}
   terminology:
     url: ${FHIR_TERMINOLOGY_URL:http://tx.fhir.org/r4}
+  implementation-guides:
+    enabled: ${FHIR_IG_ENABLED:true}
   client:
     pool-max-total: 20
     pool-default-per-route: 10

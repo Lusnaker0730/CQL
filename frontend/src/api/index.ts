@@ -40,6 +40,10 @@ import type {
   CacheStats,
   TestCase,
   TestCaseRunResult,
+  IgPackageMetadata,
+  ProfileSummary,
+  ValueSetSummary,
+  CodeSystemSummary,
 } from '../types'
 
 const api = axios.create({
@@ -590,5 +594,47 @@ export const fhirApi = {
 
   evictCache: async (cacheName: string): Promise<void> => {
     await api.delete(`/fhir/cache/${encodeURIComponent(cacheName)}`)
+  },
+
+  // Implementation Guide
+  getIgPackages: async (): Promise<IgPackageMetadata[]> => {
+    const response = await api.get<IgPackageMetadata[]>('/fhir/ig/packages')
+    return response.data
+  },
+
+  browseProfiles: async (resourceType?: string, search?: string): Promise<ProfileSummary[]> => {
+    const params = new URLSearchParams()
+    if (resourceType) params.append('resourceType', resourceType)
+    if (search) params.append('search', search)
+    const query = params.toString()
+    const response = await api.get<ProfileSummary[]>(`/fhir/ig/profiles${query ? '?' + query : ''}`)
+    return response.data
+  },
+
+  getProfile: async (url: string): Promise<unknown> => {
+    const response = await api.get(`/fhir/ig/profiles/${encodeURIComponent(url)}`)
+    return response.data
+  },
+
+  browseIgValueSets: async (search?: string): Promise<ValueSetSummary[]> => {
+    const params = search ? `?search=${encodeURIComponent(search)}` : ''
+    const response = await api.get<ValueSetSummary[]>(`/fhir/ig/valuesets${params}`)
+    return response.data
+  },
+
+  getIgValueSet: async (url: string): Promise<unknown> => {
+    const response = await api.get(`/fhir/ig/valuesets/${encodeURIComponent(url)}`)
+    return response.data
+  },
+
+  browseIgCodeSystems: async (search?: string): Promise<CodeSystemSummary[]> => {
+    const params = search ? `?search=${encodeURIComponent(search)}` : ''
+    const response = await api.get<CodeSystemSummary[]>(`/fhir/ig/codesystems${params}`)
+    return response.data
+  },
+
+  getIgCodeSystem: async (url: string): Promise<unknown> => {
+    const response = await api.get(`/fhir/ig/codesystems/${encodeURIComponent(url)}`)
+    return response.data
   },
 }

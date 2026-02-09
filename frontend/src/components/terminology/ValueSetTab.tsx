@@ -16,28 +16,70 @@ import {
   Chip,
   IconButton,
   InputAdornment,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material'
 import {
   Search as SearchIcon,
   ExpandMore as ExpandIcon,
   ContentCopy as CopyIcon,
+  Cloud as RemoteIcon,
+  Storage as LocalIcon,
 } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
-import type { ValueSetSearchResult } from '../../types'
+import { useIgValueSets } from '../../hooks/useImplementationGuide'
+import type { ValueSetSearchResult, ValueSetSummary } from '../../types'
+
+type SourceMode = 'remote' | 'local' | 'both'
 
 export default function ValueSetTab() {
   const [searchTitle, setSearchTitle] = useState('')
   const [debouncedTitle, setDebouncedTitle] = useState('')
   const [selectedVs, setSelectedVs] = useState<ValueSetSearchResult | null>(null)
   const [codeFilter, setCodeFilter] = useState('')
+  const [source, setSource] = useState<SourceMode>('remote')
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedTitle(searchTitle), 300)
     return () => clearTimeout(timer)
   }, [searchTitle])
 
-  const { data: searchResults, isLoading: isSearching, error: searchError } = useSearchValueSets(debouncedTitle)
+  const { data: remoteResults, isLoading: isSearchingRemote, error: remoteError } = useSearchValueSets(
+    (source === 'remote' || source === 'both') ? debouncedTitle : undefined
+  )
+  const { data: localResults, isLoading: isSearchingLocal } = useIgValueSets(
+    (source === 'local' || source === 'both') ? (debouncedTitle || undefined) : undefined
+  )
   const expandMutation = useExpandValueSet()
+
+  const isSearching = isSearchingRemote || isSearchingLocal
+
+  // Merge results based on source
+  const searchResults: (ValueSetSearchResult & { source?: string })[] = (() => {
+    const results: (ValueSetSearchResult & { source?: string })[] = []
+    if (source === 'remote' || source === 'both') {
+      if (remoteResults) {
+        results.push(...remoteResults.map(r => ({ ...r, source: 'remote' as const })))
+      }
+    }
+    if (source === 'local' || source === 'both') {
+      if (localResults) {
+        const mapped = localResults.map((vs: ValueSetSummary) => ({
+          id: vs.url,
+          url: vs.url,
+          name: vs.name || '',
+          title: vs.title || '',
+          source: 'local' as const,
+        }))
+        // Avoid duplicates by URL
+        const existingUrls = new Set(results.map(r => r.url))
+        results.push(...mapped.filter(m => !existingUrls.has(m.url)))
+      }
+    }
+    return results
+  })()
+
+  const searchError = remoteError
 
   const handleExpand = (vs: ValueSetSearchResult) => {
     setSelectedVs(vs)
@@ -60,26 +102,46 @@ export default function ValueSetTab() {
 
   return (
     <Stack spacing={2}>
-      <TextField
-        label="Search ValueSets by title"
-        value={searchTitle}
-        onChange={(e) => setSearchTitle(e.target.value)}
-        size="small"
-        fullWidth
-        placeholder="e.g., diabetes, blood pressure"
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary' }} />
-            </InputAdornment>
-          ),
-          endAdornment: isSearching ? (
-            <InputAdornment position="end">
-              <CircularProgress size={18} />
-            </InputAdornment>
-          ) : undefined,
-        }}
-      />
+      <Stack direction="row" spacing={2} alignItems="center">
+        <TextField
+          label="Search ValueSets by title"
+          value={searchTitle}
+          onChange={(e) => setSearchTitle(e.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
+          placeholder="e.g., diabetes, blood pressure"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+            endAdornment: isSearching ? (
+              <InputAdornment position="end">
+                <CircularProgress size={18} />
+              </InputAdornment>
+            ) : undefined,
+          }}
+        />
+        <ToggleButtonGroup
+          value={source}
+          exclusive
+          onChange={(_, val) => val && setSource(val as SourceMode)}
+          size="small"
+        >
+          <ToggleButton value="remote" title="Remote terminology server">
+            <RemoteIcon fontSize="small" sx={{ mr: 0.5 }} />
+            <Typography variant="caption">Remote</Typography>
+          </ToggleButton>
+          <ToggleButton value="local" title="Local IG packages">
+            <LocalIcon fontSize="small" sx={{ mr: 0.5 }} />
+            <Typography variant="caption">Local IG</Typography>
+          </ToggleButton>
+          <ToggleButton value="both" title="Both sources">
+            <Typography variant="caption">Both</Typography>
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
 
       {searchError && (
         <Alert severity="error">Search failed: {(searchError as Error).message}</Alert>
@@ -108,9 +170,20 @@ export default function ValueSetTab() {
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="body2" fontWeight={600} noWrap>
-                      {vs.title || vs.name}
-                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2" fontWeight={600} noWrap>
+                        {vs.title || vs.name}
+                      </Typography>
+                      {vs.source && (
+                        <Chip
+                          label={vs.source === 'local' ? 'Local IG' : 'Remote'}
+                          size="small"
+                          variant="outlined"
+                          color={vs.source === 'local' ? 'success' : 'default'}
+                          sx={{ height: 20, fontSize: '0.65rem' }}
+                        />
+                      )}
+                    </Stack>
                     <Typography variant="caption" color="text.secondary" noWrap>
                       {vs.url}
                     </Typography>

@@ -5,7 +5,6 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import com.cqlplatform.exception.FhirServerUnavailableException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.*;
 import org.opencds.cqf.cql.engine.fhir.terminology.R4FhirTerminologyProvider;
@@ -23,20 +22,35 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class FhirTerminologyService {
 
     private final FhirContext fhirContext;
     private final CacheManager cacheManager;
+    private final FhirImplementationGuideService igService;
 
     @Value("${fhir.terminology.url:http://tx.fhir.org/r4}")
     private String defaultTerminologyServerUrl;
 
+    public FhirTerminologyService(FhirContext fhirContext,
+                                   CacheManager cacheManager,
+                                   @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                   FhirImplementationGuideService igService) {
+        this.fhirContext = fhirContext;
+        this.cacheManager = cacheManager;
+        this.igService = igService;
+    }
+
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
         String serverUrl = terminologyServerUrl != null ? terminologyServerUrl : defaultTerminologyServerUrl;
         IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
-        return new R4FhirTerminologyProvider(client);
+        TerminologyProvider remoteProvider = new R4FhirTerminologyProvider(client);
+
+        if (igService != null && igService.isLoaded()) {
+            log.debug("Creating hybrid local/remote terminology provider");
+            return new LocalTerminologyProvider(igService, remoteProvider);
+        }
+        return remoteProvider;
     }
 
     @Cacheable(value = "valueSets", key = "#valueSetUrl")
@@ -214,6 +228,28 @@ public class FhirTerminologyService {
             }
         }
         return stats;
+    }
+
+    public ValueSet expandValueSetLocal(String url) {
+        if (igService != null && igService.isLoaded()) {
+            ValueSet vs = igService.getValueSetByUrl(url);
+            if (vs != null) {
+                log.debug("Expanding ValueSet locally from IG: {}", url);
+                return vs;
+            }
+        }
+        return null;
+    }
+
+    public List<ValueSet> searchLocalValueSets(String searchTerm) {
+        if (igService == null || !igService.isLoaded()) {
+            return new ArrayList<>();
+        }
+        String lowerSearch = searchTerm != null ? searchTerm.toLowerCase() : "";
+        return igService.getValueSets(searchTerm).stream()
+                .map(summary -> igService.getValueSetByUrl(summary.url()))
+                .filter(vs -> vs != null)
+                .toList();
     }
 
     public record CodeLookupResult(

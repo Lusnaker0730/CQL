@@ -587,3 +587,40 @@ export interface PopulationComparison {
   actual?: boolean
   match: boolean
 }
+
+// Implementation Guide types
+export interface IgPackageMetadata {
+  name: string
+  version: string
+  title: string
+  canonical: string
+  fhirVersion: string
+  profileCount: number
+  valueSetCount: number
+  codeSystemCount: number
+}
+
+export interface ProfileSummary {
+  url: string
+  name: string
+  title: string
+  type: string
+  kind: string
+  status: string
+}
+
+export interface ValueSetSummary {
+  url: string
+  name: string
+  title: string
+  status: string
+  conceptCount: number
+}
+
+export interface CodeSystemSummary {
+  url: string
+  name: string
+  title: string
+  status: string
+  conceptCount: number
+}

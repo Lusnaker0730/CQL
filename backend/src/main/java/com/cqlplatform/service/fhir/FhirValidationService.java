@@ -20,12 +20,26 @@ public class FhirValidationService {
 
     private final FhirValidator validator;
 
-    public FhirValidationService(FhirContext fhirContext) {
-        ValidationSupportChain validationSupportChain = new ValidationSupportChain(
-                new DefaultProfileValidationSupport(fhirContext),
-                new InMemoryTerminologyServerValidationSupport(fhirContext),
-                new CommonCodeSystemsTerminologyService(fhirContext)
-        );
+    public FhirValidationService(FhirContext fhirContext,
+                                  @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                  FhirImplementationGuideService igService) {
+        ValidationSupportChain validationSupportChain;
+
+        if (igService != null && igService.isLoaded()) {
+            log.info("Adding IG validation support to validation chain");
+            validationSupportChain = new ValidationSupportChain(
+                    igService.getValidationSupport(),
+                    new DefaultProfileValidationSupport(fhirContext),
+                    new InMemoryTerminologyServerValidationSupport(fhirContext),
+                    new CommonCodeSystemsTerminologyService(fhirContext)
+            );
+        } else {
+            validationSupportChain = new ValidationSupportChain(
+                    new DefaultProfileValidationSupport(fhirContext),
+                    new InMemoryTerminologyServerValidationSupport(fhirContext),
+                    new CommonCodeSystemsTerminologyService(fhirContext)
+            );
+        }
 
         CachingValidationSupport cachingSupport = new CachingValidationSupport(validationSupportChain);
 

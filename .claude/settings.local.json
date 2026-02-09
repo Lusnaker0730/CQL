@@ -80,7 +80,9 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MDU0MzMyMCwiZXhwIjoxNzcwNjI5NzIwfQ.ENoGHzRw9T5ejPIW_4EXbPRLltXG755O6_Zg6wimQn7zHlTcHJvrTl_i6jvk37Uo72lcSHhomlKy4McfT9aZ8Q\")",
       "Bash(timeout 60 bash -c 'while ! docker compose ps backend 2>&1 | grep -q \"\"healthy\"\"; do sleep 5; done')",
       "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MDU0OTE3MCwiZXhwIjoxNzcwNjM1NTcwfQ.BcH59pibbYxWsxhNersVtJe3b8oeuo88VAbGVyFkSEw8005e0pd470fxVHrS8B-FHUzu_RSRsVKQhJ8Sw-wrGg\")",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(git reset:*)",
+      "Bash(tar:*)"
     ]
   }
 }

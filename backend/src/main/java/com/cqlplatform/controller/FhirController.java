@@ -6,9 +6,8 @@ import com.cqlplatform.service.fhir.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +28,100 @@ public class FhirController {
     private final FhirValidationService validationService;
     private final VsacService vsacService;
     private final FhirContext fhirContext;
+
+    @Autowired(required = false)
+    private FhirImplementationGuideService igService;
+
+    // ─── Implementation Guide Browsing ─────────────────────────────
+
+    @GetMapping("/ig/packages")
+    @Operation(summary = "List IG Packages", description = "List loaded Implementation Guide packages")
+    public ResponseEntity<?> getIgPackages() {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(List.of(igService.getPackageMetadata()));
+    }
+
+    @GetMapping("/ig/profiles")
+    @Operation(summary = "Browse IG Profiles", description = "Browse StructureDefinitions from loaded IGs")
+    public ResponseEntity<?> browseProfiles(
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) String search) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(igService.getProfiles(resourceType, search));
+    }
+
+    @GetMapping("/ig/profiles/{url}")
+    @Operation(summary = "Get IG Profile", description = "Get a StructureDefinition by URL")
+    public ResponseEntity<String> getIgProfile(@PathVariable String url) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.notFound().build();
+        }
+        String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        StructureDefinition sd = igService.getProfileByUrl(decodedUrl);
+        if (sd == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(sd);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
+
+    @GetMapping("/ig/valuesets")
+    @Operation(summary = "Browse IG ValueSets", description = "Browse ValueSets from loaded IGs")
+    public ResponseEntity<?> browseIgValueSets(@RequestParam(required = false) String search) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(igService.getValueSets(search));
+    }
+
+    @GetMapping("/ig/valuesets/{url}")
+    @Operation(summary = "Get IG ValueSet", description = "Get a ValueSet by URL with expansion")
+    public ResponseEntity<String> getIgValueSet(@PathVariable String url) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.notFound().build();
+        }
+        String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        ValueSet vs = igService.getValueSetByUrl(decodedUrl);
+        if (vs == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(vs);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
+
+    @GetMapping("/ig/codesystems")
+    @Operation(summary = "Browse IG CodeSystems", description = "Browse CodeSystems from loaded IGs")
+    public ResponseEntity<?> browseIgCodeSystems(@RequestParam(required = false) String search) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(igService.getCodeSystems(search));
+    }
+
+    @GetMapping("/ig/codesystems/{url}")
+    @Operation(summary = "Get IG CodeSystem", description = "Get a CodeSystem by URL")
+    public ResponseEntity<String> getIgCodeSystem(@PathVariable String url) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.notFound().build();
+        }
+        String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        CodeSystem cs = igService.getCodeSystemByUrl(decodedUrl);
+        if (cs == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(cs);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
 
     // ─── Cache Management ────────────────────────────────────────────
 

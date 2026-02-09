@@ -20,7 +20,6 @@ import org.opencds.cqf.cql.engine.data.CompositeDataProvider;
 import org.opencds.cqf.cql.engine.execution.CqlEngine;
 import org.opencds.cqf.cql.engine.execution.Environment;
 import org.opencds.cqf.cql.engine.execution.EvaluationResult;
-import org.opencds.cqf.cql.engine.fhir.model.R4FhirModelResolver;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -147,7 +146,7 @@ public class CqlExecutionService {
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
 
             // Setup data provider - use prefetch if available, otherwise REST
-            R4FhirModelResolver modelResolver = new R4FhirModelResolver();
+            ComparableR4FhirModelResolver modelResolver = new ComparableR4FhirModelResolver();
             RetrieveProvider retrieveProvider;
             if (prefetchProvider != null) {
                 log.info("Using prefetch data provider for CQL execution");

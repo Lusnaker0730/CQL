@@ -1,0 +1,492 @@
+import { useState, useEffect, useMemo } from 'react'
+import {
+  Box,
+  Paper,
+  Typography,
+  Stack,
+  TextField,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  CircularProgress,
+  Alert,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Card,
+  CardContent,
+} from '@mui/material'
+import {
+  Search as SearchIcon,
+  AccountTree as ProfileIcon,
+  ListAlt as ValueSetIcon,
+  Code as CodeSystemIcon,
+  Inventory as PackageIcon,
+  Close as CloseIcon,
+} from '@mui/icons-material'
+import { useIgPackages, useIgProfiles, useIgValueSets, useIgCodeSystems } from '../../hooks/useImplementationGuide'
+import { fhirApi } from '../../api'
+import type { ProfileSummary, ValueSetSummary, CodeSystemSummary } from '../../types'
+import StatusChip from '../common/StatusChip'
+
+interface DetailDialogState {
+  open: boolean
+  title: string
+  json: string
+}
+
+export default function ImplementationGuideBrowser() {
+  const [tabIndex, setTabIndex] = useState(0)
+
+  return (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Tabs
+        value={tabIndex}
+        onChange={(_, v) => setTabIndex(v)}
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+      >
+        <Tab icon={<PackageIcon />} iconPosition="start" label="Packages" />
+        <Tab icon={<ProfileIcon />} iconPosition="start" label="Profiles" />
+        <Tab icon={<ValueSetIcon />} iconPosition="start" label="ValueSets" />
+        <Tab icon={<CodeSystemIcon />} iconPosition="start" label="CodeSystems" />
+      </Tabs>
+
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        {tabIndex === 0 && <PackagesTab />}
+        {tabIndex === 1 && <ProfilesTab />}
+        {tabIndex === 2 && <ValueSetsTab />}
+        {tabIndex === 3 && <CodeSystemsTab />}
+      </Box>
+    </Box>
+  )
+}
+
+function PackagesTab() {
+  const { data: packages, isLoading, error } = useIgPackages()
+
+  if (isLoading) return <CircularProgress size={24} />
+  if (error) return <Alert severity="error">Failed to load packages: {(error as Error).message}</Alert>
+  if (!packages || packages.length === 0) {
+    return <Alert severity="info">No Implementation Guide packages loaded.</Alert>
+  }
+
+  return (
+    <Stack spacing={2}>
+      {packages.map((pkg) => (
+        <Card key={pkg.name} variant="outlined">
+          <CardContent>
+            <Typography variant="h6" gutterBottom>{pkg.title}</Typography>
+            <Stack spacing={1}>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip label={`Name: ${pkg.name}`} size="small" variant="outlined" />
+                <Chip label={`Version: ${pkg.version}`} size="small" variant="outlined" />
+                <Chip label={`FHIR: ${pkg.fhirVersion}`} size="small" variant="outlined" />
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Canonical: {pkg.canonical}
+              </Typography>
+              <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
+                  <Typography variant="h5" color="primary.main">{pkg.profileCount}</Typography>
+                  <Typography variant="caption" color="text.secondary">Profiles</Typography>
+                </Paper>
+                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
+                  <Typography variant="h5" color="primary.main">{pkg.valueSetCount}</Typography>
+                  <Typography variant="caption" color="text.secondary">ValueSets</Typography>
+                </Paper>
+                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
+                  <Typography variant="h5" color="primary.main">{pkg.codeSystemCount}</Typography>
+                  <Typography variant="caption" color="text.secondary">CodeSystems</Typography>
+                </Paper>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+      ))}
+    </Stack>
+  )
+}
+
+function ProfilesTab() {
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [resourceType, setResourceType] = useState<string>('')
+  const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data: profiles, isLoading, error } = useIgProfiles(resourceType || undefined, debouncedSearch || undefined)
+
+  const resourceTypes = useMemo(() => {
+    if (!profiles) return []
+    const types = new Set(profiles.map((p: ProfileSummary) => p.type).filter(Boolean))
+    return Array.from(types).sort()
+  }, [profiles])
+
+  const handleRowClick = async (profile: ProfileSummary) => {
+    setLoadingDetail(true)
+    try {
+      const json = await fhirApi.getProfile(profile.url)
+      setDetail({ open: true, title: profile.title || profile.name, json: JSON.stringify(json, null, 2) })
+    } catch {
+      setDetail({ open: true, title: 'Error', json: 'Failed to load profile' })
+    }
+    setLoadingDetail(false)
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Stack direction="row" spacing={2}>
+        <TextField
+          label="Search profiles"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
+          placeholder="e.g., Patient, Observation"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Resource Type</InputLabel>
+          <Select
+            value={resourceType}
+            label="Resource Type"
+            onChange={(e) => setResourceType(e.target.value)}
+          >
+            <MenuItem value="">All Types</MenuItem>
+            {resourceTypes.map((t) => (
+              <MenuItem key={t} value={t}>{t}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+
+      {isLoading && <CircularProgress size={24} />}
+      {error && <Alert severity="error">Failed to load profiles: {(error as Error).message}</Alert>}
+
+      {profiles && (
+        <>
+          <Typography variant="subtitle2" color="text.secondary">
+            {profiles.length} profile{profiles.length !== 1 ? 's' : ''}
+          </Typography>
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Kind</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {profiles.map((p: ProfileSummary) => (
+                  <TableRow
+                    key={p.url}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleRowClick(p)}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{p.name}</Typography>
+                    </TableCell>
+                    <TableCell>{p.title}</TableCell>
+                    <TableCell>
+                      <Chip label={p.type} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>{p.kind}</TableCell>
+                    <TableCell>
+                      <StatusChip status={p.status || 'draft'} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {profiles.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography variant="body2" color="text.secondary">No profiles found.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+
+      <DetailDialog state={detail} onClose={() => setDetail({ ...detail, open: false })} loading={loadingDetail} />
+    </Stack>
+  )
+}
+
+function ValueSetsTab() {
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data: valueSets, isLoading, error } = useIgValueSets(debouncedSearch || undefined)
+
+  const handleRowClick = async (vs: ValueSetSummary) => {
+    setLoadingDetail(true)
+    try {
+      const json = await fhirApi.getIgValueSet(vs.url)
+      setDetail({ open: true, title: vs.title || vs.name, json: JSON.stringify(json, null, 2) })
+    } catch {
+      setDetail({ open: true, title: 'Error', json: 'Failed to load ValueSet' })
+    }
+    setLoadingDetail(false)
+  }
+
+  return (
+    <Stack spacing={2}>
+      <TextField
+        label="Search ValueSets"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        size="small"
+        fullWidth
+        placeholder="e.g., ICD, medication"
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: 'text.secondary' }} />
+            </InputAdornment>
+          ),
+        }}
+      />
+
+      {isLoading && <CircularProgress size={24} />}
+      {error && <Alert severity="error">Failed to load ValueSets: {(error as Error).message}</Alert>}
+
+      {valueSets && (
+        <>
+          <Typography variant="subtitle2" color="text.secondary">
+            {valueSets.length} ValueSet{valueSets.length !== 1 ? 's' : ''}
+          </Typography>
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Concepts</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {valueSets.map((vs: ValueSetSummary) => (
+                  <TableRow
+                    key={vs.url}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleRowClick(vs)}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{vs.title || vs.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" noWrap sx={{ maxWidth: 300, display: 'block' }}>
+                        {vs.url}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip status={vs.status || 'draft'} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={vs.conceptCount} size="small" sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {valueSets.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Typography variant="body2" color="text.secondary">No ValueSets found.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+
+      <DetailDialog state={detail} onClose={() => setDetail({ ...detail, open: false })} loading={loadingDetail} />
+    </Stack>
+  )
+}
+
+function CodeSystemsTab() {
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data: codeSystems, isLoading, error } = useIgCodeSystems(debouncedSearch || undefined)
+
+  const handleRowClick = async (cs: CodeSystemSummary) => {
+    setLoadingDetail(true)
+    try {
+      const json = await fhirApi.getIgCodeSystem(cs.url)
+      setDetail({ open: true, title: cs.title || cs.name, json: JSON.stringify(json, null, 2) })
+    } catch {
+      setDetail({ open: true, title: 'Error', json: 'Failed to load CodeSystem' })
+    }
+    setLoadingDetail(false)
+  }
+
+  return (
+    <Stack spacing={2}>
+      <TextField
+        label="Search CodeSystems"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        size="small"
+        fullWidth
+        placeholder="e.g., LOINC, SNOMED"
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: 'text.secondary' }} />
+            </InputAdornment>
+          ),
+        }}
+      />
+
+      {isLoading && <CircularProgress size={24} />}
+      {error && <Alert severity="error">Failed to load CodeSystems: {(error as Error).message}</Alert>}
+
+      {codeSystems && (
+        <>
+          <Typography variant="subtitle2" color="text.secondary">
+            {codeSystems.length} CodeSystem{codeSystems.length !== 1 ? 's' : ''}
+          </Typography>
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Concepts</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {codeSystems.map((cs: CodeSystemSummary) => (
+                  <TableRow
+                    key={cs.url}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleRowClick(cs)}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{cs.title || cs.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" noWrap sx={{ maxWidth: 300, display: 'block' }}>
+                        {cs.url}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip status={cs.status || 'draft'} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={cs.conceptCount} size="small" sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {codeSystems.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Typography variant="body2" color="text.secondary">No CodeSystems found.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+
+      <DetailDialog state={detail} onClose={() => setDetail({ ...detail, open: false })} loading={loadingDetail} />
+    </Stack>
+  )
+}
+
+function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; onClose: () => void; loading: boolean }) {
+  return (
+    <Dialog open={state.open} onClose={onClose} maxWidth="lg" fullWidth>
+      <DialogTitle>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6">{state.title}</Typography>
+          <Button onClick={onClose} startIcon={<CloseIcon />} size="small">Close</Button>
+        </Stack>
+      </DialogTitle>
+      <DialogContent>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Box
+            component="pre"
+            sx={{
+              p: 2,
+              bgcolor: '#1e1e1e',
+              color: '#d4d4d4',
+              borderRadius: 1,
+              overflow: 'auto',
+              maxHeight: 500,
+              fontSize: '0.8rem',
+              fontFamily: '"Fira Code", "Cascadia Code", monospace',
+            }}
+          >
+            {state.json}
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button
+          size="small"
+          onClick={() => navigator.clipboard.writeText(state.json)}
+        >
+          Copy JSON
+        </Button>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
