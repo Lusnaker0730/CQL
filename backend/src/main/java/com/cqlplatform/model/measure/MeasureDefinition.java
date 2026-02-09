@@ -27,6 +27,9 @@ public class MeasureDefinition {
     private String compositeScoring;
     private List<Long> componentMeasureIds;
     private String createdBy;
+    private String ownerUsername;
+    private List<String> sharedWith;
+    private String accessLevel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

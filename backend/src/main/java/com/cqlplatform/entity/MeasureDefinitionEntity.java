@@ -76,6 +76,21 @@ public class MeasureDefinitionEntity {
     @Column(name = "created_by", length = 100)
     private String createdBy;
 
+    @Column(name = "owner_username", length = 100)
+    private String ownerUsername;
+
+    @Column(name = "shared_with", columnDefinition = "TEXT")
+    @Builder.Default
+    private String sharedWith = "[]";
+
+    @Column(name = "access_level", length = 20)
+    @Builder.Default
+    private String accessLevel = "private";
+
+    @Transient
+    @Builder.Default
+    private List<String> sharedWithList = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -160,6 +175,7 @@ public class MeasureDefinitionEntity {
         serializeJsonList(referenceList, (json) -> measureReferences = json, "[]");
         serializeJsonList(riskAdjustmentList, (json) -> riskAdjustmentsJson = json, "[]");
         serializeJsonList(supplementalDataList, (json) -> supplementalDataJson = json, "[]");
+        serializeJsonList(sharedWithList, (json) -> sharedWith = json, "[]");
     }
 
     private void deserializeAll() {
@@ -169,6 +185,7 @@ public class MeasureDefinitionEntity {
         referenceList = deserializeJsonList(measureReferences, new TypeReference<>() {});
         riskAdjustmentList = deserializeJsonList(riskAdjustmentsJson, new TypeReference<>() {});
         supplementalDataList = deserializeJsonList(supplementalDataJson, new TypeReference<>() {});
+        sharedWithList = deserializeJsonList(sharedWith, new TypeReference<>() {});
     }
 
     private <T> void serializeJsonList(List<T> list, java.util.function.Consumer<String> setter, String defaultVal) {

@@ -16,6 +16,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.cqlplatform.entity.MeasureAuditEntity;
+
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -378,5 +380,106 @@ public class MeasureController {
             @RequestParam Long newId) {
         Map<String, String> comparison = definitionService.compare(oldId, newId);
         return ResponseEntity.ok(comparison);
+    }
+
+    // ===== Measure Sharing & Permissions =====
+
+    @PostMapping("/{id}/share")
+    @Operation(summary = "Share Measure", description = "Shares a measure with another user")
+    public ResponseEntity<MeasureDefinition> shareMeasure(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String targetUsername = request.get("targetUsername");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.shareMeasure(id, targetUsername, currentUser));
+    }
+
+    @PostMapping("/{id}/unshare")
+    @Operation(summary = "Unshare Measure", description = "Removes sharing for a user")
+    public ResponseEntity<MeasureDefinition> unshareMeasure(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String targetUsername = request.get("targetUsername");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.unshareMeasure(id, targetUsername, currentUser));
+    }
+
+    @PostMapping("/{id}/transfer")
+    @Operation(summary = "Transfer Measure Ownership", description = "Transfers ownership to another user")
+    public ResponseEntity<MeasureDefinition> transferMeasureOwnership(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String newOwner = request.get("newOwner");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.transferOwnership(id, newOwner, currentUser));
+    }
+
+    @PutMapping("/{id}/access")
+    @Operation(summary = "Set Measure Access Level", description = "Sets measure access level (private/shared/public)")
+    public ResponseEntity<MeasureDefinition> setMeasureAccessLevel(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String accessLevel = request.get("accessLevel");
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.setAccessLevel(id, accessLevel, currentUser));
+    }
+
+    @GetMapping("/owner/{username}")
+    @Operation(summary = "Get Measures by Owner", description = "Returns all measures owned by a user")
+    public ResponseEntity<List<MeasureDefinition>> getMeasuresByOwner(@PathVariable String username) {
+        return ResponseEntity.ok(definitionService.getMeasuresByOwner(username));
+    }
+
+    @GetMapping("/shared/{username}")
+    @Operation(summary = "Get Shared Measures", description = "Returns measures shared with a user or public")
+    public ResponseEntity<List<MeasureDefinition>> getSharedMeasures(@PathVariable String username) {
+        return ResponseEntity.ok(definitionService.getSharedMeasures(username));
+    }
+
+    // ===== Workflow =====
+
+    @PostMapping("/{id}/submit-for-review")
+    @Operation(summary = "Submit for Review", description = "Submits a draft measure for review")
+    public ResponseEntity<MeasureDefinition> submitForReview(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.submitForReview(id, currentUser));
+    }
+
+    @PostMapping("/{id}/approve")
+    @Operation(summary = "Approve Measure", description = "Approves a measure and sets it to active")
+    public ResponseEntity<MeasureDefinition> approveMeasure(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.approveMeasure(id, currentUser));
+    }
+
+    @PostMapping("/{id}/reject")
+    @Operation(summary = "Reject Measure", description = "Rejects a measure and returns it to draft")
+    public ResponseEntity<MeasureDefinition> rejectMeasure(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        String reason = request.get("reason");
+        return ResponseEntity.ok(definitionService.rejectMeasure(id, reason, currentUser));
+    }
+
+    @PostMapping("/{id}/retire")
+    @Operation(summary = "Retire Measure", description = "Retires an active measure")
+    public ResponseEntity<MeasureDefinition> retireMeasure(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String currentUser = request.getOrDefault("currentUser", "anonymous");
+        return ResponseEntity.ok(definitionService.retireMeasure(id, currentUser));
+    }
+
+    // ===== Audit Trail =====
+
+    @GetMapping("/{id}/audit")
+    @Operation(summary = "Get Audit Trail", description = "Returns the audit trail for a measure")
+    public ResponseEntity<List<MeasureAuditEntity>> getAuditTrail(@PathVariable Long id) {
+        return ResponseEntity.ok(definitionService.getAuditTrail(id));
     }
 }

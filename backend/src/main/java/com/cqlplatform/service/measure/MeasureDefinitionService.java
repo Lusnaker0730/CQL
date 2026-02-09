@@ -1,7 +1,9 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
+import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 public class MeasureDefinitionService {
 
     private final MeasureDefinitionRepository repository;
+    private final MeasureAuditRepository auditRepository;
 
     @Transactional
     public MeasureDefinition create(MeasureDefinition definition) {
@@ -29,6 +32,7 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = modelToEntity(definition);
         entity = repository.save(entity);
         log.info("Created measure definition: {} v{}", entity.getName(), entity.getVersion());
+        recordAudit(entity.getId(), "CREATE", entity.getCreatedBy(), "Created " + entity.getName() + " v" + entity.getVersion(), null, null);
         return entityToModel(entity);
     }
 
@@ -64,8 +68,20 @@ public class MeasureDefinitionService {
         entity.setRiskAdjustmentList(definition.getRiskAdjustments());
         entity.setSupplementalDataList(definition.getSupplementalData());
 
+        // Sharing fields from update
+        if (definition.getOwnerUsername() != null) {
+            entity.setOwnerUsername(definition.getOwnerUsername());
+        }
+        if (definition.getSharedWith() != null) {
+            entity.setSharedWithList(definition.getSharedWith());
+        }
+        if (definition.getAccessLevel() != null) {
+            entity.setAccessLevel(definition.getAccessLevel());
+        }
+
         entity = repository.save(entity);
         log.info("Updated measure definition: {} v{}", entity.getName(), entity.getVersion());
+        recordAudit(entity.getId(), "UPDATE", null, "Updated " + entity.getName() + " v" + entity.getVersion(), null, null);
         return entityToModel(entity);
     }
 
@@ -99,6 +115,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public void delete(Long id) {
+        recordAudit(id, "DELETE", null, "Deleted measure " + id, null, null);
         repository.deleteById(id);
         log.info("Deleted measure definition: {}", id);
     }
@@ -185,6 +202,9 @@ public class MeasureDefinitionService {
                 .compositeScoring(entity.getCompositeScoring())
                 .componentMeasureIds(entity.getComponentMeasureIdList())
                 .createdBy(entity.getCreatedBy())
+                .ownerUsername(entity.getOwnerUsername())
+                .sharedWith(entity.getSharedWithList())
+                .accessLevel(entity.getAccessLevel())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 // Enhanced metadata
@@ -203,6 +223,198 @@ public class MeasureDefinitionService {
                 .build();
     }
 
+    // ===== Sharing & Permissions =====
+
+    @Transactional
+    public MeasureDefinition shareMeasure(Long id, String targetUsername, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkOwner(entity, currentUser);
+
+        List<String> shared = new ArrayList<>(entity.getSharedWithList());
+        if (!shared.contains(targetUsername)) {
+            shared.add(targetUsername);
+        }
+        entity.setSharedWithList(shared);
+        if ("private".equals(entity.getAccessLevel())) {
+            entity.setAccessLevel("shared");
+        }
+        entity = repository.save(entity);
+        recordAudit(id, "SHARE", currentUser, "Shared with " + targetUsername, null, null);
+        log.info("Shared measure {} with user {}", id, targetUsername);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition unshareMeasure(Long id, String targetUsername, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkOwner(entity, currentUser);
+
+        List<String> shared = new ArrayList<>(entity.getSharedWithList());
+        shared.remove(targetUsername);
+        entity.setSharedWithList(shared);
+        if (shared.isEmpty() && "shared".equals(entity.getAccessLevel())) {
+            entity.setAccessLevel("private");
+        }
+        entity = repository.save(entity);
+        recordAudit(id, "UNSHARE", currentUser, "Removed sharing for " + targetUsername, null, null);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition transferOwnership(Long id, String newOwner, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkOwner(entity, currentUser);
+
+        String oldOwner = entity.getOwnerUsername();
+        entity.setOwnerUsername(newOwner);
+        entity = repository.save(entity);
+        recordAudit(id, "TRANSFER", currentUser, "Transferred from " + oldOwner + " to " + newOwner, oldOwner, newOwner);
+        log.info("Transferred measure {} from {} to {}", id, currentUser, newOwner);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition setAccessLevel(Long id, String accessLevel, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkOwner(entity, currentUser);
+
+        String oldLevel = entity.getAccessLevel();
+        entity.setAccessLevel(accessLevel);
+        entity = repository.save(entity);
+        recordAudit(id, "ACCESS_CHANGE", currentUser, "Access level changed", oldLevel, accessLevel);
+        return entityToModel(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> getMeasuresByOwner(String ownerUsername) {
+        return repository.findByOwnerUsername(ownerUsername).stream()
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> getSharedMeasures(String username) {
+        return repository.findAll().stream()
+                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    // ===== Workflow =====
+
+    private static final Map<String, List<String>> VALID_TRANSITIONS = Map.of(
+            "draft", List.of("in-review"),
+            "in-review", List.of("active", "draft"),
+            "active", List.of("retired")
+    );
+
+    @Transactional
+    public MeasureDefinition submitForReview(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkOwner(entity, currentUser);
+        validateTransition(entity.getStatus(), "in-review");
+
+        String oldStatus = entity.getStatus();
+        entity.setStatus("in-review");
+        entity = repository.save(entity);
+        recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, "in-review");
+        log.info("Measure {} submitted for review by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition approveMeasure(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkReviewer(entity, currentUser);
+        validateTransition(entity.getStatus(), "active");
+
+        String oldStatus = entity.getStatus();
+        entity.setStatus("active");
+        entity = repository.save(entity);
+        recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, "active");
+        log.info("Measure {} approved by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition rejectMeasure(Long id, String reason, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkReviewer(entity, currentUser);
+        validateTransition(entity.getStatus(), "draft");
+
+        String oldStatus = entity.getStatus();
+        entity.setStatus("draft");
+        entity = repository.save(entity);
+        recordAudit(id, "REJECT", currentUser, "Rejected: " + (reason != null ? reason : "no reason"), oldStatus, "draft");
+        log.info("Measure {} rejected by {}: {}", id, currentUser, reason);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition retireMeasure(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        checkOwner(entity, currentUser);
+        validateTransition(entity.getStatus(), "retired");
+
+        String oldStatus = entity.getStatus();
+        entity.setStatus("retired");
+        entity = repository.save(entity);
+        recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, "retired");
+        log.info("Measure {} retired by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    private void validateTransition(String currentStatus, String targetStatus) {
+        List<String> allowed = VALID_TRANSITIONS.getOrDefault(currentStatus, List.of());
+        if (!allowed.contains(targetStatus)) {
+            throw new IllegalArgumentException(
+                    "Invalid status transition: " + currentStatus + " → " + targetStatus +
+                    ". Allowed: " + allowed);
+        }
+    }
+
+    private void checkOwner(MeasureDefinitionEntity entity, String currentUser) {
+        if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
+            throw new IllegalArgumentException("Only the owner can perform this action");
+        }
+    }
+
+    private void checkReviewer(MeasureDefinitionEntity entity, String currentUser) {
+        // Reviewers: sharedWith users or the owner
+        boolean isOwner = entity.getOwnerUsername() == null || entity.getOwnerUsername().equals(currentUser);
+        boolean isShared = entity.getSharedWithList().contains(currentUser);
+        if (!isOwner && !isShared) {
+            throw new IllegalArgumentException("Only the owner or shared users can review this measure");
+        }
+    }
+
+    // ===== Audit =====
+
+    @Transactional(readOnly = true)
+    public List<MeasureAuditEntity> getAuditTrail(Long measureId) {
+        return auditRepository.findByMeasureIdOrderByCreatedAtDesc(measureId);
+    }
+
+    private void recordAudit(Long measureId, String action, String performedBy, String details, String oldValue, String newValue) {
+        MeasureAuditEntity audit = MeasureAuditEntity.builder()
+                .measureId(measureId)
+                .action(action)
+                .performedBy(performedBy)
+                .details(details)
+                .oldValue(oldValue)
+                .newValue(newValue)
+                .build();
+        auditRepository.save(audit);
+    }
+
     private MeasureDefinitionEntity modelToEntity(MeasureDefinition model) {
         return MeasureDefinitionEntity.builder()
                 .name(model.getName())
@@ -218,6 +430,9 @@ public class MeasureDefinitionService {
                 .compositeScoring(model.getCompositeScoring())
                 .componentMeasureIdList(model.getComponentMeasureIds())
                 .createdBy(model.getCreatedBy())
+                .ownerUsername(model.getOwnerUsername())
+                .sharedWithList(model.getSharedWith())
+                .accessLevel(model.getAccessLevel() != null ? model.getAccessLevel() : "private")
                 // Enhanced metadata
                 .rationale(model.getRationale())
                 .clinicalGuidance(model.getClinicalGuidance())

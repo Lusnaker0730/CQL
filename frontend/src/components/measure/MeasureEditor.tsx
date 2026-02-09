@@ -1,9 +1,25 @@
 import { useState } from 'react'
-import { Box, Tabs, Tab, Paper, Stack, Typography, Button } from '@mui/material'
+import {
+  Box,
+  Tabs,
+  Tab,
+  Paper,
+  Stack,
+  Typography,
+  Button,
+  Divider,
+  Alert,
+} from '@mui/material'
 import {
   History as HistoryIcon,
   CompareArrows as CompareIcon,
   NewReleases as VersionIcon,
+  Share as ShareIcon,
+  RateReview as SubmitIcon,
+  CheckCircle as ApproveIcon,
+  Cancel as RejectIcon,
+  Archive as RetireIcon,
+  Assignment as AuditIcon,
 } from '@mui/icons-material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MeasureDefinition } from '../../types'
@@ -19,6 +35,14 @@ import StatusChip from '../common/StatusChip'
 import CreateVersionDialog from '../editor/CreateVersionDialog'
 import VersionHistoryDialog from '../editor/VersionHistoryDialog'
 import VersionDiffDialog from '../editor/VersionDiffDialog'
+import MeasureShareDialog from './MeasureShareDialog'
+import AuditTrailDialog from './AuditTrailDialog'
+import {
+  useSubmitForReview,
+  useApproveMeasure,
+  useRejectMeasure,
+  useRetireMeasure,
+} from '../../hooks/useMeasures'
 
 interface MeasureEditorProps {
   measure: MeasureDefinition
@@ -30,7 +54,38 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [versionDialogOpen, setVersionDialogOpen] = useState(false)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [diffDialogOpen, setDiffDialogOpen] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [auditDialogOpen, setAuditDialogOpen] = useState(false)
+  const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const queryClient = useQueryClient()
+
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
+  const isOwner = measure.ownerUsername === currentUser || !measure.ownerUsername
+  const isReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
+
+  const submitMutation = useSubmitForReview()
+  const approveMutation = useApproveMeasure()
+  const rejectMutation = useRejectMeasure()
+  const retireMutation = useRetireMeasure()
+
+  const handleWorkflowAction = (
+    mutation: typeof submitMutation,
+    successMsg: string
+  ) => {
+    if (!measure.id) return
+    mutation.mutate(measure.id, {
+      onSuccess: (updated) => {
+        onMeasureUpdate(updated)
+        setWorkflowAlert({ severity: 'success', message: successMsg })
+        queryClient.invalidateQueries({ queryKey: ['measures'] })
+        setTimeout(() => setWorkflowAlert(null), 5000)
+      },
+      onError: (err) => {
+        setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Action failed' })
+        setTimeout(() => setWorkflowAlert(null), 8000)
+      },
+    })
+  }
 
   const versionMutation = useMutation({
     mutationFn: (type: string) => measureApi.createMeasureVersion(measure.id!, type),
@@ -76,6 +131,15 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {workflowAlert && (
+        <Alert
+          severity={workflowAlert.severity}
+          onClose={() => setWorkflowAlert(null)}
+          sx={{ borderRadius: 0 }}
+        >
+          {workflowAlert.message}
+        </Alert>
+      )}
       <Stack
         direction="row"
         justifyContent="space-between"
@@ -89,6 +153,77 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <StatusChip status={measure.status || 'draft'} />
         </Stack>
         <Stack direction="row" spacing={0.5} alignItems="center">
+          <Button
+            size="small"
+            startIcon={<ShareIcon />}
+            onClick={() => setShareDialogOpen(true)}
+            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Share
+          </Button>
+          <Button
+            size="small"
+            startIcon={<AuditIcon />}
+            onClick={() => setAuditDialogOpen(true)}
+            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Audit
+          </Button>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          {/* Workflow actions based on current status */}
+          {measure.status === 'draft' && isOwner && (
+            <Button
+              size="small"
+              startIcon={<SubmitIcon />}
+              onClick={() => handleWorkflowAction(submitMutation, 'Measure submitted for review')}
+              disabled={submitMutation.isPending}
+              color="info"
+              variant="outlined"
+              sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              Submit for Review
+            </Button>
+          )}
+          {measure.status === 'in-review' && isReviewer && (
+            <>
+              <Button
+                size="small"
+                startIcon={<ApproveIcon />}
+                onClick={() => handleWorkflowAction(approveMutation, 'Measure approved and set to active')}
+                disabled={approveMutation.isPending}
+                color="success"
+                variant="outlined"
+                sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+              >
+                Approve
+              </Button>
+              <Button
+                size="small"
+                startIcon={<RejectIcon />}
+                onClick={() => handleWorkflowAction(rejectMutation, 'Measure rejected, returned to draft')}
+                disabled={rejectMutation.isPending}
+                color="error"
+                variant="outlined"
+                sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+          {measure.status === 'active' && isOwner && (
+            <Button
+              size="small"
+              startIcon={<RetireIcon />}
+              onClick={() => handleWorkflowAction(retireMutation, 'Measure retired')}
+              disabled={retireMutation.isPending}
+              color="warning"
+              variant="outlined"
+              sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              Retire
+            </Button>
+          )}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           <Button
             size="small"
             startIcon={<VersionIcon />}
@@ -180,6 +315,20 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         onClose={() => setDiffDialogOpen(false)}
         versions={diffVersions}
         onCompare={handleCompare}
+      />
+
+      <MeasureShareDialog
+        open={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        measure={measure}
+        onMeasureUpdate={onMeasureUpdate}
+      />
+
+      <AuditTrailDialog
+        open={auditDialogOpen}
+        onClose={() => setAuditDialogOpen(false)}
+        measureId={measure.id}
+        measureName={measure.title || measure.name}
       />
     </Paper>
   )

@@ -19,4 +19,8 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
     List<MeasureDefinitionEntity> findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(String name, String title);
 
     boolean existsByNameAndVersion(String name, String version);
+
+    List<MeasureDefinitionEntity> findByOwnerUsername(String ownerUsername);
+
+    List<MeasureDefinitionEntity> findByAccessLevel(String accessLevel);
 }

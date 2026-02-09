@@ -19,6 +19,10 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  Tabs,
+  Tab,
+  Tooltip,
+  Chip,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -28,6 +32,9 @@ import {
   Download as DownloadIcon,
   Search as SearchIcon,
   LibraryBooks as LibraryBooksIcon,
+  Lock as PrivateIcon,
+  Group as SharedIcon,
+  Public as PublicIcon,
 } from '@mui/icons-material'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
@@ -36,6 +43,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureDefinition } from '../../types'
 
+const ACCESS_ICONS: Record<string, React.ReactElement> = {
+  private: <PrivateIcon sx={{ fontSize: 14 }} />,
+  shared: <SharedIcon sx={{ fontSize: 14 }} />,
+  public: <PublicIcon sx={{ fontSize: 14 }} />,
+}
+
 interface MeasureLibraryProps {
   onSelectMeasure?: (measure: MeasureDefinition) => void
 }
@@ -43,6 +56,7 @@ interface MeasureLibraryProps {
 export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [filterTab, setFilterTab] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editMeasure, setEditMeasure] = useState<MeasureDefinition | null>(null)
@@ -59,9 +73,25 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     scoringType: 'proportion',
   })
 
-  const { data: measures = [], isLoading } = useQuery({
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
+
+  const { data: allMeasures = [], isLoading } = useQuery({
     queryKey: ['measures', search],
     queryFn: () => measureApi.getMeasures(search || undefined),
+  })
+
+  // Filter based on selected tab
+  const measures = allMeasures.filter((m) => {
+    switch (filterTab) {
+      case 1: // My Measures
+        return m.ownerUsername === currentUser
+      case 2: // Shared with me
+        return m.sharedWith?.includes(currentUser) && m.ownerUsername !== currentUser
+      case 3: // Public
+        return m.accessLevel === 'public'
+      default: // All
+        return true
+    }
   })
 
   const createMutation = useMutation({
@@ -160,8 +190,19 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-        sx={{ mb: 2 }}
+        sx={{ mb: 1 }}
       />
+
+      <Tabs
+        value={filterTab}
+        onChange={(_, v) => setFilterTab(v)}
+        sx={{ mb: 1, minHeight: 32, '& .MuiTab-root': { minHeight: 32, py: 0, textTransform: 'none', fontSize: '0.8rem' } }}
+      >
+        <Tab label={`All (${allMeasures.length})`} />
+        <Tab label="My Measures" />
+        <Tab label="Shared with Me" />
+        <Tab label="Public" />
+      </Tabs>
 
       {isLoading && <CircularProgress size={24} />}
 
@@ -173,6 +214,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               <TableCell>Version</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Scoring</TableCell>
+              <TableCell>Owner</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -185,16 +227,30 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 onClick={() => onSelectMeasure?.(m)}
               >
                 <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{m.title || m.name}</Typography>
-                  {m.title && (
-                    <Typography variant="caption" color="text.secondary">{m.name}</Typography>
-                  )}
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Tooltip title={m.accessLevel || 'private'}>
+                      {ACCESS_ICONS[m.accessLevel || 'private'] || ACCESS_ICONS.private}
+                    </Tooltip>
+                    <div>
+                      <Typography variant="body2" fontWeight={500}>{m.title || m.name}</Typography>
+                      {m.title && (
+                        <Typography variant="caption" color="text.secondary">{m.name}</Typography>
+                      )}
+                    </div>
+                  </Stack>
                 </TableCell>
                 <TableCell>{m.version}</TableCell>
                 <TableCell>
                   <StatusChip status={m.status || 'draft'} />
                 </TableCell>
                 <TableCell>{m.scoringType}</TableCell>
+                <TableCell>
+                  {m.ownerUsername ? (
+                    <Chip label={m.ownerUsername} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
                 <TableCell align="right">
                   <IconButton size="small" onClick={(e) => handleEdit(m.id!, e)}>
                     <EditIcon fontSize="small" />
@@ -210,7 +266,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             ))}
             {!isLoading && measures.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography variant="body2" color="text.secondary">
                     No measures found. Create one or import a FHIR Measure.
                   </Typography>

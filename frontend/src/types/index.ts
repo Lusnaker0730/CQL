@@ -330,6 +330,20 @@ export interface MeasureDefinition {
   riskAdjustmentDescription?: string
   riskAdjustments?: RiskAdjustmentDef[]
   supplementalData?: SupplementalDataDef[]
+  ownerUsername?: string
+  sharedWith?: string[]
+  accessLevel?: string
+}
+
+export interface MeasureAuditEntry {
+  id: number
+  measureId: number
+  action: string
+  performedBy?: string
+  details?: string
+  oldValue?: string
+  newValue?: string
+  createdAt: string
 }
 
 export interface MeasureReference {

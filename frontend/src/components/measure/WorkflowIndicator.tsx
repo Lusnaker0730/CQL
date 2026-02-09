@@ -29,6 +29,11 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
       m.groupDefinitions.some(g => g.populations && g.populations.length > 0)),
   },
   {
+    label: 'Review',
+    tooltip: 'Measure submitted for review and approved',
+    check: (m) => m.status === 'in-review' || m.status === 'active',
+  },
+  {
     label: 'Active',
     tooltip: 'Measure status set to active',
     check: (m) => m.status === 'active',

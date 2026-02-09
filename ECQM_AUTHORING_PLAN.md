@@ -31,7 +31,7 @@
 | QI-Core Profile 驗證 | ❌ 缺 | **Phase 3** |
 | HQMF Export (XML) | ❌ 缺 | **Phase 5** |
 | FHIR Measure Bundle 完整封裝 | ⚠️ 部分 | **Phase 4** |
-| Measure 共享/所有權轉移 | ❌ 缺 | **Phase 2** |
+| Measure 共享/所有權轉移 | ✅ 完成 (含審批工作流+審計) | — |
 | Measure 匯入 (MADiE JSON) | ❌ 缺 | **Phase 4** |
 | 完整 Validation Pipeline | ⚠️ 基本 | **Phase 3** |
 | Multi-rate Measure | ❌ 缺 | **Phase 6** |
@@ -115,36 +115,53 @@
 
 ---
 
-## Phase 2: Measure 共享 + 多角色權限 (1.5 週)
+## Phase 2: Measure 共享 + 多角色權限 (1.5 週) ✅ COMPLETED
 
 > MADiE 要求透過 email 申請共享, 我們做自助式
 
-### 2.1 Measure 共享模型
+### 2.1 Measure 共享模型 ✅
 
 **後端**:
-- [ ] `MeasureDefinitionEntity` 新增: `ownerUsername`, `sharedWith` (JSON), `accessLevel`
-- [ ] `POST /api/measures/{id}/share` — 共享給 user
-- [ ] `POST /api/measures/{id}/transfer` — 所有權轉移 (含 test cases)
-- [ ] `GET /api/measures` 加入 filter: `?owner=me&shared=true`
+- [x] `MeasureDefinitionEntity` 新增: `ownerUsername`, `sharedWith` (JSON), `accessLevel`
+- [x] V15 DB migration: `owner_username`, `shared_with`, `access_level` columns + `measure_audit` table
+- [x] `POST /api/measures/{id}/share` — 共享給 user
+- [x] `POST /api/measures/{id}/unshare` — 撤銷共享
+- [x] `POST /api/measures/{id}/transfer` — 所有權轉移
+- [x] `PUT /api/measures/{id}/access` — 設定 access level
+- [x] `GET /api/measures/owner/{username}` — 按 owner 查詢
+- [x] `GET /api/measures/shared/{username}` — 取得共享/公開 measures
 
 **前端**:
-- [ ] MeasureLibrary filter tabs: My Measures / Shared with Me / All
-- [ ] Share button in MeasureEditor header → dialog
-- [ ] Owner 顯示 + collaborator avatars
+- [x] MeasureLibrary filter tabs: All / My Measures / Shared with Me / Public
+- [x] Access level icons (Lock/Group/Public) per measure + Owner column
+- [x] MeasureShareDialog: access level toggle, share with username, unshare, transfer ownership
+- [x] Share button in MeasureEditor header
+- [x] Frontend types: MeasureDefinition + ownerUsername, sharedWith, accessLevel, MeasureAuditEntry
+- [x] API methods: 11 new sharing/workflow/audit endpoints in measureApi
+- [x] React Query hooks: 10 hooks in useMeasures.ts
 
-### 2.2 Measure 審批工作流 (簡化版)
+### 2.2 Measure 審批工作流 (簡化版) ✅
 
-- [ ] Status: Draft → In Review → Active → Retired
-- [ ] "Submit for Review" button: Draft → In Review (自動通知 reviewer)
-- [ ] "Approve" / "Reject" buttons: In Review → Active 或 回到 Draft
-- [ ] 只有 owner 可 submit, 只有 sharedWith(write) 或 ADMIN 可 approve
-- [ ] StatusChip + WorkflowIndicator 更新支援新狀態
+- [x] Status: Draft → In Review → Active → Retired (VALID_TRANSITIONS map)
+- [x] "Submit for Review" button: Draft → In Review (owner only)
+- [x] "Approve" / "Reject" buttons: In Review → Active or back to Draft (reviewer only)
+- [x] 只有 owner 可 submit, 只有 owner/sharedWith 可 approve/reject
+- [x] StatusChip updated: "in-review" status with blue info color + RateReview icon
+- [x] WorkflowIndicator updated: 5 steps (Details → CQL → Populations → Review → Active)
+- [x] Contextual workflow buttons in MeasureEditor header with success/error alerts
 
-### 2.3 Audit Trail UI
+### 2.3 Audit Trail ✅
 
-- [ ] `GET /api/measures/{id}/audit` — 返回此 measure 的所有變更記錄
-- [ ] AuditTrailDialog: 時間軸列表, 每項顯示 who/when/what
-- [ ] CQL diff viewer 已有 (VersionDiffDialog), 擴充至 metadata diff
+**後端**:
+- [x] `MeasureAuditEntity` + `MeasureAuditRepository` (NEW)
+- [x] `GET /api/measures/{id}/audit` — 返回此 measure 的所有變更記錄
+- [x] Audit recorded on all CRUD + sharing + workflow operations
+- [x] Records: action, performedBy, details, oldValue, newValue, createdAt
+
+**前端**:
+- [x] AuditTrailDialog: timeline list with action icons + color coding, who/when/what
+- [x] "Audit" button in MeasureEditor header
+- [x] useMeasureAuditTrail hook with lazy loading (only fetches when dialog opens)
 
 **交付物**: 團隊協作、品質管控流程、變更追蹤
 
@@ -357,13 +374,13 @@ QRDA I 是個別病患的品質資料:
 |-------|------|----------|
 | **Phase 0**: 基礎強化 | ✅ COMPLETED | 2026-02 |
 | **Phase 1**: Library 管理 | ✅ COMPLETED | 2026-02 |
-| **Phase 2**: Measure 共享 | ⬜ TODO | — |
+| **Phase 2**: Measure 共享 | ✅ COMPLETED | 2026-02 |
 | **Phase 3**: Validation | ⬜ TODO | — |
 | **Phase 4**: FHIR Bundle | ⬜ TODO | — |
 | **Phase 5**: HQMF + QRDA | ⬜ TODO | — |
 | **Phase 6**: 進階功能 | ⬜ TODO | — |
 
-### 實作細節 (Phase 0-1)
+### 實作細節 (Phase 0-2)
 
 **Phase 0 新增/修改的檔案:**
 - `frontend/src/components/measure/MeasureCqlTab.tsx` — error dispatch, auto-save, draft restore
@@ -384,6 +401,25 @@ QRDA I 是個別病患的品質資料:
 - `frontend/src/components/editor/LibraryQuickAccess.tsx` — Browse section with All/My/Shared/Public tabs
 - `frontend/src/pages/EditorPage.tsx` — Share button + Dependencies tab + ShareDialog integration
 
+**Phase 2 新增/修改的檔案:**
+- `backend/src/main/resources/db/migration/V15__measure_sharing_audit.sql` (NEW) — sharing columns + audit table
+- `backend/src/main/java/com/cqlplatform/entity/MeasureDefinitionEntity.java` — ownerUsername, sharedWith, accessLevel + serialization
+- `backend/src/main/java/com/cqlplatform/entity/MeasureAuditEntity.java` (NEW) — audit trail entity
+- `backend/src/main/java/com/cqlplatform/model/measure/MeasureDefinition.java` — ownerUsername, sharedWith, accessLevel
+- `backend/src/main/java/com/cqlplatform/repository/MeasureDefinitionRepository.java` — findByOwnerUsername, findByAccessLevel
+- `backend/src/main/java/com/cqlplatform/repository/MeasureAuditRepository.java` (NEW) — audit queries
+- `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` — sharing, workflow (VALID_TRANSITIONS), audit methods
+- `backend/src/main/java/com/cqlplatform/controller/MeasureController.java` — 11 new REST endpoints
+- `frontend/src/types/index.ts` — MeasureDefinition sharing fields + MeasureAuditEntry interface
+- `frontend/src/api/index.ts` — 11 new measureApi methods (sharing, workflow, audit)
+- `frontend/src/hooks/useMeasures.ts` (NEW) — 10 hooks (share, unshare, transfer, accessLevel, workflow x4, audit)
+- `frontend/src/components/measure/MeasureShareDialog.tsx` (NEW) — sharing dialog
+- `frontend/src/components/measure/AuditTrailDialog.tsx` (NEW) — audit timeline dialog
+- `frontend/src/components/measure/MeasureLibrary.tsx` — filter tabs (All/My/Shared/Public), owner column, access icons
+- `frontend/src/components/measure/MeasureEditor.tsx` — Share, Audit, workflow buttons (Submit/Approve/Reject/Retire)
+- `frontend/src/components/common/StatusChip.tsx` — "in-review" status support
+- `frontend/src/components/measure/WorkflowIndicator.tsx` — "Review" step added (5-step workflow)
+
 ---
 
 ## 里程碑時程
@@ -401,7 +437,7 @@ Month 1          Month 2          Month 3          Month 4
 |-------|------|------|----------|
 | **Phase 0**: 基礎強化 ✅ | 1 | 1 FE | 更完整的 metadata + test case 攜帶性 |
 | **Phase 1**: Library 管理 ✅ | 2 | 1 FE + 1 BE | Library 共享 + 依賴分析 |
-| **Phase 2**: Measure 共享 | 1.5 | 1 FE + 1 BE | 團隊協作 + 審批流程 |
+| **Phase 2**: Measure 共享 ✅ | 1.5 | 1 FE + 1 BE | 團隊協作 + 審批流程 |
 | **Phase 3**: Validation | 2 | 1 FE + 1 BE | Pre-submission 品質閘門 |
 | **Phase 4**: FHIR Bundle | 2 | 1 BE + 0.5 FE | CMS FHIR 格式提交 |
 | **Phase 5**: HQMF + QRDA | 2 | 1 BE + 0.5 FE | CMS 傳統格式提交 |
@@ -474,7 +510,7 @@ Month 1          Month 2          Month 3          Month 4
 | 部署方式 | SaaS (CMS) | SaaS | **Self-hosted + SaaS** |
 | 開源 | ✅ (分散73 repos) | ✅ | **✅ (單一 repo)** |
 
-**核心優勢**: Monaco 編輯器、CQL Builder、Auto-map、Test Coverage、Library 依賴圖、Self-hosted 部署
+**核心優勢**: Monaco 編輯器、CQL Builder、Auto-map、Test Coverage、Library 依賴圖、Measure 審批工作流、Self-hosted 部署
 
 ---
 

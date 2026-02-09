@@ -18,6 +18,7 @@ import type {
   MeasureEvaluationRequest,
   MeasureEvaluationResult,
   MeasureDefinition,
+  MeasureAuditEntry,
   MeasureReport,
   MeasureSchedule,
   MeasureComparisonResult,
@@ -566,6 +567,72 @@ export const measureApi = {
 
   compareMeasureVersions: async (oldId: number, newId: number): Promise<VersionComparison> => {
     const response = await api.get<VersionComparison>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
+    return response.data
+  },
+
+  // Sharing & Permissions
+  shareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/share`, { targetUsername, currentUser })
+    return response.data
+  },
+
+  unshareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/unshare`, { targetUsername, currentUser })
+    return response.data
+  },
+
+  transferMeasureOwnership: async (id: number, newOwner: string): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/transfer`, { newOwner, currentUser })
+    return response.data
+  },
+
+  setMeasureAccessLevel: async (id: number, accessLevel: string): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.put<MeasureDefinition>(`/measures/${id}/access`, { accessLevel, currentUser })
+    return response.data
+  },
+
+  getMeasuresByOwner: async (username: string): Promise<MeasureDefinition[]> => {
+    const response = await api.get<MeasureDefinition[]>(`/measures/owner/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  getSharedMeasures: async (username: string): Promise<MeasureDefinition[]> => {
+    const response = await api.get<MeasureDefinition[]>(`/measures/shared/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  // Workflow
+  submitForReview: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, { currentUser })
+    return response.data
+  },
+
+  approveMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/approve`, { currentUser })
+    return response.data
+  },
+
+  rejectMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser })
+    return response.data
+  },
+
+  retireMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/retire`, { currentUser })
+    return response.data
+  },
+
+  // Audit Trail
+  getAuditTrail: async (id: number): Promise<MeasureAuditEntry[]> => {
+    const response = await api.get<MeasureAuditEntry[]>(`/measures/${id}/audit`)
     return response.data
   },
 }
