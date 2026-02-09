@@ -131,4 +131,31 @@ public class CqlController {
         CqlLibrary library = fhirLibraryService.importFhirLibrary(fhirLibrary);
         return ResponseEntity.ok(library);
     }
+
+    // ===== Library Version Management =====
+
+    @PostMapping("/libraries/{name}/version")
+    @Operation(summary = "Create Library Version", description = "Creates a new version of a library (major/minor/patch)")
+    public ResponseEntity<CqlLibrary> createLibraryVersion(
+            @PathVariable String name,
+            @RequestParam(defaultValue = "minor") String type) {
+        CqlLibrary versioned = libraryService.createVersion(name, type);
+        return ResponseEntity.ok(versioned);
+    }
+
+    @GetMapping("/libraries/{name}/history")
+    @Operation(summary = "Library History", description = "Returns all versions of a library as audit history")
+    public ResponseEntity<List<CqlLibrary>> getLibraryHistory(@PathVariable String name) {
+        List<CqlLibrary> history = libraryService.getHistory(name);
+        return ResponseEntity.ok(history);
+    }
+
+    @GetMapping("/libraries/compare")
+    @Operation(summary = "Compare Library Versions", description = "Returns CQL content of two library versions for diff comparison")
+    public ResponseEntity<Map<String, String>> compareLibraryVersions(
+            @RequestParam String oldId,
+            @RequestParam String newId) {
+        Map<String, String> comparison = libraryService.compare(oldId, newId);
+        return ResponseEntity.ok(comparison);
+    }
 }

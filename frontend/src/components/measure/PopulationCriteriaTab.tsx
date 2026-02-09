@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -11,6 +11,9 @@ import {
   Paper,
   Divider,
   Chip,
+  Menu,
+  Checkbox,
+  ListItemText,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -19,10 +22,24 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
+import PopulationCard from './PopulationCard'
+import type { CqlExpression } from './PopulationCard'
+import RiskAdjustmentSection from './RiskAdjustmentSection'
+import SupplementalDataSection from './SupplementalDataSection'
+import ObservationSection from './ObservationSection'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { helpContent } from '../../constants/helpContent'
+import {
+  SCORING_TEMPLATES,
+  POPULATION_BASIS_OPTIONS,
+  createPopulationsFromTemplate,
+  getPopulationLabel,
+  autoMapExpressions,
+  getPopulationTypesForScoring,
+  OBSERVATION_REQUIRED_SCORING,
+} from '../../constants/populationConfig'
 import type { MeasureDefinition, GroupDefinition, PopulationDefinition, StratifierDefinition } from '../../types'
 
 interface PopulationCriteriaTabProps {
@@ -30,24 +47,16 @@ interface PopulationCriteriaTabProps {
   onMeasureUpdate: (updated: MeasureDefinition) => void
 }
 
-const POPULATION_TYPES = [
-  { value: 'initial-population', label: 'Initial Population' },
-  { value: 'denominator', label: 'Denominator' },
-  { value: 'denominator-exclusion', label: 'Denominator Exclusion' },
-  { value: 'denominator-exception', label: 'Denominator Exception' },
-  { value: 'numerator', label: 'Numerator' },
-  { value: 'numerator-exclusion', label: 'Numerator Exclusion' },
-]
+interface ValidationMessage {
+  type: 'error' | 'warning'
+  message: string
+}
 
-function createEmptyGroup(index: number): GroupDefinition {
+function createGroupFromScoring(index: number, scoringType: string): GroupDefinition {
   return {
     groupId: `group-${index + 1}`,
     description: '',
-    populations: [
-      { populationType: 'initial-population', criteriaExpression: '' },
-      { populationType: 'denominator', criteriaExpression: '' },
-      { populationType: 'numerator', criteriaExpression: '' },
-    ],
+    populations: createPopulationsFromTemplate(scoringType),
     stratifiers: [],
   }
 }
@@ -55,23 +64,201 @@ function createEmptyGroup(index: number): GroupDefinition {
 export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: PopulationCriteriaTabProps) {
   const queryClient = useQueryClient()
   const [groups, setGroups] = useState<GroupDefinition[]>(
-    measure.groupDefinitions?.length ? measure.groupDefinitions : [createEmptyGroup(0)]
+    measure.groupDefinitions?.length
+      ? measure.groupDefinitions
+      : [createGroupFromScoring(0, measure.scoringType)]
   )
   const [isDirty, setIsDirty] = useState(false)
+  const [riskAdjustments, setRiskAdjustments] = useState(measure.riskAdjustments || [])
+  const [supplementalData, setSupplementalData] = useState(measure.supplementalData || [])
+  const prevScoringRef = useRef(measure.scoringType)
+  const [scoringChanged, setScoringChanged] = useState(false)
+  const [addMenuAnchor, setAddMenuAnchor] = useState<{ el: HTMLElement; groupIdx: number } | null>(null)
+  const [autoMapAlert, setAutoMapAlert] = useState<string | null>(null)
+  const autoMapDoneRef = useRef(false)
 
   useUnsavedChangesGuard(isDirty)
 
-  const { data: expressions = [] } = useQuery({
+  // Detect scoring type changes
+  useEffect(() => {
+    if (measure.scoringType !== prevScoringRef.current) {
+      const allEmpty = groups.every((g) =>
+        (g.populations || []).every((p) => !p.criteriaExpression)
+      )
+      if (allEmpty) {
+        // Auto-retemplate when no expressions are assigned
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            populations: createPopulationsFromTemplate(measure.scoringType),
+          }))
+        )
+        setIsDirty(true)
+      } else {
+        setScoringChanged(true)
+      }
+      prevScoringRef.current = measure.scoringType
+    }
+  }, [measure.scoringType, groups])
+
+  const handleResetPopulations = () => {
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        populations: createPopulationsFromTemplate(measure.scoringType),
+      }))
+    )
+    setScoringChanged(false)
+    setIsDirty(true)
+  }
+
+  const { data: expressions = [] } = useQuery<CqlExpression[]>({
     queryKey: ['cql-expressions', measure.id],
     queryFn: () => measureApi.getCqlExpressions(measure.id!),
     enabled: !!measure.id && !!measure.cqlContent,
   })
 
-  const expressionNames = expressions.map((e) => e.name)
+  // Filter to Patient-context, Public expressions
+  const patientExpressions = useMemo(
+    () => expressions.filter((e) => e.context === 'Patient' && e.accessLevel === 'Public'),
+    [expressions]
+  )
+
+  const expressionNames = patientExpressions.map((e) => e.name)
+
+  // Auto-map effect
+  useEffect(() => {
+    if (autoMapDoneRef.current) return
+    if (expressionNames.length === 0) return
+    // Skip if any population already has an expression assigned
+    const anyFilled = groups.some((g) =>
+      (g.populations || []).some((p) => !!p.criteriaExpression)
+    )
+    if (anyFilled) {
+      autoMapDoneRef.current = true
+      return
+    }
+
+    let totalCount = 0
+    const newGroups = groups.map((g) => {
+      const { mapped, count } = autoMapExpressions(g.populations || [], expressionNames)
+      totalCount += count
+      return { ...g, populations: mapped }
+    })
+
+    autoMapDoneRef.current = true
+    if (totalCount > 0) {
+      setGroups(newGroups)
+      setIsDirty(true)
+      setAutoMapAlert(`Auto-mapped ${totalCount} expression${totalCount > 1 ? 's' : ''} based on CQL definition names`)
+      setTimeout(() => setAutoMapAlert(null), 8000)
+    }
+  }, [expressionNames.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const template = SCORING_TEMPLATES[measure.scoringType]
+
+  // Validation
+  const validationMessages = useMemo<ValidationMessage[]>(() => {
+    const msgs: ValidationMessage[] = []
+    if (!template) return msgs
+
+    for (const group of groups) {
+      const pops = group.populations || []
+      const usedTypes = pops.map((p) => p.populationType)
+
+      // Missing required populations
+      for (const req of template.required) {
+        // For ratio scoring, allow exactly 2 initial-population entries
+        if (req === 'initial-population' && measure.scoringType === 'ratio') {
+          if (!usedTypes.includes(req)) {
+            msgs.push({
+              type: 'error',
+              message: `${group.groupId}: Missing required population "${getPopulationLabel(req)}"`,
+            })
+          }
+        } else if (!usedTypes.includes(req)) {
+          msgs.push({
+            type: 'error',
+            message: `${group.groupId}: Missing required population "${getPopulationLabel(req)}"`,
+          })
+        }
+      }
+
+      // Empty expression on required populations
+      for (const pop of pops) {
+        if (template.required.includes(pop.populationType) && !pop.criteriaExpression) {
+          msgs.push({
+            type: 'warning',
+            message: `${group.groupId}: "${getPopulationLabel(pop.populationType)}" has no expression assigned`,
+          })
+        }
+      }
+
+      // Duplicate population types (except initial-population in ratio with exactly 2)
+      const seen = new Map<string, number>()
+      for (const pop of pops) {
+        seen.set(pop.populationType, (seen.get(pop.populationType) || 0) + 1)
+      }
+      for (const [type, count] of seen) {
+        if (count > 1) {
+          if (type === 'initial-population' && measure.scoringType === 'ratio' && count === 2) {
+            // Allowed: ratio dual IP — validate associations instead
+            const ips = pops.filter((p) => p.populationType === 'initial-population')
+            const assocTypes = ips.map((p) => p.associationType).filter(Boolean)
+            if (assocTypes.length < 2) {
+              msgs.push({
+                type: 'warning',
+                message: `${group.groupId}: Both Initial Populations must have an association type (Denominator or Numerator)`,
+              })
+            } else if (assocTypes[0] === assocTypes[1]) {
+              msgs.push({
+                type: 'error',
+                message: `${group.groupId}: Initial Populations must have different association types`,
+              })
+            }
+          } else {
+            msgs.push({
+              type: 'error',
+              message: `${group.groupId}: Duplicate population type "${getPopulationLabel(type)}"`,
+            })
+          }
+        }
+      }
+
+      // Population basis type check
+      const basis = group.populationBasis || 'Boolean'
+      if (basis === 'Boolean') {
+        for (const pop of pops) {
+          if (pop.criteriaExpression) {
+            const expr = patientExpressions.find((e) => e.name === pop.criteriaExpression)
+            if (expr?.resultType && !expr.resultType.toLowerCase().includes('boolean')) {
+              msgs.push({
+                type: 'warning',
+                message: `${group.groupId}: "${getPopulationLabel(pop.populationType)}" expression returns non-Boolean type`,
+              })
+            }
+          }
+        }
+      }
+
+      // Stratifier: has expression but no associations
+      for (const strat of group.stratifiers || []) {
+        if (strat.criteriaExpression && (!strat.associations || strat.associations.length === 0)) {
+          msgs.push({
+            type: 'warning',
+            message: `${group.groupId}: Stratifier "${strat.stratifierId}" has no population associations`,
+          })
+        }
+      }
+    }
+    return msgs
+  }, [groups, template, measure.scoringType, patientExpressions])
+
+  const hasErrors = validationMessages.some((m) => m.type === 'error')
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      measureApi.updateMeasure(measure.id!, { ...measure, groupDefinitions: groups }),
+      measureApi.updateMeasure(measure.id!, { ...measure, groupDefinitions: groups, riskAdjustments, supplementalData }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['measures'] })
       onMeasureUpdate(updated)
@@ -99,11 +286,11 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
     setIsDirty(true)
   }
 
-  const addPopulation = (groupIdx: number) => {
+  const addPopulation = (groupIdx: number, populationType: string) => {
     setGroups((prev) => {
       const updated = [...prev]
       const pops = [...(updated[groupIdx].populations || [])]
-      pops.push({ populationType: '', criteriaExpression: '' })
+      pops.push({ populationType, criteriaExpression: '' })
       updated[groupIdx] = { ...updated[groupIdx], populations: pops }
       return updated
     })
@@ -132,11 +319,15 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
     setIsDirty(true)
   }
 
-  const updateStratifier = (groupIdx: number, stratIdx: number, field: keyof StratifierDefinition, value: string) => {
+  const updateStratifier = (groupIdx: number, stratIdx: number, field: keyof StratifierDefinition, value: string | string[]) => {
     setGroups((prev) => {
       const updated = [...prev]
       const strats = [...(updated[groupIdx].stratifiers || [])]
       strats[stratIdx] = { ...strats[stratIdx], [field]: value }
+      // Auto-populate associations when expression first selected
+      if (field === 'criteriaExpression' && value && (!strats[stratIdx].associations || strats[stratIdx].associations!.length === 0)) {
+        strats[stratIdx] = { ...strats[stratIdx], associations: getPopulationTypesForScoring(measure.scoringType) }
+      }
       updated[groupIdx] = { ...updated[groupIdx], stratifiers: strats }
       return updated
     })
@@ -155,7 +346,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
   }
 
   const addGroup = () => {
-    setGroups((prev) => [...prev, createEmptyGroup(prev.length)])
+    setGroups((prev) => [...prev, createGroupFromScoring(prev.length, measure.scoringType)])
     setIsDirty(true)
   }
 
@@ -163,6 +354,15 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
     setGroups((prev) => prev.filter((_, i) => i !== idx))
     setIsDirty(true)
   }
+
+  // Get unused optional types for the "Add Optional Population" menu
+  const getUnusedOptionalTypes = (groupIdx: number): string[] => {
+    if (!template) return []
+    const usedTypes = (groups[groupIdx].populations || []).map((p) => p.populationType)
+    return template.optional.filter((t) => !usedTypes.includes(t))
+  }
+
+  const stratifierAssociationOptions = getPopulationTypesForScoring(measure.scoringType)
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
@@ -177,7 +377,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
-            disabled={!isDirty || saveMutation.isPending}
+            disabled={!isDirty || hasErrors || saveMutation.isPending}
             onClick={() => saveMutation.mutate()}
           >
             {saveMutation.isPending ? 'Saving...' : 'Save'}
@@ -191,124 +391,298 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
         </Alert>
       )}
 
-      {expressionNames.length === 0 && measure.cqlContent && (
+      {autoMapAlert && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setAutoMapAlert(null)}>
+          {autoMapAlert}
+        </Alert>
+      )}
+
+      {scoringChanged && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleResetPopulations}>
+              Reset Populations
+            </Button>
+          }
+        >
+          Scoring type changed to <strong>{measure.scoringType}</strong>. Populations may no longer match the expected template.
+        </Alert>
+      )}
+
+      {patientExpressions.length === 0 && measure.cqlContent && (
         <Alert severity="info" sx={{ mb: 2 }}>
           No CQL expressions found. Save your CQL in the CQL tab first, then the expression dropdowns will be populated.
         </Alert>
       )}
 
+      {validationMessages.length > 0 && (
+        <Alert severity={hasErrors ? 'error' : 'warning'} sx={{ mb: 2 }}>
+          <Stack spacing={0.5}>
+            {validationMessages.map((msg, i) => (
+              <Typography key={i} variant="body2">
+                {msg.message}
+              </Typography>
+            ))}
+          </Stack>
+        </Alert>
+      )}
+
       <Stack spacing={3}>
-        {groups.map((group, groupIdx) => (
-          <Paper key={groupIdx} variant="outlined" sx={{ p: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="subtitle1" fontWeight={600}>
-                  {group.groupId || `Group ${groupIdx + 1}`}
-                </Typography>
-                <Chip label={`${(group.populations || []).length} populations`} size="small" />
+        {groups.map((group, groupIdx) => {
+          const pops = group.populations || []
+          const unusedOptional = getUnusedOptionalTypes(groupIdx)
+          const ipCount = pops.filter((p) => p.populationType === 'initial-population').length
+          const showDualIpButton = measure.scoringType === 'ratio' && ipCount < 2
+          const showAssociationType = measure.scoringType === 'ratio' && ipCount === 2
+
+          // Sort: required first, then optional
+          const requiredTypes = template?.required || []
+          const sortedPops = [...pops].sort((a, b) => {
+            const aReq = requiredTypes.includes(a.populationType) ? 0 : 1
+            const bReq = requiredTypes.includes(b.populationType) ? 0 : 1
+            if (aReq !== bReq) return aReq - bReq
+            // Within same group, maintain template order
+            const aIdx = requiredTypes.indexOf(a.populationType)
+            const bIdx = requiredTypes.indexOf(b.populationType)
+            if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
+            return 0
+          })
+          // Map sorted populations back to their original indices for updates
+          const sortedWithIdx = sortedPops.map((pop) => ({
+            pop,
+            originalIdx: pops.indexOf(pop),
+          }))
+
+          return (
+            <Paper key={groupIdx} variant="outlined" sx={{ p: 2 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {group.groupId || `Group ${groupIdx + 1}`}
+                  </Typography>
+                  <Chip label={`${pops.length} populations`} size="small" />
+                </Stack>
+                {groups.length > 1 && (
+                  <IconButton size="small" color="error" onClick={() => removeGroup(groupIdx)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                )}
               </Stack>
-              {groups.length > 1 && (
-                <IconButton size="small" color="error" onClick={() => removeGroup(groupIdx)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              )}
-            </Stack>
 
-            <TextField
-              label="Group Description"
-              size="small"
-              fullWidth
-              value={group.description || ''}
-              onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
-              sx={{ mb: 2 }}
-            />
+              <TextField
+                label="Group Description"
+                size="small"
+                fullWidth
+                value={group.description || ''}
+                onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
+                sx={{ mb: 2 }}
+              />
 
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Populations
-            </Typography>
+              <TextField
+                select
+                label="Population Basis"
+                size="small"
+                fullWidth
+                value={group.populationBasis || 'Boolean'}
+                onChange={(e) => updateGroup(groupIdx, 'populationBasis', e.target.value)}
+                sx={{ mb: 2 }}
+                helperText="Determines the expected return type of population criteria expressions"
+              >
+                {POPULATION_BASIS_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>
+                    {opt}
+                  </MenuItem>
+                ))}
+              </TextField>
 
-            <Stack spacing={1.5} mb={2}>
-              {(group.populations || []).map((pop, popIdx) => (
-                <Stack key={popIdx} direction="row" spacing={1} alignItems="center">
-                  <TextField
-                    select
-                    label="Type"
-                    size="small"
-                    value={pop.populationType}
-                    onChange={(e) => updatePopulation(groupIdx, popIdx, 'populationType', e.target.value)}
-                    sx={{ minWidth: 200 }}
-                  >
-                    {POPULATION_TYPES.map((pt) => (
-                      <MenuItem key={pt.value} value={pt.value}>
-                        {pt.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    select={expressionNames.length > 0}
-                    label="CQL Expression"
-                    size="small"
-                    fullWidth
-                    value={pop.criteriaExpression}
-                    onChange={(e) => updatePopulation(groupIdx, popIdx, 'criteriaExpression', e.target.value)}
-                  >
-                    {expressionNames.map((name) => (
-                      <MenuItem key={name} value={name}>
-                        {name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <IconButton size="small" color="error" onClick={() => removePopulation(groupIdx, popIdx)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Populations
+              </Typography>
+
+              <Stack spacing={1.5} mb={2}>
+                {sortedWithIdx.map(({ pop, originalIdx }) => {
+                  const isIp = pop.populationType === 'initial-population'
+                  // Second IP in ratio is removable
+                  const lastIpIdx = pops.reduce((last, p, i) => p.populationType === 'initial-population' ? i : last, -1)
+                  const isSecondIp = isIp && ipCount === 2 && originalIdx === lastIpIdx
+                  const canRemove = isSecondIp || !requiredTypes.includes(pop.populationType)
+
+                  return (
+                    <PopulationCard
+                      key={`${pop.populationType}-${originalIdx}`}
+                      population={pop}
+                      isRequired={requiredTypes.includes(pop.populationType)}
+                      expressions={patientExpressions}
+                      onChange={(field, value) => updatePopulation(groupIdx, originalIdx, field, value)}
+                      onRemove={() => removePopulation(groupIdx, originalIdx)}
+                      canRemove={canRemove}
+                      showAssociationType={isIp && showAssociationType}
+                      populationBasis={group.populationBasis}
+                    />
+                  )
+                })}
+
+                <Stack direction="row" spacing={1} sx={{ alignSelf: 'flex-start' }}>
+                  {showDualIpButton && (
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => addPopulation(groupIdx, 'initial-population')}
+                    >
+                      Add Second Initial Population
+                    </Button>
+                  )}
+
+                  {unusedOptional.length > 0 && (
+                    <>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={(e) => setAddMenuAnchor({ el: e.currentTarget, groupIdx })}
+                      >
+                        Add Optional Population
+                      </Button>
+                      <Menu
+                        anchorEl={addMenuAnchor?.groupIdx === groupIdx ? addMenuAnchor.el : null}
+                        open={addMenuAnchor?.groupIdx === groupIdx}
+                        onClose={() => setAddMenuAnchor(null)}
+                      >
+                        {unusedOptional.map((type) => (
+                          <MenuItem
+                            key={type}
+                            onClick={() => {
+                              addPopulation(groupIdx, type)
+                              setAddMenuAnchor(null)
+                            }}
+                          >
+                            {getPopulationLabel(type)}
+                          </MenuItem>
+                        ))}
+                      </Menu>
+                    </>
+                  )}
                 </Stack>
-              ))}
-              <Button size="small" startIcon={<AddIcon />} onClick={() => addPopulation(groupIdx)} sx={{ alignSelf: 'flex-start' }}>
-                Add Population
-              </Button>
-            </Stack>
+              </Stack>
 
-            <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Stratifiers
-            </Typography>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Stratifiers
+              </Typography>
 
-            <Stack spacing={1.5}>
-              {(group.stratifiers || []).map((strat, stratIdx) => (
-                <Stack key={stratIdx} direction="row" spacing={1} alignItems="center">
-                  <TextField
-                    label="Stratifier ID"
-                    size="small"
-                    value={strat.stratifierId}
-                    onChange={(e) => updateStratifier(groupIdx, stratIdx, 'stratifierId', e.target.value)}
-                    sx={{ minWidth: 140 }}
+              <Stack spacing={1.5}>
+                {(group.stratifiers || []).map((strat, stratIdx) => (
+                  <Paper key={stratIdx} variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack spacing={1.5}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <TextField
+                          label="Stratifier ID"
+                          size="small"
+                          value={strat.stratifierId}
+                          onChange={(e) => updateStratifier(groupIdx, stratIdx, 'stratifierId', e.target.value)}
+                          sx={{ minWidth: 140 }}
+                        />
+                        <TextField
+                          select={expressionNames.length > 0}
+                          label="CQL Expression"
+                          size="small"
+                          fullWidth
+                          value={strat.criteriaExpression}
+                          onChange={(e) => updateStratifier(groupIdx, stratIdx, 'criteriaExpression', e.target.value)}
+                        >
+                          {expressionNames.map((name) => (
+                            <MenuItem key={name} value={name}>
+                              {name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <IconButton size="small" color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+
+                      {strat.criteriaExpression && stratifierAssociationOptions.length > 0 && (
+                        <TextField
+                          select
+                          label="Population Associations"
+                          size="small"
+                          fullWidth
+                          SelectProps={{
+                            multiple: true,
+                            renderValue: (selected) =>
+                              (selected as string[]).map((v) => getPopulationLabel(v)).join(', '),
+                          }}
+                          value={strat.associations || []}
+                          onChange={(e) => updateStratifier(groupIdx, stratIdx, 'associations', e.target.value as unknown as string[])}
+                        >
+                          {stratifierAssociationOptions.map((type) => (
+                            <MenuItem key={type} value={type}>
+                              <Checkbox checked={(strat.associations || []).includes(type)} size="small" />
+                              <ListItemText primary={getPopulationLabel(type)} />
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    </Stack>
+                  </Paper>
+                ))}
+                <Button size="small" startIcon={<AddIcon />} onClick={() => addStratifier(groupIdx)} sx={{ alignSelf: 'flex-start' }}>
+                  Add Stratifier
+                </Button>
+              </Stack>
+
+              {OBSERVATION_REQUIRED_SCORING.has(measure.scoringType) && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <ObservationSection
+                    observations={group.observations}
+                    onChange={(obs) => updateGroup(groupIdx, 'observations', obs)}
+                    expressionNames={expressionNames}
+                    populationTypes={(group.populations || []).map(p => p.populationType)}
+                    readOnly={measure.status === 'active'}
                   />
-                  <TextField
-                    select={expressionNames.length > 0}
-                    label="CQL Expression"
-                    size="small"
-                    fullWidth
-                    value={strat.criteriaExpression}
-                    onChange={(e) => updateStratifier(groupIdx, stratIdx, 'criteriaExpression', e.target.value)}
-                  >
-                    {expressionNames.map((name) => (
-                      <MenuItem key={name} value={name}>
-                        {name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <IconButton size="small" color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
-              ))}
-              <Button size="small" startIcon={<AddIcon />} onClick={() => addStratifier(groupIdx)} sx={{ alignSelf: 'flex-start' }}>
-                Add Stratifier
-              </Button>
-            </Stack>
-          </Paper>
-        ))}
+                </>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+              <TextField
+                label="Scoring Unit"
+                size="small"
+                fullWidth
+                value={group.scoringUnit || ''}
+                onChange={(e) => updateGroup(groupIdx, 'scoringUnit', e.target.value)}
+                placeholder="e.g. %, per 1000"
+                helperText="Unit of measure for the score"
+              />
+            </Paper>
+          )
+        })}
+      </Stack>
+
+      <Divider sx={{ my: 3 }} />
+      <Stack spacing={2}>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Typography variant="h6">Risk Adjustment</Typography>
+          <HelpTooltip text={helpContent.measures.riskAdjustment} />
+        </Stack>
+        <RiskAdjustmentSection
+          riskAdjustments={riskAdjustments}
+          onChange={(val) => { setRiskAdjustments(val); setIsDirty(true) }}
+          expressionNames={expressionNames}
+          readOnly={measure.status === 'active'}
+        />
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Typography variant="h6">Supplemental Data</Typography>
+          <HelpTooltip text={helpContent.measures.supplementalData} />
+        </Stack>
+        <SupplementalDataSection
+          supplementalData={supplementalData}
+          onChange={(val) => { setSupplementalData(val); setIsDirty(true) }}
+          expressionNames={expressionNames}
+          readOnly={measure.status === 'active'}
+        />
       </Stack>
     </Box>
   )

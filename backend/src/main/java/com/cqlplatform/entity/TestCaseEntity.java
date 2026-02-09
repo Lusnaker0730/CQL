@@ -66,6 +66,13 @@ public class TestCaseEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "series", length = 200)
+    private String series;
+
+    @Column(name = "sort_order")
+    @Builder.Default
+    private Integer sortOrder = 0;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

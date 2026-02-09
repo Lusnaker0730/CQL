@@ -14,6 +14,9 @@ import java.util.List;
 public class GroupDefinition {
     private String groupId;
     private String description;
+    private String populationBasis;
     private List<PopulationDefinition> populations;
     private List<StratifierDefinition> stratifiers;
+    private List<ObservationDefinition> observations;
+    private String scoringUnit;
 }

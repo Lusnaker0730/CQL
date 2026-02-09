@@ -17,6 +17,10 @@ export const helpContent = {
     evaluate: 'Run this measure against patient data from a FHIR server. Results show population counts, individual patient membership, and optional stratifiers.',
     testCases: 'Create patient test cases with expected population outcomes. Run tests to verify your measure logic produces correct results before deployment.',
     reports: 'View historical evaluation reports for this measure. Compare results across runs to track changes over time.',
+    riskAdjustment: 'Risk Adjustment Variables are CQL definitions used to describe risk factors for the measure. Select expressions from your CQL and add descriptions for each.',
+    supplementalData: 'Supplemental Data Elements are CQL definitions that capture additional data points for reporting. These are not used in scoring but are included in measure reports.',
+    observations: 'Observation Criteria define how continuous variable and ratio measures compute their observation values. Select a CQL expression and an aggregate method (Count, Sum, Average, etc.).',
+    versionManagement: 'Create versioned snapshots of your library or measure. Use Major for breaking changes, Minor for new features, Patch for fixes. Compare versions side-by-side to see CQL changes.',
   },
   fhir: {
     serverUrl: 'The base URL of a FHIR R4 server. Default is the public HAPI FHIR server. You can point to your own server for testing.',

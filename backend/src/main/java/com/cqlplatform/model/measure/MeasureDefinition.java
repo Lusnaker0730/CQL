@@ -29,4 +29,46 @@ public class MeasureDefinition {
     private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Enhanced metadata fields
+    private String rationale;
+    private String clinicalGuidance;
+    private String steward;
+    private List<String> developers;
+    private List<MeasureReference> references;
+    private String disclaimer;
+    private String copyright;
+    private String measureSet;
+    private String supplementalDataGuidance;
+    private String riskAdjustmentDescription;
+    private List<RiskAdjustmentDef> riskAdjustments;
+    private List<SupplementalDataDef> supplementalData;
+
+    // Nested records
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MeasureReference {
+        private String type;
+        private String reference;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RiskAdjustmentDef {
+        private String definition;
+        private String description;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SupplementalDataDef {
+        private String definition;
+        private String description;
+    }
 }

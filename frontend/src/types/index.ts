@@ -314,25 +314,65 @@ export interface MeasureDefinition {
   createdBy?: string
   createdAt?: string
   updatedAt?: string
+  // Enhanced metadata
+  rationale?: string
+  clinicalGuidance?: string
+  steward?: string
+  developers?: string[]
+  references?: MeasureReference[]
+  disclaimer?: string
+  copyright?: string
+  measureSet?: string
+  supplementalDataGuidance?: string
+  riskAdjustmentDescription?: string
+  riskAdjustments?: RiskAdjustmentDef[]
+  supplementalData?: SupplementalDataDef[]
+}
+
+export interface MeasureReference {
+  type: string
+  reference: string
+}
+
+export interface RiskAdjustmentDef {
+  definition: string
+  description: string
+}
+
+export interface SupplementalDataDef {
+  definition: string
+  description: string
+}
+
+export interface ObservationDefinition {
+  criteriaExpression: string
+  aggregateMethod: string
+  populationRef: string
+  description?: string
 }
 
 export interface GroupDefinition {
   groupId: string
   description?: string
+  populationBasis?: string
   populations?: PopulationDefinition[]
   stratifiers?: StratifierDefinition[]
+  observations?: ObservationDefinition[]
+  scoringUnit?: string
 }
 
 export interface PopulationDefinition {
   populationType: string
   criteriaExpression: string
   description?: string
+  associationType?: string
 }
 
 export interface StratifierDefinition {
   stratifierId: string
   criteriaExpression: string
   description?: string
+  associations?: string[]
 }
 
 export interface MeasureReport {
@@ -568,6 +608,8 @@ export interface TestCase {
   lastRunAt?: string
   createdAt?: string
   updatedAt?: string
+  series?: string
+  sortOrder?: number
 }
 
 export interface TestCaseRunResult {
@@ -623,4 +665,25 @@ export interface CodeSystemSummary {
   title: string
   status: string
   conceptCount: number
+}
+
+// Coverage types
+export interface CoverageResult {
+  definitions: ExpressionCoverage[]
+  functions: ExpressionCoverage[]
+}
+
+export interface ExpressionCoverage {
+  name: string
+  type: string
+  relevance: 'TRUE' | 'FALSE' | 'NA'
+  result: string
+}
+
+// Version comparison types
+export interface VersionComparison {
+  oldCql: string
+  newCql: string
+  oldVersion: string
+  newVersion: string
 }

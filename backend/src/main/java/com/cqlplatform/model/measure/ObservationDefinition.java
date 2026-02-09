@@ -9,9 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PopulationDefinition {
-    private String populationType;
+public class ObservationDefinition {
     private String criteriaExpression;
+    private String aggregateMethod;
+    private String populationRef;
     private String description;
-    private String associationType;
 }

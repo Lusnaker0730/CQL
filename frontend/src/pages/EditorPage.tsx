@@ -21,14 +21,22 @@ import {
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   Construction as BuilderIcon,
+  History as HistoryIcon,
+  CompareArrows as CompareIcon,
+  NewReleases as VersionIcon,
 } from '@mui/icons-material'
 import { useSelector, useDispatch } from 'react-redux'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { cqlApi } from '../api'
 import CqlEditor from '../components/editor/CqlEditor'
 import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
 import LibraryQuickAccess from '../components/editor/LibraryQuickAccess'
 import CqlBuilderPanel from '../components/builder/CqlBuilderPanel'
 import HelpTooltip from '../components/common/HelpTooltip'
+import CreateVersionDialog from '../components/editor/CreateVersionDialog'
+import VersionHistoryDialog from '../components/editor/VersionHistoryDialog'
+import VersionDiffDialog from '../components/editor/VersionDiffDialog'
 import type { RootState } from '../store'
 import { setCqlContent } from '../store/editorSlice'
 import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata } from '../hooks/useCql'
@@ -58,6 +66,54 @@ export default function EditorPage() {
   const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { addToRecent, toggleFavorite, isFavorite } = useLibraryHistory()
+
+  const queryClient = useQueryClient()
+  const [versionDialogOpen, setVersionDialogOpen] = useState(false)
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
+  const [diffDialogOpen, setDiffDialogOpen] = useState(false)
+
+  const libraryMatch = cqlContent.match(/library\s+(\S+)(?:\s+version\s+'([^']+)')?/)
+  const libraryName = libraryMatch?.[1] || ''
+  const libraryVersion = libraryMatch?.[2] || '0.0.0'
+
+  const versionMutation = useMutation({
+    mutationFn: (type: string) => cqlApi.createLibraryVersion(libraryName, type),
+    onSuccess: (newLib) => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+      dispatch(setCqlContent(newLib.cqlContent))
+      setVersionDialogOpen(false)
+    },
+  })
+
+  const { data: historyData = [] } = useQuery({
+    queryKey: ['library-history', libraryName],
+    queryFn: () => cqlApi.getLibraryHistory(libraryName),
+    enabled: historyDialogOpen && !!libraryName,
+  })
+
+  const handleSelectVersion = (id: string | number) => {
+    cqlApi.getLibrary(String(id)).then((lib) => {
+      dispatch(setCqlContent(lib.cqlContent))
+      setHistoryDialogOpen(false)
+    })
+  }
+
+  const handleCompare = async (oldId: string | number, newId: string | number) => {
+    return cqlApi.compareLibraryVersions(String(oldId), String(newId))
+  }
+
+  const historyVersions = historyData.map((m) => ({
+    id: m.id,
+    version: m.version,
+    status: m.status || 'draft',
+    createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
+  }))
+
+  const diffVersions = historyData.map((m) => ({
+    id: m.id,
+    version: m.version,
+  }))
 
   const translateMutation = useTranslate()
   const saveLibraryMutation = useCreateLibrary()
@@ -261,6 +317,57 @@ export default function EditorPage() {
                     Import
                   </Button>
                   <HelpTooltip text={helpContent.editor.import} />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<VersionIcon />}
+                    onClick={() => setVersionDialogOpen(true)}
+                    disabled={!libraryName}
+                    sx={{
+                      borderColor: 'rgba(27,58,92,0.3)',
+                      color: 'secondary.main',
+                      '&:hover': {
+                        borderColor: 'secondary.main',
+                        bgcolor: 'rgba(27,58,92,0.04)',
+                      },
+                    }}
+                  >
+                    Version
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<HistoryIcon />}
+                    onClick={() => setHistoryDialogOpen(true)}
+                    disabled={!libraryName}
+                    sx={{
+                      borderColor: 'rgba(27,58,92,0.3)',
+                      color: 'secondary.main',
+                      '&:hover': {
+                        borderColor: 'secondary.main',
+                        bgcolor: 'rgba(27,58,92,0.04)',
+                      },
+                    }}
+                  >
+                    History
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CompareIcon />}
+                    onClick={() => { setHistoryDialogOpen(false); setDiffDialogOpen(true) }}
+                    disabled={!libraryName}
+                    sx={{
+                      borderColor: 'rgba(27,58,92,0.3)',
+                      color: 'secondary.main',
+                      '&:hover': {
+                        borderColor: 'secondary.main',
+                        bgcolor: 'rgba(27,58,92,0.04)',
+                      },
+                    }}
+                  >
+                    Compare
+                  </Button>
                   <Tooltip title={showBuilder ? 'Hide Builder Panel' : 'Show Builder Panel'}>
                     <ToggleButton
                       size="small"
@@ -341,6 +448,27 @@ export default function EditorPage() {
           </Paper>
         </Grid>
       </Grid>
+      <CreateVersionDialog
+        open={versionDialogOpen}
+        onClose={() => setVersionDialogOpen(false)}
+        onConfirm={(type) => versionMutation.mutate(type)}
+        currentVersion={libraryVersion}
+        isPending={versionMutation.isPending}
+        entityType="library"
+      />
+      <VersionHistoryDialog
+        open={historyDialogOpen}
+        onClose={() => setHistoryDialogOpen(false)}
+        versions={historyVersions}
+        onSelectVersion={handleSelectVersion}
+        entityType="library"
+      />
+      <VersionDiffDialog
+        open={diffDialogOpen}
+        onClose={() => setDiffDialogOpen(false)}
+        versions={diffVersions}
+        onCompare={handleCompare}
+      />
     </Box>
   )
 }

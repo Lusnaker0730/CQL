@@ -14,8 +14,8 @@ interface WorkflowStep {
 const WORKFLOW_STEPS: WorkflowStep[] = [
   {
     label: 'Details',
-    tooltip: 'Name, version, and scoring type defined',
-    check: (m) => !!(m.name && m.version && m.scoringType),
+    tooltip: 'Name, version, scoring type, and key metadata (steward, rationale) defined',
+    check: (m) => !!(m.name && m.version && m.scoringType && (m.steward || m.rationale || m.title)),
   },
   {
     label: 'CQL',

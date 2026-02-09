@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -158,6 +160,100 @@ public class CqlLibraryService {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    // ===== Version Management =====
+
+    @Transactional
+    public CqlLibrary createVersion(String name, String versionType) {
+        List<CqlLibraryEntity> versions = libraryRepository.findByName(name);
+        if (versions.isEmpty()) {
+            throw new IllegalArgumentException("Library not found: " + name);
+        }
+
+        CqlLibraryEntity latest = versions.stream()
+                .max(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()))
+                .orElseThrow();
+
+        String newVersion = bumpVersion(latest.getVersion(), versionType);
+
+        // Check if version already exists
+        if (libraryRepository.existsByNameAndVersion(name, newVersion)) {
+            throw new IllegalArgumentException("Version already exists: " + name + " v" + newVersion);
+        }
+
+        // Set current latest to active
+        latest.setStatus("active");
+        libraryRepository.save(latest);
+
+        // Create new draft with bumped version
+        // Update the CQL content to reflect the new version
+        String newCql = latest.getCqlContent().replaceFirst(
+                "library\\s+" + java.util.regex.Pattern.quote(name) + "\\s+version\\s+'[^']+'",
+                "library " + name + " version '" + newVersion + "'"
+        );
+
+        CqlLibraryEntity newEntity = CqlLibraryEntity.builder()
+                .name(name)
+                .version(newVersion)
+                .cqlContent(newCql)
+                .elmJson(latest.getElmJson())
+                .description(latest.getDescription())
+                .status("draft")
+                .dependencyList(latest.getDependencyList() != null ? new ArrayList<>(latest.getDependencyList()) : new ArrayList<>())
+                .build();
+
+        newEntity = libraryRepository.save(newEntity);
+        log.info("Created version {} for library {}", newVersion, name);
+        return entityToModel(newEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CqlLibrary> getHistory(String name) {
+        return libraryRepository.findByName(name).stream()
+                .sorted(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()).reversed())
+                .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, String> compare(String oldId, String newId) {
+        CqlLibrary oldLib = getLibrary(oldId)
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + oldId));
+        CqlLibrary newLib = getLibrary(newId)
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + newId));
+
+        Map<String, String> result = new LinkedHashMap<>();
+        result.put("oldCql", oldLib.getCqlContent());
+        result.put("newCql", newLib.getCqlContent());
+        result.put("oldVersion", oldLib.getVersion());
+        result.put("newVersion", newLib.getVersion());
+        return result;
+    }
+
+    private String bumpVersion(String version, String type) {
+        String[] parts = version.split("\\.");
+        int major = parts.length > 0 ? Integer.parseInt(parts[0].trim()) : 0;
+        int minor = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : 0;
+        int patch = parts.length > 2 ? Integer.parseInt(parts[2].trim()) : 0;
+
+        switch (type.toLowerCase()) {
+            case "major":
+                major++;
+                minor = 0;
+                patch = 0;
+                break;
+            case "minor":
+                minor++;
+                patch = 0;
+                break;
+            case "patch":
+                patch++;
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid version type: " + type + ". Must be major, minor, or patch.");
+        }
+        return major + "." + minor + "." + patch;
     }
 
     private Optional<String[]> parseId(String id) {

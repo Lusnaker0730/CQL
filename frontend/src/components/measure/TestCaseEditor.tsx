@@ -10,11 +10,13 @@ import {
   Alert,
   Paper,
   Divider,
+  Autocomplete,
 } from '@mui/material'
 import {
   Save as SaveIcon,
   Close as CloseIcon,
 } from '@mui/icons-material'
+import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
@@ -67,6 +69,8 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
     }
   )
   const [bundleError, setBundleError] = useState<string | null>(null)
+  const [series, setSeries] = useState(testCase?.series || '')
+  const existingSeries: string[] = []
   const [isDirty, setIsDirty] = useState(false)
   useUnsavedChangesGuard(isDirty)
 
@@ -76,6 +80,7 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
       setDescription(testCase.description || '')
       setBundleJson(testCase.patientBundleJson || DEFAULT_BUNDLE)
       setExpectedPops(testCase.expectedPopulations || {})
+      setSeries(testCase.series || '')
     }
   }, [testCase])
 
@@ -116,6 +121,7 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
         description,
         patientBundleJson: bundleJson,
         expectedPopulations: expectedPops,
+        series: series || undefined,
       }
       if (isNew) {
         return measureApi.createTestCase(measure.id!, data)
@@ -181,6 +187,23 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
           onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
         />
 
+        <Autocomplete
+          freeSolo
+          options={existingSeries}
+          value={series}
+          onInputChange={(_, v) => { setSeries(v); setIsDirty(true) }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Series"
+              size="small"
+              fullWidth
+              placeholder="Group test cases by series name"
+              inputProps={{ ...params.inputProps, maxLength: 250 }}
+            />
+          )}
+        />
+
         <Divider />
 
         <Typography variant="subtitle2" color="text.secondary">
@@ -219,19 +242,22 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
           </Alert>
         )}
 
-        <TextField
-          multiline
-          rows={12}
-          fullWidth
-          value={bundleJson}
-          onChange={(e) => handleBundleChange(e.target.value)}
-          sx={{
-            '& textarea': {
-              fontFamily: 'monospace',
-              fontSize: '0.8rem',
-            },
-          }}
-        />
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+          <Editor
+            height="300px"
+            language="json"
+            value={bundleJson}
+            onChange={(v) => handleBundleChange(v || '')}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 13,
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              automaticLayout: true,
+            }}
+          />
+        </Box>
       </Stack>
     </Box>
   )

@@ -13,7 +13,7 @@ class FhirValidationServiceTest {
     @BeforeEach
     void setUp() {
         FhirContext fhirContext = FhirContext.forR4();
-        validationService = new FhirValidationService(fhirContext);
+        validationService = new FhirValidationService(fhirContext, null);
     }
 
     @Test

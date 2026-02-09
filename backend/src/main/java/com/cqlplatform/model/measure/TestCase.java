@@ -35,4 +35,11 @@ public class TestCase {
     private LocalDateTime lastRunAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /** Series name for grouping test cases */
+    private String series;
+
+    /** Sort order within series */
+    @Builder.Default
+    private Integer sortOrder = 0;
 }

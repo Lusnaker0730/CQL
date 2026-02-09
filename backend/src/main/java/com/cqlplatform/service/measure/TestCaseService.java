@@ -67,6 +67,8 @@ public class TestCaseService {
         entity.setPatientBundleJson(testCase.getPatientBundleJson());
         entity.setExpectedPopulationMap(testCase.getExpectedPopulations() != null
                 ? testCase.getExpectedPopulations() : new LinkedHashMap<>());
+        entity.setSeries(testCase.getSeries());
+        entity.setSortOrder(testCase.getSortOrder() != null ? testCase.getSortOrder() : 0);
 
         entity = repository.save(entity);
         log.info("Updated test case '{}'", entity.getTitle());
@@ -137,6 +139,69 @@ public class TestCaseService {
         return results;
     }
 
+    // ===== Coverage =====
+
+    @Transactional
+    public CoverageResult runWithCoverage(Long testCaseId) {
+        TestCaseEntity entity = repository.findById(testCaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + testCaseId));
+
+        MeasureDefinition measure = definitionService.getById(entity.getMeasureDefinitionId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Measure not found: " + entity.getMeasureDefinitionId()));
+
+        if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
+            return CoverageResult.builder()
+                    .definitions(Collections.emptyList())
+                    .functions(Collections.emptyList())
+                    .build();
+        }
+
+        try {
+            CqlExecutionRequest execRequest = new CqlExecutionRequest();
+            execRequest.setCql(measure.getCqlContent());
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            execRequest.setPatientId(patientId);
+
+            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+
+            List<CoverageResult.ExpressionCoverage> definitions = new ArrayList<>();
+            List<CoverageResult.ExpressionCoverage> functions = new ArrayList<>();
+
+            if (execResponse.getResults() != null) {
+                for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults().entrySet()) {
+                    String name = entry.getKey();
+                    CqlExecutionResponse.ExpressionResult result = entry.getValue();
+                    boolean truthy = isTruthy(result);
+                    String relevance = result.getValue() == null ? "NA" : (truthy ? "TRUE" : "FALSE");
+                    String resultStr = result.getDisplayValue() != null ? result.getDisplayValue() : String.valueOf(result.getValue());
+                    String type = result.getValueType() != null ? result.getValueType() : "unknown";
+
+                    // Simple heuristic: names starting with lowercase or containing parentheses are likely functions
+                    if (name.contains("(") || (name.length() > 0 && Character.isLowerCase(name.charAt(0)))) {
+                        functions.add(CoverageResult.ExpressionCoverage.builder()
+                                .name(name).type(type).relevance(relevance).result(resultStr).build());
+                    } else {
+                        definitions.add(CoverageResult.ExpressionCoverage.builder()
+                                .name(name).type(type).relevance(relevance).result(resultStr).build());
+                    }
+                }
+            }
+
+            return CoverageResult.builder()
+                    .definitions(definitions)
+                    .functions(functions)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Coverage analysis failed for test case {}", testCaseId, e);
+            return CoverageResult.builder()
+                    .definitions(Collections.emptyList())
+                    .functions(Collections.emptyList())
+                    .build();
+        }
+    }
+
     private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure) {
         long startTime = System.currentTimeMillis();
 
@@ -154,8 +219,6 @@ public class TestCaseService {
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
 
-            // If patient bundle JSON is provided, we execute in context
-            // The patient ID is extracted from the bundle or defaults to a test ID
             String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
             execRequest.setPatientId(patientId);
 
@@ -301,6 +364,8 @@ public class TestCaseService {
                 .lastRunAt(entity.getLastRunAt())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .series(entity.getSeries())
+                .sortOrder(entity.getSortOrder())
                 .build();
     }
 
@@ -312,6 +377,8 @@ public class TestCaseService {
                 .expectedPopulationMap(model.getExpectedPopulations() != null
                         ? model.getExpectedPopulations() : new LinkedHashMap<>())
                 .status(model.getStatus() != null ? model.getStatus() : "pending")
+                .series(model.getSeries())
+                .sortOrder(model.getSortOrder() != null ? model.getSortOrder() : 0)
                 .build();
     }
 }

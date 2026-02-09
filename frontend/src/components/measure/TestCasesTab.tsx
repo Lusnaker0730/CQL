@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -11,6 +11,9 @@ import {
   Paper,
   Divider,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -22,15 +25,19 @@ import {
   Cancel as FailIcon,
   Error as ErrorIcon,
   HourglassEmpty as PendingIcon,
+  ExpandMore as ExpandMoreIcon,
+  Calculate as CalcIcon,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
-import type { MeasureDefinition, TestCase, TestCaseRunResult } from '../../types'
+import type { MeasureDefinition, TestCase, TestCaseRunResult, CoverageResult } from '../../types'
 import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
+import DateCalculatorDialog from './DateCalculatorDialog'
+import TestCaseCoverage from './TestCaseCoverage'
 
 interface TestCasesTabProps {
   measure: MeasureDefinition
@@ -47,6 +54,8 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
+  const [dateCalcOpen, setDateCalcOpen] = useState(false)
+  const [coverageData, setCoverageData] = useState<Record<number, { data: CoverageResult | null; loading: boolean }>>({})
 
   const { data: testCases = [], isLoading } = useQuery({
     queryKey: ['test-cases', measure.id],
@@ -80,9 +89,96 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
     },
   })
 
+  const coverageMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.runWithCoverage(measure.id!, testCaseId),
+    onMutate: (testCaseId) => {
+      setCoverageData(prev => ({ ...prev, [testCaseId]: { data: null, loading: true } }))
+    },
+    onSuccess: (data, testCaseId) => {
+      setCoverageData(prev => ({ ...prev, [testCaseId]: { data, loading: false } }))
+    },
+    onError: (_, testCaseId) => {
+      setCoverageData(prev => ({ ...prev, [testCaseId]: { data: null, loading: false } }))
+    },
+  })
+
   const passCount = testCases.filter((tc) => tc.status === 'pass').length
   const failCount = testCases.filter((tc) => tc.status === 'fail').length
   const totalCount = testCases.length
+
+  const groupedTestCases = useMemo(() => {
+    const groups = new Map<string, TestCase[]>()
+    const ungrouped: TestCase[] = []
+    for (const tc of testCases) {
+      if (tc.series) {
+        const list = groups.get(tc.series) || []
+        list.push(tc)
+        groups.set(tc.series, list)
+      } else {
+        ungrouped.push(tc)
+      }
+    }
+    for (const [, list] of groups) {
+      list.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    }
+    return { groups, ungrouped }
+  }, [testCases])
+
+  const renderTestCaseRow = (tc: TestCase) => {
+    const result = runResults.find((r) => r.testCaseId === tc.id)
+    const coverage = coverageData[tc.id!]
+    return (
+      <Paper key={tc.id} variant="outlined" sx={{ overflow: 'hidden' }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+            {STATUS_ICON[tc.status || 'pending']}
+            <Typography variant="body2" fontWeight={500} noWrap>{tc.title}</Typography>
+            {tc.series && <Chip label={tc.series} size="small" sx={{ height: 18, fontSize: '0.6rem' }} />}
+            {tc.description && (
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>{tc.description}</Typography>
+            )}
+          </Stack>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            {tc.expectedPopulations && (
+              <Stack direction="row" spacing={0.25}>
+                {Object.entries(tc.expectedPopulations).filter(([, v]) => v).map(([key]) => (
+                  <Chip key={key} label={key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).substring(0, 3)} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }} />
+                ))}
+              </Stack>
+            )}
+            <Tooltip title="Run with coverage">
+              <IconButton size="small" onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
+                <RunIcon fontSize="small" color="secondary" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Run this test case">
+              <IconButton size="small" onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
+                {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
+            </Tooltip>
+          </Stack>
+        </Stack>
+        {result && (
+          <>
+            <Divider />
+            <Box sx={{ px: 1, py: 0.5 }}><TestCaseResultComponent result={result} /></Box>
+          </>
+        )}
+        {coverage && (
+          <>
+            <Divider />
+            <Box sx={{ px: 2, py: 1 }}><TestCaseCoverage coverage={coverage.data} isLoading={coverage.loading} /></Box>
+          </>
+        )}
+      </Paper>
+    )
+  }
 
   if (editing !== null) {
     return (
@@ -121,6 +217,15 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
           )}
         </Stack>
         <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            startIcon={<CalcIcon />}
+            onClick={() => setDateCalcOpen(true)}
+            variant="outlined"
+            sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
+          >
+            Date Calculator
+          </Button>
           <Button
             size="small"
             startIcon={<RunAllIcon />}
@@ -177,84 +282,23 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
         </Paper>
       ) : (
         <Stack spacing={1.5}>
-          {testCases.map((tc) => {
-            const result = runResults.find((r) => r.testCaseId === tc.id)
-            return (
-              <Paper key={tc.id} variant="outlined" sx={{ overflow: 'hidden' }}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  sx={{ px: 2, py: 1 }}
-                >
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                    {STATUS_ICON[tc.status || 'pending']}
-                    <Typography variant="body2" fontWeight={500} noWrap>
-                      {tc.title}
-                    </Typography>
-                    {tc.description && (
-                      <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
-                        {tc.description}
-                      </Typography>
-                    )}
-                  </Stack>
-
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    {tc.expectedPopulations && (
-                      <Stack direction="row" spacing={0.25}>
-                        {Object.entries(tc.expectedPopulations)
-                          .filter(([, v]) => v)
-                          .map(([key]) => (
-                            <Chip
-                              key={key}
-                              label={key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).substring(0, 3)}
-                              size="small"
-                              sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }}
-                            />
-                          ))}
-                      </Stack>
-                    )}
-                    <Tooltip title="Run this test case">
-                      <IconButton
-                        size="small"
-                        onClick={() => runOneMutation.mutate(tc.id!)}
-                        disabled={runOneMutation.isPending}
-                      >
-                        {runOneMutation.isPending && runOneMutation.variables === tc.id
-                          ? <CircularProgress size={16} />
-                          : <RunIcon fontSize="small" />}
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => setEditing(tc)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => deleteMutation.mutate(tc.id!)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
+          {Array.from(groupedTestCases.groups.entries()).map(([series, tcs]) => (
+            <Accordion key={series} defaultExpanded>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="subtitle2">{series}</Typography>
+                  <Chip label={`${tcs.length}`} size="small" sx={{ height: 20 }} />
                 </Stack>
-
-                {result && (
-                  <>
-                    <Divider />
-                    <Box sx={{ px: 1, py: 0.5 }}>
-                      <TestCaseResultComponent result={result} />
-                    </Box>
-                  </>
-                )}
-              </Paper>
-            )
-          })}
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1 }}>
+                <Stack spacing={1}>{tcs.map(renderTestCaseRow)}</Stack>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+          {groupedTestCases.ungrouped.map(renderTestCaseRow)}
         </Stack>
       )}
+      <DateCalculatorDialog open={dateCalcOpen} onClose={() => setDateCalcOpen(false)} />
     </Box>
   )
 }

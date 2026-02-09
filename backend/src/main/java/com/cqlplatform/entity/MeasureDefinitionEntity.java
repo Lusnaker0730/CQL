@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.cqlplatform.model.measure.GroupDefinition;
+import com.cqlplatform.model.measure.MeasureDefinition;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -81,25 +82,116 @@ public class MeasureDefinitionEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // Enhanced metadata columns
+    @Column(name = "rationale", columnDefinition = "TEXT")
+    private String rationale;
+
+    @Column(name = "clinical_guidance", columnDefinition = "TEXT")
+    private String clinicalGuidance;
+
+    @Column(name = "steward", length = 500)
+    private String steward;
+
+    @Column(name = "developers", columnDefinition = "TEXT")
+    private String developers;
+
+    @Transient
+    @Builder.Default
+    private List<String> developerList = new ArrayList<>();
+
+    @Column(name = "measure_references", columnDefinition = "TEXT")
+    private String measureReferences;
+
+    @Transient
+    @Builder.Default
+    private List<MeasureDefinition.MeasureReference> referenceList = new ArrayList<>();
+
+    @Column(name = "disclaimer", columnDefinition = "TEXT")
+    private String disclaimer;
+
+    @Column(name = "copyright", columnDefinition = "TEXT")
+    private String copyright;
+
+    @Column(name = "measure_set", length = 200)
+    private String measureSet;
+
+    @Column(name = "supplemental_data_guidance", columnDefinition = "TEXT")
+    private String supplementalDataGuidance;
+
+    @Column(name = "risk_adjustment_description", columnDefinition = "TEXT")
+    private String riskAdjustmentDescription;
+
+    @Column(name = "risk_adjustments", columnDefinition = "TEXT")
+    private String riskAdjustmentsJson;
+
+    @Transient
+    @Builder.Default
+    private List<MeasureDefinition.RiskAdjustmentDef> riskAdjustmentList = new ArrayList<>();
+
+    @Column(name = "supplemental_data", columnDefinition = "TEXT")
+    private String supplementalDataJson;
+
+    @Transient
+    @Builder.Default
+    private List<MeasureDefinition.SupplementalDataDef> supplementalDataList = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        serializeGroupDefinitions();
-        serializeComponentMeasureIds();
+        serializeAll();
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-        serializeGroupDefinitions();
-        serializeComponentMeasureIds();
+        serializeAll();
     }
 
     @PostLoad
     protected void onLoad() {
+        deserializeAll();
+    }
+
+    private void serializeAll() {
+        serializeGroupDefinitions();
+        serializeComponentMeasureIds();
+        serializeJsonList(developerList, (json) -> developers = json, "[]");
+        serializeJsonList(referenceList, (json) -> measureReferences = json, "[]");
+        serializeJsonList(riskAdjustmentList, (json) -> riskAdjustmentsJson = json, "[]");
+        serializeJsonList(supplementalDataList, (json) -> supplementalDataJson = json, "[]");
+    }
+
+    private void deserializeAll() {
         deserializeGroupDefinitions();
         deserializeComponentMeasureIds();
+        developerList = deserializeJsonList(developers, new TypeReference<>() {});
+        referenceList = deserializeJsonList(measureReferences, new TypeReference<>() {});
+        riskAdjustmentList = deserializeJsonList(riskAdjustmentsJson, new TypeReference<>() {});
+        supplementalDataList = deserializeJsonList(supplementalDataJson, new TypeReference<>() {});
+    }
+
+    private <T> void serializeJsonList(List<T> list, java.util.function.Consumer<String> setter, String defaultVal) {
+        if (list != null && !list.isEmpty()) {
+            try {
+                setter.accept(MAPPER.writeValueAsString(list));
+            } catch (JsonProcessingException e) {
+                setter.accept(defaultVal);
+            }
+        } else {
+            setter.accept(defaultVal);
+        }
+    }
+
+    private <T> List<T> deserializeJsonList(String json, TypeReference<List<T>> typeRef) {
+        if (json != null && !json.isBlank()) {
+            try {
+                return MAPPER.readValue(json, typeRef);
+            } catch (JsonProcessingException e) {
+                return new ArrayList<>();
+            }
+        }
+        return new ArrayList<>();
     }
 
     private void serializeGroupDefinitions() {

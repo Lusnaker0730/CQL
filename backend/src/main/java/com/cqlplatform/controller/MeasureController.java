@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/measures")
@@ -340,5 +341,42 @@ public class MeasureController {
     public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(@PathVariable Long measureId) {
         List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId);
         return ResponseEntity.ok(results);
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/run-with-coverage")
+    @Operation(summary = "Run Test Case with Coverage", description = "Execute a test case and return per-expression coverage results")
+    public ResponseEntity<CoverageResult> runWithCoverage(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId) {
+        CoverageResult coverage = testCaseService.runWithCoverage(testCaseId);
+        return ResponseEntity.ok(coverage);
+    }
+
+    // ===== Measure Version Management =====
+
+    @PostMapping("/{id}/version")
+    @Operation(summary = "Create Measure Version", description = "Creates a new version of a measure (major/minor/patch)")
+    public ResponseEntity<MeasureDefinition> createMeasureVersion(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "minor") String type) {
+        MeasureDefinition versioned = definitionService.createVersion(id, type);
+        return ResponseEntity.ok(versioned);
+    }
+
+    @GetMapping("/{id}/history")
+    @Operation(summary = "Measure History", description = "Returns all versions of a measure by name")
+    public ResponseEntity<List<MeasureDefinition>> getMeasureHistory(@PathVariable Long id) {
+        return definitionService.getById(id)
+                .map(def -> ResponseEntity.ok(definitionService.getHistory(def.getName())))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/version-compare")
+    @Operation(summary = "Compare Measure Versions", description = "Returns CQL content of two measure versions for diff comparison")
+    public ResponseEntity<Map<String, String>> compareMeasureVersions(
+            @RequestParam Long oldId,
+            @RequestParam Long newId) {
+        Map<String, String> comparison = definitionService.compare(oldId, newId);
+        return ResponseEntity.ok(comparison);
     }
 }

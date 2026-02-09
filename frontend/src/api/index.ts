@@ -40,6 +40,8 @@ import type {
   CacheStats,
   TestCase,
   TestCaseRunResult,
+  CoverageResult,
+  VersionComparison,
   IgPackageMetadata,
   ProfileSummary,
   ValueSetSummary,
@@ -158,6 +160,22 @@ export const cqlApi = {
 
   importFhirLibrary: async (fhirLibrary: unknown): Promise<CqlLibrary> => {
     const response = await api.post<CqlLibrary>('/cql/libraries/import/fhir', fhirLibrary)
+    return response.data
+  },
+
+  // Version Management
+  createLibraryVersion: async (name: string, type: string = 'minor'): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${encodeURIComponent(name)}/version?type=${type}`)
+    return response.data
+  },
+
+  getLibraryHistory: async (name: string): Promise<CqlLibrary[]> => {
+    const response = await api.get<CqlLibrary[]>(`/cql/libraries/${encodeURIComponent(name)}/history`)
+    return response.data
+  },
+
+  compareLibraryVersions: async (oldId: string, newId: string): Promise<VersionComparison> => {
+    const response = await api.get<VersionComparison>(`/cql/libraries/compare?oldId=${encodeURIComponent(oldId)}&newId=${encodeURIComponent(newId)}`)
     return response.data
   },
 }
@@ -480,6 +498,27 @@ export const measureApi = {
 
   runAllTestCases: async (measureId: number): Promise<TestCaseRunResult[]> => {
     const response = await api.post<TestCaseRunResult[]>(`/measures/${measureId}/test-cases/run`)
+    return response.data
+  },
+
+  runWithCoverage: async (measureId: number, testCaseId: number): Promise<CoverageResult> => {
+    const response = await api.post<CoverageResult>(`/measures/${measureId}/test-cases/${testCaseId}/run-with-coverage`)
+    return response.data
+  },
+
+  // Version Management
+  createMeasureVersion: async (id: number, type: string = 'minor'): Promise<MeasureDefinition> => {
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/version?type=${type}`)
+    return response.data
+  },
+
+  getMeasureHistory: async (id: number): Promise<MeasureDefinition[]> => {
+    const response = await api.get<MeasureDefinition[]>(`/measures/${id}/history`)
+    return response.data
+  },
+
+  compareMeasureVersions: async (oldId: number, newId: number): Promise<VersionComparison> => {
+    const response = await api.get<VersionComparison>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
     return response.data
   },
 }
