@@ -54,6 +54,7 @@ import type {
   BatchEvaluationRequest,
   BatchEvaluationResult,
   RepositoryLibrary,
+  ResourceElementMetadata,
 } from '../types'
 
 const api = axios.create({
@@ -869,6 +870,19 @@ export const fhirApi = {
 
   getIgCodeSystem: async (url: string): Promise<unknown> => {
     const response = await api.get(`/fhir/ig/codesystems/${encodeURIComponent(url)}`)
+    return response.data
+  },
+
+  // StructureDefinition Metadata (Visual Builder)
+  getResourceTypes: async (): Promise<string[]> => {
+    const response = await api.get<string[]>('/fhir/structure-definitions/resource-types')
+    return response.data
+  },
+
+  getResourceMetadata: async (resourceType: string): Promise<ResourceElementMetadata> => {
+    const response = await api.get<ResourceElementMetadata>(
+      `/fhir/structure-definitions/${encodeURIComponent(resourceType)}`
+    )
     return response.data
   },
 }

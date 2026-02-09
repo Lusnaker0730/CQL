@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -11,16 +11,27 @@ import {
   Paper,
   Divider,
   Autocomplete,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import {
   Save as SaveIcon,
   Close as CloseIcon,
+  ViewModule as BuilderIcon,
+  Code as JsonIcon,
 } from '@mui/icons-material'
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import {
+  BundleBuilderProvider,
+  useBundleBuilder,
+  serializeToBundle,
+  parseFromBundle,
+} from '../../contexts/BundleBuilderContext'
+import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import type { TestCase, MeasureDefinition } from '../../types'
 
 interface TestCaseEditorProps {
@@ -54,9 +65,10 @@ const DEFAULT_BUNDLE = `{
   ]
 }`
 
-export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: TestCaseEditorProps) {
+function TestCaseEditorInner({ measure, testCase, onClose, onSaved }: TestCaseEditorProps) {
   const queryClient = useQueryClient()
   const isNew = !testCase?.id
+  const { state, dispatch } = useBundleBuilder()
 
   const [title, setTitle] = useState(testCase?.title || '')
   const [description, setDescription] = useState(testCase?.description || '')
@@ -72,17 +84,57 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
   const [series, setSeries] = useState(testCase?.series || '')
   const existingSeries: string[] = []
   const [isDirty, setIsDirty] = useState(false)
+  const [bundleTab, setBundleTab] = useState(0) // 0 = Visual, 1 = JSON
   useUnsavedChangesGuard(isDirty)
+
+  // Track whether sync is in progress to prevent loops
+  const syncingRef = useRef(false)
+  const initializedRef = useRef(false)
+
+  // Initialize builder from existing JSON on mount
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      try {
+        const entries = parseFromBundle(bundleJson)
+        if (entries.length > 0) {
+          dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+        }
+      } catch {
+        // Invalid JSON — user will see error in JSON tab
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (testCase) {
       setTitle(testCase.title)
       setDescription(testCase.description || '')
-      setBundleJson(testCase.patientBundleJson || DEFAULT_BUNDLE)
+      const json = testCase.patientBundleJson || DEFAULT_BUNDLE
+      setBundleJson(json)
       setExpectedPops(testCase.expectedPopulations || {})
       setSeries(testCase.series || '')
+      try {
+        const entries = parseFromBundle(json)
+        dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+      } catch {
+        // ignore
+      }
     }
-  }, [testCase])
+  }, [testCase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync: Visual Builder → JSON (when entries change)
+  useEffect(() => {
+    if (syncingRef.current) return
+    if (state.entries.length > 0) {
+      syncingRef.current = true
+      const json = serializeToBundle(state.entries)
+      setBundleJson(json)
+      setBundleError(null)
+      setIsDirty(true)
+      syncingRef.current = false
+    }
+  }, [state.entries])
 
   const validateBundle = (json: string): boolean => {
     try {
@@ -99,12 +151,33 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
     }
   }
 
-  const handleBundleChange = (value: string) => {
-    setBundleJson(value)
-    setIsDirty(true)
-    if (value.trim()) validateBundle(value)
-    else setBundleError(null)
-  }
+  // Debounced sync: JSON → Visual Builder
+  const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleBundleChange = useCallback(
+    (value: string) => {
+      setBundleJson(value)
+      setIsDirty(true)
+      if (value.trim()) validateBundle(value)
+      else setBundleError(null)
+
+      // Debounced sync to visual builder
+      if (jsonSyncTimerRef.current) clearTimeout(jsonSyncTimerRef.current)
+      jsonSyncTimerRef.current = setTimeout(() => {
+        if (syncingRef.current) return
+        try {
+          const entries = parseFromBundle(value)
+          if (entries.length > 0) {
+            syncingRef.current = true
+            dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+            syncingRef.current = false
+          }
+        } catch {
+          // Invalid JSON — don't sync
+        }
+      }, 500)
+    },
+    [dispatch]
+  )
 
   const togglePopulation = (key: string) => {
     setExpectedPops((prev) => ({
@@ -232,33 +305,65 @@ export default function TestCaseEditor({ measure, testCase, onClose, onSaved }: 
 
         <Divider />
 
-        <Typography variant="subtitle2" color="text.secondary">
-          Patient Bundle (FHIR JSON)
-        </Typography>
+        <Box>
+          <Tabs
+            value={bundleTab}
+            onChange={(_, v) => setBundleTab(v)}
+            sx={{ minHeight: 36, mb: 1 }}
+          >
+            <Tab
+              icon={<BuilderIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+              label="Visual Builder"
+              sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.85rem' }}
+            />
+            <Tab
+              icon={<JsonIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+              label="JSON (Advanced)"
+              sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.85rem' }}
+            />
+          </Tabs>
 
-        {bundleError && (
-          <Alert severity="error" sx={{ py: 0 }}>
-            {bundleError}
-          </Alert>
-        )}
+          {bundleTab === 0 && (
+            <VisualBundleBuilder onDirty={() => setIsDirty(true)} />
+          )}
 
-        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-          <Editor
-            height="300px"
-            language="json"
-            value={bundleJson}
-            onChange={(v) => handleBundleChange(v || '')}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              automaticLayout: true,
-            }}
-          />
+          {bundleTab === 1 && (
+            <>
+              {bundleError && (
+                <Alert severity="error" sx={{ py: 0, mb: 1 }}>
+                  {bundleError}
+                </Alert>
+              )}
+              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                <Editor
+                  height="300px"
+                  language="json"
+                  value={bundleJson}
+                  onChange={(v) => handleBundleChange(v || '')}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    automaticLayout: true,
+                  }}
+                />
+              </Box>
+            </>
+          )}
         </Box>
       </Stack>
     </Box>
+  )
+}
+
+export default function TestCaseEditor(props: TestCaseEditorProps) {
+  return (
+    <BundleBuilderProvider>
+      <TestCaseEditorInner {...props} />
+    </BundleBuilderProvider>
   )
 }

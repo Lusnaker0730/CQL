@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.cqlplatform.model.fhir.ResourceElementMetadata;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +29,7 @@ public class FhirController {
     private final FhirValidationService validationService;
     private final VsacService vsacService;
     private final FhirContext fhirContext;
+    private final FhirStructureDefinitionService structureDefinitionService;
 
     @Autowired(required = false)
     private FhirImplementationGuideService igService;
@@ -121,6 +123,28 @@ public class FhirController {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(json);
+    }
+
+    // ─── StructureDefinition Metadata ───────────────────────────────
+
+    @GetMapping("/structure-definitions/resource-types")
+    @Operation(summary = "List Supported Resource Types", description = "List resource types available for the visual test case builder")
+    public ResponseEntity<List<String>> getResourceTypes() {
+        return ResponseEntity.ok(structureDefinitionService.getSupportedResourceTypes());
+    }
+
+    @GetMapping("/structure-definitions/{resourceType}")
+    @Operation(summary = "Get Resource Metadata", description = "Get element metadata for a FHIR resource type")
+    public ResponseEntity<ResourceElementMetadata> getResourceMetadata(@PathVariable String resourceType) {
+        if (!InputValidator.isValidFhirResourceType(resourceType)) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            ResourceElementMetadata metadata = structureDefinitionService.getResourceMetadata(resourceType);
+            return ResponseEntity.ok(metadata);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     // ─── Cache Management ────────────────────────────────────────────
@@ -436,14 +460,25 @@ public class FhirController {
     }
 
     @GetMapping("/ValueSet")
-    @Operation(summary = "Search ValueSets", description = "Search for ValueSets")
+    @Operation(summary = "Search ValueSets", description = "Search for ValueSets (terminology server with VSAC fallback)")
     public ResponseEntity<List<Map<String, String>>> searchValueSets(
             @RequestParam(required = false) String title) {
 
-        List<ValueSet> valueSets = terminologyService.searchValueSets(title != null ? title : "");
+        String searchTitle = title != null ? title : "";
+        List<ValueSet> valueSets = terminologyService.searchValueSets(searchTitle);
+
+        // Fallback to VSAC if terminology server returned no results
+        if (valueSets.isEmpty() && !searchTitle.isBlank()) {
+            try {
+                valueSets = vsacService.searchValueSets(searchTitle);
+            } catch (Exception ignored) {
+                // VSAC also failed, return empty
+            }
+        }
+
         List<Map<String, String>> results = valueSets.stream()
                 .map(vs -> Map.of(
-                        "id", vs.getId(),
+                        "id", vs.getId() != null ? vs.getId() : "",
                         "url", vs.getUrl() != null ? vs.getUrl() : "",
                         "name", vs.getName() != null ? vs.getName() : "",
                         "title", vs.getTitle() != null ? vs.getTitle() : ""

@@ -782,6 +782,47 @@ export interface BatchEvaluationResult {
   totalDurationMs: number
 }
 
+// StructureDefinition / Visual Builder types
+export interface ElementMetadata {
+  name: string
+  path: string
+  type: string
+  isArray: boolean
+  isRequired: boolean
+  min: number
+  max: string
+  isChoiceType: boolean
+  choiceTypes: string[]
+  bindingStrength: string | null
+  bindingValueSetUrl: string | null
+  children: ElementMetadata[]
+  description: string | null
+  referenceTargets: string[]
+}
+
+export interface ResourceElementMetadata {
+  resourceType: string
+  elements: ElementMetadata[]
+}
+
+export interface BundleEntry {
+  id: string
+  resourceType: string
+  resourceData: Record<string, unknown>
+}
+
+export type BundleBuilderAction =
+  | { type: 'ADD_ENTRY'; payload: BundleEntry }
+  | { type: 'REMOVE_ENTRY'; payload: string }
+  | { type: 'UPDATE_ENTRY'; payload: { id: string; resourceData: Record<string, unknown> } }
+  | { type: 'SET_ACTIVE_ENTRY'; payload: string | null }
+  | { type: 'LOAD_FROM_JSON'; payload: BundleEntry[] }
+
+export interface BundleBuilderState {
+  entries: BundleEntry[]
+  activeEntryId: string | null
+}
+
 // CQL Repository
 export interface RepositoryLibrary {
   name: string
