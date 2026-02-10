@@ -341,7 +341,7 @@
   {
     "id": "BooleanComparison",
     "name": "Is (Not) Null?",
-    "inputTypes": ["boolean"],
+    "inputTypes": ["boolean", "integer", "decimal", "string", "datetime", "time", "observation", "condition", "procedure", "system_quantity", "system_code", "system_concept"],
     "returnType": "boolean",
     "values": { "value": null },
     "cqlTemplate": "BooleanComparison"
@@ -487,5 +487,67 @@
     "returnType": "list_of_any",
     "values": { "qualifier": null, "valueSet": null, "code": null },
     "cqlTemplate": "Qualifier"
+  },
+  {
+    "id": "InProgressEncounter",
+    "name": "In Progress",
+    "inputTypes": ["list_of_encounters"],
+    "returnType": "list_of_encounters",
+    "cqlTemplate": "BaseModifier",
+    "cqlLibraryFunction": "C3F.InProgressEncounter"
+  },
+  {
+    "id": "ConvertToMgPerdL_Qty",
+    "name": "Convert to mg/dL",
+    "inputTypes": ["system_quantity"],
+    "returnType": "system_quantity",
+    "cqlTemplate": "BaseModifier",
+    "cqlLibraryFunction": "Convert.to_mg_per_dL"
+  },
+  {
+    "id": "IsTrue",
+    "name": "Is True",
+    "inputTypes": ["boolean"],
+    "returnType": "boolean",
+    "cqlTemplate": "IsTrue"
+  },
+  {
+    "id": "IsNotTrue",
+    "name": "Is Not True",
+    "inputTypes": ["boolean"],
+    "returnType": "boolean",
+    "cqlTemplate": "IsNotTrue"
+  },
+  {
+    "id": "IsFalse",
+    "name": "Is False",
+    "inputTypes": ["boolean"],
+    "returnType": "boolean",
+    "cqlTemplate": "IsFalse"
+  },
+  {
+    "id": "IsNotFalse",
+    "name": "Is Not False",
+    "inputTypes": ["boolean"],
+    "returnType": "boolean",
+    "cqlTemplate": "IsNotFalse"
+  },
+  {
+    "id": "BeforeInterval",
+    "name": "Before",
+    "inputTypes": ["interval_of_integer", "interval_of_decimal", "interval_of_datetime", "interval_of_quantity"],
+    "returnType": "boolean",
+    "values": { "value": null },
+    "validator": { "type": "require", "fields": ["value"] },
+    "cqlTemplate": "BeforeInterval"
+  },
+  {
+    "id": "AfterInterval",
+    "name": "After",
+    "inputTypes": ["interval_of_integer", "interval_of_decimal", "interval_of_datetime", "interval_of_quantity"],
+    "returnType": "boolean",
+    "values": { "value": null },
+    "validator": { "type": "require", "fields": ["value"] },
+    "cqlTemplate": "AfterInterval"
   }
 ]

@@ -289,7 +289,29 @@ export default function ArtifactWorkspace({
           />
         )}
         {tab === 7 && <ExternalCql artifactId={localArtifact.id} />}
-        {tab === 8 && <CqlPreviewPanel artifactId={localArtifact.id} />}
+        {tab === 8 && (
+          <CqlPreviewPanel
+            artifactId={localArtifact.id}
+            isDirty={isDirty}
+            onSaveBeforeGenerate={async () => {
+              return new Promise<void>((resolve, reject) => {
+                const request = buildSaveRequest()
+                updateMutation.mutate(
+                  { id: localArtifact.id, request },
+                  {
+                    onSuccess: (updated) => {
+                      setLocalArtifact(updated)
+                      setIsDirty(false)
+                      onArtifactUpdate(updated)
+                      resolve()
+                    },
+                    onError: reject,
+                  }
+                )
+              })
+            }}
+          />
+        )}
         {tab === 9 && <ArtifactTester artifactId={localArtifact.id} />}
         {tab === 10 && <ArtifactSummaryView artifact={localArtifact} />}
       </Box>

@@ -4,6 +4,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
+import UcumUnitField from '../fields/UcumUnitField'
 import type { Parameter } from '../../../types/authoring'
 
 function generateId(): string {
@@ -17,6 +18,9 @@ const PARAMETER_TYPES = [
   { value: 'string', label: 'String' },
   { value: 'datetime', label: 'DateTime' },
   { value: 'time', label: 'Time' },
+  { value: 'code', label: 'Code' },
+  { value: 'concept', label: 'Concept' },
+  { value: 'quantity', label: 'Quantity' },
   { value: 'interval<integer>', label: 'Interval<Integer>' },
   { value: 'interval<datetime>', label: 'Interval<DateTime>' },
 ]
@@ -95,6 +99,95 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
             sx={{ minWidth: 200 }}
           />
         )
+      case 'code': {
+        const codeVal = (param.value as { system?: string; code?: string }) || {}
+        return (
+          <Stack direction="row" spacing={1}>
+            <TextField
+              size="small"
+              label="Code System URI"
+              value={codeVal.system || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...codeVal, system: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 200 }}
+              placeholder="http://loinc.org"
+            />
+            <TextField
+              size="small"
+              label="Code"
+              value={codeVal.code || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...codeVal, code: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 120 }}
+              placeholder="12345-6"
+            />
+          </Stack>
+        )
+      }
+      case 'concept': {
+        const conceptVal = (param.value as { system?: string; code?: string; display?: string }) || {}
+        return (
+          <Stack direction="row" spacing={1}>
+            <TextField
+              size="small"
+              label="Display"
+              value={conceptVal.display || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...conceptVal, display: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 160 }}
+              placeholder="Display name"
+            />
+            <TextField
+              size="small"
+              label="Code System URI"
+              value={conceptVal.system || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...conceptVal, system: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 180 }}
+              placeholder="http://loinc.org"
+            />
+            <TextField
+              size="small"
+              label="Code"
+              value={conceptVal.code || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...conceptVal, code: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 100 }}
+              placeholder="12345-6"
+            />
+          </Stack>
+        )
+      }
+      case 'quantity': {
+        const qtyVal = (param.value as { value?: number; unit?: string }) || {}
+        return (
+          <Stack direction="row" spacing={1}>
+            <TextField
+              size="small"
+              label="Value"
+              type="number"
+              value={qtyVal.value ?? ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...qtyVal, value: e.target.value === '' ? undefined : parseFloat(e.target.value) },
+              })}
+              sx={{ width: 120 }}
+            />
+            <UcumUnitField
+              label="Unit"
+              value={qtyVal.unit || ''}
+              onChange={(unit) => handleUpdate(param.uniqueId, {
+                value: { ...qtyVal, unit: unit || undefined },
+              })}
+              sx={{ width: 200 }}
+            />
+          </Stack>
+        )
+      }
       default:
         return (
           <TextField

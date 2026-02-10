@@ -6,16 +6,31 @@ import type { CqlTranslationResponse } from '../../../types'
 
 interface CqlPreviewPanelProps {
   artifactId: number
+  onSaveBeforeGenerate?: () => Promise<void>
+  isDirty?: boolean
 }
 
-export default function CqlPreviewPanel({ artifactId }: CqlPreviewPanelProps) {
+export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDirty }: CqlPreviewPanelProps) {
   const [cql, setCql] = useState<string | null>(null)
   const [validation, setValidation] = useState<CqlTranslationResponse | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const generateMutation = useGenerateArtifactCql()
   const validateMutation = useValidateArtifactCql()
 
-  const handleGenerate = () => {
+  const saveFirst = async () => {
+    if (isDirty && onSaveBeforeGenerate) {
+      setSaving(true)
+      try {
+        await onSaveBeforeGenerate()
+      } finally {
+        setSaving(false)
+      }
+    }
+  }
+
+  const handleGenerate = async () => {
+    await saveFirst()
     generateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setCql(data.cql)
@@ -24,12 +39,12 @@ export default function CqlPreviewPanel({ artifactId }: CqlPreviewPanelProps) {
     })
   }
 
-  const handleValidate = () => {
+  const handleValidate = async () => {
+    await saveFirst()
     validateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setValidation(data)
         if (!cql) {
-          // Also generate CQL if not already shown
           generateMutation.mutate(artifactId, {
             onSuccess: (genData) => setCql(genData.cql),
           })
@@ -38,18 +53,26 @@ export default function CqlPreviewPanel({ artifactId }: CqlPreviewPanelProps) {
     })
   }
 
-  const isLoading = generateMutation.isPending || validateMutation.isPending
+  const isLoading = generateMutation.isPending || validateMutation.isPending || saving
   const errors = validation?.errors || []
   const hasErrors = errors.length > 0
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {isDirty && (
+        <Alert severity="info" sx={{ mb: 1 }} icon={false}>
+          <Typography variant="caption">
+            You have unsaved changes. They will be auto-saved when you generate or validate.
+          </Typography>
+        </Alert>
+      )}
+
       <Stack direction="row" spacing={1} mb={2}>
         <GradientButton onClick={handleGenerate} disabled={isLoading}>
-          Generate CQL
+          {saving ? 'Saving...' : 'Generate CQL'}
         </GradientButton>
         <GradientButton onClick={handleValidate} disabled={isLoading}>
-          Validate
+          {saving ? 'Saving...' : 'Validate'}
         </GradientButton>
         {isLoading && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
       </Stack>

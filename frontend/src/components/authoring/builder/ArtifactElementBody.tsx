@@ -312,6 +312,25 @@ function FieldRenderer({
     )
   }
 
+  // Add guidance for element_name and comment fields
+  const getFieldHints = (f: ElementField): { placeholder?: string; helperText?: string } => {
+    if (f.id === 'element_name') {
+      return {
+        placeholder: 'e.g. "Male Patients", "Adults 20-40"',
+        helperText: 'Optional. Custom label for this element in the expression tree.',
+      }
+    }
+    if (f.id === 'comment') {
+      return {
+        placeholder: 'e.g. "Filter for adult male patients per guideline X"',
+        helperText: 'Optional. Internal note for documentation purposes.',
+      }
+    }
+    return {}
+  }
+
+  const hints = getFieldHints(field)
+
   switch (field.type) {
     case 'string':
       return (
@@ -319,6 +338,8 @@ function FieldRenderer({
           label={field.name}
           value={(field.value as string) || ''}
           onChange={onChange}
+          placeholder={hints.placeholder}
+          helperText={hints.helperText}
         />
       )
     case 'textarea':
@@ -327,6 +348,8 @@ function FieldRenderer({
           label={field.name}
           value={(field.value as string) || ''}
           onChange={onChange}
+          placeholder={hints.placeholder}
+          helperText={hints.helperText}
         />
       )
     case 'number':

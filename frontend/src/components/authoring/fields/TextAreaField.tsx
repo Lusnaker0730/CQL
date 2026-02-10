@@ -4,9 +4,11 @@ interface TextAreaFieldProps {
   label: string
   value: string
   onChange: (value: string) => void
+  placeholder?: string
+  helperText?: string
 }
 
-export default function TextAreaField({ label, value, onChange }: TextAreaFieldProps) {
+export default function TextAreaField({ label, value, onChange, placeholder, helperText }: TextAreaFieldProps) {
   return (
     <TextField
       label={label}
@@ -16,6 +18,8 @@ export default function TextAreaField({ label, value, onChange }: TextAreaFieldP
       fullWidth
       multiline
       rows={2}
+      placeholder={placeholder}
+      helperText={helperText}
     />
   )
 }

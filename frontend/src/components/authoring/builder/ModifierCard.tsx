@@ -3,6 +3,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, Alert,
 } from '@mui/material'
 import { Close as RemoveIcon, Warning as WarnIcon } from '@mui/icons-material'
+import UcumUnitField from '../fields/UcumUnitField'
 import type { Modifier } from '../../../types/authoring'
 
 const TIME_UNITS = [
@@ -177,13 +178,11 @@ function ModifierValueEditor({
           />
         </Stack>
         {(modifier.values.unit !== undefined) && (
-          <TextField
-            size="small"
+          <UcumUnitField
             label="Unit"
-            value={modifier.values.unit ?? ''}
-            onChange={(e) => onValueChange('unit', e.target.value)}
-            sx={{ width: 150 }}
-            placeholder="e.g. mg/dL"
+            value={(modifier.values.unit as string) ?? ''}
+            onChange={(val) => onValueChange('unit', val)}
+            sx={{ width: 220 }}
           />
         )}
       </Stack>
@@ -195,12 +194,10 @@ function ModifierValueEditor({
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">Unit:</Typography>
-        <TextField
-          size="small"
-          value={modifier.values.unit ?? ''}
-          onChange={(e) => onValueChange('unit', e.target.value)}
-          sx={{ width: 200 }}
-          placeholder="e.g. mg/dL, mmol/L, %"
+        <UcumUnitField
+          value={(modifier.values.unit as string) ?? ''}
+          onChange={(val) => onValueChange('unit', val)}
+          sx={{ width: 250 }}
         />
       </Stack>
     )
@@ -274,6 +271,64 @@ function ModifierValueEditor({
     )
   }
 
+  // Qualifier: qualifier type + value set or code
+  if (modType === 'Qualifier') {
+    return (
+      <Stack spacing={1} mt={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" color="text.secondary">Match by:</Typography>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              value={modifier.values.qualifier ?? 'value set'}
+              displayEmpty
+              onChange={(e) => onValueChange('qualifier', e.target.value)}
+            >
+              <MenuItem value="value set">Value Set</MenuItem>
+              <MenuItem value="code">Code</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
+        {(modifier.values.qualifier ?? 'value set') === 'value set' ? (
+          <TextField
+            size="small"
+            label="Value Set Name"
+            value={modifier.values.valueSet ?? ''}
+            onChange={(e) => onValueChange('valueSet', e.target.value)}
+            sx={{ flex: 1 }}
+            placeholder="Enter value set name..."
+          />
+        ) : (
+          <TextField
+            size="small"
+            label="Code"
+            value={modifier.values.code ?? ''}
+            onChange={(e) => onValueChange('code', e.target.value)}
+            sx={{ flex: 1 }}
+            placeholder="Enter code..."
+          />
+        )}
+      </Stack>
+    )
+  }
+
+  // Before/After Interval: value input
+  if (modType === 'BeforeInterval' || modType === 'AfterInterval') {
+    return (
+      <Stack direction="row" spacing={1} mt={1} alignItems="center">
+        <Typography variant="body2" color="text.secondary">
+          {modType === 'BeforeInterval' ? 'Before:' : 'After:'}
+        </Typography>
+        <TextField
+          size="small"
+          value={modifier.values.value ?? ''}
+          onChange={(e) => onValueChange('value', e.target.value)}
+          sx={{ flex: 1 }}
+          placeholder="Enter value or expression..."
+        />
+      </Stack>
+    )
+  }
+
   // Contains modifiers: value (+ optional unit for quantity)
   if (modType.startsWith('Contains')) {
     return (
@@ -287,12 +342,10 @@ function ModifierValueEditor({
           placeholder="Value"
         />
         {modifier.values.unit !== undefined && (
-          <TextField
-            size="small"
-            value={modifier.values.unit ?? ''}
-            onChange={(e) => onValueChange('unit', e.target.value)}
-            sx={{ width: 120 }}
-            placeholder="Unit"
+          <UcumUnitField
+            value={(modifier.values.unit as string) ?? ''}
+            onChange={(val) => onValueChange('unit', val)}
+            sx={{ width: 200 }}
           />
         )}
       </Stack>
@@ -342,6 +395,20 @@ function getMissingRequiredFields(modifier: Modifier): string[] {
 
   // String modifiers require value
   if (['EqualsString', 'StartsWithString', 'EndsWithString'].includes(modifier.cqlTemplate || '')) {
+    return modifier.values?.value ? [] : ['value']
+  }
+
+  // Qualifier requires valueSet or code depending on qualifier type
+  if (modifier.cqlTemplate === 'Qualifier') {
+    const qualifier = (modifier.values?.qualifier as string) ?? 'value set'
+    if (qualifier === 'value set') {
+      return modifier.values?.valueSet ? [] : ['valueSet']
+    }
+    return modifier.values?.code ? [] : ['code']
+  }
+
+  // Before/After Interval require value
+  if (modifier.cqlTemplate === 'BeforeInterval' || modifier.cqlTemplate === 'AfterInterval') {
     return modifier.values?.value ? [] : ['value']
   }
 

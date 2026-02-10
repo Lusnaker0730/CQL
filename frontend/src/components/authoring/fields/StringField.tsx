@@ -4,9 +4,11 @@ interface StringFieldProps {
   label: string
   value: string
   onChange: (value: string) => void
+  placeholder?: string
+  helperText?: string
 }
 
-export default function StringField({ label, value, onChange }: StringFieldProps) {
+export default function StringField({ label, value, onChange, placeholder, helperText }: StringFieldProps) {
   return (
     <TextField
       label={label}
@@ -14,6 +16,8 @@ export default function StringField({ label, value, onChange }: StringFieldProps
       value={value}
       onChange={(e) => onChange(e.target.value)}
       fullWidth
+      placeholder={placeholder}
+      helperText={helperText}
     />
   )
 }
