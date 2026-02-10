@@ -62,10 +62,10 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }}>Population</TableCell>
-              <TableCell sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Expected</TableCell>
-              <TableCell sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Actual</TableCell>
-              <TableCell sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Result</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }}>Population</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Expected</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Actual</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Result</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

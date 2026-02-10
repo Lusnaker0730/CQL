@@ -46,20 +46,7 @@ import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, use
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
-
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index} style={{ height: '100%' }}>
-      {value === index && <Box sx={{ height: '100%' }}>{children}</Box>}
-    </div>
-  )
-}
+import TabPanel, { a11yProps } from '../components/common/TabPanel'
 
 export default function EditorPage() {
   const dispatch = useDispatch()
@@ -279,6 +266,7 @@ export default function EditorPage() {
                       <IconButton
                         size="small"
                         onClick={() => toggleFavorite(lastSavedLibraryId)}
+                        aria-label="Toggle favorite"
                         sx={{ color: isFavorite(lastSavedLibraryId) ? 'warning.main' : 'text.secondary' }}
                       >
                         {isFavorite(lastSavedLibraryId) ? <StarIcon /> : <StarBorderIcon />}
@@ -451,21 +439,21 @@ export default function EditorPage() {
                     bgcolor: 'rgba(27,58,92,0.03)',
                   }}
                 >
-                  <Tab label="ELM / Errors" />
-                  <Tab label="Execute" />
-                  <Tab label="Dependencies" />
+                  <Tab label="ELM / Errors" {...a11yProps(0, 'editor')} />
+                  <Tab label="Execute" {...a11yProps(1, 'editor')} />
+                  <Tab label="Dependencies" {...a11yProps(2, 'editor')} />
                 </Tabs>
                 <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-                  <TabPanel value={rightPanelTab} index={0}>
+                  <TabPanel value={rightPanelTab} index={0} prefix="editor" sx={{ height: '100%' }}>
                     <ElmViewer
                       terminologyResults={terminologyResults}
                       isTermValidating={isTermValidating}
                     />
                   </TabPanel>
-                  <TabPanel value={rightPanelTab} index={1}>
+                  <TabPanel value={rightPanelTab} index={1} prefix="editor" sx={{ height: '100%' }}>
                     <ExecutionPanel />
                   </TabPanel>
-                  <TabPanel value={rightPanelTab} index={2}>
+                  <TabPanel value={rightPanelTab} index={2} prefix="editor" sx={{ height: '100%' }}>
                     <LibraryDependencyPanel
                       libraryId={lastSavedLibraryId}
                       libraryName={libraryName || null}

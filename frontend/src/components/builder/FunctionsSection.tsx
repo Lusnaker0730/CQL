@@ -134,7 +134,7 @@ export default function FunctionsSection({ functions, onInsert }: FunctionsSecti
                 ))}
               </TextField>
               {args.length > 1 && (
-                <IconButton size="small" onClick={() => removeArg(idx)}>
+                <IconButton size="small" onClick={() => removeArg(idx)} aria-label="Remove argument">
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               )}

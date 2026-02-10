@@ -87,21 +87,9 @@ import FhirServerUrlField from '../common/FhirServerUrlField'
 import ApiKeyManager from './ApiKeyManager'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
-
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props
-  return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
-    </div>
-  )
-}
+import TabPanel, { a11yProps } from '../common/TabPanel'
+import TableSkeleton from '../common/TableSkeleton'
+import CardListSkeleton from '../common/CardListSkeleton'
 
 const HOOK_TYPES = [
   'patient-view',
@@ -124,26 +112,26 @@ export default function CdsPanel() {
       </Typography>
 
       <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
-        <Tab label="Invoke Service" />
-        <Tab label="Manage Services" />
-        <Tab label="Analytics" icon={<AnalyticsIcon />} iconPosition="start" />
-        <Tab label="Sandbox" />
-        <Tab label="API Keys" icon={<KeyIcon />} iconPosition="start" />
+        <Tab label="Invoke Service" {...a11yProps(0, 'cds')} />
+        <Tab label="Manage Services" {...a11yProps(1, 'cds')} />
+        <Tab label="Analytics" icon={<AnalyticsIcon />} iconPosition="start" {...a11yProps(2, 'cds')} />
+        <Tab label="Sandbox" {...a11yProps(3, 'cds')} />
+        <Tab label="API Keys" icon={<KeyIcon />} iconPosition="start" {...a11yProps(4, 'cds')} />
       </Tabs>
 
-      <TabPanel value={tabValue} index={0}>
+      <TabPanel value={tabValue} index={0} prefix="cds" sx={{ pt: 2 }}>
         <InvokeServicePanel />
       </TabPanel>
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={1} prefix="cds" sx={{ pt: 2 }}>
         <ManageServicesPanel />
       </TabPanel>
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={2} prefix="cds" sx={{ pt: 2 }}>
         <AnalyticsPanel />
       </TabPanel>
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={3} prefix="cds" sx={{ pt: 2 }}>
         <SandboxPanel />
       </TabPanel>
-      <TabPanel value={tabValue} index={4}>
+      <TabPanel value={tabValue} index={4} prefix="cds" sx={{ pt: 2 }}>
         <ApiKeyManager />
       </TabPanel>
     </Paper>
@@ -658,7 +646,7 @@ function ManageServicesPanel() {
     }
   }
 
-  if (isLoading) return <CircularProgress />
+  if (isLoading) return <TableSkeleton columns={5} />
   if (isError) return <Alert severity="error">Failed to load services</Alert>
 
   return (
@@ -758,6 +746,7 @@ function ManageServicesPanel() {
                       size="small"
                       onClick={(e) => { e.stopPropagation(); handleShowVersions(service.serviceName!) }}
                       title="View versions"
+                      aria-label="View versions"
                     >
                       <HistoryIcon fontSize="small" />
                     </IconButton>
@@ -770,6 +759,7 @@ function ManageServicesPanel() {
                     }}
                     sx={{ color: service.shared ? 'primary.main' : 'text.secondary' }}
                     title={service.shared ? 'Unshare service' : 'Share service'}
+                    aria-label={service.shared ? 'Unshare service' : 'Share service'}
                   >
                     <ShareIcon fontSize="small" />
                   </IconButton>
@@ -778,6 +768,7 @@ function ManageServicesPanel() {
                     onClick={(e) => { e.stopPropagation(); handleOpenEdit(service) }}
                     sx={{ color: 'primary.main' }}
                     disabled={!isOwner && !isShared}
+                    aria-label="Edit service"
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
@@ -786,6 +777,7 @@ function ManageServicesPanel() {
                     color="error"
                     onClick={(e) => { e.stopPropagation(); handleDelete(service.id) }}
                     disabled={!isOwner}
+                    aria-label="Delete service"
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -972,7 +964,7 @@ function ManageServicesPanel() {
 function AnalyticsPanel() {
   const { data: analytics, isLoading, isError } = useCdsAnalytics()
 
-  if (isLoading) return <CircularProgress />
+  if (isLoading) return <CardListSkeleton />
   if (isError) return <Alert severity="error">Failed to load analytics</Alert>
 
   if (!analytics || analytics.length === 0) {
@@ -986,14 +978,14 @@ function AnalyticsPanel() {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Service</TableCell>
-            <TableCell align="right">Invocations</TableCell>
-            <TableCell align="right">Errors</TableCell>
-            <TableCell align="right">Error Rate</TableCell>
-            <TableCell align="right">Avg Time (ms)</TableCell>
-            <TableCell align="right">Accepted</TableCell>
-            <TableCell align="right">Overridden</TableCell>
-            <TableCell>Last Invoked</TableCell>
+            <TableCell scope="col">Service</TableCell>
+            <TableCell scope="col" align="right">Invocations</TableCell>
+            <TableCell scope="col" align="right">Errors</TableCell>
+            <TableCell scope="col" align="right">Error Rate</TableCell>
+            <TableCell scope="col" align="right">Avg Time (ms)</TableCell>
+            <TableCell scope="col" align="right">Accepted</TableCell>
+            <TableCell scope="col" align="right">Overridden</TableCell>
+            <TableCell scope="col">Last Invoked</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

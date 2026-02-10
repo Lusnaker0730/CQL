@@ -208,10 +208,10 @@ export default function ExecutionPanel() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell width={40}></TableCell>
-                    <TableCell>Expression</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Value</TableCell>
+                    <TableCell scope="col" width={40}></TableCell>
+                    <TableCell scope="col">Expression</TableCell>
+                    <TableCell scope="col">Type</TableCell>
+                    <TableCell scope="col">Value</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -224,6 +224,7 @@ export default function ExecutionPanel() {
                               size="small"
                               onClick={() => toggleExpanded(name)}
                               sx={{ color: 'primary.main' }}
+                              aria-label="Toggle result details"
                             >
                               {expandedResults.has(name) ? (
                                 <ExpandLessIcon />

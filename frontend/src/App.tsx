@@ -1,15 +1,18 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Box } from '@mui/material'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
-import EditorPage from './pages/EditorPage'
-import CdsPage from './pages/CdsPage'
-import MeasuresPage from './pages/MeasuresPage'
-import FhirPage from './pages/FhirPage'
-import TerminologyPage from './pages/TerminologyPage'
 import LoginPage from './pages/LoginPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import ErrorBoundary from './components/common/ErrorBoundary'
+import PageLoadingFallback from './components/common/PageLoadingFallback'
+
+const EditorPage = lazy(() => import('./pages/EditorPage'))
+const CdsPage = lazy(() => import('./pages/CdsPage'))
+const MeasuresPage = lazy(() => import('./pages/MeasuresPage'))
+const FhirPage = lazy(() => import('./pages/FhirPage'))
+const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 
 export default function App() {
   return (
@@ -32,48 +35,50 @@ export default function App() {
                         : 'linear-gradient(180deg, #EDF2F6 0%, #F4F7F9 50%, #F9FBFC 100%)',
                   }}
                 >
-                  <Routes>
-                    <Route
-                      path="/"
-                      element={
-                        <ErrorBoundary fallbackTitle="Editor Error">
-                          <EditorPage />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/cds"
-                      element={
-                        <ErrorBoundary fallbackTitle="CDS Hooks Error">
-                          <CdsPage />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/measures"
-                      element={
-                        <ErrorBoundary fallbackTitle="Measures Error">
-                          <MeasuresPage />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/fhir"
-                      element={
-                        <ErrorBoundary fallbackTitle="FHIR Browser Error">
-                          <FhirPage />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/terminology"
-                      element={
-                        <ErrorBoundary fallbackTitle="Terminology Error">
-                          <TerminologyPage />
-                        </ErrorBoundary>
-                      }
-                    />
-                  </Routes>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <Routes>
+                      <Route
+                        path="/"
+                        element={
+                          <ErrorBoundary fallbackTitle="Editor Error">
+                            <EditorPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/cds"
+                        element={
+                          <ErrorBoundary fallbackTitle="CDS Hooks Error">
+                            <CdsPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/measures"
+                        element={
+                          <ErrorBoundary fallbackTitle="Measures Error">
+                            <MeasuresPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/fhir"
+                        element={
+                          <ErrorBoundary fallbackTitle="FHIR Browser Error">
+                            <FhirPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/terminology"
+                        element={
+                          <ErrorBoundary fallbackTitle="Terminology Error">
+                            <TerminologyPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                    </Routes>
+                  </Suspense>
                 </Box>
                 <Footer />
               </Box>

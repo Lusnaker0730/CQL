@@ -24,20 +24,7 @@ import {
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import type { TerminologyValidationItem } from '../../types'
-
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
-    </div>
-  )
-}
+import TabPanel, { a11yProps } from '../common/TabPanel'
 
 interface ElmViewerProps {
   terminologyResults?: TerminologyValidationItem[]
@@ -74,8 +61,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
   return (
     <Paper sx={{ height: '100%', overflow: 'auto' }}>
       <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-        <Tab label="Metadata" />
+        <Tab label="Metadata" {...a11yProps(0, 'elm')} />
         <Tab
+          {...a11yProps(1, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
               <span>Errors</span>
@@ -86,6 +74,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           }
         />
         <Tab
+          {...a11yProps(2, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
               <span>Warnings</span>
@@ -95,8 +84,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             </Stack>
           }
         />
-        <Tab label="ELM JSON" />
+        <Tab label="ELM JSON" {...a11yProps(3, 'elm')} />
         <Tab
+          {...a11yProps(4, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
               <span>Terminology</span>
@@ -114,7 +104,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         />
       </Tabs>
 
-      <TabPanel value={tabValue} index={0}>
+      <TabPanel value={tabValue} index={0} prefix="elm" sx={{ p: 2 }}>
         {metadata ? (
           <Stack spacing={2}>
             <Box>
@@ -243,7 +233,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={1} prefix="elm" sx={{ p: 2 }}>
         {errors.length > 0 ? (
           <Stack spacing={1}>
             {errors.map((error, i) => (
@@ -270,7 +260,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={2} prefix="elm" sx={{ p: 2 }}>
         {warnings.length > 0 ? (
           <Stack spacing={1}>
             {warnings.map((warning, i) => (
@@ -297,7 +287,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={3} prefix="elm" sx={{ p: 2 }}>
         {elmJson ? (
           <Box
             component="pre"
@@ -322,7 +312,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={4}>
+      <TabPanel value={tabValue} index={4} prefix="elm" sx={{ p: 2 }}>
         {isTermValidating ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={20} />
@@ -333,11 +323,11 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, width: 40 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Reference</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Detail</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600, width: 40 }}>Status</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Type</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Name</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Reference</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Detail</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

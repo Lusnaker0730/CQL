@@ -153,10 +153,10 @@ export default function BatchEvaluationDialog({
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Measure Name</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Score</TableCell>
-                      <TableCell>Error Message</TableCell>
+                      <TableCell scope="col">Measure Name</TableCell>
+                      <TableCell scope="col">Status</TableCell>
+                      <TableCell scope="col">Score</TableCell>
+                      <TableCell scope="col">Error Message</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

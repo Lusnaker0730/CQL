@@ -18,7 +18,6 @@ import {
   DialogActions,
   MenuItem,
   Alert,
-  CircularProgress,
   Tabs,
   Tab,
   Tooltip,
@@ -41,6 +40,7 @@ import { Checkbox } from '@mui/material'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import StatusChip from '../common/StatusChip'
+import TableSkeleton from '../common/TableSkeleton'
 import BatchEvaluationDialog from './BatchEvaluationDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
@@ -235,13 +235,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         <Tab label="Public" />
       </Tabs>
 
-      {isLoading && <CircularProgress size={24} />}
+      {isLoading && <TableSkeleton columns={6} hasCheckbox />}
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" width={40}>
+              <TableCell scope="col" padding="checkbox" width={40}>
                 <Checkbox
                   size="small"
                   checked={measures.length > 0 && selectedMeasureIds.size === measures.length}
@@ -255,12 +255,12 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   }}
                 />
               </TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Version</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Scoring</TableCell>
-              <TableCell>Owner</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell scope="col">Name</TableCell>
+              <TableCell scope="col">Version</TableCell>
+              <TableCell scope="col">Status</TableCell>
+              <TableCell scope="col">Scoring</TableCell>
+              <TableCell scope="col">Owner</TableCell>
+              <TableCell scope="col" align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -313,13 +313,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   )}
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton size="small" onClick={(e) => handleEdit(m.id!, e)}>
+                  <IconButton size="small" aria-label="Edit measure" onClick={(e) => handleEdit(m.id!, e)}>
                     <EditIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleExport(m.id!) }}>
+                  <IconButton size="small" aria-label="Export measure" onClick={(e) => { e.stopPropagation(); handleExport(m.id!) }}>
                     <DownloadIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id!) }}>
+                  <IconButton size="small" aria-label="Delete measure" color="error" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id!) }}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>

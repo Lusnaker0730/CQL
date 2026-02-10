@@ -9,6 +9,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-monaco': ['monaco-editor'],
+          'vendor-mui': ['@mui/material', '@mui/icons-material'],
+          'vendor-state': ['@tanstack/react-query', 'react-redux', '@reduxjs/toolkit'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

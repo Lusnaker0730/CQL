@@ -6,7 +6,6 @@ import {
   TextField,
   Button,
   Alert,
-  CircularProgress,
   Chip,
   IconButton,
   Dialog,
@@ -31,6 +30,7 @@ import {
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '../../hooks/useCdsHooks'
 import { useNotification } from '../../hooks/useNotification'
 import GradientButton from '../common/GradientButton'
+import TableSkeleton from '../common/TableSkeleton'
 
 export default function ApiKeyManager() {
   const { data: keys, isLoading, isError } = useApiKeys()
@@ -74,7 +74,7 @@ export default function ApiKeyManager() {
     showNotification('Copied to clipboard', 'info')
   }
 
-  if (isLoading) return <CircularProgress />
+  if (isLoading) return <TableSkeleton columns={4} rows={3} />
   if (isError) return <Alert severity="error">Failed to load API keys</Alert>
 
   return (
@@ -97,7 +97,7 @@ export default function ApiKeyManager() {
             {perUserEndpoint}
           </Typography>
           <Tooltip title="Copy endpoint URL">
-            <IconButton size="small" onClick={() => handleCopy(perUserEndpoint)}>
+            <IconButton size="small" onClick={() => handleCopy(perUserEndpoint)} aria-label="Copy endpoint URL">
               <CopyIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -129,12 +129,12 @@ export default function ApiKeyManager() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Key</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Last Used</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell scope="col">Name</TableCell>
+                <TableCell scope="col">Key</TableCell>
+                <TableCell scope="col">Created</TableCell>
+                <TableCell scope="col">Last Used</TableCell>
+                <TableCell scope="col">Status</TableCell>
+                <TableCell scope="col" align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -166,6 +166,7 @@ export default function ApiKeyManager() {
                         color="error"
                         onClick={() => handleRevoke(key.id)}
                         disabled={revokeMutation.isPending}
+                        aria-label="Revoke API key"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -216,7 +217,7 @@ export default function ApiKeyManager() {
                     {newlyCreatedKey}
                   </Typography>
                   <Tooltip title="Copy key">
-                    <IconButton onClick={() => handleCopy(newlyCreatedKey)}>
+                    <IconButton onClick={() => handleCopy(newlyCreatedKey)} aria-label="Copy API key">
                       <CopyIcon />
                     </IconButton>
                   </Tooltip>

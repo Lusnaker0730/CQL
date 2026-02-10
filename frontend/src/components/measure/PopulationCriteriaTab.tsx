@@ -465,7 +465,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
                   <Chip label={`${pops.length} populations`} size="small" />
                 </Stack>
                 {groups.length > 1 && (
-                  <IconButton size="small" color="error" onClick={() => removeGroup(groupIdx)}>
+                  <IconButton size="small" aria-label="Remove group" color="error" onClick={() => removeGroup(groupIdx)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 )}
@@ -616,7 +616,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
                             </MenuItem>
                           ))}
                         </TextField>
-                        <IconButton size="small" color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
+                        <IconButton size="small" aria-label="Remove stratifier" color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Stack>

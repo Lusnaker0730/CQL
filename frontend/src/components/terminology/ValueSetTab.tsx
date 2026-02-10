@@ -193,10 +193,11 @@ export default function ValueSetTab() {
                       size="small"
                       title="Copy to CQL"
                       onClick={(e) => { e.stopPropagation(); handleCopyCql(vs) }}
+                      aria-label="Copy to CQL"
                     >
                       <CopyIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" title="Expand">
+                    <IconButton size="small" title="Expand" aria-label="Expand value set">
                       <ExpandIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -247,9 +248,9 @@ export default function ValueSetTab() {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>System</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Display</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>System</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Code</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Display</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

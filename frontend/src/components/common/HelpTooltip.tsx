@@ -8,7 +8,7 @@ interface HelpTooltipProps {
 export default function HelpTooltip({ text }: HelpTooltipProps) {
   return (
     <Tooltip title={text} arrow placement="top">
-      <IconButton size="small" sx={{ color: 'text.secondary', p: 0.25 }}>
+      <IconButton size="small" sx={{ color: 'text.secondary', p: 0.25 }} aria-label="Help">
         <HelpIcon sx={{ fontSize: 16 }} />
       </IconButton>
     </Tooltip>

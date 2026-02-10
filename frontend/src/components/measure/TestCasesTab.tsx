@@ -225,23 +225,23 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
               </Stack>
             )}
             <Tooltip title="Run with coverage">
-              <IconButton size="small" onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
+              <IconButton size="small" aria-label="Run with coverage" onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
                 <RunIcon fontSize="small" color="secondary" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Run this test case">
-              <IconButton size="small" onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
+              <IconButton size="small" aria-label="Run test case" onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
                 {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
             <Tooltip title="Export JSON">
-              <IconButton size="small" onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
+              <IconButton size="small" aria-label="Export test case JSON" onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title="Edit">
-              <IconButton size="small" onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
+              <IconButton size="small" aria-label="Edit test case" onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title="Delete">
-              <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
+              <IconButton size="small" aria-label="Delete test case" color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
             </Tooltip>
           </Stack>
         </Stack>

@@ -101,7 +101,7 @@ export default function PopulationCard({
         </Stack>
         <Tooltip title={canRemove ? 'Remove population' : 'Required populations cannot be removed'}>
           <span>
-            <IconButton size="small" color="error" onClick={onRemove} disabled={!canRemove}>
+            <IconButton size="small" color="error" onClick={onRemove} disabled={!canRemove} aria-label="Remove population">
               <DeleteIcon fontSize="small" />
             </IconButton>
           </span>

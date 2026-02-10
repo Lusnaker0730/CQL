@@ -78,7 +78,7 @@ function CodingField({
         onChange={(e) => onChange({ ...coding, display: e.target.value })}
         sx={{ flex: 1 }}
       />
-      <IconButton size="small" onClick={onRemove} sx={{ mt: 0.5 }}>
+      <IconButton size="small" onClick={onRemove} sx={{ mt: 0.5 }} aria-label="Remove coding">
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Box>

@@ -30,7 +30,7 @@ export default function ArrayFieldWrapper({
       {items.map((item, i) => (
         <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 0.5 }}>
           <Box sx={{ flex: 1 }}>{renderItem(item, i)}</Box>
-          <IconButton size="small" onClick={() => onRemove(i)} sx={{ mt: 0.5 }}>
+          <IconButton size="small" onClick={() => onRemove(i)} sx={{ mt: 0.5 }} aria-label="Remove item">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>

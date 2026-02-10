@@ -337,9 +337,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell>Population</TableCell>
-                            <TableCell align="right">Count</TableCell>
-                            <TableCell>Subjects</TableCell>
+                            <TableCell scope="col">Population</TableCell>
+                            <TableCell scope="col" align="right">Count</TableCell>
+                            <TableCell scope="col">Subjects</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -376,7 +376,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                         <Stack direction="row" alignItems="center" spacing={1}
                           onClick={() => setStratExpanded(!stratExpanded)}
                           sx={{ cursor: 'pointer' }}>
-                          <IconButton size="small">
+                          <IconButton size="small" aria-label="Toggle stratification details">
                             {stratExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
                           <Typography variant="subtitle2">
@@ -388,10 +388,10 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                             <Table size="small">
                               <TableHead>
                                 <TableRow>
-                                  <TableCell>Stratum</TableCell>
-                                  <TableCell>Value</TableCell>
-                                  <TableCell align="right">Score</TableCell>
-                                  <TableCell>Populations</TableCell>
+                                  <TableCell scope="col">Stratum</TableCell>
+                                  <TableCell scope="col">Value</TableCell>
+                                  <TableCell scope="col" align="right">Score</TableCell>
+                                  <TableCell scope="col">Populations</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>

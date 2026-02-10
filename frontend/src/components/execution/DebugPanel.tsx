@@ -35,11 +35,11 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>#</TableCell>
-              <TableCell>Expression</TableCell>
-              <TableCell>Result</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell width={160}>Time</TableCell>
+              <TableCell scope="col">#</TableCell>
+              <TableCell scope="col">Expression</TableCell>
+              <TableCell scope="col">Result</TableCell>
+              <TableCell scope="col">Type</TableCell>
+              <TableCell scope="col" width={160}>Time</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -119,9 +119,9 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Resource Type</TableCell>
-                  <TableCell>Count</TableCell>
-                  <TableCell width={160}>Time</TableCell>
+                  <TableCell scope="col">Resource Type</TableCell>
+                  <TableCell scope="col">Count</TableCell>
+                  <TableCell scope="col" width={160}>Time</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

@@ -73,14 +73,14 @@ export default function MeasureReportHistory() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell width={40} />
-              <TableCell>Measure</TableCell>
-              <TableCell>Period</TableCell>
-              <TableCell align="right">Score</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell align="right">Duration</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell scope="col" width={40} />
+              <TableCell scope="col">Measure</TableCell>
+              <TableCell scope="col">Period</TableCell>
+              <TableCell scope="col" align="right">Score</TableCell>
+              <TableCell scope="col">Status</TableCell>
+              <TableCell scope="col">Date</TableCell>
+              <TableCell scope="col" align="right">Duration</TableCell>
+              <TableCell scope="col" align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -88,7 +88,7 @@ export default function MeasureReportHistory() {
               <Box component="tbody" key={report.id}>
                 <TableRow hover>
                   <TableCell>
-                    <IconButton size="small" onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
+                    <IconButton size="small" aria-label="Toggle report details" onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
                       {expandedId === report.id ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                     </IconButton>
                   </TableCell>
@@ -122,10 +122,10 @@ export default function MeasureReportHistory() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={(e) => setExportAnchor({ el: e.currentTarget, id: report.id })}>
+                    <IconButton size="small" aria-label="Download report" onClick={(e) => setExportAnchor({ el: e.currentTarget, id: report.id })}>
                       <DownloadIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(report.id)}>
+                    <IconButton size="small" aria-label="Delete report" color="error" onClick={() => deleteMutation.mutate(report.id)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

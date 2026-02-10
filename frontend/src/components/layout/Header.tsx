@@ -8,6 +8,7 @@ import {
   IconButton,
   Box,
   Chip,
+  ButtonBase,
 } from '@mui/material'
 import {
   LocalHospital as MedicalIcon,
@@ -57,13 +58,15 @@ export default function Header() {
     <>
       <AppBar position="static" elevation={0}>
         <Toolbar>
-          <Box
+          <ButtonBase
+            aria-label="Go to home page"
             sx={{
               display: 'flex',
               alignItems: 'center',
               gap: 1.5,
               mr: 4,
-              cursor: 'pointer',
+              borderRadius: '8px',
+              p: 0.5,
             }}
             onClick={() => navigate('/')}
           >
@@ -82,7 +85,7 @@ export default function Header() {
             >
               <MedicalIcon sx={{ fontSize: 22, color: 'white' }} />
             </Box>
-            <Box>
+            <Box sx={{ textAlign: 'left' }}>
               <Typography
                 variant="h6"
                 component="div"
@@ -91,6 +94,7 @@ export default function Header() {
                   fontSize: '1.05rem',
                   lineHeight: 1.2,
                   letterSpacing: '0.02em',
+                  color: 'white',
                 }}
               >
                 CGMH CQL Platform
@@ -102,43 +106,49 @@ export default function Header() {
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   lineHeight: 1,
+                  color: 'white',
                 }}
               >
                 Clinical Quality Language
               </Typography>
             </Box>
-          </Box>
+          </ButtonBase>
 
-          <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1 }}>
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path
-              return (
-                <Button
-                  key={item.path}
-                  color="inherit"
-                  onClick={() => navigate(item.path)}
-                  sx={{
-                    borderRadius: '20px',
-                    px: 2,
-                    py: 0.5,
-                    fontSize: '0.85rem',
-                    fontWeight: isActive ? 600 : 400,
-                    backgroundColor: isActive
-                      ? 'rgba(255,255,255,0.18)'
-                      : 'transparent',
-                    '&:hover': {
+          <nav aria-label="Main navigation">
+            <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1 }}>
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.path
+                return (
+                  <Button
+                    key={item.path}
+                    color="inherit"
+                    onClick={() => navigate(item.path)}
+                    aria-current={isActive ? 'page' : undefined}
+                    sx={{
+                      borderRadius: '20px',
+                      px: 2,
+                      py: 0.5,
+                      fontSize: '0.85rem',
+                      fontWeight: isActive ? 600 : 400,
                       backgroundColor: isActive
-                        ? 'rgba(255,255,255,0.22)'
-                        : 'rgba(255,255,255,0.08)',
-                    },
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {item.label}
-                </Button>
-              )
-            })}
-          </Stack>
+                        ? 'rgba(255,255,255,0.18)'
+                        : 'transparent',
+                      '&:hover': {
+                        backgroundColor: isActive
+                          ? 'rgba(255,255,255,0.22)'
+                          : 'rgba(255,255,255,0.08)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                )
+              })}
+            </Stack>
+          </nav>
+
+          <Box sx={{ flexGrow: 1 }} />
 
           <Stack direction="row" spacing={0.5} alignItems="center">
             {user && (
@@ -158,6 +168,7 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={toggleDarkMode}
+              aria-label={preferences.themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={preferences.themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
@@ -174,6 +185,7 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={() => setPrefsOpen(true)}
+              aria-label="Settings"
               title="Settings"
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
@@ -186,6 +198,7 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={() => setHelpOpen(true)}
+              aria-label="Help"
               title="Help"
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
@@ -199,6 +212,7 @@ export default function Header() {
               color="inherit"
               href="https://github.com"
               target="_blank"
+              aria-label="GitHub"
               title="GitHub"
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
@@ -211,6 +225,7 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={handleLogout}
+              aria-label="Logout"
               title="Logout"
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',

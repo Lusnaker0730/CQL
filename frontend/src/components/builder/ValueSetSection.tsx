@@ -97,7 +97,7 @@ export default function ValueSetSection({ valueSets, onInsert }: ValueSetSection
                       {vs.title || vs.name}
                     </Typography>
                     <Stack direction="row" spacing={0.5}>
-                      <IconButton size="small" onClick={() => handleExpand(vs.url)}>
+                      <IconButton size="small" onClick={() => handleExpand(vs.url)} aria-label="Toggle value set codes">
                         {expandedUrl === vs.url ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
                       </IconButton>
                       <Button

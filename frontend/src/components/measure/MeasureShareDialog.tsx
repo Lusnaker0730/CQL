@@ -185,6 +185,7 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
                 <ListItemSecondaryAction>
                   <IconButton
                     size="small"
+                    aria-label="Unshare with user"
                     onClick={() => handleUnshare(username)}
                     disabled={unshareMutation.isPending}
                     color="error"

@@ -41,6 +41,7 @@ import { useIgPackages, useIgProfiles, useIgValueSets, useIgCodeSystems } from '
 import { fhirApi } from '../../api'
 import type { ProfileSummary, ValueSetSummary, CodeSystemSummary } from '../../types'
 import StatusChip from '../common/StatusChip'
+import CardListSkeleton from '../common/CardListSkeleton'
 
 interface DetailDialogState {
   open: boolean
@@ -77,7 +78,7 @@ export default function ImplementationGuideBrowser() {
 function PackagesTab() {
   const { data: packages, isLoading, error } = useIgPackages()
 
-  if (isLoading) return <CircularProgress size={24} />
+  if (isLoading) return <CardListSkeleton />
   if (error) return <Alert severity="error">Failed to load packages: {(error as Error).message}</Alert>
   if (!packages || packages.length === 0) {
     return <Alert severity="info">No Implementation Guide packages loaded.</Alert>
@@ -196,11 +197,11 @@ function ProfilesTab() {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Kind</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Name</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Title</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Type</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Kind</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -296,10 +297,10 @@ function ValueSetsTab() {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Concepts</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Title</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>URL</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Concepts</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -398,10 +399,10 @@ function CodeSystemsTab() {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Concepts</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Title</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>URL</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Concepts</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

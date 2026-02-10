@@ -1,22 +1,9 @@
 import { useState } from 'react'
-import { Box, Paper, Typography, Tabs, Tab } from '@mui/material'
+import { Paper, Typography, Tabs, Tab } from '@mui/material'
 import ValueSetTab from './ValueSetTab'
 import CodeLookupTab from './CodeLookupTab'
 import CodeValidationTab from './CodeValidationTab'
-
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ py: 2 }}>{children}</Box>}
-    </div>
-  )
-}
+import TabPanel, { a11yProps } from '../common/TabPanel'
 
 export default function TerminologyBrowser() {
   const [tabValue, setTabValue] = useState(0)
@@ -28,18 +15,18 @@ export default function TerminologyBrowser() {
       </Typography>
 
       <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-        <Tab label="ValueSet Search" />
-        <Tab label="Code Lookup" />
-        <Tab label="Code Validation" />
+        <Tab label="ValueSet Search" {...a11yProps(0, 'terminology')} />
+        <Tab label="Code Lookup" {...a11yProps(1, 'terminology')} />
+        <Tab label="Code Validation" {...a11yProps(2, 'terminology')} />
       </Tabs>
 
-      <TabPanel value={tabValue} index={0}>
+      <TabPanel value={tabValue} index={0} prefix="terminology" sx={{ py: 2 }}>
         <ValueSetTab />
       </TabPanel>
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={1} prefix="terminology" sx={{ py: 2 }}>
         <CodeLookupTab />
       </TabPanel>
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={2} prefix="terminology" sx={{ py: 2 }}>
         <CodeValidationTab />
       </TabPanel>
     </Paper>

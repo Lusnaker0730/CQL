@@ -299,7 +299,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate }: MeasureD
                     onChange={(e) => updateDeveloper(i, e.target.value)}
                     placeholder="Developer name or organization"
                   />
-                  <IconButton size="small" color="error" onClick={() => removeDeveloper(i)}>
+                  <IconButton size="small" aria-label="Remove developer" color="error" onClick={() => removeDeveloper(i)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>
@@ -346,7 +346,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate }: MeasureD
                     onChange={(e) => updateReference(i, 'reference', e.target.value)}
                     placeholder="URL or citation text"
                   />
-                  <IconButton size="small" color="error" onClick={() => removeReference(i)}>
+                  <IconButton size="small" aria-label="Remove reference" color="error" onClick={() => removeReference(i)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>

@@ -88,9 +88,9 @@ export default function VersionHistoryDialog({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Version</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Date</TableCell>
+                    <TableCell scope="col">Version</TableCell>
+                    <TableCell scope="col">Status</TableCell>
+                    <TableCell scope="col">Date</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

@@ -12,7 +12,6 @@ import {
   TableHead,
   TableRow,
   Stack,
-  CircularProgress,
   Alert,
 } from '@mui/material'
 import {
@@ -24,6 +23,7 @@ import {
 import { measureApi } from '../api'
 import type { DashboardSummary } from '../types'
 import StatusChip from '../components/common/StatusChip'
+import DashboardSkeleton from '../components/common/DashboardSkeleton'
 
 const TEAL = '#0D7377'
 const TEAL_LIGHT = '#14A3A8'
@@ -228,12 +228,12 @@ function RecentEvaluationsTable({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Measure</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>Measure</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }} align="right">
                   Score
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>Date</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -376,18 +376,7 @@ export default function MeasureDashboardPage() {
   })
 
   if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 400,
-        }}
-      >
-        <CircularProgress sx={{ color: TEAL }} />
-      </Box>
-    )
+    return <DashboardSkeleton />
   }
 
   if (isError) {

@@ -37,6 +37,7 @@ import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
 import type { BulkExportParams, BulkExportStatusResult } from '../../types'
 import FhirServerUrlField from '../common/FhirServerUrlField'
+import TabPanel, { a11yProps } from '../common/TabPanel'
 
 const FHIR_RESOURCE_TYPES = [
   'Patient',
@@ -58,20 +59,6 @@ const FHIR_RESOURCE_TYPES = [
   'Practitioner',
   'Location',
 ]
-
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ py: 2 }}>{children}</Box>}
-    </div>
-  )
-}
 
 export default function FhirBrowser() {
   const [tabValue, setTabValue] = useState(0)
@@ -275,12 +262,12 @@ export default function FhirBrowser() {
         </FormControl>
 
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-          <Tab label="Search" />
-          <Tab label="Read" />
-          <Tab label="Bulk Export" />
+          <Tab label="Search" {...a11yProps(0, 'fhir')} />
+          <Tab label="Read" {...a11yProps(1, 'fhir')} />
+          <Tab label="Bulk Export" {...a11yProps(2, 'fhir')} />
         </Tabs>
 
-        <TabPanel value={tabValue} index={0}>
+        <TabPanel value={tabValue} index={0} prefix="fhir" sx={{ py: 2 }}>
           <Stack spacing={2}>
             <TextField
               label="Search Parameters"
@@ -346,7 +333,7 @@ export default function FhirBrowser() {
           </Stack>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={1}>
+        <TabPanel value={tabValue} index={1} prefix="fhir" sx={{ py: 2 }}>
           <Stack spacing={2}>
             <TextField
               label="Resource ID"
@@ -402,7 +389,7 @@ export default function FhirBrowser() {
           </Stack>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={2} prefix="fhir" sx={{ py: 2 }}>
           <Stack spacing={2}>
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="subtitle2">Bulk Data Export ($export)</Typography>
@@ -541,9 +528,9 @@ export default function FhirBrowser() {
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ fontWeight: 600 }}>Resource Type</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }} align="right">Count</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>Download</TableCell>
+                          <TableCell scope="col" sx={{ fontWeight: 600 }}>Resource Type</TableCell>
+                          <TableCell scope="col" sx={{ fontWeight: 600 }} align="right">Count</TableCell>
+                          <TableCell scope="col" sx={{ fontWeight: 600 }}>Download</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>

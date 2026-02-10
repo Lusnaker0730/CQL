@@ -92,6 +92,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
                 setDeleteId(entry.id)
               }}
               sx={{ ml: 1 }}
+              aria-label="Delete resource"
             >
               <DeleteIcon fontSize="small" />
             </IconButton>

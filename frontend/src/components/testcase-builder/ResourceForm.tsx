@@ -14,9 +14,9 @@ import {
   ListItemButton,
   ListItemText,
   Checkbox,
-  CircularProgress,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Add as AddIcon } from '@mui/icons-material'
+import CardListSkeleton from '../common/CardListSkeleton'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
 import ResourceFormHeader from './ResourceFormHeader'
@@ -79,11 +79,8 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <CircularProgress size={24} />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Loading {activeEntry.resourceType} metadata...
-        </Typography>
+      <Box sx={{ p: 3 }}>
+        <CardListSkeleton count={4} />
       </Box>
     )
   }

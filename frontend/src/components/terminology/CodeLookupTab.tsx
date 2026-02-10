@@ -128,9 +128,9 @@ export default function CodeLookupTab() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 600, py: 0.75 }}>Code</TableCell>
-                      <TableCell sx={{ fontWeight: 600, py: 0.75 }}>Display</TableCell>
-                      <TableCell sx={{ width: 40, py: 0.75 }} />
+                      <TableCell scope="col" sx={{ fontWeight: 600, py: 0.75 }}>Code</TableCell>
+                      <TableCell scope="col" sx={{ fontWeight: 600, py: 0.75 }}>Display</TableCell>
+                      <TableCell scope="col" sx={{ width: 40, py: 0.75 }} />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -157,6 +157,7 @@ export default function CodeLookupTab() {
                                 `code "${r.display}": '${r.code}' from "${label}"`
                               )
                             }}
+                            aria-label="Copy code"
                           >
                             <CopyIcon fontSize="small" />
                           </IconButton>

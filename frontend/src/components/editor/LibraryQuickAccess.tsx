@@ -140,6 +140,7 @@ export default function LibraryQuickAccess() {
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <IconButton
                     size="small"
+                    aria-label="Toggle favorite"
                     onClick={(e) => {
                       e.stopPropagation()
                       toggleFavorite(String(item.libraryId))
@@ -183,6 +184,7 @@ export default function LibraryQuickAccess() {
                 clearRecent()
               }}
               title="Clear recent"
+              aria-label="Clear recent libraries"
             >
               <ClearIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -202,6 +204,7 @@ export default function LibraryQuickAccess() {
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <IconButton
                     size="small"
+                    aria-label="Toggle favorite"
                     onClick={(e) => {
                       e.stopPropagation()
                       toggleFavorite(item.id)
@@ -324,6 +327,7 @@ export default function LibraryQuickAccess() {
                   }}
                   disabled={importRepoMutation.isPending}
                   title="Import to your libraries"
+                  aria-label="Import library"
                 >
                   <ImportIcon sx={{ fontSize: 16 }} />
                 </IconButton>

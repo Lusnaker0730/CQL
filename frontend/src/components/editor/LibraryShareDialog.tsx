@@ -168,6 +168,7 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
                 <ListItemSecondaryAction>
                   <IconButton
                     size="small"
+                    aria-label="Unshare with user"
                     onClick={() => handleUnshare(username)}
                     disabled={unshareMutation.isPending}
                     color="error"

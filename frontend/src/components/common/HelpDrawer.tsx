@@ -22,7 +22,7 @@ export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
           <Typography variant="h6" color="secondary.main">
             Quick Start Guide
           </Typography>
-          <IconButton onClick={onClose}>
+          <IconButton onClick={onClose} aria-label="Close help drawer">
             <CloseIcon />
           </IconButton>
         </Stack>

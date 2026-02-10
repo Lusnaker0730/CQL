@@ -105,13 +105,13 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Enabled</TableCell>
-              <TableCell>Cron</TableCell>
-              <TableCell>Period</TableCell>
-              <TableCell>Last Run</TableCell>
-              <TableCell>Next Run</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell scope="col">Enabled</TableCell>
+              <TableCell scope="col">Cron</TableCell>
+              <TableCell scope="col">Period</TableCell>
+              <TableCell scope="col">Last Run</TableCell>
+              <TableCell scope="col">Next Run</TableCell>
+              <TableCell scope="col">Status</TableCell>
+              <TableCell scope="col" align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -142,11 +142,12 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
                 </TableCell>
                 <TableCell align="right">
                   <IconButton size="small" color="primary"
+                    aria-label="Trigger schedule"
                     disabled={triggerMutation.isPending}
                     onClick={() => triggerMutation.mutate(s.id!)}>
                     <PlayIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(s.id!)}>
+                  <IconButton size="small" aria-label="Delete schedule" color="error" onClick={() => deleteMutation.mutate(s.id!)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
