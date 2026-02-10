@@ -11,10 +11,9 @@ import {
   ListItemButton,
   Alert,
   CircularProgress,
-  Collapse,
   Paper,
 } from '@mui/material'
-import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material'
+import { Add as AddIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 
@@ -39,7 +38,6 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
   const [systemAlias, setSystemAlias] = useState('')
   const [codeValue, setCodeValue] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -76,7 +74,6 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
   const handleSelectSearchResult = (code: string, display: string) => {
     setCodeValue(code)
     setDisplayName(display)
-    setShowSearch(false)
     setSearchText('')
     setDebouncedSearch('')
   }
@@ -95,7 +92,6 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
     setSystemAlias('')
     setCodeValue('')
     setDisplayName('')
-    setShowSearch(false)
     setSearchText('')
     setDebouncedSearch('')
   }
@@ -166,66 +162,53 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
             >
               {lookupMutation.isPending ? <CircularProgress size={16} /> : 'Lookup'}
             </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => setShowSearch(!showSearch)}
-              disabled={!systemUrl}
-              startIcon={<SearchIcon />}
-              sx={{ minWidth: 80 }}
-            >
-              Search
-            </Button>
           </Stack>
 
-          <Collapse in={showSearch}>
-            <Stack spacing={1} sx={{ mt: 0.5 }}>
-              <TextField
-                size="small"
-                label="Search by text"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder='e.g., "diabetes"'
-                InputProps={{
-                  endAdornment: isSearching ? <CircularProgress size={16} /> : null,
-                }}
-              />
-              {searchResults && searchResults.length > 0 && (
-                <Paper variant="outlined" sx={{ maxHeight: 180, overflow: 'auto' }}>
-                  <List dense disablePadding>
-                    {searchResults.map((r) => (
-                      <ListItemButton
-                        key={r.code}
-                        onClick={() => handleSelectSearchResult(r.code, r.display)}
-                        sx={{ py: 0.25 }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                              <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem' }}>
-                                {r.code}
-                              </Typography>
-                              {' — '}{r.display}
-                            </Typography>
-                          }
-                        />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                </Paper>
-              )}
-              {debouncedSearch.length >= 2 && !isSearching && isSearchError && (
-                <Alert severity="warning" sx={{ py: 0, fontSize: '0.8rem' }}>
-                  Search failed — terminology server may be unavailable. Try again later.
-                </Alert>
-              )}
-              {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && !isSearchError && (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  No results found
-                </Typography>
-              )}
-            </Stack>
-          </Collapse>
+          <TextField
+            size="small"
+            label="Search by text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder='e.g., "diabetes"'
+            disabled={!systemUrl}
+            InputProps={{
+              endAdornment: isSearching ? <CircularProgress size={16} /> : null,
+            }}
+          />
+          {searchResults && searchResults.length > 0 && (
+            <Paper variant="outlined" sx={{ maxHeight: 180, overflow: 'auto' }}>
+              <List dense disablePadding>
+                {searchResults.map((r) => (
+                  <ListItemButton
+                    key={r.code}
+                    onClick={() => handleSelectSearchResult(r.code, r.display)}
+                    sx={{ py: 0.25 }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                          <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem' }}>
+                            {r.code}
+                          </Typography>
+                          {' — '}{r.display}
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            </Paper>
+          )}
+          {debouncedSearch.length >= 2 && !isSearching && isSearchError && (
+            <Alert severity="warning" sx={{ py: 0, fontSize: '0.8rem' }}>
+              Search failed — terminology server may be unavailable. Try again later.
+            </Alert>
+          )}
+          {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && !isSearchError && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
+              No results found
+            </Typography>
+          )}
 
           <TextField
             size="small"

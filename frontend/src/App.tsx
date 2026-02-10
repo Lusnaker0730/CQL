@@ -20,6 +20,7 @@ const MeasuresPage = lazy(() => import('./pages/MeasuresPage'))
 const FhirPage = lazy(() => import('./pages/FhirPage'))
 const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
+const AuditDashboardPage = lazy(() => import('./pages/AuditDashboardPage'))
 
 export default function App() {
   const user = useSelector((state: RootState) => state.auth.user)
@@ -95,6 +96,16 @@ export default function App() {
                           <AdminRoute>
                             <ErrorBoundary fallbackTitle="Admin Error">
                               <AdminUsersPage />
+                            </ErrorBoundary>
+                          </AdminRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/audit"
+                        element={
+                          <AdminRoute>
+                            <ErrorBoundary fallbackTitle="Audit Dashboard Error">
+                              <AuditDashboardPage />
                             </ErrorBoundary>
                           </AdminRoute>
                         }

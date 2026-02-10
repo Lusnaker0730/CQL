@@ -865,6 +865,64 @@ export interface BundleBuilderState {
   activeEntryId: string | null
 }
 
+// Audit Dashboard types
+export interface AuditLogEntry {
+  id: number
+  username: string
+  method: string
+  path: string
+  resourceType?: string
+  resourceId?: string
+  action: string
+  statusCode?: number
+  ipAddress?: string
+  userAgent?: string
+  responseTimeMs?: number
+  createdAt: string
+}
+
+export interface AuditLogResponse {
+  content: AuditLogEntry[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface AuditLogSearchParams {
+  username?: string
+  action?: string
+  resourceType?: string
+  startDate?: string
+  endDate?: string
+  statusCode?: number
+  page?: number
+  size?: number
+}
+
+export interface UserActivitySummary {
+  username: string
+  eventCount: number
+  lastActivityAt?: string
+}
+
+export interface DailyActivityCount {
+  date: string
+  count: number
+}
+
+export interface AuditStatsResponse {
+  totalEventsToday: number
+  totalEventsWeek: number
+  totalEventsMonth: number
+  phiAccessCount: number
+  failedLoginAttempts: number
+  activeUsersToday: number
+  actionCounts: Record<string, number>
+  topUsers: UserActivitySummary[]
+  dailyActivity: DailyActivityCount[]
+}
+
 // CQL Repository
 export interface RepositoryLibrary {
   name: string

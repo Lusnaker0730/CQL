@@ -46,7 +46,7 @@ export default function Header() {
   const [helpOpen, setHelpOpen] = useState(false)
 
   const navItems = user?.role === 'ADMIN'
-    ? [...baseNavItems, { label: 'Users', path: '/admin/users' }]
+    ? [...baseNavItems, { label: 'Users', path: '/admin/users' }, { label: 'Audit Log', path: '/admin/audit' }]
     : baseNavItems
 
   const handleLogout = () => {

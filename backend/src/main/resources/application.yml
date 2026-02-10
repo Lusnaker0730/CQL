@@ -135,6 +135,10 @@ measure:
   scheduling:
     enabled: ${MEASURE_SCHEDULING_ENABLED:true}
 
+# Audit Configuration
+audit:
+  retention-days: ${AUDIT_RETENTION_DAYS:365}
+
 # Logging
 logging:
   level:
