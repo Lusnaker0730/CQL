@@ -53,6 +53,22 @@ export function useSetMeasureAccessLevel() {
   })
 }
 
+export function useLockMeasure() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => measureApi.lockMeasure(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
+  })
+}
+
+export function useUnlockMeasure() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => measureApi.unlockMeasure(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
+  })
+}
+
 export function useSubmitForReview() {
   const queryClient = useQueryClient()
   return useMutation({

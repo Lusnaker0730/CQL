@@ -346,6 +346,7 @@ export interface MeasureDefinition {
   groupDefinitions?: GroupDefinition[]
   compositeScoring?: string
   componentMeasureIds?: number[]
+  setting?: string
   createdBy?: string
   createdAt?: string
   updatedAt?: string
@@ -365,6 +366,8 @@ export interface MeasureDefinition {
   ownerUsername?: string
   sharedWith?: string[]
   accessLevel?: string
+  lockedBy?: string
+  lockedAt?: string
 }
 
 export interface MeasureAuditEntry {

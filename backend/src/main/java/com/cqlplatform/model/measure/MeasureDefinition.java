@@ -66,6 +66,11 @@ public class MeasureDefinition {
     private String accessLevel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String lockedBy;
+    private LocalDateTime lockedAt;
+
+    @Pattern(regexp = "inpatient|outpatient|emergency|community|long-term-care|home-health|")
+    private String setting;
 
     // Enhanced metadata fields
     @Size(max = 5000)

@@ -680,6 +680,19 @@ export const measureApi = {
     return response.data
   },
 
+  // Locking
+  lockMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/lock`, { currentUser })
+    return response.data
+  },
+
+  unlockMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/unlock`, { currentUser })
+    return response.data
+  },
+
   // Validation
   validateMeasure: async (id: number): Promise<ValidationReport> => {
     const response = await api.post<ValidationReport>(`/measures/${id}/validate`)

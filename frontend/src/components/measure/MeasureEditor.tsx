@@ -9,6 +9,7 @@ import {
   Button,
   Divider,
   Alert,
+  Chip,
 } from '@mui/material'
 import {
   History as HistoryIcon,
@@ -21,6 +22,8 @@ import {
   Archive as RetireIcon,
   Assignment as AuditIcon,
   Download as DownloadIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
 } from '@mui/icons-material'
 import { Menu, MenuItem } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -45,6 +48,8 @@ import {
   useApproveMeasure,
   useRejectMeasure,
   useRetireMeasure,
+  useLockMeasure,
+  useUnlockMeasure,
 } from '../../hooks/useMeasures'
 
 interface MeasureEditorProps {
@@ -72,6 +77,11 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const approveMutation = useApproveMeasure()
   const rejectMutation = useRejectMeasure()
   const retireMutation = useRetireMeasure()
+  const lockMutation = useLockMeasure()
+  const unlockMutation = useUnlockMeasure()
+
+  const isLockedByOther = !!measure.lockedBy && measure.lockedBy !== currentUser
+  const isLockedByMe = !!measure.lockedBy && measure.lockedBy === currentUser
 
   const handleWorkflowAction = (
     mutation: typeof submitMutation,
@@ -187,6 +197,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           {workflowAlert.message}
         </Alert>
       )}
+      {isLockedByOther && (
+        <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }}>
+          Locked by {measure.lockedBy}
+          {measure.lockedAt && ` at ${new Date(measure.lockedAt).toLocaleString()}`}
+          . Editing disabled.
+        </Alert>
+      )}
       <Stack
         direction="row"
         justifyContent="space-between"
@@ -211,6 +228,63 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           </Button>
         </Stack>
         <Stack direction="row" spacing={0.5} alignItems="center">
+          {!measure.lockedBy && (
+            <Button
+              size="small"
+              startIcon={<LockIcon />}
+              onClick={() => {
+                if (!measure.id) return
+                lockMutation.mutate(measure.id, {
+                  onSuccess: (updated) => {
+                    onMeasureUpdate(updated)
+                    queryClient.invalidateQueries({ queryKey: ['measures'] })
+                  },
+                  onError: (err) => {
+                    setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Lock failed' })
+                    setTimeout(() => setWorkflowAlert(null), 5000)
+                  },
+                })
+              }}
+              disabled={lockMutation.isPending}
+              sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              Lock
+            </Button>
+          )}
+          {isLockedByMe && (
+            <Button
+              size="small"
+              startIcon={<LockOpenIcon />}
+              onClick={() => {
+                if (!measure.id) return
+                unlockMutation.mutate(measure.id, {
+                  onSuccess: (updated) => {
+                    onMeasureUpdate(updated)
+                    queryClient.invalidateQueries({ queryKey: ['measures'] })
+                  },
+                  onError: (err) => {
+                    setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Unlock failed' })
+                    setTimeout(() => setWorkflowAlert(null), 5000)
+                  },
+                })
+              }}
+              disabled={unlockMutation.isPending}
+              color="warning"
+              sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              Unlock
+            </Button>
+          )}
+          {isLockedByOther && (
+            <Chip
+              icon={<LockIcon />}
+              label={`Locked by ${measure.lockedBy}`}
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ fontSize: '0.7rem', height: 24 }}
+            />
+          )}
           <Button
             size="small"
             startIcon={<ShareIcon />}
@@ -314,19 +388,19 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {tab === 0 && (
-          <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} />
+          <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 1 && (
-          <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} />
+          <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 2 && (
-          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} />
+          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 3 && (
           <MeasureEvaluationTab measure={measure} />
         )}
         {tab === 4 && (
-          <TestCasesTab measure={measure} />
+          <TestCasesTab measure={measure} readOnly={isLockedByOther} />
         )}
         {tab === 5 && (
           <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>

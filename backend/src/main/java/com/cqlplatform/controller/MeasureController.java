@@ -546,6 +546,26 @@ public class MeasureController {
         return ResponseEntity.ok(definitionService.retireMeasure(id, currentUser));
     }
 
+    // ===== Locking =====
+
+    @PostMapping("/{id}/lock")
+    @Operation(summary = "Lock Measure", description = "Locks a measure for exclusive editing")
+    public ResponseEntity<MeasureDefinition> lockMeasure(
+            @PathVariable Long id,
+            @Valid @RequestBody WorkflowActionRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.lockMeasure(id, currentUser));
+    }
+
+    @PostMapping("/{id}/unlock")
+    @Operation(summary = "Unlock Measure", description = "Unlocks a measure to allow other users to edit")
+    public ResponseEntity<MeasureDefinition> unlockMeasure(
+            @PathVariable Long id,
+            @Valid @RequestBody WorkflowActionRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.unlockMeasure(id, currentUser));
+    }
+
     // ===== Validation =====
 
     @PostMapping("/{id}/validate")

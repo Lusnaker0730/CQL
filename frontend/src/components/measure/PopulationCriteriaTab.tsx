@@ -45,6 +45,7 @@ import type { MeasureDefinition, GroupDefinition, PopulationDefinition, Stratifi
 interface PopulationCriteriaTabProps {
   measure: MeasureDefinition
   onMeasureUpdate: (updated: MeasureDefinition) => void
+  readOnly?: boolean
 }
 
 interface ValidationMessage {
@@ -61,7 +62,7 @@ function createGroupFromScoring(index: number, scoringType: string): GroupDefini
   }
 }
 
-export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: PopulationCriteriaTabProps) {
+export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOnly }: PopulationCriteriaTabProps) {
   const queryClient = useQueryClient()
   const [groups, setGroups] = useState<GroupDefinition[]>(
     measure.groupDefinitions?.length
@@ -377,7 +378,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate }: Popu
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
-            disabled={!isDirty || hasErrors || saveMutation.isPending}
+            disabled={!isDirty || hasErrors || saveMutation.isPending || readOnly}
             onClick={() => saveMutation.mutate()}
           >
             {saveMutation.isPending ? 'Saving...' : 'Save'}

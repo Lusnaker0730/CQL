@@ -97,6 +97,15 @@ public class MeasureDefinitionEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "locked_by", length = 100)
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    @Column(name = "setting", length = 50)
+    private String setting;
+
     // Enhanced metadata columns
     @Column(name = "rationale", columnDefinition = "TEXT")
     private String rationale;

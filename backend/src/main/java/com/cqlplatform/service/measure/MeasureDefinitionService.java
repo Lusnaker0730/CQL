@@ -41,6 +41,14 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
+        // Check lock — only the lock holder can save while locked
+        if (entity.getLockedBy() != null && !isLockExpired(entity)) {
+            String currentUser = definition.getOwnerUsername(); // caller identity passed via ownerUsername
+            if (currentUser == null || !entity.getLockedBy().equals(currentUser)) {
+                throw new IllegalArgumentException("Measure is locked by " + entity.getLockedBy());
+            }
+        }
+
         entity.setName(definition.getName());
         entity.setVersion(definition.getVersion());
         entity.setTitle(definition.getTitle());
@@ -53,6 +61,7 @@ public class MeasureDefinitionService {
         entity.setGroupDefinitionList(definition.getGroupDefinitions());
         entity.setCompositeScoring(definition.getCompositeScoring());
         entity.setComponentMeasureIdList(definition.getComponentMeasureIds());
+        entity.setSetting(definition.getSetting());
 
         // Enhanced metadata
         entity.setRationale(definition.getRationale());
@@ -262,6 +271,9 @@ public class MeasureDefinitionService {
                 .accessLevel(entity.getAccessLevel())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .lockedBy(entity.getLockedBy())
+                .lockedAt(entity.getLockedAt())
+                .setting(entity.getSetting())
                 // Enhanced metadata
                 .rationale(entity.getRationale())
                 .clinicalGuidance(entity.getClinicalGuidance())
@@ -342,6 +354,55 @@ public class MeasureDefinitionService {
         entity = repository.save(entity);
         recordAudit(id, "ACCESS_CHANGE", currentUser, "Access level changed", oldLevel, accessLevel);
         return entityToModel(entity);
+    }
+
+    // ===== Locking =====
+
+    @Transactional
+    public MeasureDefinition lockMeasure(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+
+        if (entity.getLockedBy() != null && !isLockExpired(entity) && !entity.getLockedBy().equals(currentUser)) {
+            throw new IllegalArgumentException("Measure is already locked by " + entity.getLockedBy());
+        }
+
+        entity.setLockedBy(currentUser);
+        entity.setLockedAt(java.time.LocalDateTime.now());
+        entity = repository.save(entity);
+        recordAudit(id, "LOCK", currentUser, "Locked by " + currentUser, null, null);
+        log.info("Measure {} locked by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    @Transactional
+    public MeasureDefinition unlockMeasure(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+
+        if (entity.getLockedBy() == null) {
+            return entityToModel(entity);
+        }
+
+        // Only the lock holder or the owner can unlock
+        boolean isLockHolder = entity.getLockedBy().equals(currentUser);
+        boolean isOwner = entity.getOwnerUsername() == null || entity.getOwnerUsername().equals(currentUser);
+        if (!isLockHolder && !isOwner) {
+            throw new IllegalArgumentException("Only the lock holder or owner can unlock this measure");
+        }
+
+        String previousHolder = entity.getLockedBy();
+        entity.setLockedBy(null);
+        entity.setLockedAt(null);
+        entity = repository.save(entity);
+        recordAudit(id, "UNLOCK", currentUser, "Unlocked (was locked by " + previousHolder + ")", null, null);
+        log.info("Measure {} unlocked by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    private boolean isLockExpired(MeasureDefinitionEntity entity) {
+        if (entity.getLockedAt() == null) return true;
+        return entity.getLockedAt().plusMinutes(30).isBefore(java.time.LocalDateTime.now());
     }
 
     @Transactional(readOnly = true)
@@ -488,6 +549,7 @@ public class MeasureDefinitionService {
                 .ownerUsername(model.getOwnerUsername())
                 .sharedWithList(model.getSharedWith())
                 .accessLevel(model.getAccessLevel() != null ? model.getAccessLevel() : "private")
+                .setting(model.getSetting())
                 // Enhanced metadata
                 .rationale(model.getRationale())
                 .clinicalGuidance(model.getClinicalGuidance())

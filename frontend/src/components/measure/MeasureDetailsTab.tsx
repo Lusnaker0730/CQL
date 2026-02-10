@@ -33,6 +33,7 @@ import type { MeasureDefinition, MeasureReference } from '../../types'
 interface MeasureDetailsTabProps {
   measure: MeasureDefinition
   onMeasureUpdate: (updated: MeasureDefinition) => void
+  readOnly?: boolean
 }
 
 function sectionFilled(fields: (string | undefined | null | unknown[])[]): boolean {
@@ -42,7 +43,7 @@ function sectionFilled(fields: (string | undefined | null | unknown[])[]): boole
   })
 }
 
-export default function MeasureDetailsTab({ measure, onMeasureUpdate }: MeasureDetailsTabProps) {
+export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }: MeasureDetailsTabProps) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState<MeasureDefinition>({ ...measure })
   const [isDirty, setIsDirty] = useState(false)
@@ -105,7 +106,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate }: MeasureD
     updateField('developers', devs)
   }
 
-  const generalFilled = sectionFilled([form.name, form.version, form.scoringType, form.measureSet])
+  const generalFilled = sectionFilled([form.name, form.version, form.scoringType, form.measureSet, form.setting])
   const overviewFilled = sectionFilled([form.title, form.description, form.rationale, form.clinicalGuidance])
   const stewardFilled = sectionFilled([form.steward, form.developers])
   const refsFilled = sectionFilled([form.references])
@@ -119,7 +120,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate }: MeasureD
         actions={
           <GradientButton
             startIcon={<SaveIcon />}
-            disabled={!isDirty || updateMutation.isPending}
+            disabled={!isDirty || updateMutation.isPending || readOnly}
             onClick={() => updateMutation.mutate()}
           >
             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
@@ -203,6 +204,25 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate }: MeasureD
                   placeholder="e.g. CMS Quality Reporting"
                 />
               </Stack>
+              <TextField
+                label="Setting"
+                select
+                size="small"
+                fullWidth
+                value={form.setting || ''}
+                onChange={(e) => updateField('setting', e.target.value)}
+                helperText="Care setting where this measure applies"
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                <MenuItem value="inpatient">Inpatient</MenuItem>
+                <MenuItem value="outpatient">Outpatient</MenuItem>
+                <MenuItem value="emergency">Emergency</MenuItem>
+                <MenuItem value="community">Community</MenuItem>
+                <MenuItem value="long-term-care">Long-term Care</MenuItem>
+                <MenuItem value="home-health">Home Health</MenuItem>
+              </TextField>
               {form.compositeScoring && (
                 <TextField
                   label="Composite Scoring"

@@ -43,6 +43,7 @@ import TestCaseCoverage from './TestCaseCoverage'
 
 interface TestCasesTabProps {
   measure: MeasureDefinition
+  readOnly?: boolean
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -52,7 +53,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   pending: <PendingIcon sx={{ fontSize: 16, color: 'text.disabled' }} />,
 }
 
-export default function TestCasesTab({ measure }: TestCasesTabProps) {
+export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
@@ -268,6 +269,7 @@ export default function TestCasesTab({ measure }: TestCasesTabProps) {
         testCase={editing === 'new' ? null : editing}
         onClose={() => setEditing(null)}
         onSaved={() => setEditing(null)}
+        readOnly={readOnly}
       />
     )
   }

@@ -32,6 +32,7 @@ import {
   Search as SearchIcon,
   LibraryBooks as LibraryBooksIcon,
   Lock as PrivateIcon,
+  LockClock as LockClockIcon,
   Group as SharedIcon,
   Public as PublicIcon,
   PlaylistPlay as BatchIcon,
@@ -259,6 +260,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               <TableCell scope="col">Version</TableCell>
               <TableCell scope="col">Status</TableCell>
               <TableCell scope="col">Scoring</TableCell>
+              <TableCell scope="col">Setting</TableCell>
               <TableCell scope="col">Owner</TableCell>
               <TableCell scope="col" align="right">Actions</TableCell>
             </TableRow>
@@ -293,7 +295,14 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                       {ACCESS_ICONS[m.accessLevel || 'private'] || ACCESS_ICONS.private}
                     </Tooltip>
                     <div>
-                      <Typography variant="body2" fontWeight={500}>{m.title || m.name}</Typography>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="body2" fontWeight={500}>{m.title || m.name}</Typography>
+                        {m.lockedBy && (
+                          <Tooltip title={`Locked by ${m.lockedBy}`}>
+                            <LockClockIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                          </Tooltip>
+                        )}
+                      </Stack>
                       {m.title && (
                         <Typography variant="caption" color="text.secondary">{m.name}</Typography>
                       )}
@@ -305,6 +314,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   <StatusChip status={m.status || 'draft'} />
                 </TableCell>
                 <TableCell>{m.scoringType}</TableCell>
+                <TableCell>
+                  {m.setting ? (
+                    <Chip label={m.setting} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20, textTransform: 'capitalize' }} />
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
                 <TableCell>
                   {m.ownerUsername ? (
                     <Chip label={m.ownerUsername} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
@@ -327,7 +343,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             ))}
             {!isLoading && measures.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <Typography variant="body2" color="text.secondary">
                     No measures found. Create one or import a FHIR Measure.
                   </Typography>

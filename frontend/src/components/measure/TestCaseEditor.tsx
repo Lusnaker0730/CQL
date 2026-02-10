@@ -39,6 +39,7 @@ interface TestCaseEditorProps {
   testCase: TestCase | null
   onClose: () => void
   onSaved: () => void
+  readOnly?: boolean
 }
 
 const POPULATION_TYPES = [
@@ -65,7 +66,7 @@ const DEFAULT_BUNDLE = `{
   ]
 }`
 
-function TestCaseEditorInner({ measure, testCase, onClose, onSaved }: TestCaseEditorProps) {
+function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: TestCaseEditorProps) {
   const queryClient = useQueryClient()
   const isNew = !testCase?.id
   const { state, dispatch } = useBundleBuilder()
@@ -225,7 +226,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved }: TestCaseEd
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
-            disabled={!title.trim() || saveMutation.isPending}
+            disabled={!title.trim() || saveMutation.isPending || readOnly}
             onClick={handleSave}
           >
             {saveMutation.isPending ? 'Saving...' : 'Save'}

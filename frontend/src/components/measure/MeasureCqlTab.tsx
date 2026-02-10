@@ -16,9 +16,10 @@ const AUTOSAVE_KEY = 'cql-measure-autosave'
 interface MeasureCqlTabProps {
   measure: MeasureDefinition
   onMeasureUpdate: (updated: MeasureDefinition) => void
+  readOnly?: boolean
 }
 
-export default function MeasureCqlTab({ measure, onMeasureUpdate }: MeasureCqlTabProps) {
+export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: MeasureCqlTabProps) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings } = useSelector((state: RootState) => state.editor)
   const queryClient = useQueryClient()
@@ -108,7 +109,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate }: MeasureCqlTa
         </Button>
         <GradientButton
           startIcon={<SaveIcon />}
-          disabled={!isDirty || saveMutation.isPending}
+          disabled={!isDirty || saveMutation.isPending || readOnly}
           onClick={() => saveMutation.mutate()}
         >
           {saveMutation.isPending ? 'Saving...' : 'Save CQL'}
@@ -147,7 +148,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate }: MeasureCqlTa
       )}
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <CqlEditor height="100%" />
+        <CqlEditor height="100%" readOnly={readOnly} />
       </Box>
     </Box>
   )
