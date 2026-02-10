@@ -1,11 +1,11 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.UserEntity;
-import com.cqlplatform.model.auth.AuthResponse;
-import com.cqlplatform.model.auth.LoginRequest;
-import com.cqlplatform.model.auth.RegisterRequest;
+import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.security.JwtTokenProvider;
+import com.cqlplatform.service.PasswordResetService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +28,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
@@ -50,6 +51,7 @@ public class AuthController {
                 .username(user.getUsername())
                 .role(user.getRole().name())
                 .expiresIn(jwtTokenProvider.getExpirationMs())
+                .forcePasswordChange(Boolean.TRUE.equals(user.getForcePasswordChange()))
                 .build());
     }
 
@@ -62,10 +64,14 @@ public class AuthController {
         UserEntity user = UserEntity.builder()
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .email(request.getEmail())
                 .role(UserEntity.Role.USER)
                 .enabled(true)
                 .build();
+
+        // Set email with hash
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            user.setEmailWithHash(request.getEmail());
+        }
 
         userRepository.save(user);
 
@@ -76,6 +82,7 @@ public class AuthController {
                 .username(user.getUsername())
                 .role(user.getRole().name())
                 .expiresIn(jwtTokenProvider.getExpirationMs())
+                .forcePasswordChange(false)
                 .build());
     }
 
@@ -89,7 +96,50 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "username", user.getUsername(),
                 "email", user.getEmail() != null ? user.getEmail() : "",
-                "role", user.getRole().name()
+                "role", user.getRole().name(),
+                "forcePasswordChange", Boolean.TRUE.equals(user.getForcePasswordChange())
         ));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
+                                            HttpServletRequest httpRequest) {
+        String baseUrl = getBaseUrl(httpRequest);
+        passwordResetService.requestPasswordReset(request.getEmail(), baseUrl);
+        // Always return success to prevent email enumeration
+        return ResponseEntity.ok(Map.of("message",
+                "If an account with that email exists, a password reset link has been sent."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        boolean success = passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+        if (success) {
+            return ResponseEntity.ok(Map.of("message", "Password has been reset successfully."));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "Invalid or expired reset token. Please request a new password reset."));
+        }
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean success = passwordResetService.changePassword(
+                username, request.getCurrentPassword(), request.getNewPassword());
+        if (success) {
+            return ResponseEntity.ok(Map.of("message", "Password changed successfully."));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "Current password is incorrect."));
+        }
+    }
+
+    private String getBaseUrl(HttpServletRequest request) {
+        String scheme = request.getHeader("X-Forwarded-Proto");
+        if (scheme == null) scheme = request.getScheme();
+        String host = request.getHeader("X-Forwarded-Host");
+        if (host == null) host = request.getHeader("Host");
+        if (host == null) host = request.getServerName() + ":" + request.getServerPort();
+        return scheme + "://" + host;
     }
 }

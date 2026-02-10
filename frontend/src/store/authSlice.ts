@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 interface AuthState {
-  user: { username: string; role: string } | null
+  user: { username: string; role: string; forcePasswordChange?: boolean } | null
   token: string | null
   isAuthenticated: boolean
   loading: boolean
@@ -24,15 +24,21 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string; username: string; role: string }>
+      action: PayloadAction<{ token: string; username: string; role: string; forcePasswordChange?: boolean }>
     ) => {
-      const { token, username, role } = action.payload
+      const { token, username, role, forcePasswordChange } = action.payload
       state.token = token
-      state.user = { username, role }
+      state.user = { username, role, forcePasswordChange }
       state.isAuthenticated = true
       state.loading = false
       localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify({ username, role }))
+      localStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange }))
+    },
+    clearForcePasswordChange: (state) => {
+      if (state.user) {
+        state.user.forcePasswordChange = false
+        localStorage.setItem('user', JSON.stringify(state.user))
+      }
     },
     logout: (state) => {
       state.token = null
@@ -48,5 +54,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { setCredentials, logout, setLoading } = authSlice.actions
+export const { setCredentials, clearForcePasswordChange, logout, setLoading } = authSlice.actions
 export default authSlice.reducer

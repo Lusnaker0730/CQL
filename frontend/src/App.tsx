@@ -1,10 +1,16 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Box } from '@mui/material'
+import { useSelector } from 'react-redux'
+import type { RootState } from './store'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
 import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import AdminRoute from './components/auth/AdminRoute'
+import ForcePasswordChangeDialog from './components/auth/ForcePasswordChangeDialog'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import PageLoadingFallback from './components/common/PageLoadingFallback'
 
@@ -13,12 +19,18 @@ const CdsPage = lazy(() => import('./pages/CdsPage'))
 const MeasuresPage = lazy(() => import('./pages/MeasuresPage'))
 const FhirPage = lazy(() => import('./pages/FhirPage'))
 const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 
 export default function App() {
+  const user = useSelector((state: RootState) => state.auth.user)
+
   return (
     <ErrorBoundary fallbackTitle="Application Error">
+      <ForcePasswordChangeDialog open={!!user?.forcePasswordChange} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/*"
           element={
@@ -75,6 +87,16 @@ export default function App() {
                           <ErrorBoundary fallbackTitle="Terminology Error">
                             <TerminologyPage />
                           </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/users"
+                        element={
+                          <AdminRoute>
+                            <ErrorBoundary fallbackTitle="Admin Error">
+                              <AdminUsersPage />
+                            </ErrorBoundary>
+                          </AdminRoute>
                         }
                       />
                     </Routes>

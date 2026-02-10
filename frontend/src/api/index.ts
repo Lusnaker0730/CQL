@@ -55,6 +55,11 @@ import type {
   BatchEvaluationResult,
   RepositoryLibrary,
   ResourceElementMetadata,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  ChangePasswordRequest,
+  AdminResetPasswordResponse,
+  UserSummary,
 } from '../types'
 
 const api = axios.create({
@@ -102,6 +107,33 @@ export const authApi = {
 
   getMe: async (): Promise<User> => {
     const response = await api.get<User>('/auth/me')
+    return response.data
+  },
+
+  forgotPassword: async (request: ForgotPasswordRequest): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/auth/forgot-password', request)
+    return response.data
+  },
+
+  resetPassword: async (request: ResetPasswordRequest): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/auth/reset-password', request)
+    return response.data
+  },
+
+  changePassword: async (request: ChangePasswordRequest): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/auth/change-password', request)
+    return response.data
+  },
+}
+
+export const adminApi = {
+  listUsers: async (): Promise<UserSummary[]> => {
+    const response = await api.get<UserSummary[]>('/admin/users')
+    return response.data
+  },
+
+  resetUserPassword: async (userId: number): Promise<AdminResetPasswordResponse> => {
+    const response = await api.post<AdminResetPasswordResponse>(`/admin/users/${userId}/reset-password`)
     return response.data
   },
 }

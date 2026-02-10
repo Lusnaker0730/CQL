@@ -15,12 +15,44 @@ export interface AuthResponse {
   username: string
   role: string
   expiresIn: number
+  forcePasswordChange: boolean
 }
 
 export interface User {
   username: string
   email: string
   role: string
+  forcePasswordChange: boolean
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  token: string
+  newPassword: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface AdminResetPasswordResponse {
+  temporaryPassword: string
+  username: string
+  message: string
+}
+
+export interface UserSummary {
+  id: number
+  username: string
+  email: string
+  role: string
+  enabled: boolean
+  forcePasswordChange: boolean
+  createdAt: string
 }
 
 export interface CqlTranslationRequest {

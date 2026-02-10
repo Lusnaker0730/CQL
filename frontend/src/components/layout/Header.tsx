@@ -28,7 +28,7 @@ import { usePreferences } from '../../hooks/usePreferences'
 import PreferencesDialog from '../common/PreferencesDialog'
 import HelpDrawer from '../common/HelpDrawer'
 
-const navItems = [
+const baseNavItems = [
   { label: 'Editor', path: '/' },
   { label: 'CDS Hooks', path: '/cds' },
   { label: 'Measures', path: '/measures' },
@@ -44,6 +44,10 @@ export default function Header() {
   const { preferences, updatePreferences } = usePreferences()
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+
+  const navItems = user?.role === 'ADMIN'
+    ? [...baseNavItems, { label: 'Users', path: '/admin/users' }]
+    : baseNavItems
 
   const handleLogout = () => {
     dispatch(logout())

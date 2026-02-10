@@ -70,6 +70,7 @@ export default function LoginPage() {
         token: response.token,
         username: response.username,
         role: response.role,
+        forcePasswordChange: response.forcePasswordChange,
       }))
       navigate('/')
     } catch (err: unknown) {
@@ -179,6 +180,18 @@ export default function LoginPage() {
                 'Sign In'
               )}
             </Button>
+            {!isRegister && (
+              <Box sx={{ textAlign: 'center', mb: 1 }}>
+                <Link
+                  component="button"
+                  type="button"
+                  variant="body2"
+                  onClick={() => navigate('/forgot-password')}
+                >
+                  Forgot your password?
+                </Link>
+              </Box>
+            )}
             <Box sx={{ textAlign: 'center' }}>
               <Link
                 component="button"

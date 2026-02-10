@@ -22,10 +22,10 @@ public class DataInitializer implements CommandLineRunner {
             UserEntity admin = UserEntity.builder()
                     .username("admin")
                     .password(passwordEncoder.encode("admin"))
-                    .email("admin@cqlplatform.com")
                     .role(UserEntity.Role.ADMIN)
                     .enabled(true)
                     .build();
+            admin.setEmailWithHash("admin@cqlplatform.com");
 
             userRepository.save(admin);
             log.warn("=== Default admin user created (username: admin, password: admin). CHANGE THIS IN PRODUCTION! ===");

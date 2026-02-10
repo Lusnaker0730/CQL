@@ -48,6 +48,8 @@ public class SecurityConfig {
                         // Public auth endpoints
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                         // SMART on FHIR configuration
                         .requestMatchers("/.well-known/smart-configuration").permitAll()
                         // CDS Hooks sandbox requires authentication
@@ -65,6 +67,7 @@ public class SecurityConfig {
                         // H2 console (dev only)
                         .requestMatchers("/h2-console/**").permitAll()
                         // ADMIN only endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
                         // CDS service deletion: ownership enforced in controller (allows user to delete own)
                         .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").authenticated()

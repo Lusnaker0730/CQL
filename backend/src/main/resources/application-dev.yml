@@ -22,6 +22,19 @@ spring:
   flyway:
     enabled: false
 
+  # Dev mail config (logs to console instead of sending)
+  mail:
+    host: localhost
+    port: 1025
+    username: ""
+    password: ""
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
 # VSAC API Key (NLM UMLS)
 vsac:
   api:

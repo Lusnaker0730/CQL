@@ -7,10 +7,8 @@ import lombok.Data;
 @Data
 @Builder
 @AllArgsConstructor
-public class AuthResponse {
-    private String token;
+public class AdminResetPasswordResponse {
+    private String temporaryPassword;
     private String username;
-    private String role;
-    private long expiresIn;
-    private boolean forcePasswordChange;
+    private String message;
 }
