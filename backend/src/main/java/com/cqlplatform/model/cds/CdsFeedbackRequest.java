@@ -1,6 +1,9 @@
 package com.cqlplatform.model.cds;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,6 +18,8 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CdsFeedbackRequest {
 
+    @NotEmpty
+    @Valid
     private List<FeedbackItem> feedback;
 
     @Data
@@ -22,7 +27,10 @@ public class CdsFeedbackRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class FeedbackItem {
+        @NotBlank
         private String card;
+
+        @NotBlank
         private String outcome;
         private List<AcceptedSuggestion> acceptedSuggestions;
         private OverrideReason overrideReason;

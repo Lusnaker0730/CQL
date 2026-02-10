@@ -1,6 +1,11 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.model.*;
+import com.cqlplatform.model.request.AccessUpdateRequest;
+import com.cqlplatform.model.request.CqlValidationRequest;
+import com.cqlplatform.model.request.LibrarySaveRequest;
+import com.cqlplatform.model.request.TransferOwnershipRequest;
+import com.cqlplatform.model.request.UsernameRequest;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import com.cqlplatform.service.cql.CqlTranslationService;
@@ -37,9 +42,8 @@ public class CqlController {
 
     @PostMapping("/validate")
     @Operation(summary = "Validate CQL", description = "Validates CQL code syntax and semantics")
-    public ResponseEntity<CqlTranslationResponse> validate(@RequestBody Map<String, String> request) {
-        String cql = request.get("cql");
-        CqlTranslationResponse response = translationService.validate(cql);
+    public ResponseEntity<CqlTranslationResponse> validate(@Valid @RequestBody CqlValidationRequest request) {
+        CqlTranslationResponse response = translationService.validate(request.getCql());
         return ResponseEntity.ok(response);
     }
 
@@ -70,10 +74,8 @@ public class CqlController {
 
     @PostMapping("/libraries")
     @Operation(summary = "Create CQL Library", description = "Creates a new CQL library")
-    public ResponseEntity<CqlLibrary> createLibrary(@RequestBody Map<String, String> request) {
-        String cql = request.get("cql");
-        String description = request.get("description");
-        CqlLibrary library = libraryService.saveLibrary(cql, description);
+    public ResponseEntity<CqlLibrary> createLibrary(@Valid @RequestBody LibrarySaveRequest request) {
+        CqlLibrary library = libraryService.saveLibrary(request.getCql(), request.getDescription());
         return ResponseEntity.ok(library);
     }
 
@@ -81,10 +83,8 @@ public class CqlController {
     @Operation(summary = "Update CQL Library", description = "Updates an existing CQL library")
     public ResponseEntity<CqlLibrary> updateLibrary(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
-        String cql = request.get("cql");
-        String description = request.get("description");
-        CqlLibrary library = libraryService.updateLibrary(id, cql, description);
+            @Valid @RequestBody LibrarySaveRequest request) {
+        CqlLibrary library = libraryService.updateLibrary(id, request.getCql(), request.getDescription());
         return ResponseEntity.ok(library);
     }
 
@@ -181,10 +181,9 @@ public class CqlController {
     @Operation(summary = "Share Library", description = "Shares a library with another user")
     public ResponseEntity<CqlLibrary> shareLibrary(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
-        String targetUsername = request.get("targetUsername");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        CqlLibrary library = libraryService.shareLibrary(id, targetUsername, currentUser);
+            @Valid @RequestBody UsernameRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        CqlLibrary library = libraryService.shareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
 
@@ -192,10 +191,9 @@ public class CqlController {
     @Operation(summary = "Unshare Library", description = "Removes sharing for a user")
     public ResponseEntity<CqlLibrary> unshareLibrary(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
-        String targetUsername = request.get("targetUsername");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        CqlLibrary library = libraryService.unshareLibrary(id, targetUsername, currentUser);
+            @Valid @RequestBody UsernameRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        CqlLibrary library = libraryService.unshareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
 
@@ -203,10 +201,9 @@ public class CqlController {
     @Operation(summary = "Transfer Library Ownership", description = "Transfers ownership to another user")
     public ResponseEntity<CqlLibrary> transferOwnership(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
-        String newOwner = request.get("newOwner");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        CqlLibrary library = libraryService.transferOwnership(id, newOwner, currentUser);
+            @Valid @RequestBody TransferOwnershipRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        CqlLibrary library = libraryService.transferOwnership(id, request.getNewOwner(), currentUser);
         return ResponseEntity.ok(library);
     }
 
@@ -214,10 +211,9 @@ public class CqlController {
     @Operation(summary = "Set Access Level", description = "Sets library access level (private/shared/public)")
     public ResponseEntity<CqlLibrary> setAccessLevel(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
-        String accessLevel = request.get("accessLevel");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        CqlLibrary library = libraryService.setAccessLevel(id, accessLevel, currentUser);
+            @Valid @RequestBody AccessUpdateRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        CqlLibrary library = libraryService.setAccessLevel(id, request.getAccessLevel(), currentUser);
         return ResponseEntity.ok(library);
     }
 

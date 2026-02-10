@@ -1,9 +1,11 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.UserApiKeyEntity;
+import com.cqlplatform.model.request.ApiKeyCreateRequest;
 import com.cqlplatform.service.UserApiKeyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -52,9 +54,9 @@ public class UserApiKeyController {
 
     @PostMapping
     @Operation(summary = "Generate API key", description = "Generates a new API key for the current user")
-    public ResponseEntity<Map<String, Object>> generateKey(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, Object>> generateKey(@Valid @RequestBody ApiKeyCreateRequest body) {
         String username = getCurrentUsername();
-        String name = body.getOrDefault("name", "Unnamed Key");
+        String name = body.getName() != null ? body.getName() : "Unnamed Key";
 
         UserApiKeyEntity key = apiKeyService.generateApiKey(username, name);
 

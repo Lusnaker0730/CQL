@@ -2,8 +2,10 @@ package com.cqlplatform.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.apache.ApacheRestfulClientFactory;
+import com.cqlplatform.security.XssStringDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
@@ -49,8 +51,12 @@ public class CqlConfig {
 
     @Bean
     public ObjectMapper objectMapper() {
+        SimpleModule xssModule = new SimpleModule("XssProtection");
+        xssModule.addDeserializer(String.class, new XssStringDeserializer());
+
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
+        mapper.registerModule(xssModule);
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }

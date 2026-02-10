@@ -1,5 +1,7 @@
 package com.cqlplatform.model.cds;
 
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -30,6 +32,7 @@ public class CdsServiceConfigRequest {
     @Size(max = 1000, message = "Description must be at most 1000 characters")
     private String description;
 
+    @JsonDeserialize(using = JsonDeserializer.None.class)
     private String cqlContent;
 
     @Size(max = 100, message = "CQL Library ID must be at most 100 characters")

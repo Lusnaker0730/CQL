@@ -4,6 +4,7 @@ import com.cqlplatform.model.cds.*;
 import com.cqlplatform.service.cds.CdsHooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +37,7 @@ public class CdsHooksController {
     @Operation(summary = "Invoke CDS Service", description = "Invokes a specific CDS service")
     public ResponseEntity<?> invokeService(
             @PathVariable String serviceId,
-            @RequestBody CdsRequest request) {
+            @Valid @RequestBody CdsRequest request) {
         log.info("CDS invoke: serviceId={}, hook={}, fhirServer={}, prefetchKeys={}, patientId={}",
                 serviceId, request.getHook(), request.getFhirServer(),
                 request.getPrefetch() != null ? request.getPrefetch().keySet() : "null",
@@ -53,7 +54,7 @@ public class CdsHooksController {
     @Operation(summary = "Submit Feedback", description = "Submit feedback for a CDS service invocation")
     public ResponseEntity<?> submitFeedback(
             @PathVariable String serviceId,
-            @RequestBody CdsFeedbackRequest feedback) {
+            @Valid @RequestBody CdsFeedbackRequest feedback) {
         try {
             cdsHooksService.processFeedback(serviceId, feedback);
             return ResponseEntity.ok().build();
@@ -66,7 +67,7 @@ public class CdsHooksController {
     @Operation(summary = "Sandbox Invoke", description = "Invoke a CDS service in sandbox mode with test data")
     public ResponseEntity<?> sandboxInvoke(
             @PathVariable String serviceId,
-            @RequestBody CdsSandboxRequest sandboxRequest) {
+            @Valid @RequestBody CdsSandboxRequest sandboxRequest) {
         log.info("CDS sandbox invoke: serviceId={}", serviceId);
         try {
             CdsRequest cdsRequest = new CdsRequest();
@@ -106,7 +107,7 @@ public class CdsHooksController {
     public ResponseEntity<?> perUserInvokeService(
             @PathVariable String username,
             @PathVariable String serviceId,
-            @RequestBody CdsRequest request) {
+            @Valid @RequestBody CdsRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.getName().equals(username)) {
             return ResponseEntity.status(403).build();

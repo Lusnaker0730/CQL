@@ -3,6 +3,8 @@ package com.cqlplatform.service.measure;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationRequest;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,8 +25,8 @@ public class BatchEvaluationService {
     private final MeasureDefinitionService definitionService;
 
     public record BatchEvaluationRequest(
-            List<Long> measureIds,
-            String fhirServerUrl,
+            @NotEmpty List<Long> measureIds,
+            @Size(max = 500) String fhirServerUrl,
             String periodStart,
             String periodEnd
     ) {}

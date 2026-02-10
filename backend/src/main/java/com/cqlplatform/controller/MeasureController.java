@@ -6,12 +6,17 @@ import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
 import com.cqlplatform.model.measure.ValidationReport;
+import com.cqlplatform.model.request.AccessUpdateRequest;
+import com.cqlplatform.model.request.TransferOwnershipRequest;
+import com.cqlplatform.model.request.UsernameRequest;
+import com.cqlplatform.model.request.WorkflowActionRequest;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.measure.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -68,7 +73,7 @@ public class MeasureController {
 
     @PostMapping
     @Operation(summary = "Create Measure", description = "Create a new measure definition")
-    public ResponseEntity<MeasureDefinition> createMeasure(@RequestBody MeasureDefinition definition) {
+    public ResponseEntity<MeasureDefinition> createMeasure(@Valid @RequestBody MeasureDefinition definition) {
         MeasureDefinition created = definitionService.create(definition);
         return ResponseEntity.ok(created);
     }
@@ -77,7 +82,7 @@ public class MeasureController {
     @Operation(summary = "Update Measure", description = "Update an existing measure definition")
     public ResponseEntity<MeasureDefinition> updateMeasure(
             @PathVariable Long id,
-            @RequestBody MeasureDefinition definition) {
+            @Valid @RequestBody MeasureDefinition definition) {
         MeasureDefinition updated = definitionService.update(id, definition);
         return ResponseEntity.ok(updated);
     }
@@ -201,7 +206,7 @@ public class MeasureController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd,
             @RequestParam(required = false, defaultValue = "individual") String reportType,
-            @RequestBody(required = false) MeasureEvaluationRequest request) {
+            @Valid @RequestBody(required = false) MeasureEvaluationRequest request) {
 
         if (request == null) {
             request = new MeasureEvaluationRequest();
@@ -246,7 +251,7 @@ public class MeasureController {
     @PostMapping("/evaluate")
     @Operation(summary = "Evaluate Custom Measure", description = "Evaluates a custom measure with provided CQL")
     public ResponseEntity<MeasureEvaluationResult> evaluateCustomMeasure(
-            @RequestBody MeasureEvaluationRequest request) {
+            @Valid @RequestBody MeasureEvaluationRequest request) {
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
         return ResponseEntity.ok(result);
     }
@@ -302,7 +307,7 @@ public class MeasureController {
     @Operation(summary = "Create Schedule", description = "Create a new schedule for a measure")
     public ResponseEntity<MeasureScheduleEntity> createSchedule(
             @PathVariable Long measureId,
-            @RequestBody MeasureScheduleEntity schedule) {
+            @Valid @RequestBody MeasureScheduleEntity schedule) {
         schedule.setMeasureDefinitionId(measureId);
         MeasureScheduleEntity created = scheduleService.createSchedule(schedule);
         return ResponseEntity.ok(created);
@@ -312,7 +317,7 @@ public class MeasureController {
     @Operation(summary = "Update Schedule", description = "Update a schedule")
     public ResponseEntity<MeasureScheduleEntity> updateSchedule(
             @PathVariable Long scheduleId,
-            @RequestBody MeasureScheduleEntity schedule) {
+            @Valid @RequestBody MeasureScheduleEntity schedule) {
         MeasureScheduleEntity updated = scheduleService.updateSchedule(scheduleId, schedule);
         return ResponseEntity.ok(updated);
     }
@@ -376,7 +381,7 @@ public class MeasureController {
     @Operation(summary = "Create Test Case", description = "Create a new test case for a measure")
     public ResponseEntity<TestCase> createTestCase(
             @PathVariable Long measureId,
-            @RequestBody TestCase testCase) {
+            @Valid @RequestBody TestCase testCase) {
         TestCase created = testCaseService.create(measureId, testCase);
         return ResponseEntity.ok(created);
     }
@@ -386,7 +391,7 @@ public class MeasureController {
     public ResponseEntity<TestCase> updateTestCase(
             @PathVariable Long measureId,
             @PathVariable Long testCaseId,
-            @RequestBody TestCase testCase) {
+            @Valid @RequestBody TestCase testCase) {
         TestCase updated = testCaseService.update(testCaseId, testCase);
         return ResponseEntity.ok(updated);
     }
@@ -459,40 +464,36 @@ public class MeasureController {
     @Operation(summary = "Share Measure", description = "Shares a measure with another user")
     public ResponseEntity<MeasureDefinition> shareMeasure(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String targetUsername = request.get("targetUsername");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        return ResponseEntity.ok(definitionService.shareMeasure(id, targetUsername, currentUser));
+            @Valid @RequestBody UsernameRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.shareMeasure(id, request.getTargetUsername(), currentUser));
     }
 
     @PostMapping("/{id}/unshare")
     @Operation(summary = "Unshare Measure", description = "Removes sharing for a user")
     public ResponseEntity<MeasureDefinition> unshareMeasure(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String targetUsername = request.get("targetUsername");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        return ResponseEntity.ok(definitionService.unshareMeasure(id, targetUsername, currentUser));
+            @Valid @RequestBody UsernameRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.unshareMeasure(id, request.getTargetUsername(), currentUser));
     }
 
     @PostMapping("/{id}/transfer")
     @Operation(summary = "Transfer Measure Ownership", description = "Transfers ownership to another user")
     public ResponseEntity<MeasureDefinition> transferMeasureOwnership(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String newOwner = request.get("newOwner");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        return ResponseEntity.ok(definitionService.transferOwnership(id, newOwner, currentUser));
+            @Valid @RequestBody TransferOwnershipRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.transferOwnership(id, request.getNewOwner(), currentUser));
     }
 
     @PutMapping("/{id}/access")
     @Operation(summary = "Set Measure Access Level", description = "Sets measure access level (private/shared/public)")
     public ResponseEntity<MeasureDefinition> setMeasureAccessLevel(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String accessLevel = request.get("accessLevel");
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        return ResponseEntity.ok(definitionService.setAccessLevel(id, accessLevel, currentUser));
+            @Valid @RequestBody AccessUpdateRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.setAccessLevel(id, request.getAccessLevel(), currentUser));
     }
 
     @GetMapping("/owner/{username}")
@@ -513,8 +514,8 @@ public class MeasureController {
     @Operation(summary = "Submit for Review", description = "Submits a draft measure for review")
     public ResponseEntity<MeasureDefinition> submitForReview(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
+            @Valid @RequestBody WorkflowActionRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
         return ResponseEntity.ok(definitionService.submitForReview(id, currentUser));
     }
 
@@ -522,8 +523,8 @@ public class MeasureController {
     @Operation(summary = "Approve Measure", description = "Approves a measure and sets it to active")
     public ResponseEntity<MeasureDefinition> approveMeasure(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
+            @Valid @RequestBody WorkflowActionRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
         return ResponseEntity.ok(definitionService.approveMeasure(id, currentUser));
     }
 
@@ -531,18 +532,17 @@ public class MeasureController {
     @Operation(summary = "Reject Measure", description = "Rejects a measure and returns it to draft")
     public ResponseEntity<MeasureDefinition> rejectMeasure(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
-        String reason = request.get("reason");
-        return ResponseEntity.ok(definitionService.rejectMeasure(id, reason, currentUser));
+            @Valid @RequestBody WorkflowActionRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        return ResponseEntity.ok(definitionService.rejectMeasure(id, request.getReason(), currentUser));
     }
 
     @PostMapping("/{id}/retire")
     @Operation(summary = "Retire Measure", description = "Retires an active measure")
     public ResponseEntity<MeasureDefinition> retireMeasure(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
-        String currentUser = request.getOrDefault("currentUser", "anonymous");
+            @Valid @RequestBody WorkflowActionRequest request) {
+        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
         return ResponseEntity.ok(definitionService.retireMeasure(id, currentUser));
     }
 
@@ -628,7 +628,7 @@ public class MeasureController {
     @PostMapping("/batch-evaluate")
     @Operation(summary = "Batch Evaluate", description = "Evaluates multiple measures and returns per-measure results")
     public ResponseEntity<BatchEvaluationService.BatchResult> batchEvaluate(
-            @RequestBody BatchEvaluationService.BatchEvaluationRequest request) {
+            @Valid @RequestBody BatchEvaluationService.BatchEvaluationRequest request) {
         return ResponseEntity.ok(batchEvaluationService.evaluateBatch(request));
     }
 

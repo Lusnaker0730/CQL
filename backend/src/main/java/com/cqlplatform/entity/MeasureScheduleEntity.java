@@ -1,6 +1,10 @@
 package com.cqlplatform.entity;
 
+import com.cqlplatform.security.NoXss;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -20,12 +24,18 @@ public class MeasureScheduleEntity {
     @Column(name = "measure_definition_id", nullable = false)
     private Long measureDefinitionId;
 
+    @NotBlank
+    @Size(max = 100)
+    @NoXss
     @Column(name = "cron_expression", nullable = false, length = 100)
     private String cronExpression;
 
+    @Size(max = 500)
     @Column(name = "fhir_server_url", length = 500)
     private String fhirServerUrl;
 
+    @NotBlank
+    @Pattern(regexp = "daily|weekly|monthly|quarterly|yearly")
     @Column(name = "period_type", nullable = false, length = 20)
     @Builder.Default
     private String periodType = "monthly";
