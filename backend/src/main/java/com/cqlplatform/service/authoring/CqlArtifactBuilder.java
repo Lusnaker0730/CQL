@@ -35,16 +35,16 @@ public class CqlArtifactBuilder {
         includes.add(String.format("include %s version '1.1.1' called C3F", C3F_LIBRARY));
 
         // Collect value sets and codes from trees
-        collectValueSetsFromTree(expTreeInclude, valueSets);
-        collectValueSetsFromTree(expTreeExclude, valueSets);
+        collectFromTree(expTreeInclude, valueSets, codeSystems, codes);
+        collectFromTree(expTreeExclude, valueSets, codeSystems, codes);
         if (baseElements != null) {
             for (Map<String, Object> be : baseElements) {
-                collectValueSetsFromTree(be, valueSets);
+                collectFromTree(be, valueSets, codeSystems, codes);
             }
         }
         if (subpopulations != null) {
             for (Map<String, Object> sp : subpopulations) {
-                collectValueSetsFromTree(sp, valueSets);
+                collectFromTree(sp, valueSets, codeSystems, codes);
             }
         }
 
@@ -64,6 +64,24 @@ public class CqlArtifactBuilder {
         if (!valueSets.isEmpty()) {
             for (String vs : valueSets) {
                 cql.append(String.format("valueset \"%s\": '%s'%n", vs, vs));
+            }
+            cql.append("\n");
+        }
+
+        // Code Systems
+        if (!codeSystems.isEmpty()) {
+            for (String cs : codeSystems) {
+                // Format: codesystem "LOINC": 'http://loinc.org'
+                String csName = getCodeSystemDisplayName(cs);
+                cql.append(String.format("codesystem \"%s\": '%s'%n", csName, cs));
+            }
+            cql.append("\n");
+        }
+
+        // Codes
+        if (!codes.isEmpty()) {
+            for (String codeDecl : codes) {
+                cql.append(codeDecl).append("\n");
             }
             cql.append("\n");
         }
@@ -228,17 +246,42 @@ public class CqlArtifactBuilder {
     private String buildAgeRangeExpression(List<Map<String, Object>> fields) {
         String minAge = getFieldValue(fields, "min_age", null);
         String maxAge = getFieldValue(fields, "max_age", null);
-        String unit = getFieldValue(fields, "unit_of_time", "years");
+        String unit = getFieldValue(fields, "unit_of_time", "year");
+
+        String ageFunction = mapUnitToAgeFunction(unit);
 
         List<String> conditions = new ArrayList<>();
         if (minAge != null && !minAge.isEmpty()) {
-            conditions.add(String.format("AgeInYears() >= %s", minAge));
+            conditions.add(String.format("%s >= %s", ageFunction, minAge));
         }
         if (maxAge != null && !maxAge.isEmpty()) {
-            conditions.add(String.format("AgeInYears() <= %s", maxAge));
+            conditions.add(String.format("%s <= %s", ageFunction, maxAge));
         }
 
         return conditions.isEmpty() ? "true" : String.join(" and ", conditions);
+    }
+
+    private String mapUnitToAgeFunction(String unit) {
+        if (unit == null) return "AgeInYears()";
+        switch (unit.toLowerCase()) {
+            case "year":
+            case "years":
+                return "AgeInYears()";
+            case "month":
+            case "months":
+                return "AgeInMonths()";
+            case "week":
+            case "weeks":
+                return "AgeInWeeks()";
+            case "day":
+            case "days":
+                return "AgeInDays()";
+            case "hour":
+            case "hours":
+                return "AgeInHours()";
+            default:
+                return "AgeInYears()";
+        }
     }
 
     private String buildGenderExpression(List<Map<String, Object>> fields) {
@@ -252,20 +295,53 @@ public class CqlArtifactBuilder {
         // Extract FHIR resource type from template type (e.g., GenericObservation_vsac -> Observation)
         String resourceType = type.replace("Generic", "").replace("_vsac", "");
 
-        // Try to find the VSAC value set field
-        if (fields != null) {
-            for (Map<String, Object> field : fields) {
-                Object value = field.get("value");
-                if (value instanceof Map) {
-                    Map<String, Object> vsVal = (Map<String, Object>) value;
-                    String vsName = (String) vsVal.get("name");
-                    String vsOid = (String) vsVal.get("oid");
+        if (fields == null) return String.format("[%s]", resourceType);
+
+        for (Map<String, Object> field : fields) {
+            // Check for valueSets array (new rich format)
+            List<Map<String, Object>> vsRefs = (List<Map<String, Object>>) field.get("valueSets");
+            List<Map<String, Object>> codeRefs = (List<Map<String, Object>>) field.get("codes");
+
+            List<String> queryParts = new ArrayList<>();
+
+            if (vsRefs != null && !vsRefs.isEmpty()) {
+                for (Map<String, Object> vs : vsRefs) {
+                    String vsName = getStr(vs, "name", null);
                     if (vsName != null) {
-                        return String.format("[%s: \"%s\"]", resourceType, vsName);
+                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, vsName));
                     }
-                } else if (value instanceof String && !((String) value).isEmpty()) {
-                    return String.format("[%s: \"%s\"]", resourceType, value);
                 }
+            }
+
+            if (codeRefs != null && !codeRefs.isEmpty()) {
+                for (Map<String, Object> code : codeRefs) {
+                    String codeVal = getStr(code, "code", null);
+                    String display = getStr(code, "display", codeVal);
+                    Map<String, Object> codeSystem = (Map<String, Object>) code.get("codeSystem");
+                    String csName = codeSystem != null ? getStr(codeSystem, "name", "") : "";
+                    if (codeVal != null) {
+                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, display != null ? display : codeVal));
+                    }
+                }
+            }
+
+            if (!queryParts.isEmpty()) {
+                if (queryParts.size() == 1) {
+                    return queryParts.get(0);
+                }
+                return String.join(" union\n  ", queryParts);
+            }
+
+            // Legacy: single value (string or map)
+            Object value = field.get("value");
+            if (value instanceof Map) {
+                Map<String, Object> vsVal = (Map<String, Object>) value;
+                String vsName = (String) vsVal.get("name");
+                if (vsName != null) {
+                    return String.format("[%s: \"%s\"]", resourceType, vsName);
+                }
+            } else if (value instanceof String && !((String) value).isEmpty()) {
+                return String.format("[%s: \"%s\"]", resourceType, value);
             }
         }
 
@@ -333,23 +409,49 @@ public class CqlArtifactBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private void collectValueSetsFromTree(Map<String, Object> node, Set<String> valueSets) {
+    private void collectFromTree(Map<String, Object> node, Set<String> valueSets,
+                                  Set<String> codeSystems, Set<String> codes) {
         if (node == null) return;
 
         List<Map<String, Object>> fields = (List<Map<String, Object>>) node.get("fields");
         if (fields != null) {
             for (Map<String, Object> field : fields) {
+                // Legacy single value
                 Object value = field.get("value");
                 if (value instanceof Map) {
                     Map<String, Object> vsVal = (Map<String, Object>) value;
                     String vsName = (String) vsVal.get("name");
                     if (vsName != null) valueSets.add(vsName);
                 }
+
+                // Rich valueSets array
                 List<Map<String, Object>> vsRefs = (List<Map<String, Object>>) field.get("valueSets");
                 if (vsRefs != null) {
                     for (Map<String, Object> vs : vsRefs) {
                         String vsName = (String) vs.get("name");
+                        String vsOid = (String) vs.get("oid");
                         if (vsName != null) valueSets.add(vsName);
+                    }
+                }
+
+                // Rich codes array
+                List<Map<String, Object>> codeRefs = (List<Map<String, Object>>) field.get("codes");
+                if (codeRefs != null) {
+                    for (Map<String, Object> code : codeRefs) {
+                        String codeVal = getStr(code, "code", null);
+                        String display = getStr(code, "display", codeVal);
+                        Map<String, Object> codeSystem = (Map<String, Object>) code.get("codeSystem");
+                        if (codeVal != null && codeSystem != null) {
+                            String csId = getStr(codeSystem, "id", "");
+                            String csName = getStr(codeSystem, "name", "");
+                            if (!csId.isEmpty()) {
+                                codeSystems.add(csId);
+                            }
+                            String csDisplayName = !csName.isEmpty() ? csName : getCodeSystemDisplayName(csId);
+                            // Format: code "Hemoglobin [Mass/volume] in Blood": '718-7' from "LOINC"
+                            codes.add(String.format("code \"%s\": '%s' from \"%s\"",
+                                    display != null ? display : codeVal, codeVal, csDisplayName));
+                        }
                     }
                 }
             }
@@ -358,9 +460,22 @@ public class CqlArtifactBuilder {
         List<Map<String, Object>> children = (List<Map<String, Object>>) node.get("childInstances");
         if (children != null) {
             for (Map<String, Object> child : children) {
-                collectValueSetsFromTree(child, valueSets);
+                collectFromTree(child, valueSets, codeSystems, codes);
             }
         }
+    }
+
+    private static final Map<String, String> CODE_SYSTEM_NAMES = Map.of(
+            "http://loinc.org", "LOINC",
+            "http://snomed.info/sct", "SNOMED",
+            "http://hl7.org/fhir/sid/icd-10-cm", "ICD-10-CM",
+            "http://hl7.org/fhir/sid/icd-9-cm", "ICD-9-CM",
+            "http://www.nlm.nih.gov/research/umls/rxnorm", "RXNORM",
+            "http://ncimeta.nci.nih.gov", "NCI"
+    );
+
+    private String getCodeSystemDisplayName(String systemUrl) {
+        return CODE_SYSTEM_NAMES.getOrDefault(systemUrl, systemUrl);
     }
 
     @SuppressWarnings("unchecked")

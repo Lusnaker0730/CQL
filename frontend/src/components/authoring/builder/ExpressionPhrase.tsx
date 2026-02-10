@@ -1,41 +1,211 @@
-import { Typography } from '@mui/material'
+import { Box, Typography, Chip } from '@mui/material'
 import type { ElementInstance } from '../../../types/authoring'
 
 interface ExpressionPhraseProps {
   element: ElementInstance
+  variant?: 'inline' | 'full'
 }
 
-export default function ExpressionPhrase({ element }: ExpressionPhraseProps) {
-  const parts: string[] = []
+export default function ExpressionPhrase({ element, variant = 'inline' }: ExpressionPhraseProps) {
+  const phrase = buildPhrase(element)
 
-  // Element name
-  const nameField = element.fields?.find((f) => f.id === 'element_name')
-  if (nameField?.value) {
-    parts.push(String(nameField.value))
-  } else {
-    parts.push(element.name)
-  }
-
-  // VSAC field
-  const vsacField = element.fields?.find((f) => f.type?.endsWith('_vsac'))
-  if (vsacField?.value) {
-    const vsVal = vsacField.value as Record<string, unknown> | string
-    if (typeof vsVal === 'object' && vsVal !== null && 'name' in vsVal) {
-      parts.push(`(${vsVal.name})`)
-    } else if (typeof vsVal === 'string' && vsVal) {
-      parts.push(`(${vsVal})`)
-    }
-  }
-
-  // Modifiers
-  if (element.modifiers && element.modifiers.length > 0) {
-    const modNames = element.modifiers.map((m) => m.name).join(' > ')
-    parts.push(`[${modNames}]`)
+  if (variant === 'full') {
+    return (
+      <Box
+        sx={{
+          borderLeft: 3,
+          borderColor: 'primary.main',
+          pl: 2,
+          py: 1,
+          my: 1,
+          backgroundColor: 'action.hover',
+          borderRadius: '0 4px 4px 0',
+        }}
+      >
+        {phrase}
+      </Box>
+    )
   }
 
   return (
     <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-      {parts.join(' ')}
+      {phraseToString(element)}
     </Typography>
   )
+}
+
+function buildPhrase(element: ElementInstance) {
+  switch (element.type) {
+    case 'AgeRange':
+      return buildAgeRangePhrase(element)
+    case 'Gender':
+      return buildGenderPhrase(element)
+    default:
+      if (element.type?.startsWith('Generic')) {
+        return buildGenericResourcePhrase(element)
+      }
+      return buildDefaultPhrase(element)
+  }
+}
+
+function buildAgeRangePhrase(element: ElementInstance) {
+  const minAge = getFieldValue(element, 'min_age')
+  const maxAge = getFieldValue(element, 'max_age')
+  const unit = getFieldValue(element, 'unit_of_time') || 'year'
+  const unitLabel = unit.endsWith('s') ? unit : unit + 's'
+
+  const parts: React.ReactNode[] = []
+  parts.push(<span key="prefix">The patient&apos;s <strong>age</strong> is </span>)
+
+  if (minAge && maxAge) {
+    parts.push(<span key="between">between </span>)
+    parts.push(<ValueChip key="min" label={`${minAge} ${unitLabel}`} />)
+    parts.push(<span key="and"> and </span>)
+    parts.push(<ValueChip key="max" label={`${maxAge} ${unitLabel}`} />)
+  } else if (minAge) {
+    parts.push(<span key="gte">at least </span>)
+    parts.push(<ValueChip key="min" label={`${minAge} ${unitLabel}`} />)
+  } else if (maxAge) {
+    parts.push(<span key="lte">at most </span>)
+    parts.push(<ValueChip key="max" label={`${maxAge} ${unitLabel}`} />)
+  } else {
+    parts.push(<span key="any">any age</span>)
+  }
+
+  const modifierPhrase = buildModifierPhrase(element)
+  if (modifierPhrase) {
+    parts.push(<span key="mod"> {modifierPhrase}</span>)
+  }
+
+  return (
+    <Typography variant="body2" component="div" sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+      {parts}
+    </Typography>
+  )
+}
+
+function buildGenderPhrase(element: ElementInstance) {
+  const gender = getFieldValue(element, 'gender')
+
+  return (
+    <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <span>The patient&apos;s <strong>gender</strong> is </span>
+      {gender ? <ValueChip label={gender} /> : <span style={{ fontStyle: 'italic', color: '#999' }}>not set</span>}
+    </Typography>
+  )
+}
+
+function buildGenericResourcePhrase(element: ElementInstance) {
+  const resourceType = element.type.replace('Generic', '').replace('_vsac', '')
+  const vsacField = element.fields?.find((f) => f.type?.endsWith('_vsac'))
+
+  const valueSets = vsacField?.valueSets || []
+  const codes = vsacField?.codes || []
+  const legacyValue = typeof vsacField?.value === 'string' ? vsacField.value : ''
+
+  const parts: React.ReactNode[] = []
+  parts.push(
+    <span key="prefix">
+      <strong>{resourceType}</strong>
+      {valueSets.length > 0 || codes.length > 0 || legacyValue ? ' matching ' : ''}
+    </span>
+  )
+
+  if (valueSets.length > 0) {
+    valueSets.forEach((vs, i) => {
+      if (i > 0) parts.push(<span key={`vs-sep-${i}`}>, </span>)
+      parts.push(<ValueChip key={`vs-${i}`} label={vs.name} />)
+    })
+  }
+
+  if (codes.length > 0) {
+    if (valueSets.length > 0) parts.push(<span key="code-sep"> or </span>)
+    codes.forEach((c, i) => {
+      if (i > 0) parts.push(<span key={`c-sep-${i}`}>, </span>)
+      parts.push(<ValueChip key={`code-${i}`} label={c.display || `${c.codeSystem.name} ${c.code}`} />)
+    })
+  }
+
+  if (!valueSets.length && !codes.length && legacyValue) {
+    parts.push(<ValueChip key="legacy" label={legacyValue} />)
+  }
+
+  const modifierPhrase = buildModifierPhrase(element)
+  if (modifierPhrase) {
+    parts.push(<span key="mod"> {modifierPhrase}</span>)
+  }
+
+  return (
+    <Typography variant="body2" component="div" sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+      {parts}
+    </Typography>
+  )
+}
+
+function buildDefaultPhrase(element: ElementInstance) {
+  const nameField = element.fields?.find((f) => f.id === 'element_name')
+  const displayName = (nameField?.value as string) || element.name
+
+  const modifierPhrase = buildModifierPhrase(element)
+
+  return (
+    <Typography variant="body2" component="div">
+      <strong>{displayName}</strong>
+      {modifierPhrase && <span> {modifierPhrase}</span>}
+    </Typography>
+  )
+}
+
+function buildModifierPhrase(element: ElementInstance): string | null {
+  if (!element.modifiers || element.modifiers.length === 0) return null
+  const names = element.modifiers.map((m) => m.name)
+  return `(${names.join(' \u2192 ')})`
+}
+
+function ValueChip({ label }: { label: string }) {
+  return (
+    <Chip
+      label={label}
+      size="small"
+      sx={{
+        backgroundColor: 'primary.main',
+        color: 'primary.contrastText',
+        fontWeight: 600,
+        fontSize: '0.8rem',
+        height: 26,
+      }}
+    />
+  )
+}
+
+/** Flat string version for collapsed view */
+function phraseToString(element: ElementInstance): string {
+  switch (element.type) {
+    case 'AgeRange': {
+      const min = getFieldValue(element, 'min_age')
+      const max = getFieldValue(element, 'max_age')
+      const unit = getFieldValue(element, 'unit_of_time') || 'year'
+      const u = unit.endsWith('s') ? unit : unit + 's'
+      if (min && max) return `Age is between ${min} ${u} and ${max} ${u}`
+      if (min) return `Age is at least ${min} ${u}`
+      if (max) return `Age is at most ${max} ${u}`
+      return 'Age range not configured'
+    }
+    case 'Gender': {
+      const g = getFieldValue(element, 'gender')
+      return g ? `Gender is ${g}` : 'Gender not set'
+    }
+    default: {
+      const rt = element.type?.startsWith('Generic')
+        ? element.type.replace('Generic', '').replace('_vsac', '')
+        : element.name
+      const mods = element.modifiers?.length ? ` [${element.modifiers.map((m) => m.name).join(' \u2192 ')}]` : ''
+      return `${rt}${mods}`
+    }
+  }
+}
+
+function getFieldValue(element: ElementInstance, fieldId: string): string {
+  const field = element.fields?.find((f) => f.id === fieldId)
+  return field?.value != null ? String(field.value) : ''
 }

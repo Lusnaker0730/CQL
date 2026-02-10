@@ -1,23 +1,44 @@
 import { useState } from 'react'
 import {
-  Card,
-  CardContent,
-  Typography,
-  Stack,
-  IconButton,
-  Tooltip,
-  Collapse,
-  Box,
-  Chip,
+  Card, CardContent, Typography, Stack, IconButton, Tooltip, Collapse, Box, Chip,
 } from '@mui/material'
 import {
-  ExpandMore as ExpandIcon,
-  ExpandLess as CollapseIcon,
-  Delete as DeleteIcon,
+  ExpandMore as ExpandIcon, ExpandLess as CollapseIcon,
+  Delete as DeleteIcon, ContentCopy as CopyIcon,
+  FormatListBulleted as ListIcon, Visibility as ViewIcon,
+  Build as ModIcon,
 } from '@mui/icons-material'
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
 import type { ElementInstance, ModifierDefinition } from '../../../types/authoring'
+
+const RETURN_TYPE_COLORS: Record<string, string> = {
+  boolean: '#2196F3',
+  list_of_conditions: '#4CAF50',
+  list_of_observations: '#4CAF50',
+  list_of_medications: '#4CAF50',
+  list_of_procedures: '#4CAF50',
+  list_of_encounters: '#4CAF50',
+  list_of_immunizations: '#4CAF50',
+  list_of_allergy_intolerances: '#4CAF50',
+  list_of_devices: '#4CAF50',
+  list_of_service_requests: '#4CAF50',
+  list_of_medication_statements: '#4CAF50',
+  list_of_medication_requests: '#4CAF50',
+  list_of_any: '#4CAF50',
+  observation: '#FF9800',
+  condition: '#FF9800',
+  procedure: '#FF9800',
+  integer: '#9C27B0',
+  decimal: '#9C27B0',
+  system_quantity: '#9C27B0',
+  string: '#795548',
+}
+
+const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
+  AgeRange: ViewIcon,
+  Gender: ViewIcon,
+}
 
 interface ArtifactElementProps {
   element: ElementInstance
@@ -36,14 +57,24 @@ export default function ArtifactElement({
 
   const elementName = element.fields?.find((f) => f.id === 'element_name')?.value as string
   const displayName = elementName || element.name
+  const effectiveReturnType = getEffectiveReturnType(element)
+  const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || '#757575'
+  const IconComp = ELEMENT_ICONS[element.type] || (element.type?.startsWith('Generic') ? ListIcon : ListIcon)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const text = `${displayName} (${effectiveReturnType.replace(/_/g, ' ')})`
+    navigator.clipboard.writeText(text)
+  }
 
   return (
     <Card
       variant="outlined"
       sx={{
         borderLeft: '4px solid',
-        borderLeftColor: 'primary.main',
+        borderLeftColor: rtColor,
         '&:hover': { boxShadow: 1 },
+        transition: 'box-shadow 0.2s',
       }}
     >
       <Stack
@@ -57,34 +88,45 @@ export default function ArtifactElement({
           {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
         </IconButton>
 
+        <IconComp fontSize="small" sx={{ color: rtColor, opacity: 0.7 }} />
+
         <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
           {displayName}
         </Typography>
 
         <Chip
-          label={element.returnType.replace(/_/g, ' ')}
+          label={effectiveReturnType.replace(/_/g, ' ')}
           size="small"
-          variant="outlined"
-          sx={{ fontSize: '0.7rem' }}
+          sx={{
+            fontSize: '0.7rem',
+            backgroundColor: rtColor + '18',
+            color: rtColor,
+            border: `1px solid ${rtColor}40`,
+            fontWeight: 600,
+          }}
         />
 
         {element.modifiers && element.modifiers.length > 0 && (
           <Chip
-            label={`${element.modifiers.length} modifier${element.modifiers.length > 1 ? 's' : ''}`}
+            icon={<ModIcon sx={{ fontSize: '0.85rem !important' }} />}
+            label={`${element.modifiers.length}`}
             size="small"
             color="secondary"
             sx={{ fontSize: '0.7rem' }}
           />
         )}
 
+        <Tooltip title="Copy element info">
+          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+            <CopyIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+
         <Tooltip title="Remove element">
           <IconButton
             size="small"
             color="error"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
+            onClick={(e) => { e.stopPropagation(); onRemove() }}
           >
             <DeleteIcon fontSize="small" />
           </IconButton>
@@ -108,4 +150,11 @@ export default function ArtifactElement({
       </Collapse>
     </Card>
   )
+}
+
+function getEffectiveReturnType(element: ElementInstance): string {
+  if (element.modifiers && element.modifiers.length > 0) {
+    return element.modifiers[element.modifiers.length - 1].returnType
+  }
+  return element.returnType
 }

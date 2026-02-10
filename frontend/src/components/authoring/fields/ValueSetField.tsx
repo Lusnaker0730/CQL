@@ -1,30 +1,328 @@
-import { TextField, Typography, Box } from '@mui/material'
+import { useState } from 'react'
+import {
+  Box, Stack, Typography, TextField, Chip, IconButton, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  Table, TableHead, TableBody, TableRow, TableCell, CircularProgress,
+  InputAdornment, Tabs, Tab,
+} from '@mui/material'
+import {
+  FormatListBulleted as VsIcon, Add as AddIcon, Delete as DeleteIcon,
+  Close as CloseIcon, CheckCircle as AuthIcon, Search as SearchIcon,
+} from '@mui/icons-material'
+import GradientButton from '../../common/GradientButton'
+import ChooseCodeDialog from './ChooseCodeDialog'
+import { useSearchValueSets } from '../../../hooks/useTerminology'
+import type { ValueSetReference, CodeReference, ElementField } from '../../../types/authoring'
 
 interface ValueSetFieldProps {
   label: string
   value: string
   onChange: (value: string) => void
   selectPath?: string
+  field?: ElementField
+  onFieldUpdate?: (updates: Partial<ElementField>) => void
 }
 
-export default function ValueSetField({ label, value, onChange, selectPath }: ValueSetFieldProps) {
-  // For now, render as a text input.
-  // In future phases, this will integrate with VSAC for value set selection.
+export default function ValueSetField({
+  label,
+  value,
+  onChange,
+  field,
+  onFieldUpdate,
+}: ValueSetFieldProps) {
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false)
+  const [vsDialogOpen, setVsDialogOpen] = useState(false)
+
+  const valueSets: ValueSetReference[] = field?.valueSets || []
+  const codes: CodeReference[] = field?.codes || []
+  const hasRichData = valueSets.length > 0 || codes.length > 0
+
+  const handleAddValueSet = (vs: ValueSetReference) => {
+    if (onFieldUpdate) {
+      onFieldUpdate({ valueSets: [...valueSets, vs] })
+    }
+  }
+
+  const handleRemoveValueSet = (index: number) => {
+    if (onFieldUpdate) {
+      const updated = [...valueSets]
+      updated.splice(index, 1)
+      onFieldUpdate({ valueSets: updated })
+    }
+  }
+
+  const handleAddCode = (code: CodeReference) => {
+    if (onFieldUpdate) {
+      onFieldUpdate({ codes: [...codes, code] })
+    }
+  }
+
+  const handleRemoveCode = (index: number) => {
+    if (onFieldUpdate) {
+      const updated = [...codes]
+      updated.splice(index, 1)
+      onFieldUpdate({ codes: updated })
+    }
+  }
+
+  if (!onFieldUpdate) {
+    return (
+      <Box>
+        <TextField
+          label={label}
+          size="small"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          fullWidth
+          placeholder="Enter value set OID or search..."
+        />
+      </Box>
+    )
+  }
+
   return (
     <Box>
-      <TextField
-        label={label}
-        size="small"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        fullWidth
-        placeholder="Enter value set OID or search..."
-      />
-      {selectPath && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-          Value set lookup will be available when VSAC integration is configured.
-        </Typography>
+      {/* VSAC Status + Action Buttons */}
+      <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
+        <Chip
+          icon={<AuthIcon sx={{ fontSize: 16 }} />}
+          label="VSAC AUTHENTICATED"
+          size="small"
+          variant="outlined"
+          sx={{ color: 'text.secondary', borderColor: 'divider' }}
+        />
+        <GradientButton size="small" startIcon={<VsIcon />} onClick={() => setVsDialogOpen(true)}>
+          ADD VALUE SET
+        </GradientButton>
+        <GradientButton size="small" startIcon={<AddIcon />} onClick={() => setCodeDialogOpen(true)}>
+          ADD CODE
+        </GradientButton>
+      </Stack>
+
+      {/* Listed Value Sets */}
+      {valueSets.length > 0 && (
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+            Value Sets
+          </Typography>
+          <Stack spacing={0.5}>
+            {valueSets.map((vs, i) => (
+              <Stack key={`vs-${i}`} direction="row" alignItems="center" spacing={1}
+                sx={{ py: 0.5, px: 1, backgroundColor: 'action.hover', borderRadius: 1 }}
+              >
+                <VsIcon fontSize="small" color="primary" />
+                <Typography variant="body2" sx={{ flex: 1 }}>
+                  {vs.name}{' '}
+                  <Typography component="span" variant="caption" color="text.secondary">({vs.oid})</Typography>
+                </Typography>
+                <Tooltip title="Remove">
+                  <IconButton size="small" onClick={() => handleRemoveValueSet(i)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
       )}
+
+      {/* Listed Codes */}
+      {codes.length > 0 && (
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+            Codes
+          </Typography>
+          <Stack spacing={0.5}>
+            {codes.map((c, i) => (
+              <Stack key={`code-${i}`} direction="row" alignItems="center" spacing={1}
+                sx={{ py: 0.5, px: 1, backgroundColor: 'action.hover', borderRadius: 1 }}
+              >
+                <Chip label={c.codeSystem.name} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                <Typography variant="body2" fontWeight={600}>{c.code}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{c.display}</Typography>
+                <Tooltip title="Remove">
+                  <IconButton size="small" onClick={() => handleRemoveCode(i)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+      )}
+
+      {/* Empty state with legacy OID input */}
+      {!hasRichData && (
+        <TextField
+          label={label}
+          size="small"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          fullWidth
+          placeholder="Or enter a value set OID directly..."
+          sx={{ mt: 0.5 }}
+        />
+      )}
+
+      <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} />
+      <AddValueSetDialog open={vsDialogOpen} onClose={() => setVsDialogOpen(false)} onAdd={handleAddValueSet} />
     </Box>
+  )
+}
+
+// ----- Add Value Set Dialog with VSAC Search -----
+
+function AddValueSetDialog({
+  open,
+  onClose,
+  onAdd,
+}: {
+  open: boolean
+  onClose: () => void
+  onAdd: (vs: ValueSetReference) => void
+}) {
+  const [tab, setTab] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [oid, setOid] = useState('')
+  const [name, setName] = useState('')
+
+  const { data: searchResults, isLoading: isSearching } = useSearchValueSets(
+    tab === 0 ? searchQuery : undefined
+  )
+
+  const handleSelectFromSearch = (vs: { url: string; name: string; title: string }) => {
+    onAdd({ oid: vs.url, name: vs.title || vs.name })
+    handleReset()
+    onClose()
+  }
+
+  const handleManualAdd = () => {
+    if (oid.trim()) {
+      onAdd({ oid: oid.trim(), name: name.trim() || oid.trim() })
+      handleReset()
+      onClose()
+    }
+  }
+
+  const handleReset = () => {
+    setSearchQuery('')
+    setOid('')
+    setName('')
+    setTab(0)
+  }
+
+  const handleClose = () => {
+    handleReset()
+    onClose()
+  }
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Add Value Set
+        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+      </DialogTitle>
+
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3 }}>
+        <Tab label="Search VSAC" />
+        <Tab label="Enter OID" />
+      </Tabs>
+
+      <DialogContent sx={{ minHeight: 300 }}>
+        {tab === 0 ? (
+          <Box>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search value sets by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: isSearching ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={18} />
+                  </InputAdornment>
+                ) : null,
+              }}
+            />
+
+            {searchResults && searchResults.length > 0 ? (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>NAME</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>OID / URL</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {searchResults.map((vs) => (
+                    <TableRow
+                      key={vs.url}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => handleSelectFromSearch(vs)}
+                    >
+                      <TableCell>
+                        <Typography variant="body2">{vs.title || vs.name}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">{vs.url}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="small" variant="outlined">Select</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : searchQuery.length >= 2 && !isSearching ? (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                No value sets found for &quot;{searchQuery}&quot;. Try a different search term or enter the OID manually.
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                Type at least 2 characters to search VSAC value sets.
+              </Typography>
+            )}
+          </Box>
+        ) : (
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Value Set OID or URL"
+              size="small"
+              value={oid}
+              onChange={(e) => setOid(e.target.value)}
+              fullWidth
+              placeholder="e.g. 2.16.840.1.113883.3.526.3.1032"
+            />
+            <TextField
+              label="Display Name"
+              size="small"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              fullWidth
+              placeholder="e.g. Diabetes"
+              helperText="Optional. If left blank, the OID will be used as the name."
+            />
+          </Stack>
+        )}
+      </DialogContent>
+
+      <DialogActions>
+        <Button onClick={handleClose}>Cancel</Button>
+        {tab === 1 && (
+          <Button variant="contained" onClick={handleManualAdd} disabled={!oid.trim()}>
+            Add
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
   )
 }

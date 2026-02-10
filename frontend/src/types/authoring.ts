@@ -120,6 +120,7 @@ export interface ElementField {
   name: string
   value?: unknown
   static?: boolean
+  select?: string
   valueSets?: ValueSetReference[]
   codes?: CodeReference[]
   exclusive?: boolean

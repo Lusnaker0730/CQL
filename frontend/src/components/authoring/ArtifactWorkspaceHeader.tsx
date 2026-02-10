@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import {
   Box, Typography, Stack, IconButton, Tooltip, TextField, Menu, MenuItem, ListItemIcon, ListItemText,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, CircularProgress,
 } from '@mui/material'
 import {
   ArrowBack as BackIcon, Save as SaveIcon, MoreVert as MoreIcon,
   CloudUpload as DeployIcon, LibraryBooks as LibraryIcon, Download as DownloadIcon,
+  Visibility as ViewIcon, Close as CloseIcon,
 } from '@mui/icons-material'
-import StatusChip from '../common/StatusChip'
 import { useDeployCdsService, useSaveAsLibrary } from '../../hooks/useArtifactTesting'
 import { useGenerateArtifactCql } from '../../hooks/useArtifactCql'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
@@ -32,6 +32,8 @@ export default function ArtifactWorkspaceHeader({
   const [deployHook, setDeployHook] = useState('patient-view')
   const [deployResult, setDeployResult] = useState<string | null>(null)
   const [saveLibResult, setSaveLibResult] = useState<string | null>(null)
+  const [viewCqlDialog, setViewCqlDialog] = useState(false)
+  const [viewCqlContent, setViewCqlContent] = useState<string | null>(null)
 
   const deployMutation = useDeployCdsService()
   const saveLibMutation = useSaveAsLibrary()
@@ -92,8 +94,16 @@ export default function ArtifactWorkspaceHeader({
     })
   }
 
+  const handleViewCql = () => {
+    generateCqlMutation.mutate(artifact.id, {
+      onSuccess: (data) => {
+        setViewCqlContent(data.cql)
+        setViewCqlDialog(true)
+      },
+    })
+  }
+
   const handleDownloadCql = () => {
-    setAnchorEl(null)
     generateCqlMutation.mutate(artifact.id, {
       onSuccess: (data) => {
         const blob = new Blob([data.cql], { type: 'text/plain' })
@@ -117,10 +127,12 @@ export default function ArtifactWorkspaceHeader({
           p: 2,
           borderBottom: 1,
           borderColor: 'divider',
+          backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1a2332' : '#1B3A5C',
+          color: '#fff',
         }}
       >
         <Tooltip title="Back to artifact list">
-          <IconButton onClick={onBack} size="small">
+          <IconButton onClick={onBack} size="small" sx={{ color: '#fff' }}>
             <BackIcon />
           </IconButton>
         </Tooltip>
@@ -133,40 +145,84 @@ export default function ArtifactWorkspaceHeader({
             '& .MuiInput-input': {
               fontSize: '1.1rem',
               fontWeight: 600,
+              color: '#fff',
             },
+            '& .MuiInput-underline:before': { borderBottomColor: 'rgba(255,255,255,0.3)' },
+            '& .MuiInput-underline:hover:before': { borderBottomColor: 'rgba(255,255,255,0.6)' },
+            '& .MuiInput-underline:after': { borderBottomColor: '#fff' },
             minWidth: 200,
             maxWidth: 400,
           }}
         />
 
-        <Typography variant="body2" color="text.secondary">
-          v{artifact.version}
-        </Typography>
-
-        <StatusChip status={artifact.status} />
-
         {isDirty && (
-          <Typography variant="caption" color="warning.main" sx={{ fontStyle: 'italic' }}>
+          <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.7)' }}>
             Unsaved changes
           </Typography>
         )}
 
-        <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
-          <Tooltip title="Save (Ctrl+S)">
-            <span>
-              <IconButton
-                onClick={handleSave}
-                disabled={!isDirty}
-                color={isDirty ? 'primary' : 'default'}
-                size="small"
-              >
-                <SaveIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
+        <Stack direction="row" spacing={1} sx={{ ml: 'auto' }} alignItems="center">
+          {/* VIEW CQL - prominent button */}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={generateCqlMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <ViewIcon />}
+            onClick={handleViewCql}
+            disabled={generateCqlMutation.isPending}
+            sx={{
+              color: '#fff',
+              borderColor: 'rgba(255,255,255,0.5)',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              '&:hover': { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
+            }}
+          >
+            View CQL
+          </Button>
 
-          <Tooltip title="Actions">
-            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}>
+          {/* DOWNLOAD CQL - prominent button */}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadCql}
+            disabled={generateCqlMutation.isPending}
+            sx={{
+              color: '#fff',
+              borderColor: 'rgba(255,255,255,0.5)',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              '&:hover': { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
+            }}
+          >
+            Download CQL
+          </Button>
+
+          {/* SAVE - prominent button */}
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={!isDirty}
+            sx={{
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              color: '#fff',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.25)' },
+              '&.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
+            }}
+          >
+            Save
+          </Button>
+
+          {/* More actions menu */}
+          <Tooltip title="More actions">
+            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: '#fff' }}>
               <MoreIcon />
             </IconButton>
           </Tooltip>
@@ -178,10 +234,6 @@ export default function ArtifactWorkspaceHeader({
             <MenuItem onClick={handleSaveAsLibrary} disabled={saveLibMutation.isPending}>
               <ListItemIcon><LibraryIcon fontSize="small" /></ListItemIcon>
               <ListItemText>Save as CQL Library</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={handleDownloadCql} disabled={generateCqlMutation.isPending}>
-              <ListItemIcon><DownloadIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Download CQL</ListItemText>
             </MenuItem>
           </Menu>
         </Stack>
@@ -207,6 +259,61 @@ export default function ArtifactWorkspaceHeader({
           Save as library failed: {(saveLibMutation.error as Error)?.message || 'Unknown error'}
         </Alert>
       )}
+      {generateCqlMutation.isError && (
+        <Alert severity="error" onClose={() => generateCqlMutation.reset()} sx={{ mx: 2, mt: 1 }}>
+          CQL generation failed: {(generateCqlMutation.error as Error)?.message || 'Unknown error'}
+        </Alert>
+      )}
+
+      {/* View CQL Dialog */}
+      <Dialog open={viewCqlDialog} onClose={() => setViewCqlDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Generated CQL
+          <IconButton onClick={() => setViewCqlDialog(false)} size="small"><CloseIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewCqlContent ? (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 1,
+                backgroundColor: '#1e1e1e',
+                color: '#d4d4d4',
+                fontFamily: '"Fira Code", "Consolas", monospace',
+                fontSize: '0.85rem',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.6,
+                maxHeight: '60vh',
+                overflow: 'auto',
+              }}
+            >
+              {viewCqlContent}
+            </Box>
+          ) : (
+            <Typography color="text.secondary">No CQL generated.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewCqlDialog(false)}>Close</Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={() => {
+              if (viewCqlContent) {
+                const blob = new Blob([viewCqlContent], { type: 'text/plain' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${artifact.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.cql`
+                a.click()
+                URL.revokeObjectURL(url)
+              }
+            }}
+          >
+            Download
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Deploy Dialog */}
       <Dialog open={deployDialog} onClose={() => setDeployDialog(false)} maxWidth="sm" fullWidth>
