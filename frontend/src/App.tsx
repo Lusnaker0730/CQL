@@ -21,6 +21,7 @@ const FhirPage = lazy(() => import('./pages/FhirPage'))
 const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const AuditDashboardPage = lazy(() => import('./pages/AuditDashboardPage'))
+const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
 
 export default function App() {
   const user = useSelector((state: RootState) => state.auth.user)
@@ -87,6 +88,14 @@ export default function App() {
                         element={
                           <ErrorBoundary fallbackTitle="Terminology Error">
                             <TerminologyPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/authoring"
+                        element={
+                          <ErrorBoundary fallbackTitle="CDS Authoring Error">
+                            <AuthoringPage />
                           </ErrorBoundary>
                         }
                       />

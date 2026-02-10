@@ -32,6 +32,7 @@ const baseNavItems = [
   { label: 'Editor', path: '/' },
   { label: 'CDS Hooks', path: '/cds' },
   { label: 'Measures', path: '/measures' },
+  { label: 'Authoring', path: '/authoring' },
   { label: 'FHIR Browser', path: '/fhir' },
   { label: 'Terminology', path: '/terminology' },
 ]

@@ -580,6 +580,10 @@ public class CdsHooksService {
                 execResponse.getResults() != null ? execResponse.getResults().size() : 0);
         log.info("Execution Metadata: {}", execResponse.getMetadata());
 
+        // Collect non-Tuple results into a single consolidated card
+        StringBuilder consolidatedDetail = new StringBuilder();
+        String consolidatedIndicator = "info";
+
         if (execResponse.getResults() != null) {
             for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults()
                     .entrySet()) {
@@ -593,25 +597,21 @@ public class CdsHooksService {
                     continue;
                 }
 
-                if (value instanceof Boolean && (Boolean) value) {
-                    cards.add(CdsResponse.Card.builder()
-                            .uuid(UUID.randomUUID().toString())
-                            .summary(config.getTitle() + ": " + entry.getKey())
-                            .detail("Condition '" + entry.getKey() + "' evaluated to true.")
-                            .indicator(config.getDefaultIndicator() != null ? config.getDefaultIndicator() : "warning")
-                            .source(CdsResponse.Source.builder()
-                                    .label(config.getTitle())
-                                    .build())
-                            .build());
-                } else if (value != null && value.getClass().getSimpleName().contains("Tuple")) {
+                // Skip null values
+                if (value == null) {
+                    continue;
+                }
+
+                String exprName = entry.getKey();
+
+                // Tuple with CDS card fields (summary/detail/indicator) → separate card
+                if (value.getClass().getSimpleName().contains("Tuple")) {
                     try {
                         String summary = getField(value, "summary");
                         String detail = getField(value, "detail");
                         String indicator = getField(value, "indicator");
                         String sourceLabel = getField(value, "sourceLabel");
                         String selectionBehavior = getField(value, "selectionBehavior");
-
-                        // Parse suggestions from Tuple
                         List<CdsResponse.Suggestion> suggestions = parseSuggestions(value);
 
                         if (summary != null) {
@@ -626,12 +626,48 @@ public class CdsHooksService {
                                     .selectionBehavior(selectionBehavior)
                                     .suggestions(suggestions.isEmpty() ? null : suggestions)
                                     .build());
+                            continue;
+                        }
+                        // Tuple without summary: add all fields to consolidated detail
+                        Map<String, Object> elements = getTupleElements(value);
+                        if (!elements.isEmpty()) {
+                            elements.forEach((k, v) -> {
+                                if (consolidatedDetail.length() > 0) consolidatedDetail.append("\n");
+                                consolidatedDetail.append("**").append(k).append("**: ").append(formatCardValue(v));
+                            });
                         }
                     } catch (Exception e) {
                         log.warn("Failed to parse Tuple result for card", e);
                     }
+                    continue;
+                }
+
+                // All other types: append to consolidated detail
+                String formattedLine = formatExpressionLine(exprName, value);
+                if (formattedLine != null) {
+                    if (consolidatedDetail.length() > 0) consolidatedDetail.append("\n");
+                    consolidatedDetail.append(formattedLine);
+
+                    // Escalate indicator to warning if a Boolean condition is true
+                    if (value instanceof Boolean && (Boolean) value) {
+                        consolidatedIndicator = config.getDefaultIndicator() != null
+                                ? config.getDefaultIndicator() : "warning";
+                    }
                 }
             }
+        }
+
+        // Build a single consolidated card from all non-Tuple results
+        if (consolidatedDetail.length() > 0) {
+            cards.add(CdsResponse.Card.builder()
+                    .uuid(UUID.randomUUID().toString())
+                    .summary(config.getTitle())
+                    .detail(consolidatedDetail.toString())
+                    .indicator(consolidatedIndicator)
+                    .source(CdsResponse.Source.builder()
+                            .label(config.getTitle())
+                            .build())
+                    .build());
         }
 
         if (cards.isEmpty()) {
@@ -642,6 +678,158 @@ public class CdsHooksService {
                 .cards(cards)
                 .systemActions(systemActions.isEmpty() ? null : systemActions)
                 .build();
+    }
+
+    /**
+     * Format a single CQL expression result as a markdown line for the consolidated card.
+     */
+    private String formatExpressionLine(String exprName, Object value) {
+        if (value instanceof Boolean) {
+            if ((Boolean) value) {
+                return "**" + exprName + "**: Yes";
+            }
+            return null; // Skip false booleans
+        }
+        if (value instanceof String) {
+            return "**" + exprName + "**: " + value;
+        }
+        if (value instanceof Number) {
+            return "**" + exprName + "**: " + value;
+        }
+        if (value instanceof java.time.temporal.Temporal || value instanceof java.util.Date) {
+            return "**" + exprName + "**: " + value;
+        }
+        if (value instanceof org.hl7.fhir.r4.model.Quantity q) {
+            String display = q.getValue() + (q.getUnit() != null ? " " + q.getUnit() : "");
+            return "**" + exprName + "**: " + display;
+        }
+        if (value instanceof org.hl7.fhir.r4.model.CodeableConcept cc) {
+            String display = cc.hasText() ? cc.getText()
+                    : (cc.hasCoding() ? cc.getCodingFirstRep().getDisplay() : cc.toString());
+            return "**" + exprName + "**: " + display;
+        }
+        if (value instanceof org.hl7.fhir.r4.model.Coding coding) {
+            String display = coding.hasDisplay() ? coding.getDisplay()
+                    : coding.getSystem() + "|" + coding.getCode();
+            return "**" + exprName + "**: " + display;
+        }
+        if (value instanceof org.hl7.fhir.r4.model.Period p) {
+            String display = (p.hasStart() ? p.getStart().toString() : "?")
+                    + " to " + (p.hasEnd() ? p.getEnd().toString() : "?");
+            return "**" + exprName + "**: " + display;
+        }
+        if (value instanceof Resource res) {
+            return "**" + exprName + "**: " + formatResourceDetail(res);
+        }
+        if (value instanceof Iterable) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("**").append(exprName).append("**:");
+            int count = 0;
+            for (Object item : (Iterable<?>) value) {
+                if (item == null) continue;
+                count++;
+                sb.append("\n  ").append(count).append(". ").append(formatCardValue(item));
+            }
+            return count > 0 ? sb.toString() : null;
+        }
+        if (value.getClass().getSimpleName().contains("Interval")) {
+            return "**" + exprName + "**: " + value;
+        }
+        if (value instanceof org.hl7.fhir.r4.model.PrimitiveType) {
+            return "**" + exprName + "**: " + ((org.hl7.fhir.r4.model.PrimitiveType<?>) value).getValueAsString();
+        }
+        return "**" + exprName + "**: " + value;
+    }
+
+    private String formatCardValue(Object value) {
+        if (value == null) return "null";
+        if (value instanceof String || value instanceof Number || value instanceof Boolean) {
+            return value.toString();
+        }
+        if (value instanceof java.time.temporal.Temporal) return value.toString();
+        if (value instanceof org.hl7.fhir.r4.model.Quantity) {
+            org.hl7.fhir.r4.model.Quantity q = (org.hl7.fhir.r4.model.Quantity) value;
+            return q.getValue() + (q.getUnit() != null ? " " + q.getUnit() : "");
+        }
+        if (value instanceof org.hl7.fhir.r4.model.CodeableConcept) {
+            org.hl7.fhir.r4.model.CodeableConcept cc = (org.hl7.fhir.r4.model.CodeableConcept) value;
+            return cc.hasText() ? cc.getText()
+                    : (cc.hasCoding() ? cc.getCodingFirstRep().getDisplay() : cc.toString());
+        }
+        if (value instanceof org.hl7.fhir.r4.model.Coding) {
+            org.hl7.fhir.r4.model.Coding c = (org.hl7.fhir.r4.model.Coding) value;
+            return c.hasDisplay() ? c.getDisplay() : c.getSystem() + "|" + c.getCode();
+        }
+        if (value instanceof org.hl7.fhir.r4.model.PrimitiveType) {
+            return ((org.hl7.fhir.r4.model.PrimitiveType<?>) value).getValueAsString();
+        }
+        if (value instanceof Resource) {
+            Resource res = (Resource) value;
+            return res.fhirType() + (res.hasIdElement() ? "/" + res.getIdElement().getIdPart() : "");
+        }
+        return value.toString();
+    }
+
+    private String formatResourceDetail(Resource resource) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("**").append(resource.fhirType()).append("**");
+        if (resource.hasIdElement()) {
+            sb.append(" (").append(resource.getIdElement().getIdPart()).append(")");
+        }
+
+        // Extract common useful fields based on resource type
+        if (resource instanceof org.hl7.fhir.r4.model.Observation obs) {
+            if (obs.hasCode() && obs.getCode().hasText()) {
+                sb.append("\nCode: ").append(obs.getCode().getText());
+            } else if (obs.hasCode() && obs.getCode().hasCoding()) {
+                sb.append("\nCode: ").append(obs.getCode().getCodingFirstRep().getDisplay());
+            }
+            if (obs.hasValue()) {
+                if (obs.getValue() instanceof org.hl7.fhir.r4.model.Quantity q) {
+                    sb.append("\nValue: ").append(q.getValue()).append(" ").append(q.getUnit());
+                } else if (obs.getValue() instanceof org.hl7.fhir.r4.model.CodeableConcept cc) {
+                    sb.append("\nValue: ").append(cc.hasText() ? cc.getText() : cc.getCodingFirstRep().getDisplay());
+                } else {
+                    sb.append("\nValue: ").append(obs.getValue());
+                }
+            }
+            if (obs.hasEffectiveDateTimeType()) {
+                sb.append("\nDate: ").append(obs.getEffectiveDateTimeType().getValueAsString());
+            }
+        } else if (resource instanceof org.hl7.fhir.r4.model.Condition cond) {
+            if (cond.hasCode() && cond.getCode().hasText()) {
+                sb.append("\nCondition: ").append(cond.getCode().getText());
+            } else if (cond.hasCode() && cond.getCode().hasCoding()) {
+                sb.append("\nCondition: ").append(cond.getCode().getCodingFirstRep().getDisplay());
+            }
+            if (cond.hasClinicalStatus()) {
+                sb.append("\nStatus: ").append(cond.getClinicalStatus().getCodingFirstRep().getCode());
+            }
+        } else if (resource instanceof org.hl7.fhir.r4.model.MedicationRequest medReq) {
+            if (medReq.hasMedicationCodeableConcept()) {
+                org.hl7.fhir.r4.model.CodeableConcept med = medReq.getMedicationCodeableConcept();
+                sb.append("\nMedication: ").append(med.hasText() ? med.getText() : med.getCodingFirstRep().getDisplay());
+            }
+            if (medReq.hasStatus()) {
+                sb.append("\nStatus: ").append(medReq.getStatus().toCode());
+            }
+        } else if (resource instanceof org.hl7.fhir.r4.model.Procedure proc) {
+            if (proc.hasCode() && proc.getCode().hasText()) {
+                sb.append("\nProcedure: ").append(proc.getCode().getText());
+            }
+            if (proc.hasStatus()) {
+                sb.append("\nStatus: ").append(proc.getStatus().toCode());
+            }
+        } else if (resource instanceof org.hl7.fhir.r4.model.AllergyIntolerance allergy) {
+            if (allergy.hasCode() && allergy.getCode().hasText()) {
+                sb.append("\nAllergy: ").append(allergy.getCode().getText());
+            }
+            if (allergy.hasClinicalStatus()) {
+                sb.append("\nStatus: ").append(allergy.getClinicalStatus().getCodingFirstRep().getCode());
+            }
+        }
+
+        return sb.toString();
     }
 
     @SuppressWarnings("unchecked")

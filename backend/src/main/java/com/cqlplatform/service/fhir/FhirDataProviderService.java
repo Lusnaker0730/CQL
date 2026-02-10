@@ -293,6 +293,29 @@ public class FhirDataProviderService {
         return params;
     }
 
+    /**
+     * Resource types that support 'subject' search parameter for patient-context retrieval.
+     * Most clinical resources in FHIR R4 use 'subject' to reference the patient.
+     */
+    private static final java.util.Set<String> SUBJECT_BASED_RESOURCES = java.util.Set.of(
+            "Condition", "Encounter", "MedicationRequest", "MedicationAdministration",
+            "Procedure", "DiagnosticReport", "CarePlan", "ServiceRequest",
+            "ClinicalImpression", "RiskAssessment", "Goal", "NutritionOrder",
+            "DeviceRequest", "Communication", "CommunicationRequest", "DocumentReference",
+            "Composition", "Coverage", "Claim", "ExplanationOfBenefit"
+    );
+
+    /**
+     * Resource types that use 'patient' search parameter instead of 'subject'.
+     */
+    private static final java.util.Set<String> PATIENT_BASED_RESOURCES = java.util.Set.of(
+            "Observation", "AllergyIntolerance", "Immunization", "MedicationStatement",
+            "MedicationDispense", "FamilyMemberHistory", "Flag", "Consent",
+            "AdverseEvent", "QuestionnaireResponse", "ImagingStudy", "Media",
+            "Specimen", "BodyStructure", "DetectedIssue", "SupplyDelivery",
+            "SupplyRequest", "VisionPrescription", "Account"
+    );
+
     private static class CountingRetrieveProvider implements RetrieveProvider {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CountingRetrieveProvider.class);
 
@@ -315,11 +338,19 @@ public class FhirDataProviderService {
                 Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes,
                 String valueSet, String datePath, String dateLowPath,
                 String dateHighPath, org.opencds.cqf.cql.engine.runtime.Interval dateRange) {
-            log.debug("Retrieve called for DataType: {}, Context: {}, ContextPath: {}, ContextValue: {}",
-                    dataType, context, contextPath, contextValue);
+            log.debug("Retrieve: DataType={}, Context={}, ContextPath={}, ContextValue={}, " +
+                            "codePath={}, valueSet={}, datePath={}, dateRange={}",
+                    dataType, context, contextPath, contextValue,
+                    codePath, valueSet, datePath, dateRange);
 
-            Iterable<Object> results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
-                    codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
+            Iterable<Object> results;
+            try {
+                results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
+                        codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
+            } catch (Exception e) {
+                log.debug("Delegate retrieve threw exception for {}: {}", dataType, e.getMessage());
+                results = null;
+            }
 
             List<Object> resultList = new ArrayList<>();
             if (results != null) {
@@ -327,15 +358,15 @@ public class FhirDataProviderService {
             }
 
             // MANUAL FALLBACK: If delegate returned 0 results, try manual FHIR client
-            if (resultList.isEmpty() && contextValue != null) {
+            if (resultList.isEmpty() && contextValue != null && "Patient".equals(context)) {
                 String patientId = contextValue.toString();
                 if (patientId.startsWith("Patient/")) {
                     patientId = patientId.substring("Patient/".length());
                 }
 
-                if ("Patient".equals(dataType) && "Patient".equals(context)) {
+                if ("Patient".equals(dataType)) {
                     // Fallback: read Patient by ID directly
-                    log.debug("Patient retrieve returned 0, fallback read for ID: {}", patientId);
+                    log.debug("Fallback: reading Patient/{}", patientId);
                     try {
                         IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
                         Patient patient = fallbackClient.read().resource(Patient.class).withId(patientId).execute();
@@ -345,34 +376,61 @@ public class FhirDataProviderService {
                     } catch (Exception e) {
                         log.debug("Patient fallback read failed: {}", e.getMessage());
                     }
-                } else if ("Observation".equals(dataType) && "Patient".equals(context)) {
-                    // Fallback: search Observations by patient
-                    log.debug("Observation retrieve returned 0, fallback search for patient: {}", patientId);
-                    try {
-                        IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
-                        Bundle bundle = fallbackClient.search()
-                                .forResource("Observation")
-                                .where(new TokenClientParam("patient").exactly().code(patientId))
-                                .returnBundle(Bundle.class)
-                                .execute();
-
-                        if (bundle.hasEntry()) {
-                            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-                                resultList.add(entry.getResource());
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.debug("Observation fallback search failed: {}", e.getMessage());
-                    }
+                } else {
+                    // Generic fallback: search by subject or patient parameter
+                    resultList.addAll(fallbackSearch(dataType, patientId));
                 }
             }
 
             int currentCount = resultList.size();
-            log.debug("Final result count passed to Engine: {}", currentCount);
+            log.debug("Final result count for {}: {}", dataType, currentCount);
 
             counter.addAndGet(currentCount);
             return resultList;
         }
 
+        /**
+         * Generic fallback search: tries 'subject', then 'patient' search parameter.
+         */
+        private List<Object> fallbackSearch(String dataType, String patientId) {
+            log.debug("Fallback search for {}?subject/patient={}", dataType, patientId);
+            IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
+
+            // Determine which search parameter to try first
+            String primaryParam = SUBJECT_BASED_RESOURCES.contains(dataType) ? "subject" : "patient";
+            String secondaryParam = "subject".equals(primaryParam) ? "patient" : "subject";
+
+            List<Object> results = trySearch(fallbackClient, dataType, primaryParam, patientId);
+            if (results.isEmpty()) {
+                results = trySearch(fallbackClient, dataType, secondaryParam, patientId);
+            }
+
+            if (!results.isEmpty()) {
+                log.debug("Fallback found {} {} resources for patient {}", results.size(), dataType, patientId);
+            }
+            return results;
+        }
+
+        private List<Object> trySearch(IGenericClient client, String dataType, String paramName, String patientId) {
+            List<Object> results = new ArrayList<>();
+            try {
+                Bundle bundle = client.search()
+                        .forResource(dataType)
+                        .where(new TokenClientParam(paramName).exactly().code(patientId))
+                        .returnBundle(Bundle.class)
+                        .execute();
+
+                if (bundle.hasEntry()) {
+                    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                        if (entry.getResource() != null) {
+                            results.add(entry.getResource());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Fallback search {}?{}={} failed: {}", dataType, paramName, patientId, e.getMessage());
+            }
+            return results;
+        }
     }
 }

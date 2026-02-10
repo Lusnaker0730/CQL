@@ -1,0 +1,65 @@
+import { useState } from 'react'
+import { Button, Popover } from '@mui/material'
+import { Add as AddIcon } from '@mui/icons-material'
+import ElementSelectDropdown from './ElementSelectDropdown'
+import type { FormTemplateCategory, FormTemplate, ElementInstance } from '../../../types/authoring'
+
+function generateId(): string {
+  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+interface ElementSelectProps {
+  templates: FormTemplateCategory[]
+  onSelect: (element: ElementInstance) => void
+}
+
+export default function ElementSelect({ templates, onSelect }: ElementSelectProps) {
+  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
+
+  const handleSelect = (template: FormTemplate) => {
+    const newElement: ElementInstance = {
+      uniqueId: generateId(),
+      type: template.id,
+      name: template.name,
+      returnType: template.returnType,
+      fields: (template.fields || []).map((f) => ({
+        id: f.id,
+        type: f.type,
+        name: f.name,
+        value: f.value ?? undefined,
+        static: f.static,
+      })),
+      modifiers: [],
+      suppressedModifiers: template.suppressedModifiers,
+      conjunction: template.conjunction,
+      childInstances: template.conjunction ? [] : undefined,
+    }
+    onSelect(newElement)
+    setAnchorEl(null)
+  }
+
+  return (
+    <>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+      >
+        Add Element
+      </Button>
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <ElementSelectDropdown
+          templates={templates}
+          onSelect={handleSelect}
+        />
+      </Popover>
+    </>
+  )
+}
