@@ -1,12 +1,14 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.UserEntity;
-import com.cqlplatform.model.auth.AdminResetPasswordResponse;
-import com.cqlplatform.model.auth.UserSummary;
+import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +20,7 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final PasswordResetService passwordResetService;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/users")
     public ResponseEntity<List<UserSummary>> listUsers() {
@@ -25,6 +28,60 @@ public class AdminController {
                 .map(this::toUserSummary)
                 .toList();
         return ResponseEntity.ok(users);
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<UserSummary> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        UserEntity user = UserEntity.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(UserEntity.Role.valueOf(request.getRole()))
+                .build();
+
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            user.setEmailWithHash(request.getEmail());
+        }
+
+        UserEntity saved = userRepository.save(user);
+        return ResponseEntity.ok(toUserSummary(saved));
+    }
+
+    @PutMapping("/users/{userId}/role")
+    public ResponseEntity<UserSummary> updateUserRole(
+            @PathVariable Long userId,
+            @Valid @RequestBody RoleUpdateRequest request) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getUsername().equals(currentUsername)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        user.setRole(UserEntity.Role.valueOf(request.getRole()));
+        UserEntity saved = userRepository.save(user);
+        return ResponseEntity.ok(toUserSummary(saved));
+    }
+
+    @PutMapping("/users/{userId}/enabled")
+    public ResponseEntity<UserSummary> updateUserEnabled(
+            @PathVariable Long userId,
+            @Valid @RequestBody EnabledUpdateRequest request) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getUsername().equals(currentUsername)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        user.setEnabled(request.getEnabled());
+        UserEntity saved = userRepository.save(user);
+        return ResponseEntity.ok(toUserSummary(saved));
     }
 
     @PostMapping("/users/{userId}/reset-password")

@@ -60,6 +60,7 @@ import type {
   ChangePasswordRequest,
   AdminResetPasswordResponse,
   UserSummary,
+  AdminCreateUserRequest,
 } from '../types'
 
 const api = axios.create({
@@ -134,6 +135,21 @@ export const adminApi = {
 
   resetUserPassword: async (userId: number): Promise<AdminResetPasswordResponse> => {
     const response = await api.post<AdminResetPasswordResponse>(`/admin/users/${userId}/reset-password`)
+    return response.data
+  },
+
+  createUser: async (request: AdminCreateUserRequest): Promise<UserSummary> => {
+    const response = await api.post<UserSummary>('/admin/users', request)
+    return response.data
+  },
+
+  updateUserRole: async (userId: number, role: string): Promise<UserSummary> => {
+    const response = await api.put<UserSummary>(`/admin/users/${userId}/role`, { role })
+    return response.data
+  },
+
+  updateUserEnabled: async (userId: number, enabled: boolean): Promise<UserSummary> => {
+    const response = await api.put<UserSummary>(`/admin/users/${userId}/enabled`, { enabled })
     return response.data
   },
 }

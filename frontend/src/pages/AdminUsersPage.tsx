@@ -21,28 +21,87 @@ import {
   TextField,
   InputAdornment,
   CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Switch,
+  DialogContentText,
 } from '@mui/material'
 import {
   ContentCopy as CopyIcon,
   LockReset as ResetIcon,
   CheckCircle as CheckIcon,
+  PersonAdd as PersonAddIcon,
 } from '@mui/icons-material'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../api'
-import type { AdminResetPasswordResponse } from '../types'
+import type { AdminResetPasswordResponse, AdminCreateUserRequest } from '../types'
 
 export default function AdminUsersPage() {
+  const queryClient = useQueryClient()
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+
+  // Reset password state
   const [resetResult, setResetResult] = useState<AdminResetPasswordResponse | null>(null)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [resetLoading, setResetLoading] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Create user state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [createForm, setCreateForm] = useState<AdminCreateUserRequest>({
+    username: '',
+    password: '',
+    email: '',
+    role: 'USER',
+  })
+  const [createLoading, setCreateLoading] = useState(false)
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({ open: false, title: '', message: '', onConfirm: () => {} })
+
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin', 'users'],
     queryFn: adminApi.listUsers,
   })
 
+  const refreshUsers = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+  }
+
+  // --- Create User ---
+  const handleCreateUser = async () => {
+    setError('')
+    setCreateLoading(true)
+    try {
+      await adminApi.createUser(createForm)
+      setCreateDialogOpen(false)
+      setCreateForm({ username: '', password: '', email: '', role: 'USER' })
+      setSuccess('User created successfully')
+      refreshUsers()
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string }; status?: number } }
+      if (axiosErr.response?.status === 400) {
+        setError('Username already exists or invalid input')
+      } else {
+        setError(axiosErr.response?.data?.error || 'Failed to create user')
+      }
+    } finally {
+      setCreateLoading(false)
+    }
+  }
+
+  // --- Reset Password ---
   const handleResetPassword = async (userId: number) => {
     setError('')
     setResetLoading(userId)
@@ -58,6 +117,55 @@ export default function AdminUsersPage() {
     }
   }
 
+  // --- Role Change ---
+  const handleRoleChange = (userId: number, username: string, newRole: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Change User Role',
+      message: `Change ${username}'s role to ${newRole}?`,
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }))
+        setError('')
+        setActionLoading(userId)
+        try {
+          await adminApi.updateUserRole(userId, newRole)
+          setSuccess(`${username}'s role updated to ${newRole}`)
+          refreshUsers()
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { data?: { error?: string } } }
+          setError(axiosErr.response?.data?.error || 'Failed to update role')
+        } finally {
+          setActionLoading(null)
+        }
+      },
+    })
+  }
+
+  // --- Enable/Disable ---
+  const handleToggleEnabled = (userId: number, username: string, currentlyEnabled: boolean) => {
+    const action = currentlyEnabled ? 'disable' : 'enable'
+    setConfirmDialog({
+      open: true,
+      title: `${currentlyEnabled ? 'Disable' : 'Enable'} User`,
+      message: `Are you sure you want to ${action} ${username}?`,
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }))
+        setError('')
+        setActionLoading(userId)
+        try {
+          await adminApi.updateUserEnabled(userId, !currentlyEnabled)
+          setSuccess(`${username} has been ${action}d`)
+          refreshUsers()
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { data?: { error?: string } } }
+          setError(axiosErr.response?.data?.error || `Failed to ${action} user`)
+        } finally {
+          setActionLoading(null)
+        }
+      },
+    })
+  }
+
   const handleCopy = async () => {
     if (resetResult) {
       await navigator.clipboard.writeText(resetResult.temporaryPassword)
@@ -66,21 +174,39 @@ export default function AdminUsersPage() {
     }
   }
 
-  const handleCloseDialog = () => {
+  const handleCloseResetDialog = () => {
     setResetDialogOpen(false)
     setResetResult(null)
     setCopied(false)
   }
 
+  const isCurrentUser = (username: string) => currentUser?.username === username
+
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 3 }}>
-        User Management
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" fontWeight={700}>
+          User Management
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<PersonAddIcon />}
+          onClick={() => setCreateDialogOpen(true)}
+          sx={{ borderRadius: 2 }}
+        >
+          Create User
+        </Button>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+          {success}
         </Alert>
       )}
 
@@ -114,7 +240,12 @@ export default function AdminUsersPage() {
                 users.map((user) => (
                   <TableRow key={user.id} hover>
                     <TableCell>
-                      <Typography fontWeight={500}>{user.username}</Typography>
+                      <Typography fontWeight={500}>
+                        {user.username}
+                        {isCurrentUser(user.username) && (
+                          <Chip label="You" size="small" sx={{ ml: 1 }} variant="outlined" />
+                        )}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
@@ -122,21 +253,39 @@ export default function AdminUsersPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={user.role}
-                        size="small"
-                        color={user.role === 'ADMIN' ? 'primary' : 'default'}
-                        variant="outlined"
-                      />
+                      <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <Select
+                          value={user.role}
+                          onChange={(e) => handleRoleChange(user.id, user.username, e.target.value)}
+                          disabled={isCurrentUser(user.username) || actionLoading === user.id}
+                          size="small"
+                          sx={{ fontSize: '0.875rem' }}
+                        >
+                          <MenuItem value="ADMIN">ADMIN</MenuItem>
+                          <MenuItem value="USER">USER</MenuItem>
+                        </Select>
+                      </FormControl>
                     </TableCell>
                     <TableCell>
-                      {user.forcePasswordChange ? (
-                        <Chip label="Force Change" size="small" color="warning" variant="outlined" />
-                      ) : user.enabled ? (
-                        <Chip label="Active" size="small" color="success" variant="outlined" />
-                      ) : (
-                        <Chip label="Disabled" size="small" color="error" variant="outlined" />
-                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {user.forcePasswordChange ? (
+                          <Chip label="Force Change" size="small" color="warning" variant="outlined" />
+                        ) : user.enabled ? (
+                          <Chip label="Active" size="small" color="success" variant="outlined" />
+                        ) : (
+                          <Chip label="Disabled" size="small" color="error" variant="outlined" />
+                        )}
+                        <Tooltip title={isCurrentUser(user.username) ? "Cannot disable yourself" : (user.enabled ? "Disable user" : "Enable user")}>
+                          <span>
+                            <Switch
+                              size="small"
+                              checked={user.enabled}
+                              onChange={() => handleToggleEnabled(user.id, user.username, user.enabled)}
+                              disabled={isCurrentUser(user.username) || actionLoading === user.id}
+                            />
+                          </span>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
@@ -157,7 +306,7 @@ export default function AdminUsersPage() {
                               )
                             }
                             onClick={() => handleResetPassword(user.id)}
-                            disabled={resetLoading !== null}
+                            disabled={resetLoading !== null || actionLoading === user.id}
                           >
                             Reset Password
                           </Button>
@@ -172,8 +321,69 @@ export default function AdminUsersPage() {
         </TableContainer>
       </Paper>
 
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Create User</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label="Username"
+              value={createForm.username}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, username: e.target.value }))}
+              fullWidth
+              required
+              autoFocus
+              inputProps={{ maxLength: 50 }}
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={createForm.password}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
+              fullWidth
+              required
+              helperText="Minimum 6 characters"
+              inputProps={{ maxLength: 100 }}
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={createForm.email}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
+              fullWidth
+              inputProps={{ maxLength: 200 }}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={createForm.role}
+                label="Role"
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value as 'ADMIN' | 'USER' }))}
+              >
+                <MenuItem value="USER">USER</MenuItem>
+                <MenuItem value="ADMIN">ADMIN</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCreateDialogOpen(false)} disabled={createLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateUser}
+            variant="contained"
+            disabled={createLoading || !createForm.username || createForm.password.length < 6}
+            startIcon={createLoading ? <CircularProgress size={16} /> : undefined}
+            sx={{ borderRadius: 2 }}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Temporary Password Dialog */}
-      <Dialog open={resetDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={resetDialogOpen} onClose={handleCloseResetDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Password Reset Successful</DialogTitle>
         <DialogContent>
           {resetResult && (
@@ -216,8 +426,22 @@ export default function AdminUsersPage() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseDialog} variant="contained" sx={{ borderRadius: 2 }}>
+          <Button onClick={handleCloseResetDialog} variant="contained" sx={{ borderRadius: 2 }}>
             Done
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}>
+        <DialogTitle sx={{ fontWeight: 700 }}>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirmDialog.message}</DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}>Cancel</Button>
+          <Button onClick={confirmDialog.onConfirm} variant="contained" sx={{ borderRadius: 2 }}>
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>

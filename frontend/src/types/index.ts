@@ -55,6 +55,13 @@ export interface UserSummary {
   createdAt: string
 }
 
+export interface AdminCreateUserRequest {
+  username: string
+  password: string
+  email?: string
+  role: 'ADMIN' | 'USER'
+}
+
 export interface CqlTranslationRequest {
   cql: string
   enableAnnotations?: boolean
