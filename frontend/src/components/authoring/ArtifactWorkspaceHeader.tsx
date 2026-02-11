@@ -250,18 +250,36 @@ export default function ArtifactWorkspaceHeader({
         </Alert>
       )}
       {deployMutation.isError && (
-        <Alert severity="error" sx={{ mx: 2, mt: 1 }}>
-          Deploy failed: {(deployMutation.error as Error)?.message || 'Unknown error'}
+        <Alert severity="error" onClose={() => deployMutation.reset()} sx={{ mx: 2, mt: 1 }}>
+          <Typography variant="subtitle2">Deploy Failed</Typography>
+          <Typography variant="body2">
+            {(deployMutation.error as Error)?.message || 'Unknown error'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Ensure your artifact has valid inclusion criteria and at least one recommendation before deploying.
+          </Typography>
         </Alert>
       )}
       {saveLibMutation.isError && (
-        <Alert severity="error" sx={{ mx: 2, mt: 1 }}>
-          Save as library failed: {(saveLibMutation.error as Error)?.message || 'Unknown error'}
+        <Alert severity="error" onClose={() => saveLibMutation.reset()} sx={{ mx: 2, mt: 1 }}>
+          <Typography variant="subtitle2">Save as Library Failed</Typography>
+          <Typography variant="body2">
+            {(saveLibMutation.error as Error)?.message || 'Unknown error'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Verify that the artifact generates valid CQL before saving as a library.
+          </Typography>
         </Alert>
       )}
       {generateCqlMutation.isError && (
         <Alert severity="error" onClose={() => generateCqlMutation.reset()} sx={{ mx: 2, mt: 1 }}>
-          CQL generation failed: {(generateCqlMutation.error as Error)?.message || 'Unknown error'}
+          <Typography variant="subtitle2">CQL Generation Failed</Typography>
+          <Typography variant="body2">
+            {(generateCqlMutation.error as Error)?.message || 'Unknown error'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Check that all elements have required fields filled in and modifier chains are compatible.
+          </Typography>
         </Alert>
       )}
 
@@ -330,6 +348,14 @@ export default function ArtifactWorkspaceHeader({
               size="small"
               select
               SelectProps={{ native: true }}
+              helperText={
+                deployHook === 'patient-view' ? 'Triggered when a patient chart is opened' :
+                deployHook === 'order-select' ? 'Triggered when a clinician selects orders (e.g., medications, labs)' :
+                deployHook === 'order-sign' ? 'Triggered when a clinician is about to sign orders' :
+                deployHook === 'encounter-start' ? 'Triggered when a new encounter begins' :
+                deployHook === 'encounter-discharge' ? 'Triggered when a patient is being discharged' :
+                undefined
+              }
             >
               <option value="patient-view">patient-view</option>
               <option value="order-select">order-select</option>

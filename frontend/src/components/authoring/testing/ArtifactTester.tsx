@@ -50,6 +50,7 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
           size="small"
           fullWidth
           placeholder="e.g., http://localhost:8080/fhir"
+          helperText="Base URL of a FHIR R4 server with patient data (must be accessible from this server)"
         />
         <TextField
           label="Patient IDs"
@@ -74,8 +75,14 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
       </Stack>
 
       {testMutation.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Test failed: {(testMutation.error as Error)?.message || 'Unknown error'}
+        <Alert severity="error" onClose={() => testMutation.reset()} sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">Test Failed</Typography>
+          <Typography variant="body2" sx={{ mb: 0.5 }}>
+            {(testMutation.error as Error)?.message || 'Unknown error'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Verify the FHIR server URL is accessible, the patient IDs exist, and the artifact generates valid CQL.
+          </Typography>
         </Alert>
       )}
 

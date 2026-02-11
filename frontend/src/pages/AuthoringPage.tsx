@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material'
+import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
 import ArtifactList from '../components/authoring/ArtifactList'
 import ArtifactModal from '../components/authoring/ArtifactModal'
 import ArtifactWorkspace from '../components/authoring/ArtifactWorkspace'
@@ -102,6 +102,33 @@ export default function AuthoringPage() {
             onImported={(artifactId) => setSelectedId(artifactId)}
           />
         </>
+      )}
+
+      {selectedId && !fullArtifact && (
+        <Card sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 2, backgroundColor: '#1B3A5C' }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+              <Skeleton variant="text" width={200} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+              <Box sx={{ flex: 1 }} />
+              <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+              <Skeleton variant="rounded" width={120} height={30} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+              <Skeleton variant="rounded" width={70} height={30} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+            </Stack>
+          </Box>
+          <Box sx={{ px: 2, pt: 1, borderBottom: 1, borderColor: 'divider' }}>
+            <Stack direction="row" spacing={2}>
+              {Array.from({ length: 7 }).map((_, i) => (
+                <Skeleton key={i} variant="text" width={80} height={36} />
+              ))}
+            </Stack>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            <Skeleton variant="text" width={160} height={28} sx={{ mb: 2 }} />
+            <Skeleton variant="rounded" width="100%" height={120} sx={{ mb: 2 }} />
+            <Skeleton variant="rounded" width="100%" height={80} />
+          </Box>
+        </Card>
       )}
 
       {selectedId && fullArtifact && (

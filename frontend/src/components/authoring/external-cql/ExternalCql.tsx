@@ -107,8 +107,14 @@ export default function ExternalCql({ artifactId }: ExternalCqlProps) {
       )}
 
       {uploadMutation.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Upload failed: {(uploadMutation.error as Error)?.message || 'Unknown error'}
+        <Alert severity="error" onClose={() => uploadMutation.reset()} sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">Upload Failed</Typography>
+          <Typography variant="body2" sx={{ mb: 0.5 }}>
+            {(uploadMutation.error as Error)?.message || 'Unknown error'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Ensure the file is a valid .cql file with a library declaration (e.g., library MyLib version '1.0.0') and uses FHIR 4.0.1.
+          </Typography>
         </Alert>
       )}
 

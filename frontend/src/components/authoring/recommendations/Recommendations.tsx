@@ -1,11 +1,12 @@
-import { useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
   MenuItem, Select, FormControl, InputLabel, Chip, Divider,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
 } from '@mui/material'
 import {
   Add as AddIcon, Delete as DeleteIcon, ArrowUpward, ArrowDownward,
-  LinkOutlined,
+  LinkOutlined, HelpOutline as HelpIcon,
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import type { Recommendation, Subpopulation } from '../../../types/authoring'
@@ -30,6 +31,11 @@ interface RecommendationsProps {
 }
 
 export default function Recommendations({ recommendations, subpopulations, onChange }: RecommendationsProps) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const pendingDeleteIndex = pendingDeleteId
+    ? recommendations.findIndex((r) => r.uid === pendingDeleteId)
+    : -1
+
   const handleAdd = () => {
     onChange([
       ...recommendations,
@@ -145,7 +151,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                     </span>
                   </Tooltip>
                   <Tooltip title="Remove recommendation">
-                    <IconButton size="small" color="error" onClick={() => handleRemove(rec.uid)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(rec.uid)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -160,9 +166,11 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   minRows={2}
                   size="small"
                   sx={{ mb: 2 }}
+                  error={!rec.text.trim()}
+                  helperText={!rec.text.trim() ? 'Recommendation text is required' : undefined}
                 />
 
-                <Stack direction="row" spacing={2} mb={2}>
+                <Stack direction="row" spacing={2} mb={2} alignItems="center">
                   <FormControl size="small" sx={{ minWidth: 260 }}>
                     <InputLabel>Strength of Recommendation</InputLabel>
                     <Select
@@ -175,6 +183,12 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                       ))}
                     </Select>
                   </FormControl>
+                  <Tooltip
+                    title="Grade A: Strong evidence supports the recommendation. Grade B: Moderate evidence. Grade C: Optional, weak evidence. Grade D: Evidence suggests against. Grade I: Insufficient evidence to recommend."
+                    placement="right"
+                  >
+                    <HelpIcon fontSize="small" sx={{ color: 'text.secondary', cursor: 'help' }} />
+                  </Tooltip>
                 </Stack>
 
                 <TextField
@@ -266,6 +280,24 @@ export default function Recommendations({ recommendations, subpopulations, onCha
           ))}
         </Stack>
       )}
+
+      <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
+        <DialogTitle>Delete Recommendation</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete Recommendation {pendingDeleteIndex + 1}? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+          <Button
+            color="error"
+            onClick={() => { if (pendingDeleteId) handleRemove(pendingDeleteId); setPendingDeleteId(null) }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

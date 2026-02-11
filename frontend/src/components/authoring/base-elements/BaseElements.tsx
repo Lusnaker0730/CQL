@@ -1,5 +1,8 @@
-import { useCallback } from 'react'
-import { Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent, Chip } from '@mui/material'
+import { useState, useCallback } from 'react'
+import {
+  Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent, Chip,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
+} from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
@@ -17,6 +20,11 @@ interface BaseElementsProps {
 }
 
 export default function BaseElements({ baseElements, templates, modifiers, onChange }: BaseElementsProps) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const pendingDeleteName = pendingDeleteId
+    ? baseElements.find((be) => be.uniqueId === pendingDeleteId)?.name || 'this base element'
+    : ''
+
   const handleAdd = () => {
     onChange([
       ...baseElements,
@@ -37,6 +45,13 @@ export default function BaseElements({ baseElements, templates, modifiers, onCha
 
   const handleNameChange = (uniqueId: string, name: string) => {
     onChange(baseElements.map((be) => (be.uniqueId === uniqueId ? { ...be, name } : be)))
+  }
+
+  const getNameError = (be: BaseElement): string | undefined => {
+    if (!be.name.trim()) return 'Name is required'
+    if (baseElements.some((b) => b.uniqueId !== be.uniqueId && b.name.trim() === be.name.trim()))
+      return 'Duplicate base element name'
+    return undefined
   }
 
   const handleUpdateTree = useCallback(
@@ -81,11 +96,13 @@ export default function BaseElements({ baseElements, templates, modifiers, onCha
                     size="small"
                     variant="standard"
                     sx={{ '& .MuiInput-input': { fontWeight: 600 } }}
+                    error={!!getNameError(be)}
+                    helperText={getNameError(be)}
                   />
                   <Chip label={be.returnType} size="small" variant="outlined" />
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title="Remove base element">
-                    <IconButton size="small" color="error" onClick={() => handleRemove(be.uniqueId)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -113,6 +130,24 @@ export default function BaseElements({ baseElements, templates, modifiers, onCha
           ))}
         </Stack>
       )}
+
+      <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
+        <DialogTitle>Delete Base Element</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete <strong>{pendingDeleteName}</strong>? Any references to this element in other parts of the artifact will break.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+          <Button
+            color="error"
+            onClick={() => { if (pendingDeleteId) handleRemove(pendingDeleteId); setPendingDeleteId(null) }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

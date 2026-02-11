@@ -1,9 +1,22 @@
-import { useCallback } from 'react'
-import { Box, Typography, Stack } from '@mui/material'
+import { useState, useCallback, useMemo, memo } from 'react'
+import { Box, Typography, Stack, TextField, InputAdornment, Chip } from '@mui/material'
+import { FilterList as FilterIcon, RemoveCircleOutline as ExcludeIcon, Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material'
 import ConjunctionTypeSelect from './ConjunctionTypeSelect'
 import ArtifactElement from './ArtifactElement'
 import ElementSelect from '../element-select/ElementSelect'
 import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
+
+function elementMatchesFilter(element: ElementInstance, term: string): boolean {
+  const name = element.fields?.find((f) => f.id === 'element_name')?.value as string
+  const displayName = name || element.name
+  if (displayName?.toLowerCase().includes(term)) return true
+  if (element.type?.toLowerCase().includes(term)) return true
+  if (element.returnType?.toLowerCase().replace(/_/g, ' ').includes(term)) return true
+  if (element.conjunction && element.childInstances) {
+    return element.childInstances.some((child) => elementMatchesFilter(child, term))
+  }
+  return false
+}
 
 interface ConjunctionGroupProps {
   group: ConjunctionGroupType
@@ -11,23 +24,27 @@ interface ConjunctionGroupProps {
   depth?: number
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
+  searchFilter?: string
   onUpdateGroup: (updated: ConjunctionGroupType) => void
   onAddElement: (element: ElementInstance) => void
   onRemoveElement: (uniqueId: string) => void
   onUpdateElement: (uniqueId: string, updated: Partial<ElementInstance>) => void
 }
 
-export default function ConjunctionGroup({
+const ConjunctionGroup = memo(function ConjunctionGroup({
   group,
   treeName,
   depth = 0,
   templates,
   modifiers,
+  searchFilter,
   onUpdateGroup,
   onAddElement,
   onRemoveElement,
   onUpdateElement,
 }: ConjunctionGroupProps) {
+  const [localSearch, setLocalSearch] = useState('')
+
   const handleConjunctionChange = useCallback(
     (conjType: string) => {
       onUpdateGroup({
@@ -49,6 +66,15 @@ export default function ConjunctionGroup({
   const isRoot = depth === 0
   const conjunctionLabel = group.id === 'Or' ? 'Or' : 'And'
   const borderColor = group.id === 'Or' ? '#E67E22' : '#0D7377'
+
+  const activeFilter = isRoot ? localSearch.trim().toLowerCase() : (searchFilter || '')
+  const filteredChildren = useMemo(() => {
+    if (!activeFilter) return group.childInstances
+    return group.childInstances.filter((child) => elementMatchesFilter(child, activeFilter))
+  }, [group.childInstances, activeFilter])
+
+  const isFiltering = activeFilter.length > 0
+  const hiddenCount = group.childInstances.length - filteredChildren.length
 
   return (
     <Box
@@ -74,29 +100,85 @@ export default function ConjunctionGroup({
         )}
       </Stack>
 
+      {/* Search bar — root level only, when there are 3+ elements */}
+      {isRoot && group.childInstances.length >= 3 && (
+        <TextField
+          size="small"
+          placeholder="Filter elements by name, type..."
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
+          fullWidth
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ opacity: 0.5 }} />
+              </InputAdornment>
+            ),
+            endAdornment: localSearch ? (
+              <InputAdornment position="end">
+                <ClearIcon
+                  fontSize="small"
+                  sx={{ cursor: 'pointer', opacity: 0.5, '&:hover': { opacity: 1 } }}
+                  onClick={() => setLocalSearch('')}
+                />
+              </InputAdornment>
+            ) : null,
+          }}
+          sx={{ mb: 1.5 }}
+        />
+      )}
+
+      {/* Filter result indicator */}
+      {isFiltering && hiddenCount > 0 && (
+        <Chip
+          label={`${filteredChildren.length} of ${group.childInstances.length} elements shown`}
+          size="small"
+          variant="outlined"
+          sx={{ mb: 1, fontSize: '0.75rem' }}
+        />
+      )}
+
       {/* Children */}
       {group.childInstances.length === 0 ? (
         <Box
           sx={{
             py: 4,
-            px: 2,
+            px: 3,
             textAlign: 'center',
             border: '2px dashed',
             borderColor: 'divider',
             borderRadius: 2,
             mb: 2,
+            backgroundColor: 'action.hover',
           }}
         >
-          <Typography variant="body2" color="text.secondary" mb={1}>
-            No elements added to {treeName.toLowerCase()} yet.
+          {isRoot && (
+            treeName === 'Inclusions' ? (
+              <FilterIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.5, mb: 1 }} />
+            ) : treeName === 'Exclusions' ? (
+              <ExcludeIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.5, mb: 1 }} />
+            ) : null
+          )}
+          <Typography variant="body2" color="text.secondary" fontWeight={500} mb={0.5}>
+            No elements in {treeName.toLowerCase()}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Use the &quot;Add Element&quot; button below to start building your logic.
+          <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+            {treeName === 'Inclusions'
+              ? 'Define who this artifact applies to. Add demographics, conditions, observations, or other criteria.'
+              : treeName === 'Exclusions'
+                ? 'Define who should be excluded. Patients matching these criteria will be removed from the population.'
+                : 'Click "Add Element" below to start building logic for this group.'}
+          </Typography>
+        </Box>
+      ) : filteredChildren.length === 0 ? (
+        <Box sx={{ py: 2, textAlign: 'center', mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            No elements match "{isRoot ? localSearch : searchFilter}"
           </Typography>
         </Box>
       ) : (
         <Stack spacing={1} mb={2}>
-          {group.childInstances.map((child, index) => (
+          {filteredChildren.map((child, index) => (
             <Box key={child.uniqueId}>
               {child.conjunction ? (
                 <ConjunctionGroup
@@ -111,6 +193,7 @@ export default function ConjunctionGroup({
                   depth={depth + 1}
                   templates={templates}
                   modifiers={modifiers}
+                  searchFilter={activeFilter}
                   onUpdateGroup={(updated) =>
                     onUpdateElement(child.uniqueId, {
                       childInstances: updated.childInstances,
@@ -141,7 +224,7 @@ export default function ConjunctionGroup({
                   onRemove={() => onRemoveElement(child.uniqueId)}
                 />
               )}
-              {index < group.childInstances.length - 1 && (
+              {index < filteredChildren.length - 1 && (
                 <Box sx={{ textAlign: 'center', py: 0.5 }}>
                   <Typography
                     variant="caption"
@@ -171,4 +254,6 @@ export default function ConjunctionGroup({
       />
     </Box>
   )
-}
+})
+
+export default ConjunctionGroup

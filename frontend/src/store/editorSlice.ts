@@ -8,6 +8,7 @@ interface EditorState {
   isTranslating: boolean
   selectedLibraryId: string | null
   cursorPosition: { line: number; column: number }
+  goToLine: number | null
 }
 
 interface CqlError {
@@ -66,6 +67,7 @@ const initialState: EditorState = {
   isTranslating: false,
   selectedLibraryId: null,
   cursorPosition: { line: 1, column: 1 },
+  goToLine: null,
 }
 
 const editorSlice = createSlice({
@@ -93,6 +95,9 @@ const editorSlice = createSlice({
     setCursorPosition: (state, action: PayloadAction<{ line: number; column: number }>) => {
       state.cursorPosition = action.payload
     },
+    setGoToLine: (state, action: PayloadAction<number | null>) => {
+      state.goToLine = action.payload
+    },
     clearEditor: (state) => {
       state.cqlContent = ''
       state.elmJson = null
@@ -110,6 +115,7 @@ export const {
   setIsTranslating,
   setSelectedLibraryId,
   setCursorPosition,
+  setGoToLine,
   clearEditor,
 } = editorSlice.actions
 

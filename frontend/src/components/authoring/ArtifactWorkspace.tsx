@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Box, Card, Tabs, Tab } from '@mui/material'
+import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip } from '@mui/material'
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import { useArtifactHistory } from '../../hooks/useArtifactHistory'
 import ArtifactWorkspaceHeader from './ArtifactWorkspaceHeader'
 import ConjunctionGroup from './builder/ConjunctionGroup'
 import Subpopulations from './subpopulations/Subpopulations'
@@ -52,19 +54,28 @@ export default function ArtifactWorkspace({
   const [tab, setTab] = useState(0)
   const [localArtifact, setLocalArtifact] = useState<Artifact>(artifact)
   const [isDirty, setIsDirty] = useState(false)
+  const [showBackConfirm, setShowBackConfirm] = useState(false)
   const updateMutation = useUpdateArtifact()
+
+  // Browser beforeunload guard
+  useUnsavedChangesGuard(isDirty)
   const { data: templates = [] } = useTemplates()
   const { data: modifiers = [] } = useModifiers()
+  const { pushState, undo, redo, reset: resetHistory } = useArtifactHistory()
 
   useEffect(() => {
     setLocalArtifact(artifact)
     setIsDirty(false)
-  }, [artifact.id])
+    resetHistory()
+  }, [artifact.id, resetHistory])
 
   const updateLocal = useCallback((updates: Partial<Artifact>) => {
-    setLocalArtifact((prev) => ({ ...prev, ...updates }))
+    setLocalArtifact((prev) => {
+      pushState(prev)
+      return { ...prev, ...updates }
+    })
     setIsDirty(true)
-  }, [])
+  }, [pushState])
 
   const buildSaveRequest = useCallback((): ArtifactRequest => ({
     name: localArtifact.name,
@@ -116,17 +127,73 @@ export default function ArtifactWorkspace({
     [updateLocal]
   )
 
-  // Ctrl+S to save
+  const handleBack = useCallback(() => {
+    if (isDirty) {
+      setShowBackConfirm(true)
+    } else {
+      onBack()
+    }
+  }, [isDirty, onBack])
+
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false)
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if (!(e.ctrlKey || e.metaKey)) return
+      // Don't capture when typing in inputs/textareas
+      const tag = (e.target as HTMLElement)?.tagName
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable
+
+      if (e.key === 's') {
         e.preventDefault()
         if (isDirty) handleSave(buildSaveRequest())
+        return
+      }
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        setLocalArtifact((current) => {
+          const prev = undo(current)
+          if (prev) {
+            setIsDirty(true)
+            return prev
+          }
+          return current
+        })
+        return
+      }
+      if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) {
+        e.preventDefault()
+        setLocalArtifact((current) => {
+          const next = redo(current)
+          if (next) {
+            setIsDirty(true)
+            return next
+          }
+          return current
+        })
+        return
+      }
+      if (e.key === 'g' && !isInput) {
+        e.preventDefault()
+        setTab(8) // Review CQL tab
+        return
+      }
+      if (e.key === '/' || e.key === '?') {
+        e.preventDefault()
+        setShowShortcutHelp((prev) => !prev)
+        return
+      }
+      // Ctrl+1-9 → tabs 0-8, Ctrl+0 → tab 10 (Summary)
+      if (!isInput && e.key >= '0' && e.key <= '9') {
+        e.preventDefault()
+        const tabIndex = e.key === '0' ? 10 : parseInt(e.key) - 1
+        if (tabIndex <= 10) setTab(tabIndex)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isDirty, buildSaveRequest, handleSave])
+  }, [isDirty, buildSaveRequest, handleSave, undo, redo])
 
   // Tree update handlers
   const handleUpdateInclude = useCallback(
@@ -211,7 +278,7 @@ export default function ArtifactWorkspace({
       <ArtifactWorkspaceHeader
         artifact={localArtifact}
         isDirty={isDirty}
-        onBack={onBack}
+        onBack={handleBack}
         onSave={handleSave}
         onNameChange={handleNameChange}
       />
@@ -315,6 +382,51 @@ export default function ArtifactWorkspace({
         {tab === 9 && <ArtifactTester artifactId={localArtifact.id} />}
         {tab === 10 && <ArtifactSummaryView artifact={localArtifact} />}
       </Box>
+
+      {/* Unsaved changes confirmation dialog */}
+      <Dialog open={showBackConfirm} onClose={() => setShowBackConfirm(false)}>
+        <DialogTitle>Unsaved Changes</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowBackConfirm(false)}>Cancel</Button>
+          <Button
+            color="error"
+            onClick={() => { setShowBackConfirm(false); onBack() }}
+          >
+            Discard Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Keyboard shortcut help dialog */}
+      <Dialog open={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Keyboard Shortcuts</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5}>
+            {[
+              ['Ctrl + S', 'Save artifact'],
+              ['Ctrl + Z', 'Undo last change'],
+              ['Ctrl + Y', 'Redo last change'],
+              ['Ctrl + G', 'Go to Review CQL'],
+              ['Ctrl + 1–9', 'Switch to tab 1–9'],
+              ['Ctrl + 0', 'Switch to Summary'],
+              ['Ctrl + /', 'Toggle this help'],
+            ].map(([key, desc]) => (
+              <Stack key={key} direction="row" alignItems="center" justifyContent="space-between">
+                <Chip label={key} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
+                <Typography variant="body2" color="text.secondary">{desc}</Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowShortcutHelp(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   )
 }

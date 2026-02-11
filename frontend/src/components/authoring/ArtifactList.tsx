@@ -16,8 +16,8 @@ import {
   Typography,
   Stack,
   Tooltip,
-  CircularProgress,
   Alert,
+  Skeleton,
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -121,9 +121,30 @@ export default function ArtifactList({
         )}
 
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
+          <TableContainer sx={{ flex: 1 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Version</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Updated</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton variant="text" width={180} /><Skeleton variant="text" width={120} height={14} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={50} /></TableCell>
+                    <TableCell><Skeleton variant="rounded" width={60} height={24} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                    <TableCell align="right"><Skeleton variant="rounded" width={80} height={28} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color="text.secondary">

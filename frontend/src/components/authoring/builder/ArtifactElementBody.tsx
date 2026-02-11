@@ -72,7 +72,9 @@ export default function ArtifactElementBody({
   const handleRemoveModifier = (index: number) => {
     const updated = [...(element.modifiers || [])]
     updated.splice(index, 1)
-    onUpdate({ modifiers: updated })
+    // Remove subsequent incompatible modifiers from the chain
+    const cleaned = validateModifierChain(element.returnType, updated)
+    onUpdate({ modifiers: cleaned })
   }
 
   const handleUpdateModifier = (index: number, values: Record<string, unknown>) => {
@@ -424,4 +426,21 @@ function formatReturnType(returnType: string): string {
   return returnType
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/**
+ * Validates a modifier chain after a removal. Keeps modifiers only while
+ * input types remain compatible with the previous output type.
+ */
+function validateModifierChain(baseReturnType: string, modifiers: Modifier[]): Modifier[] {
+  const result: Modifier[] = []
+  let currentType = baseReturnType
+  for (const mod of modifiers) {
+    if (mod.inputTypes.includes(currentType)) {
+      result.push(mod)
+      currentType = mod.returnType
+    }
+    // skip incompatible modifiers silently (they were broken by the removal)
+  }
+  return result
 }

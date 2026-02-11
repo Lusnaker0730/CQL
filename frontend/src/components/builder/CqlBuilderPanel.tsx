@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Stack,
@@ -16,6 +16,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useCqlStructure } from '../../hooks/useCqlStructure'
+import { updateCqlStructure } from '../../utils/cqlSyntax'
 import IncludesSection from './IncludesSection'
 import ValueSetSection from './ValueSetSection'
 import CodesSection from './CodesSection'
@@ -23,16 +24,40 @@ import ParametersSection from './ParametersSection'
 import DefinitionsSection from './DefinitionsSection'
 import FunctionsSection from './FunctionsSection'
 
+import type { CqlElementType } from '../../utils/cqlElementLocator'
+
 interface CqlBuilderPanelProps {
   onInsertSnippet: (snippet: string) => void
+  onDeleteElement?: (type: CqlElementType, identifier: string) => void
+  onGoToElement?: (type: CqlElementType, identifier: string) => void
+  onEditElement?: (type: CqlElementType, identifier: string, newSnippet: string) => void
 }
 
-export default function CqlBuilderPanel({ onInsertSnippet }: CqlBuilderPanelProps) {
+export default function CqlBuilderPanel({
+  onInsertSnippet,
+  onDeleteElement,
+  onGoToElement,
+  onEditElement,
+}: CqlBuilderPanelProps) {
   const { structure, isParsing, parseError, parse } = useCqlStructure()
   const [expanded, setExpanded] = useState<string | false>('includes')
 
+  // Keep Monaco IntelliSense in sync with CQL structure
+  useEffect(() => { updateCqlStructure(structure) }, [structure])
+
   const handleAccordion = (panel: string) => (_: unknown, isExpanded: boolean) => {
     setExpanded(isExpanded ? panel : false)
+  }
+
+  const handleAutoIncludeC3F = (snippet: string) => {
+    if (snippet.includes('C3F.') && !structure.includes.some((inc) => inc.includes('called C3F'))) {
+      const c3fInclude = `include CDS_Connect_Commons_for_FHIRv401 version '1.1.1' called C3F`
+      onInsertSnippet(c3fInclude)
+      // Small delay to avoid race with content update
+      setTimeout(() => onInsertSnippet(snippet), 50)
+    } else {
+      onInsertSnippet(snippet)
+    }
   }
 
   const sections = [
@@ -40,37 +65,87 @@ export default function CqlBuilderPanel({ onInsertSnippet }: CqlBuilderPanelProp
       id: 'includes',
       label: 'Includes',
       count: structure.includes.length,
-      content: <IncludesSection includes={structure.includes} onInsert={onInsertSnippet} />,
+      content: (
+        <IncludesSection
+          includes={structure.includes}
+          onInsert={onInsertSnippet}
+          onDelete={(id) => onDeleteElement?.('include', id)}
+          onGoTo={(id) => onGoToElement?.('include', id)}
+          onEdit={(id, snippet) => onEditElement?.('include', id, snippet)}
+        />
+      ),
     },
     {
       id: 'valueSets',
       label: 'Value Sets',
       count: structure.valueSets.length,
-      content: <ValueSetSection valueSets={structure.valueSets} onInsert={onInsertSnippet} />,
+      content: (
+        <ValueSetSection
+          valueSets={structure.valueSets}
+          onInsert={onInsertSnippet}
+          onDelete={(id) => onDeleteElement?.('valueset', id)}
+          onGoTo={(id) => onGoToElement?.('valueset', id)}
+          onEdit={(id, snippet) => onEditElement?.('valueset', id, snippet)}
+        />
+      ),
     },
     {
       id: 'codes',
       label: 'Codes',
       count: structure.codes.length,
-      content: <CodesSection codes={structure.codes} onInsert={onInsertSnippet} />,
+      content: (
+        <CodesSection
+          codes={structure.codes}
+          onInsert={onInsertSnippet}
+          onDelete={(id) => onDeleteElement?.('code', id)}
+          onGoTo={(id) => onGoToElement?.('code', id)}
+          onEdit={(id, snippet) => onEditElement?.('code', id, snippet)}
+        />
+      ),
     },
     {
       id: 'parameters',
       label: 'Parameters',
       count: structure.parameters.length,
-      content: <ParametersSection parameters={structure.parameters} onInsert={onInsertSnippet} />,
+      content: (
+        <ParametersSection
+          parameters={structure.parameters}
+          onInsert={onInsertSnippet}
+          onDelete={(id) => onDeleteElement?.('parameter', id)}
+          onGoTo={(id) => onGoToElement?.('parameter', id)}
+          onEdit={(id, snippet) => onEditElement?.('parameter', id, snippet)}
+        />
+      ),
     },
     {
       id: 'definitions',
       label: 'Definitions',
       count: structure.expressions.length,
-      content: <DefinitionsSection expressions={structure.expressions} onInsert={onInsertSnippet} />,
+      content: (
+        <DefinitionsSection
+          expressions={structure.expressions}
+          onInsert={handleAutoIncludeC3F}
+          valueSets={structure.valueSets}
+          codes={structure.codes}
+          onDelete={(id) => onDeleteElement?.('define', id)}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+          onEdit={(id, snippet) => onEditElement?.('define', id, snippet)}
+        />
+      ),
     },
     {
       id: 'functions',
       label: 'Functions',
       count: structure.functions.length,
-      content: <FunctionsSection functions={structure.functions} onInsert={onInsertSnippet} />,
+      content: (
+        <FunctionsSection
+          functions={structure.functions}
+          onInsert={onInsertSnippet}
+          onDelete={(id) => onDeleteElement?.('function', id)}
+          onGoTo={(id) => onGoToElement?.('function', id)}
+          onEdit={(id, snippet) => onEditElement?.('function', id, snippet)}
+        />
+      ),
     },
   ]
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import {
   Card, CardContent, Typography, Stack, IconButton, Tooltip, Collapse, Box, Chip,
 } from '@mui/material'
@@ -6,7 +6,7 @@ import {
   ExpandMore as ExpandIcon, ExpandLess as CollapseIcon,
   Delete as DeleteIcon, ContentCopy as CopyIcon,
   FormatListBulleted as ListIcon, Visibility as ViewIcon,
-  Build as ModIcon,
+  Build as ModIcon, Warning as WarningIcon,
 } from '@mui/icons-material'
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
@@ -47,7 +47,7 @@ interface ArtifactElementProps {
   onRemove: () => void
 }
 
-export default function ArtifactElement({
+const ArtifactElement = memo(function ArtifactElement({
   element,
   modifiers,
   onUpdate,
@@ -58,6 +58,7 @@ export default function ArtifactElement({
   const elementName = element.fields?.find((f) => f.id === 'element_name')?.value as string
   const displayName = elementName || element.name
   const effectiveReturnType = getEffectiveReturnType(element)
+  const chainError = getModifierChainError(element)
   const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || '#757575'
   const IconComp = ELEMENT_ICONS[element.type] || (element.type?.startsWith('Generic') ? ListIcon : ListIcon)
 
@@ -116,6 +117,18 @@ export default function ArtifactElement({
           />
         )}
 
+        {chainError && (
+          <Tooltip title={chainError}>
+            <Chip
+              icon={<WarningIcon sx={{ fontSize: '0.85rem !important' }} />}
+              label="Chain Error"
+              size="small"
+              color="warning"
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Tooltip>
+        )}
+
         <Tooltip title="Copy element info">
           <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
             <CopyIcon fontSize="small" />
@@ -150,11 +163,26 @@ export default function ArtifactElement({
       </Collapse>
     </Card>
   )
-}
+})
+
+export default ArtifactElement
 
 function getEffectiveReturnType(element: ElementInstance): string {
   if (element.modifiers && element.modifiers.length > 0) {
     return element.modifiers[element.modifiers.length - 1].returnType
   }
   return element.returnType
+}
+
+function getModifierChainError(element: ElementInstance): string | null {
+  if (!element.modifiers || element.modifiers.length === 0) return null
+  let currentType = element.returnType
+  for (let i = 0; i < element.modifiers.length; i++) {
+    const mod = element.modifiers[i]
+    if (!mod.inputTypes.includes(currentType)) {
+      return `Modifier "${mod.name}" expects ${mod.inputTypes.join('/')} but receives ${currentType.replace(/_/g, ' ')}`
+    }
+    currentType = mod.returnType
+  }
+  return null
 }

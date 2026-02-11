@@ -5,16 +5,18 @@ import {
   Button,
   Typography,
   MenuItem,
-  List,
-  ListItem,
-  ListItemText,
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
-import GradientButton from '../common/GradientButton'
+import ElementListItem from './ElementListItem'
+import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import SnippetPreview from './SnippetPreview'
 
 interface ParametersSectionProps {
   parameters: string[]
   onInsert: (cqlSnippet: string) => void
+  onDelete?: (identifier: string) => void
+  onGoTo?: (identifier: string) => void
+  onEdit?: (identifier: string, newSnippet: string) => void
 }
 
 const CQL_TYPES = [
@@ -37,20 +39,51 @@ const CQL_TYPES = [
   'List<Code>',
 ]
 
-export default function ParametersSection({ parameters, onInsert }: ParametersSectionProps) {
+/**
+ * Parse a parameter string like: "Measurement Period" Interval<DateTime>
+ *   default Interval[@2024-01-01T00:00:00.0, @2024-12-31T23:59:59.999]
+ */
+function parseParameter(raw: string): { name: string; type: string; defaultValue: string } | null {
+  const m = raw.match(/^"([^"]+)"\s+(\S+)(?:\s+default\s+(.+))?/)
+  if (m) return { name: m[1], type: m[2], defaultValue: m[3] || '' }
+  return null
+}
+
+export default function ParametersSection({ parameters, onInsert, onDelete, onGoTo, onEdit }: ParametersSectionProps) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [paramType, setParamType] = useState('Boolean')
   const [defaultValue, setDefaultValue] = useState('')
+  const [editingItem, setEditingItem] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [previewSnippet, setPreviewSnippet] = useState('')
 
   const handleAdd = () => {
     if (!name.trim()) return
     let snippet = `parameter "${name}" ${paramType}`
     if (defaultValue.trim()) {
-      snippet += ` default ${defaultValue}`
+      snippet += `\n  default ${defaultValue}`
     }
-    onInsert(snippet)
+    setPreviewSnippet(snippet)
+  }
+
+  const handleConfirmInsert = () => {
+    if (editingItem) {
+      onEdit?.(editingItem, previewSnippet)
+    } else {
+      onInsert(previewSnippet)
+    }
     resetForm()
+  }
+
+  const handleStartEdit = (raw: string) => {
+    const parsed = parseParameter(raw)
+    if (!parsed) return
+    setEditingItem(parsed.name)
+    setName(parsed.name)
+    setParamType(CQL_TYPES.includes(parsed.type) ? parsed.type : 'Boolean')
+    setDefaultValue(parsed.defaultValue)
+    setShowForm(true)
   }
 
   const resetForm = () => {
@@ -58,24 +91,34 @@ export default function ParametersSection({ parameters, onInsert }: ParametersSe
     setName('')
     setParamType('Boolean')
     setDefaultValue('')
+    setEditingItem(null)
+    setPreviewSnippet('')
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      onDelete?.(deleteTarget)
+      setDeleteTarget(null)
+    }
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={0.5}>
       {parameters.length > 0 ? (
-        <List dense disablePadding>
-          {parameters.map((param, idx) => (
-            <ListItem key={idx} disablePadding sx={{ py: 0.25 }}>
-              <ListItemText
-                primary={
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                    {param}
-                  </Typography>
-                }
-              />
-            </ListItem>
-          ))}
-        </List>
+        parameters.map((param, idx) => {
+          const parsed = parseParameter(param)
+          const name = parsed?.name || param
+          return (
+            <ElementListItem
+              key={idx}
+              label={name}
+              secondaryLabel={parsed?.type}
+              onGoTo={() => onGoTo?.(name)}
+              onEdit={() => handleStartEdit(param)}
+              onDelete={() => setDeleteTarget(name)}
+            />
+          )
+        })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
           No parameters found
@@ -115,14 +158,30 @@ export default function ParametersSection({ parameters, onInsert }: ParametersSe
             placeholder="e.g. true, 42, @2024-01-01"
           />
 
-          <Stack direction="row" spacing={1}>
-            <GradientButton onClick={handleAdd} disabled={!name.trim()}>
-              Insert
-            </GradientButton>
-            <Button size="small" onClick={resetForm}>Cancel</Button>
-          </Stack>
+          {previewSnippet ? (
+            <SnippetPreview
+              snippet={previewSnippet}
+              onInsert={handleConfirmInsert}
+              onCancel={() => setPreviewSnippet('')}
+              insertLabel={editingItem ? 'Update' : 'Insert'}
+            />
+          ) : (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={handleAdd} disabled={!name.trim()}>
+                Preview {editingItem ? 'Update' : 'Insert'}
+              </Button>
+              <Button size="small" onClick={resetForm}>Cancel</Button>
+            </Stack>
+          )}
         </Stack>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        name={deleteTarget || ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </Stack>
   )
 }

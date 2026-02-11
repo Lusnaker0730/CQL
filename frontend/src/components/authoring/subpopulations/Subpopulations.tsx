@@ -1,4 +1,8 @@
-import { Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent } from '@mui/material'
+import { useState } from 'react'
+import {
+  Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
+} from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
@@ -16,6 +20,11 @@ interface SubpopulationsProps {
 }
 
 export default function Subpopulations({ subpopulations, templates, modifiers, onChange }: SubpopulationsProps) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const pendingDeleteName = pendingDeleteId
+    ? subpopulations.find((sp) => sp.uniqueId === pendingDeleteId)?.subpopulationName || 'this subpopulation'
+    : ''
+
   const handleAdd = () => {
     onChange([
       ...subpopulations,
@@ -36,6 +45,13 @@ export default function Subpopulations({ subpopulations, templates, modifiers, o
 
   const handleNameChange = (uniqueId: string, name: string) => {
     onChange(subpopulations.map((sp) => (sp.uniqueId === uniqueId ? { ...sp, subpopulationName: name } : sp)))
+  }
+
+  const getNameError = (sp: Subpopulation): string | undefined => {
+    if (!sp.subpopulationName.trim()) return 'Name is required'
+    if (subpopulations.some((s) => s.uniqueId !== sp.uniqueId && s.subpopulationName.trim() === sp.subpopulationName.trim()))
+      return 'Duplicate subpopulation name'
+    return undefined
   }
 
   const handleUpdateTree = (uniqueId: string, childInstances: ElementInstance[]) => {
@@ -73,10 +89,12 @@ export default function Subpopulations({ subpopulations, templates, modifiers, o
                     size="small"
                     variant="standard"
                     sx={{ '& .MuiInput-input': { fontWeight: 600 } }}
+                    error={!!getNameError(sp)}
+                    helperText={getNameError(sp)}
                   />
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title="Remove subpopulation">
-                    <IconButton size="small" color="error" onClick={() => handleRemove(sp.uniqueId)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(sp.uniqueId)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -104,6 +122,24 @@ export default function Subpopulations({ subpopulations, templates, modifiers, o
           ))}
         </Stack>
       )}
+
+      <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
+        <DialogTitle>Delete Subpopulation</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete <strong>{pendingDeleteName}</strong>? This will also remove it from any recommendations that reference it.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+          <Button
+            color="error"
+            onClick={() => { if (pendingDeleteId) handleRemove(pendingDeleteId); setPendingDeleteId(null) }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

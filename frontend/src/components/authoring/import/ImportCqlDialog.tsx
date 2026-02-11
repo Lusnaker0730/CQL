@@ -114,7 +114,13 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
               {importMutation.isError && (
                 <Alert severity="error">
-                  Import failed: {(importMutation.error as Error)?.message || 'Unknown error'}
+                  <Typography variant="subtitle2">Parse Failed</Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    {(importMutation.error as Error)?.message || 'Unknown error'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Ensure the CQL starts with a library declaration and uses valid CQL syntax.
+                  </Typography>
                 </Alert>
               )}
             </>
@@ -135,12 +141,17 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
               {importResult.errors && importResult.errors.length > 0 && (
                 <Alert severity="error">
-                  <Typography variant="subtitle2">{importResult.errors.length} error(s)</Typography>
-                  {importResult.errors.slice(0, 5).map((err, i) => (
-                    <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
-                      {err.message}
-                    </Typography>
-                  ))}
+                  <Typography variant="subtitle2">{importResult.errors.length} error(s) found</Typography>
+                  <Box sx={{ maxHeight: 150, overflow: 'auto', mt: 0.5 }}>
+                    {importResult.errors.map((err, i) => (
+                      <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace', mb: 0.25 }}>
+                        {i + 1}. {err.message}
+                      </Typography>
+                    ))}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    The artifact will be created but you may need to fix these issues manually.
+                  </Typography>
                 </Alert>
               )}
 

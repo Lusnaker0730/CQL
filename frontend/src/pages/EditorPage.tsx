@@ -41,7 +41,9 @@ import CreateVersionDialog from '../components/editor/CreateVersionDialog'
 import VersionHistoryDialog from '../components/editor/VersionHistoryDialog'
 import VersionDiffDialog from '../components/editor/VersionDiffDialog'
 import type { RootState } from '../store'
-import { setCqlContent } from '../store/editorSlice'
+import { setCqlContent, setGoToLine } from '../store/editorSlice'
+import { findElementLineRange } from '../utils/cqlElementLocator'
+import type { CqlElementType } from '../utils/cqlElementLocator'
 import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata, useLibrary } from '../hooks/useCql'
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
@@ -182,6 +184,43 @@ export default function EditorPage() {
       dispatch(setCqlContent(lines.join('\n')))
     },
     [cqlContent, cursorPosition, dispatch]
+  )
+
+  const handleGoToElement = useCallback(
+    (type: CqlElementType, identifier: string) => {
+      const range = findElementLineRange(cqlContent, type, identifier)
+      if (range) {
+        dispatch(setGoToLine(range.startLine))
+      }
+    },
+    [cqlContent, dispatch]
+  )
+
+  const handleDeleteElement = useCallback(
+    (type: CqlElementType, identifier: string) => {
+      const range = findElementLineRange(cqlContent, type, identifier)
+      if (!range) return
+      const lines = cqlContent.split('\n')
+      // Remove the element lines, plus trailing blank line if present
+      let endIdx = range.endLine - 1
+      if (endIdx + 1 < lines.length && lines[endIdx + 1].trim() === '') {
+        endIdx++
+      }
+      lines.splice(range.startLine - 1, endIdx - range.startLine + 2)
+      dispatch(setCqlContent(lines.join('\n')))
+    },
+    [cqlContent, dispatch]
+  )
+
+  const handleEditElement = useCallback(
+    (type: CqlElementType, identifier: string, newSnippet: string) => {
+      const range = findElementLineRange(cqlContent, type, identifier)
+      if (!range) return
+      const lines = cqlContent.split('\n')
+      lines.splice(range.startLine - 1, range.endLine - range.startLine + 1, newSnippet)
+      dispatch(setCqlContent(lines.join('\n')))
+    },
+    [cqlContent, dispatch]
   )
 
   return (
@@ -427,7 +466,12 @@ export default function EditorPage() {
             }}
           >
             {showBuilder ? (
-              <CqlBuilderPanel onInsertSnippet={handleInsertSnippet} />
+              <CqlBuilderPanel
+                onInsertSnippet={handleInsertSnippet}
+                onDeleteElement={handleDeleteElement}
+                onGoToElement={handleGoToElement}
+                onEditElement={handleEditElement}
+              />
             ) : (
               <>
                 <Tabs

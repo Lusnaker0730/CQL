@@ -1,4 +1,11 @@
-import type { languages } from 'monaco-editor'
+import type { languages, editor, Position, IRange, CancellationToken } from 'monaco-editor'
+import type { CqlStructure } from '../hooks/useCqlStructure'
+
+// Module-level CqlStructure reference for IntelliSense providers
+let currentCqlStructure: CqlStructure | null = null
+export function updateCqlStructure(structure: CqlStructure): void {
+  currentCqlStructure = structure
+}
 
 export const cqlLanguageConfiguration: languages.LanguageConfiguration = {
   comments: {
@@ -1086,14 +1093,266 @@ export function provideCqlCompletions(
   }
 
   // Default: all snippets + built-in functions + TWCDI completions
-  const suggestions = [
+  const suggestions: (languages.CompletionItem & { range: typeof range })[] = [
     ...cqlCompletionItems.map((item) => ({ ...item, range })),
     ...cqlBuiltInFunctions.map((item) => ({ ...item, range })),
     ...twcdiCompletionItems.map((item) => ({ ...item, range })),
     ...twCodeSystemSnippets.map((item) => ({ ...item, range })),
   ]
 
+  // User-defined completions from CqlStructure
+  if (currentCqlStructure) {
+    const s = currentCqlStructure
+
+    // Expressions → Variable kind, sort first
+    for (const expr of s.expressions) {
+      suggestions.push({
+        label: `"${expr.name}"`,
+        kind: monaco.languages.CompletionItemKind.Variable,
+        insertText: `"${expr.name}"`,
+        documentation: expr.resultType
+          ? `**define** "${expr.name}" (${expr.context || 'Patient'})\nType: ${expr.resultType}`
+          : `**define** "${expr.name}" (${expr.context || 'Patient'})`,
+        sortText: `0_${expr.name}`,
+        range,
+      })
+    }
+
+    // Functions → Function kind
+    for (const fn of s.functions) {
+      suggestions.push({
+        label: `"${fn.name}"()`,
+        kind: monaco.languages.CompletionItemKind.Function,
+        insertText: `"${fn.name}"(\${1})`,
+        insertTextRules: 4,
+        documentation: fn.resultType
+          ? `**function** "${fn.name}"()\nReturns: ${fn.resultType}`
+          : `**function** "${fn.name}"()`,
+        sortText: `0_${fn.name}`,
+        range,
+      })
+    }
+
+    // Parameters → Field kind
+    for (const param of s.parameters) {
+      const nameMatch = param.match(/^"([^"]+)"/)
+      if (nameMatch) {
+        const pName = nameMatch[1]
+        suggestions.push({
+          label: `"${pName}"`,
+          kind: monaco.languages.CompletionItemKind.Field,
+          insertText: `"${pName}"`,
+          documentation: `**parameter** ${param}`,
+          sortText: `0_${pName}`,
+          range,
+        })
+      }
+    }
+
+    // ValueSets → Enum kind
+    for (const vs of s.valueSets) {
+      const vsMatch = vs.match(/^"([^"]+)":\s*'([^']+)'/)
+      if (vsMatch) {
+        suggestions.push({
+          label: `"${vsMatch[1]}"`,
+          kind: monaco.languages.CompletionItemKind.Enum,
+          insertText: `"${vsMatch[1]}"`,
+          documentation: `**valueset** "${vsMatch[1]}": '${vsMatch[2]}'`,
+          sortText: `0_${vsMatch[1]}`,
+          range,
+        })
+      }
+    }
+
+    // Codes → EnumMember kind
+    for (const code of s.codes) {
+      const codeMatch = code.match(/^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"/)
+      if (codeMatch) {
+        suggestions.push({
+          label: `"${codeMatch[1]}"`,
+          kind: monaco.languages.CompletionItemKind.EnumMember,
+          insertText: `"${codeMatch[1]}"`,
+          documentation: `**code** "${codeMatch[1]}": '${codeMatch[2]}' from "${codeMatch[3]}"`,
+          sortText: `0_${codeMatch[1]}`,
+          range,
+        })
+      }
+    }
+  }
+
   return { suggestions }
+}
+
+/**
+ * Find a quoted identifier "..." at the given column in a line.
+ * Returns { name, startCol, endCol } or null.
+ */
+function findQuotedIdentifierAtPosition(
+  line: string,
+  column: number,
+): { name: string; startCol: number; endCol: number } | null {
+  const regex = /"([^"]+)"/g
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(line)) !== null) {
+    const start = match.index + 1 // 0-based start of opening quote
+    const end = match.index + match[0].length + 1 // 1-based end (after closing quote)
+    // column is 1-based
+    if (column >= start + 1 && column <= end) {
+      return {
+        name: match[1],
+        startCol: start + 1,
+        endCol: end,
+      }
+    }
+  }
+  return null
+}
+
+function provideCqlHover(
+  _model: editor.ITextModel,
+  position: Position,
+): import('monaco-editor').languages.Hover | null {
+  if (!currentCqlStructure) return null
+  const s = currentCqlStructure
+  const line = _model.getLineContent(position.lineNumber)
+  const found = findQuotedIdentifierAtPosition(line, position.column)
+  if (!found) return null
+  const { name, startCol, endCol } = found
+
+  const range: IRange = {
+    startLineNumber: position.lineNumber,
+    endLineNumber: position.lineNumber,
+    startColumn: startCol,
+    endColumn: endCol,
+  }
+
+  // Match expressions
+  const expr = s.expressions.find((e) => e.name === name)
+  if (expr) {
+    return {
+      range,
+      contents: [
+        { value: `**define** "${name}"` + (expr.resultType ? ` : ${expr.resultType}` : '') },
+        { value: `Context: ${expr.context || 'Patient'}` },
+      ],
+    }
+  }
+
+  // Match functions
+  const fn = s.functions.find((f) => f.name === name)
+  if (fn) {
+    return {
+      range,
+      contents: [
+        { value: `**function** "${name}"()` + (fn.resultType ? ` : ${fn.resultType}` : '') },
+      ],
+    }
+  }
+
+  // Match parameters
+  for (const param of s.parameters) {
+    const m = param.match(/^"([^"]+)"\s+(.+)/)
+    if (m && m[1] === name) {
+      return {
+        range,
+        contents: [{ value: `**parameter** "${name}" ${m[2]}` }],
+      }
+    }
+  }
+
+  // Match value sets
+  for (const vs of s.valueSets) {
+    const m = vs.match(/^"([^"]+)":\s*'([^']+)'/)
+    if (m && m[1] === name) {
+      return {
+        range,
+        contents: [{ value: `**valueset** "${name}": '${m[2]}'` }],
+      }
+    }
+  }
+
+  // Match codes
+  for (const code of s.codes) {
+    const m = code.match(/^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"/)
+    if (m && m[1] === name) {
+      return {
+        range,
+        contents: [{ value: `**code** "${name}": '${m[2]}' from "${m[3]}"` }],
+      }
+    }
+  }
+
+  return null
+}
+
+function provideCqlSignatureHelp(
+  _monaco: typeof import('monaco-editor'),
+  model: editor.ITextModel,
+  position: Position,
+  _token: CancellationToken,
+): import('monaco-editor').languages.SignatureHelpResult | null {
+  const textBeforeCursor = model.getLineContent(position.lineNumber).substring(0, position.column - 1)
+
+  // Find the function name before the opening paren
+  // Match patterns like: "FuncName"( or FuncName(
+  const fnMatch = textBeforeCursor.match(/"([^"]+)"\s*\([^)]*$/) ||
+                  textBeforeCursor.match(/\b(\w+)\s*\([^)]*$/)
+  if (!fnMatch) return null
+
+  const funcName = fnMatch[1]
+
+  // Count commas to determine active parameter
+  const afterParen = textBeforeCursor.substring(textBeforeCursor.lastIndexOf('(') + 1)
+  const activeParameter = (afterParen.match(/,/g) || []).length
+
+  // Check user-defined functions
+  if (currentCqlStructure) {
+    const fn = currentCqlStructure.functions.find((f) => f.name === funcName)
+    if (fn) {
+      return {
+        value: {
+          signatures: [{
+            label: `"${funcName}"(...)`,
+            documentation: fn.resultType ? `Returns: ${fn.resultType}` : undefined,
+            parameters: [],
+          }],
+          activeSignature: 0,
+          activeParameter,
+        },
+        dispose: () => {},
+      }
+    }
+  }
+
+  // Check built-in functions
+  const builtIn = cqlBuiltInFunctions.find(
+    (f) => (f.label as string).toLowerCase() === funcName.toLowerCase()
+  )
+  if (builtIn) {
+    const params: languages.ParameterInformation[] = []
+    const insertText = (builtIn.insertText as string) || ''
+    // Parse ${1:paramName} patterns from insertText
+    const paramRegex = /\$\{\d+:([^}]+)\}/g
+    let pm: RegExpExecArray | null
+    while ((pm = paramRegex.exec(insertText)) !== null) {
+      params.push({ label: pm[1] })
+    }
+
+    return {
+      value: {
+        signatures: [{
+          label: `${builtIn.label as string}(${params.map((p) => p.label).join(', ')})`,
+          documentation: builtIn.documentation as string,
+          parameters: params,
+        }],
+        activeSignature: 0,
+        activeParameter,
+      },
+      dispose: () => {},
+    }
+  }
+
+  return null
 }
 
 export function registerCqlLanguage(
@@ -1110,6 +1369,19 @@ export function registerCqlLanguage(
     triggerCharacters: ['.', '"'],
     provideCompletionItems: (model, position) => {
       return provideCqlCompletions(monaco, model, position, libraries)
+    },
+  })
+
+  monaco.languages.registerHoverProvider('cql', {
+    provideHover: (model, position) => {
+      return provideCqlHover(model, position)
+    },
+  })
+
+  monaco.languages.registerSignatureHelpProvider('cql', {
+    signatureHelpTriggerCharacters: ['(', ','],
+    provideSignatureHelp: (model, position, token) => {
+      return provideCqlSignatureHelp(monaco, model, position, token)
     },
   })
 

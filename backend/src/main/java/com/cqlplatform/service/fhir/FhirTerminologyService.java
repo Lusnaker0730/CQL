@@ -268,10 +268,13 @@ public class FhirTerminologyService {
             String implicitVsUrl = IMPLICIT_VALUESET_URLS.getOrDefault(system, system + "?fhir_vs");
             IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
 
+            // Request extra results to compensate for filtering out non-clinical codes
+            int requestCount = maxResults * 3;
+
             Parameters params = new Parameters();
             params.addParameter("url", new UriType(implicitVsUrl));
             params.addParameter("filter", new StringType(text));
-            params.addParameter("count", new IntegerType(maxResults));
+            params.addParameter("count", new IntegerType(requestCount));
 
             ValueSet expanded = client.operation()
                     .onType(ValueSet.class)
@@ -281,15 +284,22 @@ public class FhirTerminologyService {
                     .execute();
 
             if (expanded.hasExpansion() && expanded.getExpansion().hasContains()) {
+                boolean isLoinc = "http://loinc.org".equals(system);
                 for (ValueSet.ValueSetExpansionContainsComponent concept : expanded.getExpansion().getContains()) {
+                    String code = concept.getCode();
+                    // Filter out LOINC Part codes (LP*) - these are hierarchy/grouping codes,
+                    // not clinical observation codes used in CQL expressions
+                    if (isLoinc && code != null && code.startsWith("LP")) {
+                        continue;
+                    }
                     results.add(new CodeSearchResult(
                             concept.getSystem() != null ? concept.getSystem() : system,
-                            concept.getCode(),
+                            code,
                             concept.getDisplay()
                     ));
                 }
             }
-            log.info("Server {} returned {} results for '{}' in {}", serverUrl, results.size(), text, system);
+            log.info("Server {} returned {} results (after filtering) for '{}' in {}", serverUrl, results.size(), text, system);
         } catch (Exception e) {
             log.warn("Code search failed on server {} for system {}: {}", serverUrl, system, e.getMessage());
         }

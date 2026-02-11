@@ -5,17 +5,24 @@ import {
   Button,
   Typography,
   MenuItem,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
-import GradientButton from '../common/GradientButton'
+import ElementListItem from './ElementListItem'
+import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import SnippetPreview from './SnippetPreview'
+import RetrieveBuilder from './RetrieveBuilder'
+import QueryBuilder from './QueryBuilder'
 
 interface DefinitionsSectionProps {
   expressions: { name: string; context?: string; resultType?: string }[]
   onInsert: (cqlSnippet: string) => void
+  valueSets?: string[]
+  codes?: string[]
+  onDelete?: (identifier: string) => void
+  onGoTo?: (identifier: string) => void
+  onEdit?: (identifier: string, newSnippet: string) => void
 }
 
 const TEMPLATES = [
@@ -27,12 +34,24 @@ const TEMPLATES = [
   { label: 'Observation Value', template: '[Observation: "CodeName"] O\n    where O.effective in "Measurement Period"\n    sort by effective desc' },
 ]
 
-export default function DefinitionsSection({ expressions, onInsert }: DefinitionsSectionProps) {
+export default function DefinitionsSection({
+  expressions,
+  onInsert,
+  valueSets = [],
+  codes = [],
+  onDelete,
+  onGoTo,
+  onEdit,
+}: DefinitionsSectionProps) {
   const [showForm, setShowForm] = useState(false)
+  const [mode, setMode] = useState<'template' | 'retrieve' | 'query'>('template')
   const [name, setName] = useState('')
   const [context, setContext] = useState('Patient')
   const [templateIdx, setTemplateIdx] = useState(0)
   const [expression, setExpression] = useState('')
+  const [editingItem, setEditingItem] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [previewSnippet, setPreviewSnippet] = useState('')
 
   const handleTemplateChange = (idx: number) => {
     setTemplateIdx(idx)
@@ -42,8 +61,24 @@ export default function DefinitionsSection({ expressions, onInsert }: Definition
   const handleAdd = () => {
     if (!name.trim() || !expression.trim()) return
     const snippet = `define "${name}":\n  ${expression.split('\n').join('\n  ')}`
-    onInsert(snippet)
+    setPreviewSnippet(snippet)
+  }
+
+  const handleConfirmInsert = () => {
+    if (editingItem) {
+      onEdit?.(editingItem, previewSnippet)
+    } else {
+      onInsert(previewSnippet)
+    }
     resetForm()
+  }
+
+  const handleStartEdit = (expr: { name: string }) => {
+    setEditingItem(expr.name)
+    setName(expr.name)
+    setExpression('')
+    setShowForm(true)
+    setMode('template')
   }
 
   const resetForm = () => {
@@ -52,29 +87,30 @@ export default function DefinitionsSection({ expressions, onInsert }: Definition
     setContext('Patient')
     setTemplateIdx(0)
     setExpression('')
+    setEditingItem(null)
+    setPreviewSnippet('')
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      onDelete?.(deleteTarget)
+      setDeleteTarget(null)
+    }
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={0.5}>
       {expressions.length > 0 ? (
-        <List dense disablePadding>
-          {expressions.map((expr, idx) => (
-            <ListItem key={idx} disablePadding sx={{ py: 0.25 }}>
-              <ListItemText
-                primary={
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                      {expr.name}
-                    </Typography>
-                    {expr.resultType && (
-                      <Chip label={expr.resultType} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-                    )}
-                  </Stack>
-                }
-              />
-            </ListItem>
-          ))}
-        </List>
+        expressions.map((expr, idx) => (
+          <ElementListItem
+            key={idx}
+            label={expr.name}
+            secondaryLabel={expr.resultType || undefined}
+            onGoTo={() => onGoTo?.(expr.name)}
+            onEdit={() => handleStartEdit(expr)}
+            onDelete={() => setDeleteTarget(expr.name)}
+          />
+        ))
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
           No definitions found
@@ -87,55 +123,113 @@ export default function DefinitionsSection({ expressions, onInsert }: Definition
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
-          <TextField
+          <ToggleButtonGroup
             size="small"
-            label="Definition Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <TextField
-            select
-            size="small"
-            label="Context"
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
+            exclusive
+            value={mode}
+            onChange={(_, v) => { if (v) setMode(v) }}
+            sx={{ alignSelf: 'flex-start' }}
           >
-            <MenuItem value="Patient">Patient</MenuItem>
-            <MenuItem value="Population">Population</MenuItem>
-          </TextField>
+            <ToggleButton value="template" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              Template
+            </ToggleButton>
+            <ToggleButton value="retrieve" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              Retrieve
+            </ToggleButton>
+            <ToggleButton value="query" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              Query
+            </ToggleButton>
+          </ToggleButtonGroup>
 
-          <TextField
-            select
-            size="small"
-            label="Template"
-            value={templateIdx}
-            onChange={(e) => handleTemplateChange(Number(e.target.value))}
-          >
-            {TEMPLATES.map((t, i) => (
-              <MenuItem key={i} value={i}>{t.label}</MenuItem>
-            ))}
-          </TextField>
+          {mode === 'template' ? (
+            <>
+              <TextField
+                size="small"
+                label="Definition Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
 
-          <TextField
-            size="small"
-            label="Expression"
-            multiline
-            rows={3}
-            value={expression}
-            onChange={(e) => setExpression(e.target.value)}
-            sx={{ '& textarea': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
-          />
+              <TextField
+                select
+                size="small"
+                label="Context"
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+              >
+                <MenuItem value="Patient">Patient</MenuItem>
+                <MenuItem value="Population">Population</MenuItem>
+              </TextField>
 
-          <Stack direction="row" spacing={1}>
-            <GradientButton onClick={handleAdd}
-              disabled={!name.trim() || !expression.trim()}>
-              Insert
-            </GradientButton>
-            <Button size="small" onClick={resetForm}>Cancel</Button>
-          </Stack>
+              <TextField
+                select
+                size="small"
+                label="Template"
+                value={templateIdx}
+                onChange={(e) => handleTemplateChange(Number(e.target.value))}
+              >
+                {TEMPLATES.map((t, i) => (
+                  <MenuItem key={i} value={i}>{t.label}</MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                size="small"
+                label="Expression"
+                multiline
+                rows={3}
+                value={expression}
+                onChange={(e) => setExpression(e.target.value)}
+                sx={{ '& textarea': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
+              />
+
+              {previewSnippet ? (
+                <SnippetPreview
+                  snippet={previewSnippet}
+                  onInsert={handleConfirmInsert}
+                  onCancel={() => setPreviewSnippet('')}
+                  insertLabel={editingItem ? 'Update' : 'Insert'}
+                />
+              ) : (
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" variant="outlined" onClick={handleAdd}
+                    disabled={!name.trim() || !expression.trim()}>
+                    Preview {editingItem ? 'Update' : 'Insert'}
+                  </Button>
+                  <Button size="small" onClick={resetForm}>Cancel</Button>
+                </Stack>
+              )}
+            </>
+          ) : mode === 'retrieve' ? (
+            <RetrieveBuilder
+              valueSets={valueSets}
+              codes={codes}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          ) : (
+            <QueryBuilder
+              valueSets={valueSets}
+              codes={codes}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          )}
         </Stack>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        name={deleteTarget || ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </Stack>
   )
 }

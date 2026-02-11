@@ -5,7 +5,7 @@ import { Box, CircularProgress } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'
 import type { LibraryInfo } from '../../utils/cqlSyntax'
-import { setCqlContent, setCursorPosition } from '../../store/editorSlice'
+import { setCqlContent, setCursorPosition, setGoToLine } from '../../store/editorSlice'
 import type { RootState } from '../../store'
 import type { TerminologyValidationItem, LibraryMetadata } from '../../types'
 import { usePreferences } from '../../hooks/usePreferences'
@@ -28,7 +28,7 @@ export default function CqlEditor({
   libraryMetadata,
 }: CqlEditorProps) {
   const dispatch = useDispatch()
-  const { cqlContent, errors, warnings } = useSelector((state: RootState) => state.editor)
+  const { cqlContent, errors, warnings, goToLine } = useSelector((state: RootState) => state.editor)
   const { preferences } = usePreferences()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
@@ -137,6 +137,15 @@ export default function CqlEditor({
       }
     }
   }, [cqlContent])
+
+  // Go-to-line: reveal and focus requested line, then clear
+  useEffect(() => {
+    if (goToLine == null || !editorRef.current) return
+    editorRef.current.revealLineInCenter(goToLine)
+    editorRef.current.setPosition({ lineNumber: goToLine, column: 1 })
+    editorRef.current.focus()
+    dispatch(setGoToLine(null))
+  }, [goToLine, dispatch])
 
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return

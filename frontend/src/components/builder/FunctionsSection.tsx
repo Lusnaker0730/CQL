@@ -6,17 +6,18 @@ import {
   Typography,
   MenuItem,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
-import GradientButton from '../common/GradientButton'
+import ElementListItem from './ElementListItem'
+import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import SnippetPreview from './SnippetPreview'
 
 interface FunctionsSectionProps {
   functions: { name: string; context?: string; resultType?: string }[]
   onInsert: (cqlSnippet: string) => void
+  onDelete?: (identifier: string) => void
+  onGoTo?: (identifier: string) => void
+  onEdit?: (identifier: string, newSnippet: string) => void
 }
 
 interface FunctionArg {
@@ -31,11 +32,14 @@ const ARG_TYPES = [
   'List<FHIR.Condition>', 'List<FHIR.Observation>',
 ]
 
-export default function FunctionsSection({ functions, onInsert }: FunctionsSectionProps) {
+export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo, onEdit }: FunctionsSectionProps) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [args, setArgs] = useState<FunctionArg[]>([{ name: '', type: 'String' }])
   const [body, setBody] = useState('')
+  const [editingItem, setEditingItem] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [previewSnippet, setPreviewSnippet] = useState('')
 
   const addArg = () => {
     setArgs((prev) => [...prev, { name: '', type: 'String' }])
@@ -60,8 +64,24 @@ export default function FunctionsSection({ functions, onInsert }: FunctionsSecti
       .map((a) => `${a.name} ${a.type}`)
       .join(', ')
     const snippet = `define function "${name}"(${argList}):\n  ${body.split('\n').join('\n  ')}`
-    onInsert(snippet)
+    setPreviewSnippet(snippet)
+  }
+
+  const handleConfirmInsert = () => {
+    if (editingItem) {
+      onEdit?.(editingItem, previewSnippet)
+    } else {
+      onInsert(previewSnippet)
+    }
     resetForm()
+  }
+
+  const handleStartEdit = (fn: { name: string }) => {
+    setEditingItem(fn.name)
+    setName(fn.name)
+    setBody('')
+    setArgs([{ name: '', type: 'String' }])
+    setShowForm(true)
   }
 
   const resetForm = () => {
@@ -69,29 +89,30 @@ export default function FunctionsSection({ functions, onInsert }: FunctionsSecti
     setName('')
     setArgs([{ name: '', type: 'String' }])
     setBody('')
+    setEditingItem(null)
+    setPreviewSnippet('')
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      onDelete?.(deleteTarget)
+      setDeleteTarget(null)
+    }
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={0.5}>
       {functions.length > 0 ? (
-        <List dense disablePadding>
-          {functions.map((fn, idx) => (
-            <ListItem key={idx} disablePadding sx={{ py: 0.25 }}>
-              <ListItemText
-                primary={
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                      {fn.name}()
-                    </Typography>
-                    {fn.resultType && (
-                      <Chip label={fn.resultType} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-                    )}
-                  </Stack>
-                }
-              />
-            </ListItem>
-          ))}
-        </List>
+        functions.map((fn, idx) => (
+          <ElementListItem
+            key={idx}
+            label={`${fn.name}()`}
+            secondaryLabel={fn.resultType || undefined}
+            onGoTo={() => onGoTo?.(fn.name)}
+            onEdit={() => handleStartEdit(fn)}
+            onDelete={() => setDeleteTarget(fn.name)}
+          />
+        ))
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
           No functions found
@@ -154,15 +175,31 @@ export default function FunctionsSection({ functions, onInsert }: FunctionsSecti
             sx={{ '& textarea': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
           />
 
-          <Stack direction="row" spacing={1}>
-            <GradientButton onClick={handleAdd}
-              disabled={!name.trim() || !body.trim()}>
-              Insert
-            </GradientButton>
-            <Button size="small" onClick={resetForm}>Cancel</Button>
-          </Stack>
+          {previewSnippet ? (
+            <SnippetPreview
+              snippet={previewSnippet}
+              onInsert={handleConfirmInsert}
+              onCancel={() => setPreviewSnippet('')}
+              insertLabel={editingItem ? 'Update' : 'Insert'}
+            />
+          ) : (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={handleAdd}
+                disabled={!name.trim() || !body.trim()}>
+                Preview {editingItem ? 'Update' : 'Insert'}
+              </Button>
+              <Button size="small" onClick={resetForm}>Cancel</Button>
+            </Stack>
+          )}
         </Stack>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        name={deleteTarget || ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </Stack>
   )
 }

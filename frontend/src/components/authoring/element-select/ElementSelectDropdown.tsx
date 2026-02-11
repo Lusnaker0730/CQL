@@ -85,7 +85,7 @@ export default function ElementSelectDropdown({ templates, onSelect }: ElementSe
                   >
                     <ListItemText
                       primary={entry.name}
-                      secondary={entry.returnType?.replace(/_/g, ' ')}
+                      secondary={getElementDescription(entry, category.name)}
                       primaryTypographyProps={{ variant: 'body2' }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -98,4 +98,24 @@ export default function ElementSelectDropdown({ templates, onSelect }: ElementSe
       )}
     </Box>
   )
+}
+
+const ELEMENT_DESCRIPTIONS: Record<string, string> = {
+  AgeRange: 'Filter by patient age range',
+  Gender: 'Filter by patient gender',
+  GenericObservation_vsac: 'Lab results, vital signs, or other observations',
+  GenericCondition_vsac: 'Diagnoses, problems, or health conditions',
+  GenericMedicationStatement_vsac: 'Reported medication usage',
+  GenericMedicationRequest_vsac: 'Medication prescriptions or orders',
+  GenericProcedure_vsac: 'Surgical or clinical procedures',
+  GenericEncounter_vsac: 'Patient visits or encounters',
+  GenericAllergyIntolerance_vsac: 'Allergies or intolerances',
+  GenericImmunization_vsac: 'Vaccination records',
+  GenericServiceRequest_vsac: 'Diagnostic or service requests',
+  GenericDevice_vsac: 'Medical devices',
+  BooleanParameter: 'Configurable true/false parameter',
+}
+
+function getElementDescription(entry: FormTemplate, categoryName: string): string {
+  return ELEMENT_DESCRIPTIONS[entry.id] || entry.returnType?.replace(/_/g, ' ') || categoryName
 }

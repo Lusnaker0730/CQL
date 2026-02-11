@@ -5,21 +5,25 @@ import {
   Button,
   Typography,
   MenuItem,
-  List,
-  ListItem,
-  ListItemText,
   ListItemButton,
+  ListItemText,
   Alert,
   CircularProgress,
   Paper,
+  List,
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
-import GradientButton from '../common/GradientButton'
+import ElementListItem from './ElementListItem'
+import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import SnippetPreview from './SnippetPreview'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 
 interface CodesSectionProps {
   codes: string[]
   onInsert: (cqlSnippet: string) => void
+  onDelete?: (identifier: string) => void
+  onGoTo?: (identifier: string) => void
+  onEdit?: (identifier: string, newSnippet: string) => void
 }
 
 const COMMON_CODE_SYSTEMS = [
@@ -32,7 +36,16 @@ const COMMON_CODE_SYSTEMS = [
   { value: 'http://terminology.hl7.org/CodeSystem/observation-category', label: 'Observation Category' },
 ]
 
-export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
+/**
+ * Parse a code string like: "HbA1c Code": '4548-4' from "LOINC" display 'Hemoglobin A1c'
+ */
+function parseCode(raw: string): { name: string; code: string; system: string; display: string } | null {
+  const m = raw.match(/^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"(?:\s+display\s+'([^']*)')?/)
+  if (m) return { name: m[1], code: m[2], system: m[3], display: m[4] || '' }
+  return null
+}
+
+export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit }: CodesSectionProps) {
   const [showForm, setShowForm] = useState(false)
   const [systemUrl, setSystemUrl] = useState('')
   const [systemAlias, setSystemAlias] = useState('')
@@ -40,6 +53,9 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
   const [displayName, setDisplayName] = useState('')
   const [searchText, setSearchText] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [editingItem, setEditingItem] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [previewSnippet, setPreviewSnippet] = useState('')
 
   const lookupMutation = useLookupCode()
   const { data: searchResults, isFetching: isSearching, isError: isSearchError } = useSearchCodes(systemUrl, debouncedSearch)
@@ -82,8 +98,33 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
     if (!systemUrl || !codeValue || !systemAlias) return
     const csSnippet = `codesystem "${systemAlias}": '${systemUrl}'`
     const codeSnippet = `code "${displayName || codeValue}": '${codeValue}' from "${systemAlias}"${displayName ? ` display '${displayName}'` : ''}`
-    onInsert(`${csSnippet}\n${codeSnippet}`)
+    if (editingItem) {
+      setPreviewSnippet(codeSnippet)
+    } else {
+      setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
+    }
+  }
+
+  const handleConfirmInsert = () => {
+    if (editingItem) {
+      onEdit?.(editingItem, previewSnippet)
+    } else {
+      onInsert(previewSnippet)
+    }
     resetForm()
+  }
+
+  const handleStartEdit = (raw: string) => {
+    const parsed = parseCode(raw)
+    if (!parsed) return
+    setEditingItem(parsed.name)
+    // Find the system URL from the alias
+    const sys = COMMON_CODE_SYSTEMS.find((s) => s.label === parsed.system)
+    setSystemUrl(sys?.value || '')
+    setSystemAlias(parsed.system)
+    setCodeValue(parsed.code)
+    setDisplayName(parsed.display)
+    setShowForm(true)
   }
 
   const resetForm = () => {
@@ -94,24 +135,34 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
     setDisplayName('')
     setSearchText('')
     setDebouncedSearch('')
+    setEditingItem(null)
+    setPreviewSnippet('')
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      onDelete?.(deleteTarget)
+      setDeleteTarget(null)
+    }
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={0.5}>
       {codes.length > 0 ? (
-        <List dense disablePadding>
-          {codes.map((code, idx) => (
-            <ListItem key={idx} disablePadding sx={{ py: 0.25 }}>
-              <ListItemText
-                primary={
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                    {code}
-                  </Typography>
-                }
-              />
-            </ListItem>
-          ))}
-        </List>
+        codes.map((code, idx) => {
+          const parsed = parseCode(code)
+          const name = parsed?.name || code
+          return (
+            <ElementListItem
+              key={idx}
+              label={name}
+              secondaryLabel={parsed ? `${parsed.code} from ${parsed.system}` : undefined}
+              onGoTo={() => onGoTo?.(name)}
+              onEdit={() => handleStartEdit(code)}
+              onDelete={() => setDeleteTarget(name)}
+            />
+          )
+        })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
           No codes found
@@ -223,15 +274,31 @@ export default function CodesSection({ codes, onInsert }: CodesSectionProps) {
             </Alert>
           )}
 
-          <Stack direction="row" spacing={1}>
-            <GradientButton onClick={handleAdd}
-              disabled={!systemUrl || !codeValue || !systemAlias}>
-              Insert
-            </GradientButton>
-            <Button size="small" onClick={resetForm}>Cancel</Button>
-          </Stack>
+          {previewSnippet ? (
+            <SnippetPreview
+              snippet={previewSnippet}
+              onInsert={handleConfirmInsert}
+              onCancel={() => setPreviewSnippet('')}
+              insertLabel={editingItem ? 'Update' : 'Insert'}
+            />
+          ) : (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={handleAdd}
+                disabled={!systemUrl || !codeValue || !systemAlias}>
+                Preview {editingItem ? 'Update' : 'Insert'}
+              </Button>
+              <Button size="small" onClick={resetForm}>Cancel</Button>
+            </Stack>
+          )}
         </Stack>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        name={deleteTarget || ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </Stack>
   )
 }
