@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { setCqlContent } from '../../store/editorSlice'
 import type { RootState } from '../../store'
@@ -56,6 +56,8 @@ import {
   Code as CodeIcon,
   Share as ShareIcon,
   LibraryBooks as LibraryBooksIcon,
+  ViewModule as BuilderIcon,
+  Code as JsonIcon,
 } from '@mui/icons-material'
 import {
   useCdsServices,
@@ -90,6 +92,15 @@ import GradientButton from '../common/GradientButton'
 import TabPanel, { a11yProps } from '../common/TabPanel'
 import TableSkeleton from '../common/TableSkeleton'
 import CardListSkeleton from '../common/CardListSkeleton'
+import {
+  BundleBuilderProvider,
+  useBundleBuilder,
+  serializeToBundle,
+  parseFromBundle,
+} from '../../contexts/BundleBuilderContext'
+import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
+import { bundleToPrefetch, prefetchToBundle } from '../../utils/bundlePrefetchConverter'
+import Editor from '@monaco-editor/react'
 
 const HOOK_TYPES = [
   'patient-view',
@@ -149,7 +160,7 @@ function InvokeServicePanel() {
 
   const [selectedService, setSelectedService] = useState<string>('')
   const [patientId, setPatientId] = useState('')
-  const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
+  const [fhirServer, setFhirServer] = useState('http://localhost:8090/fhir')
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
@@ -1012,58 +1023,125 @@ function AnalyticsPanel() {
   )
 }
 
+const DEFAULT_PREFETCH = {
+  patient: {
+    resourceType: 'Patient',
+    id: 'test-patient-1',
+    name: [{ given: ['Test'], family: 'Patient' }],
+    gender: 'male',
+    birthDate: '1980-01-01',
+  },
+  observations: {
+    resourceType: 'Bundle',
+    type: 'searchset',
+    entry: [
+      {
+        resource: {
+          resourceType: 'Observation',
+          id: 'obs-1',
+          status: 'final',
+          category: [
+            {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+                  code: 'vital-signs',
+                },
+              ],
+            },
+          ],
+          code: {
+            coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body Weight' }],
+          },
+          subject: { reference: 'Patient/test-patient-1' },
+          valueQuantity: { value: 85, unit: 'kg' },
+        },
+      },
+    ],
+  },
+}
+
 function SandboxPanel() {
+  return (
+    <BundleBuilderProvider>
+      <SandboxPanelInner />
+    </BundleBuilderProvider>
+  )
+}
+
+function SandboxPanelInner() {
   const { data: servicesData } = useCdsServices()
   const sandboxMutation = useSandboxInvoke()
+  const { state, dispatch } = useBundleBuilder()
 
   const [selectedService, setSelectedService] = useState('')
   const [patientId, setPatientId] = useState('test-patient-1')
-  const [testDataJson, setTestDataJson] = useState(
-    JSON.stringify(
-      {
-        patient: {
-          resourceType: 'Patient',
-          id: 'test-patient-1',
-          name: [{ given: ['Test'], family: 'Patient' }],
-          gender: 'male',
-          birthDate: '1980-01-01',
-        },
-        observations: {
-          resourceType: 'Bundle',
-          type: 'searchset',
-          entry: [
-            {
-              resource: {
-                resourceType: 'Observation',
-                id: 'obs-1',
-                status: 'final',
-                category: [
-                  {
-                    coding: [
-                      {
-                        system: 'http://terminology.hl7.org/CodeSystem/observation-category',
-                        code: 'vital-signs',
-                      },
-                    ],
-                  },
-                ],
-                code: {
-                  coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body Weight' }],
-                },
-                subject: { reference: 'Patient/test-patient-1' },
-                valueQuantity: { value: 85, unit: 'kg' },
-              },
-            },
-          ],
-        },
-      },
-      null,
-      2
-    )
-  )
+  const [testDataJson, setTestDataJson] = useState(JSON.stringify(DEFAULT_PREFETCH, null, 2))
   const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
+  const [dataTab, setDataTab] = useState(0) // 0 = Visual Builder, 1 = JSON (Prefetch)
+
+  const syncingRef = useRef(false)
+  const initializedRef = useRef(false)
 
   const services = Array.isArray(servicesData?.services) ? servicesData.services : []
+
+  // Initialize: convert default prefetch to bundle entries and load into builder
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      try {
+        const bundleJson = prefetchToBundle(DEFAULT_PREFETCH)
+        const entries = parseFromBundle(bundleJson)
+        if (entries.length > 0) {
+          dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync: Visual Builder → JSON (prefetch)
+  useEffect(() => {
+    if (syncingRef.current) return
+    if (state.entries.length > 0) {
+      syncingRef.current = true
+      const bundleJson = serializeToBundle(state.entries)
+      try {
+        const prefetch = bundleToPrefetch(bundleJson)
+        setTestDataJson(JSON.stringify(prefetch, null, 2))
+      } catch {
+        // ignore conversion errors
+      }
+      syncingRef.current = false
+    }
+  }, [state.entries])
+
+  // Debounced sync: JSON (prefetch) → Visual Builder
+  const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleJsonChange = useCallback(
+    (value: string | undefined) => {
+      const val = value || ''
+      setTestDataJson(val)
+      if (jsonSyncTimerRef.current) clearTimeout(jsonSyncTimerRef.current)
+      jsonSyncTimerRef.current = setTimeout(() => {
+        if (syncingRef.current) return
+        try {
+          const prefetch = JSON.parse(val)
+          const bundleJson = prefetchToBundle(prefetch)
+          const entries = parseFromBundle(bundleJson)
+          if (entries.length > 0) {
+            syncingRef.current = true
+            dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+            syncingRef.current = false
+          }
+        } catch {
+          // Invalid JSON — don't sync
+        }
+      }, 500)
+    },
+    [dispatch]
+  )
 
   const handleSandboxInvoke = async () => {
     if (!selectedService) return
@@ -1103,7 +1181,7 @@ function SandboxPanel() {
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        Test CDS services without a real FHIR server. Provide test data as FHIR resources below.
+        Test CDS services without a real FHIR server. Build test data visually or edit JSON directly.
       </Alert>
 
       <FormControl fullWidth size="small">
@@ -1125,21 +1203,34 @@ function SandboxPanel() {
         fullWidth
       />
 
-      <TextField
-        label="Test Data (JSON)"
-        value={testDataJson}
-        onChange={(e) => setTestDataJson(e.target.value)}
-        size="small"
-        fullWidth
-        multiline
-        rows={12}
-        sx={{
-          '& .MuiInputBase-root': {
-            fontFamily: '"Consolas", monospace',
-            fontSize: '0.85rem',
-          },
-        }}
-      />
+      <Box>
+        <Tabs value={dataTab} onChange={(_, v) => setDataTab(v)} sx={{ mb: 1 }}>
+          <Tab icon={<BuilderIcon />} iconPosition="start" label="Visual Builder" sx={{ textTransform: 'none', minHeight: 42 }} />
+          <Tab icon={<JsonIcon />} iconPosition="start" label="JSON (Prefetch)" sx={{ textTransform: 'none', minHeight: 42 }} />
+        </Tabs>
+
+        {dataTab === 0 && (
+          <VisualBundleBuilder onDirty={() => {}} />
+        )}
+
+        {dataTab === 1 && (
+          <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+            <Editor
+              height="350px"
+              language="json"
+              value={testDataJson}
+              onChange={handleJsonChange}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                tabSize: 2,
+              }}
+            />
+          </Box>
+        )}
+      </Box>
 
       <GradientButton
         onClick={handleSandboxInvoke}

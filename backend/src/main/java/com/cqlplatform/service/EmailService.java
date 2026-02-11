@@ -27,7 +27,7 @@ public class EmailService {
 
             helper.setFrom(fromAddress);
             helper.setTo(toEmail);
-            helper.setSubject("CGMH CQL Platform - Password Reset");
+            helper.setSubject("TWCORE CQL Platform - Password Reset");
             helper.setText(buildResetEmailHtml(username, resetLink), true);
 
             mailSender.send(message);
@@ -48,7 +48,7 @@ public class EmailService {
                 <table width="100%%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:40px auto;">
                     <tr>
                         <td style="background:linear-gradient(135deg,#0D7377,#1B3A5C);padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-                            <h1 style="color:white;margin:0;font-size:24px;">CGMH CQL Platform</h1>
+                            <h1 style="color:white;margin:0;font-size:24px;">TWCORE CQL Platform</h1>
                             <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px;">Password Reset Request</p>
                         </td>
                     </tr>
@@ -73,7 +73,7 @@ public class EmailService {
                             </p>
                             <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
                             <p style="color:#aaa;font-size:11px;text-align:center;">
-                                CGMH CQL Platform &mdash; Clinical Quality Language
+                                TWCORE CQL Platform &mdash; Clinical Quality Language
                             </p>
                         </td>
                     </tr>

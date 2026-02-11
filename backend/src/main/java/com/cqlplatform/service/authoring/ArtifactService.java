@@ -88,6 +88,12 @@ public class ArtifactService {
         if (request.getParameters() != null) entity.setParametersList(request.getParameters());
         entity.setErrorStatementMap(request.getErrorStatement());
 
+        // Explicitly serialize transient fields to persistent JSON columns before save.
+        // Hibernate dirty-checking does not track @Transient fields, so @PreUpdate may
+        // not fire if only transient map/list fields changed.
+        entity.serializeAll();
+        entity.setUpdatedAt(java.time.LocalDateTime.now());
+
         entity = artifactRepository.save(entity);
         log.info("Updated CDS artifact: {} (id={})", entity.getName(), entity.getId());
         return entityToResponse(entity);

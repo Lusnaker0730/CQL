@@ -19,6 +19,7 @@ import { ExpandMore as ExpandMoreIcon, Add as AddIcon } from '@mui/icons-materia
 import CardListSkeleton from '../common/CardListSkeleton'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
+import { ResourceTypeProvider } from '../../contexts/ResourceTypeContext'
 import ResourceFormHeader from './ResourceFormHeader'
 import ElementField from './ElementField'
 import type { ElementMetadata } from '../../types'
@@ -122,6 +123,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   }
 
   return (
+    <ResourceTypeProvider value={activeEntry.resourceType}>
     <Box>
       <ResourceFormHeader
         resourceType={activeEntry.resourceType}
@@ -230,5 +232,6 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         </DialogActions>
       </Dialog>
     </Box>
+    </ResourceTypeProvider>
   )
 }

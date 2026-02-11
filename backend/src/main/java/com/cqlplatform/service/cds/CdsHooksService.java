@@ -228,9 +228,21 @@ public class CdsHooksService {
 
     public List<CdsServiceDefinition> getSharedServiceDefinitions() {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
-        List<CdsServiceConfigEntity> entities = repository.findBySharedTrueAndEnabledTrue();
 
+        // Return all enabled services so deployed services always appear in discovery
+        List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
+
+        // Versioning: keep only latest version per serviceName
+        Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
         for (CdsServiceConfigEntity entity : entities) {
+            String key = entity.getServiceName() != null ? entity.getServiceName() : entity.getId();
+            CdsServiceConfigEntity existing = latestByServiceName.get(key);
+            if (existing == null || entity.getVersion() > existing.getVersion()) {
+                latestByServiceName.put(key, entity);
+            }
+        }
+
+        for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
             CdsServiceConfig config = entityToConfig(entity);
             definitions.add(CdsServiceDefinition.builder()
                     .id(config.getId())
@@ -240,11 +252,6 @@ public class CdsHooksService {
                     .version(config.getVersion())
                     .prefetch(config.getPrefetch())
                     .build());
-        }
-
-        if (definitions.isEmpty()) {
-            definitions.add(createDefaultDiabetesService());
-            definitions.add(createDefaultMedicationService());
         }
 
         return definitions;

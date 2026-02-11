@@ -412,6 +412,23 @@ export default function ArtifactWorkspace({
         isDirty={isDirty}
         onBack={handleBack}
         onSave={handleSave}
+        onSaveBeforeGenerate={async () => {
+          return new Promise<void>((resolve, reject) => {
+            const request = buildSaveRequest()
+            updateMutation.mutate(
+              { id: localArtifact.id, request },
+              {
+                onSuccess: (updated) => {
+                  setLocalArtifact(updated)
+                  setIsDirty(false)
+                  onArtifactUpdate(updated)
+                  resolve()
+                },
+                onError: reject,
+              }
+            )
+          })
+        }}
         onNameChange={handleNameChange}
         onUpdate={updateLocal}
       />

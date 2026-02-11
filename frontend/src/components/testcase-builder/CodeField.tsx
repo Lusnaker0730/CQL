@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { Autocomplete, TextField, Typography, Box } from '@mui/material'
+import { Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack } from '@mui/material'
+import { MenuBook as MenuBookIcon } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
+import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
+import TwcoreCodePicker from './TwcoreCodePicker'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
 interface CodeFieldProps {
@@ -12,6 +15,8 @@ interface CodeFieldProps {
 
 export default function CodeField({ element, value, onChange }: CodeFieldProps) {
   const [inputValue, setInputValue] = useState(String(value || ''))
+  const [twcoreOpen, setTwcoreOpen] = useState(false)
+  const resourceType = useCurrentResourceType()
 
   const hasBinding = !!element.bindingValueSetUrl
 
@@ -22,64 +27,91 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
     staleTime: 30_000,
   })
 
+  const twcoreButton = (
+    <Tooltip title="Browse TWCORE terminology">
+      <IconButton size="small" onClick={() => setTwcoreOpen(true)} aria-label="Browse TWCORE">
+        <MenuBookIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  )
+
+  const twcorePicker = (
+    <TwcoreCodePicker
+      open={twcoreOpen}
+      onClose={() => setTwcoreOpen(false)}
+      onSelect={(selected) => {
+        onChange(selected.code)
+        setInputValue(selected.code)
+      }}
+      resourceType={resourceType}
+    />
+  )
+
   if (!hasBinding) {
     return (
-      <TextField
-        label={element.name}
-        size="small"
-        fullWidth
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-        required={element.isRequired}
-        helperText={element.description || undefined}
-        sx={{ mb: 1 }}
-      />
+      <Stack direction="row" alignItems="flex-start" spacing={0.5} sx={{ mb: 1 }}>
+        <TextField
+          label={element.name}
+          size="small"
+          fullWidth
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          required={element.isRequired}
+          helperText={element.description || undefined}
+        />
+        {twcoreButton}
+        {twcorePicker}
+      </Stack>
     )
   }
 
   return (
-    <Autocomplete
-      freeSolo
-      options={options}
-      getOptionLabel={(opt) =>
-        typeof opt === 'string' ? opt : `${opt.code} — ${opt.display}`
-      }
-      inputValue={inputValue}
-      onInputChange={(_, v) => setInputValue(v)}
-      onChange={(_, newVal) => {
-        if (typeof newVal === 'string') {
-          onChange(newVal)
-        } else if (newVal) {
-          onChange(newVal.code)
-        } else {
-          onChange(undefined)
+    <Stack direction="row" alignItems="flex-start" spacing={0.5} sx={{ mb: 1 }}>
+      <Autocomplete
+        freeSolo
+        options={options}
+        getOptionLabel={(opt) =>
+          typeof opt === 'string' ? opt : `${opt.code} — ${opt.display}`
         }
-      }}
-      renderOption={(props, option) => (
-        <Box component="li" {...props} key={typeof option === 'string' ? option : option.code}>
-          <Box>
-            <Typography variant="body2" fontWeight={500}>
-              {typeof option === 'string' ? option : option.code}
-            </Typography>
-            {typeof option !== 'string' && (
-              <Typography variant="caption" color="text.secondary">
-                {option.display}
+        inputValue={inputValue}
+        onInputChange={(_, v) => setInputValue(v)}
+        onChange={(_, newVal) => {
+          if (typeof newVal === 'string') {
+            onChange(newVal)
+          } else if (newVal) {
+            onChange(newVal.code)
+          } else {
+            onChange(undefined)
+          }
+        }}
+        renderOption={(props, option) => (
+          <Box component="li" {...props} key={typeof option === 'string' ? option : option.code}>
+            <Box>
+              <Typography variant="body2" fontWeight={500}>
+                {typeof option === 'string' ? option : option.code}
               </Typography>
-            )}
+              {typeof option !== 'string' && (
+                <Typography variant="caption" color="text.secondary">
+                  {option.display}
+                </Typography>
+              )}
+            </Box>
           </Box>
-        </Box>
-      )}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={element.name}
-          size="small"
-          fullWidth
-          required={element.isRequired}
-          helperText={element.description || `Bound to: ${element.bindingValueSetUrl}`}
-        />
-      )}
-      sx={{ mb: 1 }}
-    />
+        )}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={element.name}
+            size="small"
+            fullWidth
+            required={element.isRequired}
+            helperText={element.description || `Bound to: ${element.bindingValueSetUrl}`}
+          />
+        )}
+        sx={{ flex: 1 }}
+      />
+      {twcoreButton}
+      {twcorePicker}
+    </Stack>
   )
 }

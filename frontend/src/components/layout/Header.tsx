@@ -102,7 +102,7 @@ export default function Header() {
                   color: 'white',
                 }}
               >
-                CGMH CQL Platform
+                TWCORE CQL Platform
               </Typography>
               <Typography
                 sx={{

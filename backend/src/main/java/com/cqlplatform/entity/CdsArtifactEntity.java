@@ -219,7 +219,12 @@ public class CdsArtifactEntity {
         deserializeAll();
     }
 
-    private void serializeAll() {
+    /**
+     * Serialize all transient map/list fields to their persistent JSON string counterparts.
+     * Must be called explicitly before save() when only transient fields have changed,
+     * because Hibernate dirty-checking does not track @Transient fields.
+     */
+    public void serializeAll() {
         contextJson = serializeList(contextList);
         topicJson = serializeList(topicList);
         authorJson = serializeList(authorList);

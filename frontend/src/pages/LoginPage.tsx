@@ -113,7 +113,7 @@ export default function LoginPage() {
               <MedicalIcon sx={{ fontSize: 32, color: 'white' }} />
             </Box>
             <Typography variant="h5" fontWeight={700} color="text.primary">
-              CGMH CQL Platform
+              TWCORE CQL Platform
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               {isRegister ? 'Create your account' : 'Sign in to continue'}

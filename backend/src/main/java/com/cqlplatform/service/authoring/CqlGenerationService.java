@@ -34,6 +34,11 @@ public class CqlGenerationService {
             version = "R4";
         }
 
+        log.debug("expTreeInclude raw JSON: {}", entity.getExpTreeInclude());
+        log.debug("expTreeIncludeMap keys: {}", entity.getExpTreeIncludeMap() != null ? entity.getExpTreeIncludeMap().keySet() : "null");
+        log.debug("expTreeIncludeMap childInstances: {}",
+                entity.getExpTreeIncludeMap() != null ? entity.getExpTreeIncludeMap().get("childInstances") : "null");
+
         String cql = cqlBuilder.buildCql(
                 entity.getName(),
                 entity.getVersion(),

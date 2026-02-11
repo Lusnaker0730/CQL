@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Box, TextField, Typography, Autocomplete, Button, IconButton } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip } from '@mui/material'
+import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
+import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
+import TwcoreCodePicker from './TwcoreCodePicker'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
 interface Coding {
@@ -26,11 +28,13 @@ function CodingField({
   coding,
   onChange,
   onRemove,
+  onTwcoreBrowse,
   bindingUrl,
 }: {
   coding: Coding
   onChange: (coding: Coding) => void
   onRemove: () => void
+  onTwcoreBrowse: () => void
   bindingUrl?: string | null
 }) {
   const [searchText, setSearchText] = useState(coding.code || '')
@@ -78,6 +82,11 @@ function CodingField({
         onChange={(e) => onChange({ ...coding, display: e.target.value })}
         sx={{ flex: 1 }}
       />
+      <Tooltip title="Browse TWCORE terminology">
+        <IconButton size="small" onClick={onTwcoreBrowse} sx={{ mt: 0.5 }} aria-label="Browse TWCORE">
+          <MenuBookIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <IconButton size="small" onClick={onRemove} sx={{ mt: 0.5 }} aria-label="Remove coding">
         <DeleteIcon fontSize="small" />
       </IconButton>
@@ -88,6 +97,9 @@ function CodingField({
 export default function CodeableConceptField({ element, value, onChange }: CodeableConceptFieldProps) {
   const cc = (value as CodeableConcept) || {}
   const codings = cc.coding || []
+  const resourceType = useCurrentResourceType()
+  const [twcoreOpen, setTwcoreOpen] = useState(false)
+  const [twcoreTargetIdx, setTwcoreTargetIdx] = useState<number>(0)
 
   const updateCoding = (index: number, coding: Coding) => {
     const newCodings = [...codings]
@@ -104,6 +116,20 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
     onChange({ ...cc, coding: newCodings.length > 0 ? newCodings : undefined })
   }
 
+  const handleTwcoreBrowse = (index: number) => {
+    setTwcoreTargetIdx(index)
+    setTwcoreOpen(true)
+  }
+
+  const handleTwcoreSelect = (selected: { system: string; code: string; display: string }) => {
+    updateCoding(twcoreTargetIdx, {
+      ...codings[twcoreTargetIdx],
+      system: selected.system,
+      code: selected.code,
+      display: selected.display,
+    })
+  }
+
   return (
     <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
       <Typography variant="caption" fontWeight={600} color="text.secondary">
@@ -116,6 +142,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
           coding={coding}
           onChange={(c) => updateCoding(i, c)}
           onRemove={() => removeCoding(i)}
+          onTwcoreBrowse={() => handleTwcoreBrowse(i)}
           bindingUrl={element.bindingValueSetUrl}
         />
       ))}
@@ -133,6 +160,13 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
         value={cc.text || ''}
         onChange={(e) => onChange({ ...cc, text: e.target.value || undefined })}
         sx={{ mt: 1 }}
+      />
+
+      <TwcoreCodePicker
+        open={twcoreOpen}
+        onClose={() => setTwcoreOpen(false)}
+        onSelect={handleTwcoreSelect}
+        resourceType={resourceType}
       />
     </Box>
   )

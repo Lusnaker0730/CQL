@@ -84,7 +84,26 @@
       "Bash(git reset:*)",
       "Bash(tar:*)",
       "Bash(mvn help:evaluate:*)",
-      "Bash(mvn clean test-compile:*)"
+      "Bash(mvn clean test-compile:*)",
+      "Bash(python -c \"\nimport json, sys, subprocess\n\ncql = open\\(''D:/CQL/backend/src/main/resources/cql/DM_HbA1c_GA_Rate.cql'', ''r'', encoding=''utf-8''\\).read\\(\\)\npayload = {\n  ''name'': ''DM_HbA1c_GA_Rate'',\n  ''version'': ''1.0.0'',\n  ''title'': ''糖尿病病人醣化血紅素\\(HbA1c\\)或糖化白蛋白\\(Glycated Albumin\\)執行率'',\n  ''description'': ''衡量門診糖尿病病人於統計期間內接受醣化血紅素\\(HbA1c\\)或糖化白蛋白\\(Glycated Albumin\\)檢驗的比率。分母為門診主次診斷為糖尿病且使用糖尿病用藥之病人數；分子為分母中有執行HbA1c或GA檢驗之人數。'',\n  ''status'': ''draft'',\n  ''scoringType'': ''proportion'',\n  ''rationale'': ''糖尿病為常見慢性疾病，定期監測醣化血紅素\\(HbA1c\\)或糖化白蛋白\\(Glycated Albumin\\)是評估血糖控制成效的關鍵指標。提升檢驗執行率有助於早期發現血糖控制不佳之病人，及時調整治療方案，降低併發症風險。'',\n  ''clinicalGuidance'': ''備註：\\\\n- 糖尿病定義：任一主、次診斷之ICD-10-CM前三碼為E08-E13之門診案件\\\\n- 糖尿病用藥：指ATC前3碼為A10\\\\n- 醣化血紅素\\(HbA1c\\)案件：申報醫令代碼前五碼為09006之案件\\\\n- 糖化白蛋白\\(glycated albumin\\)案件：申報醫令代碼前五碼為09139之案件\\\\n- 計算符合分母條件之ID時，主次診斷為糖尿病且使用糖尿病用藥這兩個條件限定要發生在同處方案件\\\\n- 計算符合分子之ID時，從分母的ID繼續觀察，只要該ID於統計期間有執行HbA1c或GA檢驗即成立\\\\n- 資料範圍：西醫基層、西醫醫院'',\n  ''steward'': ''衛生福利部中央健康保險署'',\n  ''cqlContent'': cql,\n  ''groupDefinitions'': [\n    {\n      ''groupId'': ''group-1'',\n      ''description'': ''糖尿病病人HbA1c/GA執行率'',\n      ''populationBasis'': ''boolean'',\n      ''populations'': [\n        {\n          ''populationType'': ''initial-population'',\n          ''criteriaExpression'': ''Initial Population'',\n          ''description'': ''門診有糖尿病診斷且使用糖尿病用藥之病人''\n        },\n        {\n          ''populationType'': ''denominator'',\n          ''criteriaExpression'': ''Denominator'',\n          ''description'': ''門診主次診斷為糖尿病且使用糖尿病用藥之病人數''\n        },\n        {\n          ''populationType'': ''numerator'',\n          ''criteriaExpression'': ''Numerator'',\n          ''description'': ''分母ID中，在統計期間有執行醣化血紅素\\(HbA1c\\)或糖化白蛋白\\(Glycated Albumin\\)檢驗人數''\n        }\n      ],\n      ''stratifiers'': [],\n      ''observations'': []\n    }\n  ]\n}\n\nwith open\\(''D:/CQL/tmp_measure.json'', ''w'', encoding=''utf-8''\\) as f:\n    json.dump\\(payload, f, ensure_ascii=False\\)\nprint\\(''OK''\\)\n\")",
+      "Bash(babel)",
+      "Bash(prettier)",
+      "Bash(.*config)",
+      "Bash(\")",
+      "Bash(grep:*)",
+      "Bash(sort:*)",
+      "Bash(echo:*)",
+      "Bash(docker:*)",
+      "WebFetch(domain:localhost)",
+      "WebFetch(domain:cds.ahrq.gov)",
+      "WebFetch(domain:marketplace.visualstudio.com)",
+      "Bash(wmic process where \"processid=12436\" get commandline:*)",
+      "Bash(python -c:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(for file in StructureDefinition-*-twcore.json)",
+      "Bash(do grep -m 1 '\"\"url\"\"' \"$file\")",
+      "Bash(done)",
+      "Bash(cat:*)"
     ]
   }
 }

@@ -11,6 +11,14 @@ export function useTwcoreCatalog(resourceType?: string) {
   })
 }
 
+export function useTwcoreFullCatalog() {
+  return useQuery<TwcoreCatalogEntry[]>({
+    queryKey: ['twcore-catalog', '__all__'],
+    queryFn: () => authoringApi.getTwcoreCatalog(),
+    staleTime: Infinity,
+  })
+}
+
 export function useTwcoreCodeSystems() {
   return useQuery<TwcoreCodeSystem[]>({
     queryKey: ['twcore-code-systems'],

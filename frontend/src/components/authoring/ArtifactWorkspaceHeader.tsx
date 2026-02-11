@@ -18,6 +18,7 @@ interface ArtifactWorkspaceHeaderProps {
   isDirty: boolean
   onBack: () => void
   onSave: (request: ArtifactRequest) => void
+  onSaveBeforeGenerate?: () => Promise<void>
   onNameChange: (name: string) => void
   onUpdate: (updates: Partial<Artifact>) => void
 }
@@ -27,6 +28,7 @@ export default function ArtifactWorkspaceHeader({
   isDirty,
   onBack,
   onSave,
+  onSaveBeforeGenerate,
   onNameChange,
   onUpdate,
 }: ArtifactWorkspaceHeaderProps) {
@@ -40,9 +42,22 @@ export default function ArtifactWorkspaceHeader({
   const [cpgDialogOpen, setCpgDialogOpen] = useState(false)
   const [selectedFhirVersion, setSelectedFhirVersion] = useState(artifact.fhirVersion || 'R4')
 
+  const [saving, setSaving] = useState(false)
+
   const deployMutation = useDeployCdsService()
   const saveLibMutation = useSaveAsLibrary()
   const generateCqlMutation = useGenerateArtifactCql()
+
+  const saveFirst = async () => {
+    if (isDirty && onSaveBeforeGenerate) {
+      setSaving(true)
+      try {
+        await onSaveBeforeGenerate()
+      } finally {
+        setSaving(false)
+      }
+    }
+  }
 
   const handleSave = () => {
     onSave({
@@ -79,7 +94,8 @@ export default function ArtifactWorkspaceHeader({
     })
   }
 
-  const handleDeploy = () => {
+  const handleDeploy = async () => {
+    await saveFirst()
     const serviceId = artifact.name.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase()
     deployMutation.mutate(
       { id: artifact.id, serviceId, hook: deployHook },
@@ -92,14 +108,16 @@ export default function ArtifactWorkspaceHeader({
     )
   }
 
-  const handleSaveAsLibrary = () => {
+  const handleSaveAsLibrary = async () => {
     setAnchorEl(null)
+    await saveFirst()
     saveLibMutation.mutate(artifact.id, {
       onSuccess: (data) => setSaveLibResult(data.message),
     })
   }
 
-  const handleViewCql = (fhirVer?: string) => {
+  const handleViewCql = async (fhirVer?: string) => {
+    await saveFirst()
     generateCqlMutation.mutate({ id: artifact.id, fhirVersion: fhirVer || selectedFhirVersion }, {
       onSuccess: (data) => {
         setViewCqlContent(data.cql)
@@ -108,7 +126,8 @@ export default function ArtifactWorkspaceHeader({
     })
   }
 
-  const handleDownloadCql = (fhirVer?: string) => {
+  const handleDownloadCql = async (fhirVer?: string) => {
+    await saveFirst()
     generateCqlMutation.mutate({ id: artifact.id, fhirVersion: fhirVer || selectedFhirVersion }, {
       onSuccess: (data) => {
         const blob = new Blob([data.cql], { type: 'text/plain' })
@@ -171,9 +190,9 @@ export default function ArtifactWorkspaceHeader({
           <Button
             variant="outlined"
             size="small"
-            startIcon={generateCqlMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <ViewIcon />}
+            startIcon={(generateCqlMutation.isPending || saving) ? <CircularProgress size={14} color="inherit" /> : <ViewIcon />}
             onClick={() => handleViewCql()}
-            disabled={generateCqlMutation.isPending}
+            disabled={generateCqlMutation.isPending || saving}
             sx={{
               color: '#fff',
               borderColor: 'rgba(255,255,255,0.5)',
@@ -192,7 +211,7 @@ export default function ArtifactWorkspaceHeader({
             size="small"
             startIcon={<DownloadIcon />}
             onClick={() => handleDownloadCql()}
-            disabled={generateCqlMutation.isPending}
+            disabled={generateCqlMutation.isPending || saving}
             sx={{
               color: '#fff',
               borderColor: 'rgba(255,255,255,0.5)',

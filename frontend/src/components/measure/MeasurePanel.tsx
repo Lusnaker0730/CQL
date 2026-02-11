@@ -51,7 +51,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   const [patientId, setPatientId] = useState('')
   const [periodStart, setPeriodStart] = useState('2024-01-01')
   const [periodEnd, setPeriodEnd] = useState('2024-12-31')
-  const [fhirServer, setFhirServer] = useState('http://hapi.fhir.org/baseR4')
+  const [fhirServer, setFhirServer] = useState('http://localhost:8090/fhir')
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [selectedDef, setSelectedDef] = useState<MeasureDefinition | null>(null)
   const [stratExpanded, setStratExpanded] = useState(false)
