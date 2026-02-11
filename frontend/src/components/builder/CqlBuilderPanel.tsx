@@ -20,6 +20,7 @@ import { updateCqlStructure } from '../../utils/cqlSyntax'
 import IncludesSection from './IncludesSection'
 import ValueSetSection from './ValueSetSection'
 import CodesSection from './CodesSection'
+import ConceptsSection from './ConceptsSection'
 import ParametersSection from './ParametersSection'
 import DefinitionsSection from './DefinitionsSection'
 import FunctionsSection from './FunctionsSection'
@@ -104,6 +105,21 @@ export default function CqlBuilderPanel({
       ),
     },
     {
+      id: 'concepts',
+      label: 'Concepts',
+      count: structure.concepts.length,
+      content: (
+        <ConceptsSection
+          concepts={structure.concepts}
+          codes={structure.codes}
+          onInsert={onInsertSnippet}
+          onDelete={(id) => onDeleteElement?.('concept', id)}
+          onGoTo={(id) => onGoToElement?.('concept', id)}
+          onEdit={(id, snippet) => onEditElement?.('concept', id, snippet)}
+        />
+      ),
+    },
+    {
       id: 'parameters',
       label: 'Parameters',
       count: structure.parameters.length,
@@ -127,6 +143,7 @@ export default function CqlBuilderPanel({
           onInsert={handleAutoIncludeC3F}
           valueSets={structure.valueSets}
           codes={structure.codes}
+          parameters={structure.parameters}
           onDelete={(id) => onDeleteElement?.('define', id)}
           onGoTo={(id) => onGoToElement?.('define', id)}
           onEdit={(id, snippet) => onEditElement?.('define', id, snippet)}

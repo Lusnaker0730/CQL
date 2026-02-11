@@ -10,7 +10,7 @@ export interface LineRange {
 }
 
 // Top-level declaration keywords that start a new block
-const TOP_LEVEL_RE = /^(library|using|include|codesystem|valueset|code|parameter|context|define)\b/
+const TOP_LEVEL_RE = /^(library|using|include|codesystem|valueset|code|concept|parameter|context|define)\b/
 
 /**
  * Find the line range for a CQL element by type and identifier.
@@ -36,6 +36,9 @@ export function findElementLineRange(
 
     case 'code':
       return findSingleLine(lines, new RegExp(`^code\\s+"${escapeRegex(identifier)}"`))
+
+    case 'concept':
+      return findSingleLine(lines, new RegExp(`^concept\\s+"${escapeRegex(identifier)}"`))
 
     case 'parameter':
       return findSingleLine(lines, new RegExp(`^parameter\\s+"${escapeRegex(identifier)}"`))

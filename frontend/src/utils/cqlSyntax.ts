@@ -1164,6 +1164,18 @@ export function provideCqlCompletions(
       }
     }
 
+    // Concepts → Constant kind
+    for (const concept of s.concepts) {
+      suggestions.push({
+        label: `"${concept}"`,
+        kind: monaco.languages.CompletionItemKind.Constant,
+        insertText: `"${concept}"`,
+        documentation: `**concept** "${concept}"`,
+        sortText: `0_${concept}`,
+        range,
+      })
+    }
+
     // Codes → EnumMember kind
     for (const code of s.codes) {
       const codeMatch = code.match(/^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"/)
@@ -1268,6 +1280,14 @@ function provideCqlHover(
         range,
         contents: [{ value: `**valueset** "${name}": '${m[2]}'` }],
       }
+    }
+  }
+
+  // Match concepts
+  if (s.concepts.includes(name)) {
+    return {
+      range,
+      contents: [{ value: `**concept** "${name}"` }],
     }
   }
 

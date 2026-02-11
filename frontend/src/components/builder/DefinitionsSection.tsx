@@ -14,12 +14,14 @@ import ConfirmDeleteDialog from './ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 import RetrieveBuilder from './RetrieveBuilder'
 import QueryBuilder from './QueryBuilder'
+import OperatorPanel from './OperatorPanel'
 
 interface DefinitionsSectionProps {
   expressions: { name: string; context?: string; resultType?: string }[]
   onInsert: (cqlSnippet: string) => void
   valueSets?: string[]
   codes?: string[]
+  parameters?: string[]
   onDelete?: (identifier: string) => void
   onGoTo?: (identifier: string) => void
   onEdit?: (identifier: string, newSnippet: string) => void
@@ -39,12 +41,13 @@ export default function DefinitionsSection({
   onInsert,
   valueSets = [],
   codes = [],
+  parameters = [],
   onDelete,
   onGoTo,
   onEdit,
 }: DefinitionsSectionProps) {
   const [showForm, setShowForm] = useState(false)
-  const [mode, setMode] = useState<'template' | 'retrieve' | 'query'>('template')
+  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator'>('template')
   const [name, setName] = useState('')
   const [context, setContext] = useState('Patient')
   const [templateIdx, setTemplateIdx] = useState(0)
@@ -139,6 +142,9 @@ export default function DefinitionsSection({
             <ToggleButton value="query" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               Query
             </ToggleButton>
+            <ToggleButton value="operator" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              Operators
+            </ToggleButton>
           </ToggleButtonGroup>
 
           {mode === 'template' ? (
@@ -210,10 +216,21 @@ export default function DefinitionsSection({
               }}
               onCancel={resetForm}
             />
-          ) : (
+          ) : mode === 'query' ? (
             <QueryBuilder
               valueSets={valueSets}
               codes={codes}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          ) : (
+            <OperatorPanel
+              expressions={expressions.map((e) => e.name)}
+              parameters={parameters}
+              valueSets={valueSets}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()

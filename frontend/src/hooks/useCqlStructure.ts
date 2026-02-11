@@ -11,6 +11,7 @@ export interface CqlStructure {
   includes: string[]
   valueSets: string[]
   codes: string[]
+  concepts: string[]
   parameters: string[]
   expressions: { name: string; context?: string; resultType?: string }[]
   functions: { name: string; context?: string; resultType?: string }[]
@@ -23,6 +24,7 @@ const EMPTY_STRUCTURE: CqlStructure = {
   includes: [],
   valueSets: [],
   codes: [],
+  concepts: [],
   parameters: [],
   expressions: [],
   functions: [],
@@ -44,6 +46,7 @@ function metadataToStructure(meta: TranslationMetadata): CqlStructure {
     includes: meta.includes || [],
     valueSets: meta.valueSets || [],
     codes: meta.codes || [],
+    concepts: meta.concepts || [],
     parameters: meta.parameters || [],
     expressions: defs.map((e) => ({ name: e.name, context: e.context, resultType: e.resultType })),
     functions: funcs.map((e) => ({ name: e.name, context: e.context, resultType: e.resultType })),
