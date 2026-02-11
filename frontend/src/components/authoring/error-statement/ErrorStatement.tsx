@@ -9,8 +9,9 @@ import type { ErrorStatement as ErrorStatementType, IfThenClause } from '../../.
 
 const CONDITION_OPTIONS = [
   { label: 'Recommendations is null', value: 'null' },
+  { label: "Doesn't Meet Inclusion Criteria", value: 'doesnt_meet_inclusion' },
+  { label: 'Meets Exclusion Criteria', value: 'meets_exclusion' },
   { label: 'Errors were encountered', value: 'errors' },
-  { label: 'Subpopulations excluded', value: 'excluded' },
 ]
 
 interface ErrorStatementProps {

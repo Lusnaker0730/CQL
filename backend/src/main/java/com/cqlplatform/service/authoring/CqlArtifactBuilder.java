@@ -16,6 +16,21 @@ public class CqlArtifactBuilder {
     private static final String FHIR_HELPERS = "FHIRHelpers";
     private static final String C3F_LIBRARY = "CDS_Connect_Commons_for_FHIRv401";
 
+    /** Stored per-build for cross-reference lookups */
+    private List<Map<String, Object>> currentBaseElements;
+
+    private static final Map<String, String> FHIR_VERSION_MAP = Map.of(
+            "DSTU2", "1.0.2",
+            "STU3", "3.0.2",
+            "R4", "4.0.1"
+    );
+
+    private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = Map.of(
+            "DSTU2", "1.0.2",
+            "STU3", "3.0.0",
+            "R4", "4.0.1"
+    );
+
     @SuppressWarnings("unchecked")
     public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
                            Map<String, Object> expTreeExclude,
@@ -24,6 +39,24 @@ public class CqlArtifactBuilder {
                            List<Map<String, Object>> parameters,
                            Map<String, Object> errorStatement,
                            List<Map<String, Object>> recommendations) {
+        return buildCql(name, version, expTreeInclude, expTreeExclude, subpopulations,
+                baseElements, parameters, errorStatement, recommendations, "R4");
+    }
+
+    @SuppressWarnings("unchecked")
+    public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
+                           Map<String, Object> expTreeExclude,
+                           List<Map<String, Object>> subpopulations,
+                           List<Map<String, Object>> baseElements,
+                           List<Map<String, Object>> parameters,
+                           Map<String, Object> errorStatement,
+                           List<Map<String, Object>> recommendations,
+                           String fhirVersion) {
+
+        this.currentBaseElements = baseElements;
+
+        String resolvedFhirVersion = FHIR_VERSION_MAP.getOrDefault(fhirVersion, "4.0.1");
+        String resolvedHelpersVersion = FHIR_HELPERS_VERSION_MAP.getOrDefault(fhirVersion, "4.0.1");
 
         StringBuilder cql = new StringBuilder();
         Set<String> valueSets = new LinkedHashSet<>();
@@ -31,7 +64,7 @@ public class CqlArtifactBuilder {
         Set<String> codes = new LinkedHashSet<>();
         Set<String> includes = new LinkedHashSet<>();
 
-        includes.add(String.format("include %s version '4.0.1' called FHIRHelpers", FHIR_HELPERS));
+        includes.add(String.format("include %s version '%s' called FHIRHelpers", FHIR_HELPERS, resolvedHelpersVersion));
         includes.add(String.format("include %s version '1.1.1' called C3F", C3F_LIBRARY));
 
         // Collect value sets and codes from trees
@@ -52,7 +85,7 @@ public class CqlArtifactBuilder {
         String safeName = name.replaceAll("[^a-zA-Z0-9_]", "_");
         cql.append(String.format("library %s version '%s'%n", safeName, version != null ? version : "1.0.0"));
         cql.append("\n");
-        cql.append("using FHIR version '4.0.1'\n\n");
+        cql.append(String.format("using FHIR version '%s'%n%n", resolvedFhirVersion));
 
         // Includes
         for (String inc : includes) {
@@ -156,12 +189,21 @@ public class CqlArtifactBuilder {
                     List<Map<String, Object>> spRefs = (List<Map<String, Object>>) rec.get("subpopulations");
                     if (spRefs != null && !spRefs.isEmpty()) {
                         List<String> conditions = new ArrayList<>();
-                        conditions.add("\"InPopulation\"");
+                        boolean hasSpecialOnly = true;
                         for (Map<String, Object> spRef : spRefs) {
+                            String spId = getStr(spRef, "uniqueId", "");
                             String spName = getStr(spRef, "subpopulationName", "");
-                            if (!spName.isEmpty()) {
-                                conditions.add(String.format("\"%s\"", spName));
+                            if (spId.equals("__doesnt_meet_inclusion__")) {
+                                conditions.add("not \"MeetsInclusionCriteria\"");
+                            } else if (spId.equals("__meets_exclusion__")) {
+                                conditions.add("\"MeetsExclusionCriteria\"");
+                            } else if (!spName.isEmpty()) {
+                                conditions.add(String.format("\"InPopulation\" and \"%s\"", spName));
+                                hasSpecialOnly = false;
                             }
+                        }
+                        if (conditions.isEmpty()) {
+                            conditions.add("\"InPopulation\"");
                         }
                         cql.append(String.format("define \"%s\":%n  if %s then '%s'%n  else null%n%n",
                                 defName, String.join(" and ", conditions), recText.replace("'", "\\'")));
@@ -233,6 +275,30 @@ public class CqlArtifactBuilder {
             case "Gender":
                 expr = buildGenderExpression(fields);
                 break;
+            case "baseElementRef": {
+                String refId = getFieldValue(fields, "reference_id", "");
+                // Look up the base element name from the reference_id
+                String refName = findBaseElementName(refId);
+                expr = String.format("\"%s\"", refName != null ? refName : elementName);
+                break;
+            }
+            case "parameterRef": {
+                String paramName = elementName;
+                expr = String.format("\"%s\"", paramName);
+                break;
+            }
+            case "externalCqlRef": {
+                String libName = getFieldValue(fields, "library_name", "");
+                String refId = getFieldValue(fields, "reference_id", "");
+                // reference_id format: "libId:definitionName"
+                String defName = refId.contains(":") ? refId.substring(refId.indexOf(':') + 1) : elementName;
+                if (libName != null && !libName.isEmpty()) {
+                    expr = String.format("\"%s\".\"%s\"", libName, defName);
+                } else {
+                    expr = String.format("\"%s\"", defName);
+                }
+                break;
+            }
             default:
                 if (type.startsWith("Generic")) {
                     expr = buildGenericResourceExpression(type, fields);
@@ -543,6 +609,11 @@ public class CqlArtifactBuilder {
                 break;
         }
 
+        // Custom modifier templates with {expression} placeholder
+        if (cqlTemplate != null && cqlTemplate.contains("{expression}")) {
+            return cqlTemplate.replace("{expression}", expr);
+        }
+
         // Default: library function without values
         if (cqlLibFunc != null) {
             return String.format("%s(%s)", cqlLibFunc, expr);
@@ -574,10 +645,13 @@ public class CqlArtifactBuilder {
             String thenClause = getStr(clause, "thenClause", "null");
             String condValue = condition != null ? getStr(condition, "value", "true") : "true";
 
+            // Map condition values to CQL expressions
+            String cqlCondition = mapErrorConditionToCql(condValue);
+
             if (i == 0) {
-                sb.append(String.format("if %s then '%s'", condValue, thenClause));
+                sb.append(String.format("if %s then '%s'", cqlCondition, thenClause));
             } else {
-                sb.append(String.format("\n  else if %s then '%s'", condValue, thenClause));
+                sb.append(String.format("\n  else if %s then '%s'", cqlCondition, thenClause));
             }
         }
 
@@ -588,6 +662,27 @@ public class CqlArtifactBuilder {
         }
 
         return sb.toString();
+    }
+
+    private String findBaseElementName(String uniqueId) {
+        if (currentBaseElements == null || uniqueId == null) return null;
+        for (Map<String, Object> be : currentBaseElements) {
+            if (uniqueId.equals(be.get("uniqueId"))) {
+                return getStr(be, "name", null);
+            }
+        }
+        return null;
+    }
+
+    private String mapErrorConditionToCql(String condValue) {
+        if (condValue == null) return "true";
+        switch (condValue) {
+            case "null": return "\"Recommendation\" is null";
+            case "doesnt_meet_inclusion": return "not \"MeetsInclusionCriteria\"";
+            case "meets_exclusion": return "\"MeetsExclusionCriteria\"";
+            case "errors": return "\"Errors\" is not null";
+            default: return condValue;
+        }
     }
 
     @SuppressWarnings("unchecked")

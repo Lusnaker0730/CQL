@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Popover } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementSelectDropdown from './ElementSelectDropdown'
+import type { DynamicEntry } from './ElementSelectDropdown'
 import type { FormTemplateCategory, FormTemplate, ElementInstance } from '../../../types/authoring'
 
 function generateId(): string {
@@ -10,10 +11,11 @@ function generateId(): string {
 
 interface ElementSelectProps {
   templates: FormTemplateCategory[]
+  dynamicEntries?: DynamicEntry[]
   onSelect: (element: ElementInstance) => void
 }
 
-export default function ElementSelect({ templates, onSelect }: ElementSelectProps) {
+export default function ElementSelect({ templates, dynamicEntries, onSelect }: ElementSelectProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
 
   const handleSelect = (template: FormTemplate) => {
@@ -38,6 +40,27 @@ export default function ElementSelect({ templates, onSelect }: ElementSelectProp
     setAnchorEl(null)
   }
 
+  const handleSelectDynamic = (entry: DynamicEntry) => {
+    const newElement: ElementInstance = {
+      uniqueId: generateId(),
+      type: entry.sourceType === 'baseElement' ? 'baseElementRef'
+        : entry.sourceType === 'parameter' ? 'parameterRef'
+        : 'externalCqlRef',
+      name: entry.name,
+      returnType: entry.returnType,
+      fields: [
+        { id: 'element_name', type: 'string', name: 'Element Name', value: entry.name },
+        { id: 'reference_id', type: 'string', name: 'Reference ID', value: entry.sourceId, static: true },
+        ...(entry.libraryName
+          ? [{ id: 'library_name', type: 'string', name: 'Library', value: entry.libraryName, static: true }]
+          : []),
+      ],
+      modifiers: [],
+    }
+    onSelect(newElement)
+    setAnchorEl(null)
+  }
+
   return (
     <>
       <Button
@@ -57,7 +80,9 @@ export default function ElementSelect({ templates, onSelect }: ElementSelectProp
       >
         <ElementSelectDropdown
           templates={templates}
+          dynamicEntries={dynamicEntries}
           onSelect={handleSelect}
+          onSelectDynamic={handleSelectDynamic}
         />
       </Popover>
     </>

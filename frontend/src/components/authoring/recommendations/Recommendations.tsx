@@ -7,9 +7,10 @@ import {
 import {
   Add as AddIcon, Delete as DeleteIcon, ArrowUpward, ArrowDownward,
   LinkOutlined, HelpOutline as HelpIcon,
+  MedicalServices as MedIcon, Assignment as ServiceIcon,
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
-import type { Recommendation, Subpopulation } from '../../../types/authoring'
+import type { Recommendation, Subpopulation, Suggestion, SuggestionAction } from '../../../types/authoring'
 
 function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
@@ -109,7 +110,68 @@ export default function Recommendations({ recommendations, subpopulations, onCha
     handleUpdate(uid, { links: (rec.links || []).filter((_, i) => i !== linkIndex) })
   }
 
+  // ----- Suggestion handlers -----
+  const handleAddSuggestion = (uid: string) => {
+    const rec = recommendations.find((r) => r.uid === uid)
+    if (!rec) return
+    handleUpdate(uid, {
+      suggestions: [...(rec.suggestions || []), { uid: generateId(), label: '', actions: [] }],
+    })
+  }
+
+  const handleUpdateSuggestion = (uid: string, sugIdx: number, updates: Partial<Suggestion>) => {
+    const rec = recommendations.find((r) => r.uid === uid)
+    if (!rec) return
+    const suggestions = [...(rec.suggestions || [])]
+    suggestions[sugIdx] = { ...suggestions[sugIdx], ...updates }
+    handleUpdate(uid, { suggestions })
+  }
+
+  const handleRemoveSuggestion = (uid: string, sugIdx: number) => {
+    const rec = recommendations.find((r) => r.uid === uid)
+    if (!rec) return
+    handleUpdate(uid, { suggestions: (rec.suggestions || []).filter((_, i) => i !== sugIdx) })
+  }
+
+  const handleAddAction = (uid: string, sugIdx: number) => {
+    const rec = recommendations.find((r) => r.uid === uid)
+    if (!rec) return
+    const suggestions = [...(rec.suggestions || [])]
+    const sug = { ...suggestions[sugIdx] }
+    sug.actions = [...(sug.actions || []), { type: 'create', description: '', resource: { resourceType: 'MedicationRequest' } }]
+    suggestions[sugIdx] = sug
+    handleUpdate(uid, { suggestions })
+  }
+
+  const handleUpdateAction = (uid: string, sugIdx: number, actIdx: number, updates: Partial<SuggestionAction>) => {
+    const rec = recommendations.find((r) => r.uid === uid)
+    if (!rec) return
+    const suggestions = [...(rec.suggestions || [])]
+    const sug = { ...suggestions[sugIdx] }
+    const actions = [...(sug.actions || [])]
+    actions[actIdx] = { ...actions[actIdx], ...updates }
+    sug.actions = actions
+    suggestions[sugIdx] = sug
+    handleUpdate(uid, { suggestions })
+  }
+
+  const handleRemoveAction = (uid: string, sugIdx: number, actIdx: number) => {
+    const rec = recommendations.find((r) => r.uid === uid)
+    if (!rec) return
+    const suggestions = [...(rec.suggestions || [])]
+    const sug = { ...suggestions[sugIdx] }
+    sug.actions = (sug.actions || []).filter((_, i) => i !== actIdx)
+    suggestions[sugIdx] = sug
+    handleUpdate(uid, { suggestions })
+  }
+
+  const SPECIAL_SUBPOPS: Subpopulation[] = [
+    { uniqueId: '__doesnt_meet_inclusion__', subpopulationName: "Doesn't Meet Inclusion Criteria", special: true },
+    { uniqueId: '__meets_exclusion__', subpopulationName: 'Meets Exclusion Criteria', special: true },
+  ]
+
   const nonSpecialSubpops = subpopulations.filter((sp) => !sp.special)
+  const allSubpopsForRec = [...nonSpecialSubpops, ...SPECIAL_SUBPOPS]
 
   return (
     <Box>
@@ -212,30 +274,26 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 />
 
                 {/* Subpopulation assignment */}
-                {nonSpecialSubpops.length > 0 && (
-                  <>
-                    <Divider sx={{ my: 1.5 }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                      Apply to Subpopulations
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mb: 2 }}>
-                      {nonSpecialSubpops.map((sp) => {
-                        const isSelected = (rec.subpopulations || []).some((s) => s.uniqueId === sp.uniqueId)
-                        return (
-                          <Chip
-                            key={sp.uniqueId}
-                            label={sp.subpopulationName}
-                            size="small"
-                            color={isSelected ? 'primary' : 'default'}
-                            variant={isSelected ? 'filled' : 'outlined'}
-                            onClick={() => handleToggleSubpop(rec.uid, sp, !isSelected)}
-                            sx={{ mb: 0.5 }}
-                          />
-                        )
-                      })}
-                    </Stack>
-                  </>
-                )}
+                <Divider sx={{ my: 1.5 }} />
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Apply to Subpopulations
+                </Typography>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mb: 2 }}>
+                  {allSubpopsForRec.map((sp) => {
+                    const isSelected = (rec.subpopulations || []).some((s) => s.uniqueId === sp.uniqueId)
+                    return (
+                      <Chip
+                        key={sp.uniqueId}
+                        label={sp.subpopulationName}
+                        size="small"
+                        color={isSelected ? (sp.special ? 'warning' : 'primary') : 'default'}
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        onClick={() => handleToggleSubpop(rec.uid, sp, !isSelected)}
+                        sx={{ mb: 0.5 }}
+                      />
+                    )
+                  })}
+                </Stack>
 
                 {/* Links */}
                 <Divider sx={{ my: 1.5 }} />
@@ -274,6 +332,67 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Stack>
+                ))}
+
+                {/* Suggestions */}
+                <Divider sx={{ my: 1.5 }} />
+                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                  <Typography variant="caption" color="text.secondary">Suggestions</Typography>
+                  <IconButton size="small" onClick={() => handleAddSuggestion(rec.uid)}>
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+                {(rec.suggestions || []).map((sug, si) => (
+                  <Card key={sug.uid} variant="outlined" sx={{ mb: 1, backgroundColor: 'action.hover' }}>
+                    <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                        <TextField
+                          size="small"
+                          label="Suggestion Label"
+                          value={sug.label}
+                          onChange={(e) => handleUpdateSuggestion(rec.uid, si, { label: e.target.value })}
+                          sx={{ flex: 1 }}
+                        />
+                        <Button size="small" startIcon={<AddIcon />} onClick={() => handleAddAction(rec.uid, si)}>
+                          Add Action
+                        </Button>
+                        <IconButton size="small" color="error" onClick={() => handleRemoveSuggestion(rec.uid, si)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                      {(sug.actions || []).map((act, ai) => (
+                        <Stack key={ai} direction="row" spacing={1} alignItems="center" mb={0.5}>
+                          <Chip
+                            icon={act.resource?.resourceType === 'MedicationRequest' ? <MedIcon /> : <ServiceIcon />}
+                            label="Create"
+                            size="small"
+                            variant="outlined"
+                          />
+                          <FormControl size="small" sx={{ minWidth: 180 }}>
+                            <Select
+                              value={(act.resource?.resourceType as string) || 'MedicationRequest'}
+                              onChange={(e) => handleUpdateAction(rec.uid, si, ai, {
+                                resource: { ...act.resource, resourceType: e.target.value },
+                              })}
+                            >
+                              <MenuItem value="MedicationRequest">MedicationRequest</MenuItem>
+                              <MenuItem value="ServiceRequest">ServiceRequest</MenuItem>
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            size="small"
+                            label="Description"
+                            value={act.description || ''}
+                            onChange={(e) => handleUpdateAction(rec.uid, si, ai, { description: e.target.value })}
+                            sx={{ flex: 1 }}
+                          />
+                          <IconButton size="small" color="error" onClick={() => handleRemoveAction(rec.uid, si, ai)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      ))}
+                    </CardContent>
+                  </Card>
                 ))}
               </CardContent>
             </Card>

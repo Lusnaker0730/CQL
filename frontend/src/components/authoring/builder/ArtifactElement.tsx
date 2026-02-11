@@ -7,6 +7,7 @@ import {
   Delete as DeleteIcon, ContentCopy as CopyIcon,
   FormatListBulleted as ListIcon, Visibility as ViewIcon,
   Build as ModIcon, Warning as WarningIcon,
+  FormatIndentIncrease as IndentIcon, FormatIndentDecrease as OutdentIcon,
 } from '@mui/icons-material'
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
@@ -45,6 +46,8 @@ interface ArtifactElementProps {
   modifiers: ModifierDefinition[]
   onUpdate: (updates: Partial<ElementInstance>) => void
   onRemove: () => void
+  onIndent?: () => void
+  onOutdent?: () => void
 }
 
 const ArtifactElement = memo(function ArtifactElement({
@@ -52,6 +55,8 @@ const ArtifactElement = memo(function ArtifactElement({
   modifiers,
   onUpdate,
   onRemove,
+  onIndent,
+  onOutdent,
 }: ArtifactElementProps) {
   const [expanded, setExpanded] = useState(true)
 
@@ -76,6 +81,9 @@ const ArtifactElement = memo(function ArtifactElement({
         borderLeftColor: rtColor,
         '&:hover': { boxShadow: 1 },
         transition: 'box-shadow 0.2s',
+        ...(element.type === 'baseElementRef' && { backgroundColor: '#E3F2FD' }),
+        ...(element.type === 'parameterRef' && { backgroundColor: '#F3E5F5' }),
+        ...(element.type === 'externalCqlRef' && { backgroundColor: '#E8F5E9' }),
       }}
     >
       <Stack
@@ -126,6 +134,22 @@ const ArtifactElement = memo(function ArtifactElement({
               color="warning"
               sx={{ fontSize: '0.7rem' }}
             />
+          </Tooltip>
+        )}
+
+        {onIndent && (
+          <Tooltip title="Indent into new group">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+              <IndentIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {onOutdent && (
+          <Tooltip title="Outdent to parent group">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+              <OutdentIcon fontSize="small" />
+            </IconButton>
           </Tooltip>
         )}
 

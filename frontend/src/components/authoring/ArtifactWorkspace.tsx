@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip } from '@mui/material'
+import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon } from '@mui/icons-material'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { useArtifactHistory } from '../../hooks/useArtifactHistory'
 import ArtifactWorkspaceHeader from './ArtifactWorkspaceHeader'
@@ -16,7 +17,9 @@ import ArtifactSummaryView from './summary/ArtifactSummaryView'
 import { useUpdateArtifact } from '../../hooks/useAuthoring'
 import { useTemplates } from '../../hooks/useTemplates'
 import { useModifiers } from '../../hooks/useModifiers'
+import { useExternalCqlList } from '../../hooks/useExternalCql'
 import type { Artifact, ArtifactRequest, ConjunctionGroup as ConjunctionGroupType, ElementInstance } from '../../types/authoring'
+import type { DynamicEntry } from './element-select/ElementSelectDropdown'
 
 interface ArtifactWorkspaceProps {
   artifact: Artifact
@@ -44,6 +47,51 @@ const DEFAULT_TREE: ConjunctionGroupType = {
   conjunction: true,
   returnType: 'boolean',
   childInstances: [],
+}
+
+type TabStatus = 'empty' | 'has-content' | 'has-error'
+
+function computeTabStatuses(a: Artifact): TabStatus[] {
+  const treeHasContent = (tree?: ConjunctionGroupType) =>
+    (tree?.childInstances?.length ?? 0) > 0
+
+  const treeHasError = (tree?: ConjunctionGroupType): boolean => {
+    if (!tree?.childInstances?.length) return false
+    return tree.childInstances.some((el) => {
+      const name = el.fields?.find((f) => f.id === 'element_name')?.value
+      if (!name) return true // missing name
+      if (el.modifiers?.length) {
+        let cur = el.returnType
+        for (const mod of el.modifiers) {
+          if (!mod.inputTypes.includes(cur)) return true
+          cur = mod.returnType
+        }
+      }
+      return false
+    })
+  }
+
+  const recsHasError = (a.recommendations || []).some((r) => !r.text.trim())
+  const paramsHasError = (a.parameters || []).some((p) => !p.name.trim() || !p.type)
+  const subpopsHasError = (a.subpopulations || []).filter((s) => !s.special).some((s) => !s.subpopulationName.trim())
+  const baseHasError = (a.baseElements || []).some((be) => !be.name.trim())
+
+  const status = (hasContent: boolean, hasError: boolean): TabStatus =>
+    hasError ? 'has-error' : hasContent ? 'has-content' : 'empty'
+
+  return [
+    status(treeHasContent(a.expTreeInclude), treeHasError(a.expTreeInclude)),       // Inclusions
+    status(treeHasContent(a.expTreeExclude), treeHasError(a.expTreeExclude)),       // Exclusions
+    status((a.subpopulations || []).filter((s) => !s.special).length > 0, subpopsHasError), // Subpopulations
+    status((a.baseElements || []).length > 0, baseHasError),                         // Base Elements
+    status((a.recommendations || []).length > 0, recsHasError),                      // Recommendations
+    status((a.parameters || []).length > 0, paramsHasError),                         // Parameters
+    status(!!(a.errorStatement?.ifThenClauses?.length || a.errorStatement?.elseClause), false), // Error Handling
+    'empty', // External CQL (managed separately)
+    'empty', // Review CQL
+    'empty', // Testing
+    'empty', // Summary
+  ]
 }
 
 export default function ArtifactWorkspace({
@@ -270,8 +318,92 @@ export default function ArtifactWorkspace({
     [localArtifact.expTreeExclude, updateLocal]
   )
 
+  const { data: externalLibraries = [] } = useExternalCqlList(localArtifact.id)
+
+  // Create synthetic modifier definitions from external CQL functions
+  const allModifiers = useMemo(() => {
+    const externalModifiers: typeof modifiers = []
+    for (const lib of externalLibraries) {
+      if (!lib.details?.definitions) continue
+      for (const def of lib.details.definitions) {
+        // Only include definitions that could act as functions/modifiers
+        // (definitions with a known return type that could transform data)
+        if (def.resultType && def.resultType !== 'unknown') {
+          // External CQL definitions can be used as modifiers with broad input types
+          // We'll accept list types and single types as input
+          externalModifiers.push({
+            id: `extcql_${lib.id}_${def.name}`,
+            name: `${def.name} (${lib.name})`,
+            inputTypes: [def.resultType], // match same-type definitions
+            returnType: def.resultType,
+            cqlTemplate: `"${lib.name}"."${def.name}"`,
+            cqlLibraryFunction: `${lib.name}.${def.name}`,
+          })
+        }
+      }
+    }
+    return [...modifiers, ...externalModifiers]
+  }, [modifiers, externalLibraries])
+
+  const dynamicEntries = useMemo((): DynamicEntry[] => {
+    const entries: DynamicEntry[] = []
+
+    // Base Elements
+    for (const be of (localArtifact.baseElements || [])) {
+      entries.push({
+        id: `be-${be.uniqueId}`,
+        name: be.name,
+        description: `Base Element (${be.returnType.replace(/_/g, ' ')})`,
+        returnType: be.returnType,
+        category: 'Base Elements',
+        sourceType: 'baseElement',
+        sourceId: be.uniqueId,
+      })
+    }
+
+    // Parameters
+    for (const p of (localArtifact.parameters || [])) {
+      if (!p.name || !p.type) continue
+      const rtMap: Record<string, string> = {
+        Boolean: 'boolean', Integer: 'integer', Decimal: 'decimal',
+        String: 'string', DateTime: 'system_date_time', Quantity: 'system_quantity',
+        Code: 'system_code', Concept: 'system_concept', Time: 'system_time',
+      }
+      entries.push({
+        id: `param-${p.uniqueId}`,
+        name: p.name,
+        description: `Parameter (${p.type})`,
+        returnType: rtMap[p.type] || p.type.toLowerCase(),
+        category: 'Parameters',
+        sourceType: 'parameter',
+        sourceId: p.uniqueId,
+      })
+    }
+
+    // External CQL definitions
+    for (const lib of externalLibraries) {
+      if (lib.details?.definitions) {
+        for (const def of lib.details.definitions) {
+          entries.push({
+            id: `ecql-${lib.id}-${def.name}`,
+            name: def.name,
+            description: def.resultType ? `Returns ${def.resultType}` : 'External CQL definition',
+            returnType: def.resultType || 'unknown',
+            category: 'External CQL',
+            sourceType: 'externalCql',
+            sourceId: `${lib.id}:${def.name}`,
+            libraryName: lib.name,
+          })
+        }
+      }
+    }
+
+    return entries
+  }, [localArtifact.baseElements, localArtifact.parameters, externalLibraries])
+
   const includeTree = localArtifact.expTreeInclude || DEFAULT_TREE
   const excludeTree = localArtifact.expTreeExclude || DEFAULT_TREE
+  const tabStatuses = useMemo(() => computeTabStatuses(localArtifact), [localArtifact])
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -281,6 +413,7 @@ export default function ArtifactWorkspace({
         onBack={handleBack}
         onSave={handleSave}
         onNameChange={handleNameChange}
+        onUpdate={updateLocal}
       />
 
       <Tabs
@@ -290,9 +423,22 @@ export default function ArtifactWorkspace({
         scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
       >
-        {TAB_LABELS.map((label) => (
-          <Tab key={label} label={label} />
-        ))}
+        {TAB_LABELS.map((label, i) => {
+          const st = tabStatuses[i]
+          return (
+            <Tab
+              key={label}
+              label={label}
+              icon={
+                st === 'has-error' ? <ErrorIcon fontSize="small" color="warning" /> :
+                st === 'has-content' ? <CheckIcon fontSize="small" color="success" /> :
+                undefined
+              }
+              iconPosition="end"
+              sx={{ minHeight: 48 }}
+            />
+          )
+        })}
       </Tabs>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
@@ -301,7 +447,8 @@ export default function ArtifactWorkspace({
             group={includeTree}
             treeName="Inclusions"
             templates={templates}
-            modifiers={modifiers}
+            modifiers={allModifiers}
+            dynamicEntries={dynamicEntries}
             onUpdateGroup={handleUpdateInclude}
             onAddElement={handleAddIncludeElement}
             onRemoveElement={handleRemoveIncludeElement}
@@ -313,7 +460,8 @@ export default function ArtifactWorkspace({
             group={excludeTree}
             treeName="Exclusions"
             templates={templates}
-            modifiers={modifiers}
+            modifiers={allModifiers}
+            dynamicEntries={dynamicEntries}
             onUpdateGroup={handleUpdateExclude}
             onAddElement={handleAddExcludeElement}
             onRemoveElement={handleRemoveExcludeElement}
@@ -324,7 +472,8 @@ export default function ArtifactWorkspace({
           <Subpopulations
             subpopulations={localArtifact.subpopulations || []}
             templates={templates}
-            modifiers={modifiers}
+            modifiers={allModifiers}
+            dynamicEntries={dynamicEntries}
             onChange={(subpopulations) => updateLocal({ subpopulations })}
           />
         )}
@@ -332,7 +481,8 @@ export default function ArtifactWorkspace({
           <BaseElements
             baseElements={localArtifact.baseElements || []}
             templates={templates}
-            modifiers={modifiers}
+            modifiers={allModifiers}
+            dynamicEntries={dynamicEntries}
             onChange={(baseElements) => updateLocal({ baseElements })}
           />
         )}

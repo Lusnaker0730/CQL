@@ -3,7 +3,8 @@ import { authoringApi } from '../api'
 
 export function useGenerateArtifactCql() {
   return useMutation({
-    mutationFn: (id: number) => authoringApi.generateCql(id),
+    mutationFn: ({ id, fhirVersion }: { id: number; fhirVersion?: string }) =>
+      authoringApi.generateCql(id, fhirVersion),
   })
 }
 

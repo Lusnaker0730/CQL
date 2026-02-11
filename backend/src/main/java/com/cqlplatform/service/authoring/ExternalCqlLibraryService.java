@@ -66,6 +66,19 @@ public class ExternalCqlLibraryService {
             fhirVersion = fhirMatcher.group(1);
         }
 
+        // Validate FHIR version compatibility with existing libraries
+        List<CdsExternalCqlLibraryEntity> existingLibs = repository.findByArtifactId(artifactId);
+        if (fhirVersion != null && !existingLibs.isEmpty()) {
+            for (CdsExternalCqlLibraryEntity existing : existingLibs) {
+                if (existing.getFhirVersion() != null && !existing.getFhirVersion().equals(fhirVersion)) {
+                    throw new IllegalArgumentException(
+                            String.format("FHIR version mismatch: uploaded library uses FHIR %s but existing library '%s' uses FHIR %s. " +
+                                    "All external CQL libraries in an artifact must use the same FHIR version.",
+                                    fhirVersion, existing.getName(), existing.getFhirVersion()));
+                }
+            }
+        }
+
         // Translate to ELM to extract metadata
         String elmJson = null;
         Map<String, Object> details = new LinkedHashMap<>();

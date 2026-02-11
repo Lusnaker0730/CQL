@@ -6,10 +6,11 @@ import {
 import {
   ArrowBack as BackIcon, Save as SaveIcon, MoreVert as MoreIcon,
   CloudUpload as DeployIcon, LibraryBooks as LibraryIcon, Download as DownloadIcon,
-  Visibility as ViewIcon, Close as CloseIcon,
+  Visibility as ViewIcon, Close as CloseIcon, Description as CpgIcon,
 } from '@mui/icons-material'
 import { useDeployCdsService, useSaveAsLibrary } from '../../hooks/useArtifactTesting'
 import { useGenerateArtifactCql } from '../../hooks/useArtifactCql'
+import CpgMetadataEditor from './CpgMetadataEditor'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
 
 interface ArtifactWorkspaceHeaderProps {
@@ -18,6 +19,7 @@ interface ArtifactWorkspaceHeaderProps {
   onBack: () => void
   onSave: (request: ArtifactRequest) => void
   onNameChange: (name: string) => void
+  onUpdate: (updates: Partial<Artifact>) => void
 }
 
 export default function ArtifactWorkspaceHeader({
@@ -26,6 +28,7 @@ export default function ArtifactWorkspaceHeader({
   onBack,
   onSave,
   onNameChange,
+  onUpdate,
 }: ArtifactWorkspaceHeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [deployDialog, setDeployDialog] = useState(false)
@@ -34,6 +37,8 @@ export default function ArtifactWorkspaceHeader({
   const [saveLibResult, setSaveLibResult] = useState<string | null>(null)
   const [viewCqlDialog, setViewCqlDialog] = useState(false)
   const [viewCqlContent, setViewCqlContent] = useState<string | null>(null)
+  const [cpgDialogOpen, setCpgDialogOpen] = useState(false)
+  const [selectedFhirVersion, setSelectedFhirVersion] = useState(artifact.fhirVersion || 'R4')
 
   const deployMutation = useDeployCdsService()
   const saveLibMutation = useSaveAsLibrary()
@@ -94,8 +99,8 @@ export default function ArtifactWorkspaceHeader({
     })
   }
 
-  const handleViewCql = () => {
-    generateCqlMutation.mutate(artifact.id, {
+  const handleViewCql = (fhirVer?: string) => {
+    generateCqlMutation.mutate({ id: artifact.id, fhirVersion: fhirVer || selectedFhirVersion }, {
       onSuccess: (data) => {
         setViewCqlContent(data.cql)
         setViewCqlDialog(true)
@@ -103,8 +108,8 @@ export default function ArtifactWorkspaceHeader({
     })
   }
 
-  const handleDownloadCql = () => {
-    generateCqlMutation.mutate(artifact.id, {
+  const handleDownloadCql = (fhirVer?: string) => {
+    generateCqlMutation.mutate({ id: artifact.id, fhirVersion: fhirVer || selectedFhirVersion }, {
       onSuccess: (data) => {
         const blob = new Blob([data.cql], { type: 'text/plain' })
         const url = URL.createObjectURL(blob)
@@ -167,7 +172,7 @@ export default function ArtifactWorkspaceHeader({
             variant="outlined"
             size="small"
             startIcon={generateCqlMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <ViewIcon />}
-            onClick={handleViewCql}
+            onClick={() => handleViewCql()}
             disabled={generateCqlMutation.isPending}
             sx={{
               color: '#fff',
@@ -186,7 +191,7 @@ export default function ArtifactWorkspaceHeader({
             variant="outlined"
             size="small"
             startIcon={<DownloadIcon />}
-            onClick={handleDownloadCql}
+            onClick={() => handleDownloadCql()}
             disabled={generateCqlMutation.isPending}
             sx={{
               color: '#fff',
@@ -234,6 +239,10 @@ export default function ArtifactWorkspaceHeader({
             <MenuItem onClick={handleSaveAsLibrary} disabled={saveLibMutation.isPending}>
               <ListItemIcon><LibraryIcon fontSize="small" /></ListItemIcon>
               <ListItemText>Save as CQL Library</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => { setAnchorEl(null); setCpgDialogOpen(true) }}>
+              <ListItemIcon><CpgIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>CPG Metadata</ListItemText>
             </MenuItem>
           </Menu>
         </Stack>
@@ -290,6 +299,28 @@ export default function ArtifactWorkspaceHeader({
           <IconButton onClick={() => setViewCqlDialog(false)} size="small"><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary">FHIR Version:</Typography>
+            <TextField
+              select
+              size="small"
+              value={selectedFhirVersion}
+              onChange={(e) => setSelectedFhirVersion(e.target.value)}
+              sx={{ minWidth: 120 }}
+            >
+              <MenuItem value="R4">R4 (4.0.1)</MenuItem>
+              <MenuItem value="STU3">STU3 (3.0.2)</MenuItem>
+              <MenuItem value="DSTU2">DSTU2 (1.0.2)</MenuItem>
+            </TextField>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => handleViewCql(selectedFhirVersion)}
+              disabled={generateCqlMutation.isPending}
+            >
+              {generateCqlMutation.isPending ? 'Regenerating...' : 'Regenerate'}
+            </Button>
+          </Stack>
           {viewCqlContent ? (
             <Box
               sx={{
@@ -332,6 +363,14 @@ export default function ArtifactWorkspaceHeader({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* CPG Metadata Dialog */}
+      <CpgMetadataEditor
+        open={cpgDialogOpen}
+        onClose={() => setCpgDialogOpen(false)}
+        artifact={artifact}
+        onUpdate={onUpdate}
+      />
 
       {/* Deploy Dialog */}
       <Dialog open={deployDialog} onClose={() => setDeployDialog(false)} maxWidth="sm" fullWidth>

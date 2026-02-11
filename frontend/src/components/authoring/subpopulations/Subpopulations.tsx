@@ -7,6 +7,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
 import type { Subpopulation, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
+import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 
 function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
@@ -16,10 +17,11 @@ interface SubpopulationsProps {
   subpopulations: Subpopulation[]
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
+  dynamicEntries?: DynamicEntry[]
   onChange: (subpopulations: Subpopulation[]) => void
 }
 
-export default function Subpopulations({ subpopulations, templates, modifiers, onChange }: SubpopulationsProps) {
+export default function Subpopulations({ subpopulations, templates, modifiers, dynamicEntries, onChange }: SubpopulationsProps) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
     ? subpopulations.find((sp) => sp.uniqueId === pendingDeleteId)?.subpopulationName || 'this subpopulation'
@@ -110,6 +112,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, o
                   treeName={sp.subpopulationName}
                   templates={templates}
                   modifiers={modifiers}
+                  dynamicEntries={dynamicEntries}
                   onUpdateGroup={(updated) => handleUpdateTree(sp.uniqueId, updated.childInstances)}
                   onAddElement={(el) => handleUpdateTree(sp.uniqueId, [...(sp.childInstances || []), el])}
                   onRemoveElement={(uid) => handleUpdateTree(sp.uniqueId, (sp.childInstances || []).filter((c) => c.uniqueId !== uid))}

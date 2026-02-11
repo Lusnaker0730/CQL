@@ -3,7 +3,7 @@ import {
   Box, Stack, Typography, Chip, Divider, FormControl, InputLabel, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton, TextField,
 } from '@mui/material'
-import { Build as ModifierIcon, Close as CloseIcon, Check as CheckIcon } from '@mui/icons-material'
+import { Build as ModifierIcon, Close as CloseIcon, Check as CheckIcon, Handyman as BuildIcon } from '@mui/icons-material'
 import StringField from '../fields/StringField'
 import NumberField from '../fields/NumberField'
 import TextAreaField from '../fields/TextAreaField'
@@ -11,6 +11,7 @@ import ValueSetField from '../fields/ValueSetField'
 import ExpressionPhrase from './ExpressionPhrase'
 import ModifierCard from './ModifierCard'
 import GradientButton from '../../common/GradientButton'
+import CustomModifierBuilder from './CustomModifierBuilder'
 import type { ElementInstance, ElementField, Modifier, ModifierDefinition } from '../../../types/authoring'
 
 const DEMOGRAPHIC_SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
@@ -41,6 +42,7 @@ export default function ArtifactElementBody({
   onUpdate,
 }: ArtifactElementBodyProps) {
   const [modifierDialogOpen, setModifierDialogOpen] = useState(false)
+  const [customBuilderOpen, setCustomBuilderOpen] = useState(false)
   const currentReturnType = getEffectiveReturnType(element)
   const applicableModifiers = allModifiers.filter(
     (m) =>
@@ -138,17 +140,29 @@ export default function ArtifactElementBody({
         </>
       )}
 
-      {/* Add Modifiers Button */}
-      {canHaveModifiers && applicableModifiers.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <GradientButton
-            onClick={() => setModifierDialogOpen(true)}
-            size="small"
-            startIcon={<ModifierIcon />}
-          >
-            ADD MODIFIERS
-          </GradientButton>
-        </Box>
+      {/* Add Modifiers Buttons */}
+      {canHaveModifiers && (
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          {applicableModifiers.length > 0 && (
+            <GradientButton
+              onClick={() => setModifierDialogOpen(true)}
+              size="small"
+              startIcon={<ModifierIcon />}
+            >
+              SELECT MODIFIERS
+            </GradientButton>
+          )}
+          {currentReturnType.startsWith('list_of_') && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<BuildIcon />}
+              onClick={() => setCustomBuilderOpen(true)}
+            >
+              BUILD NEW MODIFIER
+            </Button>
+          )}
+        </Stack>
       )}
 
       {/* Modifier Selection Dialog */}
@@ -161,6 +175,17 @@ export default function ArtifactElementBody({
         onAdd={(mod) => {
           handleAddModifier(mod)
           setModifierDialogOpen(false)
+        }}
+      />
+
+      {/* Custom Modifier Builder Dialog */}
+      <CustomModifierBuilder
+        open={customBuilderOpen}
+        onClose={() => setCustomBuilderOpen(false)}
+        inputType={currentReturnType}
+        onAdd={(mod) => {
+          onUpdate({ modifiers: [...(element.modifiers || []), mod] })
+          setCustomBuilderOpen(false)
         }}
       />
     </Box>

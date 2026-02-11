@@ -1035,8 +1035,9 @@ export const authoringApi = {
     return response.data
   },
 
-  generateCql: async (id: number): Promise<{ cql: string }> => {
-    const response = await api.post<{ cql: string }>(`/authoring/artifacts/${id}/cql`)
+  generateCql: async (id: number, fhirVersion?: string): Promise<{ cql: string }> => {
+    const params = fhirVersion ? `?fhirVersion=${encodeURIComponent(fhirVersion)}` : ''
+    const response = await api.post<{ cql: string }>(`/authoring/artifacts/${id}/cql${params}`)
     return response.data
   },
 

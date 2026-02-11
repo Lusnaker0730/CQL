@@ -5,6 +5,7 @@ import ConjunctionTypeSelect from './ConjunctionTypeSelect'
 import ArtifactElement from './ArtifactElement'
 import ElementSelect from '../element-select/ElementSelect'
 import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
+import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 
 function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   const name = element.fields?.find((f) => f.id === 'element_name')?.value as string
@@ -18,17 +19,23 @@ function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   return false
 }
 
+function generateId(): string {
+  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
 interface ConjunctionGroupProps {
   group: ConjunctionGroupType
   treeName: string
   depth?: number
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
+  dynamicEntries?: DynamicEntry[]
   searchFilter?: string
   onUpdateGroup: (updated: ConjunctionGroupType) => void
   onAddElement: (element: ElementInstance) => void
   onRemoveElement: (uniqueId: string) => void
   onUpdateElement: (uniqueId: string, updated: Partial<ElementInstance>) => void
+  onOutdentElement?: (element: ElementInstance) => void
 }
 
 const ConjunctionGroup = memo(function ConjunctionGroup({
@@ -37,11 +44,13 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   depth = 0,
   templates,
   modifiers,
+  dynamicEntries,
   searchFilter,
   onUpdateGroup,
   onAddElement,
   onRemoveElement,
   onUpdateElement,
+  onOutdentElement,
 }: ConjunctionGroupProps) {
   const [localSearch, setLocalSearch] = useState('')
 
@@ -61,6 +70,48 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       onAddElement(element)
     },
     [onAddElement]
+  )
+
+  const handleIndent = useCallback(
+    (uniqueId: string) => {
+      const idx = group.childInstances.findIndex((c) => c.uniqueId === uniqueId)
+      if (idx === -1) return
+      const element = group.childInstances[idx]
+      const newGroup: ElementInstance = {
+        uniqueId: generateId(),
+        type: 'And',
+        name: 'And',
+        conjunction: true,
+        returnType: 'boolean',
+        fields: [],
+        modifiers: [],
+        childInstances: [element],
+      }
+      const newChildren = [...group.childInstances]
+      newChildren[idx] = newGroup
+      onUpdateGroup({ ...group, childInstances: newChildren })
+    },
+    [group, onUpdateGroup]
+  )
+
+  const handleOutdentFromChild = useCallback(
+    (element: ElementInstance, childGroupUniqueId: string) => {
+      const groupIdx = group.childInstances.findIndex((c) => c.uniqueId === childGroupUniqueId)
+      if (groupIdx === -1) return
+      const childGroup = group.childInstances[groupIdx]
+      const updatedChildInstances = (childGroup.childInstances || []).filter((c) => c.uniqueId !== element.uniqueId)
+
+      const newChildren = [...group.childInstances]
+      if (updatedChildInstances.length === 0) {
+        // Replace the now-empty group with the element
+        newChildren.splice(groupIdx, 1, element)
+      } else {
+        newChildren[groupIdx] = { ...childGroup, childInstances: updatedChildInstances }
+        newChildren.splice(groupIdx + 1, 0, element)
+      }
+      onUpdateGroup({ ...group, childInstances: newChildren })
+    },
+    [group, onUpdateGroup]
   )
 
   const isRoot = depth === 0
@@ -193,6 +244,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                   depth={depth + 1}
                   templates={templates}
                   modifiers={modifiers}
+                  dynamicEntries={dynamicEntries}
                   searchFilter={activeFilter}
                   onUpdateGroup={(updated) =>
                     onUpdateElement(child.uniqueId, {
@@ -215,6 +267,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                     )
                     onUpdateElement(child.uniqueId, { childInstances: updatedChildren })
                   }}
+                  onOutdentElement={(element) => handleOutdentFromChild(element, child.uniqueId)}
                 />
               ) : (
                 <ArtifactElement
@@ -222,6 +275,8 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                   modifiers={modifiers}
                   onUpdate={(updates) => onUpdateElement(child.uniqueId, updates)}
                   onRemove={() => onRemoveElement(child.uniqueId)}
+                  onIndent={() => handleIndent(child.uniqueId)}
+                  onOutdent={onOutdentElement ? () => onOutdentElement(child) : undefined}
                 />
               )}
               {index < filteredChildren.length - 1 && (
@@ -250,6 +305,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       {/* Add Element */}
       <ElementSelect
         templates={templates}
+        dynamicEntries={dynamicEntries}
         onSelect={handleAddElement}
       />
     </Box>

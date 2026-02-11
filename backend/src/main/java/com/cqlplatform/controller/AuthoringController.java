@@ -120,8 +120,10 @@ public class AuthoringController {
 
     @PostMapping("/artifacts/{id}/cql")
     @Operation(summary = "Generate CQL", description = "Generate CQL from artifact expression trees")
-    public ResponseEntity<Map<String, String>> generateCql(@PathVariable Long id) {
-        String cql = cqlGenerationService.generateCql(id);
+    public ResponseEntity<Map<String, String>> generateCql(
+            @PathVariable Long id,
+            @RequestParam(required = false) String fhirVersion) {
+        String cql = cqlGenerationService.generateCql(id, fhirVersion);
         return ResponseEntity.ok(Map.of("cql", cql));
     }
 

@@ -21,8 +21,18 @@ public class CqlGenerationService {
 
     @Transactional(readOnly = true)
     public String generateCql(Long artifactId) {
+        return generateCql(artifactId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public String generateCql(Long artifactId, String fhirVersion) {
         CdsArtifactEntity entity = artifactRepository.findById(artifactId)
                 .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + artifactId));
+
+        String version = fhirVersion != null ? fhirVersion : entity.getFhirVersion();
+        if (version == null || version.isEmpty()) {
+            version = "R4";
+        }
 
         String cql = cqlBuilder.buildCql(
                 entity.getName(),
@@ -33,10 +43,11 @@ public class CqlGenerationService {
                 entity.getBaseElementsList(),
                 entity.getParametersList(),
                 entity.getErrorStatementMap(),
-                entity.getRecommendationsList()
+                entity.getRecommendationsList(),
+                version
         );
 
-        log.info("Generated CQL for artifact {} ({})", entity.getName(), artifactId);
+        log.info("Generated CQL for artifact {} ({}) with FHIR version {}", entity.getName(), artifactId, version);
         return cql;
     }
 

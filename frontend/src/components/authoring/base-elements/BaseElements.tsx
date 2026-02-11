@@ -7,6 +7,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
 import type { BaseElement, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
+import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 
 function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
@@ -16,10 +17,11 @@ interface BaseElementsProps {
   baseElements: BaseElement[]
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
+  dynamicEntries?: DynamicEntry[]
   onChange: (baseElements: BaseElement[]) => void
 }
 
-export default function BaseElements({ baseElements, templates, modifiers, onChange }: BaseElementsProps) {
+export default function BaseElements({ baseElements, templates, modifiers, dynamicEntries, onChange }: BaseElementsProps) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
     ? baseElements.find((be) => be.uniqueId === pendingDeleteId)?.name || 'this base element'
@@ -118,6 +120,7 @@ export default function BaseElements({ baseElements, templates, modifiers, onCha
                   treeName={be.name}
                   templates={templates}
                   modifiers={modifiers}
+                  dynamicEntries={dynamicEntries}
                   onUpdateGroup={(updated) => handleUpdateTree(be.uniqueId, updated.childInstances)}
                   onAddElement={(el) => handleUpdateTree(be.uniqueId, [...(be.childInstances || []), el])}
                   onRemoveElement={(uid) => handleUpdateTree(be.uniqueId, (be.childInstances || []).filter((c) => c.uniqueId !== uid))}
