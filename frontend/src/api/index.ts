@@ -990,6 +990,27 @@ export const fhirApi = {
     )
     return response.data
   },
+
+  createResource: async (resourceType: string, resourceJson: string, fhirServer?: string): Promise<unknown> => {
+    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
+    const response = await api.post(`/fhir/${resourceType}${params}`, resourceJson, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return response.data
+  },
+
+  updateResource: async (resourceType: string, id: string, resourceJson: string, fhirServer?: string): Promise<unknown> => {
+    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
+    const response = await api.put(`/fhir/${resourceType}/${id}${params}`, resourceJson, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return response.data
+  },
+
+  deleteResource: async (resourceType: string, id: string, fhirServer?: string): Promise<void> => {
+    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
+    await api.delete(`/fhir/${resourceType}/${id}${params}`)
+  },
 }
 
 // ===== CDS Authoring API =====

@@ -1,0 +1,143 @@
+import { useState, useRef, useCallback } from 'react'
+import {
+  Stack,
+  Alert,
+  CircularProgress,
+  Typography,
+  Box,
+  Button,
+  Snackbar,
+} from '@mui/material'
+import {
+  PlayArrow as ExecuteIcon,
+  ContentCopy as CopyIcon,
+} from '@mui/icons-material'
+import Editor, { type OnMount } from '@monaco-editor/react'
+import type * as Monaco from 'monaco-editor'
+import { useMutation } from '@tanstack/react-query'
+import { fhirApi } from '../../api'
+import GradientButton from '../common/GradientButton'
+import { formatJson } from '../../utils/fhirBrowserUtils'
+
+interface TransactionTabProps {
+  fhirServer: string
+}
+
+const TRANSACTION_TEMPLATE = JSON.stringify(
+  {
+    resourceType: 'Bundle',
+    type: 'transaction',
+    entry: [
+      {
+        resource: {
+          resourceType: 'Patient',
+          name: [{ family: 'Example', given: ['Transaction'] }],
+        },
+        request: {
+          method: 'POST',
+          url: 'Patient',
+        },
+      },
+    ],
+  },
+  null,
+  2
+)
+
+export default function TransactionTab({ fhirServer }: TransactionTabProps) {
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
+  const [result, setResult] = useState<object | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleEditorMount: OnMount = useCallback((editor) => {
+    editorRef.current = editor
+  }, [])
+
+  const executeMutation = useMutation({
+    mutationFn: () => {
+      const value = editorRef.current?.getValue() || ''
+      return fhirApi.executeTransaction(value, fhirServer)
+    },
+    onSuccess: (data) => {
+      setResult(data as object)
+    },
+  })
+
+  const handleCopyResult = () => {
+    if (result) {
+      navigator.clipboard.writeText(formatJson(result))
+      setCopied(true)
+    }
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Typography variant="subtitle2">Execute FHIR Bundle Transaction</Typography>
+      <Typography variant="body2" color="text.secondary">
+        Submit a FHIR Bundle of type &quot;transaction&quot; or &quot;batch&quot; for processing.
+      </Typography>
+
+      <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
+        <Editor
+          height="350px"
+          language="json"
+          defaultValue={TRANSACTION_TEMPLATE}
+          onMount={handleEditorMount}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 13,
+            scrollBeyondLastLine: false,
+            wordWrap: 'on',
+            automaticLayout: true,
+          }}
+        />
+      </Box>
+
+      <GradientButton
+        onClick={() => executeMutation.mutate()}
+        disabled={executeMutation.isPending}
+        startIcon={executeMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <ExecuteIcon />}
+        sx={{ alignSelf: 'flex-start', '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
+      >
+        {executeMutation.isPending ? 'Executing...' : 'Execute'}
+      </GradientButton>
+
+      {executeMutation.isError && (
+        <Alert severity="error">
+          Transaction failed: {(executeMutation.error as Error).message}
+        </Alert>
+      )}
+
+      {result && (
+        <Box>
+          <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+            <Typography variant="subtitle2">Response</Typography>
+            <Button size="small" startIcon={<CopyIcon />} onClick={handleCopyResult}>
+              Copy
+            </Button>
+          </Stack>
+          <Box
+            component="pre"
+            sx={{
+              p: 2,
+              bgcolor: '#1e1e1e',
+              color: '#d4d4d4',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              overflow: 'auto',
+              maxHeight: 400,
+              fontFamily: '"Consolas", "Monaco", monospace',
+              m: 0,
+            }}
+          >
+            {formatJson(result)}
+          </Box>
+        </Box>
+      )}
+
+      <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)}>
+        <Alert severity="success" variant="filled">Response JSON copied</Alert>
+      </Snackbar>
+    </Stack>
+  )
+}

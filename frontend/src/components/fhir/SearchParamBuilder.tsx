@@ -1,0 +1,161 @@
+import { useState, useEffect } from 'react'
+import {
+  Stack,
+  TextField,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  ToggleButton,
+  ToggleButtonGroup,
+  Button,
+  Typography,
+  Box,
+} from '@mui/material'
+import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material'
+import { RESOURCE_SEARCH_PARAMS } from '../../utils/fhirBrowserUtils'
+
+interface SearchParam {
+  name: string
+  value: string
+}
+
+interface SearchParamBuilderProps {
+  resourceType: string
+  value: string
+  onChange: (value: string) => void
+  mode: 'structured' | 'raw'
+  onModeChange: (mode: 'structured' | 'raw') => void
+}
+
+function parseParamsString(raw: string): SearchParam[] {
+  if (!raw.trim()) return [{ name: '', value: '' }]
+  const pairs = raw.split('&').filter(Boolean)
+  const result = pairs.map(pair => {
+    const idx = pair.indexOf('=')
+    if (idx === -1) return { name: pair, value: '' }
+    return { name: pair.substring(0, idx), value: decodeURIComponent(pair.substring(idx + 1)) }
+  })
+  return result.length > 0 ? result : [{ name: '', value: '' }]
+}
+
+function serializeParams(params: SearchParam[]): string {
+  return params
+    .filter(p => p.name && p.value)
+    .map(p => `${p.name}=${encodeURIComponent(p.value)}`)
+    .join('&')
+}
+
+export default function SearchParamBuilder({
+  resourceType,
+  value,
+  onChange,
+  mode,
+  onModeChange,
+}: SearchParamBuilderProps) {
+  const [params, setParams] = useState<SearchParam[]>(() => parseParamsString(value))
+  const availableParams = RESOURCE_SEARCH_PARAMS[resourceType] || [
+    { name: '_id', type: 'token', label: 'ID' },
+  ]
+
+  useEffect(() => {
+    if (mode === 'structured') {
+      setParams(parseParamsString(value))
+    }
+  }, [resourceType]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleModeChange = (_: unknown, newMode: 'structured' | 'raw' | null) => {
+    if (!newMode) return
+    if (newMode === 'structured') {
+      setParams(parseParamsString(value))
+    } else {
+      onChange(serializeParams(params))
+    }
+    onModeChange(newMode)
+  }
+
+  const updateParam = (index: number, field: 'name' | 'value', newVal: string) => {
+    const updated = [...params]
+    updated[index] = { ...updated[index], [field]: newVal }
+    setParams(updated)
+    onChange(serializeParams(updated))
+  }
+
+  const addParam = () => {
+    setParams([...params, { name: '', value: '' }])
+  }
+
+  const removeParam = (index: number) => {
+    const updated = params.filter((_, i) => i !== index)
+    const result = updated.length > 0 ? updated : [{ name: '', value: '' }]
+    setParams(result)
+    onChange(serializeParams(result))
+  }
+
+  return (
+    <Box>
+      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+        <Typography variant="caption" color="text.secondary">Search Parameters</Typography>
+        <ToggleButtonGroup
+          value={mode}
+          exclusive
+          onChange={handleModeChange}
+          size="small"
+          sx={{ '& .MuiToggleButton-root': { py: 0, px: 1, fontSize: '0.7rem', textTransform: 'none' } }}
+        >
+          <ToggleButton value="structured">Structured</ToggleButton>
+          <ToggleButton value="raw">Raw</ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
+
+      {mode === 'raw' ? (
+        <TextField
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          size="small"
+          fullWidth
+          placeholder="e.g., name=John&birthdate=gt1990-01-01"
+          helperText="Enter FHIR search parameters"
+        />
+      ) : (
+        <Stack spacing={1}>
+          {params.map((param, idx) => (
+            <Stack key={idx} direction="row" spacing={1} alignItems="center">
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>Parameter</InputLabel>
+                <Select
+                  value={param.name}
+                  onChange={(e) => updateParam(idx, 'name', e.target.value)}
+                  label="Parameter"
+                >
+                  {availableParams.map(p => (
+                    <MenuItem key={p.name} value={p.name}>{p.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                value={param.value}
+                onChange={(e) => updateParam(idx, 'value', e.target.value)}
+                size="small"
+                fullWidth
+                placeholder={param.name ? `Value for ${param.name}` : 'Value'}
+              />
+              <IconButton size="small" onClick={() => removeParam(idx)} color="error">
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          ))}
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={addParam}
+            sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+          >
+            Add Parameter
+          </Button>
+        </Stack>
+      )}
+    </Box>
+  )
+}
