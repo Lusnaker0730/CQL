@@ -59,7 +59,6 @@
         "id": "GenericObservation_vsac",
         "name": "Observation",
         "returnType": "list_of_observations",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericObservation",
         "suppressedModifiers": ["ConvertToMgPerdL"],
@@ -105,7 +104,6 @@
         "id": "GenericCondition_vsac",
         "name": "Condition",
         "returnType": "list_of_conditions",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericCondition",
         "fields": [
@@ -123,7 +121,6 @@
         "id": "GenericMedicationStatement_vsac",
         "name": "Medication Statement",
         "returnType": "list_of_medication_statements",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericMedicationStatement",
         "fields": [
@@ -134,7 +131,6 @@
         "id": "GenericMedicationRequest_vsac",
         "name": "Medication Request",
         "returnType": "list_of_medication_requests",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericMedicationRequest",
         "fields": [
@@ -152,7 +148,6 @@
         "id": "GenericProcedure_vsac",
         "name": "Procedure",
         "returnType": "list_of_procedures",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericProcedure",
         "fields": [
@@ -188,7 +183,6 @@
         "id": "GenericEncounter_vsac",
         "name": "Encounter",
         "returnType": "list_of_encounters",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericEncounter",
         "fields": [
@@ -206,7 +200,6 @@
         "id": "GenericAllergyIntolerance_vsac",
         "name": "Allergy Intolerance",
         "returnType": "list_of_allergy_intolerances",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericAllergyIntolerance",
         "fields": [
@@ -263,7 +256,6 @@
         "id": "GenericImmunization_vsac",
         "name": "Immunization",
         "returnType": "list_of_immunizations",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericImmunization",
         "fields": [
@@ -281,7 +273,6 @@
         "id": "GenericDevice_vsac",
         "name": "Device",
         "returnType": "list_of_devices",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericDevice",
         "fields": [
@@ -299,7 +290,6 @@
         "id": "GenericServiceRequest_vsac",
         "name": "Service Request",
         "returnType": "list_of_service_requests",
-        "suppress": true,
         "extends": "Base",
         "template": "GenericServiceRequest",
         "fields": [

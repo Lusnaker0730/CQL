@@ -3,6 +3,7 @@ package com.cqlplatform.controller;
 import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.*;
+import com.cqlplatform.model.authoring.TwcoreCatalogEntry;
 import com.cqlplatform.service.authoring.ArtifactService;
 import com.cqlplatform.service.authoring.ArtifactTestingService;
 import com.cqlplatform.service.authoring.CqlGenerationService;
@@ -11,6 +12,7 @@ import com.cqlplatform.service.authoring.ExternalCqlLibraryService;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.QueryBuilderService;
 import com.cqlplatform.service.authoring.TemplateService;
+import com.cqlplatform.service.authoring.TwcoreCatalogService;
 import com.cqlplatform.service.cds.CdsHooksService;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +43,7 @@ public class AuthoringController {
     private final CqlLibraryService cqlLibraryService;
     private final CqlImportService cqlImportService;
     private final QueryBuilderService queryBuilderService;
+    private final TwcoreCatalogService twcoreCatalogService;
 
     @GetMapping("/artifacts")
     @Operation(summary = "List Artifacts", description = "List the current user's CDS artifacts")
@@ -284,5 +287,20 @@ public class AuthoringController {
             return ResponseEntity.ok(queryBuilderService.getOperatorsForType(type));
         }
         return ResponseEntity.ok(queryBuilderService.getOperators());
+    }
+
+    // ===== TWCORE Catalog =====
+
+    @GetMapping("/twcore-catalog")
+    @Operation(summary = "Get TWCORE Catalog", description = "Get TWCORE value sets and codes, optionally filtered by resource type")
+    public ResponseEntity<List<TwcoreCatalogEntry>> getTwcoreCatalog(
+            @RequestParam(required = false) String resourceType) {
+        return ResponseEntity.ok(twcoreCatalogService.getValueSetsForResourceType(resourceType));
+    }
+
+    @GetMapping("/twcore-catalog/code-systems")
+    @Operation(summary = "Get TWCORE Code Systems", description = "Get available TWCORE code system references")
+    public ResponseEntity<List<TwcoreCatalogEntry.TwcoreCodeSystem>> getTwcoreCodeSystems() {
+        return ResponseEntity.ok(twcoreCatalogService.getAllCodeSystems());
     }
 }

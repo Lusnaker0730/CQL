@@ -1,0 +1,2255 @@
+{
+  "valueSets": [
+    {
+      "resourceType": "Condition",
+      "name": "TWCORE Condition Codes (SNOMED CT)",
+      "url": "http://snomed.info/sct",
+      "system": "http://snomed.info/sct",
+      "categories": [
+        {
+          "name": "心血管疾病 (Cardiovascular)",
+          "codes": [
+            {
+              "code": "44054006",
+              "display": "Diabetes mellitus",
+              "displayZh": "糖尿病"
+            },
+            {
+              "code": "38341003",
+              "display": "Hypertensive disorder",
+              "displayZh": "高血壓"
+            },
+            {
+              "code": "53741008",
+              "display": "Coronary arteriosclerosis",
+              "displayZh": "冠狀動脈硬化"
+            },
+            {
+              "code": "22298006",
+              "display": "Myocardial infarction",
+              "displayZh": "心肌梗塞"
+            },
+            {
+              "code": "49436004",
+              "display": "Atrial fibrillation",
+              "displayZh": "心房顫動"
+            },
+            {
+              "code": "84114007",
+              "display": "Heart failure",
+              "displayZh": "心臟衰竭"
+            },
+            {
+              "code": "414545008",
+              "display": "Ischemic heart disease",
+              "displayZh": "缺血性心臟病"
+            }
+          ]
+        },
+        {
+          "name": "呼吸系統疾病 (Respiratory)",
+          "codes": [
+            {
+              "code": "195967001",
+              "display": "Asthma",
+              "displayZh": "氣喘"
+            },
+            {
+              "code": "13645005",
+              "display": "Chronic obstructive lung disease",
+              "displayZh": "慢性阻塞性肺病"
+            },
+            {
+              "code": "233604007",
+              "display": "Pneumonia",
+              "displayZh": "肺炎"
+            },
+            {
+              "code": "19829001",
+              "display": "Disorder of lung",
+              "displayZh": "肺部疾病"
+            }
+          ]
+        },
+        {
+          "name": "消化系統疾病 (Digestive)",
+          "codes": [
+            {
+              "code": "422400008",
+              "display": "Vomiting",
+              "displayZh": "嘔吐"
+            },
+            {
+              "code": "14760008",
+              "display": "Constipation",
+              "displayZh": "便秘"
+            },
+            {
+              "code": "62315008",
+              "display": "Diarrhea",
+              "displayZh": "腹瀉"
+            },
+            {
+              "code": "235595009",
+              "display": "Gastritis",
+              "displayZh": "胃炎"
+            },
+            {
+              "code": "397825006",
+              "display": "Gastric ulcer",
+              "displayZh": "胃潰瘍"
+            },
+            {
+              "code": "235919008",
+              "display": "Duodenal ulcer",
+              "displayZh": "十二指腸潰瘍"
+            },
+            {
+              "code": "235856003",
+              "display": "Gastroesophageal reflux disease",
+              "displayZh": "胃食道逆流"
+            },
+            {
+              "code": "197456007",
+              "display": "Hepatitis",
+              "displayZh": "肝炎"
+            },
+            {
+              "code": "197441003",
+              "display": "Cirrhosis of liver",
+              "displayZh": "肝硬化"
+            },
+            {
+              "code": "235494005",
+              "display": "Cholelithiasis",
+              "displayZh": "膽結石"
+            }
+          ]
+        },
+        {
+          "name": "神經系統疾病 (Neurological)",
+          "codes": [
+            {
+              "code": "25064002",
+              "display": "Headache",
+              "displayZh": "頭痛"
+            },
+            {
+              "code": "37796009",
+              "display": "Migraine",
+              "displayZh": "偏頭痛"
+            },
+            {
+              "code": "230690007",
+              "display": "Stroke",
+              "displayZh": "中風"
+            },
+            {
+              "code": "49049000",
+              "display": "Parkinson disease",
+              "displayZh": "帕金森氏病"
+            },
+            {
+              "code": "26929004",
+              "display": "Alzheimer's disease",
+              "displayZh": "阿茲海默症"
+            },
+            {
+              "code": "84757009",
+              "display": "Epilepsy",
+              "displayZh": "癲癇"
+            },
+            {
+              "code": "386806002",
+              "display": "Insomnia",
+              "displayZh": "失眠"
+            },
+            {
+              "code": "35489007",
+              "display": "Depressive disorder",
+              "displayZh": "憂鬱症"
+            },
+            {
+              "code": "48694002",
+              "display": "Anxiety",
+              "displayZh": "焦慮症"
+            },
+            {
+              "code": "162397003",
+              "display": "Pain in throat",
+              "displayZh": "喉嚨痛"
+            }
+          ]
+        },
+        {
+          "name": "感染性疾病 (Infectious)",
+          "codes": [
+            {
+              "code": "386661006",
+              "display": "Fever",
+              "displayZh": "發燒"
+            },
+            {
+              "code": "49727002",
+              "display": "Cough",
+              "displayZh": "咳嗽"
+            },
+            {
+              "code": "82272006",
+              "display": "Common cold",
+              "displayZh": "普通感冒"
+            },
+            {
+              "code": "6142004",
+              "display": "Influenza",
+              "displayZh": "流行性感冒"
+            },
+            {
+              "code": "43878008",
+              "display": "Streptococcal infection",
+              "displayZh": "鏈球菌感染"
+            },
+            {
+              "code": "68566005",
+              "display": "Urinary tract infectious disease",
+              "displayZh": "泌尿道感染"
+            },
+            {
+              "code": "840539006",
+              "display": "COVID-19",
+              "displayZh": "新冠肺炎"
+            },
+            {
+              "code": "4834000",
+              "display": "Typhoid fever",
+              "displayZh": "傷寒"
+            },
+            {
+              "code": "240422004",
+              "display": "Dengue fever",
+              "displayZh": "登革熱"
+            }
+          ]
+        },
+        {
+          "name": "肌肉骨骼疾病 (Musculoskeletal)",
+          "codes": [
+            {
+              "code": "22253000",
+              "display": "Pain",
+              "displayZh": "疼痛"
+            },
+            {
+              "code": "3877011000036101",
+              "display": "Arthritis",
+              "displayZh": "關節炎"
+            },
+            {
+              "code": "69896004",
+              "display": "Rheumatoid arthritis",
+              "displayZh": "類風濕性關節炎"
+            },
+            {
+              "code": "64859006",
+              "display": "Osteoporosis",
+              "displayZh": "骨質疏鬆"
+            },
+            {
+              "code": "203095000",
+              "display": "Fracture",
+              "displayZh": "骨折"
+            },
+            {
+              "code": "129565002",
+              "display": "Muscle pain",
+              "displayZh": "肌肉疼痛"
+            },
+            {
+              "code": "161891005",
+              "display": "Back pain",
+              "displayZh": "背痛"
+            },
+            {
+              "code": "274663001",
+              "display": "Acute low back pain",
+              "displayZh": "急性下背痛"
+            },
+            {
+              "code": "202855006",
+              "display": "Sprain",
+              "displayZh": "扭傷"
+            },
+            {
+              "code": "90560007",
+              "display": "Gout",
+              "displayZh": "痛風"
+            }
+          ]
+        },
+        {
+          "name": "內分泌疾病 (Endocrine)",
+          "codes": [
+            {
+              "code": "34486009",
+              "display": "Hyperthyroidism",
+              "displayZh": "甲狀腺亢進"
+            },
+            {
+              "code": "40930008",
+              "display": "Hypothyroidism",
+              "displayZh": "甲狀腺低下"
+            },
+            {
+              "code": "267432004",
+              "display": "Thyroid nodule",
+              "displayZh": "甲狀腺結節"
+            },
+            {
+              "code": "190448007",
+              "display": "Obesity",
+              "displayZh": "肥胖症"
+            },
+            {
+              "code": "238108007",
+              "display": "Metabolic syndrome",
+              "displayZh": "代謝症候群"
+            },
+            {
+              "code": "237599002",
+              "display": "Insulin resistance",
+              "displayZh": "胰島素阻抗"
+            },
+            {
+              "code": "421895002",
+              "display": "Cushing syndrome",
+              "displayZh": "庫欣症候群"
+            },
+            {
+              "code": "386033004",
+              "display": "Adrenal insufficiency",
+              "displayZh": "腎上腺功能不全"
+            },
+            {
+              "code": "190502001",
+              "display": "Polycystic ovary syndrome",
+              "displayZh": "多囊性卵巢症候群"
+            },
+            {
+              "code": "237618001",
+              "display": "Menopause",
+              "displayZh": "更年期"
+            }
+          ]
+        },
+        {
+          "name": "泌尿生殖疾病 (Genitourinary)",
+          "codes": [
+            {
+              "code": "236423003",
+              "display": "Kidney stone",
+              "displayZh": "腎結石"
+            },
+            {
+              "code": "236425005",
+              "display": "Chronic kidney disease",
+              "displayZh": "慢性腎臟病"
+            },
+            {
+              "code": "236436002",
+              "display": "Nephritis",
+              "displayZh": "腎炎"
+            },
+            {
+              "code": "197684005",
+              "display": "Prostatic hyperplasia",
+              "displayZh": "攝護腺肥大"
+            },
+            {
+              "code": "254900004",
+              "display": "Prostatitis",
+              "displayZh": "攝護腺炎"
+            },
+            {
+              "code": "165816005",
+              "display": "Irregular menstruation",
+              "displayZh": "月經不規則"
+            },
+            {
+              "code": "17369002",
+              "display": "Dysmenorrhea",
+              "displayZh": "經痛"
+            },
+            {
+              "code": "237091009",
+              "display": "Uterine fibroid",
+              "displayZh": "子宮肌瘤"
+            },
+            {
+              "code": "129103003",
+              "display": "Cystitis",
+              "displayZh": "膀胱炎"
+            },
+            {
+              "code": "38822007",
+              "display": "Bladder stone",
+              "displayZh": "膀胱結石"
+            }
+          ]
+        },
+        {
+          "name": "皮膚疾病 (Dermatological)",
+          "codes": [
+            {
+              "code": "43116000",
+              "display": "Eczema",
+              "displayZh": "濕疹"
+            },
+            {
+              "code": "9014002",
+              "display": "Psoriasis",
+              "displayZh": "乾癬"
+            },
+            {
+              "code": "271807003",
+              "display": "Rash",
+              "displayZh": "皮疹"
+            },
+            {
+              "code": "247441003",
+              "display": "Erythema",
+              "displayZh": "紅斑"
+            },
+            {
+              "code": "418290006",
+              "display": "Pruritus",
+              "displayZh": "搔癢"
+            },
+            {
+              "code": "400210000",
+              "display": "Hemangioma",
+              "displayZh": "血管瘤"
+            },
+            {
+              "code": "238575004",
+              "display": "Acne",
+              "displayZh": "痤瘡"
+            },
+            {
+              "code": "4557003",
+              "display": "Wart",
+              "displayZh": "疣"
+            },
+            {
+              "code": "15508007",
+              "display": "Melanoma",
+              "displayZh": "黑色素瘤"
+            },
+            {
+              "code": "254837009",
+              "display": "Malignant neoplasm of skin",
+              "displayZh": "皮膚惡性腫瘤"
+            }
+          ]
+        },
+        {
+          "name": "眼科疾病 (Ophthalmological)",
+          "codes": [
+            {
+              "code": "193570009",
+              "display": "Cataract",
+              "displayZh": "白內障"
+            },
+            {
+              "code": "23986001",
+              "display": "Glaucoma",
+              "displayZh": "青光眼"
+            },
+            {
+              "code": "267718000",
+              "display": "Myopia",
+              "displayZh": "近視"
+            },
+            {
+              "code": "38101003",
+              "display": "Hyperopia",
+              "displayZh": "遠視"
+            },
+            {
+              "code": "82649003",
+              "display": "Astigmatism",
+              "displayZh": "散光"
+            },
+            {
+              "code": "230506007",
+              "display": "Retinal disorder",
+              "displayZh": "視網膜疾病"
+            },
+            {
+              "code": "193387007",
+              "display": "Conjunctivitis",
+              "displayZh": "結膜炎"
+            },
+            {
+              "code": "9826008",
+              "display": "Keratitis",
+              "displayZh": "角膜炎"
+            },
+            {
+              "code": "231857006",
+              "display": "Presbyopia",
+              "displayZh": "老花眼"
+            },
+            {
+              "code": "246636008",
+              "display": "Dry eye syndrome",
+              "displayZh": "乾眼症"
+            }
+          ]
+        },
+        {
+          "name": "耳鼻喉科疾病 (Otolaryngological)",
+          "codes": [
+            {
+              "code": "65363002",
+              "display": "Otitis media",
+              "displayZh": "中耳炎"
+            },
+            {
+              "code": "15188001",
+              "display": "Hearing loss",
+              "displayZh": "聽力損失"
+            },
+            {
+              "code": "60862001",
+              "display": "Tinnitus",
+              "displayZh": "耳鳴"
+            },
+            {
+              "code": "195967001",
+              "display": "Sinusitis",
+              "displayZh": "鼻竇炎"
+            },
+            {
+              "code": "232209000",
+              "display": "Rhinitis",
+              "displayZh": "鼻炎"
+            },
+            {
+              "code": "195662009",
+              "display": "Pharyngitis",
+              "displayZh": "咽喉炎"
+            },
+            {
+              "code": "195708005",
+              "display": "Tonsillitis",
+              "displayZh": "扁桃腺炎"
+            },
+            {
+              "code": "267102003",
+              "display": "Acute upper respiratory infection",
+              "displayZh": "急性上呼吸道感染"
+            },
+            {
+              "code": "232208008",
+              "display": "Nasal polyp",
+              "displayZh": "鼻息肉"
+            },
+            {
+              "code": "300228004",
+              "display": "Allergic rhinitis",
+              "displayZh": "過敏性鼻炎"
+            }
+          ]
+        },
+        {
+          "name": "血液疾病 (Hematological)",
+          "codes": [
+            {
+              "code": "271737000",
+              "display": "Anemia",
+              "displayZh": "貧血"
+            },
+            {
+              "code": "87522002",
+              "display": "Iron deficiency anemia",
+              "displayZh": "缺鐵性貧血"
+            },
+            {
+              "code": "61261009",
+              "display": "Thalassemia",
+              "displayZh": "地中海型貧血"
+            },
+            {
+              "code": "127034005",
+              "display": "Leukemia",
+              "displayZh": "白血病"
+            },
+            {
+              "code": "118600007",
+              "display": "Malignant lymphoma",
+              "displayZh": "惡性淋巴瘤"
+            },
+            {
+              "code": "64572001",
+              "display": "Hemophilia",
+              "displayZh": "血友病"
+            },
+            {
+              "code": "302215000",
+              "display": "Thrombocytopenia",
+              "displayZh": "血小板低下"
+            },
+            {
+              "code": "439007008",
+              "display": "Thrombocytosis",
+              "displayZh": "血小板增多"
+            },
+            {
+              "code": "234467004",
+              "display": "Thrombosis",
+              "displayZh": "血栓"
+            },
+            {
+              "code": "312824007",
+              "display": "Familial hypercholesterolemia",
+              "displayZh": "家族性高膽固醇血症"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "Observation",
+      "name": "TWCORE Observation Codes (LOINC)",
+      "url": "http://loinc.org",
+      "system": "http://loinc.org",
+      "categories": [
+        {
+          "name": "生命徵象 (Vital Signs)",
+          "codes": [
+            {
+              "code": "8302-2",
+              "display": "Body height",
+              "displayZh": "身高"
+            },
+            {
+              "code": "29463-7",
+              "display": "Body weight",
+              "displayZh": "體重"
+            },
+            {
+              "code": "8480-6",
+              "display": "Systolic blood pressure",
+              "displayZh": "收縮壓"
+            },
+            {
+              "code": "8462-4",
+              "display": "Diastolic blood pressure",
+              "displayZh": "舒張壓"
+            },
+            {
+              "code": "8867-4",
+              "display": "Heart rate",
+              "displayZh": "心率"
+            },
+            {
+              "code": "8310-5",
+              "display": "Body temperature",
+              "displayZh": "體溫"
+            },
+            {
+              "code": "39156-5",
+              "display": "Body mass index",
+              "displayZh": "身體質量指數"
+            },
+            {
+              "code": "9279-1",
+              "display": "Respiratory rate",
+              "displayZh": "呼吸速率"
+            },
+            {
+              "code": "2710-2",
+              "display": "Oxygen saturation",
+              "displayZh": "血氧飽和度"
+            },
+            {
+              "code": "85354-9",
+              "display": "Mean blood pressure",
+              "displayZh": "平均血壓"
+            }
+          ]
+        },
+        {
+          "name": "血液常規 (Blood Tests)",
+          "codes": [
+            {
+              "code": "718-7",
+              "display": "Hemoglobin",
+              "displayZh": "血紅素"
+            },
+            {
+              "code": "4544-3",
+              "display": "Red blood cell count",
+              "displayZh": "紅血球計數"
+            },
+            {
+              "code": "777-3",
+              "display": "Platelet count",
+              "displayZh": "血小板計數"
+            },
+            {
+              "code": "6690-2",
+              "display": "White blood cell count",
+              "displayZh": "白血球計數"
+            },
+            {
+              "code": "4548-4",
+              "display": "Hematocrit",
+              "displayZh": "血比容"
+            },
+            {
+              "code": "787-2",
+              "display": "Mean corpuscular volume",
+              "displayZh": "平均紅血球容積"
+            },
+            {
+              "code": "785-6",
+              "display": "Mean corpuscular hemoglobin concentration",
+              "displayZh": "平均紅血球血色素濃度"
+            },
+            {
+              "code": "786-4",
+              "display": "Mean corpuscular hemoglobin",
+              "displayZh": "平均紅血球血色素"
+            },
+            {
+              "code": "770-8",
+              "display": "Neutrophils percentage",
+              "displayZh": "嗜中性白血球百分比"
+            },
+            {
+              "code": "736-9",
+              "display": "Lymphocytes percentage",
+              "displayZh": "淋巴球百分比"
+            }
+          ]
+        },
+        {
+          "name": "生化檢驗 (Biochemistry)",
+          "codes": [
+            {
+              "code": "2093-3",
+              "display": "Total cholesterol",
+              "displayZh": "總膽固醇"
+            },
+            {
+              "code": "2085-9",
+              "display": "HDL cholesterol",
+              "displayZh": "高密度脂蛋白膽固醇"
+            },
+            {
+              "code": "2089-1",
+              "display": "LDL cholesterol",
+              "displayZh": "低密度脂蛋白膽固醇"
+            },
+            {
+              "code": "2571-8",
+              "display": "Triglycerides",
+              "displayZh": "三酸甘油酯"
+            },
+            {
+              "code": "1975-2",
+              "display": "Total bilirubin",
+              "displayZh": "總膽紅素"
+            },
+            {
+              "code": "1968-7",
+              "display": "Direct bilirubin",
+              "displayZh": "直接膽紅素"
+            },
+            {
+              "code": "1742-6",
+              "display": "Alanine aminotransferase",
+              "displayZh": "丙胺酸轉胺酶"
+            },
+            {
+              "code": "1920-8",
+              "display": "Aspartate aminotransferase",
+              "displayZh": "天門冬胺酸轉胺酶"
+            },
+            {
+              "code": "6768-6",
+              "display": "Alkaline phosphatase",
+              "displayZh": "鹼性磷酸酶"
+            },
+            {
+              "code": "2160-0",
+              "display": "Creatinine",
+              "displayZh": "肌酐酸"
+            }
+          ]
+        },
+        {
+          "name": "血糖相關 (Glucose Related)",
+          "codes": [
+            {
+              "code": "2339-0",
+              "display": "Glucose",
+              "displayZh": "血糖"
+            },
+            {
+              "code": "1558-6",
+              "display": "Fasting glucose",
+              "displayZh": "空腹血糖"
+            },
+            {
+              "code": "33747-0",
+              "display": "Random glucose",
+              "displayZh": "隨機血糖"
+            },
+            {
+              "code": "17856-6",
+              "display": "Hemoglobin A1c",
+              "displayZh": "糖化血色素"
+            },
+            {
+              "code": "20448-7",
+              "display": "Fasting insulin",
+              "displayZh": "空腹胰島素"
+            },
+            {
+              "code": "1506-8",
+              "display": "C-peptide",
+              "displayZh": "C-胜肽"
+            }
+          ]
+        },
+        {
+          "name": "電解質 (Electrolytes)",
+          "codes": [
+            {
+              "code": "2947-0",
+              "display": "Sodium",
+              "displayZh": "鈉"
+            },
+            {
+              "code": "2823-3",
+              "display": "Potassium",
+              "displayZh": "鉀"
+            },
+            {
+              "code": "2075-0",
+              "display": "Chloride",
+              "displayZh": "氯"
+            },
+            {
+              "code": "1963-8",
+              "display": "Bicarbonate",
+              "displayZh": "碳酸氫根"
+            },
+            {
+              "code": "17861-6",
+              "display": "Calcium",
+              "displayZh": "鈣"
+            },
+            {
+              "code": "19123-9",
+              "display": "Phosphorus",
+              "displayZh": "磷"
+            },
+            {
+              "code": "19124-7",
+              "display": "Magnesium",
+              "displayZh": "鎂"
+            }
+          ]
+        },
+        {
+          "name": "蛋白質 (Proteins)",
+          "codes": [
+            {
+              "code": "2885-2",
+              "display": "Total protein",
+              "displayZh": "總蛋白質"
+            },
+            {
+              "code": "1751-7",
+              "display": "Albumin",
+              "displayZh": "白蛋白"
+            },
+            {
+              "code": "10834-0",
+              "display": "Globulin",
+              "displayZh": "球蛋白"
+            },
+            {
+              "code": "13457-7",
+              "display": "Albumin/Globulin ratio",
+              "displayZh": "白蛋白球蛋白比"
+            }
+          ]
+        },
+        {
+          "name": "心臟標記 (Cardiac Markers)",
+          "codes": [
+            {
+              "code": "6598-7",
+              "display": "Troponin I",
+              "displayZh": "肌鈣蛋白I"
+            },
+            {
+              "code": "10839-9",
+              "display": "Troponin T",
+              "displayZh": "肌鈣蛋白T"
+            },
+            {
+              "code": "2157-6",
+              "display": "Creatine kinase",
+              "displayZh": "肌酸激酶"
+            },
+            {
+              "code": "13969-1",
+              "display": "Creatine kinase-MB",
+              "displayZh": "肌酸激酶MB"
+            },
+            {
+              "code": "30934-4",
+              "display": "B-type natriuretic peptide",
+              "displayZh": "B型利鈉胜肽"
+            }
+          ]
+        },
+        {
+          "name": "凝血功能 (Coagulation)",
+          "codes": [
+            {
+              "code": "5902-2",
+              "display": "Prothrombin time",
+              "displayZh": "凝血酶原時間"
+            },
+            {
+              "code": "6301-6",
+              "display": "International normalized ratio",
+              "displayZh": "國際標準化比值"
+            },
+            {
+              "code": "3173-2",
+              "display": "Partial thromboplastin time",
+              "displayZh": "部分凝血活酶時間"
+            },
+            {
+              "code": "3243-3",
+              "display": "Thrombin time",
+              "displayZh": "凝血酶時間"
+            },
+            {
+              "code": "3255-7",
+              "display": "Fibrinogen",
+              "displayZh": "纖維蛋白原"
+            }
+          ]
+        },
+        {
+          "name": "發炎指標 (Inflammatory Markers)",
+          "codes": [
+            {
+              "code": "1988-5",
+              "display": "C-reactive protein",
+              "displayZh": "C反應蛋白"
+            },
+            {
+              "code": "4537-7",
+              "display": "Erythrocyte sedimentation rate",
+              "displayZh": "紅血球沉降速率"
+            },
+            {
+              "code": "26881-3",
+              "display": "Interleukin-6",
+              "displayZh": "白細胞介素-6"
+            },
+            {
+              "code": "3074-2",
+              "display": "Tumor necrosis factor-alpha",
+              "displayZh": "腫瘤壞死因子α"
+            }
+          ]
+        },
+        {
+          "name": "荷爾蒙 (Hormones)",
+          "codes": [
+            {
+              "code": "3016-3",
+              "display": "Thyroid stimulating hormone",
+              "displayZh": "甲狀腺刺激素"
+            },
+            {
+              "code": "3024-7",
+              "display": "Free thyroxine",
+              "displayZh": "游離甲狀腺素"
+            },
+            {
+              "code": "3053-6",
+              "display": "Free triiodothyronine",
+              "displayZh": "游離三碘甲狀腺素"
+            },
+            {
+              "code": "2141-0",
+              "display": "Cortisol",
+              "displayZh": "皮質醇"
+            },
+            {
+              "code": "10501-5",
+              "display": "Luteinizing hormone",
+              "displayZh": "黃體化激素"
+            },
+            {
+              "code": "2986-8",
+              "display": "Testosterone",
+              "displayZh": "睪固酮"
+            },
+            {
+              "code": "2191-5",
+              "display": "Insulin",
+              "displayZh": "胰島素"
+            }
+          ]
+        },
+        {
+          "name": "維生素與礦物質 (Vitamins & Minerals)",
+          "codes": [
+            {
+              "code": "1759-0",
+              "display": "Vitamin B12",
+              "displayZh": "維生素B12"
+            },
+            {
+              "code": "2132-9",
+              "display": "Folate",
+              "displayZh": "葉酸"
+            },
+            {
+              "code": "14905-4",
+              "display": "25-hydroxyvitamin D",
+              "displayZh": "25-羥維生素D"
+            },
+            {
+              "code": "2498-4",
+              "display": "Iron",
+              "displayZh": "鐵"
+            },
+            {
+              "code": "2500-7",
+              "display": "Ferritin",
+              "displayZh": "鐵蛋白"
+            },
+            {
+              "code": "20567-4",
+              "display": "Transferrin saturation",
+              "displayZh": "運鐵蛋白飽和度"
+            },
+            {
+              "code": "2324-2",
+              "display": "Zinc",
+              "displayZh": "鋅"
+            },
+            {
+              "code": "5631-7",
+              "display": "Copper",
+              "displayZh": "銅"
+            }
+          ]
+        },
+        {
+          "name": "尿液檢驗 (Urine Tests)",
+          "codes": [
+            {
+              "code": "5804-0",
+              "display": "Urine protein",
+              "displayZh": "尿蛋白"
+            },
+            {
+              "code": "2514-8",
+              "display": "Urine glucose",
+              "displayZh": "尿糖"
+            },
+            {
+              "code": "5778-6",
+              "display": "Urine ketones",
+              "displayZh": "尿酮"
+            },
+            {
+              "code": "5802-4",
+              "display": "Urobilinogen",
+              "displayZh": "尿膽素原"
+            },
+            {
+              "code": "5803-2",
+              "display": "Urine bilirubin",
+              "displayZh": "尿膽紅素"
+            },
+            {
+              "code": "33747-1",
+              "display": "Urine specific gravity",
+              "displayZh": "尿比重"
+            },
+            {
+              "code": "5767-9",
+              "display": "Urine leukocytes",
+              "displayZh": "尿白血球"
+            },
+            {
+              "code": "13945-1",
+              "display": "Urine erythrocytes",
+              "displayZh": "尿紅血球"
+            }
+          ]
+        },
+        {
+          "name": "腫瘤標記 (Tumor Markers)",
+          "codes": [
+            {
+              "code": "2039-6",
+              "display": "Carcinoembryonic antigen",
+              "displayZh": "癌胚抗原"
+            },
+            {
+              "code": "1834-1",
+              "display": "Alpha-fetoprotein",
+              "displayZh": "甲型胎兒蛋白"
+            },
+            {
+              "code": "2857-1",
+              "display": "Prostate specific antigen",
+              "displayZh": "攝護腺特異抗原"
+            },
+            {
+              "code": "6875-9",
+              "display": "CA125",
+              "displayZh": "CA125"
+            },
+            {
+              "code": "25390-6",
+              "display": "CA19-9",
+              "displayZh": "CA19-9"
+            },
+            {
+              "code": "6876-7",
+              "display": "CA15-3",
+              "displayZh": "CA15-3"
+            }
+          ]
+        },
+        {
+          "name": "免疫學 (Immunology)",
+          "codes": [
+            {
+              "code": "2465-3",
+              "display": "Immunoglobulin G",
+              "displayZh": "免疫球蛋白G"
+            },
+            {
+              "code": "2466-1",
+              "display": "Immunoglobulin A",
+              "displayZh": "免疫球蛋白A"
+            },
+            {
+              "code": "2467-9",
+              "display": "Immunoglobulin M",
+              "displayZh": "免疫球蛋白M"
+            },
+            {
+              "code": "19113-0",
+              "display": "Immunoglobulin E",
+              "displayZh": "免疫球蛋白E"
+            },
+            {
+              "code": "4239-0",
+              "display": "Complement C3",
+              "displayZh": "補體C3"
+            },
+            {
+              "code": "4240-8",
+              "display": "Complement C4",
+              "displayZh": "補體C4"
+            }
+          ]
+        },
+        {
+          "name": "其他生化 (Other Biochemistry)",
+          "codes": [
+            {
+              "code": "3094-0",
+              "display": "Blood urea nitrogen",
+              "displayZh": "血中尿素氮"
+            },
+            {
+              "code": "33914-3",
+              "display": "Creatinine clearance",
+              "displayZh": "肌酐酸清除率"
+            },
+            {
+              "code": "3084-1",
+              "display": "Uric acid",
+              "displayZh": "尿酸"
+            },
+            {
+              "code": "2532-0",
+              "display": "Lactate dehydrogenase",
+              "displayZh": "乳酸脫氫酶"
+            },
+            {
+              "code": "2324-2",
+              "display": "Gamma-glutamyl transferase",
+              "displayZh": "丙麩氨酸轉肽酶"
+            },
+            {
+              "code": "1798-8",
+              "display": "Amylase",
+              "displayZh": "澱粉酶"
+            },
+            {
+              "code": "3040-3",
+              "display": "Lipase",
+              "displayZh": "脂肪酶"
+            },
+            {
+              "code": "2164-2",
+              "display": "Creatine",
+              "displayZh": "肌酸"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "name": "TWCORE Medication Codes (RxNorm)",
+      "url": "http://www.nlm.nih.gov/research/umls/rxnorm",
+      "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+      "categories": [
+        {
+          "name": "心血管藥物 (Cardiovascular)",
+          "codes": [
+            {
+              "code": "197361",
+              "display": "Amlodipine 5mg",
+              "displayZh": "氨氯地平"
+            },
+            {
+              "code": "29046",
+              "display": "Lisinopril 10mg",
+              "displayZh": "賴諾普利"
+            },
+            {
+              "code": "83367",
+              "display": "Atorvastatin 20mg",
+              "displayZh": "阿托伐他汀"
+            },
+            {
+              "code": "32968",
+              "display": "Metoprolol 50mg",
+              "displayZh": "美托洛爾"
+            },
+            {
+              "code": "4603",
+              "display": "Aspirin 100mg",
+              "displayZh": "阿斯匹靈"
+            },
+            {
+              "code": "32592",
+              "display": "Losartan 50mg",
+              "displayZh": "氯沙坦"
+            }
+          ]
+        },
+        {
+          "name": "糖尿病藥物 (Diabetes)",
+          "codes": [
+            {
+              "code": "6809",
+              "display": "Metformin 500mg",
+              "displayZh": "二甲雙胍"
+            },
+            {
+              "code": "274783",
+              "display": "Glimepiride 2mg",
+              "displayZh": "格列美脲"
+            },
+            {
+              "code": "73044",
+              "display": "Gliclazide 80mg",
+              "displayZh": "格列齊特"
+            },
+            {
+              "code": "253182",
+              "display": "Sitagliptin 100mg",
+              "displayZh": "西格列汀"
+            }
+          ]
+        },
+        {
+          "name": "抗生素 (Antibiotics)",
+          "codes": [
+            {
+              "code": "723",
+              "display": "Amoxicillin 500mg",
+              "displayZh": "阿莫西林"
+            },
+            {
+              "code": "2551",
+              "display": "Cephalexin 500mg",
+              "displayZh": "頭孢氨芐"
+            },
+            {
+              "code": "3640",
+              "display": "Erythromycin 250mg",
+              "displayZh": "紅黴素"
+            },
+            {
+              "code": "2670",
+              "display": "Ciprofloxacin 500mg",
+              "displayZh": "環丙沙星"
+            }
+          ]
+        },
+        {
+          "name": "止痛藥 (Analgesics)",
+          "codes": [
+            {
+              "code": "161",
+              "display": "Acetaminophen 500mg",
+              "displayZh": "乙醯胺酚"
+            },
+            {
+              "code": "5640",
+              "display": "Ibuprofen 400mg",
+              "displayZh": "布洛芬"
+            },
+            {
+              "code": "3355",
+              "display": "Diclofenac 50mg",
+              "displayZh": "雙氯芬酸"
+            },
+            {
+              "code": "7052",
+              "display": "Naproxen 250mg",
+              "displayZh": "萘普生"
+            }
+          ]
+        },
+        {
+          "name": "腸胃藥 (Gastrointestinal)",
+          "codes": [
+            {
+              "code": "7646",
+              "display": "Omeprazole 20mg",
+              "displayZh": "奧美拉唑"
+            },
+            {
+              "code": "8638",
+              "display": "Ranitidine 150mg",
+              "displayZh": "雷尼替丁"
+            },
+            {
+              "code": "3521",
+              "display": "Domperidone 10mg",
+              "displayZh": "多潘立酮"
+            },
+            {
+              "code": "6960",
+              "display": "Mosapride 5mg",
+              "displayZh": "莫沙必利"
+            }
+          ]
+        },
+        {
+          "name": "呼吸系統藥物 (Respiratory)",
+          "codes": [
+            {
+              "code": "1256",
+              "display": "Salbutamol 100mcg",
+              "displayZh": "沙丁胺醇"
+            },
+            {
+              "code": "1998",
+              "display": "Budesonide 200mcg",
+              "displayZh": "布地奈德"
+            },
+            {
+              "code": "1149",
+              "display": "Theophylline 200mg",
+              "displayZh": "茶鹼"
+            },
+            {
+              "code": "2670",
+              "display": "Montelukast 10mg",
+              "displayZh": "孟魯司特"
+            }
+          ]
+        },
+        {
+          "name": "精神科藥物 (Psychiatric)",
+          "codes": [
+            {
+              "code": "3638",
+              "display": "Sertraline 50mg",
+              "displayZh": "舍曲林"
+            },
+            {
+              "code": "3247",
+              "display": "Fluoxetine 20mg",
+              "displayZh": "氟西汀"
+            },
+            {
+              "code": "2597",
+              "display": "Lorazepam 1mg",
+              "displayZh": "勞拉西泮"
+            },
+            {
+              "code": "11289",
+              "display": "Zolpidem 10mg",
+              "displayZh": "佐沛眠"
+            }
+          ]
+        },
+        {
+          "name": "維生素 (Vitamins)",
+          "codes": [
+            {
+              "code": "11256",
+              "display": "Vitamin D3 1000IU",
+              "displayZh": "維生素D3"
+            },
+            {
+              "code": "6057",
+              "display": "Vitamin B12 500mcg",
+              "displayZh": "維生素B12"
+            },
+            {
+              "code": "4064",
+              "display": "Folic acid 5mg",
+              "displayZh": "葉酸"
+            },
+            {
+              "code": "6809",
+              "display": "Calcium carbonate 500mg",
+              "displayZh": "碳酸鈣"
+            }
+          ]
+        },
+        {
+          "name": "皮膚科藥物 (Dermatological)",
+          "codes": [
+            {
+              "code": "1191",
+              "display": "Hydrocortisone 1% cream",
+              "displayZh": "氫化可體松乳膏"
+            },
+            {
+              "code": "2556",
+              "display": "Clotrimazole 1% cream",
+              "displayZh": "克黴唑乳膏"
+            },
+            {
+              "code": "1364",
+              "display": "Betamethasone 0.1% cream",
+              "displayZh": "倍他米松乳膏"
+            }
+          ]
+        },
+        {
+          "name": "眼科藥物 (Ophthalmological)",
+          "codes": [
+            {
+              "code": "1723",
+              "display": "Timolol 0.5% eye drops",
+              "displayZh": "噻吗洛爾眼藥水"
+            },
+            {
+              "code": "2556",
+              "display": "Chloramphenicol 0.5% eye drops",
+              "displayZh": "氯黴素眼藥水"
+            },
+            {
+              "code": "1191",
+              "display": "Artificial tears",
+              "displayZh": "人工淚液"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "MedicationStatement",
+      "name": "TWCORE Medication Codes (RxNorm)",
+      "url": "http://www.nlm.nih.gov/research/umls/rxnorm",
+      "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+      "categories": [
+        {
+          "name": "心血管藥物 (Cardiovascular)",
+          "codes": [
+            {
+              "code": "197361",
+              "display": "Amlodipine 5mg",
+              "displayZh": "氨氯地平"
+            },
+            {
+              "code": "29046",
+              "display": "Lisinopril 10mg",
+              "displayZh": "賴諾普利"
+            },
+            {
+              "code": "83367",
+              "display": "Atorvastatin 20mg",
+              "displayZh": "阿托伐他汀"
+            },
+            {
+              "code": "32968",
+              "display": "Metoprolol 50mg",
+              "displayZh": "美托洛爾"
+            },
+            {
+              "code": "4603",
+              "display": "Aspirin 100mg",
+              "displayZh": "阿斯匹靈"
+            },
+            {
+              "code": "32592",
+              "display": "Losartan 50mg",
+              "displayZh": "氯沙坦"
+            }
+          ]
+        },
+        {
+          "name": "糖尿病藥物 (Diabetes)",
+          "codes": [
+            {
+              "code": "6809",
+              "display": "Metformin 500mg",
+              "displayZh": "二甲雙胍"
+            },
+            {
+              "code": "274783",
+              "display": "Glimepiride 2mg",
+              "displayZh": "格列美脲"
+            },
+            {
+              "code": "73044",
+              "display": "Gliclazide 80mg",
+              "displayZh": "格列齊特"
+            },
+            {
+              "code": "253182",
+              "display": "Sitagliptin 100mg",
+              "displayZh": "西格列汀"
+            }
+          ]
+        },
+        {
+          "name": "抗生素 (Antibiotics)",
+          "codes": [
+            {
+              "code": "723",
+              "display": "Amoxicillin 500mg",
+              "displayZh": "阿莫西林"
+            },
+            {
+              "code": "2551",
+              "display": "Cephalexin 500mg",
+              "displayZh": "頭孢氨芐"
+            },
+            {
+              "code": "3640",
+              "display": "Erythromycin 250mg",
+              "displayZh": "紅黴素"
+            },
+            {
+              "code": "2670",
+              "display": "Ciprofloxacin 500mg",
+              "displayZh": "環丙沙星"
+            }
+          ]
+        },
+        {
+          "name": "止痛藥 (Analgesics)",
+          "codes": [
+            {
+              "code": "161",
+              "display": "Acetaminophen 500mg",
+              "displayZh": "乙醯胺酚"
+            },
+            {
+              "code": "5640",
+              "display": "Ibuprofen 400mg",
+              "displayZh": "布洛芬"
+            },
+            {
+              "code": "3355",
+              "display": "Diclofenac 50mg",
+              "displayZh": "雙氯芬酸"
+            },
+            {
+              "code": "7052",
+              "display": "Naproxen 250mg",
+              "displayZh": "萘普生"
+            }
+          ]
+        },
+        {
+          "name": "腸胃藥 (Gastrointestinal)",
+          "codes": [
+            {
+              "code": "7646",
+              "display": "Omeprazole 20mg",
+              "displayZh": "奧美拉唑"
+            },
+            {
+              "code": "8638",
+              "display": "Ranitidine 150mg",
+              "displayZh": "雷尼替丁"
+            },
+            {
+              "code": "3521",
+              "display": "Domperidone 10mg",
+              "displayZh": "多潘立酮"
+            },
+            {
+              "code": "6960",
+              "display": "Mosapride 5mg",
+              "displayZh": "莫沙必利"
+            }
+          ]
+        },
+        {
+          "name": "呼吸系統藥物 (Respiratory)",
+          "codes": [
+            {
+              "code": "1256",
+              "display": "Salbutamol 100mcg",
+              "displayZh": "沙丁胺醇"
+            },
+            {
+              "code": "1998",
+              "display": "Budesonide 200mcg",
+              "displayZh": "布地奈德"
+            },
+            {
+              "code": "1149",
+              "display": "Theophylline 200mg",
+              "displayZh": "茶鹼"
+            },
+            {
+              "code": "2670",
+              "display": "Montelukast 10mg",
+              "displayZh": "孟魯司特"
+            }
+          ]
+        },
+        {
+          "name": "精神科藥物 (Psychiatric)",
+          "codes": [
+            {
+              "code": "3638",
+              "display": "Sertraline 50mg",
+              "displayZh": "舍曲林"
+            },
+            {
+              "code": "3247",
+              "display": "Fluoxetine 20mg",
+              "displayZh": "氟西汀"
+            },
+            {
+              "code": "2597",
+              "display": "Lorazepam 1mg",
+              "displayZh": "勞拉西泮"
+            },
+            {
+              "code": "11289",
+              "display": "Zolpidem 10mg",
+              "displayZh": "佐沛眠"
+            }
+          ]
+        },
+        {
+          "name": "維生素 (Vitamins)",
+          "codes": [
+            {
+              "code": "11256",
+              "display": "Vitamin D3 1000IU",
+              "displayZh": "維生素D3"
+            },
+            {
+              "code": "6057",
+              "display": "Vitamin B12 500mcg",
+              "displayZh": "維生素B12"
+            },
+            {
+              "code": "4064",
+              "display": "Folic acid 5mg",
+              "displayZh": "葉酸"
+            },
+            {
+              "code": "6809",
+              "display": "Calcium carbonate 500mg",
+              "displayZh": "碳酸鈣"
+            }
+          ]
+        },
+        {
+          "name": "皮膚科藥物 (Dermatological)",
+          "codes": [
+            {
+              "code": "1191",
+              "display": "Hydrocortisone 1% cream",
+              "displayZh": "氫化可體松乳膏"
+            },
+            {
+              "code": "2556",
+              "display": "Clotrimazole 1% cream",
+              "displayZh": "克黴唑乳膏"
+            },
+            {
+              "code": "1364",
+              "display": "Betamethasone 0.1% cream",
+              "displayZh": "倍他米松乳膏"
+            }
+          ]
+        },
+        {
+          "name": "眼科藥物 (Ophthalmological)",
+          "codes": [
+            {
+              "code": "1723",
+              "display": "Timolol 0.5% eye drops",
+              "displayZh": "噻吗洛爾眼藥水"
+            },
+            {
+              "code": "2556",
+              "display": "Chloramphenicol 0.5% eye drops",
+              "displayZh": "氯黴素眼藥水"
+            },
+            {
+              "code": "1191",
+              "display": "Artificial tears",
+              "displayZh": "人工淚液"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "Encounter",
+      "name": "TWCORE Encounter Department Codes (NHI)",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw",
+      "system": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw",
+      "categories": [
+        {
+          "name": "NHI 診療科別 (NHI Department)",
+          "codes": [
+            {
+              "code": "00",
+              "display": "General",
+              "displayZh": "不分科"
+            },
+            {
+              "code": "01",
+              "display": "Family Medicine",
+              "displayZh": "家醫科"
+            },
+            {
+              "code": "02",
+              "display": "Internal Medicine",
+              "displayZh": "內科"
+            },
+            {
+              "code": "03",
+              "display": "Surgery",
+              "displayZh": "外科"
+            },
+            {
+              "code": "04",
+              "display": "Pediatrics",
+              "displayZh": "兒科"
+            },
+            {
+              "code": "05",
+              "display": "Obstetrics & Gynecology",
+              "displayZh": "婦產科"
+            },
+            {
+              "code": "06",
+              "display": "Orthopedics",
+              "displayZh": "骨科"
+            },
+            {
+              "code": "07",
+              "display": "Neurosurgery",
+              "displayZh": "神經外科"
+            },
+            {
+              "code": "08",
+              "display": "Urology",
+              "displayZh": "泌尿科"
+            },
+            {
+              "code": "09",
+              "display": "ENT",
+              "displayZh": "耳鼻喉科"
+            },
+            {
+              "code": "10",
+              "display": "Ophthalmology",
+              "displayZh": "眼科"
+            },
+            {
+              "code": "11",
+              "display": "Dermatology",
+              "displayZh": "皮膚科"
+            },
+            {
+              "code": "12",
+              "display": "Neurology",
+              "displayZh": "神經科"
+            },
+            {
+              "code": "13",
+              "display": "Psychiatry",
+              "displayZh": "精神科"
+            },
+            {
+              "code": "14",
+              "display": "Rehabilitation",
+              "displayZh": "復健科"
+            },
+            {
+              "code": "15",
+              "display": "Plastic Surgery",
+              "displayZh": "整形外科"
+            },
+            {
+              "code": "16",
+              "display": "Occupational Medicine",
+              "displayZh": "職業醫學科"
+            },
+            {
+              "code": "22",
+              "display": "Emergency Medicine",
+              "displayZh": "急診醫學科"
+            },
+            {
+              "code": "2A",
+              "display": "Tuberculosis",
+              "displayZh": "結核科"
+            },
+            {
+              "code": "2B",
+              "display": "Dialysis",
+              "displayZh": "洗腎科"
+            },
+            {
+              "code": "40",
+              "display": "Dentistry",
+              "displayZh": "牙科"
+            },
+            {
+              "code": "60",
+              "display": "Traditional Chinese Medicine",
+              "displayZh": "中醫一般科"
+            },
+            {
+              "code": "81",
+              "display": "Anesthesiology",
+              "displayZh": "麻醉科"
+            },
+            {
+              "code": "82",
+              "display": "Radiology",
+              "displayZh": "放射線科"
+            },
+            {
+              "code": "83",
+              "display": "Pathology",
+              "displayZh": "病理科"
+            },
+            {
+              "code": "84",
+              "display": "Nuclear Medicine",
+              "displayZh": "核子醫學科"
+            },
+            {
+              "code": "85",
+              "display": "Radiation Oncology",
+              "displayZh": "放射腫瘤科"
+            },
+            {
+              "code": "86",
+              "display": "Diagnostic Radiology",
+              "displayZh": "放射診斷科"
+            },
+            {
+              "code": "87",
+              "display": "Anatomical Pathology",
+              "displayZh": "解剖病理科"
+            },
+            {
+              "code": "88",
+              "display": "Clinical Pathology",
+              "displayZh": "臨床病理科"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "Procedure",
+      "name": "TWCORE Procedure Codes (ICD-10-PCS)",
+      "url": "http://www.cms.gov/Medicare/Coding/ICD10",
+      "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+      "categories": [
+        {
+          "name": "常見處置 (Common Procedures)",
+          "codes": [
+            {
+              "code": "0BJ08ZZ",
+              "display": "Inspection of Tracheobronchial Tree",
+              "displayZh": "支氣管鏡檢查"
+            },
+            {
+              "code": "0DJ08ZZ",
+              "display": "Inspection of Upper Intestinal Tract",
+              "displayZh": "上消化道內視鏡"
+            },
+            {
+              "code": "0DJD8ZZ",
+              "display": "Inspection of Lower Intestinal Tract",
+              "displayZh": "下消化道內視鏡"
+            },
+            {
+              "code": "0W3E0ZZ",
+              "display": "Control Bleeding in Trunk",
+              "displayZh": "止血術"
+            },
+            {
+              "code": "0FT44ZZ",
+              "display": "Resection of Gallbladder",
+              "displayZh": "膽囊切除術"
+            },
+            {
+              "code": "0UT90ZZ",
+              "display": "Resection of Uterus",
+              "displayZh": "子宮切除術"
+            },
+            {
+              "code": "0SRC0JZ",
+              "display": "Replacement of Right Knee Joint",
+              "displayZh": "膝關節置換術"
+            },
+            {
+              "code": "0SRB0JZ",
+              "display": "Replacement of Right Hip Joint",
+              "displayZh": "髖關節置換術"
+            },
+            {
+              "code": "02100Z9",
+              "display": "Bypass Coronary Artery",
+              "displayZh": "冠狀動脈繞道手術"
+            },
+            {
+              "code": "027034Z",
+              "display": "Dilation of Coronary Artery",
+              "displayZh": "冠狀動脈支架置放"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "AllergyIntolerance",
+      "name": "TWCORE AllergyIntolerance Codes (SNOMED CT)",
+      "url": "http://snomed.info/sct",
+      "system": "http://snomed.info/sct",
+      "categories": [
+        {
+          "name": "常見過敏原 (Common Allergens)",
+          "codes": [
+            {
+              "code": "91936005",
+              "display": "Penicillin allergy",
+              "displayZh": "青黴素過敏"
+            },
+            {
+              "code": "294505008",
+              "display": "Sulfonamide allergy",
+              "displayZh": "磺胺類過敏"
+            },
+            {
+              "code": "91935009",
+              "display": "Aspirin allergy",
+              "displayZh": "阿斯匹靈過敏"
+            },
+            {
+              "code": "300913006",
+              "display": "Shellfish allergy",
+              "displayZh": "貝類過敏"
+            },
+            {
+              "code": "91934008",
+              "display": "Nut allergy",
+              "displayZh": "堅果過敏"
+            },
+            {
+              "code": "300916003",
+              "display": "Latex allergy",
+              "displayZh": "乳膠過敏"
+            },
+            {
+              "code": "419511003",
+              "display": "Propensity to adverse reactions to drug",
+              "displayZh": "藥物不良反應"
+            },
+            {
+              "code": "418689008",
+              "display": "Allergy to grass pollen",
+              "displayZh": "草花粉過敏"
+            },
+            {
+              "code": "232347008",
+              "display": "Dust mite allergy",
+              "displayZh": "塵蟎過敏"
+            },
+            {
+              "code": "419474003",
+              "display": "Allergy to mold",
+              "displayZh": "黴菌過敏"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "Immunization",
+      "name": "TWCORE Immunization Codes (CVX)",
+      "url": "http://hl7.org/fhir/sid/cvx",
+      "system": "http://hl7.org/fhir/sid/cvx",
+      "categories": [
+        {
+          "name": "常見疫苗 (Common Vaccines)",
+          "codes": [
+            {
+              "code": "08",
+              "display": "Hepatitis B vaccine",
+              "displayZh": "B型肝炎疫苗"
+            },
+            {
+              "code": "03",
+              "display": "MMR vaccine",
+              "displayZh": "麻疹腮腺炎德國麻疹疫苗"
+            },
+            {
+              "code": "10",
+              "display": "IPV",
+              "displayZh": "不活化小兒麻痺疫苗"
+            },
+            {
+              "code": "20",
+              "display": "DTaP",
+              "displayZh": "白喉破傷風百日咳疫苗"
+            },
+            {
+              "code": "21",
+              "display": "Varicella vaccine",
+              "displayZh": "水痘疫苗"
+            },
+            {
+              "code": "33",
+              "display": "Pneumococcal vaccine",
+              "displayZh": "肺炎鏈球菌疫苗"
+            },
+            {
+              "code": "88",
+              "display": "Influenza vaccine",
+              "displayZh": "流感疫苗"
+            },
+            {
+              "code": "207",
+              "display": "COVID-19 mRNA vaccine",
+              "displayZh": "新冠mRNA疫苗"
+            },
+            {
+              "code": "114",
+              "display": "Meningococcal vaccine",
+              "displayZh": "腦膜炎雙球菌疫苗"
+            },
+            {
+              "code": "118",
+              "display": "HPV vaccine",
+              "displayZh": "人類乳突病毒疫苗"
+            },
+            {
+              "code": "197",
+              "display": "Influenza vaccine (high-dose)",
+              "displayZh": "高劑量流感疫苗"
+            },
+            {
+              "code": "113",
+              "display": "Td vaccine",
+              "displayZh": "破傷風白喉疫苗"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "Device",
+      "name": "TWCORE Device Codes (SNOMED CT)",
+      "url": "http://snomed.info/sct",
+      "system": "http://snomed.info/sct",
+      "categories": [
+        {
+          "name": "常見醫療器材 (Common Devices)",
+          "codes": [
+            {
+              "code": "360006",
+              "display": "Cardiac pacemaker",
+              "displayZh": "心臟節律器"
+            },
+            {
+              "code": "303476002",
+              "display": "Artificial joint",
+              "displayZh": "人工關節"
+            },
+            {
+              "code": "14106009",
+              "display": "Cardiac defibrillator",
+              "displayZh": "心臟去顫器"
+            },
+            {
+              "code": "272265001",
+              "display": "Bone plate",
+              "displayZh": "骨板"
+            },
+            {
+              "code": "304120007",
+              "display": "Total hip replacement",
+              "displayZh": "全髖關節置換"
+            },
+            {
+              "code": "19257004",
+              "display": "Insulin pump",
+              "displayZh": "胰島素幫浦"
+            },
+            {
+              "code": "706689003",
+              "display": "Cochlear implant",
+              "displayZh": "人工電子耳"
+            },
+            {
+              "code": "462284006",
+              "display": "Continuous glucose monitor",
+              "displayZh": "連續血糖監測器"
+            },
+            {
+              "code": "37270008",
+              "display": "Endoscope",
+              "displayZh": "內視鏡"
+            },
+            {
+              "code": "56961003",
+              "display": "Catheter",
+              "displayZh": "導管"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resourceType": "ServiceRequest",
+      "name": "TWCORE ServiceRequest Codes (SNOMED CT)",
+      "url": "http://snomed.info/sct",
+      "system": "http://snomed.info/sct",
+      "categories": [
+        {
+          "name": "常見檢查醫令 (Common Service Requests)",
+          "codes": [
+            {
+              "code": "26604007",
+              "display": "Complete blood count",
+              "displayZh": "全血球計數"
+            },
+            {
+              "code": "252275004",
+              "display": "Comprehensive metabolic panel",
+              "displayZh": "綜合代謝組合"
+            },
+            {
+              "code": "167217005",
+              "display": "Urinalysis",
+              "displayZh": "尿液分析"
+            },
+            {
+              "code": "104001",
+              "display": "Excision of lesion",
+              "displayZh": "病灶切除"
+            },
+            {
+              "code": "363680008",
+              "display": "X-ray",
+              "displayZh": "X光檢查"
+            },
+            {
+              "code": "77477000",
+              "display": "CT scan",
+              "displayZh": "電腦斷層掃描"
+            },
+            {
+              "code": "113091000",
+              "display": "MRI",
+              "displayZh": "磁振造影"
+            },
+            {
+              "code": "40701008",
+              "display": "Echocardiography",
+              "displayZh": "心臟超音波"
+            },
+            {
+              "code": "241615005",
+              "display": "Mammography",
+              "displayZh": "乳房攝影"
+            },
+            {
+              "code": "16310003",
+              "display": "Ultrasonography",
+              "displayZh": "超音波檢查"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "codeSystems": [
+    {
+      "label": "ICD-10-CM (TW)",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw"
+    },
+    {
+      "label": "ICD-10-PCS (TW)",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw"
+    },
+    {
+      "label": "ATC (TW)",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medcation-atc-tw"
+    },
+    {
+      "label": "NHI Medication",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw"
+    },
+    {
+      "label": "NHI Department",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw"
+    },
+    {
+      "label": "Health Professional (TW)",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/health-professional-tw"
+    }
+  ]
+}

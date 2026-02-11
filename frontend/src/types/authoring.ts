@@ -353,3 +353,28 @@ export interface ModifierDefinition {
   values?: Record<string, unknown>
   validator?: Record<string, unknown>
 }
+
+// TWCORE Catalog types
+export interface TwcoreCode {
+  code: string
+  display: string
+  displayZh: string
+}
+
+export interface TwcoreCodeCategory {
+  name: string
+  codes: TwcoreCode[]
+}
+
+export interface TwcoreCatalogEntry {
+  resourceType: string
+  name: string
+  url: string
+  system: string
+  categories: TwcoreCodeCategory[]
+}
+
+export interface TwcoreCodeSystem {
+  label: string
+  url: string
+}

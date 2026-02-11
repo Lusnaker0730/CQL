@@ -98,6 +98,7 @@ export default function ArtifactElementBody({
           <FieldRenderer
             key={field.id}
             field={field}
+            elementType={element.type}
             onChange={(value) => handleFieldChange(field.id, value)}
             onFieldUpdate={(updates) => {
               const updatedFields = (element.fields || []).map((f) =>
@@ -324,10 +325,12 @@ function SelectModifiersDialog({
 
 function FieldRenderer({
   field,
+  elementType,
   onChange,
   onFieldUpdate,
 }: {
   field: ElementField
+  elementType?: string
   onChange: (value: unknown) => void
   onFieldUpdate: (updates: Partial<ElementField>) => void
 }) {
@@ -417,6 +420,8 @@ function FieldRenderer({
     default:
       // VSAC-based types and others: show as value set field with rich editing
       if (field.type?.endsWith('_vsac')) {
+        // Derive FHIR resource type from element type (e.g. GenericObservation_vsac -> Observation)
+        const resourceType = elementType?.replace('Generic', '').replace('_vsac', '')
         return (
           <ValueSetField
             label={field.name}
@@ -425,6 +430,7 @@ function FieldRenderer({
             selectPath={field.id}
             field={field}
             onFieldUpdate={onFieldUpdate}
+            resourceType={resourceType}
           />
         )
       }

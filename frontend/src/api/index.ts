@@ -65,7 +65,7 @@ import type {
   AuditLogSearchParams,
   AuditStatsResponse,
 } from '../types'
-import type { ArtifactSummary, Artifact, ArtifactRequest, FormTemplateCategory, ModifierDefinition, ExternalCqlLibrary, ArtifactTestResult, DeployResult, SaveLibraryResult, CqlImportResult, QueryBuilderResource, QueryBuilderOperator } from '../types/authoring'
+import type { ArtifactSummary, Artifact, ArtifactRequest, FormTemplateCategory, ModifierDefinition, ExternalCqlLibrary, ArtifactTestResult, DeployResult, SaveLibraryResult, CqlImportResult, QueryBuilderResource, QueryBuilderOperator, TwcoreCatalogEntry, TwcoreCodeSystem } from '../types/authoring'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -1114,6 +1114,18 @@ export const authoringApi = {
   getQueryBuilderOperators: async (type?: string): Promise<QueryBuilderOperator[]> => {
     const params = type ? `?type=${encodeURIComponent(type)}` : ''
     const response = await api.get<QueryBuilderOperator[]>(`/authoring/query-builder/operators${params}`)
+    return response.data
+  },
+
+  // TWCORE Catalog
+  getTwcoreCatalog: async (resourceType?: string): Promise<TwcoreCatalogEntry[]> => {
+    const params = resourceType ? `?resourceType=${encodeURIComponent(resourceType)}` : ''
+    const response = await api.get<TwcoreCatalogEntry[]>(`/authoring/twcore-catalog${params}`)
+    return response.data
+  },
+
+  getTwcoreCodeSystems: async (): Promise<TwcoreCodeSystem[]> => {
+    const response = await api.get<TwcoreCodeSystem[]>('/authoring/twcore-catalog/code-systems')
     return response.data
   },
 }

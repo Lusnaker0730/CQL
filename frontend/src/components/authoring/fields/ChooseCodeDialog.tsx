@@ -17,6 +17,11 @@ const CODE_SYSTEMS = [
   { label: 'NCI', url: 'http://ncimeta.nci.nih.gov' },
   { label: 'LOINC', url: 'http://loinc.org' },
   { label: 'RXNORM', url: 'http://www.nlm.nih.gov/research/umls/rxnorm' },
+  { label: 'ICD-10-CM (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw' },
+  { label: 'ICD-10-PCS (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw' },
+  { label: 'ATC (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medcation-atc-tw' },
+  { label: 'NHI Medication (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw' },
+  { label: 'NHI Department (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw' },
 ]
 
 interface ChooseCodeDialogProps {

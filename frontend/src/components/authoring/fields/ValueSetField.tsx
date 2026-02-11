@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box, Stack, Typography, TextField, Chip, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   Table, TableHead, TableBody, TableRow, TableCell, CircularProgress,
-  InputAdornment, Tabs, Tab,
+  InputAdornment, Tabs, Tab, Accordion, AccordionSummary, AccordionDetails,
 } from '@mui/material'
 import {
   FormatListBulleted as VsIcon, Add as AddIcon, Delete as DeleteIcon,
   Close as CloseIcon, CheckCircle as AuthIcon, Search as SearchIcon,
+  ExpandMore as ExpandMoreIcon, Public as TwcoreIcon,
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import ChooseCodeDialog from './ChooseCodeDialog'
 import { useSearchValueSets } from '../../../hooks/useTerminology'
+import { useTwcoreCatalog } from '../../../hooks/useTwcoreCatalog'
 import type { ValueSetReference, CodeReference, ElementField } from '../../../types/authoring'
 
 interface ValueSetFieldProps {
@@ -21,6 +23,7 @@ interface ValueSetFieldProps {
   selectPath?: string
   field?: ElementField
   onFieldUpdate?: (updates: Partial<ElementField>) => void
+  resourceType?: string
 }
 
 export default function ValueSetField({
@@ -29,6 +32,7 @@ export default function ValueSetField({
   onChange,
   field,
   onFieldUpdate,
+  resourceType,
 }: ValueSetFieldProps) {
   const [codeDialogOpen, setCodeDialogOpen] = useState(false)
   const [vsDialogOpen, setVsDialogOpen] = useState(false)
@@ -36,6 +40,9 @@ export default function ValueSetField({
   const valueSets: ValueSetReference[] = field?.valueSets || []
   const codes: CodeReference[] = field?.codes || []
   const hasRichData = valueSets.length > 0 || codes.length > 0
+
+  // Derive resourceType from field.type if not provided
+  const effectiveResourceType = resourceType || deriveResourceType(field?.type)
 
   const handleAddValueSet = (vs: ValueSetReference) => {
     if (onFieldUpdate) {
@@ -165,33 +172,95 @@ export default function ValueSetField({
       )}
 
       <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} />
-      <AddValueSetDialog open={vsDialogOpen} onClose={() => setVsDialogOpen(false)} onAdd={handleAddValueSet} />
+      <AddValueSetDialog
+        open={vsDialogOpen}
+        onClose={() => setVsDialogOpen(false)}
+        onAdd={handleAddValueSet}
+        resourceType={effectiveResourceType}
+      />
     </Box>
   )
 }
 
-// ----- Add Value Set Dialog with VSAC Search -----
+function deriveResourceType(fieldType?: string): string | undefined {
+  if (!fieldType) return undefined
+  const base = fieldType.replace('_vsac', '')
+  const typeMap: Record<string, string> = {
+    observation: 'Observation',
+    condition: 'Condition',
+    medication: 'MedicationRequest',
+    medicationStatement: 'MedicationStatement',
+    medicationRequest: 'MedicationRequest',
+    procedure: 'Procedure',
+    encounter: 'Encounter',
+    allergyIntolerance: 'AllergyIntolerance',
+    immunization: 'Immunization',
+    device: 'Device',
+    serviceRequest: 'ServiceRequest',
+  }
+  return typeMap[base] || base.charAt(0).toUpperCase() + base.slice(1)
+}
+
+// ----- Add Value Set Dialog with VSAC Search + TWCORE Browse -----
 
 function AddValueSetDialog({
   open,
   onClose,
   onAdd,
+  resourceType,
 }: {
   open: boolean
   onClose: () => void
   onAdd: (vs: ValueSetReference) => void
+  resourceType?: string
 }) {
   const [tab, setTab] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [oid, setOid] = useState('')
   const [name, setName] = useState('')
+  const [twcoreFilter, setTwcoreFilter] = useState('')
 
   const { data: searchResults, isLoading: isSearching } = useSearchValueSets(
     tab === 0 ? searchQuery : undefined
   )
 
+  const { data: twcoreCatalog, isLoading: isTwcoreLoading } = useTwcoreCatalog(
+    tab === 2 ? resourceType : undefined
+  )
+
+  const filteredTwcore = useMemo(() => {
+    if (!twcoreCatalog || twcoreCatalog.length === 0) return []
+    const q = twcoreFilter.toLowerCase()
+    if (!q) return twcoreCatalog
+    return twcoreCatalog.map(entry => ({
+      ...entry,
+      categories: entry.categories.map(cat => ({
+        ...cat,
+        codes: cat.codes.filter(c =>
+          c.code.toLowerCase().includes(q) ||
+          c.display.toLowerCase().includes(q) ||
+          c.displayZh.includes(twcoreFilter)
+        ),
+      })).filter(cat => cat.codes.length > 0),
+    })).filter(entry => entry.categories.length > 0)
+  }, [twcoreCatalog, twcoreFilter])
+
   const handleSelectFromSearch = (vs: { url: string; name: string; title: string }) => {
     onAdd({ oid: vs.url, name: vs.title || vs.name })
+    handleReset()
+    onClose()
+  }
+
+  const handleSelectTwcoreCode = (system: string, code: string, display: string, displayZh: string) => {
+    onAdd({ oid: system, name: `${display} (${displayZh}) [${code}]` })
+    handleReset()
+    onClose()
+  }
+
+  const handleAddCategory = (system: string, category: { name: string; codes: Array<{ code: string; display: string; displayZh: string }> }) => {
+    for (const c of category.codes) {
+      onAdd({ oid: system, name: `${c.display} (${c.displayZh}) [${c.code}]` })
+    }
     handleReset()
     onClose()
   }
@@ -208,6 +277,7 @@ function AddValueSetDialog({
     setSearchQuery('')
     setOid('')
     setName('')
+    setTwcoreFilter('')
     setTab(0)
   }
 
@@ -217,7 +287,7 @@ function AddValueSetDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         Add Value Set
         <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
@@ -226,6 +296,12 @@ function AddValueSetDialog({
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3 }}>
         <Tab label="Search VSAC" />
         <Tab label="Enter OID" />
+        <Tab
+          label="Browse TWCORE"
+          icon={<TwcoreIcon sx={{ fontSize: 18 }} />}
+          iconPosition="start"
+          disabled={!resourceType}
+        />
       </Tabs>
 
       <DialogContent sx={{ minHeight: 300 }}>
@@ -292,7 +368,7 @@ function AddValueSetDialog({
               </Typography>
             )}
           </Box>
-        ) : (
+        ) : tab === 1 ? (
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               label="Value Set OID or URL"
@@ -312,6 +388,99 @@ function AddValueSetDialog({
               helperText="Optional. If left blank, the OID will be used as the name."
             />
           </Stack>
+        ) : (
+          /* Browse TWCORE tab */
+          <Box>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Filter codes by name, code, or Chinese name..."
+              value={twcoreFilter}
+              onChange={(e) => setTwcoreFilter(e.target.value)}
+              sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            {isTwcoreLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : filteredTwcore.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                {twcoreFilter
+                  ? `No codes found matching "${twcoreFilter}"`
+                  : `No TWCORE codes available for ${resourceType}`}
+              </Typography>
+            ) : (
+              filteredTwcore.map((entry) => (
+                <Box key={entry.resourceType} sx={{ mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: 'block' }}>
+                    {entry.name}
+                  </Typography>
+                  {entry.categories.map((cat) => (
+                    <Accordion key={cat.name} disableGutters variant="outlined" sx={{ '&:before': { display: 'none' }, mb: 0.5 }}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
+                          <Typography variant="body2" fontWeight={600}>{cat.name}</Typography>
+                          <Chip label={`${cat.codes.length} codes`} size="small" sx={{ fontSize: '0.7rem' }} />
+                          <Box sx={{ flex: 1 }} />
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={(e) => { e.stopPropagation(); handleAddCategory(entry.system, cat) }}
+                            sx={{ fontSize: '0.7rem', minWidth: 'auto' }}
+                          >
+                            Add All
+                          </Button>
+                        </Stack>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: 0 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>CODE</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>DISPLAY</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>中文</TableCell>
+                              <TableCell sx={{ py: 0.5 }} />
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {cat.codes.map((c) => (
+                              <TableRow
+                                key={c.code}
+                                hover
+                                sx={{ cursor: 'pointer' }}
+                                onClick={() => handleSelectTwcoreCode(entry.system, c.code, c.display, c.displayZh)}
+                              >
+                                <TableCell sx={{ py: 0.5 }}>
+                                  <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>{c.code}</Typography>
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>{c.display}</Typography>
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>{c.displayZh}</Typography>
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  <Button size="small" variant="outlined" sx={{ fontSize: '0.7rem', minWidth: 'auto', py: 0 }}>Select</Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </AccordionDetails>
+                    </Accordion>
+                  ))}
+                </Box>
+              ))
+            )}
+          </Box>
         )}
       </DialogContent>
 
