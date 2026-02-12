@@ -53,7 +53,7 @@ public class CqlExecutionService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter cqlExecutionErrorCounter;
 
-    @Value("${fhir.server.url:http://hapi.fhir.org/baseR4}")
+    @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
     @Value("${cql.execution.timeout-seconds:30}")

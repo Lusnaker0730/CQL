@@ -20,7 +20,7 @@ interface ExecutionState {
 
 const initialState: ExecutionState = {
   patientId: '',
-  fhirServerUrl: 'http://hapi.fhir.org/baseR4',
+  fhirServerUrl: 'http://hapi-fhir:8080/fhir',
   isExecuting: false,
   results: {},
   errors: [],

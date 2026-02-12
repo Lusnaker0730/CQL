@@ -7,7 +7,7 @@ export interface FhirServerPreset {
 export const FHIR_SERVER_PRESETS: FhirServerPreset[] = [
   {
     label: 'Local HAPI FHIR (Docker)',
-    url: 'http://localhost:8090/fhir',
+    url: 'http://hapi-fhir:8080/fhir',
     description: 'Local HAPI FHIR R4 server running in Docker',
   },
   {

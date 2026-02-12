@@ -28,7 +28,7 @@ public class FhirDataProviderService {
 
     private final FhirContext fhirContext;
 
-    @Value("${fhir.server.url:http://launch.smarthealthit.org/v/r4/fhir}")
+    @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
     private final AtomicInteger retrieveCount = new AtomicInteger(0);

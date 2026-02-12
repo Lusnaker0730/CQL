@@ -16,7 +16,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   editorWordWrap: 'on',
   editorMinimap: false,
   themeMode: 'light',
-  defaultFhirServerUrl: 'http://hapi.fhir.org/baseR4',
+  defaultFhirServerUrl: 'http://hapi-fhir:8080/fhir',
 }
 
 const STORAGE_KEY = 'cql-platform-preferences'

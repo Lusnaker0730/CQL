@@ -96,7 +96,7 @@ cql:
 # FHIR Configuration
 fhir:
   server:
-    url: ${FHIR_SERVER_URL:http://localhost:8090/fhir}
+    url: ${FHIR_SERVER_URL:http://hapi-fhir:8080/fhir}
   terminology:
     url: ${FHIR_TERMINOLOGY_URL:https://tx.fhir.org/r4}
   implementation-guides:
