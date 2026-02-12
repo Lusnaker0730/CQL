@@ -18,8 +18,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -136,6 +138,17 @@ public class FhirTerminologyService {
     @Retry(name = "fhirTerminology")
     public CodeLookupResult lookupCode(String system, String code) {
         log.debug("Looking up code {} from {}", code, system);
+
+        // Priority 1: Try local TWCORE IG first
+        if (igService != null && igService.isLoaded()) {
+            CodeLookupResult localResult = lookupCodeFromLocalIg(system, code);
+            if (localResult != null) {
+                log.info("Code {} from {} found in local TWCORE IG", code, system);
+                return localResult;
+            }
+        }
+
+        // Priority 2: Fallback to remote terminology server
         IGenericClient client = fhirContext.newRestfulGenericClient(defaultTerminologyServerUrl);
 
         try {
@@ -178,9 +191,66 @@ public class FhirTerminologyService {
         }
     }
 
+    private CodeLookupResult lookupCodeFromLocalIg(String system, String code) {
+        try {
+            // Search in CodeSystems
+            CodeSystem cs = igService.getCodeSystemByUrl(system);
+            if (cs != null && cs.hasConcept()) {
+                for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
+                    CodeLookupResult result = findConceptRecursive(concept, system, code, cs.getName());
+                    if (result != null) return result;
+                }
+            }
+            // Also search in ValueSets that reference this system
+            for (var vsSummary : igService.getValueSets(null)) {
+                ValueSet vs = igService.getValueSetByUrl(vsSummary.url());
+                if (vs != null && vs.hasCompose()) {
+                    for (var include : vs.getCompose().getInclude()) {
+                        if (system.equals(include.getSystem()) && include.hasConcept()) {
+                            for (var conceptRef : include.getConcept()) {
+                                if (code.equals(conceptRef.getCode())) {
+                                    return new CodeLookupResult(system, code, vs.getName(),
+                                            conceptRef.getDisplay(), new ArrayList<>());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Local IG lookup failed for {} {}: {}", system, code, e.getMessage());
+        }
+        return null;
+    }
+
+    private CodeLookupResult findConceptRecursive(CodeSystem.ConceptDefinitionComponent concept,
+                                                    String system, String code, String csName) {
+        if (code.equals(concept.getCode())) {
+            List<String> designations = new ArrayList<>();
+            if (concept.hasDesignation()) {
+                for (var d : concept.getDesignation()) {
+                    if (d.getValue() != null) designations.add(d.getValue());
+                }
+            }
+            return new CodeLookupResult(system, code, csName, concept.getDisplay(), designations);
+        }
+        if (concept.hasConcept()) {
+            for (var child : concept.getConcept()) {
+                CodeLookupResult result = findConceptRecursive(child, system, code, csName);
+                if (result != null) return result;
+            }
+        }
+        return null;
+    }
+
     @SuppressWarnings("unused")
     private CodeLookupResult lookupCodeFallback(String system, String code, Throwable t) {
         log.warn("Circuit breaker fallback for lookupCode: {}", t.getMessage());
+        // Try local IG as fallback when remote server is unavailable
+        if (igService != null && igService.isLoaded()) {
+            CodeLookupResult localResult = lookupCodeFromLocalIg(system, code);
+            if (localResult != null) return localResult;
+        }
         throw new FhirServerUnavailableException("Terminology server unavailable: " + t.getMessage(), t);
     }
 
@@ -223,43 +293,134 @@ public class FhirTerminologyService {
 
         List<CodeSearchResult> results = new ArrayList<>();
 
-        // Try primary terminology server
-        results = tryExpandOnServer(defaultTerminologyServerUrl, system, text, maxResults);
-
-        // If primary returned empty, try fallback servers
-        if (results.isEmpty()) {
-            for (String fallbackUrl : FALLBACK_TERMINOLOGY_SERVERS) {
-                if (!fallbackUrl.equals(defaultTerminologyServerUrl)) {
-                    log.info("Primary server returned no results, trying fallback: {}", fallbackUrl);
-                    results = tryExpandOnServer(fallbackUrl, system, text, maxResults);
-                    if (!results.isEmpty()) break;
-                }
-            }
-        }
-
-        // Merge local IG results if available
+        // Priority 1: Search local TWCORE IG first
         if (igService != null && igService.isLoaded()) {
             try {
+                // Search in CodeSystems
                 CodeSystem cs = igService.getCodeSystemByUrl(system);
                 if (cs != null && cs.hasConcept()) {
                     String lowerText = text.toLowerCase();
-                    for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
-                        boolean matches = (concept.getCode() != null && concept.getCode().toLowerCase().contains(lowerText))
-                                || (concept.getDisplay() != null && concept.getDisplay().toLowerCase().contains(lowerText));
-                        if (matches) {
-                            CodeSearchResult localResult = new CodeSearchResult(system, concept.getCode(), concept.getDisplay());
-                            if (!results.contains(localResult)) {
-                                results.add(localResult);
+                    searchConceptsRecursive(cs.getConcept(), system, lowerText, results);
+                }
+                // Also search in ValueSets that reference this system
+                for (var vsSummary : igService.getValueSets(null)) {
+                    ValueSet vs = igService.getValueSetByUrl(vsSummary.url());
+                    if (vs != null && vs.hasCompose()) {
+                        for (var include : vs.getCompose().getInclude()) {
+                            if (system.equals(include.getSystem()) && include.hasConcept()) {
+                                String lowerText = text.toLowerCase();
+                                for (var conceptRef : include.getConcept()) {
+                                    boolean matches = (conceptRef.getCode() != null && conceptRef.getCode().toLowerCase().contains(lowerText))
+                                            || (conceptRef.getDisplay() != null && conceptRef.getDisplay().toLowerCase().contains(lowerText));
+                                    if (matches) {
+                                        CodeSearchResult localResult = new CodeSearchResult(system, conceptRef.getCode(), conceptRef.getDisplay());
+                                        if (!results.contains(localResult)) {
+                                            results.add(localResult);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+                }
+                if (!results.isEmpty()) {
+                    log.info("Found {} results from local TWCORE IG for '{}' in {}", results.size(), text, system);
                 }
             } catch (Exception e) {
                 log.debug("Local IG code search failed: {}", e.getMessage());
             }
         }
 
+        // Priority 2: If local results are insufficient, supplement with remote results
+        if (results.size() < maxResults) {
+            int needed = maxResults - results.size();
+            List<CodeSearchResult> remoteResults = tryExpandOnServer(defaultTerminologyServerUrl, system, text, needed);
+
+            // If primary returned empty, try fallback servers
+            if (remoteResults.isEmpty()) {
+                for (String fallbackUrl : FALLBACK_TERMINOLOGY_SERVERS) {
+                    if (!fallbackUrl.equals(defaultTerminologyServerUrl)) {
+                        log.info("Primary server returned no results, trying fallback: {}", fallbackUrl);
+                        remoteResults = tryExpandOnServer(fallbackUrl, system, text, needed);
+                        if (!remoteResults.isEmpty()) break;
+                    }
+                }
+            }
+
+            // Merge remote results (avoid duplicates)
+            for (CodeSearchResult remote : remoteResults) {
+                if (!results.contains(remote)) {
+                    results.add(remote);
+                }
+            }
+        }
+
+        // Boost: sort codes that appear in any TW Core IG ValueSet to the top
+        if (igService != null && igService.isLoaded() && !results.isEmpty()) {
+            Set<String> igCodes = collectIgReferencedCodes(system);
+            if (!igCodes.isEmpty()) {
+                List<CodeSearchResult> boosted = new ArrayList<>();
+                List<CodeSearchResult> rest = new ArrayList<>();
+                for (CodeSearchResult r : results) {
+                    if (igCodes.contains(r.code())) {
+                        boosted.add(r);
+                    } else {
+                        rest.add(r);
+                    }
+                }
+                if (!boosted.isEmpty()) {
+                    log.info("Boosted {} TW Core IG codes to top for '{}' in {}", boosted.size(), text, system);
+                    results = new ArrayList<>(boosted);
+                    results.addAll(rest);
+                }
+            }
+        }
+
         return results.size() > maxResults ? results.subList(0, maxResults) : results;
+    }
+
+    /**
+     * Collect all codes referenced by TW Core IG ValueSets for a given code system.
+     * This includes codes listed in compose.include[].concept[] (even without display text).
+     */
+    private Set<String> collectIgReferencedCodes(String system) {
+        Set<String> codes = new HashSet<>();
+        try {
+            for (var vsSummary : igService.getValueSets(null)) {
+                ValueSet vs = igService.getValueSetByUrl(vsSummary.url());
+                if (vs != null && vs.hasCompose()) {
+                    for (var include : vs.getCompose().getInclude()) {
+                        if (system.equals(include.getSystem()) && include.hasConcept()) {
+                            for (var conceptRef : include.getConcept()) {
+                                if (conceptRef.getCode() != null) {
+                                    codes.add(conceptRef.getCode());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to collect IG referenced codes for {}: {}", system, e.getMessage());
+        }
+        return codes;
+    }
+
+    private void searchConceptsRecursive(List<CodeSystem.ConceptDefinitionComponent> concepts,
+                                          String system, String lowerText, List<CodeSearchResult> results) {
+        for (CodeSystem.ConceptDefinitionComponent concept : concepts) {
+            boolean matches = (concept.getCode() != null && concept.getCode().toLowerCase().contains(lowerText))
+                    || (concept.getDisplay() != null && concept.getDisplay().toLowerCase().contains(lowerText));
+            if (matches) {
+                CodeSearchResult localResult = new CodeSearchResult(system, concept.getCode(), concept.getDisplay());
+                if (!results.contains(localResult)) {
+                    results.add(localResult);
+                }
+            }
+            if (concept.hasConcept()) {
+                searchConceptsRecursive(concept.getConcept(), system, lowerText, results);
+            }
+        }
     }
 
     private List<CodeSearchResult> tryExpandOnServer(String serverUrl, String system, String text, int maxResults) {

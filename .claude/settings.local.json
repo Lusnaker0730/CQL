@@ -103,7 +103,10 @@
       "Bash(for file in StructureDefinition-*-twcore.json)",
       "Bash(do grep -m 1 '\"\"url\"\"' \"$file\")",
       "Bash(done)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git pull:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(where.exe:*)"
     ]
   }
 }

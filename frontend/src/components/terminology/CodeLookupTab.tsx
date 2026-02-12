@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   TextField,
@@ -26,8 +26,9 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
+import { useIgCodeSystems } from '../../hooks/useImplementationGuide'
 
-const CODE_SYSTEMS = [
+const INTERNATIONAL_CODE_SYSTEMS = [
   { label: 'LOINC', url: 'http://loinc.org' },
   { label: 'SNOMED CT', url: 'http://snomed.info/sct' },
   { label: 'ICD-10-CM', url: 'http://hl7.org/fhir/sid/icd-10-cm' },
@@ -41,8 +42,24 @@ export default function CodeLookupTab() {
   const [searchText, setSearchText] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [showTextSearch, setShowTextSearch] = useState(false)
+  const [showIntlSystems, setShowIntlSystems] = useState(true)
   const lookupMutation = useLookupCode()
   const { data: searchResults, isFetching: isSearching } = useSearchCodes(system, debouncedSearch)
+  const { data: igCodeSystems } = useIgCodeSystems()
+
+  const twcoreCodeSystems = useMemo(() => {
+    if (!igCodeSystems || igCodeSystems.length === 0) return []
+    return igCodeSystems.map((cs) => ({
+      label: cs.title || cs.name,
+      url: cs.url,
+    }))
+  }, [igCodeSystems])
+
+  // Combined list for label lookup (TWCORE first, then international)
+  const ALL_CODE_SYSTEMS = useMemo(
+    () => [...twcoreCodeSystems, ...INTERNATIONAL_CODE_SYSTEMS],
+    [twcoreCodeSystems]
+  )
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchText), 500)
@@ -58,7 +75,7 @@ export default function CodeLookupTab() {
   const handleCopyCql = () => {
     if (!lookupMutation.data) return
     const d = lookupMutation.data
-    const systemLabel = CODE_SYSTEMS.find((cs) => cs.url === d.system)?.label || d.system
+    const systemLabel = ALL_CODE_SYSTEMS.find((cs) => cs.url === d.system)?.label || d.system
     const cql = `code "${d.display}": '${d.code}' from "${systemLabel}"`
     navigator.clipboard.writeText(cql)
   }
@@ -72,21 +89,50 @@ export default function CodeLookupTab() {
     <Stack spacing={2}>
       <Box>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          Quick select code system
+          TW Core IG Code Systems
         </Typography>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-          {CODE_SYSTEMS.map((cs) => (
-            <Chip
-              key={cs.url}
-              label={cs.label}
-              size="small"
-              variant={system === cs.url ? 'filled' : 'outlined'}
-              color={system === cs.url ? 'primary' : 'default'}
-              onClick={() => setSystem(cs.url)}
-              sx={{ cursor: 'pointer' }}
-            />
-          ))}
-        </Stack>
+        {twcoreCodeSystems.length > 0 ? (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+            {twcoreCodeSystems.map((cs) => (
+              <Chip
+                key={cs.url}
+                label={cs.label}
+                size="small"
+                variant={system === cs.url ? 'filled' : 'outlined'}
+                color={system === cs.url ? 'primary' : 'default'}
+                onClick={() => setSystem(cs.url)}
+                sx={{ cursor: 'pointer', maxWidth: 280 }}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>
+            Loading TW Core IG code systems...
+          </Typography>
+        )}
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => setShowIntlSystems(!showIntlSystems)}
+          sx={{ mb: 0.5, textTransform: 'none', fontSize: '0.75rem' }}
+        >
+          {showIntlSystems ? 'Hide International Systems' : 'Show International Systems'}
+        </Button>
+        <Collapse in={showIntlSystems}>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {INTERNATIONAL_CODE_SYSTEMS.map((cs) => (
+              <Chip
+                key={cs.url}
+                label={cs.label}
+                size="small"
+                variant={system === cs.url ? 'filled' : 'outlined'}
+                color={system === cs.url ? 'secondary' : 'default'}
+                onClick={() => setSystem(cs.url)}
+                sx={{ cursor: 'pointer' }}
+              />
+            ))}
+          </Stack>
+        </Collapse>
       </Box>
 
       <TextField
@@ -152,7 +198,7 @@ export default function CodeLookupTab() {
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation()
-                              const label = CODE_SYSTEMS.find((cs) => cs.url === r.system)?.label || r.system
+                              const label = ALL_CODE_SYSTEMS.find((cs) => cs.url === r.system)?.label || r.system
                               navigator.clipboard.writeText(
                                 `code "${r.display}": '${r.code}' from "${label}"`
                               )
