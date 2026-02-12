@@ -14,7 +14,7 @@ import {
   setExecutionErrors,
   setExecutionTimeMs,
 } from '../store/executionSlice'
-import type { CqlTranslationRequest, CqlExecutionRequest } from '../types'
+import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse } from '../types'
 import { setDebugTrace } from '../store/executionSlice'
 
 export function useTranslate() {
@@ -26,7 +26,7 @@ export function useTranslate() {
       dispatch(setIsTranslating(true))
       return cqlApi.translate(request)
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CqlTranslationResponse) => {
       dispatch(setIsTranslating(false))
       if (data.success) {
         dispatch(setElmJson(data.elmJson || null))
@@ -54,7 +54,7 @@ export function useValidate() {
       dispatch(setIsTranslating(true))
       return cqlApi.validate(cql)
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CqlTranslationResponse) => {
       dispatch(setIsTranslating(false))
       dispatch(setErrors(data.errors || []))
       dispatch(setWarnings(data.warnings || []))
@@ -74,7 +74,7 @@ export function useExecute() {
       dispatch(setIsExecuting(true))
       return cqlApi.execute(request)
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CqlExecutionResponse) => {
       dispatch(setIsExecuting(false))
       if (data.success) {
         dispatch(setResults(data.results))

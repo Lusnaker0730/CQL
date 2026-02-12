@@ -1094,6 +1094,14 @@ export const authoringApi = {
     return response.data
   },
 
+  uploadExternalCqlContent: async (artifactId: number, cqlContent: string): Promise<ExternalCqlLibrary> => {
+    const response = await api.post<ExternalCqlLibrary>(
+      `/authoring/artifacts/${artifactId}/external-cql/content`,
+      { cqlContent }
+    )
+    return response.data
+  },
+
   deleteExternalCql: async (artifactId: number, libId: number): Promise<void> => {
     await api.delete(`/authoring/artifacts/${artifactId}/external-cql/${libId}`)
   },

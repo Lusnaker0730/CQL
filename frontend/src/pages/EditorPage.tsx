@@ -164,11 +164,18 @@ export default function EditorPage() {
 
     const reader = new FileReader()
     reader.onload = (event) => {
-      try {
-        const fhirLibrary = JSON.parse(event.target?.result as string)
-        importMutation.mutate(fhirLibrary)
-      } catch {
-        // Invalid JSON
+      const content = event.target?.result as string
+      if (file.name.endsWith('.cql')) {
+        // Load CQL content directly into editor
+        dispatch(setCqlContent(content))
+      } else {
+        // Existing FHIR Library JSON import flow
+        try {
+          const fhirLibrary = JSON.parse(content)
+          importMutation.mutate(fhirLibrary)
+        } catch {
+          // Invalid JSON
+        }
       }
     }
     reader.readAsText(file)
@@ -229,7 +236,7 @@ export default function EditorPage() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileSelected}
-        accept=".json"
+        accept=".json,.cql"
         style={{ display: 'none' }}
       />
       <Grid container spacing={2} sx={{ height: '100%' }}>

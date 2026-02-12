@@ -171,6 +171,19 @@ public class AuthoringController {
         return ResponseEntity.ok(result);
     }
 
+    @PostMapping("/artifacts/{id}/external-cql/content")
+    @Operation(summary = "Upload External CQL from Content", description = "Upload an external CQL library from raw CQL content string")
+    public ResponseEntity<Map<String, Object>> uploadExternalCqlFromContent(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        String cqlContent = request.get("cqlContent");
+        if (cqlContent == null || cqlContent.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "CQL content is required"));
+        }
+        Map<String, Object> result = externalCqlLibraryService.uploadLibraryFromContent(id, cqlContent);
+        return ResponseEntity.ok(result);
+    }
+
     @DeleteMapping("/artifacts/{artifactId}/external-cql/{libId}")
     @Operation(summary = "Delete External CQL", description = "Delete an external CQL library")
     public ResponseEntity<Void> deleteExternalCql(
@@ -211,16 +224,16 @@ public class AuthoringController {
                 artifact.getName().replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase());
         String hook = request.getOrDefault("hook", "patient-view");
 
-        com.cqlplatform.model.cds.CdsServiceConfigRequest configRequest =
-                com.cqlplatform.model.cds.CdsServiceConfigRequest.builder()
-                        .id(serviceId)
-                        .hook(hook)
-                        .title(artifact.getName())
-                        .description(artifact.getDescription())
-                        .cqlContent(cql)
-                        .defaultIndicator("info")
-                        .enabled(true)
-                        .build();
+        com.cqlplatform.model.cds.CdsServiceConfigRequest configRequest = com.cqlplatform.model.cds.CdsServiceConfigRequest
+                .builder()
+                .id(serviceId)
+                .hook(hook)
+                .title(artifact.getName())
+                .description(artifact.getDescription())
+                .cqlContent(cql)
+                .defaultIndicator("info")
+                .enabled(true)
+                .build();
 
         var serviceResponse = cdsHooksService.createService(configRequest, username);
 

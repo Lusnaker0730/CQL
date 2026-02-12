@@ -6,6 +6,7 @@ import {
 } from '@mui/material'
 import { useImportCql } from '../../../hooks/useCqlImport'
 import { useCreateArtifact } from '../../../hooks/useAuthoring'
+import { authoringApi } from '../../../api'
 import type { CqlImportResult } from '../../../types/authoring'
 
 interface ImportCqlDialogProps {
@@ -17,6 +18,7 @@ interface ImportCqlDialogProps {
 export default function ImportCqlDialog({ open, onClose, onImported }: ImportCqlDialogProps) {
   const [cqlInput, setCqlInput] = useState('')
   const [importResult, setImportResult] = useState<CqlImportResult | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const importMutation = useImportCql()
@@ -45,15 +47,35 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
   const handleCreateArtifact = () => {
     if (!importResult) return
 
+    // Map parsed parameters to artifact format
+    const parameters = importResult.parameters.map((p) => ({
+      uniqueId: p.uniqueId,
+      name: p.name,
+      type: p.type,
+      value: p.value,
+    }))
+
     createMutation.mutate(
       {
         name: importResult.name,
         version: importResult.version,
         fhirVersion: importResult.fhirVersion,
         description: `Imported from CQL: ${importResult.name}`,
+        parameters: parameters.length > 0 ? parameters : undefined,
       },
       {
-        onSuccess: (artifact) => {
+        onSuccess: async (artifact) => {
+          // Upload the original CQL content as an External CQL library
+          if (importResult.cqlContent) {
+            setIsUploading(true)
+            try {
+              await authoringApi.uploadExternalCqlContent(artifact.id, importResult.cqlContent)
+            } catch (err) {
+              console.warn('Failed to upload CQL as external library:', err)
+            } finally {
+              setIsUploading(false)
+            }
+          }
           onImported(artifact.id)
           handleClose()
         },
@@ -246,10 +268,10 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
           <Button
             onClick={handleCreateArtifact}
             variant="contained"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || isUploading}
           >
-            {createMutation.isPending ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-            Create Artifact
+            {(createMutation.isPending || isUploading) ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            {isUploading ? 'Uploading CQL...' : 'Create Artifact'}
           </Button>
         )}
       </DialogActions>
