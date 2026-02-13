@@ -217,6 +217,7 @@ export default function Header() {
               color="inherit"
               href="https://github.com"
               target="_blank"
+              rel="noopener noreferrer"
               aria-label="GitHub"
               title="GitHub"
               sx={{

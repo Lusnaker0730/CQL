@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,12 +17,15 @@ import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    @Value("${spring.profiles.active:}")
+    private String activeProfile;
 
     private static final List<String> ALLOWED_ORIGINS = Arrays.asList(
             "https://sandbox.cds-hooks.org",
@@ -56,10 +60,13 @@ public class WebConfig implements WebMvcConfigurer {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(Arrays.asList(
-                "https://sandbox.cds-hooks.org",
-                "http://localhost:*",
-                "http://127.0.0.1:*"));
+        List<String> origins = new ArrayList<>();
+        origins.add("https://sandbox.cds-hooks.org");
+        if (activeProfile.contains("dev")) {
+            origins.add("http://localhost:*");
+            origins.add("http://127.0.0.1:*");
+        }
+        config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         config.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"));
         config.setExposedHeaders(Arrays.asList("Authorization"));

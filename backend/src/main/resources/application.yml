@@ -15,7 +15,11 @@ spring:
   application:
     name: cql-platform
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE:}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -142,7 +146,7 @@ audit:
 # Logging
 logging:
   level:
-    com.cqlplatform: DEBUG
+    com.cqlplatform: INFO
     org.opencds.cqf: INFO
     ca.uhn.fhir: INFO
 

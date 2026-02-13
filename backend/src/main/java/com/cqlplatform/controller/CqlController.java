@@ -15,7 +15,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -84,6 +86,11 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> updateLibrary(
             @PathVariable String id,
             @Valid @RequestBody LibrarySaveRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        CqlLibrary existing = libraryService.getLibrary(id).orElse(null);
+        if (existing != null && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         CqlLibrary library = libraryService.updateLibrary(id, request.getCql(), request.getDescription());
         return ResponseEntity.ok(library);
     }
@@ -91,6 +98,11 @@ public class CqlController {
     @DeleteMapping("/libraries/{id}")
     @Operation(summary = "Delete CQL Library", description = "Deletes a CQL library")
     public ResponseEntity<Void> deleteLibrary(@PathVariable String id) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        CqlLibrary existing = libraryService.getLibrary(id).orElse(null);
+        if (existing != null && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         libraryService.deleteLibrary(id);
         return ResponseEntity.noContent().build();
     }
@@ -182,7 +194,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> shareLibrary(
             @PathVariable String id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         CqlLibrary library = libraryService.shareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -192,7 +204,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> unshareLibrary(
             @PathVariable String id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         CqlLibrary library = libraryService.unshareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -202,7 +214,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> transferOwnership(
             @PathVariable String id,
             @Valid @RequestBody TransferOwnershipRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         CqlLibrary library = libraryService.transferOwnership(id, request.getNewOwner(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -212,7 +224,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> setAccessLevel(
             @PathVariable String id,
             @Valid @RequestBody AccessUpdateRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         CqlLibrary library = libraryService.setAccessLevel(id, request.getAccessLevel(), currentUser);
         return ResponseEntity.ok(library);
     }

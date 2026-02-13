@@ -5,6 +5,7 @@ import com.cqlplatform.security.JwtAuthenticationFilter;
 import com.cqlplatform.security.RateLimitFilter;
 import com.cqlplatform.security.XssFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -32,51 +33,99 @@ public class SecurityConfig {
     private final RateLimitFilter rateLimitFilter;
     private final XssFilter xssFilter;
 
+    @Value("${spring.h2.console.enabled:false}")
+    private boolean h2ConsoleEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(headers -> headers
-                        .frameOptions(frame -> frame.sameOrigin())
-                        .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
-                        .contentTypeOptions(content -> {})
-                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-                        .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"))
-                )
-                .authorizeHttpRequests(auth -> auth
-                        // Public auth endpoints
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
-                        // SMART on FHIR configuration
-                        .requestMatchers("/.well-known/smart-configuration").permitAll()
-                        // CDS Hooks sandbox requires authentication
-                        .requestMatchers(HttpMethod.POST, "/cds-services/*/sandbox").authenticated()
-                        // Per-user CDS endpoints (API key auth handled in filter)
-                        .requestMatchers("/cds-services/u/**").permitAll()
-                        // CDS Hooks discovery and invocation (external EHR systems)
-                        .requestMatchers("/cds-services/**").permitAll()
-                        // User API key management
-                        .requestMatchers("/api/user/api-keys/**").authenticated()
-                        // Actuator health & prometheus
-                        .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
-                        // Swagger/OpenAPI
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
-                        // H2 console (dev only)
-                        .requestMatchers("/h2-console/**").permitAll()
-                        // ADMIN only endpoints
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
-                        // CDS service deletion: ownership enforced in controller (allows user to delete own)
-                        .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/measures/**").hasRole("ADMIN")
-                        // All other API endpoints require authentication
-                        .requestMatchers("/api/**").authenticated()
-                        // Allow everything else (static resources, etc.)
-                        .anyRequest().permitAll()
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        // Conditionally allow H2 console access (dev profile only)
+        if (h2ConsoleEnabled) {
+            http.headers(headers -> headers
+                    .frameOptions(frame -> frame.sameOrigin())
+                    .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
+                    .contentTypeOptions(content -> {})
+                    .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                    .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"))
+            );
+            http.authorizeHttpRequests(auth -> auth
+                    // Public auth endpoints
+                    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                    // SMART on FHIR configuration
+                    .requestMatchers("/.well-known/smart-configuration").permitAll()
+                    // CDS Hooks sandbox requires authentication
+                    .requestMatchers(HttpMethod.POST, "/cds-services/*/sandbox").authenticated()
+                    // Per-user CDS endpoints (API key auth handled in filter)
+                    .requestMatchers("/cds-services/u/**").permitAll()
+                    // CDS Hooks discovery and invocation (external EHR systems)
+                    .requestMatchers("/cds-services/**").permitAll()
+                    // User API key management
+                    .requestMatchers("/api/user/api-keys/**").authenticated()
+                    // Actuator health & prometheus
+                    .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
+                    // Swagger/OpenAPI
+                    .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                    // H2 console (dev only — enabled via spring.h2.console.enabled)
+                    .requestMatchers("/h2-console/**").permitAll()
+                    // ADMIN only endpoints
+                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
+                    // CDS service deletion: ownership enforced in controller (allows user to delete own)
+                    .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").authenticated()
+                    .requestMatchers(HttpMethod.DELETE, "/api/measures/**").hasRole("ADMIN")
+                    // All other API endpoints require authentication
+                    .requestMatchers("/api/**").authenticated()
+                    // All other requests require authentication
+                    .anyRequest().authenticated()
+            );
+        } else {
+            http.headers(headers -> headers
+                    .frameOptions(frame -> frame.deny())
+                    .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
+                    .contentTypeOptions(content -> {})
+                    .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                    .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"))
+            );
+            http.authorizeHttpRequests(auth -> auth
+                    // Public auth endpoints
+                    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                    // SMART on FHIR configuration
+                    .requestMatchers("/.well-known/smart-configuration").permitAll()
+                    // CDS Hooks sandbox requires authentication
+                    .requestMatchers(HttpMethod.POST, "/cds-services/*/sandbox").authenticated()
+                    // Per-user CDS endpoints (API key auth handled in filter)
+                    .requestMatchers("/cds-services/u/**").permitAll()
+                    // CDS Hooks discovery and invocation (external EHR systems)
+                    .requestMatchers("/cds-services/**").permitAll()
+                    // User API key management
+                    .requestMatchers("/api/user/api-keys/**").authenticated()
+                    // Actuator health & prometheus
+                    .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
+                    // Swagger/OpenAPI
+                    .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                    // ADMIN only endpoints
+                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
+                    // CDS service deletion: ownership enforced in controller (allows user to delete own)
+                    .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").authenticated()
+                    .requestMatchers(HttpMethod.DELETE, "/api/measures/**").hasRole("ADMIN")
+                    // All other API endpoints require authentication
+                    .requestMatchers("/api/**").authenticated()
+                    // All other requests require authentication
+                    .anyRequest().authenticated()
+            );
+        }
+
+        http
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )

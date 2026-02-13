@@ -342,7 +342,7 @@ export default function AdminUsersPage() {
               onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
               fullWidth
               required
-              helperText="Minimum 6 characters"
+              helperText="Minimum 8 characters, must include uppercase, lowercase, and a number"
               inputProps={{ maxLength: 100 }}
             />
             <TextField
@@ -373,7 +373,7 @@ export default function AdminUsersPage() {
           <Button
             onClick={handleCreateUser}
             variant="contained"
-            disabled={createLoading || !createForm.username || createForm.password.length < 6}
+            disabled={createLoading || !createForm.username || createForm.password.length < 8}
             startIcon={createLoading ? <CircularProgress size={16} /> : undefined}
             sx={{ borderRadius: 2 }}
           >

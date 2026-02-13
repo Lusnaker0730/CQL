@@ -424,8 +424,9 @@ function InvokeServicePanel() {
                             key={i}
                             variant="outlined"
                             size="small"
-                            href={link.url}
+                            href={link.url && (link.url.startsWith('https://') || link.url.startsWith('http://')) ? link.url : '#'}
                             target="_blank"
+                            rel="noopener noreferrer"
                             sx={{
                               borderColor: 'primary.main',
                               color: 'primary.main',

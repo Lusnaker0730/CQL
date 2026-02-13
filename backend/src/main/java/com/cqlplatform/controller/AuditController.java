@@ -116,6 +116,14 @@ public class AuditController {
 
     private String escapeCsv(String value) {
         if (value == null) return "";
+        // Prevent CSV formula injection
+        if (!value.isEmpty()) {
+            char first = value.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+                value = "'" + value;
+            }
+        }
+        // Escape values containing special CSV characters
         if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }

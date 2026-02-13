@@ -19,7 +19,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import com.cqlplatform.entity.MeasureAuditEntity;
@@ -83,6 +85,11 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> updateMeasure(
             @PathVariable Long id,
             @Valid @RequestBody MeasureDefinition definition) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        MeasureDefinition existing = definitionService.getById(id).orElse(null);
+        if (existing != null && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         MeasureDefinition updated = definitionService.update(id, definition);
         return ResponseEntity.ok(updated);
     }
@@ -257,6 +264,7 @@ public class MeasureController {
     }
 
     // ===== Reports =====
+    // TODO: Report endpoints should enforce admin-only access or filter by authenticated user's ownership
 
     @GetMapping("/reports")
     @Operation(summary = "List Reports", description = "List recent measure reports")
@@ -465,7 +473,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> shareMeasure(
             @PathVariable Long id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.shareMeasure(id, request.getTargetUsername(), currentUser));
     }
 
@@ -474,7 +482,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> unshareMeasure(
             @PathVariable Long id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.unshareMeasure(id, request.getTargetUsername(), currentUser));
     }
 
@@ -483,7 +491,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> transferMeasureOwnership(
             @PathVariable Long id,
             @Valid @RequestBody TransferOwnershipRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.transferOwnership(id, request.getNewOwner(), currentUser));
     }
 
@@ -492,7 +500,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> setMeasureAccessLevel(
             @PathVariable Long id,
             @Valid @RequestBody AccessUpdateRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.setAccessLevel(id, request.getAccessLevel(), currentUser));
     }
 
@@ -515,7 +523,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> submitForReview(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.submitForReview(id, currentUser));
     }
 
@@ -524,7 +532,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> approveMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.approveMeasure(id, currentUser));
     }
 
@@ -533,7 +541,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> rejectMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.rejectMeasure(id, request.getReason(), currentUser));
     }
 
@@ -542,7 +550,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> retireMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.retireMeasure(id, currentUser));
     }
 
@@ -553,7 +561,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> lockMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.lockMeasure(id, currentUser));
     }
 
@@ -562,7 +570,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> unlockMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = request.getCurrentUser() != null ? request.getCurrentUser() : "anonymous";
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         return ResponseEntity.ok(definitionService.unlockMeasure(id, currentUser));
     }
 

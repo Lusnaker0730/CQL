@@ -21,6 +21,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -45,6 +46,15 @@ public class AuthoringController {
     private final QueryBuilderService queryBuilderService;
     private final TwcoreCatalogService twcoreCatalogService;
 
+    private void verifyArtifactOwnership(Long artifactId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        artifactService.getById(artifactId).ifPresent(artifact -> {
+            if (artifact.getOwnerUsername() != null && !artifact.getOwnerUsername().equals(username)) {
+                throw new org.springframework.security.access.AccessDeniedException("You do not own this artifact");
+            }
+        });
+    }
+
     @GetMapping("/artifacts")
     @Operation(summary = "List Artifacts", description = "List the current user's CDS artifacts")
     public ResponseEntity<List<ArtifactSummary>> listArtifacts(Authentication authentication) {
@@ -55,6 +65,7 @@ public class AuthoringController {
     @GetMapping("/artifacts/{id}")
     @Operation(summary = "Get Artifact", description = "Get a CDS artifact with full expression trees")
     public ResponseEntity<ArtifactResponse> getArtifact(@PathVariable Long id) {
+        verifyArtifactOwnership(id);
         return artifactService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -126,6 +137,7 @@ public class AuthoringController {
     public ResponseEntity<Map<String, String>> generateCql(
             @PathVariable Long id,
             @RequestParam(required = false) String fhirVersion) {
+        verifyArtifactOwnership(id);
         String cql = cqlGenerationService.generateCql(id, fhirVersion);
         return ResponseEntity.ok(Map.of("cql", cql));
     }
@@ -133,6 +145,7 @@ public class AuthoringController {
     @PostMapping("/artifacts/{id}/elm")
     @Operation(summary = "Generate ELM", description = "Generate CQL and translate to ELM")
     public ResponseEntity<CqlTranslationResponse> generateElm(@PathVariable Long id) {
+        verifyArtifactOwnership(id);
         CqlTranslationResponse response = cqlGenerationService.generateAndTranslate(id);
         return ResponseEntity.ok(response);
     }
@@ -140,6 +153,7 @@ public class AuthoringController {
     @PostMapping("/artifacts/{id}/validate")
     @Operation(summary = "Validate Artifact CQL", description = "Generate CQL and validate via translation")
     public ResponseEntity<CqlTranslationResponse> validateArtifactCql(@PathVariable Long id) {
+        verifyArtifactOwnership(id);
         CqlTranslationResponse response = cqlGenerationService.validateArtifactCql(id);
         return ResponseEntity.ok(response);
     }
@@ -149,6 +163,7 @@ public class AuthoringController {
     @GetMapping("/artifacts/{id}/external-cql")
     @Operation(summary = "List External CQL", description = "List external CQL libraries for an artifact")
     public ResponseEntity<List<Map<String, Object>>> listExternalCql(@PathVariable Long id) {
+        verifyArtifactOwnership(id);
         return ResponseEntity.ok(externalCqlLibraryService.listByArtifact(id));
     }
 
@@ -157,6 +172,7 @@ public class AuthoringController {
     public ResponseEntity<Map<String, Object>> getExternalCql(
             @PathVariable Long artifactId,
             @PathVariable Long libId) {
+        verifyArtifactOwnership(artifactId);
         return externalCqlLibraryService.getById(libId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -167,6 +183,17 @@ public class AuthoringController {
     public ResponseEntity<Map<String, Object>> uploadExternalCql(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file) throws java.io.IOException {
+        verifyArtifactOwnership(id);
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
+        }
+        if (file.getSize() > 1_048_576) { // 1MB
+            return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds 1MB limit"));
+        }
+        String filename = file.getOriginalFilename();
+        if (filename != null && !filename.toLowerCase().endsWith(".cql")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Only .cql files are accepted"));
+        }
         Map<String, Object> result = externalCqlLibraryService.uploadLibrary(id, file);
         return ResponseEntity.ok(result);
     }
@@ -176,6 +203,7 @@ public class AuthoringController {
     public ResponseEntity<Map<String, Object>> uploadExternalCqlFromContent(
             @PathVariable Long id,
             @RequestBody Map<String, String> request) {
+        verifyArtifactOwnership(id);
         String cqlContent = request.get("cqlContent");
         if (cqlContent == null || cqlContent.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "CQL content is required"));
@@ -189,6 +217,7 @@ public class AuthoringController {
     public ResponseEntity<Void> deleteExternalCql(
             @PathVariable Long artifactId,
             @PathVariable Long libId) {
+        verifyArtifactOwnership(artifactId);
         externalCqlLibraryService.deleteLibrary(libId);
         return ResponseEntity.noContent().build();
     }
@@ -200,6 +229,7 @@ public class AuthoringController {
     public ResponseEntity<Map<String, Object>> testArtifact(
             @PathVariable Long id,
             @RequestBody Map<String, Object> request) {
+        verifyArtifactOwnership(id);
         @SuppressWarnings("unchecked")
         List<String> patientIds = (List<String>) request.getOrDefault("patientIds", List.of());
         String fhirServerUrl = (String) request.get("fhirServerUrl");
@@ -213,6 +243,7 @@ public class AuthoringController {
             @PathVariable Long id,
             @RequestBody Map<String, String> request,
             Authentication authentication) {
+        verifyArtifactOwnership(id);
         String username = authentication.getName();
         String cql = cqlGenerationService.generateCql(id);
 
@@ -249,6 +280,7 @@ public class AuthoringController {
     @Operation(summary = "Save as Library", description = "Save artifact's generated CQL as a CQL Library")
     public ResponseEntity<Map<String, Object>> saveAsLibrary(
             @PathVariable Long id) {
+        verifyArtifactOwnership(id);
         String cql = cqlGenerationService.generateCql(id);
         ArtifactResponse artifact = artifactService.getById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
@@ -266,6 +298,7 @@ public class AuthoringController {
     @GetMapping("/artifacts/{id}/summary")
     @Operation(summary = "Get Artifact Summary", description = "Get artifact summary data for overview")
     public ResponseEntity<ArtifactResponse> getArtifactSummary(@PathVariable Long id) {
+        verifyArtifactOwnership(id);
         return artifactService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

@@ -12,7 +12,7 @@ export const FHIR_SERVER_PRESETS: FhirServerPreset[] = [
   },
   {
     label: 'HAPI FHIR R4',
-    url: 'http://hapi.fhir.org/baseR4',
+    url: 'https://hapi.fhir.org/baseR4',
     description: 'Public HAPI FHIR R4 test server',
   },
   {

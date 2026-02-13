@@ -8,6 +8,7 @@ import com.cqlplatform.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +30,9 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetService passwordResetService;
+
+    @Value("${app.base-url:}")
+    private String configuredBaseUrl;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
@@ -135,6 +139,10 @@ public class AuthController {
     }
 
     private String getBaseUrl(HttpServletRequest request) {
+        if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
+            return configuredBaseUrl;
+        }
+        // Fallback to request headers (only safe behind trusted reverse proxy)
         String scheme = request.getHeader("X-Forwarded-Proto");
         if (scheme == null) scheme = request.getScheme();
         String host = request.getHeader("X-Forwarded-Host");

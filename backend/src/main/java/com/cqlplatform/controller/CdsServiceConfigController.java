@@ -120,10 +120,16 @@ public class CdsServiceConfigController {
     }
 
     @PatchMapping("/{id}/enable")
-    @Operation(summary = "Enable a CDS service", description = "Enables a CDS service")
+    @Operation(summary = "Enable a CDS service", description = "Enables a CDS service (must own or be admin)")
     public ResponseEntity<?> enableService(@PathVariable String id) {
-        log.info("Enabling CDS service: {}", id);
+        String username = getCurrentUsername();
+        log.info("Enabling CDS service: {} by user: {}", id, username);
         try {
+            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
+            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You can only enable your own services"));
+            }
             CdsServiceConfigResponse response = cdsHooksService.toggleServiceEnabled(id, true);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -132,10 +138,16 @@ public class CdsServiceConfigController {
     }
 
     @PatchMapping("/{id}/disable")
-    @Operation(summary = "Disable a CDS service", description = "Disables a CDS service")
+    @Operation(summary = "Disable a CDS service", description = "Disables a CDS service (must own or be admin)")
     public ResponseEntity<?> disableService(@PathVariable String id) {
-        log.info("Disabling CDS service: {}", id);
+        String username = getCurrentUsername();
+        log.info("Disabling CDS service: {} by user: {}", id, username);
         try {
+            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
+            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You can only disable your own services"));
+            }
             CdsServiceConfigResponse response = cdsHooksService.toggleServiceEnabled(id, false);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -174,12 +186,18 @@ public class CdsServiceConfigController {
     }
 
     @PostMapping("/{serviceName}/rollback/{version}")
-    @Operation(summary = "Rollback service", description = "Rolls back a CDS service to a specific version")
+    @Operation(summary = "Rollback service", description = "Rolls back a CDS service to a specific version (must own or be admin)")
     public ResponseEntity<?> rollbackService(
             @PathVariable String serviceName,
             @PathVariable int version) {
-        log.info("Rolling back service {} to version {}", serviceName, version);
+        String username = getCurrentUsername();
+        log.info("Rolling back service {} to version {} by user: {}", serviceName, version, username);
         try {
+            CdsServiceConfigResponse existing = cdsHooksService.getService(serviceName);
+            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You can only rollback your own services"));
+            }
             CdsServiceConfigResponse response = cdsHooksService.rollbackService(serviceName, version);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {

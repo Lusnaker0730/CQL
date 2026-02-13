@@ -1,7 +1,7 @@
 # Docker profile - PostgreSQL database
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://postgres:5432/cqlplatform}
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/cqlplatform?sslmode=prefer}
     username: ${DB_USERNAME:cqlplatform}
     password: ${DB_PASSWORD:cqlplatform}
     driver-class-name: org.postgresql.Driver
@@ -28,7 +28,7 @@ fhir:
 # Logging
 logging:
   level:
-    com.cqlplatform: DEBUG
+    com.cqlplatform: INFO
     org.opencds.cqf: INFO
     ca.uhn.fhir: INFO
     org.flywaydb: INFO

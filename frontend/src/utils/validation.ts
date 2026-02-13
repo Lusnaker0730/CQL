@@ -13,8 +13,19 @@ export function validateUsername(value: string): string | null {
 
 export function validatePassword(value: string): string | null {
   if (!value) return 'Password is required'
-  if (value.length < 6) return 'Password must be at least 6 characters'
+  if (value.length < 8) return 'Password must be at least 8 characters'
+  if (!/[A-Z]/.test(value)) return 'Password must contain at least one uppercase letter'
+  if (!/[a-z]/.test(value)) return 'Password must contain at least one lowercase letter'
+  if (!/[0-9]/.test(value)) return 'Password must contain at least one number'
   return null
+}
+
+export function isValidPassword(password: string): boolean {
+  if (password.length < 8) return false
+  if (!/[A-Z]/.test(password)) return false
+  if (!/[a-z]/.test(password)) return false
+  if (!/[0-9]/.test(password)) return false
+  return true
 }
 
 export function validateFhirUrl(value: string): string | null {

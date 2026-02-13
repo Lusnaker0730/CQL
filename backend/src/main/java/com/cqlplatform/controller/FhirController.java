@@ -187,6 +187,10 @@ public class FhirController {
     public ResponseEntity<FhirBulkExportService.BulkExportStatusResult> pollExportStatus(
             @RequestParam String statusUrl) {
 
+        if (!InputValidator.isValidUrl(statusUrl)) {
+            return ResponseEntity.badRequest().build();
+        }
+
         FhirBulkExportService.BulkExportStatusResult result = bulkExportService.pollExportStatus(statusUrl);
         if ("in-progress".equals(result.status())) {
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(result);
@@ -201,6 +205,10 @@ public class FhirController {
     public ResponseEntity<String> executeTransaction(
             @RequestParam(required = false) String fhirServer,
             @RequestBody String bundleJson) {
+
+        if (!InputValidator.isValidUrl(fhirServer)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        }
 
         Bundle bundle = (Bundle) fhirContext.newJsonParser().parseResource(bundleJson);
         Bundle result = dataProviderService.executeTransaction(fhirServer, bundle);
@@ -338,6 +346,9 @@ public class FhirController {
         if (!InputValidator.isValidResourceId(id)) {
             return ResponseEntity.badRequest().body("{\"error\":\"Invalid resource ID\"}");
         }
+        if (!InputValidator.isValidUrl(fhirServer)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        }
 
         Resource resource = dataProviderService.getResource(fhirServer, resourceType, id);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
@@ -352,6 +363,10 @@ public class FhirController {
             @PathVariable String resourceType,
             @RequestParam(required = false) String fhirServer,
             @RequestBody String resourceJson) {
+
+        if (!InputValidator.isValidUrl(fhirServer)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
         Resource created = dataProviderService.createResource(fhirServer, resource);
@@ -369,6 +384,10 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer,
             @RequestBody String resourceJson) {
 
+        if (!InputValidator.isValidUrl(fhirServer)) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        }
+
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
         resource.setId(id);
         Resource updated = dataProviderService.updateResource(fhirServer, resource);
@@ -384,6 +403,10 @@ public class FhirController {
             @PathVariable String resourceType,
             @PathVariable String id,
             @RequestParam(required = false) String fhirServer) {
+
+        if (!InputValidator.isValidUrl(fhirServer)) {
+            return ResponseEntity.badRequest().build();
+        }
 
         dataProviderService.deleteResource(fhirServer, resourceType, id);
         return ResponseEntity.noContent().build();

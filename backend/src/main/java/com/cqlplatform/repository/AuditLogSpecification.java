@@ -39,8 +39,12 @@ public class AuditLogSpecification {
         return spec;
     }
 
+    private static String escapeLikeWildcards(String input) {
+        return input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+
     private static Specification<AuditLogEntity> usernameContains(String username) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + username.toLowerCase() + "%");
+        return (root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + escapeLikeWildcards(username.toLowerCase()) + "%");
     }
 
     private static Specification<AuditLogEntity> actionEquals(String action) {
@@ -48,7 +52,7 @@ public class AuditLogSpecification {
     }
 
     private static Specification<AuditLogEntity> resourceTypeEquals(String resourceType) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("resourceType")), "%" + resourceType.toLowerCase() + "%");
+        return (root, query, cb) -> cb.like(cb.lower(root.get("resourceType")), "%" + escapeLikeWildcards(resourceType.toLowerCase()) + "%");
     }
 
     private static Specification<AuditLogEntity> statusCodeEquals(Integer statusCode) {

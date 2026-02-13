@@ -38,7 +38,30 @@ public final class InputValidator {
 
     public static boolean isValidUrl(String url) {
         if (url == null) return true;
-        return url.startsWith("http://") || url.startsWith("https://");
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            String host = uri.getHost();
+            if (host == null) return false;
+            // Block URLs with embedded credentials
+            if (uri.getUserInfo() != null) return false;
+            // Resolve and check for private IPs
+            java.net.InetAddress addr = java.net.InetAddress.getByName(host);
+            if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() ||
+                addr.isSiteLocalAddress() || addr.isAnyLocalAddress() ||
+                addr.isMulticastAddress()) {
+                // Allow localhost in dev, but still validate
+                return isLocalDevelopment();
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean isLocalDevelopment() {
+        String profile = System.getProperty("spring.profiles.active", System.getenv().getOrDefault("SPRING_PROFILES_ACTIVE", ""));
+        return profile.contains("dev");
     }
 
     public static boolean isValidDateParam(String date) {

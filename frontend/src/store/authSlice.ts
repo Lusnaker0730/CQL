@@ -7,14 +7,29 @@ interface AuthState {
   loading: boolean
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp ? payload.exp * 1000 < Date.now() : false
+  } catch {
+    return true
+  }
+}
+
 const token = localStorage.getItem('token')
 const userStr = localStorage.getItem('user')
 const user = userStr ? JSON.parse(userStr) : null
+const isExpired = token ? isTokenExpired(token) : true
+
+if (isExpired && token) {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+}
 
 const initialState: AuthState = {
-  user: user,
-  token: token,
-  isAuthenticated: !!token,
+  user: isExpired ? null : user,
+  token: isExpired ? null : token,
+  isAuthenticated: !isExpired,
   loading: false,
 }
 

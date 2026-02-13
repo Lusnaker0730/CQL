@@ -26,6 +26,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private boolean enabled;
 
     private final Map<String, TokenBucket> buckets = new ConcurrentHashMap<>();
+    private final AtomicLong lastCleanup = new AtomicLong(System.currentTimeMillis());
+    private static final long CLEANUP_INTERVAL_MS = 300_000; // 5 minutes
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -35,6 +37,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (!enabled || "OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
+        }
+
+        // Periodic cleanup of expired buckets
+        long now = System.currentTimeMillis();
+        if (now - lastCleanup.get() > CLEANUP_INTERVAL_MS) {
+            if (lastCleanup.compareAndSet(lastCleanup.get(), now)) {
+                buckets.entrySet().removeIf(entry -> entry.getValue().isExpired(CLEANUP_INTERVAL_MS));
+            }
         }
 
         String clientKey = getClientKey(request);
@@ -53,10 +63,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientKey(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            return xff.split(",")[0].trim();
-        }
+        // Use remote address as the primary identifier.
+        // X-Forwarded-For is only trustworthy behind a reverse proxy that overwrites it.
         return request.getRemoteAddr();
     }
 
@@ -64,21 +72,28 @@ public class RateLimitFilter extends OncePerRequestFilter {
         private final int maxTokens;
         private final AtomicLong tokens;
         private volatile long lastRefillTime;
+        private volatile long lastAccessTime;
 
         TokenBucket(int maxTokens) {
             this.maxTokens = maxTokens;
             this.tokens = new AtomicLong(maxTokens);
             this.lastRefillTime = System.currentTimeMillis();
+            this.lastAccessTime = System.currentTimeMillis();
         }
 
         synchronized boolean tryConsume() {
             refill();
+            lastAccessTime = System.currentTimeMillis();
             long current = tokens.get();
             if (current > 0) {
                 tokens.decrementAndGet();
                 return true;
             }
             return false;
+        }
+
+        boolean isExpired(long expirationMs) {
+            return System.currentTimeMillis() - lastAccessTime > expirationMs;
         }
 
         int getRemaining() {
