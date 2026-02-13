@@ -160,7 +160,7 @@ function InvokeServicePanel() {
 
   const [selectedService, setSelectedService] = useState<string>('')
   const [patientId, setPatientId] = useState('')
-  const [fhirServer, setFhirServer] = useState('http://localhost:8090/fhir')
+  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)

@@ -24,7 +24,7 @@ import BulkExportTab from './BulkExportTab'
 
 export default function FhirBrowser() {
   const [tabValue, setTabValue] = useState(0)
-  const [fhirServer, setFhirServer] = useState('http://localhost:8090/fhir')
+  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [resourceType, setResourceType] = useState('Patient')
 

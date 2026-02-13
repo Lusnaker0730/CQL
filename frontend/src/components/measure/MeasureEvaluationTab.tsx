@@ -35,7 +35,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
   const [patientId, setPatientId] = useState('')
   const [periodStart, setPeriodStart] = useState('2024-01-01')
   const [periodEnd, setPeriodEnd] = useState('2024-12-31')
-  const [fhirServer, setFhirServer] = useState('http://localhost:8090/fhir')
+  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [showSchedules, setShowSchedules] = useState(false)
   const [dateError, setDateError] = useState<string | null>(null)
