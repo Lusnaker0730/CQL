@@ -7,7 +7,7 @@ import LoginPage from '../LoginPage'
 describe('LoginPage', () => {
   it('should render login form', () => {
     render(<LoginPage />, { route: '/login' })
-    expect(screen.getByText('CQL Platform')).toBeInTheDocument()
+    expect(screen.getByText('TWCORE CQL Platform')).toBeInTheDocument()
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
   })

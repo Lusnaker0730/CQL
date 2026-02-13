@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios'
 import type {
   CqlTranslationRequest,
   CqlTranslationResponse,
@@ -75,7 +75,7 @@ const api = axios.create({
 })
 
 // Request interceptor: attach JWT token
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -85,8 +85,8 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor: handle 401/403 authentication errors
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response: AxiosResponse) => response,
+  (error: AxiosError) => {
     const status = error.response?.status
     if (status === 401 || status === 403) {
       localStorage.removeItem('token')
@@ -374,7 +374,7 @@ const cdsApi = axios.create({
 })
 
 // Attach JWT token for sandbox requests
-cdsApi.interceptors.request.use((config) => {
+cdsApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

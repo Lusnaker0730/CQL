@@ -55,6 +55,7 @@ export function BundleBuilderProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useBundleBuilder() {
   const ctx = useContext(BundleBuilderContext)
   if (!ctx) throw new Error('useBundleBuilder must be used within BundleBuilderProvider')
@@ -62,6 +63,7 @@ export function useBundleBuilder() {
 }
 
 /** Serialize entries to a FHIR Bundle JSON string */
+// eslint-disable-next-line react-refresh/only-export-components
 export function serializeToBundle(entries: BundleEntry[]): string {
   const bundle = {
     resourceType: 'Bundle',
@@ -80,6 +82,7 @@ export function serializeToBundle(entries: BundleEntry[]): string {
 }
 
 /** Parse a FHIR Bundle JSON string to BundleEntry[] */
+// eslint-disable-next-line react-refresh/only-export-components
 export function parseFromBundle(json: string): BundleEntry[] {
   const parsed = JSON.parse(json)
   if (parsed.resourceType !== 'Bundle' || !Array.isArray(parsed.entry)) {

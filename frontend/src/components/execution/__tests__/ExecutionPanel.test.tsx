@@ -13,10 +13,8 @@ describe('ExecutionPanel', () => {
 
   it('should show default FHIR server URL', () => {
     render(<ExecutionPanel />)
-    const fhirInput = screen.getAllByRole('textbox').find(
-      (input) => (input as HTMLInputElement).value?.includes('hapi.fhir.org')
-    )
-    expect(fhirInput).toBeDefined()
+    const fhirInput = screen.getByRole('combobox', { name: /fhir server url/i }) as HTMLInputElement
+    expect(fhirInput.value).toContain('hapi-fhir:8080')
   })
 
   it('should render execute button', () => {

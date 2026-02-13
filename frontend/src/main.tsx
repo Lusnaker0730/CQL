@@ -22,6 +22,7 @@ const queryClient = new QueryClient({
   },
 })
 
+// eslint-disable-next-line react-refresh/only-export-components
 function ThemedApp() {
   const { preferences } = usePreferences()
   const theme = useMemo(() => createAppTheme(preferences.themeMode), [preferences.themeMode])

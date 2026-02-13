@@ -3,11 +3,13 @@ package com.cqlplatform.service.cds;
 import com.cqlplatform.entity.CdsFeedbackEntity;
 import com.cqlplatform.entity.CdsServiceConfigEntity;
 import com.cqlplatform.entity.CdsServicePrefetchEntity;
+import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.cds.*;
 import com.cqlplatform.repository.CdsFeedbackRepository;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
+import com.cqlplatform.repository.CqlLibraryRepository;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.validation.HookTypeValidator;
 import ca.uhn.fhir.context.FhirContext;
@@ -54,6 +56,9 @@ public class CdsHooksService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private CdsFeedbackRepository feedbackRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private CqlLibraryRepository cqlLibraryRepository;
 
     @PostConstruct
     public void loadServicesFromDatabase() {
@@ -107,6 +112,9 @@ public class CdsHooksService {
         }
         entity = repository.save(entity);
 
+        // Sync CQL content to cql_library table
+        syncCqlLibrary(entity.getCqlContent());
+
         CdsServiceConfig config = entityToConfig(entity);
         if (Boolean.TRUE.equals(entity.getEnabled())) {
             // Remove older versions from cache, add latest
@@ -158,6 +166,9 @@ public class CdsHooksService {
         }
 
         entity = repository.save(entity);
+
+        // Sync CQL content to cql_library table
+        syncCqlLibrary(entity.getCqlContent());
 
         if (Boolean.TRUE.equals(entity.getEnabled())) {
             serviceConfigs.put(id, entityToConfig(entity));
@@ -310,7 +321,8 @@ public class CdsHooksService {
     public CdsResponse invokeService(String serviceId, CdsRequest request) {
         String patientId = request.getContext() != null ? request.getContext().getPatientId() : "unknown";
         log.info("Invoking CDS service: {} for patient: {}", serviceId, patientId);
-        if (cdsInvocationCounter != null) cdsInvocationCounter.increment();
+        if (cdsInvocationCounter != null)
+            cdsInvocationCounter.increment();
         Timer.Sample sample = cdsInvocationTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
@@ -318,7 +330,8 @@ public class CdsHooksService {
 
         if (config == null) {
             CdsResponse response = handleDefaultService(serviceId, request);
-            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+            if (sample != null && cdsInvocationTimer != null)
+                sample.stop(cdsInvocationTimer);
             return response;
         }
 
@@ -357,7 +370,8 @@ public class CdsHooksService {
             }
 
             CdsResponse response = buildCardsFromExecution(config, execResponse);
-            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+            if (sample != null && cdsInvocationTimer != null)
+                sample.stop(cdsInvocationTimer);
 
             // Record analytics
             if (analyticsService != null) {
@@ -367,8 +381,10 @@ public class CdsHooksService {
 
             return response;
         } catch (Exception e) {
-            if (cdsInvocationErrorCounter != null) cdsInvocationErrorCounter.increment();
-            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
+            if (cdsInvocationErrorCounter != null)
+                cdsInvocationErrorCounter.increment();
+            if (sample != null && cdsInvocationTimer != null)
+                sample.stop(cdsInvocationTimer);
 
             // Record analytics for error
             if (analyticsService != null) {
@@ -407,9 +423,11 @@ public class CdsHooksService {
                     .cardUuid(item.getCard())
                     .outcome(item.getOutcome())
                     .outcomeTimestamp(item.getOutcomeTimestamp() != null
-                            ? LocalDateTime.parse(item.getOutcomeTimestamp()) : null)
+                            ? LocalDateTime.parse(item.getOutcomeTimestamp())
+                            : null)
                     .acceptedSuggestions(item.getAcceptedSuggestions() != null
-                            ? serializeToJson(item.getAcceptedSuggestions()) : null)
+                            ? serializeToJson(item.getAcceptedSuggestions())
+                            : null)
                     .build();
 
             if (item.getOverrideReason() != null) {
@@ -590,6 +608,7 @@ public class CdsHooksService {
         // Collect non-Tuple results into a single consolidated card
         StringBuilder consolidatedDetail = new StringBuilder();
         String consolidatedIndicator = "info";
+        boolean hasExplicitCards = false;
 
         if (execResponse.getResults() != null) {
             for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults()
@@ -612,7 +631,7 @@ public class CdsHooksService {
                 String exprName = entry.getKey();
 
                 // Tuple with CDS card fields (summary/detail/indicator) → separate card
-                if (value.getClass().getSimpleName().contains("Tuple")) {
+                if (isTuple(value)) {
                     try {
                         String summary = getField(value, "summary");
                         String detail = getField(value, "detail");
@@ -622,6 +641,7 @@ public class CdsHooksService {
                         List<CdsResponse.Suggestion> suggestions = parseSuggestions(value);
 
                         if (summary != null) {
+                            hasExplicitCards = true;
                             cards.add(CdsResponse.Card.builder()
                                     .uuid(UUID.randomUUID().toString())
                                     .summary(summary)
@@ -639,7 +659,8 @@ public class CdsHooksService {
                         Map<String, Object> elements = getTupleElements(value);
                         if (!elements.isEmpty()) {
                             elements.forEach((k, v) -> {
-                                if (consolidatedDetail.length() > 0) consolidatedDetail.append("\n");
+                                if (consolidatedDetail.length() > 0)
+                                    consolidatedDetail.append("\n");
                                 consolidatedDetail.append("**").append(k).append("**: ").append(formatCardValue(v));
                             });
                         }
@@ -652,20 +673,25 @@ public class CdsHooksService {
                 // All other types: append to consolidated detail
                 String formattedLine = formatExpressionLine(exprName, value);
                 if (formattedLine != null) {
-                    if (consolidatedDetail.length() > 0) consolidatedDetail.append("\n");
+                    if (consolidatedDetail.length() > 0)
+                        consolidatedDetail.append("\n");
                     consolidatedDetail.append(formattedLine);
 
                     // Escalate indicator to warning if a Boolean condition is true
                     if (value instanceof Boolean && (Boolean) value) {
                         consolidatedIndicator = config.getDefaultIndicator() != null
-                                ? config.getDefaultIndicator() : "warning";
+                                ? config.getDefaultIndicator()
+                                : "warning";
                     }
                 }
             }
         }
 
-        // Build a single consolidated card from all non-Tuple results
-        if (consolidatedDetail.length() > 0) {
+        // Only build the consolidated card when no explicit Tuple cards were produced.
+        // When the CQL defines explicit card Tuples (with summary/detail/indicator),
+        // the other expressions are intermediate logic and should not appear as a
+        // separate card.
+        if (!hasExplicitCards && consolidatedDetail.length() > 0) {
             cards.add(CdsResponse.Card.builder()
                     .uuid(UUID.randomUUID().toString())
                     .summary(config.getTitle())
@@ -688,7 +714,8 @@ public class CdsHooksService {
     }
 
     /**
-     * Format a single CQL expression result as a markdown line for the consolidated card.
+     * Format a single CQL expression result as a markdown line for the consolidated
+     * card.
      */
     private String formatExpressionLine(String exprName, Object value) {
         if (value instanceof Boolean) {
@@ -733,7 +760,8 @@ public class CdsHooksService {
             sb.append("**").append(exprName).append("**:");
             int count = 0;
             for (Object item : (Iterable<?>) value) {
-                if (item == null) continue;
+                if (item == null)
+                    continue;
                 count++;
                 sb.append("\n  ").append(count).append(". ").append(formatCardValue(item));
             }
@@ -749,11 +777,13 @@ public class CdsHooksService {
     }
 
     private String formatCardValue(Object value) {
-        if (value == null) return "null";
+        if (value == null)
+            return "null";
         if (value instanceof String || value instanceof Number || value instanceof Boolean) {
             return value.toString();
         }
-        if (value instanceof java.time.temporal.Temporal) return value.toString();
+        if (value instanceof java.time.temporal.Temporal)
+            return value.toString();
         if (value instanceof org.hl7.fhir.r4.model.Quantity) {
             org.hl7.fhir.r4.model.Quantity q = (org.hl7.fhir.r4.model.Quantity) value;
             return q.getValue() + (q.getUnit() != null ? " " + q.getUnit() : "");
@@ -815,7 +845,8 @@ public class CdsHooksService {
         } else if (resource instanceof org.hl7.fhir.r4.model.MedicationRequest medReq) {
             if (medReq.hasMedicationCodeableConcept()) {
                 org.hl7.fhir.r4.model.CodeableConcept med = medReq.getMedicationCodeableConcept();
-                sb.append("\nMedication: ").append(med.hasText() ? med.getText() : med.getCodingFirstRep().getDisplay());
+                sb.append("\nMedication: ")
+                        .append(med.hasText() ? med.getText() : med.getCodingFirstRep().getDisplay());
             }
             if (medReq.hasStatus()) {
                 sb.append("\nStatus: ").append(medReq.getStatus().toCode());
@@ -1097,6 +1128,66 @@ public class CdsHooksService {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Sync CQL content from CDS service config to the cql_library table.
+     * The CQL engine's DatabaseLibrarySourceProvider resolves libraries from
+     * cql_library first,
+     * so we must keep it in sync with the CDS service's inline CQL.
+     */
+    private void syncCqlLibrary(String cqlContent) {
+        if (cqlContent == null || cqlContent.isBlank())
+            return;
+        if (cqlLibraryRepository == null)
+            return;
+
+        // Parse library name and version from CQL: library "Name" version 'X.Y.Z'
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("library\\s+\"?([^\"\\s]+)\"?\\s+version\\s+'([^']+)'")
+                .matcher(cqlContent);
+
+        if (!matcher.find()) {
+            log.warn("Could not parse library name/version from CQL content, skipping sync");
+            return;
+        }
+
+        String libName = matcher.group(1);
+        String libVersion = matcher.group(2);
+
+        try {
+            Optional<CqlLibraryEntity> existing = cqlLibraryRepository.findByNameAndVersion(libName, libVersion);
+            if (existing.isPresent()) {
+                CqlLibraryEntity entity = existing.get();
+                entity.setCqlContent(cqlContent);
+                entity.setElmJson(null); // Clear cached ELM so it's re-translated
+                cqlLibraryRepository.save(entity);
+                log.info("Synced cql_library '{}' version '{}' with updated CQL content", libName, libVersion);
+            } else {
+                CqlLibraryEntity newLib = CqlLibraryEntity.builder()
+                        .name(libName)
+                        .version(libVersion)
+                        .cqlContent(cqlContent)
+                        .status("active")
+                        .build();
+                cqlLibraryRepository.save(newLib);
+                log.info("Created cql_library '{}' version '{}' from CDS service CQL", libName, libVersion);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync CQL library: {}", e.getMessage());
+        }
+    }
+
+    private boolean isTuple(Object value) {
+        if (value == null) {
+            return false;
+        }
+        try {
+            java.lang.reflect.Method m = value.getClass().getMethod("getElements");
+            return java.util.Map.class.isAssignableFrom(m.getReturnType());
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     @lombok.Data

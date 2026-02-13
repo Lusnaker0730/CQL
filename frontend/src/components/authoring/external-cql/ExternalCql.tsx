@@ -6,6 +6,7 @@ import {
 } from '@mui/material'
 import {
   Delete as DeleteIcon, Visibility as ViewIcon, CloudUpload as UploadIcon,
+  AutoFixHigh as ApplyIcon,
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useExternalCqlList, useUploadExternalCql, useDeleteExternalCql } from '../../../hooks/useExternalCql'
@@ -13,9 +14,10 @@ import type { ExternalCqlLibrary } from '../../../types/authoring'
 
 interface ExternalCqlProps {
   artifactId: number
+  onApplyToArtifact?: (lib: ExternalCqlLibrary) => void
 }
 
-export default function ExternalCql({ artifactId }: ExternalCqlProps) {
+export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalCqlProps) {
   const { data: libraries = [], isLoading, error } = useExternalCqlList(artifactId)
   const uploadMutation = useUploadExternalCql(artifactId)
   const deleteMutation = useDeleteExternalCql(artifactId)
@@ -267,6 +269,22 @@ export default function ExternalCql({ artifactId }: ExternalCqlProps) {
           )}
         </DialogContent>
         <DialogActions>
+          {onApplyToArtifact && detailsLib?.details?.definitions && detailsLib.details.definitions.length > 0 && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<ApplyIcon />}
+              onClick={() => {
+                if (detailsLib) {
+                  onApplyToArtifact(detailsLib)
+                  setDetailsLib(null)
+                }
+              }}
+              sx={{ mr: 'auto' }}
+            >
+              Apply to Artifact
+            </Button>
+          )}
           <Button onClick={() => setDetailsLib(null)}>Close</Button>
         </DialogActions>
       </Dialog>

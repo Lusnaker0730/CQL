@@ -9,6 +9,7 @@ interface TabPanelProps {
   sx?: SxProps<Theme>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function a11yProps(index: number, prefix: string) {
   return {
     id: `${prefix}-tab-${index}`,

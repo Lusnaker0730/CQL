@@ -44,6 +44,42 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // System definitions that should NOT be mapped as base elements
+  const SYSTEM_DEFINITIONS = new Set([
+    'MeetsInclusionCriteria', 'MeetsExclusionCriteria', 'InPopulation',
+    'Recommendation', 'Errors', 'Patient',
+  ])
+
+  /** Create an externalCqlRef element pointing to a definition in an external library */
+  const makeExternalCqlRef = (
+    defName: string,
+    libName: string,
+    libId: number,
+    libVersion?: string,
+    returnType = 'System.Any'
+  ) => ({
+    uniqueId: crypto.randomUUID(),
+    type: 'externalCqlRef',
+    name: defName,
+    returnType,
+    fields: [
+      { id: 'element_name', type: 'string', name: 'Element Name', value: defName },
+      { id: 'reference_id', type: 'string', name: 'Reference ID', value: `${libId}:${defName}`, static: true },
+      { id: 'library_name', type: 'string', name: 'Library', value: libName, static: true },
+      ...(libVersion ? [{ id: 'library_version', type: 'string', name: 'Library Version', value: libVersion, static: true }] : []),
+    ],
+    modifiers: [],
+  })
+
+  /** Wrap elements in a conjunction group for the expression tree */
+  const wrapInConjunction = (name: string, elements: ReturnType<typeof makeExternalCqlRef>[]) => ({
+    id: 'And',
+    name,
+    conjunction: true,
+    returnType: 'boolean',
+    childInstances: elements,
+  })
+
   const handleCreateArtifact = () => {
     if (!importResult) return
 
@@ -65,17 +101,76 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
       },
       {
         onSuccess: async (artifact) => {
-          // Upload the original CQL content as an External CQL library
-          if (importResult.cqlContent) {
-            setIsUploading(true)
-            try {
-              await authoringApi.uploadExternalCqlContent(artifact.id, importResult.cqlContent)
-            } catch (err) {
-              console.warn('Failed to upload CQL as external library:', err)
-            } finally {
-              setIsUploading(false)
-            }
+          if (!importResult.cqlContent) {
+            onImported(artifact.id)
+            handleClose()
+            return
           }
+
+          setIsUploading(true)
+          try {
+            // Upload the original CQL content as an External CQL library
+            const extLib = await authoringApi.uploadExternalCqlContent(artifact.id, importResult.cqlContent)
+
+            // Auto-populate expression trees from the uploaded library's definitions
+            const defs = extLib.details?.definitions ?? []
+            const libName = extLib.name
+            const libId = extLib.id
+            const libVersion = extLib.version
+
+            // Find key definitions
+            const inclusionDef = defs.find((d) => d.name === 'MeetsInclusionCriteria')
+            const exclusionDef = defs.find((d) => d.name === 'MeetsExclusionCriteria')
+
+            // Build expression tree elements
+            const inclusionElements = inclusionDef
+              ? [makeExternalCqlRef(inclusionDef.name, libName, libId, libVersion, inclusionDef.resultType || 'System.Boolean')]
+              : []
+            const exclusionElements = exclusionDef
+              ? [makeExternalCqlRef(exclusionDef.name, libName, libId, libVersion, exclusionDef.resultType || 'System.Boolean')]
+              : []
+
+            // Remaining definitions → baseElements
+            const baseElements = defs
+              .filter((d) => !SYSTEM_DEFINITIONS.has(d.name))
+              .map((d) => ({
+                uniqueId: crypto.randomUUID(),
+                name: d.name,
+                type: 'externalCqlRef',
+                returnType: d.resultType || 'System.Any',
+                fields: [
+                  { id: 'element_name', type: 'string', name: 'Element Name', value: d.name },
+                  { id: 'reference_id', type: 'string', name: 'Reference ID', value: `${libId}:${d.name}`, static: true },
+                  { id: 'library_name', type: 'string', name: 'Library', value: libName, static: true },
+                  ...(libVersion ? [{ id: 'library_version', type: 'string', name: 'Library Version', value: libVersion, static: true }] : []),
+                ],
+                modifiers: [],
+              }))
+
+            // Update the artifact with populated expression trees
+            const hasChanges = inclusionElements.length > 0 || exclusionElements.length > 0 || baseElements.length > 0
+            if (hasChanges) {
+              try {
+                await authoringApi.updateArtifact(artifact.id, {
+                  name: artifact.name,
+                  ...(inclusionElements.length > 0 && {
+                    expTreeInclude: wrapInConjunction('MeetsInclusionCriteria', inclusionElements),
+                  }),
+                  ...(exclusionElements.length > 0 && {
+                    expTreeExclude: wrapInConjunction('MeetsExclusionCriteria', exclusionElements),
+                  }),
+                  ...(baseElements.length > 0 && { baseElements }),
+                })
+              } catch (err) {
+                console.warn('Failed to auto-populate expression trees:', err)
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to upload CQL as external library:', err)
+          } finally {
+            setIsUploading(false)
+          }
+
           onImported(artifact.id)
           handleClose()
         },

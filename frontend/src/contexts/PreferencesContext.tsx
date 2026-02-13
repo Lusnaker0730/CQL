@@ -39,6 +39,7 @@ export interface PreferencesContextType {
   resetPreferences: () => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PreferencesContext = createContext<PreferencesContextType | null>(null)
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {

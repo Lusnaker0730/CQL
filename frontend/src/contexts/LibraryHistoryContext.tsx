@@ -1,4 +1,4 @@
-import { createContext, useCallback, type ReactNode } from 'react'
+import { createContext, useCallback, useMemo, type ReactNode } from 'react'
 import { useFavorites, useRecent, useAddFavorite, useRemoveFavorite, useAddRecent, useClearRecent } from '../hooks/useLibraryPrefs'
 import type { UserFavorite, UserRecent } from '../types'
 
@@ -20,6 +20,7 @@ export interface LibraryHistoryContextType {
   clearRecent: () => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const LibraryHistoryContext = createContext<LibraryHistoryContextType | null>(null)
 
 export function LibraryHistoryProvider({ children }: { children: ReactNode }) {
@@ -31,7 +32,7 @@ export function LibraryHistoryProvider({ children }: { children: ReactNode }) {
   const clearRecentMutation = useClearRecent()
 
   // Build a Set of library IDs that are favorited
-  const favoriteIds = new Set(favoritesData.map((f) => f.libraryId))
+  const favoriteIds = useMemo(() => new Set(favoritesData.map((f) => f.libraryId)), [favoritesData])
 
   // Convert API data to the legacy format for backward compatibility
   const recent: LibraryHistoryItem[] = recentData.map((r) => ({

@@ -18,7 +18,7 @@ describe('executionSlice', () => {
     const store = createStore()
     const state = store.getState().execution
     expect(state.patientId).toBe('')
-    expect(state.fhirServerUrl).toContain('hapi.fhir.org')
+    expect(state.fhirServerUrl).toBe('http://hapi-fhir:8080/fhir')
     expect(state.isExecuting).toBe(false)
     expect(state.results).toEqual({})
     expect(state.errors).toEqual([])

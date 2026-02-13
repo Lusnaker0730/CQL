@@ -20,7 +20,7 @@
     "@mui/material": "^5.14.0",
     "@reduxjs/toolkit": "^2.0.0",
     "@tanstack/react-query": "^5.8.0",
-    "axios": "^1.6.0",
+    "axios": "^1.13.5",
     "react": "^18.2.0",
     "react-diff-viewer-continued": "^4.1.2",
     "react-dom": "^18.2.0",

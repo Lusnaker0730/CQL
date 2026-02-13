@@ -115,6 +115,7 @@ export default function ArtifactWorkspace({
     setLocalArtifact(artifact)
     setIsDirty(false)
     resetHistory()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when artifact.id changes, not on every artifact object mutation
   }, [artifact.id, resetHistory])
 
   const updateLocal = useCallback((updates: Partial<Artifact>) => {
@@ -448,8 +449,8 @@ export default function ArtifactWorkspace({
               label={label}
               icon={
                 st === 'has-error' ? <ErrorIcon fontSize="small" color="warning" /> :
-                st === 'has-content' ? <CheckIcon fontSize="small" color="success" /> :
-                undefined
+                  st === 'has-content' ? <CheckIcon fontSize="small" color="success" /> :
+                    undefined
               }
               iconPosition="end"
               sx={{ minHeight: 48 }}
@@ -522,7 +523,77 @@ export default function ArtifactWorkspace({
             onChange={(errorStatement) => updateLocal({ errorStatement })}
           />
         )}
-        {tab === 7 && <ExternalCql artifactId={localArtifact.id} />}
+        {tab === 7 && (
+          <ExternalCql
+            artifactId={localArtifact.id}
+            onApplyToArtifact={(lib) => {
+              const defs = lib.details?.definitions ?? []
+              const SYSTEM_DEFS = new Set([
+                'MeetsInclusionCriteria', 'MeetsExclusionCriteria', 'InPopulation',
+                'Recommendation', 'Errors', 'Patient',
+              ])
+
+              const makeRef = (d: { name: string; resultType?: string }) => ({
+                uniqueId: crypto.randomUUID(),
+                type: 'externalCqlRef' as const,
+                name: d.name,
+                returnType: d.resultType || 'System.Any',
+                fields: [
+                  { id: 'element_name', type: 'string', name: 'Element Name', value: d.name },
+                  { id: 'reference_id', type: 'string', name: 'Reference ID', value: `${lib.id}:${d.name}`, static: true },
+                  { id: 'library_name', type: 'string', name: 'Library', value: lib.name, static: true },
+                  ...(lib.version ? [{ id: 'library_version', type: 'string', name: 'Library Version', value: lib.version, static: true }] : []),
+                ],
+                modifiers: [],
+              })
+
+              const wrapConj = (name: string, elements: ReturnType<typeof makeRef>[]) => ({
+                id: 'And',
+                name,
+                conjunction: true,
+                returnType: 'boolean',
+                childInstances: elements,
+              })
+
+              const incDef = defs.find((d) => d.name === 'MeetsInclusionCriteria')
+              const excDef = defs.find((d) => d.name === 'MeetsExclusionCriteria')
+
+              const updates: Partial<Artifact> = {}
+              if (incDef) {
+                updates.expTreeInclude = wrapConj('MeetsInclusionCriteria', [
+                  makeRef({ ...incDef, resultType: incDef.resultType || 'System.Boolean' }),
+                ]) as ConjunctionGroupType
+              }
+              if (excDef) {
+                updates.expTreeExclude = wrapConj('MeetsExclusionCriteria', [
+                  makeRef({ ...excDef, resultType: excDef.resultType || 'System.Boolean' }),
+                ]) as ConjunctionGroupType
+              }
+
+              const baseEls = defs
+                .filter((d) => !SYSTEM_DEFS.has(d.name))
+                .map((d) => ({
+                  uniqueId: crypto.randomUUID(),
+                  name: d.name,
+                  type: 'externalCqlRef' as const,
+                  returnType: d.resultType || 'System.Any',
+                  fields: [
+                    { id: 'element_name', type: 'string', name: 'Element Name', value: d.name },
+                    { id: 'reference_id', type: 'string', name: 'Reference ID', value: `${lib.id}:${d.name}`, static: true },
+                    { id: 'library_name', type: 'string', name: 'Library', value: lib.name, static: true },
+                    ...(lib.version ? [{ id: 'library_version', type: 'string', name: 'Library Version', value: lib.version, static: true }] : []),
+                  ],
+                  modifiers: [],
+                }))
+              if (baseEls.length > 0) updates.baseElements = baseEls
+
+              if (Object.keys(updates).length > 0) {
+                updateLocal(updates)
+                setTab(0) // Switch to Inclusions tab
+              }
+            }}
+          />
+        )}
         {tab === 8 && (
           <CqlPreviewPanel
             artifactId={localArtifact.id}

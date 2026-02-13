@@ -53,6 +53,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
   useEffect(() => {
     setForm({ ...measure })
     setIsDirty(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset form only when measure.id changes
   }, [measure.id])
 
   const updateField = (field: keyof MeasureDefinition, value: unknown) => {

@@ -9,6 +9,8 @@ import executionReducer from '../store/executionSlice'
 import authReducer from '../store/authSlice'
 import { ThemeProvider } from '@mui/material/styles'
 import { theme } from '../theme'
+import { PreferencesProvider } from '../contexts/PreferencesContext'
+import { NotificationProvider } from '../contexts/NotificationContext'
 
 function createTestStore(preloadedState?: Record<string, unknown>) {
   return configureStore({
@@ -49,11 +51,15 @@ function customRender(
     return (
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider theme={theme}>
-            <MemoryRouter initialEntries={[route]}>
-              {children}
-            </MemoryRouter>
-          </ThemeProvider>
+          <PreferencesProvider>
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <MemoryRouter initialEntries={[route]}>
+                  {children}
+                </MemoryRouter>
+              </ThemeProvider>
+            </NotificationProvider>
+          </PreferencesProvider>
         </QueryClientProvider>
       </Provider>
     )

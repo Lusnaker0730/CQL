@@ -15,7 +15,7 @@ const authenticatedState = {
 describe('Header', () => {
   it('should render CQL Platform title', () => {
     render(<Header />, { preloadedState: authenticatedState })
-    expect(screen.getByText('CQL Platform')).toBeInTheDocument()
+    expect(screen.getByText('TWCORE CQL Platform')).toBeInTheDocument()
   })
 
   it('should render navigation items', () => {
