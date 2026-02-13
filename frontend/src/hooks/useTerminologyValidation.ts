@@ -64,7 +64,10 @@ export function useTerminologyValidation(elmJson: string | null) {
                   name: vs.name,
                   url: vs.id,
                   status: 'error',
-                  detail: err?.response?.data?.message || err.message || 'Failed to expand',
+                  detail: err?.response?.data?.issue?.[0]?.diagnostics
+                    || err?.response?.data?.message
+                    || err.message
+                    || 'Failed to expand',
                 })
               })
           )
@@ -112,7 +115,10 @@ export function useTerminologyValidation(elmJson: string | null) {
                   system: systemUrl,
                   code: codeDef.id,
                   status: 'error',
-                  detail: err?.response?.data?.message || err.message || 'Lookup failed',
+                  detail: err?.response?.data?.issue?.[0]?.diagnostics
+                    || err?.response?.data?.message
+                    || err.message
+                    || 'Lookup failed',
                 })
               })
           )

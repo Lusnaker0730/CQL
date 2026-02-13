@@ -158,6 +158,12 @@ export interface Recommendation {
   comment?: string
   links?: RecommendationLink[]
   suggestions?: Suggestion[]
+  // CDS Card Tuple mode
+  cdsCardMode?: boolean
+  detail?: string
+  indicator?: string
+  sourceLabel?: string
+  selectionBehavior?: string
 }
 
 export interface SubpopulationRef {
@@ -175,6 +181,7 @@ export interface Suggestion {
   uid: string
   label: string
   actions?: SuggestionAction[]
+  isRecommended?: boolean
 }
 
 export interface SuggestionAction {

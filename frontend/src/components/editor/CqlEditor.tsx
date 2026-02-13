@@ -50,7 +50,7 @@ export default function CqlEditor({
   // Clean smart quotes, zero-width chars, and non-breaking spaces from pasted text
   const sanitizePastedText = (text: string): string => {
     return text
-      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')   // zero-width chars
+      .replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')    // zero-width chars
       .replace(/\u00A0/g, ' ')                        // non-breaking space → space
       .replace(/[\u2018\u2019\u201A]/g, "'")           // smart single quotes → '
       .replace(/[\u201C\u201D\u201E]/g, '"')           // smart double quotes → "
@@ -66,7 +66,7 @@ export default function CqlEditor({
     registerCqlLanguage(monaco, librariesRef.current)
 
     editor.updateOptions({
-      theme: 'cql-theme',
+      theme: preferences.themeMode === 'dark' ? 'cql-theme-dark' : 'cql-theme',
     })
 
     // Sanitize pasted content from ChatGPT/LLM outputs
@@ -137,6 +137,14 @@ export default function CqlEditor({
       }
     }
   }, [cqlContent])
+
+  // Switch Monaco theme when dark mode preference changes
+  useEffect(() => {
+    if (!monacoRef.current) return
+    monacoRef.current.editor.setTheme(
+      preferences.themeMode === 'dark' ? 'cql-theme-dark' : 'cql-theme'
+    )
+  }, [preferences.themeMode])
 
   // Go-to-line: reveal and focus requested line, then clear
   useEffect(() => {
@@ -222,6 +230,7 @@ export default function CqlEditor({
         height="100%"
         defaultLanguage="cql"
         defaultValue={cqlContent}
+        theme={preferences.themeMode === 'dark' ? 'vs-dark' : 'vs'}
         onChange={handleChange}
         onMount={handleEditorDidMount}
         loading={<CircularProgress />}

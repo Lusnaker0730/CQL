@@ -29,6 +29,12 @@ public class VsacService {
         this.fhirContext = fhirContext;
         this.vsacApiUrl = vsacApiUrl;
         this.vsacApiKey = vsacApiKey;
+
+        if (vsacApiKey == null || vsacApiKey.isBlank()) {
+            log.warn("VSAC API key is not configured. VSAC ValueSet operations will fail. Set VSAC_API_KEY environment variable.");
+        } else {
+            log.info("VSAC API key configured ({}...)", vsacApiKey.substring(0, Math.min(8, vsacApiKey.length())));
+        }
     }
 
     private IGenericClient createVsacClient() {

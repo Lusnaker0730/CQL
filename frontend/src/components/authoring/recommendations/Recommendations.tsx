@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
-  MenuItem, Select, FormControl, InputLabel, Chip, Divider,
+  MenuItem, Select, FormControl, InputLabel, Chip, Divider, Collapse, Switch, FormControlLabel,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
 } from '@mui/material'
 import {
@@ -219,8 +219,20 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   </Tooltip>
                 </Stack>
 
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={!!rec.cdsCardMode}
+                      onChange={(e) => handleUpdate(rec.uid, { cdsCardMode: e.target.checked })}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="body2">CDS Card Mode</Typography>}
+                  sx={{ mb: 1 }}
+                />
+
                 <TextField
-                  label="Recommendation Text"
+                  label={rec.cdsCardMode ? 'Summary (Card Headline)' : 'Recommendation Text'}
                   value={rec.text}
                   onChange={(e) => handleUpdate(rec.uid, { text: e.target.value })}
                   fullWidth
@@ -231,6 +243,55 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   error={!rec.text.trim()}
                   helperText={!rec.text.trim() ? 'Recommendation text is required' : undefined}
                 />
+
+                <Collapse in={!!rec.cdsCardMode}>
+                  <Stack spacing={2} sx={{ mb: 2 }}>
+                    <TextField
+                      label="Detail (Card Body)"
+                      value={rec.detail || ''}
+                      onChange={(e) => handleUpdate(rec.uid, { detail: e.target.value })}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      size="small"
+                      placeholder="Markdown-formatted body text for the card..."
+                    />
+                    <Stack direction="row" spacing={2}>
+                      <FormControl size="small" sx={{ minWidth: 160 }}>
+                        <InputLabel>Indicator</InputLabel>
+                        <Select
+                          value={rec.indicator || 'info'}
+                          label="Indicator"
+                          onChange={(e) => handleUpdate(rec.uid, { indicator: e.target.value })}
+                        >
+                          <MenuItem value="info">Info</MenuItem>
+                          <MenuItem value="warning">Warning</MenuItem>
+                          <MenuItem value="critical">Critical</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <TextField
+                        label="Source Label"
+                        value={rec.sourceLabel || ''}
+                        onChange={(e) => handleUpdate(rec.uid, { sourceLabel: e.target.value })}
+                        size="small"
+                        sx={{ flex: 1 }}
+                        placeholder="e.g. CDS Connect"
+                      />
+                      <FormControl size="small" sx={{ minWidth: 180 }}>
+                        <InputLabel>Selection Behavior</InputLabel>
+                        <Select
+                          value={rec.selectionBehavior || ''}
+                          label="Selection Behavior"
+                          onChange={(e) => handleUpdate(rec.uid, { selectionBehavior: e.target.value })}
+                        >
+                          <MenuItem value="">(None)</MenuItem>
+                          <MenuItem value="at-most-one">At Most One</MenuItem>
+                          <MenuItem value="any">Any</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Stack>
+                  </Stack>
+                </Collapse>
 
                 <Stack direction="row" spacing={2} mb={2} alignItems="center">
                   <FormControl size="small" sx={{ minWidth: 260 }}>
@@ -353,6 +414,18 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                           onChange={(e) => handleUpdateSuggestion(rec.uid, si, { label: e.target.value })}
                           sx={{ flex: 1 }}
                         />
+                        {rec.cdsCardMode && (
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={!!sug.isRecommended}
+                                onChange={(e) => handleUpdateSuggestion(rec.uid, si, { isRecommended: e.target.checked })}
+                                size="small"
+                              />
+                            }
+                            label={<Typography variant="caption">Recommended</Typography>}
+                          />
+                        )}
                         <Button size="small" startIcon={<AddIcon />} onClick={() => handleAddAction(rec.uid, si)}>
                           Add Action
                         </Button>

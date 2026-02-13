@@ -99,6 +99,7 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip label={`#${i + 1}`} size="small" />
                     {rec.grade && <Chip label={`Grade ${rec.grade}`} size="small" variant="outlined" />}
+                    {rec.cdsCardMode && <Chip label="CDS Card" size="small" color="info" />}
                   </Stack>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
                     {rec.text || '(No text)'}

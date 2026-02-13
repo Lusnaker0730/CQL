@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 public class CqlArtifactBuilder {
 
     private static final String FHIR_HELPERS = "FHIRHelpers";
-    private static final String C3F_LIBRARY = "CDS_Connect_Commons_for_FHIRv401";
+    private static final String C3F_LIBRARY = "CDSConnectCommonsForFHIRv401";
 
     /** Stored per-build for cross-reference lookups */
     private List<Map<String, Object>> currentBaseElements;
@@ -22,36 +22,34 @@ public class CqlArtifactBuilder {
     private static final Map<String, String> FHIR_VERSION_MAP = Map.of(
             "DSTU2", "1.0.2",
             "STU3", "3.0.2",
-            "R4", "4.0.1"
-    );
+            "R4", "4.0.1");
 
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = Map.of(
             "DSTU2", "1.0.2",
             "STU3", "3.0.0",
-            "R4", "4.0.1"
-    );
+            "R4", "4.0.1");
 
     @SuppressWarnings("unchecked")
     public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
-                           Map<String, Object> expTreeExclude,
-                           List<Map<String, Object>> subpopulations,
-                           List<Map<String, Object>> baseElements,
-                           List<Map<String, Object>> parameters,
-                           Map<String, Object> errorStatement,
-                           List<Map<String, Object>> recommendations) {
+            Map<String, Object> expTreeExclude,
+            List<Map<String, Object>> subpopulations,
+            List<Map<String, Object>> baseElements,
+            List<Map<String, Object>> parameters,
+            Map<String, Object> errorStatement,
+            List<Map<String, Object>> recommendations) {
         return buildCql(name, version, expTreeInclude, expTreeExclude, subpopulations,
                 baseElements, parameters, errorStatement, recommendations, "R4");
     }
 
     @SuppressWarnings("unchecked")
     public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
-                           Map<String, Object> expTreeExclude,
-                           List<Map<String, Object>> subpopulations,
-                           List<Map<String, Object>> baseElements,
-                           List<Map<String, Object>> parameters,
-                           Map<String, Object> errorStatement,
-                           List<Map<String, Object>> recommendations,
-                           String fhirVersion) {
+            Map<String, Object> expTreeExclude,
+            List<Map<String, Object>> subpopulations,
+            List<Map<String, Object>> baseElements,
+            List<Map<String, Object>> parameters,
+            Map<String, Object> errorStatement,
+            List<Map<String, Object>> recommendations,
+            String fhirVersion) {
 
         this.currentBaseElements = baseElements;
 
@@ -65,19 +63,23 @@ public class CqlArtifactBuilder {
         Set<String> includes = new LinkedHashSet<>();
 
         includes.add(String.format("include %s version '%s' called FHIRHelpers", FHIR_HELPERS, resolvedHelpersVersion));
-        includes.add(String.format("include %s version '1.1.1' called C3F", C3F_LIBRARY));
+        includes.add(String.format("include %s version '2.1.0' called C3F", C3F_LIBRARY));
 
-        // Collect value sets and codes from trees
+        // Collect value sets, codes, and external library includes from trees
         collectFromTree(expTreeInclude, valueSets, codeSystems, codes);
         collectFromTree(expTreeExclude, valueSets, codeSystems, codes);
+        collectExternalIncludes(expTreeInclude, includes);
+        collectExternalIncludes(expTreeExclude, includes);
         if (baseElements != null) {
             for (Map<String, Object> be : baseElements) {
                 collectFromTree(be, valueSets, codeSystems, codes);
+                collectExternalIncludes(be, includes);
             }
         }
         if (subpopulations != null) {
             for (Map<String, Object> sp : subpopulations) {
                 collectFromTree(sp, valueSets, codeSystems, codes);
+                collectExternalIncludes(sp, includes);
             }
         }
 
@@ -163,7 +165,8 @@ public class CqlArtifactBuilder {
         if (subpopulations != null) {
             for (Map<String, Object> sp : subpopulations) {
                 Boolean special = (Boolean) sp.get("special");
-                if (Boolean.TRUE.equals(special)) continue;
+                if (Boolean.TRUE.equals(special))
+                    continue;
                 String spName = getStr(sp, "subpopulationName", "Subpopulation");
                 String spExpr = buildConjunctionExpression(sp);
                 cql.append(String.format("define \"%s\":%n  %s%n%n", spName, spExpr));
@@ -172,46 +175,20 @@ public class CqlArtifactBuilder {
 
         // Recommendations
         if (recommendations != null && !recommendations.isEmpty()) {
-            if (recommendations.size() == 1 && !hasSubpopulationRefs(recommendations.get(0))) {
-                // Simple single recommendation
-                cql.append("define \"Recommendation\":\n");
-                cql.append("  if \"InPopulation\" then ");
-                String recText = getStr(recommendations.get(0), "text", "Consider action");
-                cql.append(String.format("'%s'", recText.replace("'", "\\'")));
-                cql.append("\n  else null\n\n");
-            } else {
-                // Multiple recommendations or subpopulation-targeted
-                for (int i = 0; i < recommendations.size(); i++) {
-                    Map<String, Object> rec = recommendations.get(i);
-                    String recText = getStr(rec, "text", "Consider action");
-                    String defName = recommendations.size() == 1 ? "Recommendation" : "Recommendation " + (i + 1);
+            for (int i = 0; i < recommendations.size(); i++) {
+                Map<String, Object> rec = recommendations.get(i);
+                String defName = recommendations.size() == 1 ? "Recommendation" : "Recommendation " + (i + 1);
+                String condition = buildRecommendationCondition(rec);
+                boolean isCdsCard = Boolean.TRUE.equals(rec.get("cdsCardMode"));
 
-                    List<Map<String, Object>> spRefs = (List<Map<String, Object>>) rec.get("subpopulations");
-                    if (spRefs != null && !spRefs.isEmpty()) {
-                        List<String> conditions = new ArrayList<>();
-                        boolean hasSpecialOnly = true;
-                        for (Map<String, Object> spRef : spRefs) {
-                            String spId = getStr(spRef, "uniqueId", "");
-                            String spName = getStr(spRef, "subpopulationName", "");
-                            if (spId.equals("__doesnt_meet_inclusion__")) {
-                                conditions.add("not \"MeetsInclusionCriteria\"");
-                            } else if (spId.equals("__meets_exclusion__")) {
-                                conditions.add("\"MeetsExclusionCriteria\"");
-                            } else if (!spName.isEmpty()) {
-                                conditions.add(String.format("\"InPopulation\" and \"%s\"", spName));
-                                hasSpecialOnly = false;
-                            }
-                        }
-                        if (conditions.isEmpty()) {
-                            conditions.add("\"InPopulation\"");
-                        }
-                        cql.append(String.format("define \"%s\":%n  if %s then '%s'%n  else null%n%n",
-                                defName, String.join(" and ", conditions), recText.replace("'", "\\'")));
-                    } else {
-                        cql.append(String.format("define \"%s\":%n  if \"InPopulation\" then '%s'%n  else null%n%n",
-                                defName, recText.replace("'", "\\'")));
-                    }
+                cql.append(String.format("define \"%s\":%n  if %s then ", defName));
+                if (isCdsCard) {
+                    cql.append(buildCdsCardTuple(rec));
+                } else {
+                    String recText = getStr(rec, "text", "Consider action");
+                    cql.append(String.format("'%s'", escapeCqlString(recText)));
                 }
+                cql.append("\n  else null\n\n");
             }
         }
 
@@ -338,7 +315,8 @@ public class CqlArtifactBuilder {
     }
 
     private String mapUnitToAgeFunction(String unit) {
-        if (unit == null) return "AgeInYears()";
+        if (unit == null)
+            return "AgeInYears()";
         switch (unit.toLowerCase()) {
             case "year":
             case "years":
@@ -362,16 +340,19 @@ public class CqlArtifactBuilder {
 
     private String buildGenderExpression(List<Map<String, Object>> fields) {
         String gender = getFieldValue(fields, "gender", null);
-        if (gender == null || gender.isEmpty()) return "true";
+        if (gender == null || gender.isEmpty())
+            return "true";
         return String.format("Patient.gender = '%s'", gender.toLowerCase());
     }
 
     @SuppressWarnings("unchecked")
     private String buildGenericResourceExpression(String type, List<Map<String, Object>> fields) {
-        // Extract FHIR resource type from template type (e.g., GenericObservation_vsac -> Observation)
+        // Extract FHIR resource type from template type (e.g., GenericObservation_vsac
+        // -> Observation)
         String resourceType = type.replace("Generic", "").replace("_vsac", "");
 
-        if (fields == null) return String.format("[%s]", resourceType);
+        if (fields == null)
+            return String.format("[%s]", resourceType);
 
         for (Map<String, Object> field : fields) {
             // Check for valueSets array (new rich format)
@@ -396,7 +377,8 @@ public class CqlArtifactBuilder {
                     Map<String, Object> codeSystem = (Map<String, Object>) code.get("codeSystem");
                     String csName = codeSystem != null ? getStr(codeSystem, "name", "") : "";
                     if (codeVal != null) {
-                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, display != null ? display : codeVal));
+                        queryParts
+                                .add(String.format("[%s: \"%s\"]", resourceType, display != null ? display : codeVal));
                     }
                 }
             }
@@ -488,7 +470,8 @@ public class CqlArtifactBuilder {
                         return String.format("%s(%s, '%s')", cqlLibFunc, expr, unit);
                     }
                 }
-                if (cqlLibFunc != null) return String.format("%s(%s)", cqlLibFunc, expr);
+                if (cqlLibFunc != null)
+                    return String.format("%s(%s)", cqlLibFunc, expr);
                 return expr;
             }
             case "LookBackModifier": {
@@ -500,7 +483,8 @@ public class CqlArtifactBuilder {
                         return String.format("%s(%s, %s %s)", cqlLibFunc, expr, val, unit);
                     }
                 }
-                if (cqlLibFunc != null) return String.format("%s(%s)", cqlLibFunc, expr);
+                if (cqlLibFunc != null)
+                    return String.format("%s(%s)", cqlLibFunc, expr);
                 return expr;
             }
             case "EqualsString": {
@@ -624,11 +608,124 @@ public class CqlArtifactBuilder {
     }
 
     private String formatDateTimeValue(String value) {
-        if (value == null || value.isEmpty()) return "null";
+        if (value == null || value.isEmpty())
+            return "null";
         if (value.contains("T")) {
             return "@" + value;
         }
         return "@" + value;
+    }
+
+    /**
+     * Build the if-condition for a recommendation based on its subpopulation refs.
+     */
+    @SuppressWarnings("unchecked")
+    private String buildRecommendationCondition(Map<String, Object> rec) {
+        List<Map<String, Object>> spRefs = (List<Map<String, Object>>) rec.get("subpopulations");
+        if (spRefs != null && !spRefs.isEmpty()) {
+            List<String> conditions = new ArrayList<>();
+            for (Map<String, Object> spRef : spRefs) {
+                String spId = getStr(spRef, "uniqueId", "");
+                String spName = getStr(spRef, "subpopulationName", "");
+                if (spId.equals("__doesnt_meet_inclusion__")) {
+                    conditions.add("not \"MeetsInclusionCriteria\"");
+                } else if (spId.equals("__meets_exclusion__")) {
+                    conditions.add("\"MeetsExclusionCriteria\"");
+                } else if (!spName.isEmpty()) {
+                    conditions.add(String.format("\"InPopulation\" and \"%s\"", spName));
+                }
+            }
+            if (conditions.isEmpty()) {
+                return "\"InPopulation\"";
+            }
+            return String.join(" and ", conditions);
+        }
+        return "\"InPopulation\"";
+    }
+
+    /**
+     * Build a CQL Tuple literal for a CDS Card recommendation.
+     */
+    @SuppressWarnings("unchecked")
+    private String buildCdsCardTuple(Map<String, Object> rec) {
+        String summary = getStr(rec, "text", "Consider action");
+        String detail = getStr(rec, "detail", null);
+        String indicator = getStr(rec, "indicator", "info");
+        String sourceLabel = getStr(rec, "sourceLabel", null);
+        String selectionBehavior = getStr(rec, "selectionBehavior", null);
+        List<Map<String, Object>> suggestions = (List<Map<String, Object>>) rec.get("suggestions");
+
+        StringBuilder sb = new StringBuilder("Tuple {\n");
+        sb.append(String.format("    summary: '%s'", escapeCqlString(summary)));
+        if (detail != null && !detail.isEmpty()) {
+            sb.append(String.format(",\n    detail: '%s'", escapeCqlString(detail)));
+        }
+        sb.append(String.format(",\n    indicator: '%s'", escapeCqlString(indicator)));
+        if (sourceLabel != null && !sourceLabel.isEmpty()) {
+            sb.append(String.format(",\n    sourceLabel: '%s'", escapeCqlString(sourceLabel)));
+        }
+        if (selectionBehavior != null && !selectionBehavior.isEmpty()) {
+            sb.append(String.format(",\n    selectionBehavior: '%s'", escapeCqlString(selectionBehavior)));
+        }
+        if (suggestions != null && !suggestions.isEmpty()) {
+            sb.append(",\n    suggestions: {\n");
+            for (int i = 0; i < suggestions.size(); i++) {
+                if (i > 0) sb.append(",\n");
+                sb.append("      ").append(buildSuggestionTuple(suggestions.get(i)));
+            }
+            sb.append("\n    }");
+        }
+        sb.append("\n  }");
+        return sb.toString();
+    }
+
+    /**
+     * Build a CQL Tuple literal for a single suggestion.
+     */
+    @SuppressWarnings("unchecked")
+    private String buildSuggestionTuple(Map<String, Object> sug) {
+        String label = getStr(sug, "label", "");
+        Boolean isRecommended = (Boolean) sug.get("isRecommended");
+        List<Map<String, Object>> actions = (List<Map<String, Object>>) sug.get("actions");
+
+        StringBuilder sb = new StringBuilder("Tuple { ");
+        sb.append(String.format("label: '%s'", escapeCqlString(label)));
+        if (Boolean.TRUE.equals(isRecommended)) {
+            sb.append(", isRecommended: true");
+        }
+        if (actions != null && !actions.isEmpty()) {
+            sb.append(", actions: {\n");
+            for (int i = 0; i < actions.size(); i++) {
+                if (i > 0) sb.append(",\n");
+                sb.append("        ").append(buildActionTuple(actions.get(i)));
+            }
+            sb.append("\n      }");
+        }
+        sb.append(" }");
+        return sb.toString();
+    }
+
+    /**
+     * Build a CQL Tuple literal for a single suggestion action.
+     */
+    private String buildActionTuple(Map<String, Object> action) {
+        String type = getStr(action, "type", "create");
+        String description = getStr(action, "description", "");
+        StringBuilder sb = new StringBuilder("Tuple { ");
+        sb.append(String.format("type: '%s'", escapeCqlString(type)));
+        if (!description.isEmpty()) {
+            sb.append(String.format(", description: '%s'", escapeCqlString(description)));
+        }
+        sb.append(" }");
+        return sb.toString();
+    }
+
+    /**
+     * Escape single quotes and backslashes for CQL string literals.
+     */
+    private String escapeCqlString(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("'", "\\'");
     }
 
     @SuppressWarnings("unchecked")
@@ -636,7 +733,8 @@ public class CqlArtifactBuilder {
         List<Map<String, Object>> clauses = (List<Map<String, Object>>) errorStatement.get("ifThenClauses");
         String elseClause = getStr(errorStatement, "elseClause", null);
 
-        if (clauses == null || clauses.isEmpty()) return null;
+        if (clauses == null || clauses.isEmpty())
+            return null;
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < clauses.size(); i++) {
@@ -665,7 +763,8 @@ public class CqlArtifactBuilder {
     }
 
     private String findBaseElementName(String uniqueId) {
-        if (currentBaseElements == null || uniqueId == null) return null;
+        if (currentBaseElements == null || uniqueId == null)
+            return null;
         for (Map<String, Object> be : currentBaseElements) {
             if (uniqueId.equals(be.get("uniqueId"))) {
                 return getStr(be, "name", null);
@@ -675,20 +774,61 @@ public class CqlArtifactBuilder {
     }
 
     private String mapErrorConditionToCql(String condValue) {
-        if (condValue == null) return "true";
+        if (condValue == null)
+            return "true";
         switch (condValue) {
-            case "null": return "\"Recommendation\" is null";
-            case "doesnt_meet_inclusion": return "not \"MeetsInclusionCriteria\"";
-            case "meets_exclusion": return "\"MeetsExclusionCriteria\"";
-            case "errors": return "\"Errors\" is not null";
-            default: return condValue;
+            case "null":
+                return "\"Recommendation\" is null";
+            case "doesnt_meet_inclusion":
+                return "not \"MeetsInclusionCriteria\"";
+            case "meets_exclusion":
+                return "\"MeetsExclusionCriteria\"";
+            case "errors":
+                return "\"Errors\" is not null";
+            default:
+                return condValue;
+        }
+    }
+
+    /**
+     * Scan expression tree for externalCqlRef elements and collect include
+     * statements
+     * for the external libraries they reference.
+     */
+    @SuppressWarnings("unchecked")
+    private void collectExternalIncludes(Map<String, Object> node, Set<String> includes) {
+        if (node == null)
+            return;
+
+        String type = getStr(node, "type", "");
+        if ("externalCqlRef".equals(type)) {
+            List<Map<String, Object>> fields = (List<Map<String, Object>>) node.get("fields");
+            String libName = getFieldValue(fields, "library_name", null);
+            String libVersion = getFieldValue(fields, "library_version", null);
+            if (libName != null && !libName.isEmpty()) {
+                String includeStmt;
+                if (libVersion != null && !libVersion.isEmpty()) {
+                    includeStmt = String.format("include %s version '%s' called %s", libName, libVersion, libName);
+                } else {
+                    includeStmt = String.format("include %s called %s", libName, libName);
+                }
+                includes.add(includeStmt);
+            }
+        }
+
+        List<Map<String, Object>> children = (List<Map<String, Object>>) node.get("childInstances");
+        if (children != null) {
+            for (Map<String, Object> child : children) {
+                collectExternalIncludes(child, includes);
+            }
         }
     }
 
     @SuppressWarnings("unchecked")
     private void collectFromTree(Map<String, Object> node, Set<String> valueSets,
-                                  Set<String> codeSystems, Set<String> codes) {
-        if (node == null) return;
+            Set<String> codeSystems, Set<String> codes) {
+        if (node == null)
+            return;
 
         List<Map<String, Object>> fields = (List<Map<String, Object>>) node.get("fields");
         if (fields != null) {
@@ -698,7 +838,8 @@ public class CqlArtifactBuilder {
                 if (value instanceof Map) {
                     Map<String, Object> vsVal = (Map<String, Object>) value;
                     String vsName = (String) vsVal.get("name");
-                    if (vsName != null) valueSets.add(vsName);
+                    if (vsName != null)
+                        valueSets.add(vsName);
                 }
 
                 // Rich valueSets array
@@ -707,7 +848,8 @@ public class CqlArtifactBuilder {
                     for (Map<String, Object> vs : vsRefs) {
                         String vsName = (String) vs.get("name");
                         String vsOid = (String) vs.get("oid");
-                        if (vsName != null) valueSets.add(vsName);
+                        if (vsName != null)
+                            valueSets.add(vsName);
                     }
                 }
 
@@ -748,8 +890,7 @@ public class CqlArtifactBuilder {
             "http://hl7.org/fhir/sid/icd-10-cm", "ICD-10-CM",
             "http://hl7.org/fhir/sid/icd-9-cm", "ICD-9-CM",
             "http://www.nlm.nih.gov/research/umls/rxnorm", "RXNORM",
-            "http://ncimeta.nci.nih.gov", "NCI"
-    );
+            "http://ncimeta.nci.nih.gov", "NCI");
 
     private String getCodeSystemDisplayName(String systemUrl) {
         return CODE_SYSTEM_NAMES.getOrDefault(systemUrl, systemUrl);
@@ -762,27 +903,42 @@ public class CqlArtifactBuilder {
     }
 
     private String mapParameterType(String type) {
-        if (type == null) return "Boolean";
+        if (type == null)
+            return "Boolean";
         switch (type.toLowerCase()) {
-            case "boolean": return "Boolean";
-            case "integer": return "Integer";
-            case "decimal": return "Decimal";
-            case "string": return "String";
-            case "datetime": return "DateTime";
-            case "time": return "Time";
-            case "code": return "Code";
-            case "concept": return "Concept";
-            case "quantity": return "Quantity";
-            case "interval<integer>": return "Interval<Integer>";
-            case "interval<datetime>": return "Interval<DateTime>";
-            default: return type;
+            case "boolean":
+                return "Boolean";
+            case "integer":
+                return "Integer";
+            case "decimal":
+                return "Decimal";
+            case "string":
+                return "String";
+            case "datetime":
+                return "DateTime";
+            case "time":
+                return "Time";
+            case "code":
+                return "Code";
+            case "concept":
+                return "Concept";
+            case "quantity":
+                return "Quantity";
+            case "interval<integer>":
+                return "Interval<Integer>";
+            case "interval<datetime>":
+                return "Interval<DateTime>";
+            default:
+                return type;
         }
     }
 
     @SuppressWarnings("unchecked")
     private String formatParameterDefault(String type, Object value) {
-        if (value == null) return null;
-        if (type == null) return value.toString();
+        if (value == null)
+            return null;
+        if (type == null)
+            return value.toString();
 
         switch (type.toLowerCase()) {
             case "boolean":
@@ -794,8 +950,10 @@ public class CqlArtifactBuilder {
                 return String.format("'%s'", value.toString().replace("'", "\\'"));
             case "datetime":
                 String dtVal = value.toString();
-                if (!dtVal.startsWith("@")) dtVal = "@" + dtVal;
-                if (!dtVal.contains("T")) dtVal += "T00:00:00";
+                if (!dtVal.startsWith("@"))
+                    dtVal = "@" + dtVal;
+                if (!dtVal.contains("T"))
+                    dtVal += "T00:00:00";
                 return dtVal;
             case "time":
                 String tVal = value.toString();
@@ -861,14 +1019,16 @@ public class CqlArtifactBuilder {
     }
 
     private String getStr(Map<String, Object> map, String key, String defaultVal) {
-        if (map == null) return defaultVal;
+        if (map == null)
+            return defaultVal;
         Object val = map.get(key);
         return val != null ? val.toString() : defaultVal;
     }
 
     @SuppressWarnings("unchecked")
     private String getFieldValue(List<Map<String, Object>> fields, String fieldId, String defaultVal) {
-        if (fields == null) return defaultVal;
+        if (fields == null)
+            return defaultVal;
         for (Map<String, Object> field : fields) {
             if (fieldId.equals(field.get("id"))) {
                 Object val = field.get("value");

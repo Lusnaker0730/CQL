@@ -1430,4 +1430,30 @@ export function registerCqlLanguage(
       'editorBracketMatch.border': '#0D737740',
     },
   })
+
+  monaco.editor.defineTheme('cql-theme-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '4DD0E1', fontStyle: 'bold' },
+      { token: 'type', foreground: '90CAF9' },
+      { token: 'type.identifier', foreground: '64B5F6' },
+      { token: 'string', foreground: 'CE9178' },
+      { token: 'number', foreground: 'B5CEA8' },
+      { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+      { token: 'operator', foreground: 'D4D4D4' },
+      { token: 'identifier', foreground: 'D4D4D4' },
+    ],
+    colors: {
+      'editor.background': '#1E1E1E',
+      'editor.foreground': '#D4D4D4',
+      'editorLineNumber.foreground': '#858585',
+      'editorLineNumber.activeForeground': '#4DD0E1',
+      'editorCursor.foreground': '#4DD0E1',
+      'editor.selectionBackground': '#4DD0E130',
+      'editor.lineHighlightBackground': '#4DD0E108',
+      'editorBracketMatch.background': '#4DD0E120',
+      'editorBracketMatch.border': '#4DD0E140',
+    },
+  })
 }

@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material'
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
 import GradientButton from '../common/GradientButton'
+import { usePreferences } from '../../hooks/usePreferences'
 
 interface VersionOption {
   id: string | number
@@ -63,6 +64,7 @@ export default function VersionDiffDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [diffTab, setDiffTab] = useState(0)
+  const { preferences } = usePreferences()
 
   const handleCompare = async () => {
     if (!oldVersionId || !newVersionId) return
@@ -225,7 +227,7 @@ export default function VersionDiffDialog({
                   leftTitle={`v${diffResult.oldVersion}`}
                   rightTitle={`v${diffResult.newVersion}`}
                   compareMethod={DiffMethod.WORDS}
-                  useDarkTheme={false}
+                  useDarkTheme={preferences.themeMode === 'dark'}
                 />
               </Box>
             )}
