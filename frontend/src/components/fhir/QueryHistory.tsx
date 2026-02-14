@@ -88,6 +88,7 @@ export default function QueryHistory({
                     size="small"
                     onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id) }}
                     sx={{ p: 0 }}
+                    aria-label="Toggle favorite"
                   >
                     <StarBorderIcon sx={{ fontSize: 14 }} />
                   </IconButton>
@@ -96,7 +97,7 @@ export default function QueryHistory({
             />
           ))}
           <Tooltip title="Clear history">
-            <IconButton size="small" onClick={onClearHistory} sx={{ ml: 0.5 }}>
+            <IconButton size="small" onClick={onClearHistory} sx={{ ml: 0.5 }} aria-label="Clear history">
               <ClearIcon fontSize="small" />
             </IconButton>
           </Tooltip>

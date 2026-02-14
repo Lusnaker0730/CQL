@@ -49,7 +49,7 @@ export default function ExecutionPanel() {
     if (!fhirServerUrl && preferences.defaultFhirServerUrl) {
       dispatch(setFhirServerUrl(preferences.defaultFhirServerUrl))
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fhirServerUrl, preferences.defaultFhirServerUrl, dispatch])
   const executeMutation = useExecute()
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set())
   const [debugMode, setDebugMode] = useState(false)

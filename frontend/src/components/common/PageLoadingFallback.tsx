@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import { Box, CircularProgress, Typography, Stack } from '@mui/material'
 
-export default function PageLoadingFallback() {
+function PageLoadingFallback() {
   return (
     <Box
       sx={{
@@ -23,3 +24,5 @@ export default function PageLoadingFallback() {
     </Box>
   )
 }
+
+export default memo(PageLoadingFallback)

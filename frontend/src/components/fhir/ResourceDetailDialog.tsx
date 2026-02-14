@@ -21,7 +21,7 @@ import {
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { formatJson } from '../../utils/fhirBrowserUtils'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import ResourceEditorDialog from './ResourceEditorDialog'
 
 interface ResourceDetailDialogProps {
@@ -77,7 +77,7 @@ export default function ResourceDetailDialog({
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {resourceType}/{resourceId}
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" aria-label="Close dialog">
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -127,8 +127,8 @@ export default function ResourceDetailDialog({
 
       <ConfirmDeleteDialog
         open={deleteOpen}
-        resourceType={resourceType}
-        resourceId={resourceId}
+        title="Delete Resource"
+        itemName={`${resourceType}/${resourceId}`}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeleteOpen(false)}
         isPending={deleteMutation.isPending}

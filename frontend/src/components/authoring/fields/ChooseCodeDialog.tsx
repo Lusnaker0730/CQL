@@ -8,21 +8,8 @@ import {
 import { Close as CloseIcon, CheckCircle as ValidIcon, Search as SearchIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../../hooks/useTerminology'
+import { ALL_CODE_SYSTEMS, findCodeSystemByUrl } from '../../../constants/codeSystems'
 import type { CodeReference } from '../../../types/authoring'
-
-const CODE_SYSTEMS = [
-  { label: 'SNOMED', url: 'http://snomed.info/sct' },
-  { label: 'ICD-9-CM', url: 'http://hl7.org/fhir/sid/icd-9-cm' },
-  { label: 'ICD-10-CM', url: 'http://hl7.org/fhir/sid/icd-10-cm' },
-  { label: 'NCI', url: 'http://ncimeta.nci.nih.gov' },
-  { label: 'LOINC', url: 'http://loinc.org' },
-  { label: 'RXNORM', url: 'http://www.nlm.nih.gov/research/umls/rxnorm' },
-  { label: 'ICD-10-CM (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw' },
-  { label: 'ICD-10-PCS (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw' },
-  { label: 'ATC (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medcation-atc-tw' },
-  { label: 'NHI Medication (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw' },
-  { label: 'NHI Department (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw' },
-]
 
 interface ChooseCodeDialogProps {
   open: boolean
@@ -61,7 +48,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
     } else {
       setIsOther(false)
       setSystemUrl(value)
-      const match = CODE_SYSTEMS.find((cs) => cs.url === value)
+      const match = findCodeSystemByUrl(value)
       setSystemLabel(match?.label || '')
     }
     setValidated(false)
@@ -95,7 +82,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
   }
 
   const handleSelectFromSearch = (result: { system: string; code: string; display: string }) => {
-    const csLabel = CODE_SYSTEMS.find((cs) => cs.url === result.system)?.label || systemLabel || result.system
+    const csLabel = findCodeSystemByUrl(result.system)?.label || systemLabel || result.system
     setValidated(true)
     setValidationResult({
       code: result.code,
@@ -140,7 +127,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         Choose code
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
 
       <DialogContent>
@@ -160,7 +147,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
               label="Code system"
               onChange={(e) => handleSystemChange(e.target.value)}
             >
-              {CODE_SYSTEMS.map((cs) => (
+              {ALL_CODE_SYSTEMS.map((cs) => (
                 <MenuItem key={cs.url} value={cs.url}>{cs.label}</MenuItem>
               ))}
               <MenuItem value="__other__">Other</MenuItem>

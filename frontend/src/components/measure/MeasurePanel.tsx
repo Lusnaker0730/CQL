@@ -38,6 +38,7 @@ import type { RootState } from '../../store'
 import { setCqlContent } from '../../store/editorSlice'
 import MeasureScheduleManager from './MeasureScheduleManager'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
+import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 
 interface MeasurePanelProps {
@@ -46,6 +47,7 @@ interface MeasurePanelProps {
 
 export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   const dispatch = useDispatch()
+  const { showNotification } = useNotification()
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [measureId, setMeasureId] = useState('custom-measure')
   const [patientId, setPatientId] = useState('')
@@ -77,7 +79,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             dispatch(setCqlContent(full.cqlContent))
           }
         }).catch((err) => {
-          console.error('Failed to load measure:', err)
+          showNotification('Failed to load measure: ' + (err as Error).message, 'error')
         })
       }
     }

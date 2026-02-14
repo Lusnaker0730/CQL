@@ -26,14 +26,20 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [restoredDraft, setRestoredDraft] = useState(false)
 
+  // Track measure.cqlContent in a ref so the initialization effect can read it
+  // without re-running when the user edits content in the editor
+  const measureCqlRef = useRef(measure.cqlContent)
+  measureCqlRef.current = measure.cqlContent
+
   useEffect(() => {
-    // Check for autosaved draft on mount
+    // Check for autosaved draft on mount / measure change
     const saved = localStorage.getItem(`${AUTOSAVE_KEY}-${measure.id}`)
-    if (saved && measure.cqlContent && saved !== measure.cqlContent) {
+    const serverCql = measureCqlRef.current
+    if (saved && serverCql && saved !== serverCql) {
       dispatch(setCqlContent(saved))
       setRestoredDraft(true)
-    } else if (measure.cqlContent) {
-      dispatch(setCqlContent(measure.cqlContent))
+    } else if (serverCql) {
+      dispatch(setCqlContent(serverCql))
     }
     // Clear errors from previous measure
     dispatch(setErrors([]))
@@ -41,7 +47,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
     }
-  }, [measure.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measure.id, dispatch])
 
   // Auto-save to localStorage on content change (debounced 5s)
   useEffect(() => {

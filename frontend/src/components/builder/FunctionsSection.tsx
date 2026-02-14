@@ -9,7 +9,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 
 interface FunctionsSectionProps {
@@ -196,7 +196,9 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title="Delete Element"
+        itemName={deleteTarget || ''}
+        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

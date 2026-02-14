@@ -199,7 +199,7 @@ export default function CustomModifierBuilder({
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         Build Custom Modifier
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
         {availableFields.length === 0 ? (
@@ -455,7 +455,7 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
       )}
 
       <Box sx={{ flex: 1 }} />
-      <IconButton size="small" color="error" onClick={onRemove}>
+      <IconButton size="small" color="error" onClick={onRemove} aria-label="Remove rule">
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Stack>

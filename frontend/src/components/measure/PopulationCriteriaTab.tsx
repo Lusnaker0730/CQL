@@ -125,14 +125,23 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
     [expressions]
   )
 
-  const expressionNames = patientExpressions.map((e) => e.name)
+  const expressionNames = useMemo(
+    () => patientExpressions.map((e) => e.name),
+    [patientExpressions]
+  )
+
+  // Track groups in a ref so the auto-map effect can read the latest value
+  // without re-triggering when groups are updated by setGroups within the effect
+  const groupsRef = useRef(groups)
+  groupsRef.current = groups
 
   // Auto-map effect
   useEffect(() => {
     if (autoMapDoneRef.current) return
     if (expressionNames.length === 0) return
+    const currentGroups = groupsRef.current
     // Skip if any population already has an expression assigned
-    const anyFilled = groups.some((g) =>
+    const anyFilled = currentGroups.some((g) =>
       (g.populations || []).some((p) => !!p.criteriaExpression)
     )
     if (anyFilled) {
@@ -141,7 +150,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
     }
 
     let totalCount = 0
-    const newGroups = groups.map((g) => {
+    const newGroups = currentGroups.map((g) => {
       const { mapped, count } = autoMapExpressions(g.populations || [], expressionNames)
       totalCount += count
       return { ...g, populations: mapped }
@@ -154,7 +163,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       setAutoMapAlert(`Auto-mapped ${totalCount} expression${totalCount > 1 ? 's' : ''} based on CQL definition names`)
       setTimeout(() => setAutoMapAlert(null), 8000)
     }
-  }, [expressionNames.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [expressionNames])
 
   const template = SCORING_TEMPLATES[measure.scoringType]
 

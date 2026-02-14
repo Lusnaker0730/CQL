@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import {
   Box,
   Grid,
@@ -48,6 +48,7 @@ import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, use
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
+import { useNotification } from '../hooks/useNotification'
 import TabPanel, { a11yProps } from '../components/common/TabPanel'
 
 export default function EditorPage() {
@@ -58,6 +59,7 @@ export default function EditorPage() {
   const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { addToRecent, toggleFavorite, isFavorite } = useLibraryHistory()
+  const { showNotification } = useNotification()
 
   const queryClient = useQueryClient()
   const [versionDialogOpen, setVersionDialogOpen] = useState(false)
@@ -89,7 +91,7 @@ export default function EditorPage() {
       dispatch(setCqlContent(lib.cqlContent))
       setHistoryDialogOpen(false)
     }).catch((err) => {
-      console.error('Failed to load library version:', err)
+      showNotification('Failed to load library version: ' + (err as Error).message, 'error')
     })
   }
 
@@ -97,18 +99,26 @@ export default function EditorPage() {
     return cqlApi.compareLibraryVersions(String(oldId), String(newId))
   }
 
-  const historyVersions = historyData.map((m) => ({
-    id: m.id,
-    version: m.version,
-    status: m.status || 'draft',
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-  }))
+  const historyVersions = useMemo(
+    () =>
+      historyData.map((m) => ({
+        id: m.id,
+        version: m.version,
+        status: m.status || 'draft',
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      })),
+    [historyData]
+  )
 
-  const diffVersions = historyData.map((m) => ({
-    id: m.id,
-    version: m.version,
-  }))
+  const diffVersions = useMemo(
+    () =>
+      historyData.map((m) => ({
+        id: m.id,
+        version: m.version,
+      })),
+    [historyData]
+  )
 
   const translateMutation = useTranslate()
   const saveLibraryMutation = useCreateLibrary()
@@ -176,7 +186,7 @@ export default function EditorPage() {
           const fhirLibrary = JSON.parse(content)
           importMutation.mutate(fhirLibrary)
         } catch {
-          // Invalid JSON
+          showNotification('Invalid JSON file', 'error')
         }
       }
     }

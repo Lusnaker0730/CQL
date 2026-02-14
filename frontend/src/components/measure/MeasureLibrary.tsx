@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Paper,
   Typography,
@@ -45,6 +45,7 @@ import TableSkeleton from '../common/TableSkeleton'
 import BatchEvaluationDialog from './BatchEvaluationDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
+import { useNotification } from '../../hooks/useNotification'
 import type { MeasureDefinition } from '../../types'
 import { getStoredUsername } from '../../utils/validation'
 
@@ -81,6 +82,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     scoringType: 'proportion',
   })
 
+  const { showNotification } = useNotification()
   const currentUser = getStoredUsername()
 
   const { data: allMeasures = [], isLoading } = useQuery({
@@ -88,19 +90,22 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     queryFn: () => measureApi.getMeasures(search || undefined),
   })
 
-  // Filter based on selected tab
-  const measures = allMeasures.filter((m) => {
-    switch (filterTab) {
-      case 1: // My Measures
-        return m.ownerUsername === currentUser
-      case 2: // Shared with me
-        return m.sharedWith?.includes(currentUser) && m.ownerUsername !== currentUser
-      case 3: // Public
-        return m.accessLevel === 'public'
-      default: // All
-        return true
-    }
-  })
+  const measures = useMemo(
+    () =>
+      allMeasures.filter((m) => {
+        switch (filterTab) {
+          case 1: // My Measures
+            return m.ownerUsername === currentUser
+          case 2: // Shared with me
+            return m.sharedWith?.includes(currentUser) && m.ownerUsername !== currentUser
+          case 3: // Public
+            return m.accessLevel === 'public'
+          default: // All
+            return true
+        }
+      }),
+    [allMeasures, filterTab, currentUser]
+  )
 
   const createMutation = useMutation({
     mutationFn: (def: MeasureDefinition) => measureApi.createMeasure(def),
@@ -150,7 +155,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setEditMeasure(full)
       setEditOpen(true)
     } catch (err) {
-      console.error('Failed to load measure', err)
+      showNotification('Failed to load measure: ' + (err as Error).message, 'error')
     }
   }
 
@@ -187,7 +192,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('Export failed', err)
+      showNotification('Export failed: ' + (err as Error).message, 'error')
     }
   }
 

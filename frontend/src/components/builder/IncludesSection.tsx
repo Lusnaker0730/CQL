@@ -8,7 +8,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 import { useLibrariesMetadata } from '../../hooks/useCql'
 import { cqlApi } from '../../api'
@@ -215,7 +215,9 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title="Delete Element"
+        itemName={deleteTarget || ''}
+        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

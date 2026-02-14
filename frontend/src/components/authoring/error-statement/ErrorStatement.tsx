@@ -89,7 +89,7 @@ export default function ErrorStatementEditor({ errorStatement, onChange }: Error
                   </Typography>
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title="Remove condition">
-                    <IconButton size="small" color="error" onClick={() => handleRemoveClause(index)}>
+                    <IconButton size="small" color="error" onClick={() => handleRemoveClause(index)} aria-label="Remove condition">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

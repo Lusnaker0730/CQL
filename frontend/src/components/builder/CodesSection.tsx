@@ -20,10 +20,11 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, ExpandMore, Search as SearchIcon, LocalLibrary as BrowseIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 import { useTwcoreFullCatalog } from '../../hooks/useTwcoreCatalog'
+import { ALL_CODE_SYSTEMS, findCodeSystemByUrl, findCodeSystemByLabel } from '../../constants/codeSystems'
 
 interface CodesSectionProps {
   codes: string[]
@@ -33,20 +34,6 @@ interface CodesSectionProps {
   onEdit?: (identifier: string, newSnippet: string) => void
 }
 
-const COMMON_CODE_SYSTEMS = [
-  { value: 'http://loinc.org', label: 'LOINC' },
-  { value: 'http://snomed.info/sct', label: 'SNOMED CT' },
-  { value: 'http://www.nlm.nih.gov/research/umls/rxnorm', label: 'RxNorm' },
-  { value: 'http://hl7.org/fhir/sid/icd-10-cm', label: 'ICD-10-CM' },
-  { value: 'http://www.ama-assn.org/go/cpt', label: 'CPT' },
-  { value: 'http://terminology.hl7.org/CodeSystem/condition-clinical', label: 'Condition Clinical Status' },
-  { value: 'http://terminology.hl7.org/CodeSystem/observation-category', label: 'Observation Category' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw', label: 'ICD-10-CM (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw', label: 'ICD-10-PCS (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medcation-atc-tw', label: 'ATC (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw', label: 'NHI Medication (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw', label: 'NHI Department (TW)' },
-]
 
 /**
  * Parse a code string like: "HbA1c Code": '4548-4' from "LOINC" display 'Hemoglobin A1c'
@@ -113,7 +100,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
 
   const handleSystemChange = (url: string) => {
     setSystemUrl(url)
-    const match = COMMON_CODE_SYSTEMS.find((s) => s.value === url)
+    const match = findCodeSystemByUrl(url)
     setSystemAlias(match?.label || '')
     setSearchText('')
     setDebouncedSearch('')
@@ -165,8 +152,8 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     if (!parsed) return
     setEditingItem(parsed.name)
     // Find the system URL from the alias
-    const sys = COMMON_CODE_SYSTEMS.find((s) => s.label === parsed.system)
-    setSystemUrl(sys?.value || '')
+    const sys = findCodeSystemByLabel(parsed.system)
+    setSystemUrl(sys?.url || '')
     setSystemAlias(parsed.system)
     setCodeValue(parsed.code)
     setDisplayName(parsed.display)
@@ -197,7 +184,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
 
   const handleTwcoreCodeClick = (entry: typeof twcoreCatalog[0], code: { code: string; display: string; displayZh: string }) => {
     // Derive a system alias from the entry system URL
-    const knownSystem = COMMON_CODE_SYSTEMS.find((s) => s.value === entry.system)
+    const knownSystem = findCodeSystemByUrl(entry.system)
     const alias = knownSystem?.label || entry.name
     const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
     const csSnippet = `codesystem "${alias}": '${entry.system}'`
@@ -262,8 +249,8 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                 value={systemUrl}
                 onChange={(e) => handleSystemChange(e.target.value)}
               >
-                {COMMON_CODE_SYSTEMS.map((cs) => (
-                  <MenuItem key={cs.value} value={cs.value}>
+                {ALL_CODE_SYSTEMS.map((cs) => (
+                  <MenuItem key={cs.url} value={cs.url}>
                     {cs.label}
                   </MenuItem>
                 ))}
@@ -466,7 +453,9 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title="Delete Element"
+        itemName={deleteTarget || ''}
+        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

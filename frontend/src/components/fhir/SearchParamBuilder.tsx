@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Stack,
   TextField,
@@ -59,11 +59,18 @@ export default function SearchParamBuilder({
     { name: '_id', type: 'token', label: 'ID' },
   ]
 
+  // Track mode and value in refs so the resourceType-change effect can read
+  // current values without re-running when they change independently
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const valueRef = useRef(value)
+  valueRef.current = value
+
   useEffect(() => {
-    if (mode === 'structured') {
-      setParams(parseParamsString(value))
+    if (modeRef.current === 'structured') {
+      setParams(parseParamsString(valueRef.current))
     }
-  }, [resourceType]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resourceType])
 
   const handleModeChange = (_: unknown, newMode: 'structured' | 'raw' | null) => {
     if (!newMode) return
@@ -141,7 +148,7 @@ export default function SearchParamBuilder({
                 fullWidth
                 placeholder={param.name ? `Value for ${param.name}` : 'Value'}
               />
-              <IconButton size="small" onClick={() => removeParam(idx)} color="error">
+              <IconButton size="small" onClick={() => removeParam(idx)} color="error" aria-label="Remove parameter">
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Stack>

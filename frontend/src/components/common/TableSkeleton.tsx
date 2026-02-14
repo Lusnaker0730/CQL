@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 
 interface TableSkeletonProps {
@@ -6,7 +7,7 @@ interface TableSkeletonProps {
   hasCheckbox?: boolean
 }
 
-export default function TableSkeleton({ columns, rows = 5, hasCheckbox = false }: TableSkeletonProps) {
+function TableSkeleton({ columns, rows = 5, hasCheckbox = false }: TableSkeletonProps) {
   const totalColumns = hasCheckbox ? columns + 1 : columns
 
   return (
@@ -41,3 +42,5 @@ export default function TableSkeleton({ columns, rows = 5, hasCheckbox = false }
     </TableContainer>
   )
 }
+
+export default memo(TableSkeleton)

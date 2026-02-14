@@ -104,7 +104,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
                   <Chip label={be.returnType} size="small" variant="outlined" />
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title="Remove base element">
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)} aria-label="Remove base element">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

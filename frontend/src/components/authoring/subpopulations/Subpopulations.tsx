@@ -96,7 +96,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
                   />
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title="Remove subpopulation">
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(sp.uniqueId)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(sp.uniqueId)} aria-label="Remove subpopulation">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

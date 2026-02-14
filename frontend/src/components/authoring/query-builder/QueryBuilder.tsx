@@ -231,7 +231,7 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
                     )}
 
                     <Tooltip title="Remove condition">
-                      <IconButton size="small" color="error" onClick={() => handleRemoveCondition(cond.id)}>
+                      <IconButton size="small" color="error" onClick={() => handleRemoveCondition(cond.id)} aria-label="Remove condition">
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

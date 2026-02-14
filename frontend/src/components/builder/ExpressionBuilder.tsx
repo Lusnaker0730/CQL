@@ -253,7 +253,7 @@ export default function ExpressionBuilder({
 
               {rows.length > 1 && (
                 <Tooltip title="Remove row">
-                  <IconButton size="small" onClick={() => removeRow(row.id)} sx={{ color: 'error.main' }}>
+                  <IconButton size="small" onClick={() => removeRow(row.id)} sx={{ color: 'error.main' }} aria-label="Remove row">
                     <DeleteIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 </Tooltip>

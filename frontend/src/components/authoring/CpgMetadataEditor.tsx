@@ -80,7 +80,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         CPG on FHIR Metadata
-        <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
+        <IconButton onClick={onClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
         {/* Progress bar */}
@@ -202,7 +202,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               <Box key={key}>
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
                   <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>{key}s</Typography>
-                  <IconButton size="small" onClick={c.add}><AddIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" onClick={c.add} aria-label={`Add ${key}`}><AddIcon fontSize="small" /></IconButton>
                 </Stack>
                 {c.list.map((contact, i) => (
                   <Stack key={i} direction="row" spacing={1} mb={0.5} alignItems="center">
@@ -213,7 +213,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                       onChange={(e) => c.updateName(i, e.target.value)}
                       sx={{ flex: 1 }}
                     />
-                    <IconButton size="small" color="error" onClick={() => c.remove(i)}>
+                    <IconButton size="small" color="error" onClick={() => c.remove(i)} aria-label={`Remove ${key}`}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -228,7 +228,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
           <Box>
             <Stack direction="row" alignItems="center" spacing={1} mb={1}>
               <Typography variant="subtitle2">Related Artifacts</Typography>
-              <IconButton size="small" onClick={() => update('relatedArtifact', [...relatedArtifacts, { type: 'citation', display: '', url: '' }])}>
+              <IconButton size="small" onClick={() => update('relatedArtifact', [...relatedArtifacts, { type: 'citation', display: '', url: '' }])} aria-label="Add related artifact">
                 <AddIcon fontSize="small" />
               </IconButton>
             </Stack>
@@ -272,7 +272,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                   }}
                   sx={{ flex: 1 }}
                 />
-                <IconButton size="small" color="error" onClick={() => update('relatedArtifact', relatedArtifacts.filter((_, idx) => idx !== i))}>
+                <IconButton size="small" color="error" onClick={() => update('relatedArtifact', relatedArtifacts.filter((_, idx) => idx !== i))} aria-label="Remove related artifact">
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Stack>

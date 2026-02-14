@@ -25,7 +25,7 @@ import { Add as AddIcon, ExpandMore, ExpandLess, Search as SearchIcon, LocalLibr
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
 import { useTwcoreFullCatalog } from '../../hooks/useTwcoreCatalog'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 
 interface ValueSetSectionProps {
@@ -413,7 +413,9 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title="Delete Element"
+        itemName={deleteTarget || ''}
+        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

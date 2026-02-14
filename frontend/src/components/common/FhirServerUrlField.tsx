@@ -1,4 +1,4 @@
-import { Autocomplete, TextField } from '@mui/material'
+import { Autocomplete, TextField, Typography } from '@mui/material'
 import { FHIR_SERVER_PRESETS, type FhirServerPreset } from '../../constants/fhirServers'
 import { validateFhirUrl } from '../../utils/validation'
 import { useState } from 'react'
@@ -48,10 +48,10 @@ export default function FhirServerUrlField({
       renderOption={(props, option) => (
         <li {...props} key={option.url}>
           <div>
-            <div style={{ fontWeight: 600 }}>{option.label}</div>
-            <div style={{ fontSize: '0.8em', color: '#666' }}>
+            <Typography variant="body2" fontWeight={600}>{option.label}</Typography>
+            <Typography variant="caption" color="text.secondary">
               {option.description}
-            </div>
+            </Typography>
           </div>
         </li>
       )}

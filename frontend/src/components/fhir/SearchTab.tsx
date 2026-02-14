@@ -29,6 +29,7 @@ import {
   extractPaginationLinks,
   extractSearchParamsFromUrl,
 } from '../../utils/fhirBrowserUtils'
+import type { FhirResource } from '../../utils/fhirBrowserUtils'
 import ResourceDetailDialog from './ResourceDetailDialog'
 import ResourceEditorDialog from './ResourceEditorDialog'
 import SearchParamBuilder from './SearchParamBuilder'
@@ -36,17 +37,32 @@ import QueryHistory from './QueryHistory'
 import useFhirQueryHistory from '../../hooks/useFhirQueryHistory'
 import type { HistoryEntry } from '../../hooks/useFhirQueryHistory'
 
+/** A single entry in a FHIR Bundle search response. */
+interface FhirBundleEntry {
+  resource?: FhirResource
+  fullUrl?: string
+  search?: { mode?: string; score?: number }
+}
+
+/** A FHIR Bundle returned from a search operation. */
+interface FhirBundle extends Record<string, unknown> {
+  resourceType: 'Bundle'
+  type?: string
+  total?: number
+  entry?: FhirBundleEntry[]
+  link?: Array<{ relation: string; url: string }>
+}
+
 interface SearchTabProps {
   fhirServer: string
   resourceType: string
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) {
   const [searchParams, setSearchParams] = useState('')
   const [searchMode, setSearchMode] = useState<'structured' | 'raw'>('structured')
-  const [searchResult, setSearchResult] = useState<any>(null)
-  const [selectedResource, setSelectedResource] = useState<any>(null)
+  const [searchResult, setSearchResult] = useState<FhirBundle | null>(null)
+  const [selectedResource, setSelectedResource] = useState<FhirResource | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -59,7 +75,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
       return fhirApi.search(rt, p, fhirServer)
     },
     onSuccess: (data) => {
-      setSearchResult(data)
+      setSearchResult(data as FhirBundle)
       addEntry(resourceType, searchParams, fhirServer)
     },
   })
@@ -81,10 +97,10 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     searchMutation.mutate({ type: rt, raw: params })
   }
 
-  const entries: any[] = searchResult?.entry || []
+  const entries: FhirBundleEntry[] = searchResult?.entry || []
   const fields = getDisplayFields(resourceType)
 
-  const handleRowClick = (resource: any) => {
+  const handleRowClick = (resource: FhirResource) => {
     setSelectedResource(resource)
     setDetailOpen(true)
   }
@@ -197,8 +213,8 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {entries.map((entry: any, idx: number) => {
-                    const resource = entry.resource || {}
+                  {entries.map((entry, idx) => {
+                    const resource: FhirResource = entry.resource || { resourceType: '' }
                     return (
                       <TableRow
                         key={idx}
@@ -252,4 +268,3 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     </Stack>
   )
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */

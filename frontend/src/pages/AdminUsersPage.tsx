@@ -407,7 +407,7 @@ export default function AdminUsersPage() {
                   endAdornment: (
                     <InputAdornment position="end">
                       <Tooltip title={copied ? 'Copied!' : 'Copy to clipboard'}>
-                        <IconButton onClick={handleCopy} size="small">
+                        <IconButton onClick={handleCopy} size="small" aria-label="Copy to clipboard">
                           {copied ? (
                             <CheckIcon color="success" />
                           ) : (

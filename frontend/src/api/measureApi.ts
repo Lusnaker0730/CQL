@@ -1,0 +1,356 @@
+import type {
+  MeasureEvaluationRequest,
+  MeasureEvaluationResult,
+  MeasureDefinition,
+  MeasureAuditEntry,
+  ValidationReport,
+  MeasureReport,
+  MeasureSchedule,
+  MeasureComparisonResult,
+  MeasureTrendResult,
+  TestCase,
+  TestCaseRunResult,
+  CoverageResult,
+  VersionComparison,
+  BundleImportResult,
+  DashboardSummary,
+  BatchEvaluationRequest,
+  BatchEvaluationResult,
+} from '../types'
+import { getStoredUsername } from '../utils/validation'
+import { api } from './client'
+
+export const measureApi = {
+  // Evaluation
+  evaluate: async (request: MeasureEvaluationRequest): Promise<MeasureEvaluationResult> => {
+    const response = await api.post<MeasureEvaluationResult>('/measures/evaluate', request)
+    return response.data
+  },
+
+  evaluateMeasure: async (
+    measureId: string,
+    subject?: string,
+    periodStart?: string,
+    periodEnd?: string,
+    fhirServerUrl?: string
+  ): Promise<MeasureEvaluationResult> => {
+    const params = new URLSearchParams()
+    if (subject) params.append('subject', subject)
+    if (periodStart) params.append('periodStart', periodStart)
+    if (periodEnd) params.append('periodEnd', periodEnd)
+
+    const response = await api.post<MeasureEvaluationResult>(
+      `/measures/${measureId}/$evaluate-measure?${params.toString()}`,
+      { fhirServerUrl }
+    )
+    return response.data
+  },
+
+  // Measure Definition CRUD
+  getMeasures: async (search?: string): Promise<MeasureDefinition[]> => {
+    const params = search ? { search } : {}
+    const response = await api.get<MeasureDefinition[]>('/measures', { params })
+    return response.data
+  },
+
+  getMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const response = await api.get<MeasureDefinition>(`/measures/${id}`)
+    return response.data
+  },
+
+  createMeasure: async (definition: MeasureDefinition): Promise<MeasureDefinition> => {
+    const response = await api.post<MeasureDefinition>('/measures', definition)
+    return response.data
+  },
+
+  updateMeasure: async (id: number, definition: MeasureDefinition): Promise<MeasureDefinition> => {
+    const response = await api.put<MeasureDefinition>(`/measures/${id}`, definition)
+    return response.data
+  },
+
+  deleteMeasure: async (id: number): Promise<void> => {
+    await api.delete(`/measures/${id}`)
+  },
+
+  // CQL Expressions (for population criteria mapping)
+  getCqlExpressions: async (measureId: number): Promise<{ name: string; context: string; accessLevel: string; resultType: string | null }[]> => {
+    const response = await api.get(`/measures/${measureId}/cql-expressions`)
+    return response.data
+  },
+
+  // FHIR Import/Export
+  importFhirMeasure: async (fhirMeasure: unknown): Promise<MeasureDefinition> => {
+    const response = await api.post<MeasureDefinition>('/measures/import/fhir', fhirMeasure)
+    return response.data
+  },
+
+  exportFhirMeasure: async (id: number): Promise<unknown> => {
+    const response = await api.get(`/measures/${id}/fhir`)
+    return response.data
+  },
+
+  // Reports
+  getReports: async (): Promise<MeasureReport[]> => {
+    const response = await api.get<MeasureReport[]>('/measures/reports')
+    return response.data
+  },
+
+  getReportsForMeasure: async (measureId: number): Promise<MeasureReport[]> => {
+    const response = await api.get<MeasureReport[]>(`/measures/${measureId}/reports`)
+    return response.data
+  },
+
+  getReport: async (reportId: number): Promise<MeasureReport> => {
+    const response = await api.get<MeasureReport>(`/measures/reports/${reportId}`)
+    return response.data
+  },
+
+  deleteReport: async (reportId: number): Promise<void> => {
+    await api.delete(`/measures/reports/${reportId}`)
+  },
+
+  exportReport: async (reportId: number, format: string): Promise<Blob> => {
+    const response = await api.get(`/measures/reports/${reportId}/export`, {
+      params: { format },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  // Schedules
+  getSchedules: async (measureId: number): Promise<MeasureSchedule[]> => {
+    const response = await api.get<MeasureSchedule[]>(`/measures/${measureId}/schedules`)
+    return response.data
+  },
+
+  createSchedule: async (measureId: number, schedule: Partial<MeasureSchedule>): Promise<MeasureSchedule> => {
+    const response = await api.post<MeasureSchedule>(`/measures/${measureId}/schedules`, schedule)
+    return response.data
+  },
+
+  updateSchedule: async (scheduleId: number, schedule: Partial<MeasureSchedule>): Promise<MeasureSchedule> => {
+    const response = await api.put<MeasureSchedule>(`/measures/schedules/${scheduleId}`, schedule)
+    return response.data
+  },
+
+  deleteSchedule: async (scheduleId: number): Promise<void> => {
+    await api.delete(`/measures/schedules/${scheduleId}`)
+  },
+
+  triggerSchedule: async (scheduleId: number): Promise<MeasureEvaluationResult> => {
+    const response = await api.post<MeasureEvaluationResult>(`/measures/schedules/${scheduleId}/trigger`)
+    return response.data
+  },
+
+  // Comparison & Trends
+  comparePeriods: async (
+    measureName: string,
+    p1Start: string,
+    p1End: string,
+    p2Start: string,
+    p2End: string
+  ): Promise<MeasureComparisonResult> => {
+    const params = new URLSearchParams({ measureName, p1Start, p1End, p2Start, p2End })
+    const response = await api.get<MeasureComparisonResult>(`/measures/compare?${params.toString()}`)
+    return response.data
+  },
+
+  getTrend: async (measureName: string, periods: number = 4): Promise<MeasureTrendResult> => {
+    const params = new URLSearchParams({ measureName, periods: periods.toString() })
+    const response = await api.get<MeasureTrendResult>(`/measures/trend?${params.toString()}`)
+    return response.data
+  },
+
+  // Test Cases
+  getTestCases: async (measureId: number): Promise<TestCase[]> => {
+    const response = await api.get<TestCase[]>(`/measures/${measureId}/test-cases`)
+    return response.data
+  },
+
+  getTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
+    const response = await api.get<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}`)
+    return response.data
+  },
+
+  createTestCase: async (measureId: number, testCase: TestCase): Promise<TestCase> => {
+    const response = await api.post<TestCase>(`/measures/${measureId}/test-cases`, testCase)
+    return response.data
+  },
+
+  updateTestCase: async (measureId: number, testCaseId: number, testCase: TestCase): Promise<TestCase> => {
+    const response = await api.put<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}`, testCase)
+    return response.data
+  },
+
+  deleteTestCase: async (measureId: number, testCaseId: number): Promise<void> => {
+    await api.delete(`/measures/${measureId}/test-cases/${testCaseId}`)
+  },
+
+  runTestCase: async (measureId: number, testCaseId: number): Promise<TestCaseRunResult> => {
+    const response = await api.post<TestCaseRunResult>(`/measures/${measureId}/test-cases/${testCaseId}/run`)
+    return response.data
+  },
+
+  runAllTestCases: async (measureId: number): Promise<TestCaseRunResult[]> => {
+    const response = await api.post<TestCaseRunResult[]>(`/measures/${measureId}/test-cases/run`)
+    return response.data
+  },
+
+  runWithCoverage: async (measureId: number, testCaseId: number): Promise<CoverageResult> => {
+    const response = await api.post<CoverageResult>(`/measures/${measureId}/test-cases/${testCaseId}/run-with-coverage`)
+    return response.data
+  },
+
+  // Version Management
+  createMeasureVersion: async (id: number, type: string = 'minor'): Promise<MeasureDefinition> => {
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/version?type=${type}`)
+    return response.data
+  },
+
+  getMeasureHistory: async (id: number): Promise<MeasureDefinition[]> => {
+    const response = await api.get<MeasureDefinition[]>(`/measures/${id}/history`)
+    return response.data
+  },
+
+  compareMeasureVersions: async (oldId: number, newId: number): Promise<VersionComparison> => {
+    const response = await api.get<VersionComparison>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
+    return response.data
+  },
+
+  // Sharing & Permissions
+  shareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/share`, { targetUsername, currentUser })
+    return response.data
+  },
+
+  unshareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/unshare`, { targetUsername, currentUser })
+    return response.data
+  },
+
+  transferMeasureOwnership: async (id: number, newOwner: string): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/transfer`, { newOwner, currentUser })
+    return response.data
+  },
+
+  setMeasureAccessLevel: async (id: number, accessLevel: string): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.put<MeasureDefinition>(`/measures/${id}/access`, { accessLevel, currentUser })
+    return response.data
+  },
+
+  getMeasuresByOwner: async (username: string): Promise<MeasureDefinition[]> => {
+    const response = await api.get<MeasureDefinition[]>(`/measures/owner/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  getSharedMeasures: async (username: string): Promise<MeasureDefinition[]> => {
+    const response = await api.get<MeasureDefinition[]>(`/measures/shared/${encodeURIComponent(username)}`)
+    return response.data
+  },
+
+  // Workflow
+  submitForReview: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, { currentUser })
+    return response.data
+  },
+
+  approveMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/approve`, { currentUser })
+    return response.data
+  },
+
+  rejectMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser })
+    return response.data
+  },
+
+  retireMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/retire`, { currentUser })
+    return response.data
+  },
+
+  // Locking
+  lockMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/lock`, { currentUser })
+    return response.data
+  },
+
+  unlockMeasure: async (id: number): Promise<MeasureDefinition> => {
+    const currentUser = getStoredUsername()
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/unlock`, { currentUser })
+    return response.data
+  },
+
+  // Validation
+  validateMeasure: async (id: number): Promise<ValidationReport> => {
+    const response = await api.post<ValidationReport>(`/measures/${id}/validate`)
+    return response.data
+  },
+
+  quickValidateMeasure: async (id: number): Promise<ValidationReport> => {
+    const response = await api.post<ValidationReport>(`/measures/${id}/validate/quick`)
+    return response.data
+  },
+
+  // Audit Trail
+  getAuditTrail: async (id: number): Promise<MeasureAuditEntry[]> => {
+    const response = await api.get<MeasureAuditEntry[]>(`/measures/${id}/audit`)
+    return response.data
+  },
+
+  // Bundle Export/Import
+  exportBundle: async (id: number, format: string = 'json'): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/bundle`, {
+      params: { format },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportCql: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/cql`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportElm: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/elm`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportHqmf: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/hqmf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  importBundle: async (json: unknown): Promise<BundleImportResult> => {
+    const response = await api.post<BundleImportResult>('/measures/import/bundle', json)
+    return response.data
+  },
+
+  // Dashboard
+  getDashboard: async (): Promise<DashboardSummary> => {
+    const response = await api.get<DashboardSummary>('/measures/dashboard')
+    return response.data
+  },
+
+  // Batch Evaluation
+  batchEvaluate: async (request: BatchEvaluationRequest): Promise<BatchEvaluationResult> => {
+    const response = await api.post<BatchEvaluationResult>('/measures/batch-evaluate', request)
+    return response.data
+  },
+}

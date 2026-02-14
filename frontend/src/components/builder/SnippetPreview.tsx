@@ -55,7 +55,7 @@ export default function SnippetPreview({
           {insertLabel}
         </GradientButton>
         <Tooltip title="Copy to clipboard">
-          <IconButton size="small" onClick={handleCopy}>
+          <IconButton size="small" onClick={handleCopy} aria-label="Copy to clipboard">
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>

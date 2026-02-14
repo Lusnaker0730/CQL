@@ -156,7 +156,7 @@ export default function ArtifactWorkspaceHeader({
         }}
       >
         <Tooltip title="Back to artifact list">
-          <IconButton onClick={onBack} size="small" sx={{ color: '#fff' }}>
+          <IconButton onClick={onBack} size="small" sx={{ color: '#fff' }} aria-label="Back to artifact list">
             <BackIcon />
           </IconButton>
         </Tooltip>
@@ -246,7 +246,7 @@ export default function ArtifactWorkspaceHeader({
 
           {/* More actions menu */}
           <Tooltip title="More actions">
-            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: '#fff' }}>
+            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: '#fff' }} aria-label="More actions">
               <MoreIcon />
             </IconButton>
           </Tooltip>
@@ -315,7 +315,7 @@ export default function ArtifactWorkspaceHeader({
       <Dialog open={viewCqlDialog} onClose={() => setViewCqlDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           Generated CQL
-          <IconButton onClick={() => setViewCqlDialog(false)} size="small"><CloseIcon /></IconButton>
+          <IconButton onClick={() => setViewCqlDialog(false)} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>

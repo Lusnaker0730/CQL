@@ -93,7 +93,7 @@ const ArtifactElement = memo(function ArtifactElement({
         sx={{ px: 2, py: 1, cursor: 'pointer' }}
         onClick={() => setExpanded(!expanded)}
       >
-        <IconButton size="small">
+        <IconButton size="small" aria-label={expanded ? 'Collapse element' : 'Expand element'}>
           {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
         </IconButton>
 
@@ -139,7 +139,7 @@ const ArtifactElement = memo(function ArtifactElement({
 
         {onIndent && (
           <Tooltip title="Indent into new group">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="Indent into new group">
               <IndentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -147,14 +147,14 @@ const ArtifactElement = memo(function ArtifactElement({
 
         {onOutdent && (
           <Tooltip title="Outdent to parent group">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="Outdent to parent group">
               <OutdentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
 
         <Tooltip title="Copy element info">
-          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="Copy element info">
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -164,6 +164,7 @@ const ArtifactElement = memo(function ArtifactElement({
             size="small"
             color="error"
             onClick={(e) => { e.stopPropagation(); onRemove() }}
+            aria-label="Remove element"
           >
             <DeleteIcon fontSize="small" />
           </IconButton>

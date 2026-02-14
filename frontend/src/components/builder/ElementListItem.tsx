@@ -62,14 +62,14 @@ export default function ElementListItem({
       >
         <Tooltip title="Go to definition">
           <span>
-            <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}>
+            <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }} aria-label="Go to definition">
               <EditIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Delete">
           <span>
-            <IconButton size="small" onClick={onDelete} sx={{ p: 0.25, color: 'error.main' }}>
+            <IconButton size="small" onClick={onDelete} sx={{ p: 0.25, color: 'error.main' }} aria-label="Delete">
               <DeleteIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>

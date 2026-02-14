@@ -200,20 +200,20 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title="Move up">
                     <span>
-                      <IconButton size="small" disabled={index === 0} onClick={() => handleMoveUp(index)}>
+                      <IconButton size="small" disabled={index === 0} onClick={() => handleMoveUp(index)} aria-label="Move up">
                         <ArrowUpward fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
                   <Tooltip title="Move down">
                     <span>
-                      <IconButton size="small" disabled={index >= recommendations.length - 1} onClick={() => handleMoveDown(index)}>
+                      <IconButton size="small" disabled={index >= recommendations.length - 1} onClick={() => handleMoveDown(index)} aria-label="Move down">
                         <ArrowDownward fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
                   <Tooltip title="Remove recommendation">
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(rec.uid)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(rec.uid)} aria-label="Remove recommendation">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -360,7 +360,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 <Divider sx={{ my: 1.5 }} />
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
                   <Typography variant="caption" color="text.secondary">Links</Typography>
-                  <IconButton size="small" onClick={() => handleAddLink(rec.uid)}>
+                  <IconButton size="small" onClick={() => handleAddLink(rec.uid)} aria-label="Add link">
                     <LinkOutlined fontSize="small" />
                   </IconButton>
                 </Stack>
@@ -389,7 +389,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                       onChange={(e) => handleUpdateLink(rec.uid, li, 'url', e.target.value)}
                       sx={{ flex: 2 }}
                     />
-                    <IconButton size="small" color="error" onClick={() => handleRemoveLink(rec.uid, li)}>
+                    <IconButton size="small" color="error" onClick={() => handleRemoveLink(rec.uid, li)} aria-label="Remove link">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -399,7 +399,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 <Divider sx={{ my: 1.5 }} />
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
                   <Typography variant="caption" color="text.secondary">Suggestions</Typography>
-                  <IconButton size="small" onClick={() => handleAddSuggestion(rec.uid)}>
+                  <IconButton size="small" onClick={() => handleAddSuggestion(rec.uid)} aria-label="Add suggestion">
                     <AddIcon fontSize="small" />
                   </IconButton>
                 </Stack>
@@ -429,7 +429,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                         <Button size="small" startIcon={<AddIcon />} onClick={() => handleAddAction(rec.uid, si)}>
                           Add Action
                         </Button>
-                        <IconButton size="small" color="error" onClick={() => handleRemoveSuggestion(rec.uid, si)}>
+                        <IconButton size="small" color="error" onClick={() => handleRemoveSuggestion(rec.uid, si)} aria-label="Remove suggestion">
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Stack>
@@ -459,7 +459,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                             onChange={(e) => handleUpdateAction(rec.uid, si, ai, { description: e.target.value })}
                             sx={{ flex: 1 }}
                           />
-                          <IconButton size="small" color="error" onClick={() => handleRemoveAction(rec.uid, si, ai)}>
+                          <IconButton size="small" color="error" onClick={() => handleRemoveAction(rec.uid, si, ai)} aria-label="Remove action">
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Stack>

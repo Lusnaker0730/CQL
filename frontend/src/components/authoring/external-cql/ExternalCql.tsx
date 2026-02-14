@@ -171,12 +171,12 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="View details">
-                      <IconButton size="small" onClick={() => setDetailsLib(lib)}>
+                      <IconButton size="small" onClick={() => setDetailsLib(lib)} aria-label="View details">
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(lib)}>
+                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(lib)} aria-label="Delete library">
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

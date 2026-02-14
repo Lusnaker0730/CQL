@@ -90,7 +90,7 @@ function buildGenderPhrase(element: ElementInstance) {
   return (
     <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <span>The patient&apos;s <strong>gender</strong> is </span>
-      {gender ? <ValueChip label={gender} /> : <span style={{ fontStyle: 'italic', color: '#999' }}>not set</span>}
+      {gender ? <ValueChip label={gender} /> : <Box component="span" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>not set</Box>}
     </Typography>
   )
 }

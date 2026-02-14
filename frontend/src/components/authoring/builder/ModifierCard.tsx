@@ -61,7 +61,7 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
             {modifier.returnType.replace(/_/g, ' ')}
           </Typography>
           <Tooltip title="Remove modifier">
-            <IconButton size="small" onClick={onRemove}>
+            <IconButton size="small" onClick={onRemove} aria-label="Remove modifier">
               <RemoveIcon fontSize="small" />
             </IconButton>
           </Tooltip>

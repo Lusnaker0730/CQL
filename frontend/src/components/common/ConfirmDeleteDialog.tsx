@@ -11,28 +11,30 @@ import { Delete as DeleteIcon } from '@mui/icons-material'
 
 interface ConfirmDeleteDialogProps {
   open: boolean
-  resourceType: string
-  resourceId: string
-  onConfirm: () => void
+  title?: string
+  itemName: string
+  message?: string
   onCancel: () => void
-  isPending: boolean
+  onConfirm: () => void
+  isPending?: boolean
 }
 
 export default function ConfirmDeleteDialog({
   open,
-  resourceType,
-  resourceId,
-  onConfirm,
+  title = 'Delete',
+  itemName,
+  message,
   onCancel,
-  isPending,
-}: ConfirmDeleteDialogProps) {
+  onConfirm,
+  isPending = false,
+}: ConfirmDeleteDialogProps): JSX.Element {
+  const defaultMessage = `Are you sure you want to delete ${itemName}? This action cannot be undone.`
+
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Resource</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText>
-          Are you sure you want to delete <strong>{resourceType}/{resourceId}</strong>? This action cannot be undone.
-        </DialogContentText>
+        <DialogContentText>{message || defaultMessage}</DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} disabled={isPending}>

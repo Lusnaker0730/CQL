@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { IconButton, Tooltip } from '@mui/material'
 import { HelpOutline as HelpIcon } from '@mui/icons-material'
 
@@ -5,7 +6,7 @@ interface HelpTooltipProps {
   text: string
 }
 
-export default function HelpTooltip({ text }: HelpTooltipProps) {
+function HelpTooltip({ text }: HelpTooltipProps) {
   return (
     <Tooltip title={text} arrow placement="top">
       <IconButton size="small" sx={{ color: 'text.secondary', p: 0.25 }} aria-label="Help">
@@ -14,3 +15,5 @@ export default function HelpTooltip({ text }: HelpTooltipProps) {
     </Tooltip>
   )
 }
+
+export default memo(HelpTooltip)

@@ -6,6 +6,7 @@ import {
 } from '@mui/material'
 import { useImportCql } from '../../../hooks/useCqlImport'
 import { useCreateArtifact } from '../../../hooks/useAuthoring'
+import { useNotification } from '../../../hooks/useNotification'
 import { authoringApi } from '../../../api'
 import type { CqlImportResult } from '../../../types/authoring'
 
@@ -23,6 +24,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
   const importMutation = useImportCql()
   const createMutation = useCreateArtifact()
+  const { showNotification } = useNotification()
 
   const handleParse = () => {
     if (!cqlInput.trim()) return
@@ -162,11 +164,11 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                   ...(baseElements.length > 0 && { baseElements }),
                 })
               } catch (err) {
-                console.warn('Failed to auto-populate expression trees:', err)
+                showNotification('Failed to auto-populate expression trees: ' + (err as Error).message, 'warning')
               }
             }
           } catch (err) {
-            console.warn('Failed to upload CQL as external library:', err)
+            showNotification('Failed to upload CQL as external library: ' + (err as Error).message, 'warning')
           } finally {
             setIsUploading(false)
           }

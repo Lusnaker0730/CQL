@@ -271,7 +271,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
                   </Tooltip>
                   {renderValueField(param)}
                   <Tooltip title="Remove parameter">
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(param.uniqueId)}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(param.uniqueId)} aria-label="Remove parameter">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

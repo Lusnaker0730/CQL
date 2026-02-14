@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Chip, type ChipProps } from '@mui/material'
 import {
   CheckCircle as ActiveIcon,
@@ -18,7 +19,7 @@ interface StatusChipProps {
   size?: ChipProps['size']
 }
 
-export default function StatusChip({ status, size = 'small' }: StatusChipProps) {
+function StatusChip({ status, size = 'small' }: StatusChipProps) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.draft
   const displayLabel = status === 'in-review' ? 'In Review' : status.charAt(0).toUpperCase() + status.slice(1)
   return (
@@ -32,3 +33,5 @@ export default function StatusChip({ status, size = 'small' }: StatusChipProps) 
     />
   )
 }
+
+export default memo(StatusChip)

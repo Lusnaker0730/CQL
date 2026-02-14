@@ -123,7 +123,7 @@ export default function ValueSetField({
                   <Typography component="span" variant="caption" color="text.secondary">({vs.oid})</Typography>
                 </Typography>
                 <Tooltip title="Remove">
-                  <IconButton size="small" onClick={() => handleRemoveValueSet(i)}>
+                  <IconButton size="small" onClick={() => handleRemoveValueSet(i)} aria-label="Remove value set">
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -148,7 +148,7 @@ export default function ValueSetField({
                 <Typography variant="body2" fontWeight={600}>{c.code}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{c.display}</Typography>
                 <Tooltip title="Remove">
-                  <IconButton size="small" onClick={() => handleRemoveCode(i)}>
+                  <IconButton size="small" onClick={() => handleRemoveCode(i)} aria-label="Remove code">
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -290,7 +290,7 @@ function AddValueSetDialog({
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         Add Value Set
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3 }}>

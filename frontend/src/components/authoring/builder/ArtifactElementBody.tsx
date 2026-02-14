@@ -239,7 +239,7 @@ function SelectModifiersDialog({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         Select Modifiers
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
         {/* Current expression summary */}

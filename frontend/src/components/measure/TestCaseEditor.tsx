@@ -92,12 +92,17 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
   const syncingRef = useRef(false)
   const initializedRef = useRef(false)
 
+  // Track bundleJson in a ref so the initialization effect can read the
+  // current value without re-running when bundleJson changes
+  const bundleJsonRef = useRef(bundleJson)
+  bundleJsonRef.current = bundleJson
+
   // Initialize builder from existing JSON on mount
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true
       try {
-        const entries = parseFromBundle(bundleJson)
+        const entries = parseFromBundle(bundleJsonRef.current)
         if (entries.length > 0) {
           dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
         }
@@ -105,7 +110,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         // Invalid JSON — user will see error in JSON tab
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dispatch])
 
   useEffect(() => {
     if (testCase) {
@@ -122,7 +127,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         // ignore
       }
     }
-  }, [testCase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [testCase, dispatch])
 
   // Sync: Visual Builder → JSON (when entries change)
   useEffect(() => {

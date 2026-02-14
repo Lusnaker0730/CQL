@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box,
   Tabs,
@@ -51,6 +51,7 @@ import {
   useLockMeasure,
   useUnlockMeasure,
 } from '../../hooks/useMeasures'
+import { useNotification } from '../../hooks/useNotification'
 import { getStoredUsername } from '../../utils/validation'
 
 interface MeasureEditorProps {
@@ -70,6 +71,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
   const queryClient = useQueryClient()
 
+  const { showNotification } = useNotification()
   const currentUser = getStoredUsername()
   const isOwner = measure.ownerUsername === currentUser || !measure.ownerUsername
   const isReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
@@ -124,7 +126,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       onMeasureUpdate(m)
       setHistoryDialogOpen(false)
     }).catch((err) => {
-      console.error('Failed to load measure version:', err)
+      showNotification('Failed to load measure version: ' + (err as Error).message, 'error')
     })
   }
 
@@ -176,18 +178,26 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
     }
   }
 
-  const historyVersions = historyData.map((m) => ({
-    id: m.id!,
-    version: m.version,
-    status: m.status,
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-  }))
+  const historyVersions = useMemo(
+    () =>
+      historyData.map((m) => ({
+        id: m.id!,
+        version: m.version,
+        status: m.status,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      })),
+    [historyData]
+  )
 
-  const diffVersions = historyData.map((m) => ({
-    id: m.id!,
-    version: m.version,
-  }))
+  const diffVersions = useMemo(
+    () =>
+      historyData.map((m) => ({
+        id: m.id!,
+        version: m.version,
+      })),
+    [historyData]
+  )
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
