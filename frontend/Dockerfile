@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine-unprivileged
+FROM nginxinc/nginx-unprivileged:alpine
 WORKDIR /usr/share/nginx/html
 
 # Copy built assets
