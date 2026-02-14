@@ -7,11 +7,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.util.Base64;
 
 @Converter
@@ -39,14 +43,14 @@ public class EncryptionConverter implements AttributeConverter<String, String> {
 
     private static byte[] deriveKey(String secret) {
         try {
-            javax.crypto.SecretKeyFactory factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            java.security.spec.KeySpec spec = new javax.crypto.spec.PBEKeySpec(
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            KeySpec spec = new PBEKeySpec(
                     secret.toCharArray(),
                     "CQLPlatformEncryption".getBytes(StandardCharsets.UTF_8),
                     65536,
                     256);
             return factory.generateSecret(spec).getEncoded();
-        } catch (Exception e) {
+        } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Failed to derive encryption key", e);
         }
     }

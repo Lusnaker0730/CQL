@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 public class OwnershipVerifier {
 
     public String getCurrentUsername() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Authentication auth = getAuthentication();
         if (auth == null) {
             throw new AccessDeniedException("Not authenticated");
         }
@@ -17,9 +17,9 @@ public class OwnershipVerifier {
     }
 
     public boolean isAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Authentication auth = getAuthentication();
         return auth != null && auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     public void verifyOwnership(String ownerUsername) {
@@ -28,5 +28,9 @@ public class OwnershipVerifier {
         if (!ownerUsername.equals(currentUser) && !isAdmin()) {
             throw new AccessDeniedException("You do not have permission to modify this resource");
         }
+    }
+
+    private Authentication getAuthentication() {
+        return SecurityContextHolder.getContext().getAuthentication();
     }
 }

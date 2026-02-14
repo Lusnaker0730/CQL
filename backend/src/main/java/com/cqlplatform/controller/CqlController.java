@@ -6,8 +6,10 @@ import com.cqlplatform.model.request.CqlValidationRequest;
 import com.cqlplatform.model.request.LibrarySaveRequest;
 import com.cqlplatform.model.request.TransferOwnershipRequest;
 import com.cqlplatform.model.request.UsernameRequest;
+import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
+import com.cqlplatform.service.cql.CqlRepositoryService;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.cql.FhirLibraryService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,7 +19,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,8 +34,8 @@ public class CqlController {
     private final CqlExecutionService executionService;
     private final CqlLibraryService libraryService;
     private final FhirLibraryService fhirLibraryService;
-    private final com.cqlplatform.service.cql.CqlRepositoryService repositoryService;
-    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+    private final CqlRepositoryService repositoryService;
+    private final OwnershipVerifier ownershipVerifier;
 
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
@@ -79,7 +80,7 @@ public class CqlController {
     @Operation(summary = "Create CQL Library", description = "Creates a new CQL library")
     public ResponseEntity<CqlLibrary> createLibrary(@Valid @RequestBody LibrarySaveRequest request) {
         CqlLibrary library = libraryService.saveLibrary(request.getCql(), request.getDescription());
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(library);
+        return ResponseEntity.status(HttpStatus.CREATED).body(library);
     }
 
     @PutMapping("/libraries/{id}")
@@ -142,7 +143,7 @@ public class CqlController {
 
     @GetMapping("/libraries/repository")
     @Operation(summary = "List Repository Libraries", description = "Lists pre-built CQL library templates available for import")
-    public ResponseEntity<List<com.cqlplatform.service.cql.CqlRepositoryService.RepositoryLibrary>> listRepositoryLibraries() {
+    public ResponseEntity<List<CqlRepositoryService.RepositoryLibrary>> listRepositoryLibraries() {
         return ResponseEntity.ok(repositoryService.listRepositoryLibraries());
     }
 
@@ -187,7 +188,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> shareLibrary(
             @PathVariable String id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.shareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -197,7 +198,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> unshareLibrary(
             @PathVariable String id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.unshareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -207,7 +208,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> transferOwnership(
             @PathVariable String id,
             @Valid @RequestBody TransferOwnershipRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.transferOwnership(id, request.getNewOwner(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -217,7 +218,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> setAccessLevel(
             @PathVariable String id,
             @Valid @RequestBody AccessUpdateRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.setAccessLevel(id, request.getAccessLevel(), currentUser);
         return ResponseEntity.ok(library);
     }

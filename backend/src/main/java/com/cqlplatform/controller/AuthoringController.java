@@ -4,6 +4,8 @@ import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.*;
 import com.cqlplatform.model.authoring.TwcoreCatalogEntry;
+import com.cqlplatform.model.cds.CdsServiceConfigRequest;
+import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.authoring.ArtifactService;
 import com.cqlplatform.service.authoring.ArtifactTestingService;
 import com.cqlplatform.service.authoring.CqlGenerationService;
@@ -19,12 +21,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,7 +50,7 @@ public class AuthoringController {
     private final CqlImportService cqlImportService;
     private final QueryBuilderService queryBuilderService;
     private final TwcoreCatalogService twcoreCatalogService;
-    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+    private final OwnershipVerifier ownershipVerifier;
 
     private void verifyArtifactOwnership(Long artifactId) {
         ArtifactResponse artifact = artifactService.getById(artifactId)
@@ -76,7 +81,7 @@ public class AuthoringController {
             Authentication authentication) {
         String username = authentication.getName();
         ArtifactResponse created = artifactService.create(request, username);
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/artifacts/{id}")
@@ -180,7 +185,7 @@ public class AuthoringController {
     @Operation(summary = "Upload External CQL", description = "Upload an external CQL library file")
     public ResponseEntity<Map<String, Object>> uploadExternalCql(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) throws java.io.IOException {
+            @RequestParam("file") MultipartFile file) throws IOException {
         verifyArtifactOwnership(id);
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
@@ -193,7 +198,7 @@ public class AuthoringController {
             return ResponseEntity.badRequest().body(Map.of("error", "Only .cql files are accepted"));
         }
         // Validate CQL content is parseable text (not a binary masquerading as .cql)
-        String content = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String content = new String(file.getBytes(), StandardCharsets.UTF_8);
         if (!content.contains("library ") && !content.contains("define ") && !content.contains("using ")) {
             return ResponseEntity.badRequest().body(Map.of("error", "File does not appear to contain valid CQL content"));
         }
@@ -258,8 +263,7 @@ public class AuthoringController {
                 artifact.getName().replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase());
         String hook = request.getOrDefault("hook", "patient-view");
 
-        com.cqlplatform.model.cds.CdsServiceConfigRequest configRequest = com.cqlplatform.model.cds.CdsServiceConfigRequest
-                .builder()
+        CdsServiceConfigRequest configRequest = CdsServiceConfigRequest.builder()
                 .id(serviceId)
                 .hook(hook)
                 .title(artifact.getName())
@@ -271,7 +275,7 @@ public class AuthoringController {
 
         var serviceResponse = cdsHooksService.createService(configRequest, username);
 
-        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("serviceId", serviceResponse.getId());
         result.put("hook", serviceResponse.getHook());
         result.put("title", serviceResponse.getTitle());
@@ -290,7 +294,7 @@ public class AuthoringController {
 
         CqlLibrary library = cqlLibraryService.saveLibrary(cql, artifact.getDescription());
 
-        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("libraryId", library.getId());
         result.put("name", library.getName());
         result.put("version", library.getVersion());

@@ -1,7 +1,9 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureReportEntity;
 import com.cqlplatform.entity.MeasureScheduleEntity;
+import com.cqlplatform.exception.CqlExecutionException;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
@@ -10,9 +12,11 @@ import com.cqlplatform.model.request.AccessUpdateRequest;
 import com.cqlplatform.model.request.TransferOwnershipRequest;
 import com.cqlplatform.model.request.UsernameRequest;
 import com.cqlplatform.model.request.WorkflowActionRequest;
+import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.measure.*;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,16 +25,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import com.cqlplatform.entity.MeasureAuditEntity;
-
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/measures")
@@ -53,7 +57,7 @@ public class MeasureController {
     private final FhirMeasureBundleImportService bundleImportService;
     private final HqmfExportService hqmfExportService;
     private final BatchEvaluationService batchEvaluationService;
-    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+    private final OwnershipVerifier ownershipVerifier;
 
     // ===== Measure Definition CRUD =====
 
@@ -127,18 +131,18 @@ public class MeasureController {
             return ResponseEntity.ok()
                     .header("Content-Disposition", "attachment; filename=measure-bundle-" + id + ".xml")
                     .header("Content-Type", "application/fhir+xml")
-                    .body(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    .body(xml.getBytes(StandardCharsets.UTF_8));
         }
         var bundle = bundleService.exportAsBundle(id);
         try {
-            byte[] json = new com.fasterxml.jackson.databind.ObjectMapper()
+            byte[] json = new ObjectMapper()
                     .writerWithDefaultPrettyPrinter().writeValueAsBytes(bundle);
             return ResponseEntity.ok()
                     .header("Content-Disposition", "attachment; filename=measure-bundle-" + id + ".json")
                     .header("Content-Type", "application/fhir+json")
                     .body(json);
         } catch (Exception e) {
-            throw new com.cqlplatform.exception.CqlExecutionException("Failed to serialize bundle: " + e.getMessage());
+            throw new CqlExecutionException("Failed to serialize bundle: " + e.getMessage());
         }
     }
 
@@ -149,7 +153,7 @@ public class MeasureController {
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + ".cql")
                 .header("Content-Type", "text/cql")
-                .body(cql.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                .body(cql.getBytes(StandardCharsets.UTF_8));
     }
 
     @GetMapping("/{id}/export/elm")
@@ -159,7 +163,7 @@ public class MeasureController {
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-elm.json")
                 .header("Content-Type", "application/elm+json")
-                .body(elm.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                .body(elm.getBytes(StandardCharsets.UTF_8));
     }
 
     @PostMapping("/import/bundle")
@@ -177,7 +181,7 @@ public class MeasureController {
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-hqmf.xml")
                 .header("Content-Type", "application/xml")
-                .body(hqmf.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                .body(hqmf.getBytes(StandardCharsets.UTF_8));
     }
 
     // ===== CQL Expressions =====
@@ -266,45 +270,26 @@ public class MeasureController {
     @GetMapping("/reports")
     @Operation(summary = "List Reports", description = "List recent measure reports (filtered by current user, admins see all)")
     public ResponseEntity<List<MeasureReportEntity>> listReports() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         List<MeasureReportEntity> reports = reportService.getRecentReports();
-        if (!isAdmin) {
-            reports = reports.stream()
-                    .filter(r -> username.equals(r.getEvaluatedBy()))
-                    .toList();
-        }
-        return ResponseEntity.ok(reports);
+        return ResponseEntity.ok(filterReportsByCurrentUser(reports));
     }
 
     @GetMapping("/{measureId}/reports")
     @Operation(summary = "Reports for Measure", description = "List reports for a specific measure (filtered by current user, admins see all)")
     public ResponseEntity<List<MeasureReportEntity>> getReportsForMeasure(@PathVariable Long measureId) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         List<MeasureReportEntity> reports = reportService.getReportsForMeasure(measureId);
-        if (!isAdmin) {
-            reports = reports.stream()
-                    .filter(r -> username.equals(r.getEvaluatedBy()))
-                    .toList();
-        }
-        return ResponseEntity.ok(reports);
+        return ResponseEntity.ok(filterReportsByCurrentUser(reports));
     }
 
     @GetMapping("/reports/{reportId}")
     @Operation(summary = "Get Report", description = "Get a specific measure report (owner or admin only)")
     public ResponseEntity<MeasureReportEntity> getReport(@PathVariable Long reportId) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         Optional<MeasureReportEntity> opt = reportService.getReport(reportId);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         MeasureReportEntity report = opt.get();
-        if (!isAdmin && !username.equals(report.getEvaluatedBy())) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(report.getEvaluatedBy())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(report);
@@ -313,18 +298,25 @@ public class MeasureController {
     @DeleteMapping("/reports/{reportId}")
     @Operation(summary = "Delete Report", description = "Delete a measure report (owner or admin only)")
     public ResponseEntity<Void> deleteReport(@PathVariable Long reportId) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         Optional<MeasureReportEntity> opt = reportService.getReport(reportId);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        if (!isAdmin && !username.equals(opt.get().getEvaluatedBy())) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(opt.get().getEvaluatedBy())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         reportService.deleteReport(reportId);
         return ResponseEntity.noContent().build();
+    }
+
+    private List<MeasureReportEntity> filterReportsByCurrentUser(List<MeasureReportEntity> reports) {
+        if (ownershipVerifier.isAdmin()) {
+            return reports;
+        }
+        String username = ownershipVerifier.getCurrentUsername();
+        return reports.stream()
+                .filter(r -> username.equals(r.getEvaluatedBy()))
+                .toList();
     }
 
     // ===== Report Export =====
@@ -507,7 +499,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> shareMeasure(
             @PathVariable Long id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.shareMeasure(id, request.getTargetUsername(), currentUser));
     }
 
@@ -516,7 +508,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> unshareMeasure(
             @PathVariable Long id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.unshareMeasure(id, request.getTargetUsername(), currentUser));
     }
 
@@ -525,7 +517,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> transferMeasureOwnership(
             @PathVariable Long id,
             @Valid @RequestBody TransferOwnershipRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.transferOwnership(id, request.getNewOwner(), currentUser));
     }
 
@@ -534,7 +526,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> setMeasureAccessLevel(
             @PathVariable Long id,
             @Valid @RequestBody AccessUpdateRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.setAccessLevel(id, request.getAccessLevel(), currentUser));
     }
 
@@ -557,7 +549,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> submitForReview(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.submitForReview(id, currentUser));
     }
 
@@ -566,7 +558,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> approveMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.approveMeasure(id, currentUser));
     }
 
@@ -575,7 +567,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> rejectMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.rejectMeasure(id, request.getReason(), currentUser));
     }
 
@@ -584,7 +576,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> retireMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.retireMeasure(id, currentUser));
     }
 
@@ -595,7 +587,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> lockMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.lockMeasure(id, currentUser));
     }
 
@@ -604,7 +596,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> unlockMeasure(
             @PathVariable Long id,
             @Valid @RequestBody WorkflowActionRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         return ResponseEntity.ok(definitionService.unlockMeasure(id, currentUser));
     }
 
@@ -630,34 +622,33 @@ public class MeasureController {
     @Operation(summary = "Measure Dashboard", description = "Returns summary statistics for all measures")
     public ResponseEntity<Map<String, Object>> getDashboard() {
         List<MeasureDefinition> all = definitionService.getAll();
-        Map<String, Object> dashboard = new java.util.LinkedHashMap<>();
+        Map<String, Object> dashboard = new LinkedHashMap<>();
         dashboard.put("totalMeasures", all.size());
 
         Map<String, Long> byStatus = all.stream()
-                .collect(java.util.stream.Collectors.groupingBy(
+                .collect(Collectors.groupingBy(
                         m -> m.getStatus() != null ? m.getStatus() : "draft",
-                        java.util.stream.Collectors.counting()));
+                        Collectors.counting()));
         dashboard.put("byStatus", byStatus);
 
         Map<String, Long> byScoring = all.stream()
-                .collect(java.util.stream.Collectors.groupingBy(
+                .collect(Collectors.groupingBy(
                         m -> m.getScoringType() != null ? m.getScoringType() : "proportion",
-                        java.util.stream.Collectors.counting()));
+                        Collectors.counting()));
         dashboard.put("byScoring", byScoring);
 
         Map<String, Long> bySteward = all.stream()
                 .filter(m -> m.getSteward() != null && !m.getSteward().isBlank())
-                .collect(java.util.stream.Collectors.groupingBy(
+                .collect(Collectors.groupingBy(
                         MeasureDefinition::getSteward,
-                        java.util.stream.Collectors.counting()));
+                        Collectors.counting()));
         dashboard.put("bySteward", bySteward);
 
-        // Recent evaluations
         List<MeasureReportEntity> recentReports = reportService.getRecentReports();
         List<Map<String, Object>> recentEvaluations = recentReports.stream()
                 .limit(10)
                 .map(r -> {
-                    Map<String, Object> re = new java.util.LinkedHashMap<>();
+                    Map<String, Object> re = new LinkedHashMap<>();
                     re.put("id", r.getId());
                     re.put("measureName", r.getMeasureName());
                     re.put("score", r.getMeasureScore());
@@ -668,11 +659,10 @@ public class MeasureController {
                 .toList();
         dashboard.put("recentEvaluations", recentEvaluations);
 
-        // Pending review
         List<Map<String, Object>> pendingReview = all.stream()
                 .filter(m -> "in-review".equals(m.getStatus()))
                 .map(m -> {
-                    Map<String, Object> pr = new java.util.LinkedHashMap<>();
+                    Map<String, Object> pr = new LinkedHashMap<>();
                     pr.put("id", m.getId());
                     pr.put("name", m.getTitle() != null ? m.getTitle() : m.getName());
                     pr.put("version", m.getVersion());
