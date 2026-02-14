@@ -90,7 +90,7 @@ public class FhirTerminologyService {
                     .execute();
         } catch (Exception e) {
             log.error("Failed to expand ValueSet: {}", valueSetUrl, e);
-            throw new RuntimeException("ValueSet expansion failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("ValueSet expansion failed: " + e.getMessage(), e);
         }
     }
 
@@ -187,7 +187,7 @@ public class FhirTerminologyService {
             return new CodeLookupResult(system, code, name, display, designations);
         } catch (Exception e) {
             log.error("Failed to lookup code", e);
-            throw new RuntimeException("Code lookup failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("Code lookup failed: " + e.getMessage(), e);
         }
     }
 
@@ -275,7 +275,7 @@ public class FhirTerminologyService {
             return valueSets;
         } catch (Exception e) {
             log.error("Failed to search ValueSets", e);
-            throw new RuntimeException("ValueSet search failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("ValueSet search failed: " + e.getMessage(), e);
         }
     }
 

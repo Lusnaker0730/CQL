@@ -59,7 +59,7 @@ public class VsacService {
                     .execute();
         } catch (Exception e) {
             log.error("Failed to fetch ValueSet from VSAC: {}", oid, e);
-            throw new RuntimeException("VSAC ValueSet fetch failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("VSAC ValueSet fetch failed: " + e.getMessage(), e);
         }
     }
 
@@ -88,7 +88,7 @@ public class VsacService {
                     .execute();
         } catch (Exception e) {
             log.error("Failed to expand ValueSet from VSAC: {}", oid, e);
-            throw new RuntimeException("VSAC ValueSet expansion failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("VSAC ValueSet expansion failed: " + e.getMessage(), e);
         }
     }
 
@@ -120,7 +120,7 @@ public class VsacService {
             return valueSets;
         } catch (Exception e) {
             log.error("Failed to search VSAC ValueSets", e);
-            throw new RuntimeException("VSAC search failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("VSAC search failed: " + e.getMessage(), e);
         }
     }
 

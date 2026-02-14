@@ -58,7 +58,7 @@ public class FhirBulkExportService {
             return new BulkExportKickOffResult(statusUrl, exportType, Instant.now().toString());
         } catch (Exception e) {
             log.error("Bulk export kick-off failed", e);
-            throw new RuntimeException("Bulk export kick-off failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("Bulk export kick-off failed: " + e.getMessage(), e);
         }
     }
 

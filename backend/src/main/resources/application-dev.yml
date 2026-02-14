@@ -1,10 +1,7 @@
 # Development profile - H2 in-memory database
-# Dev-only secrets (safe defaults for local development)
-jwt:
-  secret: CQLPlatformSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!
-
-encryption:
-  secret-key: DefaultEncryptionKeyMustBeExactly32B
+# Secrets must be provided via environment variables (JWT_SECRET, ENCRYPTION_KEY)
+# Example: export JWT_SECRET="YourDevSecretKeyMustBeAtLeast256BitsLongForSecurity!!"
+# Example: export ENCRYPTION_KEY="YourDevEncryptionKey32BytesLong!"
 
 spring:
   datasource:
@@ -35,12 +32,9 @@ spring:
           starttls:
             enable: false
 
-# VSAC API Key (NLM UMLS)
-vsac:
-  api:
-    key: f3706380-94ff-4cf3-a75c-445363bdfe23
+# VSAC API Key (NLM UMLS) - must be provided via environment variable
+# Example: export VSAC_API_KEY="your-vsac-api-key"
 
-  # H2 Console (development only)
   h2:
     console:
       enabled: true

@@ -18,8 +18,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:}
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 5MB
+      max-file-size: 1MB
+      max-request-size: 2MB
   jackson:
     serialization:
       write-dates-as-timestamps: false

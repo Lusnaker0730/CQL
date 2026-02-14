@@ -115,7 +115,7 @@ public class MeasureReportExportService {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(json);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize FHIR MeasureReport", e);
+            throw new com.cqlplatform.exception.CqlExecutionException("Failed to serialize FHIR MeasureReport: " + e.getMessage());
         }
     }
 
@@ -279,7 +279,7 @@ public class MeasureReportExportService {
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                     .body(excelBytes);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to generate Excel export", e);
+            throw new com.cqlplatform.exception.CqlExecutionException("Failed to generate Excel export: " + e.getMessage());
         }
     }
 

@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/measures")
@@ -52,6 +53,7 @@ public class MeasureController {
     private final FhirMeasureBundleImportService bundleImportService;
     private final HqmfExportService hqmfExportService;
     private final BatchEvaluationService batchEvaluationService;
+    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
 
     // ===== Measure Definition CRUD =====
 
@@ -77,7 +79,7 @@ public class MeasureController {
     @Operation(summary = "Create Measure", description = "Create a new measure definition")
     public ResponseEntity<MeasureDefinition> createMeasure(@Valid @RequestBody MeasureDefinition definition) {
         MeasureDefinition created = definitionService.create(definition);
-        return ResponseEntity.ok(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
@@ -85,11 +87,7 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> updateMeasure(
             @PathVariable Long id,
             @Valid @RequestBody MeasureDefinition definition) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        MeasureDefinition existing = definitionService.getById(id).orElse(null);
-        if (existing != null && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        definitionService.getById(id).ifPresent(m -> ownershipVerifier.verifyOwnership(m.getOwnerUsername()));
         MeasureDefinition updated = definitionService.update(id, definition);
         return ResponseEntity.ok(updated);
     }
@@ -140,7 +138,7 @@ public class MeasureController {
                     .header("Content-Type", "application/fhir+json")
                     .body(json);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize bundle", e);
+            throw new com.cqlplatform.exception.CqlExecutionException("Failed to serialize bundle: " + e.getMessage());
         }
     }
 
@@ -264,31 +262,67 @@ public class MeasureController {
     }
 
     // ===== Reports =====
-    // TODO: Report endpoints should enforce admin-only access or filter by authenticated user's ownership
 
     @GetMapping("/reports")
-    @Operation(summary = "List Reports", description = "List recent measure reports")
+    @Operation(summary = "List Reports", description = "List recent measure reports (filtered by current user, admins see all)")
     public ResponseEntity<List<MeasureReportEntity>> listReports() {
-        return ResponseEntity.ok(reportService.getRecentReports());
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        List<MeasureReportEntity> reports = reportService.getRecentReports();
+        if (!isAdmin) {
+            reports = reports.stream()
+                    .filter(r -> username.equals(r.getEvaluatedBy()))
+                    .toList();
+        }
+        return ResponseEntity.ok(reports);
     }
 
     @GetMapping("/{measureId}/reports")
-    @Operation(summary = "Reports for Measure", description = "List reports for a specific measure")
+    @Operation(summary = "Reports for Measure", description = "List reports for a specific measure (filtered by current user, admins see all)")
     public ResponseEntity<List<MeasureReportEntity>> getReportsForMeasure(@PathVariable Long measureId) {
-        return ResponseEntity.ok(reportService.getReportsForMeasure(measureId));
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        List<MeasureReportEntity> reports = reportService.getReportsForMeasure(measureId);
+        if (!isAdmin) {
+            reports = reports.stream()
+                    .filter(r -> username.equals(r.getEvaluatedBy()))
+                    .toList();
+        }
+        return ResponseEntity.ok(reports);
     }
 
     @GetMapping("/reports/{reportId}")
-    @Operation(summary = "Get Report", description = "Get a specific measure report")
+    @Operation(summary = "Get Report", description = "Get a specific measure report (owner or admin only)")
     public ResponseEntity<MeasureReportEntity> getReport(@PathVariable Long reportId) {
-        return reportService.getReport(reportId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        Optional<MeasureReportEntity> opt = reportService.getReport(reportId);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        MeasureReportEntity report = opt.get();
+        if (!isAdmin && !username.equals(report.getEvaluatedBy())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(report);
     }
 
     @DeleteMapping("/reports/{reportId}")
-    @Operation(summary = "Delete Report", description = "Delete a measure report (ADMIN only)")
+    @Operation(summary = "Delete Report", description = "Delete a measure report (owner or admin only)")
     public ResponseEntity<Void> deleteReport(@PathVariable Long reportId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        Optional<MeasureReportEntity> opt = reportService.getReport(reportId);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!isAdmin && !username.equals(opt.get().getEvaluatedBy())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         reportService.deleteReport(reportId);
         return ResponseEntity.noContent().build();
     }

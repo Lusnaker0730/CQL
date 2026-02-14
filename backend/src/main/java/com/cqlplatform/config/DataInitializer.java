@@ -47,7 +47,7 @@ public class DataInitializer implements CommandLineRunner {
                     .build();
             demo.setEmailWithHash("demo@cqlplatform.com");
             userRepository.save(demo);
-            log.info("=== Demo user created (username: demo, password: password). ===");
+            log.debug("=== Demo user created (username: demo). ===");
 
             // Seed demo eQCM measure
             seedDemoMeasure();

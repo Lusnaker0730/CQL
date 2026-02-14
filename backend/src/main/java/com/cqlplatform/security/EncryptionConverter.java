@@ -27,18 +27,28 @@ public class EncryptionConverter implements AttributeConverter<String, String> {
     private final SecretKeySpec keySpec;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public EncryptionConverter(@Value("${encryption.secret-key:DefaultEncryptionKeyMustBeExactly32B}") String secretKey) {
-        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
-            keyBytes = padded;
-        } else if (keyBytes.length > 32) {
-            byte[] trimmed = new byte[32];
-            System.arraycopy(keyBytes, 0, trimmed, 0, 32);
-            keyBytes = trimmed;
+    public EncryptionConverter(@Value("${encryption.secret-key}") String secretKey) {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "ENCRYPTION_KEY environment variable is required. "
+                    + "Set a 32-byte key via: export ENCRYPTION_KEY=\"your-32-byte-secret-key-here!!!!!\"");
         }
+        byte[] keyBytes = deriveKey(secretKey);
         this.keySpec = new SecretKeySpec(keyBytes, "AES");
+    }
+
+    private static byte[] deriveKey(String secret) {
+        try {
+            javax.crypto.SecretKeyFactory factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            java.security.spec.KeySpec spec = new javax.crypto.spec.PBEKeySpec(
+                    secret.toCharArray(),
+                    "CQLPlatformEncryption".getBytes(StandardCharsets.UTF_8),
+                    65536,
+                    256);
+            return factory.generateSecret(spec).getEncoded();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to derive encryption key", e);
+        }
     }
 
     @Override

@@ -34,6 +34,7 @@ public class CqlController {
     private final CqlLibraryService libraryService;
     private final FhirLibraryService fhirLibraryService;
     private final com.cqlplatform.service.cql.CqlRepositoryService repositoryService;
+    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
 
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
@@ -78,7 +79,7 @@ public class CqlController {
     @Operation(summary = "Create CQL Library", description = "Creates a new CQL library")
     public ResponseEntity<CqlLibrary> createLibrary(@Valid @RequestBody LibrarySaveRequest request) {
         CqlLibrary library = libraryService.saveLibrary(request.getCql(), request.getDescription());
-        return ResponseEntity.ok(library);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(library);
     }
 
     @PutMapping("/libraries/{id}")
@@ -86,11 +87,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> updateLibrary(
             @PathVariable String id,
             @Valid @RequestBody LibrarySaveRequest request) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        CqlLibrary existing = libraryService.getLibrary(id).orElse(null);
-        if (existing != null && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        libraryService.getLibrary(id).ifPresent(lib -> ownershipVerifier.verifyOwnership(lib.getOwnerUsername()));
         CqlLibrary library = libraryService.updateLibrary(id, request.getCql(), request.getDescription());
         return ResponseEntity.ok(library);
     }
@@ -98,11 +95,7 @@ public class CqlController {
     @DeleteMapping("/libraries/{id}")
     @Operation(summary = "Delete CQL Library", description = "Deletes a CQL library")
     public ResponseEntity<Void> deleteLibrary(@PathVariable String id) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        CqlLibrary existing = libraryService.getLibrary(id).orElse(null);
-        if (existing != null && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        libraryService.getLibrary(id).ifPresent(lib -> ownershipVerifier.verifyOwnership(lib.getOwnerUsername()));
         libraryService.deleteLibrary(id);
         return ResponseEntity.noContent().build();
     }

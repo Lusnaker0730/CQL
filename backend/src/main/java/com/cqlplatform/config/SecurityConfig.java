@@ -44,13 +44,14 @@ public class SecurityConfig {
 
         // Conditionally allow H2 console access (dev profile only)
         if (h2ConsoleEnabled) {
-            http.headers(headers -> headers
-                    .frameOptions(frame -> frame.sameOrigin())
+            http.headers(headers -> {
+                    headers.frameOptions(frame -> frame.sameOrigin())
                     .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
                     .contentTypeOptions(content -> {})
                     .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-                    .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"))
-            );
+                    .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"));
+                    headers.contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'self'"));
+            });
             http.authorizeHttpRequests(auth -> auth
                     // Public auth endpoints
                     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
@@ -85,13 +86,14 @@ public class SecurityConfig {
                     .anyRequest().authenticated()
             );
         } else {
-            http.headers(headers -> headers
-                    .frameOptions(frame -> frame.deny())
+            http.headers(headers -> {
+                    headers.frameOptions(frame -> frame.deny())
                     .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
                     .contentTypeOptions(content -> {})
                     .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-                    .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"))
-            );
+                    .permissionsPolicy(permissions -> permissions.policy("camera=(), microphone=(), geolocation=()"));
+                    headers.contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'"));
+            });
             http.authorizeHttpRequests(auth -> auth
                     // Public auth endpoints
                     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
@@ -110,8 +112,8 @@ public class SecurityConfig {
                     .requestMatchers("/api/user/api-keys/**").authenticated()
                     // Actuator health & prometheus
                     .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
-                    // Swagger/OpenAPI
-                    .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                    // Swagger/OpenAPI - restrict to authenticated users in production
+                    .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").authenticated()
                     // ADMIN only endpoints
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")

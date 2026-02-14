@@ -65,7 +65,7 @@ public class MeasureReportService {
             return entity;
         } catch (Exception e) {
             log.error("Failed to save measure report", e);
-            throw new RuntimeException("Failed to save measure report", e);
+            throw new com.cqlplatform.exception.CqlExecutionException("Failed to save measure report: " + e.getMessage());
         }
     }
 

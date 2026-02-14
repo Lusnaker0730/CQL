@@ -83,7 +83,7 @@ public class FhirDataProviderService {
                     .execute();
         } catch (Exception e) {
             log.error("Failed to search FHIR resources", e);
-            throw new RuntimeException("FHIR search failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("FHIR search failed: " + e.getMessage(), e);
         }
     }
 
@@ -104,7 +104,7 @@ public class FhirDataProviderService {
                     .execute();
         } catch (Exception e) {
             log.error("Failed to read FHIR resource", e);
-            throw new RuntimeException("FHIR read failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("FHIR read failed: " + e.getMessage(), e);
         }
     }
 
@@ -125,7 +125,7 @@ public class FhirDataProviderService {
                     .getResource();
         } catch (Exception e) {
             log.error("Failed to create FHIR resource", e);
-            throw new RuntimeException("FHIR create failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("FHIR create failed: " + e.getMessage(), e);
         }
     }
 
@@ -146,7 +146,7 @@ public class FhirDataProviderService {
                     .getResource();
         } catch (Exception e) {
             log.error("Failed to update FHIR resource", e);
-            throw new RuntimeException("FHIR update failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("FHIR update failed: " + e.getMessage(), e);
         }
     }
 
@@ -166,7 +166,7 @@ public class FhirDataProviderService {
                     .execute();
         } catch (Exception e) {
             log.error("Failed to delete FHIR resource", e);
-            throw new RuntimeException("FHIR delete failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("FHIR delete failed: " + e.getMessage(), e);
         }
     }
 
@@ -205,7 +205,7 @@ public class FhirDataProviderService {
             }
         } catch (Exception e) {
             log.error("Failed to fetch all patients", e);
-            throw new RuntimeException("Failed to fetch patient list: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("Failed to fetch patient list: " + e.getMessage(), e);
         }
 
         return patientIds;
@@ -229,7 +229,7 @@ public class FhirDataProviderService {
             return client.transaction().withBundle(bundle).execute();
         } catch (Exception e) {
             log.error("Failed to execute FHIR transaction", e);
-            throw new RuntimeException("FHIR transaction failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("FHIR transaction failed: " + e.getMessage(), e);
         }
     }
 
@@ -263,7 +263,7 @@ public class FhirDataProviderService {
             return search.returnBundle(Bundle.class).execute();
         } catch (Exception e) {
             log.error("Failed to search patients by demographics", e);
-            throw new RuntimeException("Patient demographics search failed: " + e.getMessage(), e);
+            throw new FhirServerUnavailableException("Patient demographics search failed: " + e.getMessage(), e);
         }
     }
 

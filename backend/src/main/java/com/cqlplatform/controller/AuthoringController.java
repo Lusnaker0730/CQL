@@ -45,14 +45,12 @@ public class AuthoringController {
     private final CqlImportService cqlImportService;
     private final QueryBuilderService queryBuilderService;
     private final TwcoreCatalogService twcoreCatalogService;
+    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
 
     private void verifyArtifactOwnership(Long artifactId) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        artifactService.getById(artifactId).ifPresent(artifact -> {
-            if (artifact.getOwnerUsername() != null && !artifact.getOwnerUsername().equals(username)) {
-                throw new org.springframework.security.access.AccessDeniedException("You do not own this artifact");
-            }
-        });
+        ArtifactResponse artifact = artifactService.getById(artifactId)
+                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + artifactId));
+        ownershipVerifier.verifyOwnership(artifact.getOwnerUsername());
     }
 
     @GetMapping("/artifacts")
@@ -78,7 +76,7 @@ public class AuthoringController {
             Authentication authentication) {
         String username = authentication.getName();
         ArtifactResponse created = artifactService.create(request, username);
-        return ResponseEntity.ok(created);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/artifacts/{id}")
@@ -193,6 +191,11 @@ public class AuthoringController {
         String filename = file.getOriginalFilename();
         if (filename != null && !filename.toLowerCase().endsWith(".cql")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Only .cql files are accepted"));
+        }
+        // Validate CQL content is parseable text (not a binary masquerading as .cql)
+        String content = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        if (!content.contains("library ") && !content.contains("define ") && !content.contains("using ")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File does not appear to contain valid CQL content"));
         }
         Map<String, Object> result = externalCqlLibraryService.uploadLibrary(id, file);
         return ResponseEntity.ok(result);
