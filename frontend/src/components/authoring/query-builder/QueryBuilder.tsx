@@ -6,6 +6,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
+import { generateId } from '../../../utils/validation'
 
 interface QueryCondition {
   id: string
@@ -17,10 +18,6 @@ interface QueryCondition {
 
 interface QueryBuilderProps {
   onInsertCql?: (cql: string) => void
-}
-
-function generateId(): string {
-  return crypto.randomUUID()
 }
 
 export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {

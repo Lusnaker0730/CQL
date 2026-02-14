@@ -6,6 +6,7 @@ import ArtifactElement from './ArtifactElement'
 import ElementSelect from '../element-select/ElementSelect'
 import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
+import { generateId } from '../../../utils/validation'
 
 function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   const name = element.fields?.find((f) => f.id === 'element_name')?.value as string
@@ -17,10 +18,6 @@ function elementMatchesFilter(element: ElementInstance, term: string): boolean {
     return element.childInstances.some((child) => elementMatchesFilter(child, term))
   }
   return false
-}
-
-function generateId(): string {
-  return crypto.randomUUID()
 }
 
 interface ConjunctionGroupProps {

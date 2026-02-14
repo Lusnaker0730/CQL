@@ -37,11 +37,11 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../api'
 import type { AdminResetPasswordResponse, AdminCreateUserRequest } from '../types'
-import { safeParseJson } from '../utils/validation'
+import { getStoredUsername } from '../utils/validation'
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient()
-  const currentUser = safeParseJson<{ username?: string }>(localStorage.getItem('user'), {})
+  const currentUsername = getStoredUsername()
 
   // Reset password state
   const [resetResult, setResetResult] = useState<AdminResetPasswordResponse | null>(null)
@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
     setCopied(false)
   }
 
-  const isCurrentUser = (username: string) => currentUser?.username === username
+  const isCurrentUser = (username: string) => currentUsername === username
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>

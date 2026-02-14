@@ -4,10 +4,7 @@ import { Add as AddIcon } from '@mui/icons-material'
 import ElementSelectDropdown from './ElementSelectDropdown'
 import type { DynamicEntry } from './ElementSelectDropdown'
 import type { FormTemplateCategory, FormTemplate, ElementInstance } from '../../../types/authoring'
-
-function generateId(): string {
-  return crypto.randomUUID()
-}
+import { generateId } from '../../../utils/validation'
 
 interface ElementSelectProps {
   templates: FormTemplateCategory[]

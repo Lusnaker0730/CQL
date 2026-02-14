@@ -8,10 +8,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import UcumUnitField from '../fields/UcumUnitField'
 import type { Parameter } from '../../../types/authoring'
-
-function generateId(): string {
-  return crypto.randomUUID()
-}
+import { generateId } from '../../../utils/validation'
 
 const PARAMETER_TYPES = [
   { value: 'boolean', label: 'Boolean', hint: 'True/false flag (e.g., enable screening)' },

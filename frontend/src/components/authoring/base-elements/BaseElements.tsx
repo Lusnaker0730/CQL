@@ -8,10 +8,7 @@ import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
 import type { BaseElement, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
-
-function generateId(): string {
-  return crypto.randomUUID()
-}
+import { generateId } from '../../../utils/validation'
 
 interface BaseElementsProps {
   baseElements: BaseElement[]

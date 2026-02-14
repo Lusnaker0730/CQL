@@ -57,6 +57,10 @@ export function validateDateRange(start: string, end: string): string | null {
   return null
 }
 
+export function generateId(): string {
+  return crypto.randomUUID()
+}
+
 export function safeParseJson<T = unknown>(json: string | null, fallback: T): T {
   if (!json) return fallback
   try {

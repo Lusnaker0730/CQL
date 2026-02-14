@@ -11,10 +11,7 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import type { Recommendation, Subpopulation, Suggestion, SuggestionAction } from '../../../types/authoring'
-
-function generateId(): string {
-  return crypto.randomUUID()
-}
+import { generateId } from '../../../utils/validation'
 
 const GRADES = [
   { value: '', label: 'None' },

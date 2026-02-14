@@ -8,6 +8,7 @@ import {
   Add as AddIcon, Delete as DeleteIcon, Close as CloseIcon,
 } from '@mui/icons-material'
 import type { Modifier } from '../../../types/authoring'
+import { generateId } from '../../../utils/validation'
 
 /** A single rule: field → operator → value */
 interface ModifierRule {
@@ -122,10 +123,6 @@ const CODE_VALUE_OPTIONS: Record<string, string[]> = {
   'criticality': ['low', 'high', 'unable-to-assess'],
   'type': ['allergy', 'intolerance'],
   'intent': ['proposal', 'plan', 'order', 'original-order', 'reflex-order', 'filler-order', 'instance-order', 'option'],
-}
-
-function generateId(): string {
-  return crypto.randomUUID()
 }
 
 function createEmptyRule(): ModifierRule {
