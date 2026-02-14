@@ -125,7 +125,7 @@ const CODE_VALUE_OPTIONS: Record<string, string[]> = {
 }
 
 function generateId(): string {
-  return Math.random().toString(36).slice(2, 9)
+  return crypto.randomUUID()
 }
 
 function createEmptyRule(): ModifierRule {

@@ -81,7 +81,7 @@ export default function ErrorStatementEditor({ errorStatement, onChange }: Error
       ) : (
         <Stack spacing={2}>
           {clauses.map((clause, index) => (
-            <Card key={index} variant="outlined">
+            <Card key={`${clause.ifCondition.value}-${index}`} variant="outlined">
               <CardContent>
                 <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'warning.main' }}>

@@ -51,6 +51,7 @@ import {
   useLockMeasure,
   useUnlockMeasure,
 } from '../../hooks/useMeasures'
+import { getStoredUsername } from '../../utils/validation'
 
 interface MeasureEditorProps {
   measure: MeasureDefinition
@@ -69,7 +70,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
   const queryClient = useQueryClient()
 
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
+  const currentUser = getStoredUsername()
   const isOwner = measure.ownerUsername === currentUser || !measure.ownerUsername
   const isReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
 
@@ -122,6 +123,8 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
     measureApi.getMeasure(numId).then((m) => {
       onMeasureUpdate(m)
       setHistoryDialogOpen(false)
+    }).catch((err) => {
+      console.error('Failed to load measure version:', err)
     })
   }
 

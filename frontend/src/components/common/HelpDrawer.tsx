@@ -30,8 +30,8 @@ export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
         <Divider sx={{ mb: 2 }} />
 
         <Stack spacing={3}>
-          {helpContent.quickStart.map((section, index) => (
-            <Box key={index}>
+          {helpContent.quickStart.map((section) => (
+            <Box key={section.title}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mb: 0.5 }}>
                 {section.title}
               </Typography>

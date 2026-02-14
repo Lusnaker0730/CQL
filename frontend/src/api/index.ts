@@ -66,6 +66,7 @@ import type {
   AuditStatsResponse,
 } from '../types'
 import type { ArtifactSummary, Artifact, ArtifactRequest, FormTemplateCategory, ModifierDefinition, ExternalCqlLibrary, ArtifactTestResult, DeployResult, SaveLibraryResult, CqlImportResult, QueryBuilderResource, QueryBuilderOperator, TwcoreCatalogEntry, TwcoreCodeSystem } from '../types/authoring'
+import { getStoredUsername } from '../utils/validation'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -282,25 +283,25 @@ export const cqlApi = {
 
   // Sharing & Permissions
   shareLibrary: async (id: string, targetUsername: string): Promise<CqlLibrary> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/share`, { targetUsername, currentUser })
     return response.data
   },
 
   unshareLibrary: async (id: string, targetUsername: string): Promise<CqlLibrary> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/unshare`, { targetUsername, currentUser })
     return response.data
   },
 
   transferOwnership: async (id: string, newOwner: string): Promise<CqlLibrary> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/transfer`, { newOwner, currentUser })
     return response.data
   },
 
   setAccessLevel: async (id: string, accessLevel: string): Promise<CqlLibrary> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.put<CqlLibrary>(`/cql/libraries/${id}/access`, { accessLevel, currentUser })
     return response.data
   },
@@ -682,25 +683,25 @@ export const measureApi = {
 
   // Sharing & Permissions
   shareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/share`, { targetUsername, currentUser })
     return response.data
   },
 
   unshareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/unshare`, { targetUsername, currentUser })
     return response.data
   },
 
   transferMeasureOwnership: async (id: number, newOwner: string): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/transfer`, { newOwner, currentUser })
     return response.data
   },
 
   setMeasureAccessLevel: async (id: number, accessLevel: string): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.put<MeasureDefinition>(`/measures/${id}/access`, { accessLevel, currentUser })
     return response.data
   },
@@ -717,38 +718,38 @@ export const measureApi = {
 
   // Workflow
   submitForReview: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, { currentUser })
     return response.data
   },
 
   approveMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/approve`, { currentUser })
     return response.data
   },
 
   rejectMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser })
     return response.data
   },
 
   retireMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/retire`, { currentUser })
     return response.data
   },
 
   // Locking
   lockMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/lock`, { currentUser })
     return response.data
   },
 
   unlockMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username || 'anonymous'
+    const currentUser = getStoredUsername()
     const response = await api.post<MeasureDefinition>(`/measures/${id}/unlock`, { currentUser })
     return response.data
   },

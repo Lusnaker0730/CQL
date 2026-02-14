@@ -46,6 +46,7 @@ import BatchEvaluationDialog from './BatchEvaluationDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureDefinition } from '../../types'
+import { getStoredUsername } from '../../utils/validation'
 
 const ACCESS_ICONS: Record<string, React.ReactElement> = {
   private: <PrivateIcon sx={{ fontSize: 14 }} />,
@@ -80,7 +81,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     scoringType: 'proportion',
   })
 
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
+  const currentUser = getStoredUsername()
 
   const { data: allMeasures = [], isLoading } = useQuery({
     queryKey: ['measures', search],

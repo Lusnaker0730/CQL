@@ -64,7 +64,7 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
         </Typography>
 
         {items.map((item, index) => (
-          <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+          <Paper key={`obs-${item.criteriaExpression || index}-${item.aggregateMethod}`} variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
                 <Typography variant="body2" fontWeight={500}>

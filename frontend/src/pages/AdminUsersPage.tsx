@@ -37,10 +37,11 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../api'
 import type { AdminResetPasswordResponse, AdminCreateUserRequest } from '../types'
+import { safeParseJson } from '../utils/validation'
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient()
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+  const currentUser = safeParseJson<{ username?: string }>(localStorage.getItem('user'), {})
 
   // Reset password state
   const [resetResult, setResetResult] = useState<AdminResetPasswordResponse | null>(null)

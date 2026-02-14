@@ -76,6 +76,8 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
           if (full.cqlContent) {
             dispatch(setCqlContent(full.cqlContent))
           }
+        }).catch((err) => {
+          console.error('Failed to load measure:', err)
         })
       }
     }
@@ -395,8 +397,8 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {group.stratifiers.map((strat: StratifierResult, idx: number) => (
-                                  <TableRow key={idx}>
+                                {group.stratifiers.map((strat: StratifierResult) => (
+                                  <TableRow key={`${strat.strataId}-${strat.strataValue}`}>
                                     <TableCell>
                                       <Typography variant="body2" fontWeight={500}>{strat.strataId}</Typography>
                                     </TableCell>
@@ -415,9 +417,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                     </TableCell>
                                     <TableCell>
                                       <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                        {strat.populations?.map((pop, pidx) => (
+                                        {strat.populations?.map((pop) => (
                                           <Chip
-                                            key={pidx}
+                                            key={pop.populationType}
                                             label={`${getPopulationLabel(pop.populationType)}: ${pop.count ?? 0}`}
                                             size="small"
                                             variant="outlined"

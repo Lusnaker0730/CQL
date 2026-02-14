@@ -10,7 +10,7 @@ import type { Subpopulation, ElementInstance, FormTemplateCategory, ModifierDefi
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 
 function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return crypto.randomUUID()
 }
 
 interface SubpopulationsProps {

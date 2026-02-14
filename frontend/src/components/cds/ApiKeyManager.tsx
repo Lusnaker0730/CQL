@@ -28,6 +28,7 @@ import {
   VpnKey as KeyIcon,
 } from '@mui/icons-material'
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '../../hooks/useCdsHooks'
+import { safeParseJson } from '../../utils/validation'
 import { useNotification } from '../../hooks/useNotification'
 import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
@@ -42,7 +43,7 @@ export default function ApiKeyManager() {
   const [keyName, setKeyName] = useState('')
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null)
 
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+  const currentUser = safeParseJson<{ username?: string }>(localStorage.getItem('user'), {})
   const username = currentUser?.username || 'unknown'
   const baseUrl = window.location.origin
   const perUserEndpoint = `${baseUrl}/cds-services/u/${username}`

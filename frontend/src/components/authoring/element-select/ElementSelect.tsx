@@ -6,7 +6,7 @@ import type { DynamicEntry } from './ElementSelectDropdown'
 import type { FormTemplateCategory, FormTemplate, ElementInstance } from '../../../types/authoring'
 
 function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return crypto.randomUUID()
 }
 
 interface ElementSelectProps {

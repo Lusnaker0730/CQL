@@ -13,7 +13,7 @@ import GradientButton from '../../common/GradientButton'
 import type { Recommendation, Subpopulation, Suggestion, SuggestionAction } from '../../../types/authoring'
 
 function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return crypto.randomUUID()
 }
 
 const GRADES = [
@@ -365,7 +365,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   </IconButton>
                 </Stack>
                 {(rec.links || []).map((link, li) => (
-                  <Stack key={li} direction="row" spacing={1} mb={1} alignItems="center">
+                  <Stack key={`link-${rec.uid}-${li}`} direction="row" spacing={1} mb={1} alignItems="center">
                     <FormControl size="small" sx={{ minWidth: 100 }}>
                       <Select
                         value={link.type}
@@ -434,7 +434,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                         </IconButton>
                       </Stack>
                       {(sug.actions || []).map((act, ai) => (
-                        <Stack key={ai} direction="row" spacing={1} alignItems="center" mb={0.5}>
+                        <Stack key={`action-${sug.uid}-${ai}`} direction="row" spacing={1} alignItems="center" mb={0.5}>
                           <Chip
                             icon={act.resource?.resourceType === 'MedicationRequest' ? <MedIcon /> : <ServiceIcon />}
                             label="Create"

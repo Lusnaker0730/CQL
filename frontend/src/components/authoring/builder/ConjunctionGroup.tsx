@@ -20,7 +20,7 @@ function elementMatchesFilter(element: ElementInstance, term: string): boolean {
 }
 
 function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return crypto.randomUUID()
 }
 
 interface ConjunctionGroupProps {

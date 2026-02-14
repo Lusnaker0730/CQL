@@ -84,7 +84,7 @@ import type {
 import { useNotification } from '../../hooks/useNotification'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
-import { validateRequired } from '../../utils/validation'
+import { validateRequired, safeParseJson } from '../../utils/validation'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import ApiKeyManager from './ApiKeyManager'
 import LibraryPicker from '../common/LibraryPicker'
@@ -400,7 +400,7 @@ function InvokeServicePanel() {
                               <Stack direction="row" spacing={0.5}>
                                 {suggestion.actions.map((action, idx) => (
                                   <Chip
-                                    key={idx}
+                                    key={`${action.type}-${idx}`}
                                     label={`${action.type}${action.description ? ': ' + action.description : ''}`}
                                     size="small"
                                     color={action.type === 'delete' ? 'error' : 'primary'}
@@ -421,7 +421,7 @@ function InvokeServicePanel() {
                       <Stack direction="row" spacing={1} mt={1}>
                         {card.links.map((link, i) => (
                           <Button
-                            key={i}
+                            key={`${link.label}-${i}`}
                             variant="outlined"
                             size="small"
                             href={link.url && (link.url.startsWith('https://') || link.url.startsWith('http://')) ? link.url : '#'}
@@ -465,7 +465,7 @@ function InvokeServicePanel() {
           </Typography>
           <List dense>
             {cdsResponse.systemActions.map((action, i) => (
-              <ListItem key={i}>
+              <ListItem key={`${action.type}-${action.resourceId || i}`}>
                 <ListItemText
                   primary={`${action.type}: ${action.description || 'No description'}`}
                   secondary={action.resourceId ? `Resource: ${action.resourceId}` : undefined}
@@ -698,7 +698,7 @@ function ManageServicesPanel() {
       )}
 
       {services?.map((service) => {
-        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+        const currentUser = safeParseJson<{ username?: string }>(localStorage.getItem('user'), {})
         const isOwner = !service.ownerUsername || service.ownerUsername === currentUser?.username
         const isShared = service.shared
         const ownershipLabel = isShared ? 'Shared' : isOwner ? 'Mine' : `Owner: ${service.ownerUsername}`
@@ -1120,6 +1120,14 @@ function SandboxPanelInner() {
 
   // Debounced sync: JSON (prefetch) → Visual Builder
   const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (jsonSyncTimerRef.current) clearTimeout(jsonSyncTimerRef.current)
+    }
+  }, [])
+
   const handleJsonChange = useCallback(
     (value: string | undefined) => {
       const val = value || ''
@@ -1302,7 +1310,7 @@ function SandboxPanelInner() {
         <Alert severity="info">
           <Typography variant="subtitle2">System Actions</Typography>
           {sandboxResponse.systemActions.map((action, i) => (
-            <Typography key={i} variant="body2">
+            <Typography key={`${action.type}-${i}`} variant="body2">
               {action.type}: {action.description || 'No description'}
             </Typography>
           ))}

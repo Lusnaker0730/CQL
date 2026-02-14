@@ -10,7 +10,7 @@ import UcumUnitField from '../fields/UcumUnitField'
 import type { Parameter } from '../../../types/authoring'
 
 function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return crypto.randomUUID()
 }
 
 const PARAMETER_TYPES = [

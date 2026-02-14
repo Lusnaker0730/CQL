@@ -57,6 +57,19 @@ export function validateDateRange(start: string, end: string): string | null {
   return null
 }
 
+export function safeParseJson<T = unknown>(json: string | null, fallback: T): T {
+  if (!json) return fallback
+  try {
+    return JSON.parse(json) as T
+  } catch {
+    return fallback
+  }
+}
+
+export function getStoredUsername(): string {
+  return safeParseJson<{ username?: string }>(localStorage.getItem('user'), {}).username || 'anonymous'
+}
+
 export function validateHookType(value: string): string | null {
   const valid = [
     'patient-view',

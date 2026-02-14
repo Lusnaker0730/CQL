@@ -88,6 +88,8 @@ export default function EditorPage() {
     cqlApi.getLibrary(String(id)).then((lib) => {
       dispatch(setCqlContent(lib.cqlContent))
       setHistoryDialogOpen(false)
+    }).catch((err) => {
+      console.error('Failed to load library version:', err)
     })
   }
 

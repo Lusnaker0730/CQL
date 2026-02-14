@@ -149,16 +149,16 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       const rawItems: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
       const results: TestCase[] = []
       for (const raw of rawItems) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const item = raw as any
+        const item = raw as Record<string, unknown>
         // Support MADiE format: detect by checking for 'json' or 'patientBundleJson' field
-        const bundleJson = item.patientBundleJson || item.json
+        const bundleJson = (item.patientBundleJson as string | undefined) || (item.json as string | undefined)
           || (item.resourceType === 'Bundle' ? JSON.stringify(item) : undefined)
+        const groupPopValues = item.groupPopulationValues as Array<{ name: string; expected: boolean }> | undefined
         const tc: TestCase = {
-          title: item.title || item.name || file.name.replace(/\.json$/, ''),
-          description: item.description || '',
-          series: item.series || item.groupName || undefined,
-          expectedPopulations: item.expectedPopulations || item.groupPopulationValues?.reduce(
+          title: (item.title as string) || (item.name as string) || file.name.replace(/\.json$/, ''),
+          description: (item.description as string) || '',
+          series: (item.series as string) || (item.groupName as string) || undefined,
+          expectedPopulations: (item.expectedPopulations as Record<string, boolean>) || groupPopValues?.reduce(
             (acc: Record<string, boolean>, p: { name: string; expected: boolean }) => {
               acc[p.name] = p.expected
               return acc
