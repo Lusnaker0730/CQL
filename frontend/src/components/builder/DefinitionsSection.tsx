@@ -15,6 +15,7 @@ import SnippetPreview from './SnippetPreview'
 import RetrieveBuilder from './RetrieveBuilder'
 import QueryBuilder from './QueryBuilder'
 import OperatorPanel from './OperatorPanel'
+import CdsCardBuilder from './CdsCardBuilder'
 
 interface DefinitionsSectionProps {
   expressions: { name: string; context?: string; resultType?: string }[]
@@ -47,7 +48,7 @@ export default function DefinitionsSection({
   onEdit,
 }: DefinitionsSectionProps) {
   const [showForm, setShowForm] = useState(false)
-  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator'>('template')
+  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'cdscard'>('template')
   const [name, setName] = useState('')
   const [context, setContext] = useState('Patient')
   const [templateIdx, setTemplateIdx] = useState(0)
@@ -145,6 +146,9 @@ export default function DefinitionsSection({
             <ToggleButton value="operator" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               Operators
             </ToggleButton>
+            <ToggleButton value="cdscard" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              CDS Card
+            </ToggleButton>
           </ToggleButtonGroup>
 
           {mode === 'template' ? (
@@ -220,6 +224,15 @@ export default function DefinitionsSection({
             <QueryBuilder
               valueSets={valueSets}
               codes={codes}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          ) : mode === 'cdscard' ? (
+            <CdsCardBuilder
+              expressions={expressions.map((e) => e.name)}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()
