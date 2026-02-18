@@ -125,8 +125,10 @@ cds:
 # Measure Configuration
 measure:
   reporting:
-    default-period-start: "2024-01-01"
-    default-period-end: "2024-12-31"
+    default-period-start: ${MEASURE_DEFAULT_PERIOD_START:}
+    default-period-end: ${MEASURE_DEFAULT_PERIOD_END:}
+  locking:
+    timeout-minutes: ${MEASURE_LOCK_TIMEOUT_MINUTES:30}
   scheduling:
     enabled: ${MEASURE_SCHEDULING_ENABLED:true}
 

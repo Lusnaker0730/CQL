@@ -47,10 +47,10 @@ public class MeasureEvaluationService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter measureEvaluationErrorCounter;
 
-    @Value("${measure.reporting.default-period-start:2024-01-01}")
+    @Value("${measure.reporting.default-period-start:}")
     private String defaultPeriodStart;
 
-    @Value("${measure.reporting.default-period-end:2024-12-31}")
+    @Value("${measure.reporting.default-period-end:}")
     private String defaultPeriodEnd;
 
     @Value("${cql.execution.measure-timeout-seconds:120}")
@@ -111,10 +111,17 @@ public class MeasureEvaluationService {
     private MeasureEvaluationContext buildContext(MeasureEvaluationRequest request,
                                                   Long measureDefinitionId,
                                                   MeasureDefinition measureDefinition) {
+        int currentYear = LocalDate.now().getYear();
         LocalDate periodStart = request.getPeriodStart() != null
-                ? request.getPeriodStart() : LocalDate.parse(defaultPeriodStart);
+                ? request.getPeriodStart()
+                : (defaultPeriodStart != null && !defaultPeriodStart.isBlank()
+                        ? LocalDate.parse(defaultPeriodStart)
+                        : LocalDate.of(currentYear, 1, 1));
         LocalDate periodEnd = request.getPeriodEnd() != null
-                ? request.getPeriodEnd() : LocalDate.parse(defaultPeriodEnd);
+                ? request.getPeriodEnd()
+                : (defaultPeriodEnd != null && !defaultPeriodEnd.isBlank()
+                        ? LocalDate.parse(defaultPeriodEnd)
+                        : LocalDate.of(currentYear, 12, 31));
 
         return MeasureEvaluationContext.builder()
                 .request(request)
@@ -211,11 +218,12 @@ public class MeasureEvaluationService {
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
-                .description("Primary measure group (Total Patients: " + totalPatients + ")")
+                .description("Primary measure group")
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit("percentage")
                 .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
+                .totalPatients(totalPatients)
                 .build();
 
         return MeasureEvaluationResult.builder()
@@ -272,10 +280,11 @@ public class MeasureEvaluationService {
 
             groups.add(GroupResult.builder()
                     .groupId(groupDef.getGroupId())
-                    .description(desc + " (Total Patients: " + totalPatients + ")")
+                    .description(desc)
                     .populations(populations)
                     .measureScore(score)
                     .measureScoreUnit("percentage")
+                    .totalPatients(totalPatients)
                     .build());
         }
 

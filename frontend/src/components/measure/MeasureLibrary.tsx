@@ -48,6 +48,12 @@ import { measureApi } from '../../api'
 import { useNotification } from '../../hooks/useNotification'
 import type { MeasureDefinition } from '../../types'
 import { getStoredUsername } from '../../utils/validation'
+import {
+  DEFAULT_MEASURE_STATUS,
+  DEFAULT_SCORING_TYPE,
+  SCORING_TYPE_OPTIONS,
+  MEASURE_STATUS_OPTIONS,
+} from '../../constants/measureConstants'
 
 const ACCESS_ICONS: Record<string, React.ReactElement> = {
   private: <PrivateIcon sx={{ fontSize: 14 }} />,
@@ -78,8 +84,8 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     version: '1.0.0',
     title: '',
     description: '',
-    status: 'draft',
-    scoringType: 'proportion',
+    status: DEFAULT_MEASURE_STATUS,
+    scoringType: DEFAULT_SCORING_TYPE,
   })
 
   const { showNotification } = useNotification()
@@ -112,7 +118,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['measures'] })
       setCreateOpen(false)
-      setNewMeasure({ name: '', version: '1.0.0', title: '', description: '', status: 'draft', scoringType: 'proportion' })
+      setNewMeasure({ name: '', version: '1.0.0', title: '', description: '', status: DEFAULT_MEASURE_STATUS, scoringType: DEFAULT_SCORING_TYPE })
     },
   })
 
@@ -177,7 +183,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         importMutation.mutate(parsed)
       }
     } catch {
-      alert('Invalid JSON')
+      showNotification('Invalid JSON format', 'error')
     }
   }
 
@@ -375,11 +381,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               value={newMeasure.description} onChange={(e) => setNewMeasure({ ...newMeasure, description: e.target.value })} />
             <TextField label="Scoring Type" select size="small" fullWidth
               value={newMeasure.scoringType} onChange={(e) => setNewMeasure({ ...newMeasure, scoringType: e.target.value })}>
-              <MenuItem value="proportion">Proportion</MenuItem>
-              <MenuItem value="ratio">Ratio</MenuItem>
-              <MenuItem value="continuous-variable">Continuous Variable</MenuItem>
-              <MenuItem value="cohort">Cohort</MenuItem>
-              <MenuItem value="composite">Composite</MenuItem>
+              {SCORING_TYPE_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              ))}
             </TextField>
             <Stack direction="row" justifyContent="flex-end">
               <Button size="small" startIcon={<LibraryBooksIcon />}
@@ -417,9 +421,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                     value={editMeasure.version} onChange={(e) => setEditMeasure({ ...editMeasure, version: e.target.value })} />
                   <TextField label="Status" select size="small" fullWidth
                     value={editMeasure.status} onChange={(e) => setEditMeasure({ ...editMeasure, status: e.target.value })}>
-                    <MenuItem value="draft">Draft</MenuItem>
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="retired">Retired</MenuItem>
+                    {MEASURE_STATUS_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    ))}
                   </TextField>
                 </Stack>
                 <TextField label="Title" size="small" fullWidth
@@ -428,11 +432,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   value={editMeasure.description || ''} onChange={(e) => setEditMeasure({ ...editMeasure, description: e.target.value })} />
                 <TextField label="Scoring Type" select size="small" fullWidth
                   value={editMeasure.scoringType} onChange={(e) => setEditMeasure({ ...editMeasure, scoringType: e.target.value })}>
-                  <MenuItem value="proportion">Proportion</MenuItem>
-                  <MenuItem value="ratio">Ratio</MenuItem>
-                  <MenuItem value="continuous-variable">Continuous Variable</MenuItem>
-                  <MenuItem value="cohort">Cohort</MenuItem>
-                  <MenuItem value="composite">Composite</MenuItem>
+                  {SCORING_TYPE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
                 <Stack direction="row" justifyContent="flex-end">
                   <Button size="small" startIcon={<LibraryBooksIcon />}

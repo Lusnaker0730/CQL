@@ -9,6 +9,7 @@ import { useCreateArtifact } from '../../../hooks/useAuthoring'
 import { useNotification } from '../../../hooks/useNotification'
 import { authoringApi } from '../../../api'
 import type { CqlImportResult } from '../../../types/authoring'
+import { SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION } from '../../../constants/authoringConstants'
 
 interface ImportCqlDialogProps {
   open: boolean
@@ -46,11 +47,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // System definitions that should NOT be mapped as base elements
-  const SYSTEM_DEFINITIONS = new Set([
-    'MeetsInclusionCriteria', 'MeetsExclusionCriteria', 'InPopulation',
-    'Recommendation', 'Errors', 'Patient',
-  ])
+  // System definitions imported from authoringConstants
 
   /** Create an externalCqlRef element pointing to a definition in an external library */
   const makeExternalCqlRef = (
@@ -121,8 +118,8 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
             const libVersion = extLib.version
 
             // Find key definitions
-            const inclusionDef = defs.find((d) => d.name === 'MeetsInclusionCriteria')
-            const exclusionDef = defs.find((d) => d.name === 'MeetsExclusionCriteria')
+            const inclusionDef = defs.find((d) => d.name === DEF_MEETS_INCLUSION)
+            const exclusionDef = defs.find((d) => d.name === DEF_MEETS_EXCLUSION)
 
             // Build expression tree elements
             const inclusionElements = inclusionDef
@@ -156,10 +153,10 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                 await authoringApi.updateArtifact(artifact.id, {
                   name: artifact.name,
                   ...(inclusionElements.length > 0 && {
-                    expTreeInclude: wrapInConjunction('MeetsInclusionCriteria', inclusionElements),
+                    expTreeInclude: wrapInConjunction(DEF_MEETS_INCLUSION, inclusionElements),
                   }),
                   ...(exclusionElements.length > 0 && {
-                    expTreeExclude: wrapInConjunction('MeetsExclusionCriteria', exclusionElements),
+                    expTreeExclude: wrapInConjunction(DEF_MEETS_EXCLUSION, exclusionElements),
                   }),
                   ...(baseElements.length > 0 && { baseElements }),
                 })

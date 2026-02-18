@@ -38,6 +38,8 @@ import type { RootState } from '../../store'
 import { setCqlContent } from '../../store/editorSlice'
 import MeasureScheduleManager from './MeasureScheduleManager'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
+import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 
@@ -51,9 +53,10 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [measureId, setMeasureId] = useState('custom-measure')
   const [patientId, setPatientId] = useState('')
-  const [periodStart, setPeriodStart] = useState('2024-01-01')
-  const [periodEnd, setPeriodEnd] = useState('2024-12-31')
-  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
+  const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
+  const [periodStart, setPeriodStart] = useState(defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
+  const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [selectedDef, setSelectedDef] = useState<MeasureDefinition | null>(null)
   const [stratExpanded, setStratExpanded] = useState(false)
@@ -141,9 +144,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   }
 
   const getScoreHex = (score: number): string => {
-    if (score >= 80) return '#2E7D32'
-    if (score >= 60) return '#ED6C02'
-    return '#D32F2F'
+    if (score >= 80) return 'success.main'
+    if (score >= 60) return 'warning.main'
+    return 'error.main'
   }
 
   if (showSchedules && selectedDef) {
@@ -331,7 +334,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                           sx={{
                             height: 10,
                             borderRadius: 5,
-                            bgcolor: 'rgba(13,115,119,0.08)',
+                            bgcolor: (theme) => `${theme.palette.primary.main}14`,
                           }}
                         />
                       </Box>

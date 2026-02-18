@@ -23,6 +23,7 @@ import {
 import { useMutation } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { BatchEvaluationRequest, BatchEvaluationResult } from '../../types'
+import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
 import GradientButton from '../common/GradientButton'
 
 interface BatchEvaluationDialogProps {
@@ -48,8 +49,9 @@ export default function BatchEvaluationDialog({
   measureIds,
 }: BatchEvaluationDialogProps) {
   const [fhirServerUrl, setFhirServerUrl] = useState('')
-  const [periodStart, setPeriodStart] = useState('2024-01-01')
-  const [periodEnd, setPeriodEnd] = useState('2024-12-31')
+  const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
+  const [periodStart, setPeriodStart] = useState(defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
   const [result, setResult] = useState<BatchEvaluationResult | null>(null)
 
   const batchMutation = useMutation({

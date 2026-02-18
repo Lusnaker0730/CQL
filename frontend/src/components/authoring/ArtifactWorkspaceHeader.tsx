@@ -13,6 +13,7 @@ import { useGenerateArtifactCql } from '../../hooks/useArtifactCql'
 import CpgMetadataEditor from './CpgMetadataEditor'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
 import { CDS_HOOK_TYPES, getHookDescription } from '../../constants/cdsHooks'
+import { FHIR_VERSION_OPTIONS } from '../../constants/authoringConstants'
 
 interface ArtifactWorkspaceHeaderProps {
   artifact: Artifact
@@ -328,9 +329,9 @@ export default function ArtifactWorkspaceHeader({
               onChange={(e) => setSelectedFhirVersion(e.target.value)}
               sx={{ minWidth: 120 }}
             >
-              <MenuItem value="R4">R4 (4.0.1)</MenuItem>
-              <MenuItem value="STU3">STU3 (3.0.2)</MenuItem>
-              <MenuItem value="DSTU2">DSTU2 (1.0.2)</MenuItem>
+              {FHIR_VERSION_OPTIONS.map((v) => (
+                <MenuItem key={v.key} value={v.key}>{v.label}</MenuItem>
+              ))}
             </TextField>
             <Button
               size="small"

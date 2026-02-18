@@ -1,5 +1,6 @@
 package com.cqlplatform.service.authoring;
 
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.service.cql.CqlTranslationService;
@@ -45,10 +46,10 @@ public class CqlImportService {
         Matcher libMatcher = LIBRARY_PATTERN.matcher(cqlContent);
         if (libMatcher.find()) {
             result.put("name", libMatcher.group(1));
-            result.put("version", libMatcher.group(2) != null ? libMatcher.group(2) : "1.0.0");
+            result.put("version", libMatcher.group(2) != null ? libMatcher.group(2) : AuthoringConstants.DEFAULT_VERSION);
         } else {
             result.put("name", "ImportedArtifact");
-            result.put("version", "1.0.0");
+            result.put("version", AuthoringConstants.DEFAULT_VERSION);
         }
 
         // Parse FHIR version
@@ -56,7 +57,7 @@ public class CqlImportService {
         if (usingMatcher.find()) {
             result.put("fhirVersion", usingMatcher.group(1));
         } else {
-            result.put("fhirVersion", "4.0.1");
+            result.put("fhirVersion", AuthoringConstants.DEFAULT_FHIR_VERSION);
         }
 
         // Extract value sets

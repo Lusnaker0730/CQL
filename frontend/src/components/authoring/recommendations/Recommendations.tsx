@@ -12,6 +12,7 @@ import {
 import GradientButton from '../../common/GradientButton'
 import type { Recommendation, Subpopulation, Suggestion, SuggestionAction } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
+import { SPECIAL_SUBPOPS } from '../../../constants/authoringConstants'
 
 const GRADES = [
   { value: '', label: 'None' },
@@ -161,11 +162,6 @@ export default function Recommendations({ recommendations, subpopulations, onCha
     suggestions[sugIdx] = sug
     handleUpdate(uid, { suggestions })
   }
-
-  const SPECIAL_SUBPOPS: Subpopulation[] = [
-    { uniqueId: '__doesnt_meet_inclusion__', subpopulationName: "Doesn't Meet Inclusion Criteria", special: true },
-    { uniqueId: '__meets_exclusion__', subpopulationName: 'Meets Exclusion Criteria', special: true },
-  ]
 
   const nonSpecialSubpops = subpopulations.filter((sp) => !sp.special)
   const allSubpopsForRec = [...nonSpecialSubpops, ...SPECIAL_SUBPOPS]

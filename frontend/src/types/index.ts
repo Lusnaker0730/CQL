@@ -322,6 +322,7 @@ export interface MeasureGroupResult {
   measureScore?: number
   measureScoreUnit?: string
   stratifiers?: StratifierResult[]
+  totalPatients?: number
 }
 
 export interface PopulationResult {

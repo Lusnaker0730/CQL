@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { DebugTrace } from '../types'
+import { DEFAULT_FHIR_SERVER_URL } from '../config/env'
 
 interface ExecutionResult {
   name: string
@@ -20,7 +21,7 @@ interface ExecutionState {
 
 const initialState: ExecutionState = {
   patientId: '',
-  fhirServerUrl: 'http://hapi-fhir:8080/fhir',
+  fhirServerUrl: DEFAULT_FHIR_SERVER_URL,
   isExecuting: false,
   results: {},
   errors: [],

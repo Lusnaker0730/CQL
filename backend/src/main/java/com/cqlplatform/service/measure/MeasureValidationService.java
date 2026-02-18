@@ -5,6 +5,8 @@ import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.CqlTranslationResponse.ExpressionInfo;
 import com.cqlplatform.model.measure.*;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -512,31 +514,45 @@ public class MeasureValidationService {
                 .collect(Collectors.toMap(ExpressionInfo::getName, ExpressionInfo::getResultType, (a, b) -> a));
     }
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     /**
-     * Basic heuristic: extract resource type names from ELM JSON retrieve elements.
+     * Extract resource type names from ELM JSON retrieve elements.
      * Looks for "dataType" fields with format "{http://hl7.org/fhir}ResourceType".
      */
     private List<String> extractRetrieveTypes(String elmJson) {
         List<String> types = new ArrayList<>();
         if (elmJson == null) return types;
 
-        // Simple regex-based extraction of retrieve dataType from ELM JSON
-        int idx = 0;
-        String searchKey = "\"dataType\"";
-        while ((idx = elmJson.indexOf(searchKey, idx)) != -1) {
-            int colonIdx = elmJson.indexOf(":", idx);
-            int quoteStart = elmJson.indexOf("\"", colonIdx + 1);
-            int quoteEnd = elmJson.indexOf("\"", quoteStart + 1);
-            if (quoteStart >= 0 && quoteEnd > quoteStart) {
-                String value = elmJson.substring(quoteStart + 1, quoteEnd);
+        try {
+            JsonNode root = MAPPER.readTree(elmJson);
+            collectDataTypes(root, types);
+        } catch (Exception e) {
+            log.warn("Failed to parse ELM JSON for retrieve type extraction: {}", e.getMessage());
+        }
+        return types;
+    }
+
+    private void collectDataTypes(JsonNode node, List<String> types) {
+        if (node == null) return;
+
+        if (node.isObject()) {
+            JsonNode dataType = node.get("dataType");
+            if (dataType != null && dataType.isTextual()) {
+                String value = dataType.asText();
                 // Extract resource type from "{http://hl7.org/fhir}ResourceType"
-                int braceEnd = value.indexOf("}");
+                int braceEnd = value.indexOf('}');
                 if (braceEnd >= 0 && braceEnd + 1 < value.length()) {
                     types.add(value.substring(braceEnd + 1));
                 }
             }
-            idx = quoteEnd > 0 ? quoteEnd : idx + 1;
+            for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+                collectDataTypes(it.next(), types);
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) {
+                collectDataTypes(child, types);
+            }
         }
-        return types;
     }
 }

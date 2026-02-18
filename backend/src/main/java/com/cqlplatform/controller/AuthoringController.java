@@ -1,5 +1,6 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.*;
@@ -269,7 +270,7 @@ public class AuthoringController {
                 .title(artifact.getName())
                 .description(artifact.getDescription())
                 .cqlContent(cql)
-                .defaultIndicator("info")
+                .defaultIndicator(com.cqlplatform.model.cds.CdsConstants.INDICATOR_INFO)
                 .enabled(true)
                 .build();
 

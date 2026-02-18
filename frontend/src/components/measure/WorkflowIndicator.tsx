@@ -4,6 +4,7 @@ import {
   RadioButtonUnchecked as IncompleteIcon,
 } from '@mui/icons-material'
 import type { MeasureDefinition } from '../../types'
+import { MEASURE_STATUS } from '../../constants/measureConstants'
 
 interface WorkflowStep {
   label: string
@@ -31,12 +32,12 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
   {
     label: 'Review',
     tooltip: 'Measure submitted for review and approved',
-    check: (m) => m.status === 'in-review' || m.status === 'active',
+    check: (m) => m.status === MEASURE_STATUS.IN_REVIEW || m.status === MEASURE_STATUS.ACTIVE,
   },
   {
     label: 'Active',
     tooltip: 'Measure status set to active',
-    check: (m) => m.status === 'active',
+    check: (m) => m.status === MEASURE_STATUS.ACTIVE,
   },
 ]
 

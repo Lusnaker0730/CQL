@@ -1,5 +1,6 @@
 import { createContext, useState, useCallback, type ReactNode } from 'react'
 import type { PaletteMode } from '@mui/material'
+import { DEFAULT_FHIR_SERVER_URL } from '../config/env'
 
 export interface Preferences {
   editorFontSize: number
@@ -16,7 +17,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   editorWordWrap: 'on',
   editorMinimap: false,
   themeMode: 'light',
-  defaultFhirServerUrl: 'http://hapi-fhir:8080/fhir',
+  defaultFhirServerUrl: DEFAULT_FHIR_SERVER_URL,
 }
 
 const STORAGE_KEY = 'cql-platform-preferences'

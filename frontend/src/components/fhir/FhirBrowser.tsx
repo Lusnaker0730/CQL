@@ -21,10 +21,11 @@ import ValidateTab from './ValidateTab'
 import TerminologyTab from './TerminologyTab'
 import TransactionTab from './TransactionTab'
 import BulkExportTab from './BulkExportTab'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 
 export default function FhirBrowser() {
   const [tabValue, setTabValue] = useState(0)
-  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
+  const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [resourceType, setResourceType] = useState('Patient')
 

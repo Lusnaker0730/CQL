@@ -23,13 +23,15 @@ import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureComparisonResult, MeasureTrendResult } from '../../types'
+import { getDefaultComparisonPeriods } from '../../utils/dateDefaults'
 
 export default function MeasureComparison() {
   const [measureName, setMeasureName] = useState('')
-  const [p1Start, setP1Start] = useState('2024-01-01')
-  const [p1End, setP1End] = useState('2024-06-30')
-  const [p2Start, setP2Start] = useState('2024-07-01')
-  const [p2End, setP2End] = useState('2024-12-31')
+  const defaults = getDefaultComparisonPeriods()
+  const [p1Start, setP1Start] = useState(defaults.period1Start)
+  const [p1End, setP1End] = useState(defaults.period1End)
+  const [p2Start, setP2Start] = useState(defaults.period2Start)
+  const [p2End, setP2End] = useState(defaults.period2End)
   const [periods, setPeriods] = useState(4)
   const [comparison, setComparison] = useState<MeasureComparisonResult | null>(null)
   const [trend, setTrend] = useState<MeasureTrendResult | null>(null)
@@ -57,10 +59,10 @@ export default function MeasureComparison() {
   }
 
   const getScoreColor = (score: number | undefined): string => {
-    if (score == null) return '#999'
-    if (score >= 80) return '#2E7D32'
-    if (score >= 60) return '#ED6C02'
-    return '#D32F2F'
+    if (score == null) return 'text.disabled'
+    if (score >= 80) return 'success.main'
+    if (score >= 60) return 'warning.main'
+    return 'error.main'
   }
 
   return (
@@ -209,7 +211,7 @@ export default function MeasureComparison() {
                       sx={{
                         height: 8,
                         borderRadius: 4,
-                        bgcolor: 'rgba(13,115,119,0.08)',
+                        bgcolor: (theme) => `${theme.palette.primary.main}14`,
                         '& .MuiLinearProgress-bar': {
                           bgcolor: getScoreColor(dp.score),
                           borderRadius: 4,

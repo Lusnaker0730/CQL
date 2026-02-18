@@ -123,7 +123,8 @@ public class FhirMeasureBundleService {
         if (!measure.has("effectivePeriod")) {
             ObjectNode effectivePeriod = measure.putObject("effectivePeriod");
             effectivePeriod.put("start", definition.getCreatedAt() != null
-                    ? definition.getCreatedAt().toString().substring(0, 10) : "2024-01-01");
+                    ? definition.getCreatedAt().toString().substring(0, 10)
+                    : java.time.LocalDate.now().withDayOfYear(1).toString());
         }
 
         // Add relatedArtifact references

@@ -28,6 +28,13 @@ import { measureApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { helpContent } from '../../constants/helpContent'
 import { REFERENCE_TYPES } from '../../constants/populationConfig'
+import {
+  MEASURE_STATUS_OPTIONS,
+  SCORING_TYPE_OPTIONS,
+  MEASURE_SETTING_OPTIONS,
+  COMPOSITE_SCORING_OPTIONS,
+  DEFAULT_REFERENCE_TYPE,
+} from '../../constants/measureConstants'
 import type { MeasureDefinition, MeasureReference } from '../../types'
 
 interface MeasureDetailsTabProps {
@@ -73,7 +80,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
   // Reference management
   const addReference = () => {
     const refs = [...(form.references || [])]
-    refs.push({ type: 'citation', reference: '' })
+    refs.push({ type: DEFAULT_REFERENCE_TYPE, reference: '' })
     updateField('references', refs)
   }
 
@@ -176,9 +183,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.status}
                   onChange={(e) => updateField('status', e.target.value)}
                 >
-                  <MenuItem value="draft">Draft</MenuItem>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="retired">Retired</MenuItem>
+                  {MEASURE_STATUS_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
               </Stack>
               <Stack direction="row" spacing={2}>
@@ -190,11 +197,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.scoringType}
                   onChange={(e) => updateField('scoringType', e.target.value)}
                 >
-                  <MenuItem value="proportion">Proportion</MenuItem>
-                  <MenuItem value="ratio">Ratio</MenuItem>
-                  <MenuItem value="continuous-variable">Continuous Variable</MenuItem>
-                  <MenuItem value="cohort">Cohort</MenuItem>
-                  <MenuItem value="composite">Composite</MenuItem>
+                  {SCORING_TYPE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
                 <TextField
                   label="Measure Set"
@@ -217,12 +222,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 <MenuItem value="">
                   <em>None</em>
                 </MenuItem>
-                <MenuItem value="inpatient">Inpatient</MenuItem>
-                <MenuItem value="outpatient">Outpatient</MenuItem>
-                <MenuItem value="emergency">Emergency</MenuItem>
-                <MenuItem value="community">Community</MenuItem>
-                <MenuItem value="long-term-care">Long-term Care</MenuItem>
-                <MenuItem value="home-health">Home Health</MenuItem>
+                {MEASURE_SETTING_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
               </TextField>
               {form.compositeScoring && (
                 <TextField
@@ -233,8 +235,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.compositeScoring || ''}
                   onChange={(e) => updateField('compositeScoring', e.target.value)}
                 >
-                  <MenuItem value="opportunity">Opportunity</MenuItem>
-                  <MenuItem value="linear">Linear</MenuItem>
+                  {COMPOSITE_SCORING_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
               )}
             </Stack>

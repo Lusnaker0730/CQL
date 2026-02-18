@@ -22,6 +22,8 @@ import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import type { MeasureDefinition, MeasureEvaluationResult } from '../../types'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
+import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import EvaluationResultCard from './EvaluationResultCard'
 import MeasureScheduleManager from './MeasureScheduleManager'
@@ -33,9 +35,10 @@ interface MeasureEvaluationTabProps {
 export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabProps) {
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [patientId, setPatientId] = useState('')
-  const [periodStart, setPeriodStart] = useState('2024-01-01')
-  const [periodEnd, setPeriodEnd] = useState('2024-12-31')
-  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
+  const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
+  const [periodStart, setPeriodStart] = useState(defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
+  const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [showSchedules, setShowSchedules] = useState(false)
   const [dateError, setDateError] = useState<string | null>(null)

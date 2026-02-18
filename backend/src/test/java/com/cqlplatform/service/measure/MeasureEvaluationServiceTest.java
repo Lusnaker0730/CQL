@@ -46,8 +46,8 @@ class MeasureEvaluationServiceTest {
         measureService = new MeasureEvaluationService(
                 cqlExecutionService, patientDiscoveryService,
                 populationEvaluator, stratifierEvaluator, scoreCalculator);
-        ReflectionTestUtils.setField(measureService, "defaultPeriodStart", "2024-01-01");
-        ReflectionTestUtils.setField(measureService, "defaultPeriodEnd", "2024-12-31");
+        ReflectionTestUtils.setField(measureService, "defaultPeriodStart", "");
+        ReflectionTestUtils.setField(measureService, "defaultPeriodEnd", "");
         ReflectionTestUtils.setField(measureService, "measureTimeoutSeconds", 120);
     }
 
@@ -108,7 +108,7 @@ class MeasureEvaluationServiceTest {
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
         assertThat(result.getStatus()).isEqualTo("complete");
-        assertThat(result.getGroups().get(0).getDescription()).contains("3");
+        assertThat(result.getGroups().get(0).getTotalPatients()).isEqualTo(3);
     }
 
     @Test
@@ -122,8 +122,9 @@ class MeasureEvaluationServiceTest {
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
-        assertThat(result.getPeriodStart()).isEqualTo(LocalDate.of(2024, 1, 1));
-        assertThat(result.getPeriodEnd()).isEqualTo(LocalDate.of(2024, 12, 31));
+        int currentYear = LocalDate.now().getYear();
+        assertThat(result.getPeriodStart()).isEqualTo(LocalDate.of(currentYear, 1, 1));
+        assertThat(result.getPeriodEnd()).isEqualTo(LocalDate.of(currentYear, 12, 31));
     }
 
     @Test

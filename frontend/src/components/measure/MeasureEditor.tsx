@@ -53,6 +53,8 @@ import {
 } from '../../hooks/useMeasures'
 import { useNotification } from '../../hooks/useNotification'
 import { getStoredUsername } from '../../utils/validation'
+import { MEASURE_STATUS } from '../../constants/measureConstants'
+import { ALERT_DISMISS_MS, ALERT_DISMISS_ERROR_MS } from '../../constants/timing'
 
 interface MeasureEditorProps {
   measure: MeasureDefinition
@@ -96,11 +98,11 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         onMeasureUpdate(updated)
         setWorkflowAlert({ severity: 'success', message: successMsg })
         queryClient.invalidateQueries({ queryKey: ['measures'] })
-        setTimeout(() => setWorkflowAlert(null), 5000)
+        setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
       },
       onError: (err) => {
         setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Action failed' })
-        setTimeout(() => setWorkflowAlert(null), 8000)
+        setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
       },
     })
   }
@@ -174,7 +176,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       URL.revokeObjectURL(url)
     } catch (err) {
       setWorkflowAlert({ severity: 'error', message: 'Export failed: ' + (err as Error).message })
-      setTimeout(() => setWorkflowAlert(null), 5000)
+      setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
     }
   }
 
@@ -254,7 +256,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
                   },
                   onError: (err) => {
                     setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Lock failed' })
-                    setTimeout(() => setWorkflowAlert(null), 5000)
+                    setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
                   },
                 })
               }}
@@ -277,7 +279,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
                   },
                   onError: (err) => {
                     setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Unlock failed' })
-                    setTimeout(() => setWorkflowAlert(null), 5000)
+                    setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
                   },
                 })
               }}
@@ -324,7 +326,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           </Button>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           {/* Workflow actions based on current status */}
-          {measure.status === 'draft' && isOwner && (
+          {measure.status === MEASURE_STATUS.DRAFT && isOwner && (
             <Button
               size="small"
               startIcon={<SubmitIcon />}
@@ -337,7 +339,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               Submit for Review
             </Button>
           )}
-          {measure.status === 'in-review' && isReviewer && (
+          {measure.status === MEASURE_STATUS.IN_REVIEW && isReviewer && (
             <>
               <Button
                 size="small"
@@ -363,7 +365,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               </Button>
             </>
           )}
-          {measure.status === 'active' && isOwner && (
+          {measure.status === MEASURE_STATUS.ACTIVE && isOwner && (
             <Button
               size="small"
               startIcon={<RetireIcon />}

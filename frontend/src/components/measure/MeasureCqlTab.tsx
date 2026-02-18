@@ -10,6 +10,7 @@ import CqlEditor from '../editor/CqlEditor'
 import { measureApi, cqlApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import type { MeasureDefinition } from '../../types'
+import { AUTOSAVE_DEBOUNCE_MS } from '../../constants/timing'
 
 const AUTOSAVE_KEY = 'cql-measure-autosave'
 
@@ -56,7 +57,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
       if (cqlContent && cqlContent !== (measure.cqlContent || '')) {
         localStorage.setItem(`${AUTOSAVE_KEY}-${measure.id}`, cqlContent)
       }
-    }, 5000)
+    }, AUTOSAVE_DEBOUNCE_MS)
   }, [cqlContent, measure.id, measure.cqlContent])
 
   const saveMutation = useMutation({

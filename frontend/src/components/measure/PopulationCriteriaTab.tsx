@@ -41,6 +41,8 @@ import {
   OBSERVATION_REQUIRED_SCORING,
 } from '../../constants/populationConfig'
 import type { MeasureDefinition, GroupDefinition, PopulationDefinition, StratifierDefinition } from '../../types'
+import { SCORING_TYPE } from '../../constants/measureConstants'
+import { ALERT_DISMISS_ERROR_MS } from '../../constants/timing'
 
 interface PopulationCriteriaTabProps {
   measure: MeasureDefinition
@@ -161,7 +163,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       setGroups(newGroups)
       setIsDirty(true)
       setAutoMapAlert(`Auto-mapped ${totalCount} expression${totalCount > 1 ? 's' : ''} based on CQL definition names`)
-      setTimeout(() => setAutoMapAlert(null), 8000)
+      setTimeout(() => setAutoMapAlert(null), ALERT_DISMISS_ERROR_MS)
     }
   }, [expressionNames])
 
@@ -179,7 +181,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       // Missing required populations
       for (const req of template.required) {
         // For ratio scoring, allow exactly 2 initial-population entries
-        if (req === 'initial-population' && measure.scoringType === 'ratio') {
+        if (req === 'initial-population' && measure.scoringType === SCORING_TYPE.RATIO) {
           if (!usedTypes.includes(req)) {
             msgs.push({
               type: 'error',
@@ -211,7 +213,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       }
       for (const [type, count] of seen) {
         if (count > 1) {
-          if (type === 'initial-population' && measure.scoringType === 'ratio' && count === 2) {
+          if (type === 'initial-population' && measure.scoringType === SCORING_TYPE.RATIO && count === 2) {
             // Allowed: ratio dual IP — validate associations instead
             const ips = pops.filter((p) => p.populationType === 'initial-population')
             const assocTypes = ips.map((p) => p.associationType).filter(Boolean)
@@ -444,8 +446,8 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           const pops = group.populations || []
           const unusedOptional = getUnusedOptionalTypes(groupIdx)
           const ipCount = pops.filter((p) => p.populationType === 'initial-population').length
-          const showDualIpButton = measure.scoringType === 'ratio' && ipCount < 2
-          const showAssociationType = measure.scoringType === 'ratio' && ipCount === 2
+          const showDualIpButton = measure.scoringType === SCORING_TYPE.RATIO && ipCount < 2
+          const showAssociationType = measure.scoringType === SCORING_TYPE.RATIO && ipCount === 2
 
           // Sort: required first, then optional
           const requiredTypes = template?.required || []

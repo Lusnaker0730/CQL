@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,18 +34,18 @@ public class CdsArtifactEntity {
 
     @Column(name = "version", length = 50)
     @Builder.Default
-    private String version = "1.0.0";
+    private String version = AuthoringConstants.DEFAULT_VERSION;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "status", length = 20)
     @Builder.Default
-    private String status = "draft";
+    private String status = AuthoringConstants.DEFAULT_STATUS;
 
     @Column(name = "fhir_version", length = 20)
     @Builder.Default
-    private String fhirVersion = "4.0.1";
+    private String fhirVersion = AuthoringConstants.DEFAULT_FHIR_VERSION;
 
     // CPG Metadata
     @Column(name = "url", length = 500)
@@ -64,7 +65,7 @@ public class CdsArtifactEntity {
 
     @Column(name = "experimental")
     @Builder.Default
-    private Boolean experimental = false;
+    private Boolean experimental = AuthoringConstants.DEFAULT_EXPERIMENTAL;
 
     @Column(name = "approval_date")
     private LocalDate approvalDate;

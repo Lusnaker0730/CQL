@@ -20,6 +20,7 @@ import { useModifiers } from '../../hooks/useModifiers'
 import { useExternalCqlList } from '../../hooks/useExternalCql'
 import type { Artifact, ArtifactRequest, ConjunctionGroup as ConjunctionGroupType, ElementInstance } from '../../types/authoring'
 import type { DynamicEntry } from './element-select/ElementSelectDropdown'
+import { SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION } from '../../constants/authoringConstants'
 
 interface ArtifactWorkspaceProps {
   artifact: Artifact
@@ -528,10 +529,7 @@ export default function ArtifactWorkspace({
             artifactId={localArtifact.id}
             onApplyToArtifact={(lib) => {
               const defs = lib.details?.definitions ?? []
-              const SYSTEM_DEFS = new Set([
-                'MeetsInclusionCriteria', 'MeetsExclusionCriteria', 'InPopulation',
-                'Recommendation', 'Errors', 'Patient',
-              ])
+              const SYSTEM_DEFS = SYSTEM_DEFINITIONS
 
               const makeRef = (d: { name: string; resultType?: string }) => ({
                 uniqueId: crypto.randomUUID(),
@@ -555,17 +553,17 @@ export default function ArtifactWorkspace({
                 childInstances: elements,
               })
 
-              const incDef = defs.find((d) => d.name === 'MeetsInclusionCriteria')
-              const excDef = defs.find((d) => d.name === 'MeetsExclusionCriteria')
+              const incDef = defs.find((d) => d.name === DEF_MEETS_INCLUSION)
+              const excDef = defs.find((d) => d.name === DEF_MEETS_EXCLUSION)
 
               const updates: Partial<Artifact> = {}
               if (incDef) {
-                updates.expTreeInclude = wrapConj('MeetsInclusionCriteria', [
+                updates.expTreeInclude = wrapConj(DEF_MEETS_INCLUSION, [
                   makeRef({ ...incDef, resultType: incDef.resultType || 'System.Boolean' }),
                 ]) as ConjunctionGroupType
               }
               if (excDef) {
-                updates.expTreeExclude = wrapConj('MeetsExclusionCriteria', [
+                updates.expTreeExclude = wrapConj(DEF_MEETS_EXCLUSION, [
                   makeRef({ ...excDef, resultType: excDef.resultType || 'System.Boolean' }),
                 ]) as ConjunctionGroupType
               }

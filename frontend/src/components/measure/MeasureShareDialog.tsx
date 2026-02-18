@@ -166,7 +166,8 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
             onClick={handleShare}
             disabled={!shareUsername.trim() || shareMutation.isPending}
             sx={{
-              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+              background: (theme) =>
+                `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
               whiteSpace: 'nowrap',
             }}
           >

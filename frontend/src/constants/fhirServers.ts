@@ -1,3 +1,5 @@
+import { DEFAULT_FHIR_SERVER_URL } from '../config/env'
+
 export interface FhirServerPreset {
   label: string
   url: string
@@ -7,7 +9,7 @@ export interface FhirServerPreset {
 export const FHIR_SERVER_PRESETS: FhirServerPreset[] = [
   {
     label: 'Local HAPI FHIR (Docker)',
-    url: 'http://hapi-fhir:8080/fhir',
+    url: DEFAULT_FHIR_SERVER_URL,
     description: 'Local HAPI FHIR R4 server running in Docker',
   },
   {

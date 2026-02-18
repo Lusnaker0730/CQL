@@ -8,6 +8,7 @@ import executionReducer, {
   setExecutionTimeMs,
   clearResults,
 } from '../executionSlice'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 
 function createStore() {
   return configureStore({ reducer: { execution: executionReducer } })
@@ -18,7 +19,7 @@ describe('executionSlice', () => {
     const store = createStore()
     const state = store.getState().execution
     expect(state.patientId).toBe('')
-    expect(state.fhirServerUrl).toBe('http://hapi-fhir:8080/fhir')
+    expect(state.fhirServerUrl).toBe(DEFAULT_FHIR_SERVER_URL)
     expect(state.isExecuting).toBe(false)
     expect(state.results).toEqual({})
     expect(state.errors).toEqual([])

@@ -8,6 +8,7 @@ import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,9 @@ public class MeasureDefinitionService {
 
     private final MeasureDefinitionRepository repository;
     private final MeasureAuditRepository auditRepository;
+
+    @Value("${measure.locking.timeout-minutes:30}")
+    private int lockTimeoutMinutes;
 
     @Transactional
     public MeasureDefinition create(MeasureDefinition definition) {
@@ -402,7 +406,7 @@ public class MeasureDefinitionService {
 
     private boolean isLockExpired(MeasureDefinitionEntity entity) {
         if (entity.getLockedAt() == null) return true;
-        return entity.getLockedAt().plusMinutes(30).isBefore(java.time.LocalDateTime.now());
+        return entity.getLockedAt().plusMinutes(lockTimeoutMinutes).isBefore(java.time.LocalDateTime.now());
     }
 
     @Transactional(readOnly = true)

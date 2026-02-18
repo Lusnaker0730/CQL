@@ -1,5 +1,6 @@
 package com.cqlplatform.service.authoring;
 
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,15 +20,8 @@ public class CqlArtifactBuilder {
     /** Stored per-build for cross-reference lookups */
     private List<Map<String, Object>> currentBaseElements;
 
-    private static final Map<String, String> FHIR_VERSION_MAP = Map.of(
-            "DSTU2", "1.0.2",
-            "STU3", "3.0.2",
-            "R4", "4.0.1");
-
-    private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = Map.of(
-            "DSTU2", "1.0.2",
-            "STU3", "3.0.0",
-            "R4", "4.0.1");
+    private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
+    private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
 
     @SuppressWarnings("unchecked")
     public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
@@ -53,8 +47,8 @@ public class CqlArtifactBuilder {
 
         this.currentBaseElements = baseElements;
 
-        String resolvedFhirVersion = FHIR_VERSION_MAP.getOrDefault(fhirVersion, "4.0.1");
-        String resolvedHelpersVersion = FHIR_HELPERS_VERSION_MAP.getOrDefault(fhirVersion, "4.0.1");
+        String resolvedFhirVersion = FHIR_VERSION_MAP.getOrDefault(fhirVersion, AuthoringConstants.DEFAULT_FHIR_VERSION);
+        String resolvedHelpersVersion = FHIR_HELPERS_VERSION_MAP.getOrDefault(fhirVersion, AuthoringConstants.DEFAULT_FHIR_VERSION);
 
         StringBuilder cql = new StringBuilder();
         Set<String> valueSets = new LinkedHashSet<>();
@@ -85,7 +79,7 @@ public class CqlArtifactBuilder {
 
         // Library header
         String safeName = name.replaceAll("[^a-zA-Z0-9_]", "_");
-        cql.append(String.format("library %s version '%s'%n", safeName, version != null ? version : "1.0.0"));
+        cql.append(String.format("library %s version '%s'%n", safeName, version != null ? version : AuthoringConstants.DEFAULT_VERSION));
         cql.append("\n");
         cql.append(String.format("using FHIR version '%s'%n%n", resolvedFhirVersion));
 
@@ -152,14 +146,15 @@ public class CqlArtifactBuilder {
 
         // Inclusion (MeetsInclusionCriteria)
         String inclusionExpr = buildConjunctionExpression(expTreeInclude);
-        cql.append(String.format("define \"MeetsInclusionCriteria\":%n  %s%n%n", inclusionExpr));
+        cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_MEETS_INCLUSION, inclusionExpr));
 
         // Exclusion (MeetsExclusionCriteria)
         String exclusionExpr = buildConjunctionExpression(expTreeExclude);
-        cql.append(String.format("define \"MeetsExclusionCriteria\":%n  %s%n%n", exclusionExpr));
+        cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_MEETS_EXCLUSION, exclusionExpr));
 
         // InPopulation
-        cql.append("define \"InPopulation\":\n  \"MeetsInclusionCriteria\" and not \"MeetsExclusionCriteria\"\n\n");
+        cql.append(String.format("define \"%s\":%n  \"%s\" and not \"%s\"%n%n",
+                AuthoringConstants.DEF_IN_POPULATION, AuthoringConstants.DEF_MEETS_INCLUSION, AuthoringConstants.DEF_MEETS_EXCLUSION));
 
         // Subpopulations
         if (subpopulations != null) {
@@ -177,7 +172,7 @@ public class CqlArtifactBuilder {
         if (recommendations != null && !recommendations.isEmpty()) {
             for (int i = 0; i < recommendations.size(); i++) {
                 Map<String, Object> rec = recommendations.get(i);
-                String defName = recommendations.size() == 1 ? "Recommendation" : "Recommendation " + (i + 1);
+                String defName = recommendations.size() == 1 ? AuthoringConstants.DEF_RECOMMENDATION : AuthoringConstants.DEF_RECOMMENDATION + " " + (i + 1);
                 String condition = buildRecommendationCondition(rec);
                 boolean isCdsCard = Boolean.TRUE.equals(rec.get("cdsCardMode"));
 
@@ -196,7 +191,7 @@ public class CqlArtifactBuilder {
         if (errorStatement != null && !errorStatement.isEmpty()) {
             String errExpr = buildErrorStatement(errorStatement);
             if (errExpr != null) {
-                cql.append(String.format("define \"Errors\":%n  %s%n%n", errExpr));
+                cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_ERRORS, errExpr));
             }
         }
 
@@ -627,20 +622,20 @@ public class CqlArtifactBuilder {
             for (Map<String, Object> spRef : spRefs) {
                 String spId = getStr(spRef, "uniqueId", "");
                 String spName = getStr(spRef, "subpopulationName", "");
-                if (spId.equals("__doesnt_meet_inclusion__")) {
-                    conditions.add("not \"MeetsInclusionCriteria\"");
-                } else if (spId.equals("__meets_exclusion__")) {
-                    conditions.add("\"MeetsExclusionCriteria\"");
+                if (spId.equals(AuthoringConstants.SUBPOP_DOESNT_MEET_INCLUSION)) {
+                    conditions.add("not \"" + AuthoringConstants.DEF_MEETS_INCLUSION + "\"");
+                } else if (spId.equals(AuthoringConstants.SUBPOP_MEETS_EXCLUSION)) {
+                    conditions.add("\"" + AuthoringConstants.DEF_MEETS_EXCLUSION + "\"");
                 } else if (!spName.isEmpty()) {
-                    conditions.add(String.format("\"InPopulation\" and \"%s\"", spName));
+                    conditions.add(String.format("\"%s\" and \"%s\"", AuthoringConstants.DEF_IN_POPULATION, spName));
                 }
             }
             if (conditions.isEmpty()) {
-                return "\"InPopulation\"";
+                return "\"" + AuthoringConstants.DEF_IN_POPULATION + "\"";
             }
             return String.join(" and ", conditions);
         }
-        return "\"InPopulation\"";
+        return "\"" + AuthoringConstants.DEF_IN_POPULATION + "\"";
     }
 
     /**
@@ -778,13 +773,13 @@ public class CqlArtifactBuilder {
             return "true";
         switch (condValue) {
             case "null":
-                return "\"Recommendation\" is null";
+                return "\"" + AuthoringConstants.DEF_RECOMMENDATION + "\" is null";
             case "doesnt_meet_inclusion":
-                return "not \"MeetsInclusionCriteria\"";
+                return "not \"" + AuthoringConstants.DEF_MEETS_INCLUSION + "\"";
             case "meets_exclusion":
-                return "\"MeetsExclusionCriteria\"";
+                return "\"" + AuthoringConstants.DEF_MEETS_EXCLUSION + "\"";
             case "errors":
-                return "\"Errors\" is not null";
+                return "\"" + AuthoringConstants.DEF_ERRORS + "\" is not null";
             default:
                 return condValue;
         }
@@ -884,16 +879,8 @@ public class CqlArtifactBuilder {
         }
     }
 
-    private static final Map<String, String> CODE_SYSTEM_NAMES = Map.of(
-            "http://loinc.org", "LOINC",
-            "http://snomed.info/sct", "SNOMED",
-            "http://hl7.org/fhir/sid/icd-10-cm", "ICD-10-CM",
-            "http://hl7.org/fhir/sid/icd-9-cm", "ICD-9-CM",
-            "http://www.nlm.nih.gov/research/umls/rxnorm", "RXNORM",
-            "http://ncimeta.nci.nih.gov", "NCI");
-
     private String getCodeSystemDisplayName(String systemUrl) {
-        return CODE_SYSTEM_NAMES.getOrDefault(systemUrl, systemUrl);
+        return AuthoringConstants.getCodeSystemDisplayName(systemUrl);
     }
 
     @SuppressWarnings("unchecked")

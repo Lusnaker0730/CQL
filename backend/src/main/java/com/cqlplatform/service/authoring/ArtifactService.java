@@ -1,6 +1,7 @@
 package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.entity.CdsArtifactEntity;
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.authoring.ArtifactRequest;
 import com.cqlplatform.model.authoring.ArtifactResponse;
 import com.cqlplatform.model.authoring.ArtifactSummary;
@@ -120,7 +121,7 @@ public class ArtifactService {
                 .name(original.getName() + " (Copy)")
                 .version(original.getVersion())
                 .description(original.getDescription())
-                .status("draft")
+                .status(AuthoringConstants.DEFAULT_STATUS)
                 .fhirVersion(original.getFhirVersion())
                 .url(original.getUrl())
                 .publisher(original.getPublisher())
@@ -217,16 +218,16 @@ public class ArtifactService {
     private CdsArtifactEntity requestToEntity(ArtifactRequest request) {
         return CdsArtifactEntity.builder()
                 .name(request.getName())
-                .version(request.getVersion() != null ? request.getVersion() : "1.0.0")
+                .version(request.getVersion() != null ? request.getVersion() : AuthoringConstants.DEFAULT_VERSION)
                 .description(request.getDescription())
-                .status(request.getStatus() != null ? request.getStatus() : "draft")
-                .fhirVersion(request.getFhirVersion() != null ? request.getFhirVersion() : "4.0.1")
+                .status(request.getStatus() != null ? request.getStatus() : AuthoringConstants.DEFAULT_STATUS)
+                .fhirVersion(request.getFhirVersion() != null ? request.getFhirVersion() : AuthoringConstants.DEFAULT_FHIR_VERSION)
                 .url(request.getUrl())
                 .publisher(request.getPublisher())
                 .purpose(request.getPurpose())
                 .usageInfo(request.getUsageInfo())
                 .copyright(request.getCopyright())
-                .experimental(request.getExperimental() != null ? request.getExperimental() : false)
+                .experimental(request.getExperimental() != null ? request.getExperimental() : AuthoringConstants.DEFAULT_EXPERIMENTAL)
                 .approvalDate(request.getApprovalDate())
                 .lastReviewDate(request.getLastReviewDate())
                 .effectivePeriodStart(request.getEffectivePeriodStart())
