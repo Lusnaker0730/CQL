@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, type ReactNode } from 'react'
 import type { BundleEntry, BundleBuilderState, BundleBuilderAction } from '../types'
+import { FHIR_BUNDLE_TYPE } from '../components/testcase-builder/constants'
 
 const initialState: BundleBuilderState = {
   entries: [],
@@ -67,7 +68,7 @@ export function useBundleBuilder() {
 export function serializeToBundle(entries: BundleEntry[]): string {
   const bundle = {
     resourceType: 'Bundle',
-    type: 'collection',
+    type: FHIR_BUNDLE_TYPE,
     entry: entries.map((e) => ({
       resource: {
         resourceType: e.resourceType,

@@ -1,4 +1,4 @@
-import { Box, TextField, Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import Editor from '@monaco-editor/react'
 import PrimitiveField from './PrimitiveField'
 import CodeField from './CodeField'
@@ -15,28 +15,8 @@ import GenericComplexField from './GenericComplexField'
 import ArrayFieldWrapper from './ArrayFieldWrapper'
 import type { ElementMetadata } from '../../types'
 
-const PRIMITIVE_TYPES = new Set([
-  'string', 'boolean', 'integer', 'decimal', 'uri', 'url', 'canonical',
-  'date', 'dateTime', 'instant', 'time', 'code', 'oid', 'id', 'uuid',
-  'markdown', 'base64Binary', 'positiveInt', 'unsignedInt', 'xhtml',
-])
-
-const COMPLEX_TYPE_MAP: Record<string, string> = {
-  CodeableConcept: 'CodeableConcept',
-  Period: 'Period',
-  Quantity: 'Quantity',
-  SimpleQuantity: 'Quantity',
-  Age: 'Quantity',
-  Duration: 'Quantity',
-  Distance: 'Quantity',
-  Count: 'Quantity',
-  HumanName: 'HumanName',
-  Address: 'Address',
-  ContactPoint: 'ContactPoint',
-  Reference: 'Reference',
-  Identifier: 'Identifier',
-  Coding: 'Coding',
-}
+// Quantity profile types that all render as QuantityField
+const QUANTITY_TYPES = new Set(['Quantity', 'SimpleQuantity', 'Age', 'Duration', 'Distance', 'Count'])
 
 interface ElementFieldProps {
   element: ElementMetadata
@@ -133,42 +113,38 @@ export default function ElementField({ element, path, value, onChange, depth }: 
     return <ReferenceField element={element} value={value} onChange={onChange} />
   }
 
-  // Code with binding
+  // Code with binding (external ValueSet lookup)
   if (type === 'code' && element.bindingValueSetUrl) {
     return <CodeField element={element} value={value} onChange={onChange} />
   }
 
-  // Primitive types
-  if (PRIMITIVE_TYPES.has(type)) {
-    return <PrimitiveField element={element} value={value} onChange={onChange} />
+  // Specialized complex type components
+  if (type === 'CodeableConcept') {
+    return <CodeableConceptField element={element} value={value} onChange={onChange} />
   }
-
-  // Known complex types
-  const mapped = COMPLEX_TYPE_MAP[type]
-  if (mapped) {
-    switch (mapped) {
-      case 'CodeableConcept':
-        return <CodeableConceptField element={element} value={value} onChange={onChange} />
-      case 'Period':
-        return <PeriodField element={element} value={value} onChange={onChange} />
-      case 'Quantity':
-        return <QuantityField element={element} value={value} onChange={onChange} />
-      case 'HumanName':
-        return <HumanNameField element={element} value={value} onChange={onChange} />
-      case 'Address':
-        return <AddressField element={element} value={value} onChange={onChange} />
-      case 'ContactPoint':
-        return <ContactPointField element={element} value={value} onChange={onChange} />
-      case 'Reference':
-        return <ReferenceField element={element} value={value} onChange={onChange} />
-      case 'Identifier':
-        return <IdentifierField element={element} value={value} onChange={onChange} />
-      case 'Coding':
-        return <CodeableConceptField element={{ ...element, type: 'CodeableConcept' }} value={value ? { coding: [value] } : undefined} onChange={(v) => {
-          const cc = v as { coding?: unknown[] }
-          onChange(cc?.coding?.[0])
-        }} />
-    }
+  if (type === 'Coding') {
+    return <CodeableConceptField element={{ ...element, type: 'CodeableConcept' }} value={value ? { coding: [value] } : undefined} onChange={(v) => {
+      const cc = v as { coding?: unknown[] }
+      onChange(cc?.coding?.[0])
+    }} />
+  }
+  if (type === 'Period') {
+    return <PeriodField element={element} value={value} onChange={onChange} />
+  }
+  if (QUANTITY_TYPES.has(type)) {
+    return <QuantityField element={element} value={value} onChange={onChange} />
+  }
+  if (type === 'HumanName') {
+    return <HumanNameField element={element} value={value} onChange={onChange} />
+  }
+  if (type === 'Address') {
+    return <AddressField element={element} value={value} onChange={onChange} />
+  }
+  if (type === 'ContactPoint') {
+    return <ContactPointField element={element} value={value} onChange={onChange} />
+  }
+  if (type === 'Identifier') {
+    return <IdentifierField element={element} value={value} onChange={onChange} />
   }
 
   // Generic complex type with children
@@ -176,32 +152,25 @@ export default function ElementField({ element, path, value, onChange, depth }: 
     return <GenericComplexField element={element} value={value} onChange={onChange} depth={depth} />
   }
 
-  // Fallback: text field
-  return (
-    <TextField
-      label={element.name}
-      size="small"
-      fullWidth
-      value={typeof value === 'object' ? JSON.stringify(value) : (value ?? '')}
-      onChange={(e) => onChange(e.target.value || undefined)}
-      required={element.isRequired}
-      helperText={element.description || `Type: ${type}`}
-      sx={{ mb: 1 }}
-    />
-  )
+  // All other types (primitives + unknown) — PrimitiveField handles the rendering
+  return <PrimitiveField element={element} value={value} onChange={onChange} />
 }
 
 function getDefaultValue(element: ElementMetadata): unknown {
   const type = element.type
   if (type === 'boolean') return false
-  if (PRIMITIVE_TYPES.has(type)) return ''
-  if (COMPLEX_TYPE_MAP[type] === 'CodeableConcept') return { coding: [{ system: '', code: '', display: '' }] }
-  if (COMPLEX_TYPE_MAP[type] === 'Period') return { start: '', end: '' }
-  if (COMPLEX_TYPE_MAP[type] === 'Quantity') return { value: 0, unit: '' }
-  if (COMPLEX_TYPE_MAP[type] === 'Reference') return { reference: '' }
-  if (COMPLEX_TYPE_MAP[type] === 'Identifier') return { system: '', value: '' }
-  if (COMPLEX_TYPE_MAP[type] === 'HumanName') return { family: '', given: [] }
-  if (COMPLEX_TYPE_MAP[type] === 'ContactPoint') return { system: 'phone', value: '' }
-  if (COMPLEX_TYPE_MAP[type] === 'Address') return { line: [], city: '' }
-  return {}
+  // Specialized complex types
+  if (type === 'CodeableConcept') return { coding: [{ system: '', code: '', display: '' }] }
+  if (type === 'Coding') return { system: '', code: '', display: '' }
+  if (type === 'Period') return { start: '', end: '' }
+  if (QUANTITY_TYPES.has(type)) return { value: 0, unit: '' }
+  if (type === 'Reference') return { reference: '' }
+  if (type === 'Identifier') return { system: '', value: '' }
+  if (type === 'HumanName') return { family: '', given: [] }
+  if (type === 'ContactPoint') return { value: '' }
+  if (type === 'Address') return { line: [], city: '' }
+  // Complex with children → empty object
+  if (element.children?.length > 0) return {}
+  // Primitives → empty string
+  return ''
 }

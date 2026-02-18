@@ -9,6 +9,7 @@ import ResourceEntryList from './ResourceEntryList'
 import AddResourceButton from './AddResourceButton'
 import ResourceForm from './ResourceForm'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
+import { STRINGS } from './constants'
 
 interface VisualBundleBuilderProps {
   onDirty: () => void
@@ -24,7 +25,7 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
         <Box sx={{ width: 220, borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
           <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="caption" fontWeight={600} color="text.secondary">
-              BUNDLE ENTRIES
+              {STRINGS.bundleEntries}
             </Typography>
             <AddResourceButton onDirty={onDirty} />
           </Box>
@@ -46,23 +47,22 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
               {state.entries.length === 0 ? (
                 <>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Build your test patient bundle
+                    {STRINGS.buildTestBundle}
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <Chip icon={<PersonIcon />} label="1. Patient" size="small" variant="outlined" />
+                    <Chip icon={<PersonIcon />} label={STRINGS.stepPatient} size="small" variant="outlined" />
                     <ArrowIcon fontSize="small" color="disabled" />
-                    <Chip icon={<EncounterIcon />} label="2. Encounter" size="small" variant="outlined" />
+                    <Chip icon={<EncounterIcon />} label={STRINGS.stepEncounter} size="small" variant="outlined" />
                     <ArrowIcon fontSize="small" color="disabled" />
-                    <Chip icon={<ClinicalIcon />} label="3. Clinical Data" size="small" variant="outlined" />
+                    <Chip icon={<ClinicalIcon />} label={STRINGS.stepClinical} size="small" variant="outlined" />
                   </Stack>
                   <Typography variant="caption" color="text.disabled" textAlign="center" maxWidth={300}>
-                    Start by adding a Patient, then add Encounters and clinical resources
-                    (Conditions, Observations, Procedures, etc.) to build the test scenario.
+                    {STRINGS.startGuide}
                   </Typography>
                 </>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  Select a resource from the list to edit its properties.
+                  {STRINGS.selectResource}
                 </Typography>
               )}
             </Stack>

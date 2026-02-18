@@ -17,18 +17,10 @@ import {
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
-  Person,
-  LocalHospital,
-  MedicalServices,
   Info as InfoIcon,
 } from '@mui/icons-material'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-
-const RESOURCE_ICONS: Record<string, React.ReactNode> = {
-  Patient: <Person />,
-  Encounter: <LocalHospital />,
-}
-const DEFAULT_ICON = <MedicalServices />
+import { getResourceIcon, STRINGS } from './constants'
 
 interface ResourceEntryListProps {
   onDirty: () => void
@@ -51,7 +43,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <InfoIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
         <Typography variant="body2" color="text.secondary">
-          No resources yet. Start by adding a Patient resource.
+          {STRINGS.noResourcesYet}
         </Typography>
       </Box>
     )
@@ -68,7 +60,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
             sx={{ borderRadius: 1, mb: 0.5 }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
-              {RESOURCE_ICONS[entry.resourceType] || DEFAULT_ICON}
+              {getResourceIcon(entry.resourceType)}
             </ListItemIcon>
             <ListItemText
               primary={
@@ -101,15 +93,15 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
       </List>
 
       <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
-        <DialogTitle>Delete Resource</DialogTitle>
+        <DialogTitle>{STRINGS.deleteResource}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to remove this resource from the test case bundle?
+            {STRINGS.deleteConfirm}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
-          <Button color="error" onClick={handleDelete}>Delete</Button>
+          <Button onClick={() => setDeleteId(null)}>{STRINGS.cancel}</Button>
+          <Button color="error" onClick={handleDelete}>{STRINGS.delete}</Button>
         </DialogActions>
       </Dialog>
     </>

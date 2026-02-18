@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Add as AddIcon } from '@mui/icons-material'
 import CardListSkeleton from '../common/CardListSkeleton'
+import { STRINGS } from './constants'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
 import { ResourceTypeProvider } from '../../contexts/ResourceTypeContext'
@@ -72,7 +73,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Select a resource from the list to edit its properties.
+          {STRINGS.selectResource}
         </Typography>
       </Box>
     )
@@ -135,7 +136,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">
-              Required Fields
+              {STRINGS.requiredFields}
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
@@ -157,7 +158,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">
-              Optional Fields
+              {STRINGS.optionalFields}
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
@@ -183,12 +184,12 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           disabled={hiddenOptional.length === 0}
           sx={{ textTransform: 'none' }}
         >
-          Add Attribute ({hiddenOptional.length} available)
+          {STRINGS.addAttribute} ({hiddenOptional.length} available)
         </Button>
       </Box>
 
       <Dialog open={addAttrOpen} onClose={() => setAddAttrOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add Attributes</DialogTitle>
+        <DialogTitle>{STRINGS.addAttributes}</DialogTitle>
         <DialogContent>
           <List dense>
             {hiddenOptional.map((el) => (
@@ -221,7 +222,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           </List>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddAttrOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddAttrOpen(false)}>{STRINGS.cancel}</Button>
           <Button
             variant="contained"
             disabled={selectedAttrs.size === 0}

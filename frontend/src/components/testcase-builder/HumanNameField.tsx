@@ -16,11 +16,12 @@ interface HumanNameFieldProps {
   onChange: (value: unknown) => void
 }
 
-const USE_OPTIONS = ['usual', 'official', 'temp', 'nickname', 'anonymous', 'old', 'maiden']
+const USE_FALLBACK = ['usual', 'official', 'temp', 'nickname', 'anonymous', 'old', 'maiden']
 
 export default function HumanNameField({ element, value, onChange }: HumanNameFieldProps) {
   const name = (value as HumanName) || {}
   const [givenInput, setGivenInput] = useState('')
+  const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
 
   const addGiven = () => {
     if (givenInput.trim()) {
@@ -49,7 +50,7 @@ export default function HumanNameField({ element, value, onChange }: HumanNameFi
           sx={{ width: 120 }}
         >
           <MenuItem value="">—</MenuItem>
-          {USE_OPTIONS.map((opt) => (
+          {useOptions.map((opt) => (
             <MenuItem key={opt} value={opt}>{opt}</MenuItem>
           ))}
         </TextField>

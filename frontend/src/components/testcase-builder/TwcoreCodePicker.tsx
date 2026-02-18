@@ -18,6 +18,7 @@ import {
 import { ExpandMore as ExpandMoreIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useTwcoreCatalog, useTwcoreFullCatalog } from '../../hooks/useTwcoreCatalog'
 import type { TwcoreCatalogEntry, TwcoreCode } from '../../types/authoring'
+import { STRINGS } from './constants'
 
 interface TwcoreCodePickerProps {
   open: boolean
@@ -65,7 +66,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        TWCORE Terminology
+        {STRINGS.twcoreTerminology}
         {resourceType && (
           <Chip label={resourceType} size="small" sx={{ ml: 1 }} variant="outlined" />
         )}
@@ -74,7 +75,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
         <TextField
           fullWidth
           size="small"
-          placeholder="Search code, display, or Chinese name..."
+          placeholder={STRINGS.searchCodePlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
@@ -96,7 +97,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
 
         {!isLoading && filtered.length === 0 && (
           <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 3 }}>
-            {search ? 'No matching codes found.' : 'No TWCORE terminology available.'}
+            {search ? STRINGS.noMatchingCodes : STRINGS.noTerminology}
           </Typography>
         )}
 
@@ -148,7 +149,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
                           sx={{ flexShrink: 0, textTransform: 'none', minWidth: 48 }}
                           onClick={() => handleSelect(entry.system, code)}
                         >
-                          Use
+                          {STRINGS.use}
                         </Button>
                       </Box>
                     ))}

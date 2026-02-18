@@ -1,4 +1,4 @@
-import { TextField, Switch, FormControlLabel, Typography } from '@mui/material'
+import { TextField, Switch, FormControlLabel, Typography, MenuItem } from '@mui/material'
 import type { ElementMetadata } from '../../types'
 
 interface PrimitiveFieldProps {
@@ -120,6 +120,27 @@ export default function PrimitiveField({ element, value, onChange }: PrimitiveFi
         helperText={element.description || undefined}
         sx={{ mb: 1 }}
       />
+    )
+  }
+
+  if (type === 'code' && element.boundCodes?.length > 0) {
+    return (
+      <TextField
+        select
+        label={element.name}
+        size="small"
+        fullWidth
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        required={element.isRequired}
+        helperText={element.description || undefined}
+        sx={{ mb: 1 }}
+      >
+        <MenuItem value="">—</MenuItem>
+        {element.boundCodes.map((code) => (
+          <MenuItem key={code} value={code}>{code}</MenuItem>
+        ))}
+      </TextField>
     )
   }
 

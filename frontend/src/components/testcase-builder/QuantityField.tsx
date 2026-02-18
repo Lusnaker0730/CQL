@@ -1,5 +1,6 @@
 import { Box, TextField, Typography } from '@mui/material'
 import type { ElementMetadata } from '../../types'
+import { STRINGS } from './constants'
 
 interface Quantity {
   value?: number
@@ -47,7 +48,7 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
           size="small"
           value={qty.system || ''}
           onChange={(e) => onChange({ ...qty, system: e.target.value || undefined })}
-          placeholder="http://unitsofmeasure.org"
+          placeholder={STRINGS.ucumSystemPlaceholder}
           sx={{ flex: 1 }}
         />
         <TextField

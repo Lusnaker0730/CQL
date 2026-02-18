@@ -1,5 +1,6 @@
 import { Box, TextField, Typography, MenuItem } from '@mui/material'
 import type { ElementMetadata } from '../../types'
+import { STRINGS } from './constants'
 
 interface Identifier {
   use?: string
@@ -13,10 +14,11 @@ interface IdentifierFieldProps {
   onChange: (value: unknown) => void
 }
 
-const USE_OPTIONS = ['usual', 'official', 'temp', 'secondary', 'old']
+const USE_FALLBACK = ['usual', 'official', 'temp', 'secondary', 'old']
 
 export default function IdentifierField({ element, value, onChange }: IdentifierFieldProps) {
   const ident = (value as Identifier) || {}
+  const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
 
   return (
     <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
@@ -33,7 +35,7 @@ export default function IdentifierField({ element, value, onChange }: Identifier
           sx={{ width: 120 }}
         >
           <MenuItem value="">—</MenuItem>
-          {USE_OPTIONS.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+          {useOptions.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
         </TextField>
         <TextField
           label="system"
@@ -41,7 +43,7 @@ export default function IdentifierField({ element, value, onChange }: Identifier
           value={ident.system || ''}
           onChange={(e) => onChange({ ...ident, system: e.target.value || undefined })}
           sx={{ flex: 1 }}
-          placeholder="e.g. http://hospital.org/mrn"
+          placeholder={STRINGS.identifierSystemPlaceholder}
         />
         <TextField
           label="value"

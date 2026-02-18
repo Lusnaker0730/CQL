@@ -19,12 +19,14 @@ interface AddressFieldProps {
   onChange: (value: unknown) => void
 }
 
-const USE_OPTIONS = ['home', 'work', 'temp', 'old', 'billing']
-const TYPE_OPTIONS = ['postal', 'physical', 'both']
+const USE_FALLBACK = ['home', 'work', 'temp', 'old', 'billing']
+const TYPE_FALLBACK = ['postal', 'physical', 'both']
 
 export default function AddressField({ element, value, onChange }: AddressFieldProps) {
   const addr = (value as Address) || {}
   const [lineInput, setLineInput] = useState('')
+  const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
+  const typeOptions = element.children?.find(c => c.name === 'type')?.boundCodes ?? TYPE_FALLBACK
 
   const addLine = () => {
     if (lineInput.trim()) {
@@ -53,7 +55,7 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
           sx={{ width: 100 }}
         >
           <MenuItem value="">—</MenuItem>
-          {USE_OPTIONS.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+          {useOptions.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
         </TextField>
         <TextField
           select
@@ -64,7 +66,7 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
           sx={{ width: 100 }}
         >
           <MenuItem value="">—</MenuItem>
-          {TYPE_OPTIONS.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+          {typeOptions.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
         </TextField>
       </Box>
 

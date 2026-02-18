@@ -837,6 +837,7 @@ export interface ElementMetadata {
   choiceTypes: string[]
   bindingStrength: string | null
   bindingValueSetUrl: string | null
+  boundCodes: string[]
   children: ElementMetadata[]
   description: string | null
   referenceTargets: string[]

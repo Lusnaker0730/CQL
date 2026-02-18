@@ -32,6 +32,7 @@ export default function ChoiceTypeField({ element, value, onChange, depth }: Cho
     choiceTypes: [],
     bindingStrength: null,
     bindingValueSetUrl: null,
+    boundCodes: [],
     children: [],
     description: element.description,
     referenceTargets: [],

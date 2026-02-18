@@ -1,14 +1,9 @@
 import { useState } from 'react'
 import { Button, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material'
-import { Add as AddIcon, Person, LocalHospital, MedicalServices } from '@mui/icons-material'
+import { Add as AddIcon } from '@mui/icons-material'
 import { useFhirResourceTypes } from '../../hooks/useFhirMetadata'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-
-const RESOURCE_ICONS: Record<string, React.ReactNode> = {
-  Patient: <Person fontSize="small" />,
-  Encounter: <LocalHospital fontSize="small" />,
-}
-const DEFAULT_ICON = <MedicalServices fontSize="small" />
+import { getResourceIcon, STRINGS } from './constants'
 
 interface AddResourceButtonProps {
   onDirty: () => void
@@ -44,7 +39,7 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
         onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{ textTransform: 'none' }}
       >
-        Add Resource
+        {STRINGS.addResource}
       </Button>
       <Menu
         anchorEl={anchorEl}
@@ -59,7 +54,7 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
             disabled={type === 'Patient' && hasPatient}
           >
             <ListItemIcon>
-              {RESOURCE_ICONS[type] || DEFAULT_ICON}
+              {getResourceIcon(type)}
             </ListItemIcon>
             <ListItemText>{type}</ListItemText>
           </MenuItem>
