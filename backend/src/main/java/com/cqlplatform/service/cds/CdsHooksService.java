@@ -610,6 +610,15 @@ public class CdsHooksService {
         String consolidatedIndicator = "info";
         boolean hasExplicitCards = false;
 
+        // Detect "explicit card mode": if any expression is named "Card" (case-insensitive
+        // prefix), the CQL intentionally uses Tuple-based cards. In this mode, returning
+        // null means "no recommendation" — intermediate results should NOT be shown.
+        boolean explicitCardMode = execResponse.getResults() != null
+                && execResponse.getResults().keySet().stream()
+                        .anyMatch(name -> name.equalsIgnoreCase("Card")
+                                || name.toLowerCase().startsWith("card ")
+                                || name.toLowerCase().startsWith("card:"));
+
         if (execResponse.getResults() != null) {
             for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults()
                     .entrySet()) {
@@ -687,11 +696,12 @@ public class CdsHooksService {
             }
         }
 
-        // Only build the consolidated card when no explicit Tuple cards were produced.
-        // When the CQL defines explicit card Tuples (with summary/detail/indicator),
-        // the other expressions are intermediate logic and should not appear as a
-        // separate card.
-        if (!hasExplicitCards && consolidatedDetail.length() > 0) {
+        // Only build the consolidated card when:
+        // 1. No explicit Tuple cards were produced, AND
+        // 2. The CQL is NOT using explicit card mode (i.e., no "Card" expression defined).
+        // When the CQL defines a "Card" expression, returning null means "no recommendation"
+        // per CDS Hooks spec — intermediate results should not leak into the response.
+        if (!hasExplicitCards && !explicitCardMode && consolidatedDetail.length() > 0) {
             cards.add(CdsResponse.Card.builder()
                     .uuid(UUID.randomUUID().toString())
                     .summary(config.getTitle())

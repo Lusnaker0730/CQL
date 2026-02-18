@@ -24,7 +24,7 @@ export default function ElementListItem({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        py: 0.25,
+        py: 0.5,
         px: 0.5,
         borderRadius: 0.5,
         '&:hover': { bgcolor: 'rgba(13,115,119,0.04)' },
@@ -49,7 +49,18 @@ export default function ElementListItem({
           {label}
         </Typography>
         {secondaryLabel && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              fontSize: '0.65rem',
+              lineHeight: 1.3,
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {secondaryLabel}
           </Typography>
         )}

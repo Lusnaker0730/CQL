@@ -27,6 +27,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${spring.profiles.active:}")
     private String activeProfile;
 
+    @Value("${cors.allowed-origins:}")
+    private String extraAllowedOrigins;
+
     private static final List<String> ALLOWED_ORIGINS = Arrays.asList(
             "https://sandbox.cds-hooks.org",
             "http://localhost:5173",
@@ -67,6 +70,18 @@ public class WebConfig implements WebMvcConfigurer {
             origins.add("http://localhost:8080");
             origins.add("http://127.0.0.1:5173");
             origins.add("http://127.0.0.1:8080");
+        }
+        if (activeProfile.contains("docker")) {
+            origins.add("http://localhost:8888");
+            origins.add("http://127.0.0.1:8888");
+        }
+        if (extraAllowedOrigins != null && !extraAllowedOrigins.isBlank()) {
+            for (String origin : extraAllowedOrigins.split(",")) {
+                String trimmed = origin.trim();
+                if (!trimmed.isEmpty()) {
+                    origins.add(trimmed);
+                }
+            }
         }
         config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));

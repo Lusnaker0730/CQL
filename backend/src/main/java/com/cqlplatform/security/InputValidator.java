@@ -61,7 +61,7 @@ public final class InputValidator {
 
     private static boolean isLocalDevelopment() {
         String profile = System.getProperty("spring.profiles.active", System.getenv().getOrDefault("SPRING_PROFILES_ACTIVE", ""));
-        return profile.contains("dev");
+        return profile.contains("dev") || profile.contains("docker");
     }
 
     public static boolean isValidDateParam(String date) {
