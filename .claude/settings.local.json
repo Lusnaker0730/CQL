@@ -106,7 +106,11 @@
       "Bash(cat:*)",
       "Bash(git pull:*)",
       "Bash(docker-compose ps:*)",
-      "Bash(where.exe:*)"
+      "Bash(where.exe:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(du:*)"
     ]
   }
 }

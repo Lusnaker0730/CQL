@@ -37,11 +37,9 @@ class CdsHooksServiceTest {
     }
 
     @Test
-    void getServiceDefinitions_empty_shouldReturnDefaults() {
+    void getServiceDefinitions_empty_shouldReturnEmptyList() {
         List<CdsServiceDefinition> definitions = cdsHooksService.getServiceDefinitions();
-        assertThat(definitions).isNotEmpty();
-        assertThat(definitions).extracting("id")
-                .contains("diabetes-management", "medication-check");
+        assertThat(definitions).isEmpty();
     }
 
     @Test
@@ -86,31 +84,6 @@ class CdsHooksServiceTest {
         // (may still show defaults if empty)
         List<CdsServiceDefinition> definitions = cdsHooksService.getServiceDefinitions();
         assertThat(definitions).extracting("id").doesNotContain("temp-service");
-    }
-
-    @Test
-    void invokeService_defaultDiabetes_shouldReturnCards() {
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("diabetes-management", request);
-
-        assertThat(response.getCards()).isNotEmpty();
-        assertThat(response.getCards().get(0).getSummary()).contains("Diabetes");
-    }
-
-    @Test
-    void invokeService_defaultMedication_shouldReturnCards() {
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("medication-check", request);
-
-        assertThat(response.getCards()).isNotEmpty();
     }
 
     @Test
@@ -217,20 +190,8 @@ class CdsHooksServiceTest {
         CdsRequest request = new CdsRequest();
         request.setContext(null);
 
-        CdsResponse response = cdsHooksService.invokeService("diabetes-management", request);
+        CdsResponse response = cdsHooksService.invokeService("nonexistent", request);
         assertThat(response.getCards()).isNotEmpty();
-    }
-
-    @Test
-    void invokeService_diabetesDefault_shouldHaveSuggestions() {
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("diabetes-management", request);
-
-        assertThat(response.getCards().get(0).getSuggestions()).isNotEmpty();
     }
 
     @Test

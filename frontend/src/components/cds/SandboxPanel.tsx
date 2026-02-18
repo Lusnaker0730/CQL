@@ -34,44 +34,7 @@ import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import { bundleToPrefetch, prefetchToBundle } from '../../utils/bundlePrefetchConverter'
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
-
-const DEFAULT_PREFETCH = {
-  patient: {
-    resourceType: 'Patient',
-    id: 'test-patient-1',
-    name: [{ given: ['Test'], family: 'Patient' }],
-    gender: 'male',
-    birthDate: '1980-01-01',
-  },
-  observations: {
-    resourceType: 'Bundle',
-    type: 'searchset',
-    entry: [
-      {
-        resource: {
-          resourceType: 'Observation',
-          id: 'obs-1',
-          status: 'final',
-          category: [
-            {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/observation-category',
-                  code: 'vital-signs',
-                },
-              ],
-            },
-          ],
-          code: {
-            coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body Weight' }],
-          },
-          subject: { reference: 'Patient/test-patient-1' },
-          valueQuantity: { value: 85, unit: 'kg' },
-        },
-      },
-    ],
-  },
-}
+import { DEFAULT_PATIENT_ID, DEFAULT_PREFETCH } from '../../constants/sandboxDefaults'
 
 function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
   switch (indicator) {
@@ -100,7 +63,7 @@ function SandboxPanelInner() {
   const { showNotification } = useNotification()
 
   const [selectedService, setSelectedService] = useState('')
-  const [patientId, setPatientId] = useState('test-patient-1')
+  const [patientId, setPatientId] = useState(DEFAULT_PATIENT_ID)
   const [testDataJson, setTestDataJson] = useState(JSON.stringify(DEFAULT_PREFETCH, null, 2))
   const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
   const [dataTab, setDataTab] = useState(0)

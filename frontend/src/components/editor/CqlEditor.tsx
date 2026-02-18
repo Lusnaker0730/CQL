@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import Editor, { OnMount, OnChange } from '@monaco-editor/react'
+import Editor, { BeforeMount, OnMount, OnChange } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux'
@@ -59,15 +59,13 @@ export default function CqlEditor({
       .replace(/\u2026/g, '...')                       // ellipsis → ...
   }
 
+  const handleEditorWillMount: BeforeMount = (monaco) => {
+    registerCqlLanguage(monaco, librariesRef.current)
+  }
+
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
-
-    registerCqlLanguage(monaco, librariesRef.current)
-
-    editor.updateOptions({
-      theme: preferences.themeMode === 'dark' ? 'cql-theme-dark' : 'cql-theme',
-    })
 
     // Sanitize pasted content from ChatGPT/LLM outputs
     editor.onDidPaste(() => {
@@ -230,7 +228,8 @@ export default function CqlEditor({
         height="100%"
         defaultLanguage="cql"
         defaultValue={cqlContent}
-        theme={preferences.themeMode === 'dark' ? 'vs-dark' : 'vs'}
+        theme={preferences.themeMode === 'dark' ? 'cql-theme-dark' : 'cql-theme'}
+        beforeMount={handleEditorWillMount}
         onChange={handleChange}
         onMount={handleEditorDidMount}
         loading={<CircularProgress />}

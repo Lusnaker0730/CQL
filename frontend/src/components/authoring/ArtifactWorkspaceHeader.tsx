@@ -12,6 +12,7 @@ import { useDeployCdsService, useSaveAsLibrary } from '../../hooks/useArtifactTe
 import { useGenerateArtifactCql } from '../../hooks/useArtifactCql'
 import CpgMetadataEditor from './CpgMetadataEditor'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
+import { CDS_HOOK_TYPES, getHookDescription } from '../../constants/cdsHooks'
 
 interface ArtifactWorkspaceHeaderProps {
   artifact: Artifact
@@ -406,20 +407,11 @@ export default function ArtifactWorkspaceHeader({
               size="small"
               select
               SelectProps={{ native: true }}
-              helperText={
-                deployHook === 'patient-view' ? 'Triggered when a patient chart is opened' :
-                deployHook === 'order-select' ? 'Triggered when a clinician selects orders (e.g., medications, labs)' :
-                deployHook === 'order-sign' ? 'Triggered when a clinician is about to sign orders' :
-                deployHook === 'encounter-start' ? 'Triggered when a new encounter begins' :
-                deployHook === 'encounter-discharge' ? 'Triggered when a patient is being discharged' :
-                undefined
-              }
+              helperText={getHookDescription(deployHook)}
             >
-              <option value="patient-view">patient-view</option>
-              <option value="order-select">order-select</option>
-              <option value="order-sign">order-sign</option>
-              <option value="encounter-start">encounter-start</option>
-              <option value="encounter-discharge">encounter-discharge</option>
+              {CDS_HOOK_TYPES.map((hook) => (
+                <option key={hook.id} value={hook.id}>{hook.id}</option>
+              ))}
             </TextField>
           </Stack>
         </DialogContent>

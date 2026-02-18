@@ -121,15 +121,6 @@ vsac:
 cds:
   hooks:
     enabled: true
-    services:
-      - id: diabetes-management
-        title: Diabetes Management
-        description: CDS for diabetes patient management
-        hook: patient-view
-      - id: medication-check
-        title: Medication Interaction Check
-        description: Check for potential drug interactions
-        hook: order-select
 
 # Measure Configuration
 measure:

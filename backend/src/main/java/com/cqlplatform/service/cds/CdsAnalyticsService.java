@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cqlplatform.model.cds.CdsConstants;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -54,8 +56,8 @@ public class CdsAnalyticsService {
                 .findCurrentPeriodByServiceId(serviceId)
                 .orElse(null);
 
-        long acceptedCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, "accepted");
-        long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, "overridden");
+        long acceptedCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, CdsConstants.FEEDBACK_ACCEPTED);
+        long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, CdsConstants.FEEDBACK_OVERRIDDEN);
 
         if (analytics == null) {
             return CdsServiceAnalyticsDTO.builder()
@@ -96,9 +98,9 @@ public class CdsAnalyticsService {
         return allAnalytics.stream()
                 .map(analytics -> {
                     long acceptedCount = feedbackRepository.countByServiceIdAndOutcome(
-                            analytics.getServiceId(), "accepted");
+                            analytics.getServiceId(), CdsConstants.FEEDBACK_ACCEPTED);
                     long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(
-                            analytics.getServiceId(), "overridden");
+                            analytics.getServiceId(), CdsConstants.FEEDBACK_OVERRIDDEN);
 
                     double avgResponseTime = analytics.getInvocationCount() > 0
                             ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()

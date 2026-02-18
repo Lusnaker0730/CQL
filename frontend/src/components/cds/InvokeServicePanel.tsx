@@ -44,6 +44,13 @@ import type { CdsServiceDefinition, CdsResponse } from '../../types'
 import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import GradientButton from '../common/GradientButton'
+import { FHIR_SERVER_PRESETS } from '../../constants/fhirServers'
+import {
+  FEEDBACK_ACCEPTED,
+  FEEDBACK_OVERRIDDEN,
+  FEEDBACK_OVERRIDE_CODE,
+  FEEDBACK_OVERRIDE_DEFAULT_DISPLAY,
+} from '../../constants/cdsHooks'
 
 function getIndicatorIcon(indicator: string) {
   switch (indicator) {
@@ -80,7 +87,7 @@ export default function InvokeServicePanel() {
 
   const [selectedService, setSelectedService] = useState<string>('')
   const [patientId, setPatientId] = useState('')
-  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
+  const [fhirServer, setFhirServer] = useState(FHIR_SERVER_PRESETS[0].url)
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
@@ -131,7 +138,7 @@ export default function InvokeServicePanel() {
       await feedbackMutation.mutateAsync({
         serviceId: selectedService,
         feedback: {
-          feedback: [{ card: cardUuid, outcome: 'accepted' }],
+          feedback: [{ card: cardUuid, outcome: FEEDBACK_ACCEPTED }],
         },
       })
       showNotification('Feedback submitted: accepted', 'success')
@@ -154,8 +161,8 @@ export default function InvokeServicePanel() {
           feedback: [
             {
               card: overrideCardUuid,
-              outcome: 'overridden',
-              overrideReason: { code: 'override', display: overrideReason || 'No reason provided' },
+              outcome: FEEDBACK_OVERRIDDEN,
+              overrideReason: { code: FEEDBACK_OVERRIDE_CODE, display: overrideReason || FEEDBACK_OVERRIDE_DEFAULT_DISPLAY },
             },
           ],
         },

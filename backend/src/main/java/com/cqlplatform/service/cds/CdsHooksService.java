@@ -310,11 +310,6 @@ public class CdsHooksService {
                     .build());
         }
 
-        if (definitions.isEmpty()) {
-            definitions.add(createDefaultDiabetesService());
-            definitions.add(createDefaultMedicationService());
-        }
-
         return definitions;
     }
 
@@ -329,10 +324,12 @@ public class CdsHooksService {
         CdsServiceConfig config = serviceConfigs.get(serviceId);
 
         if (config == null) {
-            CdsResponse response = handleDefaultService(serviceId, request);
             if (sample != null && cdsInvocationTimer != null)
                 sample.stop(cdsInvocationTimer);
-            return response;
+            return CdsResponse.builder()
+                    .cards(List.of(createInfoCard("Service not found",
+                            "The requested CDS service '" + serviceId + "' is not available.")))
+                    .build();
         }
 
         // Validate hook type matches config
@@ -543,59 +540,6 @@ public class CdsHooksService {
         return new PrefetchRetrieveProvider(resources, patientId);
     }
 
-    private CdsResponse handleDefaultService(String serviceId, CdsRequest request) {
-        return switch (serviceId) {
-            case "diabetes-management" -> handleDiabetesManagement(request);
-            case "medication-check" -> handleMedicationCheck(request);
-            default -> CdsResponse.builder()
-                    .cards(List.of(createInfoCard("Service not found", "The requested CDS service is not available.")))
-                    .build();
-        };
-    }
-
-    private CdsResponse handleDiabetesManagement(CdsRequest request) {
-        List<CdsResponse.Card> cards = new ArrayList<>();
-
-        cards.add(CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
-                .summary("Diabetes Care Reminder")
-                .detail("This patient may benefit from diabetes management review. Consider checking HbA1c levels and reviewing medication adherence.")
-                .indicator("info")
-                .source(CdsResponse.Source.builder()
-                        .label("CQL Platform - Diabetes Management")
-                        .build())
-                .suggestions(List.of(
-                        CdsResponse.Suggestion.builder()
-                                .uuid(UUID.randomUUID().toString())
-                                .label("Order HbA1c Test")
-                                .isRecommended(true)
-                                .build(),
-                        CdsResponse.Suggestion.builder()
-                                .uuid(UUID.randomUUID().toString())
-                                .label("Review Medications")
-                                .isRecommended(false)
-                                .build()))
-                .build());
-
-        return CdsResponse.builder().cards(cards).build();
-    }
-
-    private CdsResponse handleMedicationCheck(CdsRequest request) {
-        List<CdsResponse.Card> cards = new ArrayList<>();
-
-        cards.add(CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
-                .summary("Medication Interaction Check Complete")
-                .detail("No significant drug interactions detected for the selected medications.")
-                .indicator("info")
-                .source(CdsResponse.Source.builder()
-                        .label("CQL Platform - Drug Interaction Checker")
-                        .build())
-                .build());
-
-        return CdsResponse.builder().cards(cards).build();
-    }
-
     private CdsResponse buildCardsFromExecution(CdsServiceConfig config, CqlExecutionResponse execResponse) {
         List<CdsResponse.Card> cards = new ArrayList<>();
         List<CdsResponse.SystemAction> systemActions = new ArrayList<>();
@@ -607,7 +551,7 @@ public class CdsHooksService {
 
         // Collect non-Tuple results into a single consolidated card
         StringBuilder consolidatedDetail = new StringBuilder();
-        String consolidatedIndicator = "info";
+        String consolidatedIndicator = CdsConstants.INDICATOR_INFO;
         boolean hasExplicitCards = false;
 
         // Detect "explicit card mode": if any expression is named "Card" (case-insensitive
@@ -655,7 +599,7 @@ public class CdsHooksService {
                                     .uuid(UUID.randomUUID().toString())
                                     .summary(summary)
                                     .detail(detail)
-                                    .indicator(indicator != null ? indicator : "info")
+                                    .indicator(indicator != null ? indicator : CdsConstants.INDICATOR_INFO)
                                     .source(CdsResponse.Source.builder()
                                             .label(sourceLabel != null ? sourceLabel : config.getTitle())
                                             .build())
@@ -690,7 +634,7 @@ public class CdsHooksService {
                     if (value instanceof Boolean && (Boolean) value) {
                         consolidatedIndicator = config.getDefaultIndicator() != null
                                 ? config.getDefaultIndicator()
-                                : "warning";
+                                : CdsConstants.INDICATOR_WARNING;
                     }
                 }
             }
@@ -714,7 +658,7 @@ public class CdsHooksService {
         }
 
         if (cards.isEmpty()) {
-            cards.add(createInfoCard(config.getTitle(), "No recommendations at this time."));
+            cards.add(createInfoCard(config.getTitle(), CdsConstants.NO_RECOMMENDATIONS));
         }
 
         return CdsResponse.builder()
@@ -1010,9 +954,9 @@ public class CdsHooksService {
                 .uuid(UUID.randomUUID().toString())
                 .summary(summary)
                 .detail(detail)
-                .indicator("info")
+                .indicator(CdsConstants.INDICATOR_INFO)
                 .source(CdsResponse.Source.builder()
-                        .label("CQL Platform")
+                        .label(CdsConstants.SOURCE_LABEL)
                         .build())
                 .build();
     }
@@ -1020,44 +964,12 @@ public class CdsHooksService {
     private CdsResponse.Card createErrorCard(String errorMessage) {
         return CdsResponse.Card.builder()
                 .uuid(UUID.randomUUID().toString())
-                .summary("CDS Service Error")
-                .detail("An error occurred: " + errorMessage)
-                .indicator("warning")
+                .summary(CdsConstants.ERROR_SUMMARY)
+                .detail(CdsConstants.ERROR_DETAIL_PREFIX + errorMessage)
+                .indicator(CdsConstants.INDICATOR_WARNING)
                 .source(CdsResponse.Source.builder()
-                        .label("CQL Platform")
+                        .label(CdsConstants.SOURCE_LABEL)
                         .build())
-                .build();
-    }
-
-    private CdsServiceDefinition createDefaultDiabetesService() {
-        return CdsServiceDefinition.builder()
-                .id("diabetes-management")
-                .hook("patient-view")
-                .title("Diabetes Management")
-                .description("Clinical decision support for diabetes patient management")
-                .prefetch(Map.of(
-                        "patient", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("Patient/{{context.patientId}}")
-                                .build(),
-                        "conditions", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("Condition?patient={{context.patientId}}")
-                                .build()))
-                .build();
-    }
-
-    private CdsServiceDefinition createDefaultMedicationService() {
-        return CdsServiceDefinition.builder()
-                .id("medication-check")
-                .hook("order-select")
-                .title("Medication Interaction Check")
-                .description("Check for potential drug interactions")
-                .prefetch(Map.of(
-                        "patient", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("Patient/{{context.patientId}}")
-                                .build(),
-                        "medications", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("MedicationRequest?patient={{context.patientId}}")
-                                .build()))
                 .build();
     }
 

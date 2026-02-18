@@ -1,3 +1,5 @@
+import { isValidHookType } from '../constants/cdsHooks'
+
 export function validateRequired(value: string, fieldName: string): string | null {
   if (!value.trim()) return `${fieldName} is required`
   return null
@@ -75,15 +77,7 @@ export function getStoredUsername(): string {
 }
 
 export function validateHookType(value: string): string | null {
-  const valid = [
-    'patient-view',
-    'order-select',
-    'order-sign',
-    'appointment-book',
-    'encounter-start',
-    'encounter-discharge',
-  ]
   if (!value) return 'Hook type is required'
-  if (!valid.includes(value)) return 'Invalid hook type'
+  if (!isValidHookType(value)) return 'Invalid hook type'
   return null
 }

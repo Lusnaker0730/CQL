@@ -55,17 +55,7 @@ import { helpContent } from '../../constants/helpContent'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
-
-const HOOK_TYPES = [
-  'patient-view',
-  'order-select',
-  'order-sign',
-  'appointment-book',
-  'encounter-start',
-  'encounter-discharge',
-]
-
-const INDICATOR_TYPES = ['info', 'warning', 'critical']
+import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES } from '../../constants/cdsHooks'
 
 export default function ManageServicesPanel() {
   const dispatch = useDispatch()
@@ -398,7 +388,7 @@ export default function ManageServicesPanel() {
                   onChange={(e) => setFormData({ ...formData, hook: e.target.value })}
                   label="Hook Type"
                 >
-                  {HOOK_TYPES.map((hook) => (
+                  {CDS_HOOK_IDS.map((hook) => (
                     <MenuItem key={hook} value={hook}>
                       {hook}
                     </MenuItem>
@@ -425,7 +415,7 @@ export default function ManageServicesPanel() {
                 onChange={(e) => setFormData({ ...formData, defaultIndicator: e.target.value })}
                 label="Default Indicator"
               >
-                {INDICATOR_TYPES.map((indicator) => (
+                {CDS_INDICATOR_TYPES.map((indicator) => (
                   <MenuItem key={indicator} value={indicator}>
                     {indicator}
                   </MenuItem>
