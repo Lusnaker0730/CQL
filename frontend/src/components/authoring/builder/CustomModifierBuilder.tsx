@@ -340,6 +340,8 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
             key={rule.id}
             rule={rule}
             availableFields={availableFields}
+            getOperatorsForType={getOperatorsForType}
+            codeValueOptions={codeValueOptions}
             onChange={(updates) => handleUpdateRule(rule.id, updates)}
             onRemove={() => handleRemoveRule(rule.id)}
           />
@@ -350,6 +352,8 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
             <RuleGroupEditor
               group={subGroup}
               availableFields={availableFields}
+              getOperatorsForType={getOperatorsForType}
+              codeValueOptions={codeValueOptions}
               onChange={(updated) => handleUpdateSubgroup(subGroup.id, updated)}
               depth={depth + 1}
             />
@@ -373,18 +377,20 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
 interface RuleEditorProps {
   rule: ModifierRule
   availableFields: Array<{ field: string; label: string; type: string }>
+  getOperatorsForType: (type: string) => Array<{ op: string; label: string }>
+  codeValueOptions: Record<string, string[]>
   onChange: (updates: Partial<ModifierRule>) => void
   onRemove: () => void
 }
 
-function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorProps) {
+function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptions, onChange, onRemove }: RuleEditorProps) {
   const selectedField = availableFields.find((f) => f.field === rule.field)
   const fieldType = selectedField?.type || 'string'
-  const operators = OPERATORS_BY_TYPE[fieldType] || OPERATORS_BY_TYPE.string
+  const operators = getOperatorsForType(fieldType)
   const needsValue = !['is_null', 'is_not_null'].includes(rule.operator)
   const complete = isRuleComplete(rule)
 
-  const codeOptions = rule.field ? CODE_VALUE_OPTIONS[rule.field] : undefined
+  const codeOptions = rule.field ? codeValueOptions[rule.field] : undefined
 
   return (
     <Stack
