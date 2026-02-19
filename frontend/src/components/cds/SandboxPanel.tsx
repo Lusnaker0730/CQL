@@ -147,7 +147,17 @@ function SandboxPanelInner() {
     const service = services.find((s) => s.id === selectedService)
     if (!service) return
 
+    // Clear previous response so user sees fresh loading state
+    setSandboxResponse(null)
+
     try {
+      // Re-serialize from visual builder to ensure latest data
+      if (dataTab === 0 && state.entries.length > 0) {
+        const bundleJson = serializeToBundle(state.entries)
+        const prefetch = bundleToPrefetch(bundleJson)
+        setTestDataJson(JSON.stringify(prefetch, null, 2))
+      }
+
       const testData = JSON.parse(testDataJson)
       const response = await sandboxMutation.mutateAsync({
         serviceId: selectedService,

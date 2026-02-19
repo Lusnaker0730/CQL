@@ -16,6 +16,11 @@ export default function Footer() {
         bgcolor: 'background.paper',
         borderTop: '1px solid',
         borderColor: 'rgba(13,115,119,0.1)',
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: (theme) => theme.zIndex.appBar - 1,
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center">

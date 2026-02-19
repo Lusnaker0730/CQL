@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack } from '@mui/material'
+import {
+  Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack,
+  FormControl, InputLabel, Select, MenuItem, FormHelperText,
+} from '@mui/material'
 import { MenuBook as MenuBookIcon } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
@@ -19,11 +22,12 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   const resourceType = useCurrentResourceType()
 
   const hasBinding = !!element.bindingValueSetUrl
+  const isRequiredBinding = element.bindingStrength === 'required' && element.boundCodes.length > 0
 
   const { data: options = [] } = useQuery<CodeSearchResult[]>({
     queryKey: ['code-search', element.bindingValueSetUrl, inputValue],
     queryFn: () => fhirApi.searchCodes(element.bindingValueSetUrl || '', inputValue, 20),
-    enabled: hasBinding && inputValue.length >= 1,
+    enabled: hasBinding && !isRequiredBinding && inputValue.length >= 1,
     staleTime: 30_000,
   })
 
@@ -46,6 +50,27 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
       resourceType={resourceType}
     />
   )
+
+  // Required binding with known codes → fixed dropdown, no TWCORE button
+  if (isRequiredBinding) {
+    return (
+      <FormControl fullWidth size="small" required={element.isRequired} sx={{ mb: 1 }}>
+        <InputLabel>{element.name}</InputLabel>
+        <Select
+          value={String(value || '')}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          label={element.name}
+        >
+          {element.boundCodes.map((code) => (
+            <MenuItem key={code} value={code}>{code}</MenuItem>
+          ))}
+        </Select>
+        {element.bindingValueSetUrl && (
+          <FormHelperText>Bound to: {element.bindingValueSetUrl}</FormHelperText>
+        )}
+      </FormControl>
+    )
+  }
 
   if (!hasBinding) {
     return (
