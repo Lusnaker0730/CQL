@@ -1,6 +1,8 @@
-import { Box, TextField, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, TextField, Typography, Collapse, Link } from '@mui/material'
 import type { ElementMetadata } from '../../types'
-import { STRINGS } from './constants'
+import { FHIR_UCUM_SYSTEM } from './constants'
+import UcumUnitField, { UCUM_UNITS } from '../common/UcumUnitField'
 
 interface Quantity {
   value?: number
@@ -17,13 +19,26 @@ interface QuantityFieldProps {
 
 export default function QuantityField({ element, value, onChange }: QuantityFieldProps) {
   const qty = (value as Quantity) || {}
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const handleUnitChange = (unit: string) => {
+    const knownUnit = UCUM_UNITS.find((u) => u.value === unit)
+    if (knownUnit) {
+      onChange({ ...qty, unit: knownUnit.label, system: FHIR_UCUM_SYSTEM, code: knownUnit.value })
+    } else {
+      onChange({ ...qty, unit: unit || undefined, code: unit || undefined })
+    }
+  }
+
+  // Resolve display value: prefer code (UCUM), fall back to unit
+  const unitDisplayValue = qty.code || qty.unit || ''
 
   return (
     <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
       <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
         {element.name} {element.isRequired && '*'}
       </Typography>
-      <Box sx={{ display: 'flex', gap: 1 }}>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
         <TextField
           label="value"
           size="small"
@@ -36,29 +51,40 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
           inputProps={{ step: 0.01 }}
           sx={{ flex: 1 }}
         />
-        <TextField
+        <UcumUnitField
           label="unit"
-          size="small"
-          value={qty.unit || ''}
-          onChange={(e) => onChange({ ...qty, unit: e.target.value || undefined })}
-          sx={{ flex: 1 }}
-        />
-        <TextField
-          label="system"
-          size="small"
-          value={qty.system || ''}
-          onChange={(e) => onChange({ ...qty, system: e.target.value || undefined })}
-          placeholder={STRINGS.ucumSystemPlaceholder}
-          sx={{ flex: 1 }}
-        />
-        <TextField
-          label="code"
-          size="small"
-          value={qty.code || ''}
-          onChange={(e) => onChange({ ...qty, code: e.target.value || undefined })}
-          sx={{ flex: 1 }}
+          value={unitDisplayValue}
+          onChange={handleUnitChange}
+          sx={{ flex: 2 }}
         />
       </Box>
+      <Link
+        component="button"
+        variant="caption"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        sx={{ mt: 0.5, display: 'inline-block' }}
+      >
+        {showAdvanced ? 'Hide' : 'Show'} system / code
+      </Link>
+      <Collapse in={showAdvanced}>
+        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+          <TextField
+            label="system"
+            size="small"
+            value={qty.system || ''}
+            onChange={(e) => onChange({ ...qty, system: e.target.value || undefined })}
+            placeholder={FHIR_UCUM_SYSTEM}
+            sx={{ flex: 1 }}
+          />
+          <TextField
+            label="code"
+            size="small"
+            value={qty.code || ''}
+            onChange={(e) => onChange({ ...qty, code: e.target.value || undefined })}
+            sx={{ flex: 1 }}
+          />
+        </Box>
+      </Collapse>
     </Box>
   )
 }

@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
+import UcumUnitField from '../common/UcumUnitField'
 import PopulationCard from './PopulationCard'
 import type { CqlExpression } from './PopulationCard'
 import RiskAdjustmentSection from './RiskAdjustmentSection'
@@ -677,12 +678,11 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
               )}
 
               <Divider sx={{ my: 2 }} />
-              <TextField
+              <UcumUnitField
                 label="Scoring Unit"
-                size="small"
                 fullWidth
                 value={group.scoringUnit || ''}
-                onChange={(e) => updateGroup(groupIdx, 'scoringUnit', e.target.value)}
+                onChange={(val) => updateGroup(groupIdx, 'scoringUnit', val)}
                 placeholder="e.g. %, per 1000"
                 helperText="Unit of measure for the score"
               />

@@ -11,6 +11,7 @@ import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
+import UcumUnitField from '../common/UcumUnitField'
 
 interface ParametersSectionProps {
   parameters: string[]
@@ -56,14 +57,25 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
   const [name, setName] = useState('')
   const [paramType, setParamType] = useState('Boolean')
   const [defaultValue, setDefaultValue] = useState('')
+
+  // Quantity-specific state for structured input
+  const [qtyValue, setQtyValue] = useState('')
+  const [qtyUnit, setQtyUnit] = useState('')
+
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
+  const isQuantityType = paramType === 'Quantity' || paramType === 'Interval<Quantity>'
+
   const handleAdd = () => {
     if (!name.trim()) return
     let snippet = `parameter "${name}" ${paramType}`
-    if (defaultValue.trim()) {
+    if (isQuantityType) {
+      if (qtyValue.trim() && qtyUnit.trim()) {
+        snippet += `\n  default ${qtyValue.trim()} '${qtyUnit.trim()}'`
+      }
+    } else if (defaultValue.trim()) {
       snippet += `\n  default ${defaultValue}`
     }
     setPreviewSnippet(snippet)
@@ -83,8 +95,23 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
     if (!parsed) return
     setEditingItem(parsed.name)
     setName(parsed.name)
-    setParamType(CQL_TYPES.includes(parsed.type) ? parsed.type : 'Boolean')
-    setDefaultValue(parsed.defaultValue)
+    const type = CQL_TYPES.includes(parsed.type) ? parsed.type : 'Boolean'
+    setParamType(type)
+    // Parse Quantity default like: 70 'kg'
+    if ((type === 'Quantity' || type === 'Interval<Quantity>') && parsed.defaultValue) {
+      const qm = parsed.defaultValue.match(/^(\S+)\s+'([^']*)'$/)
+      if (qm) {
+        setQtyValue(qm[1])
+        setQtyUnit(qm[2])
+        setDefaultValue('')
+      } else {
+        setDefaultValue(parsed.defaultValue)
+      }
+    } else {
+      setDefaultValue(parsed.defaultValue)
+      setQtyValue('')
+      setQtyUnit('')
+    }
     setShowForm(true)
   }
 
@@ -93,6 +120,8 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
     setName('')
     setParamType('Boolean')
     setDefaultValue('')
+    setQtyValue('')
+    setQtyUnit('')
     setEditingItem(null)
     setPreviewSnippet('')
   }
@@ -152,13 +181,33 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             ))}
           </TextField>
 
-          <TextField
-            size="small"
-            label={t('parameters.defaultValue')}
-            value={defaultValue}
-            onChange={(e) => setDefaultValue(e.target.value)}
-            placeholder={t('parameters.defaultPlaceholder')}
-          />
+          {isQuantityType ? (
+            <Stack direction="row" spacing={1}>
+              <TextField
+                size="small"
+                label={t('parameters.defaultValue')}
+                type="number"
+                value={qtyValue}
+                onChange={(e) => setQtyValue(e.target.value)}
+                placeholder="e.g. 70"
+                sx={{ flex: 1 }}
+              />
+              <UcumUnitField
+                label="Unit"
+                value={qtyUnit}
+                onChange={setQtyUnit}
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+          ) : (
+            <TextField
+              size="small"
+              label={t('parameters.defaultValue')}
+              value={defaultValue}
+              onChange={(e) => setDefaultValue(e.target.value)}
+              placeholder={t('parameters.defaultPlaceholder')}
+            />
+          )}
 
           {previewSnippet ? (
             <SnippetPreview
