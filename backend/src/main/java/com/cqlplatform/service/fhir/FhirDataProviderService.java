@@ -369,8 +369,8 @@ public class FhirDataProviderService {
                         log.debug("Patient fallback read failed: {}", e.getMessage());
                     }
                 } else {
-                    // Generic fallback: search by subject or patient parameter
-                    resultList.addAll(fallbackSearch(dataType, patientId));
+                    // Generic fallback: search by subject or patient parameter, with code filtering
+                    resultList.addAll(fallbackSearch(dataType, patientId, codePath, codes));
                 }
             }
 
@@ -383,18 +383,26 @@ public class FhirDataProviderService {
 
         /**
          * Generic fallback search: tries 'subject', then 'patient' search parameter.
+         * Includes code-based filtering when codePath and codes are provided.
          */
-        private List<Object> fallbackSearch(String dataType, String patientId) {
-            log.debug("Fallback search for {}?subject/patient={}", dataType, patientId);
+        private List<Object> fallbackSearch(String dataType, String patientId,
+                String codePath, Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
+            log.debug("Fallback search for {}?subject/patient={}, codePath={}, hasCodes={}",
+                    dataType, patientId, codePath, codes != null);
             IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
+
+            // Build code filter string for FHIR search (e.g., "http://loinc.org|39156-5")
+            String codeFilter = buildCodeFilter(codes);
 
             // Determine which search parameter to try first
             String primaryParam = SUBJECT_BASED_RESOURCES.contains(dataType) ? "subject" : "patient";
             String secondaryParam = "subject".equals(primaryParam) ? "patient" : "subject";
 
-            List<Object> results = trySearch(fallbackClient, dataType, primaryParam, patientId);
+            List<Object> results = trySearch(fallbackClient, dataType, primaryParam, patientId,
+                    codePath, codeFilter);
             if (results.isEmpty()) {
-                results = trySearch(fallbackClient, dataType, secondaryParam, patientId);
+                results = trySearch(fallbackClient, dataType, secondaryParam, patientId,
+                        codePath, codeFilter);
             }
 
             if (!results.isEmpty()) {
@@ -403,14 +411,43 @@ public class FhirDataProviderService {
             return results;
         }
 
-        private List<Object> trySearch(IGenericClient client, String dataType, String paramName, String patientId) {
+        /**
+         * Build a comma-separated code filter string from CQL Code objects
+         * for use in FHIR search (e.g., "http://loinc.org|39156-5,http://loinc.org|8480-6").
+         */
+        private String buildCodeFilter(Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
+            if (codes == null) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (org.opencds.cqf.cql.engine.runtime.Code code : codes) {
+                if (sb.length() > 0) {
+                    sb.append(",");
+                }
+                if (code.getSystem() != null && !code.getSystem().isEmpty()) {
+                    sb.append(code.getSystem()).append("|");
+                }
+                sb.append(code.getCode());
+            }
+            return sb.length() > 0 ? sb.toString() : null;
+        }
+
+        private List<Object> trySearch(IGenericClient client, String dataType, String paramName,
+                String patientId, String codePath, String codeFilter) {
             List<Object> results = new ArrayList<>();
             try {
-                Bundle bundle = client.search()
+                var search = client.search()
                         .forResource(dataType)
-                        .where(new TokenClientParam(paramName).exactly().code(patientId))
-                        .returnBundle(Bundle.class)
-                        .execute();
+                        .where(new TokenClientParam(paramName).exactly().code(patientId));
+
+                // Add code filter to the FHIR search query when available
+                if (codePath != null && codeFilter != null) {
+                    // Map common CQL code paths to FHIR search parameters
+                    String searchParam = mapCodePathToSearchParam(dataType, codePath);
+                    search = search.where(new TokenClientParam(searchParam).exactly().code(codeFilter));
+                }
+
+                Bundle bundle = search.returnBundle(Bundle.class).execute();
 
                 if (bundle.hasEntry()) {
                     for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
@@ -420,9 +457,31 @@ public class FhirDataProviderService {
                     }
                 }
             } catch (Exception e) {
-                log.debug("Fallback search {}?{}={} failed: {}", dataType, paramName, patientId, e.getMessage());
+                log.debug("Fallback search {}?{}={}&code={} failed: {}",
+                        dataType, paramName, patientId, codeFilter, e.getMessage());
+                // If code-filtered search fails, do NOT fall back to unfiltered search.
+                // Returning unfiltered results causes wrong data (e.g., returning TNF-alpha
+                // instead of BMI observations).
             }
             return results;
+        }
+
+        /**
+         * Map CQL codePath to the corresponding FHIR search parameter name.
+         */
+        private String mapCodePathToSearchParam(String dataType, String codePath) {
+            // Most resources use "code" as both the CQL path and FHIR search param
+            if ("code".equals(codePath)) {
+                return "code";
+            }
+            if ("medication".equals(codePath) && "MedicationRequest".equals(dataType)) {
+                return "code";
+            }
+            if ("vaccineCode".equals(codePath) && "Immunization".equals(dataType)) {
+                return "vaccine-code";
+            }
+            // Default: use the codePath as-is
+            return codePath;
         }
     }
 }
