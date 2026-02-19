@@ -64,16 +64,21 @@ public class CqlTranslationService {
                 }
             }
 
+            // Extract partial metadata even when there are errors,
+            // so the CQL Builder can display already-parsed elements
+            TranslationMetadata metadata = extractMetadata(library);
+
             if (!errors.isEmpty()) {
+                if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
                 return CqlTranslationResponse.builder()
                         .success(false)
                         .errors(errors)
                         .warnings(warnings)
+                        .metadata(metadata)
                         .build();
             }
 
             String elmJson = translator.toJson();
-            TranslationMetadata metadata = extractMetadata(library);
 
             CqlTranslationResponse response = CqlTranslationResponse.builder()
                     .success(true)

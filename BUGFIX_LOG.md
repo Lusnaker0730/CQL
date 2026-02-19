@@ -36,6 +36,36 @@
 
 ---
 
+## #002 — CQL 翻譯失敗時 Builder 無法顯示已解析的部分結構
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-19 |
+| **功能分類** | CQL Translation（後端）+ CQL Builder（前端） |
+| **嚴重程度** | Medium |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cql/CqlTranslationService.java`、`frontend/src/hooks/useCqlStructure.ts` |
+
+### BUG 描述
+
+CQL 內容含有任何翻譯錯誤時，後端 `CqlTranslationService.translate()` 在 `errors` 非空時直接回傳 response，完全不包含 `metadata`。即使 CQL translator 已成功解析部分結構（如 valueset、code、define），這些資訊也不會回傳給前端。
+
+導致 Builder 面板在 CQL 有任何錯誤時完全無法顯示已解析的結構，使用者只能看到錯誤訊息而無法利用已正確的部分。
+
+### 修正方式
+
+- **後端**：將 `extractMetadata(library)` 提前至錯誤檢查之前執行，即使有錯誤也回傳 partial metadata
+- **前端**：`useCqlStructure` hook 將 `if...else if` 改為兩個獨立 `if`，允許同時更新 structure 和顯示 parseError
+
+### 測試驗證
+
+- [x] 後端 `mvn compile -q` 編譯通過
+- [x] 前端 `tsc --noEmit` 編譯通過
+- [x] CQL 有錯誤時 → Builder 同時顯示已解析的結構 + 錯誤訊息
+- [x] CQL 無錯誤時 → 行為不變，完整顯示結構
+- [x] Backend + Frontend Docker 重建並部署成功
+
+---
+
 <!--
 ## 範本
 

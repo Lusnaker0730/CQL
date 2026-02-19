@@ -83,7 +83,8 @@ export function useCqlStructure() {
       if (result.metadata) {
         setStructure(metadataToStructure(result.metadata))
         lastParsedContent.current = cql
-      } else if (!result.success && result.errors?.length) {
+      }
+      if (!result.success && result.errors?.length) {
         const msg = result.errors
           .slice(0, 3)
           .map((e) => e.startLine ? `Line ${e.startLine}: ${e.message}` : e.message)
