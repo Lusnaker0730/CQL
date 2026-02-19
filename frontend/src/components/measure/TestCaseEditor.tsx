@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -42,14 +43,14 @@ interface TestCaseEditorProps {
   readOnly?: boolean
 }
 
-const POPULATION_TYPES = [
-  { key: 'initial-population', label: 'Initial Population' },
-  { key: 'denominator', label: 'Denominator' },
-  { key: 'denominator-exclusion', label: 'Denominator Exclusion' },
-  { key: 'denominator-exception', label: 'Denominator Exception' },
-  { key: 'numerator', label: 'Numerator' },
-  { key: 'numerator-exclusion', label: 'Numerator Exclusion' },
-]
+const POPULATION_KEYS = [
+  'initial-population',
+  'denominator',
+  'denominator-exclusion',
+  'denominator-exception',
+  'numerator',
+  'numerator-exclusion',
+] as const
 
 const DEFAULT_BUNDLE = `{
   "resourceType": "Bundle",
@@ -67,6 +68,7 @@ const DEFAULT_BUNDLE = `{
 }`
 
 function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: TestCaseEditorProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const isNew = !testCase?.id
   const { state, dispatch } = useBundleBuilder()
@@ -146,13 +148,13 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     try {
       const parsed = JSON.parse(json)
       if (parsed.resourceType !== 'Bundle') {
-        setBundleError('Root resource must be a FHIR Bundle')
+        setBundleError(t('testCaseEditor.validation.invalidBundle'))
         return false
       }
       setBundleError(null)
       return true
     } catch {
-      setBundleError('Invalid JSON')
+      setBundleError(t('testCaseEditor.validation.invalidJson'))
       return false
     }
   }
@@ -223,18 +225,18 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">
-          {isNew ? 'New Test Case' : `Edit: ${testCase?.title}`}
+          {isNew ? t('testCaseEditor.newTitle') : t('testCaseEditor.editTitle', { name: testCase?.title })}
         </Typography>
         <Stack direction="row" spacing={1}>
           <Button size="small" startIcon={<CloseIcon />} onClick={onClose}>
-            Cancel
+            {t('actions.cancel', { ns: 'common' })}
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
             disabled={!title.trim() || saveMutation.isPending || readOnly}
             onClick={handleSave}
           >
-            {saveMutation.isPending ? 'Saving...' : 'Save'}
+            {saveMutation.isPending ? t('testCaseEditor.saving') : t('testCaseEditor.save')}
           </GradientButton>
         </Stack>
       </Stack>
@@ -247,17 +249,17 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
 
       <Stack spacing={2}>
         <TextField
-          label="Test Case Title"
+          label={t('testCaseEditor.fields.title')}
           required
           size="small"
           fullWidth
           value={title}
           onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
-          placeholder="e.g. 65yo Female with Diabetes, No HbA1c"
+          placeholder={t('testCaseEditor.fields.titlePlaceholder')}
         />
 
         <TextField
-          label="Description"
+          label={t('testCaseEditor.fields.description')}
           size="small"
           fullWidth
           multiline
@@ -274,10 +276,10 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Series"
+              label={t('testCaseEditor.fields.series')}
               size="small"
               fullWidth
-              placeholder="Group test cases by series name"
+              placeholder={t('testCaseEditor.fields.seriesPlaceholder')}
               inputProps={{ ...params.inputProps, maxLength: 250 }}
             />
           )}
@@ -286,23 +288,23 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         <Divider />
 
         <Typography variant="subtitle2" color="text.secondary">
-          Expected Population Membership
+          {t('testCaseEditor.expectedPopulations')}
         </Typography>
 
         <Paper variant="outlined" sx={{ p: 1.5 }}>
           <Stack spacing={0.5}>
-            {POPULATION_TYPES.map((pop) => (
+            {POPULATION_KEYS.map((key) => (
               <FormControlLabel
-                key={pop.key}
+                key={key}
                 control={
                   <Switch
                     size="small"
-                    checked={!!expectedPops[pop.key]}
-                    onChange={() => togglePopulation(pop.key)}
+                    checked={!!expectedPops[key]}
+                    onChange={() => togglePopulation(key)}
                   />
                 }
                 label={
-                  <Typography variant="body2">{pop.label}</Typography>
+                  <Typography variant="body2">{t(`testCaseEditor.populationTypes.${key}`)}</Typography>
                 }
               />
             ))}
@@ -320,13 +322,13 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
             <Tab
               icon={<BuilderIcon sx={{ fontSize: 18 }} />}
               iconPosition="start"
-              label="Visual Builder"
+              label={t('testCaseEditor.tabs.visualBuilder')}
               sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.85rem' }}
             />
             <Tab
               icon={<JsonIcon sx={{ fontSize: 18 }} />}
               iconPosition="start"
-              label="JSON (Advanced)"
+              label={t('testCaseEditor.tabs.jsonAdvanced')}
               sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.85rem' }}
             />
           </Tabs>

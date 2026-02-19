@@ -38,6 +38,7 @@ import {
   PlaylistPlay as BatchIcon,
 } from '@mui/icons-material'
 import { Checkbox } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import StatusChip from '../common/StatusChip'
@@ -66,6 +67,7 @@ interface MeasureLibraryProps {
 }
 
 export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [filterTab, setFilterTab] = useState(0)
@@ -161,7 +163,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setEditMeasure(full)
       setEditOpen(true)
     } catch (err) {
-      showNotification('Failed to load measure: ' + (err as Error).message, 'error')
+      showNotification(t('library.importDialog.loadError', { error: (err as Error).message }), 'error')
     }
   }
 
@@ -183,7 +185,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         importMutation.mutate(parsed)
       }
     } catch {
-      showNotification('Invalid JSON format', 'error')
+      showNotification(t('library.importDialog.invalidJson'), 'error')
     }
   }
 
@@ -198,14 +200,14 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      showNotification('Export failed: ' + (err as Error).message, 'error')
+      showNotification(t('library.importDialog.exportError', { error: (err as Error).message }), 'error')
     }
   }
 
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Measure Library</Typography>
+        <Typography variant="h6">{t('library.title')}</Typography>
         <Stack direction="row" spacing={1}>
           {selectedMeasureIds.size > 0 && (
             <Button
@@ -215,14 +217,14 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               color="info"
               variant="outlined"
             >
-              Batch Evaluate ({selectedMeasureIds.size})
+              {t('library.batchEvaluate', { count: selectedMeasureIds.size })}
             </Button>
           )}
           <Button size="small" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>
-            Import FHIR
+            {t('library.importFhir')}
           </Button>
           <GradientButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            New Measure
+            {t('library.newMeasure')}
           </GradientButton>
         </Stack>
       </Stack>
@@ -230,7 +232,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       <TextField
         size="small"
         fullWidth
-        placeholder="Search measures..."
+        placeholder={t('library.searchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
@@ -242,10 +244,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         onChange={(_, v) => setFilterTab(v)}
         sx={{ mb: 1, minHeight: 32, '& .MuiTab-root': { minHeight: 32, py: 0, textTransform: 'none', fontSize: '0.8rem' } }}
       >
-        <Tab label={`All (${allMeasures.length})`} />
-        <Tab label="My Measures" />
-        <Tab label="Shared with Me" />
-        <Tab label="Public" />
+        <Tab label={t('library.tabs.all', { count: allMeasures.length })} />
+        <Tab label={t('library.tabs.myMeasures')} />
+        <Tab label={t('library.tabs.sharedWithMe')} />
+        <Tab label={t('library.tabs.public')} />
       </Tabs>
 
       {isLoading && <TableSkeleton columns={6} hasCheckbox />}
@@ -268,13 +270,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   }}
                 />
               </TableCell>
-              <TableCell scope="col">Name</TableCell>
-              <TableCell scope="col">Version</TableCell>
-              <TableCell scope="col">Status</TableCell>
-              <TableCell scope="col">Scoring</TableCell>
-              <TableCell scope="col">Setting</TableCell>
-              <TableCell scope="col">Owner</TableCell>
-              <TableCell scope="col" align="right">Actions</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.name')}</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.version')}</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.status')}</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.scoring')}</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.setting')}</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.owner')}</TableCell>
+              <TableCell scope="col" align="right">{t('library.tableHeaders.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -310,7 +312,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                       <Stack direction="row" spacing={0.5} alignItems="center">
                         <Typography variant="body2" fontWeight={500}>{m.title || m.name}</Typography>
                         {m.lockedBy && (
-                          <Tooltip title={`Locked by ${m.lockedBy}`}>
+                          <Tooltip title={t('library.lockedBy', { user: m.lockedBy })}>
                             <LockClockIcon sx={{ fontSize: 14, color: 'warning.main' }} />
                           </Tooltip>
                         )}
@@ -330,24 +332,24 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   {m.setting ? (
                     <Chip label={m.setting} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20, textTransform: 'capitalize' }} />
                   ) : (
-                    <Typography variant="caption" color="text.secondary">-</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
                   )}
                 </TableCell>
                 <TableCell>
                   {m.ownerUsername ? (
                     <Chip label={m.ownerUsername} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
                   ) : (
-                    <Typography variant="caption" color="text.secondary">-</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
                   )}
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton size="small" aria-label="Edit measure" onClick={(e) => handleEdit(m.id!, e)}>
+                  <IconButton size="small" aria-label={t('library.editMeasure')} onClick={(e) => handleEdit(m.id!, e)}>
                     <EditIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" aria-label="Export measure" onClick={(e) => { e.stopPropagation(); handleExport(m.id!) }}>
+                  <IconButton size="small" aria-label={t('library.exportMeasure')} onClick={(e) => { e.stopPropagation(); handleExport(m.id!) }}>
                     <DownloadIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" aria-label="Delete measure" color="error" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id!) }}>
+                  <IconButton size="small" aria-label={t('library.deleteMeasure')} color="error" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id!) }}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -357,7 +359,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   <Typography variant="body2" color="text.secondary">
-                    No measures found. Create one or import a FHIR Measure.
+                    {t('library.emptyState')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -368,18 +370,18 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
       {/* Create Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Measure Definition</DialogTitle>
+        <DialogTitle>{t('library.createDialog.title')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Name" required size="small" fullWidth
+            <TextField label={t('library.createDialog.name')} required size="small" fullWidth
               value={newMeasure.name} onChange={(e) => setNewMeasure({ ...newMeasure, name: e.target.value })} />
-            <TextField label="Version" size="small" fullWidth
+            <TextField label={t('library.createDialog.version')} size="small" fullWidth
               value={newMeasure.version} onChange={(e) => setNewMeasure({ ...newMeasure, version: e.target.value })} />
-            <TextField label="Title" size="small" fullWidth
+            <TextField label={t('library.createDialog.titleField')} size="small" fullWidth
               value={newMeasure.title} onChange={(e) => setNewMeasure({ ...newMeasure, title: e.target.value })} />
-            <TextField label="Description" size="small" fullWidth multiline rows={2}
+            <TextField label={t('library.createDialog.description')} size="small" fullWidth multiline rows={2}
               value={newMeasure.description} onChange={(e) => setNewMeasure({ ...newMeasure, description: e.target.value })} />
-            <TextField label="Scoring Type" select size="small" fullWidth
+            <TextField label={t('library.createDialog.scoringType')} select size="small" fullWidth
               value={newMeasure.scoringType} onChange={(e) => setNewMeasure({ ...newMeasure, scoringType: e.target.value })}>
               {SCORING_TYPE_OPTIONS.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
@@ -389,10 +391,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               <Button size="small" startIcon={<LibraryBooksIcon />}
                 onClick={() => { setLibraryPickerTarget('create'); setLibraryPickerOpen(true) }}
                 sx={{ color: 'primary.main' }}>
-                Load from Library
+                {t('library.createDialog.loadFromLibrary')}
               </Button>
             </Stack>
-            <TextField label="CQL Content" size="small" fullWidth multiline rows={4}
+            <TextField label={t('library.createDialog.cqlContent')} size="small" fullWidth multiline rows={4}
               value={newMeasure.cqlContent || ''} onChange={(e) => setNewMeasure({ ...newMeasure, cqlContent: e.target.value })} />
             {createMutation.isError && (
               <Alert severity="error">{(createMutation.error as Error).message}</Alert>
@@ -400,37 +402,37 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
           <Button onClick={handleCreate} variant="contained" disabled={!newMeasure.name || createMutation.isPending}>
-            {createMutation.isPending ? 'Creating...' : 'Create'}
+            {createMutation.isPending ? t('library.createDialog.creating') : t('library.createDialog.create')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Edit Measure Definition</DialogTitle>
+        <DialogTitle>{t('library.editDialog.title')}</DialogTitle>
         {editMeasure && (
           <>
             <DialogContent>
               <Stack spacing={2} sx={{ mt: 1 }}>
-                <TextField label="Name" required size="small" fullWidth
+                <TextField label={t('library.editDialog.name')} required size="small" fullWidth
                   value={editMeasure.name} onChange={(e) => setEditMeasure({ ...editMeasure, name: e.target.value })} />
                 <Stack direction="row" spacing={2}>
-                  <TextField label="Version" size="small" fullWidth
+                  <TextField label={t('library.editDialog.version')} size="small" fullWidth
                     value={editMeasure.version} onChange={(e) => setEditMeasure({ ...editMeasure, version: e.target.value })} />
-                  <TextField label="Status" select size="small" fullWidth
+                  <TextField label={t('library.editDialog.status')} select size="small" fullWidth
                     value={editMeasure.status} onChange={(e) => setEditMeasure({ ...editMeasure, status: e.target.value })}>
                     {MEASURE_STATUS_OPTIONS.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                     ))}
                   </TextField>
                 </Stack>
-                <TextField label="Title" size="small" fullWidth
+                <TextField label={t('library.editDialog.titleField')} size="small" fullWidth
                   value={editMeasure.title || ''} onChange={(e) => setEditMeasure({ ...editMeasure, title: e.target.value })} />
-                <TextField label="Description" size="small" fullWidth multiline rows={2}
+                <TextField label={t('library.editDialog.description')} size="small" fullWidth multiline rows={2}
                   value={editMeasure.description || ''} onChange={(e) => setEditMeasure({ ...editMeasure, description: e.target.value })} />
-                <TextField label="Scoring Type" select size="small" fullWidth
+                <TextField label={t('library.editDialog.scoringType')} select size="small" fullWidth
                   value={editMeasure.scoringType} onChange={(e) => setEditMeasure({ ...editMeasure, scoringType: e.target.value })}>
                   {SCORING_TYPE_OPTIONS.map((opt) => (
                     <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
@@ -440,10 +442,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   <Button size="small" startIcon={<LibraryBooksIcon />}
                     onClick={() => { setLibraryPickerTarget('edit'); setLibraryPickerOpen(true) }}
                     sx={{ color: 'primary.main' }}>
-                    Load from Library
+                    {t('library.editDialog.loadFromLibrary')}
                   </Button>
                 </Stack>
-                <TextField label="CQL Content" size="small" fullWidth multiline rows={12}
+                <TextField label={t('library.editDialog.cqlContent')} size="small" fullWidth multiline rows={12}
                   value={editMeasure.cqlContent || ''} onChange={(e) => setEditMeasure({ ...editMeasure, cqlContent: e.target.value })}
                   InputProps={{ sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' } }} />
                 {updateMutation.isError && (
@@ -452,9 +454,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               </Stack>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={() => setEditOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
               <Button onClick={handleUpdate} variant="contained" disabled={!editMeasure.name || updateMutation.isPending}>
-                {updateMutation.isPending ? 'Saving...' : 'Save'}
+                {updateMutation.isPending ? t('library.editDialog.saving') : t('library.editDialog.save')}
               </Button>
             </DialogActions>
           </>
@@ -463,30 +465,30 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
       {/* Import Dialog */}
       <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Import FHIR Resource</DialogTitle>
+        <DialogTitle>{t('library.importDialog.title')}</DialogTitle>
         <DialogContent>
           <TextField
             select
-            label="Import Type"
+            label={t('library.importDialog.importType')}
             size="small"
             fullWidth
             value={importType}
             onChange={(e) => setImportType(e.target.value as 'measure' | 'bundle')}
             sx={{ mt: 1, mb: 2 }}
           >
-            <MenuItem value="measure">FHIR Measure (single resource)</MenuItem>
-            <MenuItem value="bundle">FHIR Bundle (Measure + Libraries + ValueSets)</MenuItem>
+            <MenuItem value="measure">{t('library.importDialog.measureSingle')}</MenuItem>
+            <MenuItem value="bundle">{t('library.importDialog.measureBundle')}</MenuItem>
           </TextField>
           <TextField
-            label={importType === 'bundle' ? 'FHIR Bundle JSON' : 'FHIR Measure JSON'}
+            label={importType === 'bundle' ? t('library.importDialog.bundleJson') : t('library.importDialog.measureJson')}
             fullWidth
             multiline
             rows={12}
             value={importJson}
             onChange={(e) => setImportJson(e.target.value)}
             placeholder={importType === 'bundle'
-              ? 'Paste a FHIR Bundle containing Measure, Library, and ValueSet resources...'
-              : 'Paste a FHIR Measure resource JSON here...'}
+              ? t('library.importDialog.bundlePlaceholder')
+              : t('library.importDialog.measurePlaceholder')}
           />
           {importMutation.isError && (
             <Alert severity="error" sx={{ mt: 1 }}>{(importMutation.error as Error).message}</Alert>
@@ -496,17 +498,19 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           )}
           {importBundleMutation.isSuccess && (
             <Alert severity="success" sx={{ mt: 1 }}>
-              Bundle imported: {importBundleMutation.data.librariesImported} libraries imported,{' '}
-              {importBundleMutation.data.librariesSkipped} skipped,{' '}
-              {importBundleMutation.data.valueSetsFound} value sets found.
+              {t('library.importDialog.bundleSuccess', {
+                libraries: importBundleMutation.data.librariesImported,
+                skipped: importBundleMutation.data.librariesSkipped,
+                valueSets: importBundleMutation.data.valueSetsFound,
+              })}
             </Alert>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setImportOpen(false)}>Cancel</Button>
+          <Button onClick={() => setImportOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
           <Button onClick={handleImport} variant="contained"
             disabled={!importJson || importMutation.isPending || importBundleMutation.isPending}>
-            {(importMutation.isPending || importBundleMutation.isPending) ? 'Importing...' : 'Import'}
+            {(importMutation.isPending || importBundleMutation.isPending) ? t('library.importDialog.importing') : t('library.importDialog.import')}
           </Button>
         </DialogActions>
       </Dialog>

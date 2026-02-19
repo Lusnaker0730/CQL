@@ -5,17 +5,18 @@ import {
   MedicalServices as ClinicalIcon,
   ArrowForward as ArrowIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import ResourceEntryList from './ResourceEntryList'
 import AddResourceButton from './AddResourceButton'
 import ResourceForm from './ResourceForm'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-import { STRINGS } from './constants'
 
 interface VisualBundleBuilderProps {
   onDirty: () => void
 }
 
 export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProps) {
+  const { t } = useTranslation('measures')
   const { state } = useBundleBuilder()
 
   return (
@@ -25,7 +26,7 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
         <Box sx={{ width: 220, borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
           <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="caption" fontWeight={600} color="text.secondary">
-              {STRINGS.bundleEntries}
+              {t('testCaseBuilder.bundleEntries')}
             </Typography>
             <AddResourceButton onDirty={onDirty} />
           </Box>
@@ -47,22 +48,22 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
               {state.entries.length === 0 ? (
                 <>
                   <Typography variant="subtitle2" color="text.secondary">
-                    {STRINGS.buildTestBundle}
+                    {t('testCaseBuilder.buildTestBundle')}
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <Chip icon={<PersonIcon />} label={STRINGS.stepPatient} size="small" variant="outlined" />
+                    <Chip icon={<PersonIcon />} label={t('testCaseBuilder.stepPatient')} size="small" variant="outlined" />
                     <ArrowIcon fontSize="small" color="disabled" />
-                    <Chip icon={<EncounterIcon />} label={STRINGS.stepEncounter} size="small" variant="outlined" />
+                    <Chip icon={<EncounterIcon />} label={t('testCaseBuilder.stepEncounter')} size="small" variant="outlined" />
                     <ArrowIcon fontSize="small" color="disabled" />
-                    <Chip icon={<ClinicalIcon />} label={STRINGS.stepClinical} size="small" variant="outlined" />
+                    <Chip icon={<ClinicalIcon />} label={t('testCaseBuilder.stepClinical')} size="small" variant="outlined" />
                   </Stack>
                   <Typography variant="caption" color="text.disabled" textAlign="center" maxWidth={300}>
-                    {STRINGS.startGuide}
+                    {t('testCaseBuilder.startGuide')}
                   </Typography>
                 </>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  {STRINGS.selectResource}
+                  {t('testCaseBuilder.selectResource')}
                 </Typography>
               )}
             </Stack>

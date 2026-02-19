@@ -1,4 +1,5 @@
 import { Box, TextField, Typography } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
 
 interface Period {
@@ -13,6 +14,7 @@ interface PeriodFieldProps {
 }
 
 export default function PeriodField({ element, value, onChange }: PeriodFieldProps) {
+  const { t } = useTranslation('measures')
   const period = (value as Period) || {}
 
   return (
@@ -22,7 +24,7 @@ export default function PeriodField({ element, value, onChange }: PeriodFieldPro
       </Typography>
       <Box sx={{ display: 'flex', gap: 1 }}>
         <TextField
-          label="start"
+          label={t('testCaseBuilder.fields.start')}
           size="small"
           type="datetime-local"
           value={period.start ? String(period.start).slice(0, 16) : ''}
@@ -34,7 +36,7 @@ export default function PeriodField({ element, value, onChange }: PeriodFieldPro
           sx={{ flex: 1 }}
         />
         <TextField
-          label="end"
+          label={t('testCaseBuilder.fields.end')}
           size="small"
           type="datetime-local"
           value={period.end ? String(period.end).slice(0, 16) : ''}

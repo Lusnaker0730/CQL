@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Button, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useFhirResourceTypes } from '../../hooks/useFhirMetadata'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-import { getResourceIcon, STRINGS } from './constants'
+import { getResourceIcon } from './constants'
 import { generateId } from '../../utils/validation'
 
 interface AddResourceButtonProps {
@@ -11,6 +12,7 @@ interface AddResourceButtonProps {
 }
 
 export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
+  const { t } = useTranslation('measures')
   const { data: resourceTypes } = useFhirResourceTypes()
   const { state, dispatch } = useBundleBuilder()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -40,7 +42,7 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
         onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{ textTransform: 'none' }}
       >
-        {STRINGS.addResource}
+        {t('testCaseBuilder.addResource')}
       </Button>
       <Menu
         anchorEl={anchorEl}

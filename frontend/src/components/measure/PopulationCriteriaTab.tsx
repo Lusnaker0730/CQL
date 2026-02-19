@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -66,6 +67,7 @@ function createGroupFromScoring(index: number, scoringType: string): GroupDefini
 }
 
 export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOnly }: PopulationCriteriaTabProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [groups, setGroups] = useState<GroupDefinition[]>(
     measure.groupDefinitions?.length
@@ -163,7 +165,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
     if (totalCount > 0) {
       setGroups(newGroups)
       setIsDirty(true)
-      setAutoMapAlert(`Auto-mapped ${totalCount} expression${totalCount > 1 ? 's' : ''} based on CQL definition names`)
+      setAutoMapAlert(t('populationCriteria.autoMapped', { count: totalCount }))
       setTimeout(() => setAutoMapAlert(null), ALERT_DISMISS_ERROR_MS)
     }
   }, [expressionNames])
@@ -186,13 +188,13 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           if (!usedTypes.includes(req)) {
             msgs.push({
               type: 'error',
-              message: `${group.groupId}: Missing required population "${getPopulationLabel(req)}"`,
+              message: `${group.groupId}: ${t('populationCriteria.validation.missingRequired', { name: getPopulationLabel(req) })}`,
             })
           }
         } else if (!usedTypes.includes(req)) {
           msgs.push({
             type: 'error',
-            message: `${group.groupId}: Missing required population "${getPopulationLabel(req)}"`,
+            message: `${group.groupId}: ${t('populationCriteria.validation.missingRequired', { name: getPopulationLabel(req) })}`,
           })
         }
       }
@@ -202,7 +204,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
         if (template.required.includes(pop.populationType) && !pop.criteriaExpression) {
           msgs.push({
             type: 'warning',
-            message: `${group.groupId}: "${getPopulationLabel(pop.populationType)}" has no expression assigned`,
+            message: `${group.groupId}: ${t('populationCriteria.validation.noExpression', { name: getPopulationLabel(pop.populationType) })}`,
           })
         }
       }
@@ -221,18 +223,18 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             if (assocTypes.length < 2) {
               msgs.push({
                 type: 'warning',
-                message: `${group.groupId}: Both Initial Populations must have an association type (Denominator or Numerator)`,
+                message: `${group.groupId}: ${t('populationCriteria.validation.bothAssociations')}`,
               })
             } else if (assocTypes[0] === assocTypes[1]) {
               msgs.push({
                 type: 'error',
-                message: `${group.groupId}: Initial Populations must have different association types`,
+                message: `${group.groupId}: ${t('populationCriteria.validation.differentAssociations')}`,
               })
             }
           } else {
             msgs.push({
               type: 'error',
-              message: `${group.groupId}: Duplicate population type "${getPopulationLabel(type)}"`,
+              message: `${group.groupId}: ${t('populationCriteria.validation.duplicatePopulation', { name: getPopulationLabel(type) })}`,
             })
           }
         }
@@ -247,7 +249,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             if (expr?.resultType && !expr.resultType.toLowerCase().includes('boolean')) {
               msgs.push({
                 type: 'warning',
-                message: `${group.groupId}: "${getPopulationLabel(pop.populationType)}" expression returns non-Boolean type`,
+                message: `${group.groupId}: ${t('populationCriteria.validation.nonBooleanReturn', { name: getPopulationLabel(pop.populationType) })}`,
               })
             }
           }
@@ -259,7 +261,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
         if (strat.criteriaExpression && (!strat.associations || strat.associations.length === 0)) {
           msgs.push({
             type: 'warning',
-            message: `${group.groupId}: Stratifier "${strat.stratifierId}" has no population associations`,
+            message: `${group.groupId}: ${t('populationCriteria.validation.noPopulationAssociations', { name: strat.stratifierId })}`,
           })
         }
       }
@@ -381,19 +383,19 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Stack direction="row" spacing={0.5} alignItems="center">
-          <Typography variant="h6">Population Criteria</Typography>
+          <Typography variant="h6">{t('populationCriteria.title')}</Typography>
           <HelpTooltip text={helpContent.measures.populationCriteria} />
         </Stack>
         <Stack direction="row" spacing={1}>
           <Button size="small" startIcon={<AddIcon />} onClick={addGroup}>
-            Add Group
+            {t('populationCriteria.addGroup')}
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
             disabled={!isDirty || hasErrors || saveMutation.isPending || readOnly}
             onClick={() => saveMutation.mutate()}
           >
-            {saveMutation.isPending ? 'Saving...' : 'Save'}
+            {saveMutation.isPending ? t('populationCriteria.saving') : t('populationCriteria.save')}
           </GradientButton>
         </Stack>
       </Stack>
@@ -416,17 +418,17 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           sx={{ mb: 2 }}
           action={
             <Button color="inherit" size="small" onClick={handleResetPopulations}>
-              Reset Populations
+              {t('populationCriteria.resetPopulations')}
             </Button>
           }
         >
-          Scoring type changed to <strong>{measure.scoringType}</strong>. Populations may no longer match the expected template.
+          <span dangerouslySetInnerHTML={{ __html: t('populationCriteria.scoringChanged', { scoringType: measure.scoringType }) }} />
         </Alert>
       )}
 
       {patientExpressions.length === 0 && measure.cqlContent && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No CQL expressions found. Save your CQL in the CQL tab first, then the expression dropdowns will be populated.
+          {t('populationCriteria.noExpressions')}
         </Alert>
       )}
 
@@ -473,12 +475,12 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography variant="subtitle1" fontWeight={600}>
-                    {group.groupId || `Group ${groupIdx + 1}`}
+                    {group.groupId || t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
                   </Typography>
-                  <Chip label={`${pops.length} populations`} size="small" />
+                  <Chip label={t('populationCriteria.populationCount', { count: pops.length })} size="small" />
                 </Stack>
                 {groups.length > 1 && (
-                  <IconButton size="small" aria-label="Remove group" color="error" onClick={() => removeGroup(groupIdx)}>
+                  <IconButton size="small" aria-label={t('populationCriteria.removeGroup')} color="error" onClick={() => removeGroup(groupIdx)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 )}
@@ -486,40 +488,40 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
               <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
                 <TextField
-                  label="Group Description"
+                  label={t('populationCriteria.fields.groupDescription')}
                   size="small"
                   fullWidth
                   value={group.description || ''}
                   onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
                 />
                 <TextField
-                  label="Rate #"
+                  label={t('populationCriteria.fields.rateNumber')}
                   size="small"
                   type="number"
                   sx={{ width: 90 }}
                   value={group.rateIndex ?? ''}
                   onChange={(e) => updateGroup(groupIdx, 'rateIndex', e.target.value ? parseInt(e.target.value) : undefined)}
-                  helperText="For multi-rate"
+                  helperText={t('populationCriteria.fields.rateNumberHelper')}
                 />
                 <TextField
-                  label="Rate Description"
+                  label={t('populationCriteria.fields.rateDescription')}
                   size="small"
                   sx={{ minWidth: 200 }}
                   value={group.rateDescription || ''}
                   onChange={(e) => updateGroup(groupIdx, 'rateDescription', e.target.value)}
-                  helperText="e.g. 'Rate 1: Screening'"
+                  helperText={t('populationCriteria.fields.rateDescriptionHelper')}
                 />
               </Stack>
 
               <TextField
                 select
-                label="Population Basis"
+                label={t('populationCriteria.fields.populationBasis')}
                 size="small"
                 fullWidth
                 value={group.populationBasis || 'Boolean'}
                 onChange={(e) => updateGroup(groupIdx, 'populationBasis', e.target.value)}
                 sx={{ mb: 2 }}
-                helperText="Determines the expected return type of population criteria expressions"
+                helperText={t('populationCriteria.fields.populationBasisHelper')}
               >
                 {POPULATION_BASIS_OPTIONS.map((opt) => (
                   <MenuItem key={opt} value={opt}>
@@ -529,7 +531,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
               </TextField>
 
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Populations
+                {t('populationCriteria.populations')}
               </Typography>
 
               <Stack spacing={1.5} mb={2}>
@@ -562,7 +564,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                       startIcon={<AddIcon />}
                       onClick={() => addPopulation(groupIdx, 'initial-population')}
                     >
-                      Add Second Initial Population
+                      {t('populationCriteria.addSecondIP')}
                     </Button>
                   )}
 
@@ -573,7 +575,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                         startIcon={<AddIcon />}
                         onClick={(e) => setAddMenuAnchor({ el: e.currentTarget, groupIdx })}
                       >
-                        Add Optional Population
+                        {t('populationCriteria.addOptional')}
                       </Button>
                       <Menu
                         anchorEl={addMenuAnchor?.groupIdx === groupIdx ? addMenuAnchor.el : null}
@@ -600,7 +602,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Stratifiers
+                {t('populationCriteria.stratifiers')}
               </Typography>
 
               <Stack spacing={1.5}>
@@ -609,7 +611,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     <Stack spacing={1.5}>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <TextField
-                          label="Stratifier ID"
+                          label={t('populationCriteria.stratifierFields.stratifierId')}
                           size="small"
                           value={strat.stratifierId}
                           onChange={(e) => updateStratifier(groupIdx, stratIdx, 'stratifierId', e.target.value)}
@@ -617,7 +619,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                         />
                         <TextField
                           select={expressionNames.length > 0}
-                          label="CQL Expression"
+                          label={t('populationCriteria.stratifierFields.cqlExpression')}
                           size="small"
                           fullWidth
                           value={strat.criteriaExpression}
@@ -629,7 +631,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                             </MenuItem>
                           ))}
                         </TextField>
-                        <IconButton size="small" aria-label="Remove stratifier" color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
+                        <IconButton size="small" aria-label={t('populationCriteria.stratifierFields.removeStratifier')} color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Stack>
@@ -637,7 +639,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                       {strat.criteriaExpression && stratifierAssociationOptions.length > 0 && (
                         <TextField
                           select
-                          label="Population Associations"
+                          label={t('populationCriteria.stratifierFields.populationAssociations')}
                           size="small"
                           fullWidth
                           SelectProps={{
@@ -660,7 +662,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   </Paper>
                 ))}
                 <Button size="small" startIcon={<AddIcon />} onClick={() => addStratifier(groupIdx)} sx={{ alignSelf: 'flex-start' }}>
-                  Add Stratifier
+                  {t('populationCriteria.stratifierFields.addStratifier')}
                 </Button>
               </Stack>
 
@@ -679,12 +681,12 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
               <Divider sx={{ my: 2 }} />
               <UcumUnitField
-                label="Scoring Unit"
+                label={t('populationCriteria.scoringUnit.label')}
                 fullWidth
                 value={group.scoringUnit || ''}
                 onChange={(val) => updateGroup(groupIdx, 'scoringUnit', val)}
-                placeholder="e.g. %, per 1000"
-                helperText="Unit of measure for the score"
+                placeholder={t('populationCriteria.scoringUnit.placeholder')}
+                helperText={t('populationCriteria.scoringUnit.helper')}
               />
             </Paper>
           )
@@ -694,7 +696,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       <Divider sx={{ my: 3 }} />
       <Stack spacing={2}>
         <Stack direction="row" spacing={0.5} alignItems="center">
-          <Typography variant="h6">Risk Adjustment</Typography>
+          <Typography variant="h6">{t('populationCriteria.riskAdjustment')}</Typography>
           <HelpTooltip text={helpContent.measures.riskAdjustment} />
         </Stack>
         <RiskAdjustmentSection
@@ -704,7 +706,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           readOnly={measure.status === 'active'}
         />
         <Stack direction="row" spacing={0.5} alignItems="center">
-          <Typography variant="h6">Supplemental Data</Typography>
+          <Typography variant="h6">{t('populationCriteria.supplementalData')}</Typography>
           <HelpTooltip text={helpContent.measures.supplementalData} />
         </Stack>
         <SupplementalDataSection

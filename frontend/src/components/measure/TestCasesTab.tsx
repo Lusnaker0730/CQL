@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -54,6 +55,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 }
 
 export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
@@ -225,24 +227,24 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
                 ))}
               </Stack>
             )}
-            <Tooltip title="Run with coverage">
-              <IconButton size="small" aria-label="Run with coverage" onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
+            <Tooltip title={t('testCases.tooltips.runWithCoverage')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.runWithCoverage')} onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
                 <RunIcon fontSize="small" color="secondary" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Run this test case">
-              <IconButton size="small" aria-label="Run test case" onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
+            <Tooltip title={t('testCases.tooltips.runTestCase')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.runTestCase')} onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
                 {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Export JSON">
-              <IconButton size="small" aria-label="Export test case JSON" onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
+            <Tooltip title={t('testCases.tooltips.exportJson')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.exportJson')} onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton size="small" aria-label="Edit test case" onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
+            <Tooltip title={t('testCases.tooltips.edit')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.edit')} onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
             </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" aria-label="Delete test case" color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
+            <Tooltip title={t('testCases.tooltips.delete')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.delete')} color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
             </Tooltip>
           </Stack>
         </Stack>
@@ -278,19 +280,19 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h6">Test Cases</Typography>
+          <Typography variant="h6">{t('testCases.title')}</Typography>
           <HelpTooltip text={helpContent.measures.testCases} />
           {totalCount > 0 && (
             <Stack direction="row" spacing={0.5}>
               <Chip
-                label={`${passCount}/${totalCount} pass`}
+                label={t('testCases.passCount', { pass: passCount, total: totalCount })}
                 size="small"
                 color={passCount === totalCount && totalCount > 0 ? 'success' : 'default'}
                 sx={{ height: 22, fontSize: '0.75rem' }}
               />
               {failCount > 0 && (
                 <Chip
-                  label={`${failCount} fail`}
+                  label={t('testCases.failCount', { count: failCount })}
                   size="small"
                   color="error"
                   sx={{ height: 22, fontSize: '0.75rem' }}
@@ -307,7 +309,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             variant="outlined"
             sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
           >
-            Date Calculator
+            {t('testCases.dateCalculator')}
           </Button>
           <Button
             size="small"
@@ -320,7 +322,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             }}
             variant="outlined"
           >
-            {runAllMutation.isPending ? 'Running...' : 'Run All'}
+            {runAllMutation.isPending ? t('testCases.running') : t('testCases.runAll')}
           </Button>
           <Button
             size="small"
@@ -330,7 +332,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             variant="outlined"
             sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
           >
-            Export All
+            {t('testCases.exportAll')}
           </Button>
           <Button
             size="small"
@@ -340,21 +342,21 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             disabled={importMutation.isPending}
             sx={{ borderColor: 'rgba(13,115,119,0.4)', color: 'primary.dark' }}
           >
-            {importMutation.isPending ? 'Importing...' : 'Import'}
+            {importMutation.isPending ? t('testCases.importing') : t('testCases.import')}
           </Button>
           <input ref={importRef} type="file" accept=".json" hidden onChange={handleFileImport} />
           <GradientButton
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
           >
-            Add Test Case
+            {t('testCases.addTestCase')}
           </GradientButton>
         </Stack>
       </Stack>
 
       {!measure.cqlContent && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Save CQL content in the CQL tab first before running test cases.
+          {t('testCases.saveCqlFirst')}
         </Alert>
       )}
 
@@ -366,13 +368,13 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
 
       {importMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Import failed: {(importMutation.error as Error).message}
+          {t('testCases.importFailed', { error: (importMutation.error as Error).message })}
         </Alert>
       )}
 
       {importMutation.isSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Test cases imported successfully.
+          {t('testCases.importSuccess')}
         </Alert>
       )}
 
@@ -383,17 +385,17 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       ) : testCases.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary" gutterBottom>
-            No test cases yet
+            {t('testCases.emptyTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Create test cases with expected population outcomes to validate your measure logic.
+            {t('testCases.emptyDescription')}
           </Typography>
           <Button
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
             variant="outlined"
           >
-            Create First Test Case
+            {t('testCases.createFirst')}
           </Button>
         </Paper>
       ) : (

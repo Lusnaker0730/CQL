@@ -16,8 +16,8 @@ import {
   Checkbox,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Add as AddIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import CardListSkeleton from '../common/CardListSkeleton'
-import { STRINGS } from './constants'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
 import { ResourceTypeProvider } from '../../contexts/ResourceTypeContext'
@@ -30,6 +30,7 @@ interface ResourceFormProps {
 }
 
 export default function ResourceForm({ onDirty }: ResourceFormProps) {
+  const { t } = useTranslation('measures')
   const { state, dispatch } = useBundleBuilder()
   const activeEntry = state.entries.find((e) => e.id === state.activeEntryId)
   const { data: metadata, isLoading } = useFhirMetadata(activeEntry?.resourceType)
@@ -73,7 +74,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          {STRINGS.selectResource}
+          {t('testCaseBuilder.selectResource')}
         </Typography>
       </Box>
     )
@@ -136,7 +137,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">
-              {STRINGS.requiredFields}
+              {t('testCaseBuilder.requiredFields')}
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
@@ -158,7 +159,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">
-              {STRINGS.optionalFields}
+              {t('testCaseBuilder.optionalFields')}
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
@@ -184,12 +185,12 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           disabled={hiddenOptional.length === 0}
           sx={{ textTransform: 'none' }}
         >
-          {STRINGS.addAttribute} ({hiddenOptional.length} available)
+          {t('testCaseBuilder.addAttribute')} {t('testCaseBuilder.available', { count: hiddenOptional.length })}
         </Button>
       </Box>
 
       <Dialog open={addAttrOpen} onClose={() => setAddAttrOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{STRINGS.addAttributes}</DialogTitle>
+        <DialogTitle>{t('testCaseBuilder.addAttributes')}</DialogTitle>
         <DialogContent>
           <List dense>
             {hiddenOptional.map((el) => (
@@ -210,7 +211,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
                 <ListItemText
                   primary={el.name}
                   secondary={
-                    [el.type, el.isArray ? '(array)' : '', el.description || '']
+                    [el.type, el.isArray ? t('testCaseBuilder.array') : '', el.description || '']
                       .filter(Boolean)
                       .join(' ')
                   }
@@ -222,13 +223,13 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           </List>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddAttrOpen(false)}>{STRINGS.cancel}</Button>
+          <Button onClick={() => setAddAttrOpen(false)}>{t('testCaseBuilder.cancel')}</Button>
           <Button
             variant="contained"
             disabled={selectedAttrs.size === 0}
             onClick={handleAddAttributes}
           >
-            Add ({selectedAttrs.size})
+            {t('testCaseBuilder.addCount', { count: selectedAttrs.size })}
           </Button>
         </DialogActions>
       </Dialog>

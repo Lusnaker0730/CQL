@@ -19,14 +19,16 @@ import {
   Delete as DeleteIcon,
   Info as InfoIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-import { getResourceIcon, STRINGS } from './constants'
+import { getResourceIcon } from './constants'
 
 interface ResourceEntryListProps {
   onDirty: () => void
 }
 
 export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
+  const { t } = useTranslation('measures')
   const { state, dispatch } = useBundleBuilder()
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
@@ -43,7 +45,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <InfoIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
         <Typography variant="body2" color="text.secondary">
-          {STRINGS.noResourcesYet}
+          {t('testCaseBuilder.noResourcesYet')}
         </Typography>
       </Box>
     )
@@ -84,7 +86,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
                 setDeleteId(entry.id)
               }}
               sx={{ ml: 1 }}
-              aria-label="Delete resource"
+              aria-label={t('testCaseBuilder.deleteResourceAria')}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
@@ -93,15 +95,15 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
       </List>
 
       <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
-        <DialogTitle>{STRINGS.deleteResource}</DialogTitle>
+        <DialogTitle>{t('testCaseBuilder.deleteResource')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {STRINGS.deleteConfirm}
+            {t('testCaseBuilder.deleteConfirm')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteId(null)}>{STRINGS.cancel}</Button>
-          <Button color="error" onClick={handleDelete}>{STRINGS.delete}</Button>
+          <Button onClick={() => setDeleteId(null)}>{t('testCaseBuilder.cancel')}</Button>
+          <Button color="error" onClick={handleDelete}>{t('testCaseBuilder.delete')}</Button>
         </DialogActions>
       </Dialog>
     </>

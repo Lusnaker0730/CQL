@@ -1,0 +1,769 @@
+{
+  "page": {
+    "title": "品質指標 (eCQM)",
+    "subtitle": "使用 CQL 定義、評估和分析電子臨床品質指標。",
+    "tabs": {
+      "dashboard": "儀表板",
+      "measures": "指標",
+      "comparison": "比較與趨勢"
+    }
+  },
+  "dashboard": {
+    "title": "eCQM 儀表板",
+    "totalMeasures": "指標總數",
+    "scoringDistribution": "評分類型分佈",
+    "noScoringData": "無評分資料。",
+    "recentEvaluations": "近期評估",
+    "noRecentEvaluations": "未找到近期評估。",
+    "pendingReview": "待審核",
+    "noPendingReview": "無待審核指標。",
+    "tableHeaders": {
+      "measure": "指標",
+      "score": "分數",
+      "status": "狀態",
+      "date": "日期"
+    },
+    "loadError": "無法載入儀表板資料。{{error}}",
+    "noData": "無儀表板資料。",
+    "na": "N/A",
+    "unknownError": "未知錯誤",
+    "inReview": "審核中"
+  },
+  "library": {
+    "title": "指標庫",
+    "batchEvaluate": "批次評估 ({{count}})",
+    "importFhir": "匯入 FHIR",
+    "newMeasure": "新增指標",
+    "searchPlaceholder": "搜尋指標...",
+    "tabs": {
+      "all": "全部 ({{count}})",
+      "myMeasures": "我的指標",
+      "sharedWithMe": "與我共享",
+      "public": "公開"
+    },
+    "tableHeaders": {
+      "name": "名稱",
+      "version": "版本",
+      "status": "狀態",
+      "scoring": "評分",
+      "setting": "情境",
+      "owner": "擁有者",
+      "actions": "操作"
+    },
+    "editMeasure": "編輯指標",
+    "exportMeasure": "匯出指標",
+    "deleteMeasure": "刪除指標",
+    "emptyState": "未找到指標。請建立或匯入 FHIR Measure。",
+    "lockedBy": "已被 {{user}} 鎖定",
+    "noValue": "-",
+    "createDialog": {
+      "title": "建立指標定義",
+      "name": "名稱",
+      "version": "版本",
+      "titleField": "標題",
+      "description": "描述",
+      "scoringType": "評分類型",
+      "loadFromLibrary": "從庫中載入",
+      "cqlContent": "CQL 內容",
+      "creating": "建立中...",
+      "create": "建立"
+    },
+    "editDialog": {
+      "title": "編輯指標定義",
+      "name": "名稱",
+      "version": "版本",
+      "status": "狀態",
+      "titleField": "標題",
+      "description": "描述",
+      "scoringType": "評分類型",
+      "loadFromLibrary": "從庫中載入",
+      "cqlContent": "CQL 內容",
+      "saving": "儲存中...",
+      "save": "儲存"
+    },
+    "importDialog": {
+      "title": "匯入 FHIR 資源",
+      "importType": "匯入類型",
+      "measureSingle": "FHIR Measure（單一資源）",
+      "measureBundle": "FHIR Bundle（Measure + Libraries + ValueSets）",
+      "bundleJson": "FHIR Bundle JSON",
+      "measureJson": "FHIR Measure JSON",
+      "bundlePlaceholder": "貼上包含 Measure、Library 和 ValueSet 資源的 FHIR Bundle...",
+      "measurePlaceholder": "在此貼上 FHIR Measure 資源 JSON...",
+      "importing": "匯入中...",
+      "import": "匯入",
+      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過，{{valueSets}} 個值集已找到。",
+      "invalidJson": "無效的 JSON 格式",
+      "loadError": "無法載入指標：{{error}}",
+      "exportError": "匯出失敗：{{error}}"
+    }
+  },
+  "editor": {
+    "lockedWarning": "已被 {{user}} 鎖定，無法編輯。",
+    "lockedBy": "已被 {{user}} 鎖定",
+    "buttons": {
+      "versioning": "版本管理",
+      "lock": "鎖定",
+      "unlock": "解鎖",
+      "share": "共享",
+      "audit": "稽核",
+      "export": "匯出",
+      "submitForReview": "提交審核",
+      "approve": "核准",
+      "reject": "駁回",
+      "retire": "停用"
+    },
+    "tabs": {
+      "details": "詳細資訊",
+      "cql": "CQL",
+      "dataRequirements": "資料需求",
+      "populationCriteria": "族群條件",
+      "evaluate": "評估",
+      "testCases": "測試案例",
+      "reports": "報告",
+      "validate": "驗證"
+    },
+    "exportFormats": {
+      "fhirJson": "FHIR Bundle (JSON)",
+      "fhirXml": "FHIR Bundle (XML)",
+      "cqlOnly": "僅 CQL",
+      "elmOnly": "僅 ELM",
+      "hqmfXml": "HQMF (XML)"
+    },
+    "versionMenu": {
+      "createVersion": "建立版本",
+      "versionHistory": "版本歷史",
+      "compareVersions": "比較版本"
+    },
+    "workflowMessages": {
+      "submitted": "指標已提交審核",
+      "approved": "指標已核准並設為啟用",
+      "rejected": "指標已駁回，退回草稿",
+      "retired": "指標已停用"
+    },
+    "errors": {
+      "actionFailed": "操作失敗",
+      "lockFailed": "鎖定失敗",
+      "unlockFailed": "解鎖失敗",
+      "exportFailed": "匯出失敗：{{error}}",
+      "loadVersionFailed": "無法載入指標版本：{{error}}"
+    }
+  },
+  "details": {
+    "title": "指標詳細資訊",
+    "saving": "儲存中...",
+    "saveChanges": "儲存變更",
+    "updateSuccess": "指標已成功更新。",
+    "generalInformation": "一般資訊",
+    "fields": {
+      "name": "名稱",
+      "version": "版本",
+      "status": "狀態",
+      "scoringType": "評分類型",
+      "measureSet": "指標集",
+      "measureSetPlaceholder": "例如 CMS Quality Reporting",
+      "nqfNumber": "NQF 編號",
+      "nqfNumberPlaceholder": "例如 0059",
+      "cmsMeasureId": "CMS 指標 ID",
+      "cmsMeasureIdPlaceholder": "例如 CMS122v12",
+      "setting": "情境",
+      "settingHelper": "此指標適用的照護情境",
+      "none": "無",
+      "compositeScoring": "複合評分"
+    },
+    "measureOverview": "指標概述",
+    "overviewFields": {
+      "title": "標題",
+      "description": "描述",
+      "rationale": "理由",
+      "rationalePlaceholder": "為什麼此指標很重要？",
+      "clinicalGuidance": "臨床指引",
+      "clinicalGuidancePlaceholder": "為臨床使用者提供的實施指引"
+    },
+    "stewardDevelopers": "管理者與開發者",
+    "stewardFields": {
+      "steward": "管理者",
+      "stewardPlaceholder": "負責此指標的組織",
+      "developers": "開發者",
+      "developerPlaceholder": "開發者名稱或組織",
+      "removeDeveloper": "移除開發者",
+      "addDeveloper": "新增開發者"
+    },
+    "references": "參考資料",
+    "referenceFields": {
+      "type": "類型",
+      "reference": "參考",
+      "referencePlaceholder": "URL 或引用文字",
+      "removeReference": "移除參考",
+      "addReference": "新增參考"
+    },
+    "legal": "法律資訊",
+    "legalFields": {
+      "copyright": "著作權",
+      "disclaimer": "免責聲明"
+    }
+  },
+  "cql": {
+    "translate": "翻譯",
+    "saving": "儲存中...",
+    "saveCql": "儲存 CQL",
+    "unsavedChanges": "未儲存的變更",
+    "errorCount": "{{count}} 個錯誤",
+    "errorCount_one": "{{count}} 個錯誤",
+    "warningCount": "{{count}} 個警告",
+    "warningCount_one": "{{count}} 個警告",
+    "discardDraft": "捨棄草稿",
+    "draftRestored": "已恢復上次未儲存的草稿。",
+    "translationFailed": "翻譯失敗：{{error}}"
+  },
+  "populationCriteria": {
+    "title": "族群條件",
+    "addGroup": "新增群組",
+    "saving": "儲存中...",
+    "save": "儲存",
+    "resetPopulations": "重設族群",
+    "scoringChanged": "評分類型已變更為 <strong>{{scoringType}}</strong>。族群可能不再符合預期範本。",
+    "noExpressions": "未找到 CQL 運算式。請先在 CQL 標籤頁中儲存 CQL，然後運算式下拉選單將會填入。",
+    "autoMapped": "已自動對應 {{count}} 個運算式（根據 CQL 定義名稱）",
+    "autoMapped_one": "已自動對應 {{count}} 個運算式（根據 CQL 定義名稱）",
+    "populationCount": "{{count}} 個族群",
+    "groupLabel": "群組 {{number}}",
+    "removeGroup": "移除群組",
+    "fields": {
+      "groupDescription": "群組描述",
+      "rateNumber": "比率 #",
+      "rateNumberHelper": "用於多比率",
+      "rateDescription": "比率描述",
+      "rateDescriptionHelper": "例如 '比率 1：篩檢'",
+      "populationBasis": "族群基礎",
+      "populationBasisHelper": "決定族群條件運算式的預期回傳類型"
+    },
+    "populations": "族群",
+    "addSecondIP": "新增第二個初始族群",
+    "addOptional": "新增可選族群",
+    "stratifiers": "分層",
+    "stratifierFields": {
+      "stratifierId": "分層 ID",
+      "cqlExpression": "CQL 運算式",
+      "removeStratifier": "移除分層",
+      "populationAssociations": "族群關聯",
+      "addStratifier": "新增分層"
+    },
+    "scoringUnit": {
+      "label": "評分單位",
+      "placeholder": "例如 %、每 1000",
+      "helper": "分數的度量單位"
+    },
+    "riskAdjustment": "風險校正",
+    "supplementalData": "補充資料",
+    "validation": {
+      "missingRequired": "缺少必要族群「{{name}}」",
+      "noExpression": "「{{name}}」未指定運算式",
+      "bothAssociations": "兩個初始族群都必須有關聯類型（分母或分子）",
+      "differentAssociations": "初始族群必須有不同的關聯類型",
+      "duplicatePopulation": "重複的族群類型「{{name}}」",
+      "nonBooleanReturn": "「{{name}}」運算式回傳非布林類型",
+      "noPopulationAssociations": "分層「{{name}}」沒有族群關聯"
+    }
+  },
+  "populationCard": {
+    "required": "必要",
+    "optional": "可選",
+    "missingExpression": "必要族群缺少運算式",
+    "nonBooleanWarning": "運算式回傳 {{type}} — 大多數族群預期為布林值",
+    "removePopulation": "移除族群",
+    "cannotRemove": "必要族群無法移除",
+    "association": "關聯",
+    "denominator": "分母",
+    "numerator": "分子",
+    "cqlExpression": "CQL 運算式",
+    "none": "無",
+    "unknown": "未知"
+  },
+  "dataRequirements": {
+    "title": "資料需求",
+    "noCql": "此指標未定義 CQL 內容。請在 CQL 標籤頁中加入 CQL 邏輯以查看資料需求。",
+    "extractionError": "無法擷取資料需求：{{error}}",
+    "noRequirements": "未找到資料需求。CQL 可能不包含任何 Retrieve 運算式，或翻譯可能失敗。",
+    "resourceTypes": "{{count}} 個資源類型",
+    "resourceTypes_one": "{{count}} 個資源類型",
+    "valueSets": "{{count}} 個值集",
+    "valueSets_one": "{{count}} 個值集",
+    "totalRequirements": "{{count}} 個總需求",
+    "totalRequirements_one": "{{count}} 個總需求",
+    "requirementCount": "{{count}} 個需求",
+    "requirementCount_one": "{{count}} 個需求",
+    "tableHeaders": {
+      "filterType": "篩選類型",
+      "path": "路徑",
+      "valueSetCodes": "值集 / 代碼"
+    },
+    "noFilters": "無篩選條件（擷取所有 {{type}} 資源）",
+    "filterTypes": {
+      "code": "代碼",
+      "valueSet": "值集",
+      "date": "日期",
+      "dateFilter": "日期篩選"
+    }
+  },
+  "evaluation": {
+    "title": "評估：{{name}}",
+    "patientId": "病患 ID（個人報告選填）",
+    "patientIdPlaceholder": "留空以產生族群報告",
+    "periodStart": "期間開始",
+    "periodEnd": "期間結束",
+    "evaluating": "評估中...",
+    "evaluateMeasure": "評估指標",
+    "schedules": "排程",
+    "evaluationFailed": "評估失敗：{{error}}",
+    "emptyState": "點擊「評估指標」以對病患資料執行指標評估。"
+  },
+  "testCases": {
+    "title": "測試案例",
+    "passCount": "{{pass}}/{{total}} 通過",
+    "failCount": "{{count}} 失敗",
+    "dateCalculator": "日期計算器",
+    "running": "執行中...",
+    "runAll": "全部執行",
+    "exportAll": "全部匯出",
+    "importing": "匯入中...",
+    "import": "匯入",
+    "addTestCase": "新增測試案例",
+    "saveCqlFirst": "請先在 CQL 標籤頁中儲存 CQL 內容，再執行測試案例。",
+    "importFailed": "匯入失敗：{{error}}",
+    "importSuccess": "測試案例匯入成功。",
+    "emptyTitle": "尚無測試案例",
+    "emptyDescription": "建立具有預期族群結果的測試案例，以驗證您的指標邏輯。",
+    "createFirst": "建立第一個測試案例",
+    "tooltips": {
+      "runWithCoverage": "執行並計算覆蓋率",
+      "runTestCase": "執行此測試案例",
+      "exportJson": "匯出 JSON",
+      "edit": "編輯",
+      "delete": "刪除"
+    },
+    "ariaLabels": {
+      "runWithCoverage": "執行並計算覆蓋率",
+      "runTestCase": "執行測試案例",
+      "exportJson": "匯出測試案例 JSON",
+      "edit": "編輯測試案例",
+      "delete": "刪除測試案例"
+    }
+  },
+  "testCaseEditor": {
+    "newTitle": "新增測試案例",
+    "editTitle": "編輯：{{name}}",
+    "saving": "儲存中...",
+    "save": "儲存",
+    "fields": {
+      "title": "測試案例標題",
+      "titlePlaceholder": "例如 65 歲女性，糖尿病，無 HbA1c",
+      "description": "描述",
+      "series": "系列",
+      "seriesPlaceholder": "按系列名稱分組測試案例"
+    },
+    "expectedPopulations": "預期族群成員",
+    "populationTypes": {
+      "initial-population": "初始族群",
+      "denominator": "分母",
+      "denominator-exclusion": "分母排除",
+      "denominator-exception": "分母例外",
+      "numerator": "分子",
+      "numerator-exclusion": "分子排除"
+    },
+    "tabs": {
+      "visualBuilder": "視覺化建構器",
+      "jsonAdvanced": "JSON（進階）"
+    },
+    "validation": {
+      "invalidBundle": "根資源必須是 FHIR Bundle",
+      "invalidJson": "無效的 JSON"
+    }
+  },
+  "testCaseResult": {
+    "pass": "通過",
+    "fail": "失敗",
+    "error": "錯誤",
+    "tableHeaders": {
+      "population": "族群",
+      "expected": "預期",
+      "actual": "實際",
+      "result": "結果"
+    },
+    "yes": "是",
+    "no": "否",
+    "na": "-",
+    "ms": "ms"
+  },
+  "evaluationResult": {
+    "populationLabels": {
+      "initial-population": "初始族群",
+      "denominator": "分母",
+      "denominator-exclusion": "分母排除",
+      "denominator-exception": "分母例外",
+      "numerator": "分子",
+      "numerator-exclusion": "分子排除",
+      "measure-population": "指標族群",
+      "measure-population-exclusion": "指標族群排除",
+      "measure-observation": "指標觀察"
+    },
+    "measureScore": "指標分數",
+    "tableHeaders": {
+      "population": "族群",
+      "count": "計數",
+      "subjects": "受試者"
+    },
+    "na": "N/A",
+    "toggleStratification": "切換分層詳細資訊",
+    "stratification": "分層（{{count}} 層）",
+    "stratificationHeaders": {
+      "stratum": "層",
+      "value": "值",
+      "score": "分數",
+      "populations": "族群"
+    },
+    "supplementalData": "補充資料",
+    "groupLabel": "群組：{{groupId}}"
+  },
+  "comparison": {
+    "title": "期間比較與趨勢",
+    "measureName": "指標名稱",
+    "compareTwoPeriods": "比較兩個期間",
+    "period1Start": "期間 1 開始",
+    "period1End": "期間 1 結束",
+    "period2Start": "期間 2 開始",
+    "period2End": "期間 2 結束",
+    "comparing": "比較中...",
+    "compare": "比較",
+    "period1": "期間 1",
+    "period2": "期間 2",
+    "na": "N/A",
+    "delta": "差值",
+    "change": "變化",
+    "scoreTrend": "分數趨勢",
+    "periods": "期間數",
+    "loading": "載入中...",
+    "loadTrend": "載入趨勢",
+    "scoreProgression": "{{name}} - 分數變化趨勢",
+    "noReportData": "未找到此指標的報告資料。"
+  },
+  "share": {
+    "title": "共享：{{name}}",
+    "accessLevel": "存取層級",
+    "levels": {
+      "private": "私人",
+      "shared": "共享",
+      "public": "公開"
+    },
+    "publicInfo": "所有使用者皆可檢視和使用此指標。",
+    "shareWithUsers": "與使用者共享",
+    "usernamePlaceholder": "輸入使用者名稱...",
+    "shareButton": "共享",
+    "noSharedUsers": "尚未與任何使用者共享。",
+    "unshare": "取消與使用者共享",
+    "owner": "擁有者：",
+    "unassigned": "未指定",
+    "transfer": "轉移",
+    "transferWarning": "轉移擁有權後無法由您撤銷。",
+    "newOwnerPlaceholder": "新擁有者使用者名稱...",
+    "close": "關閉"
+  },
+  "validation": {
+    "title": "指標驗證",
+    "quickCheck": "快速檢查",
+    "validating": "驗證中...",
+    "fullValidation": "完整驗證",
+    "instructions": "點擊「完整驗證」以檢查指標的完整性、CQL 正確性、族群邏輯和 QI-Core 合規性。使用「快速檢查」進行較快的 CQL + 族群檢查。",
+    "passed": "驗證通過",
+    "failed": "驗證失敗",
+    "errorCount": "{{count}} 個錯誤",
+    "warningCount": "{{count}} 個警告",
+    "infoCount": "{{count}} 個資訊",
+    "fix": "修復",
+    "noIssues": "未發現問題。您的指標看起來沒問題！",
+    "categories": {
+      "cql": "CQL 邏輯",
+      "populations": "族群",
+      "metadata": "中繼資料",
+      "testCases": "測試案例",
+      "qiCore": "QI-Core"
+    }
+  },
+  "panel": {
+    "title": "品質指標評估",
+    "selectMeasure": "選擇已儲存指標（選填）",
+    "measureId": "指標 ID",
+    "patientId": "病患 ID（個人報告選填）",
+    "patientIdPlaceholder": "留空以產生族群報告",
+    "periodStart": "期間開始",
+    "periodEnd": "期間結束",
+    "evaluating": "評估中...",
+    "evaluateMeasure": "評估指標",
+    "schedules": "排程",
+    "evaluationFailed": "評估失敗：{{error}}",
+    "emptyState": "輸入指標詳細資訊並點擊「評估指標」以查看結果。",
+    "loadError": "無法載入指標：{{error}}"
+  },
+  "batch": {
+    "title": "批次評估指標",
+    "description": "在單次批次操作中評估 {{count}} 個選定指標。",
+    "description_one": "在單次批次操作中評估 {{count}} 個選定指標。",
+    "fhirServerUrl": "FHIR 伺服器 URL（選填）",
+    "fhirServerPlaceholder": "http://hapi.fhir.org/baseR4",
+    "periodStart": "期間開始",
+    "periodEnd": "期間結束",
+    "evaluating": "指標評估中...",
+    "evaluationFailed": "批次評估失敗：{{error}}",
+    "result": "{{success}}/{{total}} 個指標評估成功",
+    "tableHeaders": {
+      "measureName": "指標名稱",
+      "status": "狀態",
+      "score": "分數",
+      "errorMessage": "錯誤訊息"
+    },
+    "running": "執行中...",
+    "runBatch": "執行批次評估"
+  },
+  "workflow": {
+    "steps": {
+      "details": {
+        "label": "詳細資訊",
+        "tooltip": "已定義名稱、版本、評分類型和關鍵中繼資料（管理者、理由）"
+      },
+      "cql": {
+        "label": "CQL",
+        "tooltip": "已編寫並儲存 CQL 邏輯"
+      },
+      "populations": {
+        "label": "族群",
+        "tooltip": "至少定義了一個族群條件"
+      },
+      "review": {
+        "label": "審核",
+        "tooltip": "指標已提交審核並獲得核准"
+      },
+      "active": {
+        "label": "啟用",
+        "tooltip": "指標狀態設為啟用"
+      }
+    }
+  },
+  "reports": {
+    "title": "報告歷史",
+    "loading": "載入報告中...",
+    "tableHeaders": {
+      "measure": "指標",
+      "period": "期間",
+      "score": "分數",
+      "status": "狀態",
+      "date": "日期",
+      "duration": "持續時間",
+      "actions": "操作"
+    },
+    "toggleDetails": "切換報告詳細資訊",
+    "defaultStatus": "完成",
+    "downloadReport": "下載報告",
+    "deleteReport": "刪除報告",
+    "emptyState": "尚無報告。評估指標以產生報告。",
+    "exportFormats": {
+      "fhirJson": "FHIR MeasureReport (JSON)",
+      "csv": "CSV",
+      "excel": "Excel (XLSX)",
+      "qrda": "QRDA III (XML)"
+    },
+    "exportFailed": "匯出失敗"
+  },
+  "schedules": {
+    "title": "排程",
+    "addSchedule": "新增排程",
+    "close": "關閉",
+    "tableHeaders": {
+      "enabled": "啟用",
+      "cron": "Cron",
+      "period": "期間",
+      "lastRun": "上次執行",
+      "nextRun": "下次執行",
+      "status": "狀態",
+      "actions": "操作"
+    },
+    "never": "從未",
+    "noNextRun": "-",
+    "triggerSchedule": "觸發排程",
+    "deleteSchedule": "刪除排程",
+    "emptyState": "尚未設定排程。",
+    "manualComplete": "手動評估完成：{{status}}",
+    "createDialog": {
+      "title": "建立排程",
+      "preset": "預設",
+      "cronExpression": "Cron 運算式",
+      "cronHelper": "Spring cron 格式（秒 分 時 日 月 星期）",
+      "periodType": "期間類型",
+      "monthly": "每月",
+      "quarterly": "每季",
+      "yearly": "每年",
+      "fhirServerUrl": "FHIR 伺服器 URL（選填）",
+      "creating": "建立中...",
+      "create": "建立"
+    },
+    "presets": {
+      "monthly": "每月（1 日午夜）",
+      "quarterly": "每季（1 月、4 月、7 月、10 月 1 日）",
+      "yearly": "每年（1 月 1 日）"
+    }
+  },
+  "riskAdjustment": {
+    "title": "風險校正變數",
+    "description": "描述",
+    "remove": "移除 {{name}}",
+    "addLabel": "新增風險校正變數",
+    "selectPlaceholder": "選擇 CQL 運算式"
+  },
+  "supplementalData": {
+    "title": "補充資料元素",
+    "description": "描述",
+    "remove": "移除 {{name}}",
+    "addLabel": "新增補充資料元素",
+    "selectPlaceholder": "選擇 CQL 運算式"
+  },
+  "observations": {
+    "title": "觀察條件",
+    "observationLabel": "觀察 {{number}}",
+    "removeObservation": "移除觀察 {{number}}",
+    "fields": {
+      "cqlExpression": "CQL 運算式",
+      "aggregateMethod": "彙總方法",
+      "populationReference": "族群參考",
+      "description": "描述"
+    },
+    "addObservation": "新增觀察",
+    "aggregateMethods": {
+      "count": "計數",
+      "sum": "總和",
+      "average": "平均",
+      "median": "中位數",
+      "minimum": "最小值",
+      "maximum": "最大值"
+    }
+  },
+  "audit": {
+    "title": "稽核紀錄：{{name}}",
+    "emptyState": "無稽核歷史紀錄。",
+    "by": "由 {{user}}",
+    "close": "關閉"
+  },
+  "dateCalculator": {
+    "title": "日期計算器",
+    "close": "關閉",
+    "tabs": {
+      "duration": "持續時間",
+      "computedDate": "計算日期"
+    },
+    "fields": {
+      "startDate": "開始日期",
+      "endDate": "結束日期",
+      "duration": "持續時間",
+      "unit": "單位"
+    },
+    "units": {
+      "days": "天",
+      "months": "月",
+      "years": "年"
+    },
+    "result": {
+      "duration": "持續時間",
+      "resultDate": "結果日期",
+      "daysFormat": "{{days}} 天",
+      "fullFormat": "{{years}} 年，{{months}} 月，{{days}} 天"
+    }
+  },
+  "coverage": {
+    "noData": "無覆蓋率資料",
+    "tabs": {
+      "definitions": "定義",
+      "functions": "函式"
+    },
+    "labels": {
+      "definitions": "定義",
+      "functions": "函式"
+    },
+    "covered": "{{covered}}/{{total}} 個{{label}}已覆蓋",
+    "relevance": {
+      "true": "TRUE",
+      "false": "FALSE",
+      "na": "NA"
+    }
+  },
+  "testCaseBuilder": {
+    "bundleEntries": "BUNDLE 項目",
+    "buildTestBundle": "建構您的測試病患 Bundle",
+    "stepPatient": "1. 病患",
+    "stepEncounter": "2. 就診",
+    "stepClinical": "3. 臨床資料",
+    "startGuide": "從新增病患開始，然後新增就診和臨床資源（病況、觀察、處置等）以建構測試情境。",
+    "selectResource": "從列表中選擇資源以編輯其屬性。",
+    "addResource": "新增資源",
+    "noResourcesYet": "尚無資源。請先新增一個病患資源。",
+    "deleteResource": "刪除資源",
+    "deleteConfirm": "確定要從測試案例 Bundle 中移除此資源嗎？",
+    "cancel": "取消",
+    "delete": "刪除",
+    "deleteResourceAria": "刪除資源",
+    "requiredFields": "必要欄位",
+    "optionalFields": "可選欄位",
+    "addAttribute": "新增屬性",
+    "addAttributes": "新增屬性",
+    "array": "（陣列）",
+    "addCount": "新增 ({{count}})",
+    "available": "（{{count}} 個可用）",
+    "idLabel": "ID：",
+    "idPlaceholder": "resource-id",
+    "twcore": {
+      "title": "TWCORE 術語",
+      "searchPlaceholder": "搜尋代碼、顯示名稱或中文名稱...",
+      "noMatchingCodes": "未找到符合的代碼。",
+      "noTerminology": "無可用的 TWCORE 術語。",
+      "use": "使用"
+    },
+    "fields": {
+      "system": "系統",
+      "code": "代碼",
+      "display": "顯示",
+      "value": "值",
+      "unit": "單位",
+      "use": "用途",
+      "family": "姓氏",
+      "type": "類型",
+      "reference": "參考",
+      "text": "文字",
+      "start": "開始",
+      "end": "結束",
+      "emptyOption": "\u2014",
+      "selectOption": "\u2014 選擇 \u2014",
+      "autoGenerated": "留空時自動產生",
+      "boundTo": "綁定至：{{url}}",
+      "browseTwcore": "瀏覽 TWCORE 術語",
+      "browseTwcoreAria": "瀏覽 TWCORE",
+      "removeCoding": "移除編碼",
+      "addCoding": "新增編碼",
+      "givenNames": "名字",
+      "addGivenName": "新增名字",
+      "addressLines": "地址行",
+      "addLine": "新增行",
+      "city": "城市",
+      "district": "區域",
+      "state": "州/省",
+      "postalCode": "郵遞區號",
+      "country": "國家",
+      "hideSystemCode": "隱藏系統 / 代碼",
+      "showSystemCode": "顯示系統 / 代碼",
+      "identifierSystemPlaceholder": "例如 http://hospital.org/mrn"
+    },
+    "arrayField": {
+      "add": "新增",
+      "removeItem": "移除項目"
+    },
+    "choiceType": {
+      "type": "類型"
+    }
+  }
+}

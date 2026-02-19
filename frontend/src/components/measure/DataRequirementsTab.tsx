@@ -22,6 +22,7 @@ import {
   FilterList as FilterIcon,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import type { MeasureDefinition, DataRequirementInfo } from '../../types'
 import { measureApi } from '../../api'
 import { helpContent } from '../../constants/helpContent'
@@ -32,6 +33,7 @@ interface DataRequirementsTabProps {
 }
 
 export default function DataRequirementsTab({ measure }: DataRequirementsTabProps) {
+  const { t } = useTranslation('measures')
   const { data: requirements = [], isLoading, isError, error } = useQuery({
     queryKey: ['data-requirements', measure.id],
     queryFn: () => measureApi.getDataRequirements(measure.id!),
@@ -55,11 +57,11 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
     return (
       <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
         <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
-          <Typography variant="h6">Data Requirements</Typography>
+          <Typography variant="h6">{t('dataRequirements.title')}</Typography>
           <HelpTooltip text={helpContent.measures.dataRequirements} />
         </Stack>
         <Alert severity="info">
-          No CQL content defined for this measure. Add CQL logic in the CQL tab to see data requirements.
+          {t('dataRequirements.noCql')}
         </Alert>
       </Box>
     )
@@ -68,7 +70,7 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
-        <Typography variant="h6">Data Requirements</Typography>
+        <Typography variant="h6">{t('dataRequirements.title')}</Typography>
         <HelpTooltip text={helpContent.measures.dataRequirements} />
       </Stack>
 
@@ -80,13 +82,13 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
 
       {isError && (
         <Alert severity="error">
-          Failed to extract data requirements: {(error as Error).message}
+          {t('dataRequirements.extractionError', { error: (error as Error).message })}
         </Alert>
       )}
 
       {!isLoading && !isError && requirements.length === 0 && (
         <Alert severity="info">
-          No data requirements found. The CQL may not contain any Retrieve expressions, or translation may have failed.
+          {t('dataRequirements.noRequirements')}
         </Alert>
       )}
 
@@ -95,20 +97,20 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
           <Stack direction="row" spacing={1} mb={2}>
             <Chip
               icon={<StorageIcon />}
-              label={`${resourceTypeCount} Resource Type${resourceTypeCount !== 1 ? 's' : ''}`}
+              label={t('dataRequirements.resourceTypes', { count: resourceTypeCount })}
               size="small"
               color="primary"
               variant="outlined"
             />
             <Chip
               icon={<FilterIcon />}
-              label={`${valueSetCount} Value Set${valueSetCount !== 1 ? 's' : ''}`}
+              label={t('dataRequirements.valueSets', { count: valueSetCount })}
               size="small"
               color="secondary"
               variant="outlined"
             />
             <Chip
-              label={`${requirements.length} Total Requirement${requirements.length !== 1 ? 's' : ''}`}
+              label={t('dataRequirements.totalRequirements', { count: requirements.length })}
               size="small"
               variant="outlined"
             />
@@ -120,7 +122,7 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Chip label={resourceType} size="small" color="primary" />
                   <Typography variant="body2" color="text.secondary">
-                    {reqs.length} requirement{reqs.length !== 1 ? 's' : ''}
+                    {t('dataRequirements.requirementCount', { count: reqs.length })}
                   </Typography>
                 </Stack>
               </AccordionSummary>
@@ -129,9 +131,9 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Filter Type</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Path</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Value Set / Codes</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('dataRequirements.tableHeaders.filterType')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('dataRequirements.tableHeaders.path')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('dataRequirements.tableHeaders.valueSetCodes')}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -151,6 +153,7 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
 }
 
 function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) {
+  const { t } = useTranslation('measures')
   const hasCodeFilter = requirement.codeFilter && requirement.codeFilter.length > 0
   const hasDateFilter = requirement.dateFilter && requirement.dateFilter.length > 0
 
@@ -159,7 +162,7 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
       <TableRow>
         <TableCell colSpan={3}>
           <Typography variant="body2" color="text.secondary" fontStyle="italic">
-            No filters (retrieves all {requirement.type} resources)
+            {t('dataRequirements.noFilters', { type: requirement.type })}
           </Typography>
         </TableCell>
       </TableRow>
@@ -171,7 +174,7 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
       {requirement.codeFilter?.map((cf, i) => (
         <TableRow key={`code-${i}`}>
           <TableCell>
-            <Chip label="Code" size="small" variant="outlined" color="info" sx={{ fontSize: '0.75rem' }} />
+            <Chip label={t('dataRequirements.filterTypes.code')} size="small" variant="outlined" color="info" sx={{ fontSize: '0.75rem' }} />
           </TableCell>
           <TableCell>
             <Typography variant="body2" fontFamily="monospace">{cf.path}</Typography>
@@ -180,7 +183,7 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
             {cf.valueSet && (
               <Stack spacing={0.5}>
                 <Typography variant="body2" fontWeight={500}>
-                  {cf.valueSetName || 'Value Set'}
+                  {cf.valueSetName || t('dataRequirements.filterTypes.valueSet')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" fontFamily="monospace">
                   {cf.valueSet}
@@ -207,14 +210,14 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
       {requirement.dateFilter?.map((df, i) => (
         <TableRow key={`date-${i}`}>
           <TableCell>
-            <Chip label="Date" size="small" variant="outlined" color="warning" sx={{ fontSize: '0.75rem' }} />
+            <Chip label={t('dataRequirements.filterTypes.date')} size="small" variant="outlined" color="warning" sx={{ fontSize: '0.75rem' }} />
           </TableCell>
           <TableCell>
             <Typography variant="body2" fontFamily="monospace">{df.path}</Typography>
           </TableCell>
           <TableCell>
             <Typography variant="body2" color="text.secondary" fontStyle="italic">
-              Date filter
+              {t('dataRequirements.filterTypes.dateFilter')}
             </Typography>
           </TableCell>
         </TableRow>

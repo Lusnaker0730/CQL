@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, TextField, Typography, MenuItem } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
 import ElementField from './ElementField'
 
@@ -11,6 +12,7 @@ interface ChoiceTypeFieldProps {
 }
 
 export default function ChoiceTypeField({ element, value, onChange, depth }: ChoiceTypeFieldProps) {
+  const { t } = useTranslation('measures')
   const choiceTypes = element.choiceTypes || []
   const [selectedType, setSelectedType] = useState<string>(choiceTypes[0] || '')
 
@@ -47,7 +49,7 @@ export default function ChoiceTypeField({ element, value, onChange, depth }: Cho
         <TextField
           select
           size="small"
-          label="Type"
+          label={t('testCaseBuilder.choiceType.type')}
           value={selectedType}
           onChange={(e) => handleTypeChange(e.target.value)}
           sx={{ width: 150 }}

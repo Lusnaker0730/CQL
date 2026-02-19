@@ -14,6 +14,7 @@ import {
   Box,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { useTranslation } from 'react-i18next';
 
 interface DateCalculatorDialogProps {
   open: boolean;
@@ -77,6 +78,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
   open,
   onClose,
 }) => {
+  const { t } = useTranslation('measures');
   const [tabIndex, setTabIndex] = useState(0);
 
   // Duration tab state
@@ -107,8 +109,8 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
           justifyContent: 'space-between',
         }}
       >
-        Date Calculator
-        <IconButton onClick={onClose} size="small" aria-label="close">
+        {t('dateCalculator.title')}
+        <IconButton onClick={onClose} size="small" aria-label={t('dateCalculator.close')}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -118,14 +120,14 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
           onChange={(_, v) => setTabIndex(v)}
           sx={{ mb: 2 }}
         >
-          <Tab label="Duration" />
-          <Tab label="Computed Date" />
+          <Tab label={t('dateCalculator.tabs.duration')} />
+          <Tab label={t('dateCalculator.tabs.computedDate')} />
         </Tabs>
 
         {tabIndex === 0 && (
           <Stack spacing={2}>
             <TextField
-              label="Start Date"
+              label={t('dateCalculator.fields.startDate')}
               type="date"
               value={durationStart}
               onChange={(e) => setDurationStart(e.target.value)}
@@ -133,7 +135,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
               fullWidth
             />
             <TextField
-              label="End Date"
+              label={t('dateCalculator.fields.endDate')}
               type="date"
               value={durationEnd}
               onChange={(e) => setDurationEnd(e.target.value)}
@@ -149,14 +151,13 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
                 }}
               >
                 <Typography variant="subtitle2" gutterBottom>
-                  Duration
+                  {t('dateCalculator.result.duration')}
                 </Typography>
                 <Typography variant="body2">
-                  {durationResult.totalDays} days
+                  {t('dateCalculator.result.daysFormat', { days: durationResult.totalDays })}
                 </Typography>
                 <Typography variant="body2">
-                  {durationResult.years} years, {durationResult.months} months,{' '}
-                  {durationResult.days} days
+                  {t('dateCalculator.result.fullFormat', { years: durationResult.years, months: durationResult.months, days: durationResult.days })}
                 </Typography>
               </Box>
             )}
@@ -166,7 +167,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
         {tabIndex === 1 && (
           <Stack spacing={2}>
             <TextField
-              label="Start Date"
+              label={t('dateCalculator.fields.startDate')}
               type="date"
               value={computedStart}
               onChange={(e) => setComputedStart(e.target.value)}
@@ -175,7 +176,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
             />
             <Stack direction="row" spacing={2}>
               <TextField
-                label="Duration"
+                label={t('dateCalculator.fields.duration')}
                 type="number"
                 value={computedDuration}
                 onChange={(e) =>
@@ -184,7 +185,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
                 fullWidth
               />
               <TextField
-                label="Unit"
+                label={t('dateCalculator.fields.unit')}
                 select
                 value={computedUnit}
                 onChange={(e) =>
@@ -192,9 +193,9 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
                 }
                 sx={{ minWidth: 120 }}
               >
-                <MenuItem value="Days">Days</MenuItem>
-                <MenuItem value="Months">Months</MenuItem>
-                <MenuItem value="Years">Years</MenuItem>
+                <MenuItem value="Days">{t('dateCalculator.units.days')}</MenuItem>
+                <MenuItem value="Months">{t('dateCalculator.units.months')}</MenuItem>
+                <MenuItem value="Years">{t('dateCalculator.units.years')}</MenuItem>
               </TextField>
             </Stack>
             {computedResult && (
@@ -206,7 +207,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
                 }}
               >
                 <Typography variant="subtitle2" gutterBottom>
-                  Result Date
+                  {t('dateCalculator.result.resultDate')}
                 </Typography>
                 <Typography variant="body2">{computedResult}</Typography>
               </Box>
@@ -215,7 +216,7 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={onClose}>{t('dateCalculator.close')}</Button>
         </Box>
       </DialogContent>
     </Dialog>

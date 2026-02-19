@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -51,6 +52,7 @@ function sectionFilled(fields: (string | undefined | null | unknown[])[]): boole
 }
 
 export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }: MeasureDetailsTabProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [form, setForm] = useState<MeasureDefinition>({ ...measure })
   const [isDirty, setIsDirty] = useState(false)
@@ -123,7 +125,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       <SectionHeader
-        title="Measure Details"
+        title={t('details.title')}
         helpText={helpContent.measures.details}
         actions={
           <GradientButton
@@ -131,7 +133,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
             disabled={!isDirty || updateMutation.isPending || readOnly}
             onClick={() => updateMutation.mutate()}
           >
-            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            {updateMutation.isPending ? t('details.saving') : t('details.saveChanges')}
           </GradientButton>
         }
       />
@@ -144,7 +146,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
 
       {updateMutation.isSuccess && !isDirty && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Measure updated successfully.
+          {t('details.updateSuccess')}
         </Alert>
       )}
 
@@ -154,13 +156,13 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {generalFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">General Information</Typography>
+              <Typography variant="subtitle2">{t('details.generalInformation')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Name"
+                label={t('details.fields.name')}
                 required
                 size="small"
                 fullWidth
@@ -169,14 +171,14 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
               />
               <Stack direction="row" spacing={2}>
                 <TextField
-                  label="Version"
+                  label={t('details.fields.version')}
                   size="small"
                   fullWidth
                   value={form.version}
                   onChange={(e) => updateField('version', e.target.value)}
                 />
                 <TextField
-                  label="Status"
+                  label={t('details.fields.status')}
                   select
                   size="small"
                   fullWidth
@@ -190,7 +192,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
               </Stack>
               <Stack direction="row" spacing={2}>
                 <TextField
-                  label="Scoring Type"
+                  label={t('details.fields.scoringType')}
                   select
                   size="small"
                   fullWidth
@@ -202,43 +204,43 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   ))}
                 </TextField>
                 <TextField
-                  label="Measure Set"
+                  label={t('details.fields.measureSet')}
                   size="small"
                   fullWidth
                   value={form.measureSet || ''}
                   onChange={(e) => updateField('measureSet', e.target.value)}
-                  placeholder="e.g. CMS Quality Reporting"
+                  placeholder={t('details.fields.measureSetPlaceholder')}
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
                 <TextField
-                  label="NQF Number"
+                  label={t('details.fields.nqfNumber')}
                   size="small"
                   fullWidth
                   value={form.nqfNumber || ''}
                   onChange={(e) => updateField('nqfNumber', e.target.value)}
-                  placeholder="e.g. 0059"
+                  placeholder={t('details.fields.nqfNumberPlaceholder')}
                 />
                 <TextField
-                  label="CMS Measure ID"
+                  label={t('details.fields.cmsMeasureId')}
                   size="small"
                   fullWidth
                   value={form.cmsMeasureId || ''}
                   onChange={(e) => updateField('cmsMeasureId', e.target.value)}
-                  placeholder="e.g. CMS122v12"
+                  placeholder={t('details.fields.cmsMeasureIdPlaceholder')}
                 />
               </Stack>
               <TextField
-                label="Setting"
+                label={t('details.fields.setting')}
                 select
                 size="small"
                 fullWidth
                 value={form.setting || ''}
                 onChange={(e) => updateField('setting', e.target.value)}
-                helperText="Care setting where this measure applies"
+                helperText={t('details.fields.settingHelper')}
               >
                 <MenuItem value="">
-                  <em>None</em>
+                  <em>{t('details.fields.none')}</em>
                 </MenuItem>
                 {MEASURE_SETTING_OPTIONS.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
@@ -246,7 +248,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
               </TextField>
               {form.compositeScoring && (
                 <TextField
-                  label="Composite Scoring"
+                  label={t('details.fields.compositeScoring')}
                   select
                   size="small"
                   fullWidth
@@ -267,20 +269,20 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {overviewFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">Measure Overview</Typography>
+              <Typography variant="subtitle2">{t('details.measureOverview')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Title"
+                label={t('details.overviewFields.title')}
                 size="small"
                 fullWidth
                 value={form.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
               />
               <TextField
-                label="Description"
+                label={t('details.overviewFields.description')}
                 size="small"
                 fullWidth
                 multiline
@@ -289,24 +291,24 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 onChange={(e) => updateField('description', e.target.value)}
               />
               <TextField
-                label="Rationale"
+                label={t('details.overviewFields.rationale')}
                 size="small"
                 fullWidth
                 multiline
                 rows={3}
                 value={form.rationale || ''}
                 onChange={(e) => updateField('rationale', e.target.value)}
-                placeholder="Why is this measure important?"
+                placeholder={t('details.overviewFields.rationalePlaceholder')}
               />
               <TextField
-                label="Clinical Guidance"
+                label={t('details.overviewFields.clinicalGuidance')}
                 size="small"
                 fullWidth
                 multiline
                 rows={3}
                 value={form.clinicalGuidance || ''}
                 onChange={(e) => updateField('clinicalGuidance', e.target.value)}
-                placeholder="Implementation guidance for clinical users"
+                placeholder={t('details.overviewFields.clinicalGuidancePlaceholder')}
               />
             </Stack>
           </AccordionDetails>
@@ -317,21 +319,21 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {stewardFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">Steward & Developers</Typography>
+              <Typography variant="subtitle2">{t('details.stewardDevelopers')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Steward"
+                label={t('details.stewardFields.steward')}
                 size="small"
                 fullWidth
                 value={form.steward || ''}
                 onChange={(e) => updateField('steward', e.target.value)}
-                placeholder="Organization responsible for the measure"
+                placeholder={t('details.stewardFields.stewardPlaceholder')}
               />
               <Divider />
-              <Typography variant="caption" color="text.secondary">Developers</Typography>
+              <Typography variant="caption" color="text.secondary">{t('details.stewardFields.developers')}</Typography>
               {(form.developers || []).map((dev, i) => (
                 <Stack key={i} direction="row" spacing={1} alignItems="center">
                   <TextField
@@ -339,15 +341,15 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                     fullWidth
                     value={dev}
                     onChange={(e) => updateDeveloper(i, e.target.value)}
-                    placeholder="Developer name or organization"
+                    placeholder={t('details.stewardFields.developerPlaceholder')}
                   />
-                  <IconButton size="small" aria-label="Remove developer" color="error" onClick={() => removeDeveloper(i)}>
+                  <IconButton size="small" aria-label={t('details.stewardFields.removeDeveloper')} color="error" onClick={() => removeDeveloper(i)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>
               ))}
               <Button size="small" startIcon={<AddIcon />} onClick={addDeveloper} sx={{ alignSelf: 'flex-start' }}>
-                Add Developer
+                {t('details.stewardFields.addDeveloper')}
               </Button>
             </Stack>
           </AccordionDetails>
@@ -358,7 +360,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {refsFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">References</Typography>
+              <Typography variant="subtitle2">{t('details.references')}</Typography>
               {(form.references || []).length > 0 && (
                 <Chip label={`${(form.references || []).length}`} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
               )}
@@ -370,31 +372,31 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
                   <TextField
                     select
-                    label="Type"
+                    label={t('details.referenceFields.type')}
                     size="small"
                     sx={{ minWidth: 160 }}
                     value={ref.type}
                     onChange={(e) => updateReference(i, 'type', e.target.value)}
                   >
-                    {REFERENCE_TYPES.map((t) => (
-                      <MenuItem key={t} value={t}>{t}</MenuItem>
+                    {REFERENCE_TYPES.map((refType) => (
+                      <MenuItem key={refType} value={refType}>{refType}</MenuItem>
                     ))}
                   </TextField>
                   <TextField
-                    label="Reference"
+                    label={t('details.referenceFields.reference')}
                     size="small"
                     fullWidth
                     value={ref.reference}
                     onChange={(e) => updateReference(i, 'reference', e.target.value)}
-                    placeholder="URL or citation text"
+                    placeholder={t('details.referenceFields.referencePlaceholder')}
                   />
-                  <IconButton size="small" aria-label="Remove reference" color="error" onClick={() => removeReference(i)}>
+                  <IconButton size="small" aria-label={t('details.referenceFields.removeReference')} color="error" onClick={() => removeReference(i)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>
               ))}
               <Button size="small" startIcon={<AddIcon />} onClick={addReference} sx={{ alignSelf: 'flex-start' }}>
-                Add Reference
+                {t('details.referenceFields.addReference')}
               </Button>
             </Stack>
           </AccordionDetails>
@@ -405,13 +407,13 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {legalFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">Legal</Typography>
+              <Typography variant="subtitle2">{t('details.legal')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Copyright"
+                label={t('details.legalFields.copyright')}
                 size="small"
                 fullWidth
                 multiline
@@ -420,7 +422,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 onChange={(e) => updateField('copyright', e.target.value)}
               />
               <TextField
-                label="Disclaimer"
+                label={t('details.legalFields.disclaimer')}
                 size="small"
                 fullWidth
                 multiline

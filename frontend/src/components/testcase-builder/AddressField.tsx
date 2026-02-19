@@ -1,5 +1,6 @@
 import { Box, TextField, Typography, MenuItem, Chip } from '@mui/material'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
 
 interface Address {
@@ -23,6 +24,7 @@ const USE_FALLBACK = ['home', 'work', 'temp', 'old', 'billing']
 const TYPE_FALLBACK = ['postal', 'physical', 'both']
 
 export default function AddressField({ element, value, onChange }: AddressFieldProps) {
+  const { t } = useTranslation('measures')
   const addr = (value as Address) || {}
   const [lineInput, setLineInput] = useState('')
   const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
@@ -48,30 +50,30 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
         <TextField
           select
-          label="use"
+          label={t('testCaseBuilder.fields.use')}
           size="small"
           value={addr.use || ''}
           onChange={(e) => onChange({ ...addr, use: e.target.value || undefined })}
           sx={{ width: 100 }}
         >
-          <MenuItem value="">—</MenuItem>
+          <MenuItem value="">{t('testCaseBuilder.fields.emptyOption')}</MenuItem>
           {useOptions.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
         </TextField>
         <TextField
           select
-          label="type"
+          label={t('testCaseBuilder.fields.type')}
           size="small"
           value={addr.type || ''}
           onChange={(e) => onChange({ ...addr, type: e.target.value || undefined })}
           sx={{ width: 100 }}
         >
-          <MenuItem value="">—</MenuItem>
+          <MenuItem value="">{t('testCaseBuilder.fields.emptyOption')}</MenuItem>
           {typeOptions.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
         </TextField>
       </Box>
 
       <Box sx={{ mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">address lines</Typography>
+        <Typography variant="caption" color="text.secondary">{t('testCaseBuilder.fields.addressLines')}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
           {(addr.line || []).map((l, i) => (
             <Chip key={i} label={l} size="small" onDelete={() => removeLine(i)} />
@@ -79,7 +81,7 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
         </Box>
         <TextField
           size="small"
-          placeholder="Add line"
+          placeholder={t('testCaseBuilder.fields.addLine')}
           value={lineInput}
           onChange={(e) => setLineInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLine() } }}
@@ -88,11 +90,11 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
       </Box>
 
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        <TextField label="city" size="small" value={addr.city || ''} onChange={(e) => onChange({ ...addr, city: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
-        <TextField label="district" size="small" value={addr.district || ''} onChange={(e) => onChange({ ...addr, district: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
-        <TextField label="state" size="small" value={addr.state || ''} onChange={(e) => onChange({ ...addr, state: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
-        <TextField label="postalCode" size="small" value={addr.postalCode || ''} onChange={(e) => onChange({ ...addr, postalCode: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
-        <TextField label="country" size="small" value={addr.country || ''} onChange={(e) => onChange({ ...addr, country: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
+        <TextField label={t('testCaseBuilder.fields.city')} size="small" value={addr.city || ''} onChange={(e) => onChange({ ...addr, city: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
+        <TextField label={t('testCaseBuilder.fields.district')} size="small" value={addr.district || ''} onChange={(e) => onChange({ ...addr, district: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
+        <TextField label={t('testCaseBuilder.fields.state')} size="small" value={addr.state || ''} onChange={(e) => onChange({ ...addr, state: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
+        <TextField label={t('testCaseBuilder.fields.postalCode')} size="small" value={addr.postalCode || ''} onChange={(e) => onChange({ ...addr, postalCode: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
+        <TextField label={t('testCaseBuilder.fields.country')} size="small" value={addr.country || ''} onChange={(e) => onChange({ ...addr, country: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
       </Box>
     </Box>
   )

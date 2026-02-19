@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -48,6 +49,7 @@ export default function BatchEvaluationDialog({
   onClose,
   measureIds,
 }: BatchEvaluationDialogProps) {
+  const { t } = useTranslation('measures')
   const [fhirServerUrl, setFhirServerUrl] = useState('')
   const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
   const [periodStart, setPeriodStart] = useState(defaultStart)
@@ -81,26 +83,26 @@ export default function BatchEvaluationDialog({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>Batch Evaluate Measures</DialogTitle>
+      <DialogTitle>{t('batch.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Evaluate {measureIds.length} selected measure{measureIds.length !== 1 ? 's' : ''} in a single batch operation.
+            {t('batch.description', { count: measureIds.length })}
           </Typography>
 
           <TextField
-            label="FHIR Server URL (optional)"
+            label={t('batch.fhirServerUrl')}
             value={fhirServerUrl}
             onChange={(e) => setFhirServerUrl(e.target.value)}
             size="small"
             fullWidth
-            placeholder="http://hapi.fhir.org/baseR4"
+            placeholder={t('batch.fhirServerPlaceholder')}
             disabled={batchMutation.isPending}
           />
 
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Period Start"
+              label={t('batch.periodStart')}
               type="date"
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
@@ -110,7 +112,7 @@ export default function BatchEvaluationDialog({
               disabled={batchMutation.isPending}
             />
             <TextField
-              label="Period End"
+              label={t('batch.periodEnd')}
               type="date"
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
@@ -126,7 +128,7 @@ export default function BatchEvaluationDialog({
               <Stack direction="row" spacing={1} alignItems="center" mb={1}>
                 <CircularProgress size={20} />
                 <Typography variant="body2">
-                  Evaluating measures...
+                  {t('batch.evaluating')}
                 </Typography>
               </Stack>
               <LinearProgress />
@@ -135,7 +137,7 @@ export default function BatchEvaluationDialog({
 
           {batchMutation.isError && (
             <Alert severity="error">
-              Batch evaluation failed: {(batchMutation.error as Error).message}
+              {t('batch.evaluationFailed', { error: (batchMutation.error as Error).message })}
             </Alert>
           )}
 
@@ -145,8 +147,7 @@ export default function BatchEvaluationDialog({
                 severity={result.errorCount === 0 ? 'success' : 'warning'}
                 sx={{ mb: 2 }}
               >
-                {result.successCount} of {result.totalMeasures} measures evaluated
-                successfully
+                {t('batch.result', { success: result.successCount, total: result.totalMeasures })}
                 {result.errorCount > 0 && `, ${result.errorCount} error${result.errorCount !== 1 ? 's' : ''}`}
                 {' '}&mdash; total duration: {formatDuration(result.totalDurationMs)}
               </Alert>
@@ -155,10 +156,10 @@ export default function BatchEvaluationDialog({
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell scope="col">Measure Name</TableCell>
-                      <TableCell scope="col">Status</TableCell>
-                      <TableCell scope="col">Score</TableCell>
-                      <TableCell scope="col">Error Message</TableCell>
+                      <TableCell scope="col">{t('batch.tableHeaders.measureName')}</TableCell>
+                      <TableCell scope="col">{t('batch.tableHeaders.status')}</TableCell>
+                      <TableCell scope="col">{t('batch.tableHeaders.score')}</TableCell>
+                      <TableCell scope="col">{t('batch.tableHeaders.errorMessage')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -220,14 +221,14 @@ export default function BatchEvaluationDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={batchMutation.isPending}>
-          {result ? 'Close' : 'Cancel'}
+          {result ? t('actions.close', { ns: 'common' }) : t('actions.cancel', { ns: 'common' })}
         </Button>
         {!result && (
           <GradientButton
             onClick={handleRun}
             disabled={batchMutation.isPending || measureIds.length === 0}
           >
-            {batchMutation.isPending ? 'Running...' : 'Run Batch Evaluation'}
+            {batchMutation.isPending ? t('batch.running') : t('batch.runBatch')}
           </GradientButton>
         )}
       </DialogActions>

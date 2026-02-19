@@ -4,6 +4,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, FormHelperText,
 } from '@mui/material'
 import { MenuBook as MenuBookIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
@@ -17,6 +18,7 @@ interface CodeFieldProps {
 }
 
 export default function CodeField({ element, value, onChange }: CodeFieldProps) {
+  const { t } = useTranslation('measures')
   const [inputValue, setInputValue] = useState(String(value || ''))
   const [twcoreOpen, setTwcoreOpen] = useState(false)
   const resourceType = useCurrentResourceType()
@@ -32,8 +34,8 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   })
 
   const twcoreButton = (
-    <Tooltip title="Browse TWCORE terminology">
-      <IconButton size="small" onClick={() => setTwcoreOpen(true)} aria-label="Browse TWCORE">
+    <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
+      <IconButton size="small" onClick={() => setTwcoreOpen(true)} aria-label={t('testCaseBuilder.fields.browseTwcoreAria')}>
         <MenuBookIcon fontSize="small" />
       </IconButton>
     </Tooltip>
@@ -66,7 +68,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
           ))}
         </Select>
         {element.bindingValueSetUrl && (
-          <FormHelperText>Bound to: {element.bindingValueSetUrl}</FormHelperText>
+          <FormHelperText>{t('testCaseBuilder.fields.boundTo', { url: element.bindingValueSetUrl })}</FormHelperText>
         )}
       </FormControl>
     )
@@ -130,7 +132,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
             size="small"
             fullWidth
             required={element.isRequired}
-            helperText={element.description || `Bound to: ${element.bindingValueSetUrl}`}
+            helperText={element.description || t('testCaseBuilder.fields.boundTo', { url: element.bindingValueSetUrl })}
           />
         )}
         sx={{ flex: 1 }}

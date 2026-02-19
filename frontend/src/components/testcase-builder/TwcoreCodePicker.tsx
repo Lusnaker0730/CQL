@@ -16,9 +16,9 @@ import {
   CircularProgress,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Search as SearchIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useTwcoreCatalog, useTwcoreFullCatalog } from '../../hooks/useTwcoreCatalog'
 import type { TwcoreCatalogEntry, TwcoreCode } from '../../types/authoring'
-import { STRINGS } from './constants'
 
 interface TwcoreCodePickerProps {
   open: boolean
@@ -28,6 +28,7 @@ interface TwcoreCodePickerProps {
 }
 
 export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType }: TwcoreCodePickerProps) {
+  const { t } = useTranslation('measures')
   const [search, setSearch] = useState('')
 
   const filteredQuery = useTwcoreCatalog(resourceType)
@@ -66,7 +67,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {STRINGS.twcoreTerminology}
+        {t('testCaseBuilder.twcore.title')}
         {resourceType && (
           <Chip label={resourceType} size="small" sx={{ ml: 1 }} variant="outlined" />
         )}
@@ -75,7 +76,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
         <TextField
           fullWidth
           size="small"
-          placeholder={STRINGS.searchCodePlaceholder}
+          placeholder={t('testCaseBuilder.twcore.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
@@ -97,7 +98,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
 
         {!isLoading && filtered.length === 0 && (
           <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 3 }}>
-            {search ? STRINGS.noMatchingCodes : STRINGS.noTerminology}
+            {search ? t('testCaseBuilder.twcore.noMatchingCodes') : t('testCaseBuilder.twcore.noTerminology')}
           </Typography>
         )}
 
@@ -149,7 +150,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
                           sx={{ flexShrink: 0, textTransform: 'none', minWidth: 48 }}
                           onClick={() => handleSelect(entry.system, code)}
                         >
-                          {STRINGS.use}
+                          {t('testCaseBuilder.twcore.use')}
                         </Button>
                       </Box>
                     ))}

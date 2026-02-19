@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
@@ -37,6 +38,7 @@ function CodingField({
   onTwcoreBrowse: () => void
   bindingUrl?: string | null
 }) {
+  const { t } = useTranslation('measures')
   const [searchText, setSearchText] = useState(coding.code || '')
 
   const { data: options = [] } = useQuery<CodeSearchResult[]>({
@@ -49,7 +51,7 @@ function CodingField({
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
       <TextField
-        label="system"
+        label={t('testCaseBuilder.fields.system')}
         size="small"
         value={coding.system || ''}
         onChange={(e) => onChange({ ...coding, system: e.target.value })}
@@ -71,23 +73,23 @@ function CodingField({
           }
         }}
         renderInput={(params) => (
-          <TextField {...params} label="code" size="small" />
+          <TextField {...params} label={t('testCaseBuilder.fields.code')} size="small" />
         )}
         sx={{ flex: 1 }}
       />
       <TextField
-        label="display"
+        label={t('testCaseBuilder.fields.display')}
         size="small"
         value={coding.display || ''}
         onChange={(e) => onChange({ ...coding, display: e.target.value })}
         sx={{ flex: 1 }}
       />
-      <Tooltip title="Browse TWCORE terminology">
-        <IconButton size="small" onClick={onTwcoreBrowse} sx={{ mt: 0.5 }} aria-label="Browse TWCORE">
+      <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
+        <IconButton size="small" onClick={onTwcoreBrowse} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.browseTwcoreAria')}>
           <MenuBookIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <IconButton size="small" onClick={onRemove} sx={{ mt: 0.5 }} aria-label="Remove coding">
+      <IconButton size="small" onClick={onRemove} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.removeCoding')}>
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Box>
@@ -95,6 +97,7 @@ function CodingField({
 }
 
 export default function CodeableConceptField({ element, value, onChange }: CodeableConceptFieldProps) {
+  const { t } = useTranslation('measures')
   const cc = (value as CodeableConcept) || {}
   const codings = cc.coding || []
   const resourceType = useCurrentResourceType()
@@ -149,12 +152,12 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
 
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
         <Button size="small" startIcon={<AddIcon />} onClick={addCoding} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
-          Add Coding
+          {t('testCaseBuilder.fields.addCoding')}
         </Button>
       </Box>
 
       <TextField
-        label="text"
+        label={t('testCaseBuilder.fields.text')}
         size="small"
         fullWidth
         value={cc.text || ''}

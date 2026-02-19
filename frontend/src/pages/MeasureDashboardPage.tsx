@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   Paper,
   Typography,
@@ -50,8 +51,8 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-function formatScoreLabel(score?: number): string {
-  if (score == null) return 'N/A'
+function formatScoreLabel(score?: number, naLabel = 'N/A'): string {
+  if (score == null) return naLabel
   return `${score.toFixed(1)}%`
 }
 
@@ -61,8 +62,8 @@ function formatScoringLabel(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatStatusLabel(key: string): string {
-  if (key === 'in-review') return 'In Review'
+function formatStatusLabel(key: string, inReviewLabel = 'In Review'): string {
+  if (key === 'in-review') return inReviewLabel
   return key.charAt(0).toUpperCase() + key.slice(1)
 }
 
@@ -71,10 +72,11 @@ function formatStatusLabel(key: string): string {
 // ---------------------------------------------------------------------------
 
 function OverviewCards({ data }: { data: DashboardSummary }) {
+  const { t } = useTranslation('measures')
   const cards = [
-    { label: 'Total Measures', value: data.totalMeasures, color: TEAL },
+    { label: t('dashboard.totalMeasures'), value: data.totalMeasures, color: TEAL },
     ...STATUS_ORDER.map((status) => ({
-      label: formatStatusLabel(status),
+      label: formatStatusLabel(status, t('dashboard.inReview')),
       value: data.byStatus[status] ?? 0,
       color:
         status === 'active'
@@ -120,6 +122,7 @@ function OverviewCards({ data }: { data: DashboardSummary }) {
 }
 
 function ScoringDistribution({ byScoring }: { byScoring: Record<string, number> }) {
+  const { t } = useTranslation('measures')
   const entries = Object.entries(byScoring).sort((a, b) => b[1] - a[1])
   const maxCount = Math.max(...entries.map(([, v]) => v), 1)
 
@@ -137,13 +140,13 @@ function ScoringDistribution({ byScoring }: { byScoring: Record<string, number> 
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
         <AssessmentIcon sx={{ color: TEAL, fontSize: 22 }} />
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Scoring Type Distribution
+          {t('dashboard.scoringDistribution')}
         </Typography>
       </Stack>
 
       {entries.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No scoring data available.
+          {t('dashboard.noScoringData')}
         </Typography>
       ) : (
         <Stack spacing={2}>
@@ -193,6 +196,7 @@ function RecentEvaluationsTable({
 }: {
   evaluations: DashboardSummary['recentEvaluations']
 }) {
+  const { t } = useTranslation('measures')
   const rows = evaluations.slice(0, 10)
 
   return (
@@ -213,14 +217,14 @@ function RecentEvaluationsTable({
       >
         <TrendingUpIcon sx={{ color: TEAL, fontSize: 22 }} />
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Recent Evaluations
+          {t('dashboard.recentEvaluations')}
         </Typography>
       </Stack>
 
       {rows.length === 0 ? (
         <Box sx={{ px: 3, pb: 3 }}>
           <Typography variant="body2" color="text.secondary">
-            No recent evaluations found.
+            {t('dashboard.noRecentEvaluations')}
           </Typography>
         </Box>
       ) : (
@@ -228,12 +232,12 @@ function RecentEvaluationsTable({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell scope="col" sx={{ fontWeight: 600 }}>Measure</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('dashboard.tableHeaders.measure')}</TableCell>
                 <TableCell scope="col" sx={{ fontWeight: 600 }} align="right">
-                  Score
+                  {t('dashboard.tableHeaders.score')}
                 </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 600 }}>Date</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('dashboard.tableHeaders.status')}</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('dashboard.tableHeaders.date')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -249,7 +253,7 @@ function RecentEvaluationsTable({
                   </TableCell>
                   <TableCell align="right">
                     <Chip
-                      label={formatScoreLabel(ev.score)}
+                      label={formatScoreLabel(ev.score, t('dashboard.na'))}
                       size="small"
                       color={getScoreColor(ev.score)}
                       variant="outlined"
@@ -285,6 +289,7 @@ function PendingReviewList({
 }: {
   items: DashboardSummary['pendingReview']
 }) {
+  const { t } = useTranslation('measures')
   return (
     <Paper
       elevation={0}
@@ -299,7 +304,7 @@ function PendingReviewList({
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
         <ReviewIcon sx={{ color: TEAL, fontSize: 22 }} />
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Pending Review
+          {t('dashboard.pendingReview')}
         </Typography>
         {items.length > 0 && (
           <Chip
@@ -318,7 +323,7 @@ function PendingReviewList({
 
       {items.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No measures pending review.
+          {t('dashboard.noPendingReview')}
         </Typography>
       ) : (
         <Stack spacing={1.5}>
@@ -364,6 +369,7 @@ function PendingReviewList({
 // ---------------------------------------------------------------------------
 
 export default function MeasureDashboardPage() {
+  const { t } = useTranslation('measures')
   const {
     data,
     isLoading,
@@ -383,8 +389,7 @@ export default function MeasureDashboardPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">
-          Failed to load dashboard data.{' '}
-          {error instanceof Error ? error.message : 'Unknown error'}
+          {t('dashboard.loadError', { error: error instanceof Error ? error.message : t('dashboard.unknownError') })}
         </Alert>
       </Box>
     )
@@ -393,7 +398,7 @@ export default function MeasureDashboardPage() {
   if (!data) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="info">No dashboard data available.</Alert>
+        <Alert severity="info">{t('dashboard.noData')}</Alert>
       </Box>
     )
   }
@@ -404,7 +409,7 @@ export default function MeasureDashboardPage() {
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
         <DashboardIcon sx={{ color: TEAL, fontSize: 28 }} />
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          eCQM Dashboard
+          {t('dashboard.title')}
         </Typography>
       </Stack>
 

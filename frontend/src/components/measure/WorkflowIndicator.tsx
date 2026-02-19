@@ -3,40 +3,35 @@ import {
   CheckCircle as CompleteIcon,
   RadioButtonUnchecked as IncompleteIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import type { MeasureDefinition } from '../../types'
 import { MEASURE_STATUS } from '../../constants/measureConstants'
 
-interface WorkflowStep {
-  label: string
-  tooltip: string
+interface WorkflowStepDef {
+  key: string
   check: (m: MeasureDefinition) => boolean
 }
 
-const WORKFLOW_STEPS: WorkflowStep[] = [
+const WORKFLOW_STEP_DEFS: WorkflowStepDef[] = [
   {
-    label: 'Details',
-    tooltip: 'Name, version, scoring type, and key metadata (steward, rationale) defined',
+    key: 'details',
     check: (m) => !!(m.name && m.version && m.scoringType && (m.steward || m.rationale || m.title)),
   },
   {
-    label: 'CQL',
-    tooltip: 'CQL logic written and saved',
+    key: 'cql',
     check: (m) => !!(m.cqlContent && m.cqlContent.trim().length > 0),
   },
   {
-    label: 'Populations',
-    tooltip: 'At least one population criteria defined',
+    key: 'populations',
     check: (m) => !!(m.groupDefinitions && m.groupDefinitions.length > 0 &&
       m.groupDefinitions.some(g => g.populations && g.populations.length > 0)),
   },
   {
-    label: 'Review',
-    tooltip: 'Measure submitted for review and approved',
+    key: 'review',
     check: (m) => m.status === MEASURE_STATUS.IN_REVIEW || m.status === MEASURE_STATUS.ACTIVE,
   },
   {
-    label: 'Active',
-    tooltip: 'Measure status set to active',
+    key: 'active',
     check: (m) => m.status === MEASURE_STATUS.ACTIVE,
   },
 ]
@@ -46,17 +41,20 @@ interface WorkflowIndicatorProps {
 }
 
 export default function WorkflowIndicator({ measure }: WorkflowIndicatorProps) {
-  const completedCount = WORKFLOW_STEPS.filter(s => s.check(measure)).length
+  const { t } = useTranslation('measures')
+  const completedCount = WORKFLOW_STEP_DEFS.filter(s => s.check(measure)).length
 
   return (
     <Stack direction="row" spacing={0.5} alignItems="center">
       <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-        {completedCount}/{WORKFLOW_STEPS.length}
+        {completedCount}/{WORKFLOW_STEP_DEFS.length}
       </Typography>
-      {WORKFLOW_STEPS.map((step, i) => {
+      {WORKFLOW_STEP_DEFS.map((step, i) => {
         const done = step.check(measure)
+        const label = t(`workflow.steps.${step.key}.label`)
+        const tooltip = t(`workflow.steps.${step.key}.tooltip`)
         return (
-          <Tooltip key={step.label} title={`${step.label}: ${step.tooltip}`} arrow>
+          <Tooltip key={step.key} title={`${label}: ${tooltip}`} arrow>
             <Stack direction="row" alignItems="center" spacing={0.25}>
               {done ? (
                 <CompleteIcon sx={{ fontSize: 14, color: 'success.main' }} />
@@ -71,9 +69,9 @@ export default function WorkflowIndicator({ measure }: WorkflowIndicatorProps) {
                   fontWeight: done ? 600 : 400,
                 }}
               >
-                {step.label}
+                {label}
               </Typography>
-              {i < WORKFLOW_STEPS.length - 1 && (
+              {i < WORKFLOW_STEP_DEFS.length - 1 && (
                 <Box
                   sx={{
                     width: 12,

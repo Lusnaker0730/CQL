@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, TextField, Typography, Collapse, Link } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
 import { FHIR_UCUM_SYSTEM } from './constants'
 import UcumUnitField, { UCUM_UNITS } from '../common/UcumUnitField'
@@ -18,6 +19,7 @@ interface QuantityFieldProps {
 }
 
 export default function QuantityField({ element, value, onChange }: QuantityFieldProps) {
+  const { t } = useTranslation('measures')
   const qty = (value as Quantity) || {}
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -40,7 +42,7 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
       </Typography>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
         <TextField
-          label="value"
+          label={t('testCaseBuilder.fields.value')}
           size="small"
           type="number"
           value={qty.value ?? ''}
@@ -52,7 +54,7 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
           sx={{ flex: 1 }}
         />
         <UcumUnitField
-          label="unit"
+          label={t('testCaseBuilder.fields.unit')}
           value={unitDisplayValue}
           onChange={handleUnitChange}
           sx={{ flex: 2 }}
@@ -64,12 +66,12 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
         onClick={() => setShowAdvanced(!showAdvanced)}
         sx={{ mt: 0.5, display: 'inline-block' }}
       >
-        {showAdvanced ? 'Hide' : 'Show'} system / code
+        {showAdvanced ? t('testCaseBuilder.fields.hideSystemCode') : t('testCaseBuilder.fields.showSystemCode')}
       </Link>
       <Collapse in={showAdvanced}>
         <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
           <TextField
-            label="system"
+            label={t('testCaseBuilder.fields.system')}
             size="small"
             value={qty.system || ''}
             onChange={(e) => onChange({ ...qty, system: e.target.value || undefined })}
@@ -77,7 +79,7 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
             sx={{ flex: 1 }}
           />
           <TextField
-            label="code"
+            label={t('testCaseBuilder.fields.code')}
             size="small"
             value={qty.code || ''}
             onChange={(e) => onChange({ ...qty, code: e.target.value || undefined })}

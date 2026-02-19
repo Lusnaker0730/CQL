@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Stack, Button, CircularProgress, Alert, Chip } from '@mui/material'
 import { Translate as TranslateIcon, Save as SaveIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
@@ -21,6 +22,7 @@ interface MeasureCqlTabProps {
 }
 
 export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: MeasureCqlTabProps) {
+  const { t } = useTranslation('measures')
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings } = useSelector((state: RootState) => state.editor)
   const queryClient = useQueryClient()
@@ -112,25 +114,25 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
           disabled={translateMutation.isPending || !cqlContent}
           onClick={() => translateMutation.mutate()}
         >
-          Translate
+          {t('cql.translate')}
         </Button>
         <GradientButton
           startIcon={<SaveIcon />}
           disabled={!isDirty || saveMutation.isPending || readOnly}
           onClick={() => saveMutation.mutate()}
         >
-          {saveMutation.isPending ? 'Saving...' : 'Save CQL'}
+          {saveMutation.isPending ? t('cql.saving') : t('cql.saveCql')}
         </GradientButton>
         {isDirty && (
           <Alert severity="info" sx={{ py: 0, px: 1, fontSize: '0.75rem' }}>
-            Unsaved changes
+            {t('cql.unsavedChanges')}
           </Alert>
         )}
         {errorCount > 0 && (
-          <Chip label={`${errorCount} error${errorCount > 1 ? 's' : ''}`} size="small" color="error" sx={{ height: 22 }} />
+          <Chip label={t('cql.errorCount', { count: errorCount })} size="small" color="error" sx={{ height: 22 }} />
         )}
         {warningCount > 0 && (
-          <Chip label={`${warningCount} warning${warningCount > 1 ? 's' : ''}`} size="small" color="warning" sx={{ height: 22 }} />
+          <Chip label={t('cql.warningCount', { count: warningCount })} size="small" color="warning" sx={{ height: 22 }} />
         )}
       </Stack>
 
@@ -140,17 +142,17 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
           sx={{ mx: 1, mt: 1 }}
           action={
             <Button color="inherit" size="small" onClick={dismissDraft}>
-              Discard Draft
+              {t('cql.discardDraft')}
             </Button>
           }
         >
-          Restored unsaved draft from a previous session.
+          {t('cql.draftRestored')}
         </Alert>
       )}
 
       {translateMutation.isError && (
         <Alert severity="error" sx={{ mx: 1, mt: 1 }}>
-          Translation failed: {(translateMutation.error as Error).message}
+          {t('cql.translationFailed', { error: (translateMutation.error as Error).message })}
         </Alert>
       )}
 
