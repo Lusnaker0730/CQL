@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Box } from '@mui/material'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import type { RootState } from './store'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
@@ -25,9 +26,10 @@ const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
 
 export default function App() {
   const user = useSelector((state: RootState) => state.auth.user)
+  const { t } = useTranslation()
 
   return (
-    <ErrorBoundary fallbackTitle="Application Error">
+    <ErrorBoundary fallbackTitle={t('errors.applicationError')}>
       <ForcePasswordChangeDialog open={!!user?.forcePasswordChange} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -54,7 +56,7 @@ export default function App() {
                       <Route
                         path="/"
                         element={
-                          <ErrorBoundary fallbackTitle="Editor Error">
+                          <ErrorBoundary fallbackTitle={t('errors.editorError')}>
                             <EditorPage />
                           </ErrorBoundary>
                         }
@@ -62,7 +64,7 @@ export default function App() {
                       <Route
                         path="/cds"
                         element={
-                          <ErrorBoundary fallbackTitle="CDS Hooks Error">
+                          <ErrorBoundary fallbackTitle={t('errors.cdsHooksError')}>
                             <CdsPage />
                           </ErrorBoundary>
                         }
@@ -70,7 +72,7 @@ export default function App() {
                       <Route
                         path="/measures"
                         element={
-                          <ErrorBoundary fallbackTitle="Measures Error">
+                          <ErrorBoundary fallbackTitle={t('errors.measuresError')}>
                             <MeasuresPage />
                           </ErrorBoundary>
                         }
@@ -78,7 +80,7 @@ export default function App() {
                       <Route
                         path="/fhir"
                         element={
-                          <ErrorBoundary fallbackTitle="FHIR Browser Error">
+                          <ErrorBoundary fallbackTitle={t('errors.fhirBrowserError')}>
                             <FhirPage />
                           </ErrorBoundary>
                         }
@@ -86,7 +88,7 @@ export default function App() {
                       <Route
                         path="/terminology"
                         element={
-                          <ErrorBoundary fallbackTitle="Terminology Error">
+                          <ErrorBoundary fallbackTitle={t('errors.terminologyError')}>
                             <TerminologyPage />
                           </ErrorBoundary>
                         }
@@ -94,7 +96,7 @@ export default function App() {
                       <Route
                         path="/authoring"
                         element={
-                          <ErrorBoundary fallbackTitle="CDS Authoring Error">
+                          <ErrorBoundary fallbackTitle={t('errors.cdsAuthoringError')}>
                             <AuthoringPage />
                           </ErrorBoundary>
                         }
@@ -103,7 +105,7 @@ export default function App() {
                         path="/admin/users"
                         element={
                           <AdminRoute>
-                            <ErrorBoundary fallbackTitle="Admin Error">
+                            <ErrorBoundary fallbackTitle={t('errors.adminError')}>
                               <AdminUsersPage />
                             </ErrorBoundary>
                           </AdminRoute>
@@ -113,7 +115,7 @@ export default function App() {
                         path="/admin/audit"
                         element={
                           <AdminRoute>
-                            <ErrorBoundary fallbackTitle="Audit Dashboard Error">
+                            <ErrorBoundary fallbackTitle={t('errors.auditDashboardError')}>
                               <AuditDashboardPage />
                             </ErrorBoundary>
                           </AdminRoute>

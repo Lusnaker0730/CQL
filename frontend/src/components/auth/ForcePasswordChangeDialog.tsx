@@ -11,6 +11,7 @@ import {
   CircularProgress,
 } from '@mui/material'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '../../api'
 import { clearForcePasswordChange } from '../../store/authSlice'
 import { validatePassword } from '../../utils/validation'
@@ -21,6 +22,7 @@ interface ForcePasswordChangeDialogProps {
 
 export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeDialogProps) {
   const dispatch = useDispatch()
+  const { t } = useTranslation()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,12 +36,12 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
 
   const validate = (): boolean => {
     const errors: { current?: string; password?: string; confirm?: string } = {}
-    if (!currentPassword) errors.current = 'Current password is required'
+    if (!currentPassword) errors.current = t('validation:password.required')
     const pwErr = validatePassword(newPassword)
     if (pwErr) errors.password = pwErr
-    if (newPassword !== confirmPassword) errors.confirm = 'Passwords do not match'
+    if (newPassword !== confirmPassword) errors.confirm = t('validation:password.mismatch')
     if (currentPassword && newPassword && currentPassword === newPassword) {
-      errors.password = 'New password must be different from current password'
+      errors.password = t('validation:password.sameasCurrent')
     }
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -57,7 +59,7 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
       dispatch(clearForcePasswordChange())
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } }
-      setError(axiosErr.response?.data?.error || 'Failed to change password')
+      setError(axiosErr.response?.data?.error || t('auth.changePasswordFailed'))
     } finally {
       setLoading(false)
     }
@@ -73,10 +75,10 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
         if (reason === 'backdropClick') return
       }}
     >
-      <DialogTitle sx={{ fontWeight: 700 }}>Password Change Required</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>{t('auth.passwordChangeRequired')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Your password has been reset by an administrator. You must set a new password before continuing.
+          {t('auth.passwordChangeDescription')}
         </Typography>
 
         {error && (
@@ -88,7 +90,7 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
         <form id="force-change-form" onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="Current / Temporary Password"
+            label={t('auth.currentPassword')}
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -101,7 +103,7 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
           />
           <TextField
             fullWidth
-            label="New Password"
+            label={t('auth.newPassword')}
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -113,7 +115,7 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
           />
           <TextField
             fullWidth
-            label="Confirm New Password"
+            label={t('auth.confirmNewPassword')}
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -133,7 +135,7 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
           disabled={loading}
           sx={{ borderRadius: 2 }}
         >
-          {loading ? <CircularProgress size={20} color="inherit" /> : 'Change Password'}
+          {loading ? <CircularProgress size={20} color="inherit" /> : t('auth.changePassword')}
         </Button>
       </DialogActions>
     </Dialog>

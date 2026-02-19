@@ -12,10 +12,12 @@ import {
 } from '@mui/material'
 import { LocalHospital as MedicalIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '../api'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -26,7 +28,7 @@ export default function ForgotPasswordPage() {
     setError('')
 
     if (!email.trim()) {
-      setError('Email is required')
+      setError(t('validation:email.required'))
       return
     }
 
@@ -70,10 +72,10 @@ export default function ForgotPasswordPage() {
               <MedicalIcon sx={{ fontSize: 32, color: 'white' }} />
             </Box>
             <Typography variant="h5" fontWeight={700} color="text.primary">
-              Reset Password
+              {t('auth.resetPassword')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Enter your email to receive a reset link
+              {t('auth.resetPasswordSubtitle')}
             </Typography>
           </Box>
 
@@ -86,8 +88,7 @@ export default function ForgotPasswordPage() {
           {success ? (
             <Box>
               <Alert severity="success" sx={{ mb: 2 }}>
-                If an account with that email exists, a password reset link has been sent.
-                Please check your inbox.
+                {t('auth.resetEmailSent')}
               </Alert>
               <Box sx={{ textAlign: 'center', mt: 2 }}>
                 <Link
@@ -95,7 +96,7 @@ export default function ForgotPasswordPage() {
                   variant="body2"
                   onClick={() => navigate('/login')}
                 >
-                  Back to Sign In
+                  {t('auth.backToSignIn')}
                 </Link>
               </Box>
             </Box>
@@ -103,7 +104,7 @@ export default function ForgotPasswordPage() {
             <Box component="form" onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="Email Address"
+                label={t('auth.emailAddress')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -123,7 +124,7 @@ export default function ForgotPasswordPage() {
                 {loading ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  'Send Reset Link'
+                  t('auth.sendResetLink')
                 )}
               </Button>
               <Box sx={{ textAlign: 'center' }}>
@@ -133,7 +134,7 @@ export default function ForgotPasswordPage() {
                   variant="body2"
                   onClick={() => navigate('/login')}
                 >
-                  Back to Sign In
+                  {t('auth.backToSignIn')}
                 </Link>
               </Box>
             </Box>

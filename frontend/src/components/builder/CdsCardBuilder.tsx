@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -42,6 +43,7 @@ function formatFieldValue(field: FieldState): string {
 }
 
 export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsCardBuilderProps) {
+  const { t } = useTranslation('builder')
   const { showNotification } = useNotification()
   const [name, setName] = useState('Card')
   const [summary, setSummary] = useState<FieldState>({ value: '', mode: 'literal' })
@@ -76,17 +78,17 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
     <Stack spacing={1}>
       <TextField
         size="small"
-        label="Definition Name"
+        label={t('definitions.name')}
         value={name}
         onChange={(e) => setName(e.target.value)}
-        helperText='Names starting with "Card" are detected as CDS Cards'
+        helperText={t('cdsCard.nameHint')}
       />
 
       {/* Summary */}
       <Stack spacing={0.5}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
-            Summary *
+            {t('cdsCard.summary')}
           </Typography>
           <ToggleButtonGroup
             size="small"
@@ -94,14 +96,14 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             value={summary.mode}
             onChange={(_, v) => { if (v) setSummary((s) => ({ ...s, mode: v })) }}
           >
-            <ToggleButton value="literal" sx={toggleSx}>Literal</ToggleButton>
-            <ToggleButton value="expression" sx={toggleSx}>Expr</ToggleButton>
+            <ToggleButton value="literal" sx={toggleSx}>{t('cdsCard.literal')}</ToggleButton>
+            <ToggleButton value="expression" sx={toggleSx}>{t('cdsCard.expr')}</ToggleButton>
           </ToggleButtonGroup>
         </Stack>
         {summary.mode === 'literal' ? (
           <TextField
             size="small"
-            label="Summary"
+            label={t('cdsCard.summaryLabel')}
             value={summary.value}
             onChange={(e) => setSummary((s) => ({ ...s, value: e.target.value }))}
           />
@@ -109,12 +111,12 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           <TextField
             select
             size="small"
-            label="Summary (Expression)"
+            label={t('cdsCard.summaryExpr')}
             value={summary.value}
             onChange={(e) => setSummary((s) => ({ ...s, value: e.target.value }))}
             SelectProps={{ displayEmpty: true }}
           >
-            <MenuItem value="" disabled><em>Select a definition...</em></MenuItem>
+            <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
               <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
             ))}
@@ -126,7 +128,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
       <Stack spacing={0.5}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
-            Detail
+            {t('cdsCard.detail')}
           </Typography>
           <ToggleButtonGroup
             size="small"
@@ -134,14 +136,14 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             value={detail.mode}
             onChange={(_, v) => { if (v) setDetail((s) => ({ ...s, mode: v })) }}
           >
-            <ToggleButton value="literal" sx={toggleSx}>Literal</ToggleButton>
-            <ToggleButton value="expression" sx={toggleSx}>Expr</ToggleButton>
+            <ToggleButton value="literal" sx={toggleSx}>{t('cdsCard.literal')}</ToggleButton>
+            <ToggleButton value="expression" sx={toggleSx}>{t('cdsCard.expr')}</ToggleButton>
           </ToggleButtonGroup>
         </Stack>
         {detail.mode === 'literal' ? (
           <TextField
             size="small"
-            label="Detail"
+            label={t('cdsCard.detailLabel')}
             multiline
             rows={2}
             value={detail.value}
@@ -151,12 +153,12 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           <TextField
             select
             size="small"
-            label="Detail (Expression)"
+            label={t('cdsCard.detailExpr')}
             value={detail.value}
             onChange={(e) => setDetail((s) => ({ ...s, value: e.target.value }))}
             SelectProps={{ displayEmpty: true }}
           >
-            <MenuItem value="" disabled><em>Select a definition...</em></MenuItem>
+            <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
               <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
             ))}
@@ -168,7 +170,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
       <TextField
         select
         size="small"
-        label="Indicator"
+        label={t('cdsCard.indicator')}
         value={indicator}
         onChange={(e) => setIndicator(e.target.value)}
       >
@@ -181,7 +183,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
       <Stack spacing={0.5}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
-            Source Label
+            {t('cdsCard.sourceLabel')}
           </Typography>
           <ToggleButtonGroup
             size="small"
@@ -189,14 +191,14 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             value={sourceLabel.mode}
             onChange={(_, v) => { if (v) setSourceLabel((s) => ({ ...s, mode: v })) }}
           >
-            <ToggleButton value="literal" sx={toggleSx}>Literal</ToggleButton>
-            <ToggleButton value="expression" sx={toggleSx}>Expr</ToggleButton>
+            <ToggleButton value="literal" sx={toggleSx}>{t('cdsCard.literal')}</ToggleButton>
+            <ToggleButton value="expression" sx={toggleSx}>{t('cdsCard.expr')}</ToggleButton>
           </ToggleButtonGroup>
         </Stack>
         {sourceLabel.mode === 'literal' ? (
           <TextField
             size="small"
-            label="Source Label"
+            label={t('cdsCard.sourceLabelLabel')}
             value={sourceLabel.value}
             onChange={(e) => setSourceLabel((s) => ({ ...s, value: e.target.value }))}
           />
@@ -204,12 +206,12 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           <TextField
             select
             size="small"
-            label="Source Label (Expression)"
+            label={t('cdsCard.sourceLabelExpr')}
             value={sourceLabel.value}
             onChange={(e) => setSourceLabel((s) => ({ ...s, value: e.target.value }))}
             SelectProps={{ displayEmpty: true }}
           >
-            <MenuItem value="" disabled><em>Select a definition...</em></MenuItem>
+            <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
               <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
             ))}
@@ -244,18 +246,18 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           onClick={handleInsert}
           disabled={!cqlPreview}
         >
-          Insert
+          {t('common.insert')}
         </GradientButton>
         {cqlPreview && (
-          <Tooltip title="Copy to clipboard">
+          <Tooltip title={t('common.copyToClipboard')}>
             <IconButton
               size="small"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(cqlPreview)
-                  showNotification('Copied to clipboard', 'success', 2000)
+                  showNotification(t('common.copiedToClipboard'), 'success', 2000)
                 } catch {
-                  showNotification('Failed to copy', 'error', 2000)
+                  showNotification(t('common.copyFailed'), 'error', 2000)
                 }
               }}
             >
@@ -263,7 +265,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             </IconButton>
           </Tooltip>
         )}
-        <Button size="small" onClick={onCancel}>Cancel</Button>
+        <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
   )

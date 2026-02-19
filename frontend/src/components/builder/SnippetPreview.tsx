@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Box, Stack, Button, IconButton, Tooltip } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
@@ -18,6 +19,7 @@ export default function SnippetPreview({
   insertLabel = 'Insert',
   insertDisabled = false,
 }: SnippetPreviewProps) {
+  const { t } = useTranslation('builder')
   const { showNotification } = useNotification()
 
   if (!snippet) return null
@@ -25,9 +27,9 @@ export default function SnippetPreview({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(snippet)
-      showNotification('Copied to clipboard', 'success', 2000)
+      showNotification(t('common.copiedToClipboard'), 'success', 2000)
     } catch {
-      showNotification('Failed to copy', 'error', 2000)
+      showNotification(t('common.copyFailed'), 'error', 2000)
     }
   }
 
@@ -54,12 +56,12 @@ export default function SnippetPreview({
         <GradientButton onClick={onInsert} disabled={insertDisabled}>
           {insertLabel}
         </GradientButton>
-        <Tooltip title="Copy to clipboard">
-          <IconButton size="small" onClick={handleCopy} aria-label="Copy to clipboard">
+        <Tooltip title={t('common.copyToClipboard')}>
+          <IconButton size="small" onClick={handleCopy} aria-label={t('common.copyToClipboard')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Button size="small" onClick={onCancel}>Cancel</Button>
+        <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
   )

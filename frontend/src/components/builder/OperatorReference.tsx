@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -120,6 +121,7 @@ interface OperatorReferenceProps {
 }
 
 export default function OperatorReference({ onInsert }: OperatorReferenceProps) {
+  const { t } = useTranslation('builder')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | false>(false)
   const { showNotification } = useNotification()
@@ -148,7 +150,7 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
     <Stack spacing={0.5}>
       <TextField
         size="small"
-        placeholder="Search operators..."
+        placeholder={t('operatorReference.searchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         InputProps={{

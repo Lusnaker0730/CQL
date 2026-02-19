@@ -1,0 +1,173 @@
+{
+  "title": "CQL 建構器",
+  "parseCql": "解析 CQL",
+  "parsing": "解析中...",
+  "sections": {
+    "includes": "引入",
+    "valueSets": "值集",
+    "codes": "代碼",
+    "concepts": "概念",
+    "parameters": "參數",
+    "definitions": "定義",
+    "functions": "函式"
+  },
+  "common": {
+    "noItemsFound": "未找到{{type}}",
+    "addItem": "新增{{type}}",
+    "previewInsert": "預覽插入",
+    "previewUpdate": "預覽更新",
+    "update": "更新",
+    "insert": "插入",
+    "cancel": "取消",
+    "deleteElement": "刪除元素",
+    "deleteConfirm": "確定要刪除「{{name}}」嗎？這將從 CQL 編輯器中移除對應的程式碼行。",
+    "goToDefinition": "前往定義",
+    "delete": "刪除",
+    "copyToClipboard": "複製到剪貼簿",
+    "copiedToClipboard": "已複製到剪貼簿",
+    "copyFailed": "複製失敗"
+  },
+  "includes": {
+    "library": "函式庫",
+    "searchLibraries": "搜尋函式庫...",
+    "version": "版本",
+    "alias": "別名"
+  },
+  "valueSets": {
+    "name": "值集名稱",
+    "urlOid": "URL / OID",
+    "searchVsac": "搜尋 VSAC",
+    "browseTwcore": "瀏覽 TWCORE",
+    "searchVsacTitle": "搜尋 VSAC 值集",
+    "searchVsacPlaceholder": "例如 糖尿病、HbA1c...",
+    "noTwcoreEntries": "無符合的 TWCORE 項目"
+  },
+  "codes": {
+    "manualSearch": "手動 / 搜尋",
+    "browseTwcore": "瀏覽 TWCORE",
+    "codeSystem": "代碼系統",
+    "systemAlias": "系統別名",
+    "code": "代碼",
+    "lookup": "查詢",
+    "searchByText": "依文字搜尋",
+    "searchPlaceholder": "例如 「糖尿病」",
+    "searchFailed": "搜尋失敗 — 術語伺服器可能無法使用。請稍後再試。",
+    "noResults": "未找到結果",
+    "displayName": "顯示名稱",
+    "lookupFailed": "代碼查詢失敗 — 您仍可手動輸入。",
+    "filterTwcore": "篩選 TWCORE 項目",
+    "filterTwcorePlaceholder": "例如 diabetes、血壓...",
+    "noTwcoreEntries": "無符合的 TWCORE 項目"
+  },
+  "concepts": {
+    "name": "概念名稱",
+    "selectCodes": "選擇要包含的代碼：",
+    "noCodesAvailable": "無可用代碼。請先新增代碼。",
+    "display": "顯示名稱（選填）"
+  },
+  "parameters": {
+    "name": "參數名稱",
+    "type": "類型",
+    "defaultValue": "預設值（選填）",
+    "defaultPlaceholder": "例如 true、42、@2024-01-01"
+  },
+  "definitions": {
+    "template": "範本",
+    "retrieve": "擷取",
+    "query": "查詢",
+    "operators": "運算子",
+    "cdsCard": "CDS 卡片",
+    "name": "定義名稱",
+    "context": "上下文",
+    "contextPatient": "病患",
+    "contextPopulation": "母群體",
+    "expression": "運算式",
+    "templates": {
+      "blank": "空白",
+      "ageFilter": "年齡篩選",
+      "conditionCheck": "病況檢查",
+      "encounterCheck": "就醫檢查",
+      "medicationCheck": "藥物檢查",
+      "observationValue": "檢驗值"
+    }
+  },
+  "functions": {
+    "name": "函式名稱",
+    "arguments": "引數",
+    "argName": "名稱",
+    "argType": "類型",
+    "addArgument": "新增引數",
+    "body": "函式主體"
+  },
+  "expression": {
+    "rows": "運算式列：",
+    "select": "選擇...",
+    "none": "無",
+    "valuePlaceholder": "18、\"Name\"、...",
+    "removeRow": "移除列",
+    "addRow": "新增列",
+    "wrappingFunction": "包裝函式",
+    "preview": "預覽"
+  },
+  "query": {
+    "resourceType": "資源類型",
+    "terminologySource": "術語來源",
+    "alias": "別名",
+    "definitionName": "定義名稱",
+    "whereClauses": "Where 子句",
+    "and": "AND",
+    "or": "OR",
+    "field": "欄位",
+    "op": "運算子",
+    "value": "值",
+    "selectOp": "選擇...",
+    "valuePlaceholder": "例如 'active'",
+    "addWhereClause": "新增 Where 子句",
+    "sort": "排序",
+    "sortField": "排序欄位",
+    "asc": "升冪",
+    "desc": "降冪",
+    "returnExpression": "回傳運算式",
+    "returnExpressionPlaceholder": "例如 {{alias}}.value"
+  },
+  "retrieve": {
+    "resourceType": "資源類型",
+    "terminologySource": "術語來源",
+    "selectTerminology": "選擇值集或代碼...",
+    "definitionName": "定義名稱",
+    "modifiers": "修飾器",
+    "mostRecent": "最近一次",
+    "activeConfirmed": "啟用 / 已確認",
+    "lookBackPeriod": "回溯期間",
+    "value": "值",
+    "unit": "單位",
+    "years": "年",
+    "months": "月",
+    "weeks": "週",
+    "days": "天",
+    "existsBoolean": "存在（布林值）"
+  },
+  "operatorPanel": {
+    "expressionBuilder": "運算式建構器",
+    "operatorReference": "運算子參考"
+  },
+  "operatorReference": {
+    "searchPlaceholder": "搜尋運算子..."
+  },
+  "cdsCard": {
+    "nameHint": "以「Card」開頭的名稱會被偵測為 CDS 卡片",
+    "summary": "摘要 *",
+    "summaryLabel": "摘要",
+    "summaryExpr": "摘要（運算式）",
+    "detail": "詳細內容",
+    "detailLabel": "詳細內容",
+    "detailExpr": "詳細內容（運算式）",
+    "indicator": "指標",
+    "sourceLabel": "來源標籤",
+    "sourceLabelLabel": "來源標籤",
+    "sourceLabelExpr": "來源標籤（運算式）",
+    "selectDefinition": "選擇定義...",
+    "literal": "字面值",
+    "expr": "運算式"
+  }
+}

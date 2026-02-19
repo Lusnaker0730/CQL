@@ -7,22 +7,33 @@ import {
   IconButton,
 } from '@mui/material'
 import { Close as CloseIcon } from '@mui/icons-material'
-import { helpContent } from '../../constants/helpContent'
+import { useTranslation } from 'react-i18next'
 
 interface HelpDrawerProps {
   open: boolean
   onClose: () => void
 }
 
+const quickStartKeys = [
+  'gettingStarted',
+  'cqlBasics',
+  'cdsHooks',
+  'qualityMeasures',
+  'fhirBrowser',
+  'keyboardShortcuts',
+] as const
+
 export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
+  const { t } = useTranslation()
+
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
       <Box sx={{ width: 360, p: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="h6" color="secondary.main">
-            Quick Start Guide
+            {t('help.quickStartGuide')}
           </Typography>
-          <IconButton onClick={onClose} aria-label="Close help drawer">
+          <IconButton onClick={onClose} aria-label={t('dialogs.closeHelp')}>
             <CloseIcon />
           </IconButton>
         </Stack>
@@ -30,13 +41,13 @@ export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
         <Divider sx={{ mb: 2 }} />
 
         <Stack spacing={3}>
-          {helpContent.quickStart.map((section) => (
-            <Box key={section.title}>
+          {quickStartKeys.map((key) => (
+            <Box key={key}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mb: 0.5 }}>
-                {section.title}
+                {t(`help.quickStart.${key}.title`)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {section.content}
+                {t(`help.quickStart.${key}.content`)}
               </Typography>
             </Box>
           ))}

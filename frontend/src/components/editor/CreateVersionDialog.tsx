@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -49,6 +50,7 @@ export default function CreateVersionDialog({
   isPending,
   entityType,
 }: CreateVersionDialogProps) {
+  const { t } = useTranslation('editor')
   const [bumpType, setBumpType] = useState<VersionBump>('minor')
 
   const newVersion = useMemo(
@@ -64,11 +66,11 @@ export default function CreateVersionDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Create New {label} Version</DialogTitle>
+      <DialogTitle>{t('version.createTitle', { type: label })}</DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Current version: <strong>{currentVersion}</strong>
+            {t('version.currentVersion')}<strong>{currentVersion}</strong>
           </Typography>
         </Box>
 
@@ -82,10 +84,10 @@ export default function CreateVersionDialog({
             label={
               <Box>
                 <Typography variant="body2" fontWeight={500}>
-                  Major
+                  {t('version.major')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Breaking changes or significant rework
+                  {t('version.majorDesc')}
                 </Typography>
               </Box>
             }
@@ -96,10 +98,10 @@ export default function CreateVersionDialog({
             label={
               <Box>
                 <Typography variant="body2" fontWeight={500}>
-                  Minor
+                  {t('version.minor')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  New features or enhancements, backward-compatible
+                  {t('version.minorDesc')}
                 </Typography>
               </Box>
             }
@@ -110,10 +112,10 @@ export default function CreateVersionDialog({
             label={
               <Box>
                 <Typography variant="body2" fontWeight={500}>
-                  Patch
+                  {t('version.patch')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Bug fixes or minor corrections
+                  {t('version.patchDesc')}
                 </Typography>
               </Box>
             }
@@ -132,7 +134,7 @@ export default function CreateVersionDialog({
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            New version:
+            {t('version.newVersion')}
           </Typography>
           <Typography variant="body1" fontWeight={600} color="primary">
             {newVersion}
@@ -141,7 +143,7 @@ export default function CreateVersionDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} size="small" disabled={isPending}>
-          Cancel
+          {t('common:actions.cancel')}
         </Button>
         <GradientButton
           onClick={handleConfirm}
@@ -150,7 +152,7 @@ export default function CreateVersionDialog({
             isPending ? <CircularProgress size={16} color="inherit" /> : undefined
           }
         >
-          {isPending ? 'Creating...' : 'Create Version'}
+          {isPending ? t('version.creating') : t('version.createVersion')}
         </GradientButton>
       </DialogActions>
     </Dialog>

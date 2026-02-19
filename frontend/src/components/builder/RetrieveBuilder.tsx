@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -125,6 +126,7 @@ function generateCql(
 }
 
 export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }: RetrieveBuilderProps) {
+  const { t } = useTranslation('builder')
   const { showNotification } = useNotification()
   const [resourceType, setResourceType] = useState<ResourceType>('Observation')
   const [terminology, setTerminology] = useState('')
@@ -191,7 +193,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
       <TextField
         select
         size="small"
-        label="Resource Type"
+        label={t('retrieve.resourceType')}
         value={resourceType}
         onChange={(e) => handleResourceChange(e.target.value as ResourceType)}
       >
@@ -203,13 +205,13 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
       <TextField
         select
         size="small"
-        label="Terminology Source"
+        label={t('retrieve.terminologySource')}
         value={terminology}
         onChange={(e) => handleTerminologyChange(e.target.value)}
         SelectProps={{ displayEmpty: true }}
       >
         <MenuItem value="" disabled>
-          <em>Select a valueset or code...</em>
+          <em>{t('retrieve.selectTerminology')}</em>
         </MenuItem>
         {terminologyOptions.map((opt) => (
           <MenuItem key={opt.raw} value={opt.raw}>
@@ -220,7 +222,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
 
       <TextField
         size="small"
-        label="Definition Name"
+        label={t('retrieve.definitionName')}
         value={definitionName}
         onChange={(e) => {
           setDefinitionName(e.target.value)
@@ -229,7 +231,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
       />
 
       <Typography variant="caption" fontWeight={600} color="text.secondary">
-        Modifiers
+        {t('retrieve.modifiers')}
       </Typography>
 
       <Stack spacing={0} sx={{ pl: 0.5 }}>
@@ -242,7 +244,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
                 onChange={(e) => handleModifierChange('mostRecent', e.target.checked)}
               />
             }
-            label={<Typography variant="body2">Most Recent</Typography>}
+            label={<Typography variant="body2">{t('retrieve.mostRecent')}</Typography>}
           />
         )}
 
@@ -255,7 +257,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
                 onChange={(e) => handleModifierChange('activeConfirmed', e.target.checked)}
               />
             }
-            label={<Typography variant="body2">Active / Confirmed</Typography>}
+            label={<Typography variant="body2">{t('retrieve.activeConfirmed')}</Typography>}
           />
         )}
 
@@ -269,13 +271,13 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
                   onChange={(e) => handleModifierChange('lookBack', e.target.checked)}
                 />
               }
-              label={<Typography variant="body2">Look Back Period</Typography>}
+              label={<Typography variant="body2">{t('retrieve.lookBackPeriod')}</Typography>}
             />
             {modifiers.lookBack && (
               <Stack direction="row" spacing={1} sx={{ pl: 3, pb: 0.5 }}>
                 <TextField
                   size="small"
-                  label="Value"
+                  label={t('retrieve.value')}
                   value={modifiers.lookBackValue}
                   onChange={(e) => handleModifierChange('lookBackValue', e.target.value)}
                   sx={{ width: 80 }}
@@ -283,15 +285,15 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
                 <TextField
                   select
                   size="small"
-                  label="Unit"
+                  label={t('retrieve.unit')}
                   value={modifiers.lookBackUnit}
                   onChange={(e) => handleModifierChange('lookBackUnit', e.target.value)}
                   sx={{ width: 100 }}
                 >
-                  <MenuItem value="years">years</MenuItem>
-                  <MenuItem value="months">months</MenuItem>
-                  <MenuItem value="weeks">weeks</MenuItem>
-                  <MenuItem value="days">days</MenuItem>
+                  <MenuItem value="years">{t('retrieve.years')}</MenuItem>
+                  <MenuItem value="months">{t('retrieve.months')}</MenuItem>
+                  <MenuItem value="weeks">{t('retrieve.weeks')}</MenuItem>
+                  <MenuItem value="days">{t('retrieve.days')}</MenuItem>
                 </TextField>
               </Stack>
             )}
@@ -307,7 +309,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
                 onChange={(e) => handleModifierChange('exists', e.target.checked)}
               />
             }
-            label={<Typography variant="body2">Exists (boolean)</Typography>}
+            label={<Typography variant="body2">{t('retrieve.existsBoolean')}</Typography>}
           />
         )}
       </Stack>
@@ -337,18 +339,18 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
           onClick={handleInsert}
           disabled={!terminology || !definitionName.trim()}
         >
-          Insert
+          {t('common.insert')}
         </GradientButton>
         {cqlPreview && (
-          <Tooltip title="Copy to clipboard">
+          <Tooltip title={t('common.copyToClipboard')}>
             <IconButton
               size="small"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(cqlPreview)
-                  showNotification('Copied to clipboard', 'success', 2000)
+                  showNotification(t('common.copiedToClipboard'), 'success', 2000)
                 } catch {
-                  showNotification('Failed to copy', 'error', 2000)
+                  showNotification(t('common.copyFailed'), 'error', 2000)
                 }
               }}
             >
@@ -356,7 +358,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
             </IconButton>
           </Tooltip>
         )}
-        <Button size="small" onClick={onCancel}>Cancel</Button>
+        <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
   )

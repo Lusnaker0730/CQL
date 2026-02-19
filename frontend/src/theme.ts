@@ -1,4 +1,5 @@
 import { createTheme, alpha } from '@mui/material/styles'
+import { zhTW } from '@mui/material/locale'
 
 type PaletteMode = 'light' | 'dark'
 
@@ -78,8 +79,9 @@ const darkPalette = {
   },
 }
 
-export function createAppTheme(mode: PaletteMode) {
+export function createAppTheme(mode: PaletteMode, language?: string) {
   const palette = mode === 'dark' ? darkPalette : lightPalette
+  const locales = language?.startsWith('zh') ? [zhTW] : []
 
   return createTheme({
     palette: {
@@ -359,7 +361,7 @@ export function createAppTheme(mode: PaletteMode) {
         },
       },
     },
-  })
+  }, ...locales)
 }
 
 // Keep backwards compat for any direct imports

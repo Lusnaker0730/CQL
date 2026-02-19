@@ -1,4 +1,5 @@
 import { Autocomplete, TextField, Typography } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import { FHIR_SERVER_PRESETS, type FhirServerPreset } from '../../constants/fhirServers'
 import { validateFhirUrl } from '../../utils/validation'
 import { useState } from 'react'
@@ -18,13 +19,15 @@ interface FhirServerUrlFieldProps {
 export default function FhirServerUrlField({
   value,
   onChange,
-  label = 'FHIR Server URL',
+  label: labelProp,
   size = 'small',
   fullWidth = true,
   error: externalError,
   helperText: externalHelperText,
   selfValidate = false,
 }: FhirServerUrlFieldProps) {
+  const { t } = useTranslation('editor')
+  const label = labelProp ?? t('fhirServerUrl.label')
   const [internalError, setInternalError] = useState<string | null>(null)
 
   const handleBlur = () => {

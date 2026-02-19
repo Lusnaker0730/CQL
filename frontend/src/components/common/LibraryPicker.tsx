@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -31,6 +32,7 @@ interface LibraryPickerProps {
 }
 
 export default function LibraryPicker({ open, onClose, onSelect }: LibraryPickerProps) {
+  const { t } = useTranslation('editor')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const { favoritesList, recentList } = useLibraryHistory()
@@ -56,7 +58,7 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Load from Library</DialogTitle>
+      <DialogTitle>{t('libraryPicker.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {/* Favorites section */}
@@ -64,7 +66,7 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
             <>
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                <Typography variant="subtitle2">Favorites</Typography>
+                <Typography variant="subtitle2">{t('libraryPicker.favorites')}</Typography>
               </Stack>
               <List dense disablePadding>
                 {favoritesList.map((item) => (
@@ -94,7 +96,7 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
             <>
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <HistoryIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                <Typography variant="subtitle2">Recent</Typography>
+                <Typography variant="subtitle2">{t('libraryPicker.recent')}</Typography>
               </Stack>
               <List dense disablePadding>
                 {recentList.map((item) => (
@@ -122,12 +124,12 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
           {/* Search */}
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-            <Typography variant="subtitle2">Search Libraries</Typography>
+            <Typography variant="subtitle2">{t('libraryPicker.searchLibraries')}</Typography>
           </Stack>
           <TextField
             size="small"
             fullWidth
-            placeholder="Search by name..."
+            placeholder={t('libraryPicker.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} /> }}
@@ -153,20 +155,20 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
           )}
           {search.length > 0 && !isFetching && searchResults.length === 0 && (
             <Typography variant="body2" color="text.secondary">
-              No libraries found.
+              {t('libraryPicker.noLibraries')}
             </Typography>
           )}
 
           {loading && (
             <Stack direction="row" spacing={1} alignItems="center">
               <CircularProgress size={16} />
-              <Typography variant="body2" color="text.secondary">Loading library...</Typography>
+              <Typography variant="body2" color="text.secondary">{t('libraryPicker.loading')}</Typography>
             </Stack>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
       </DialogActions>
     </Dialog>
   )

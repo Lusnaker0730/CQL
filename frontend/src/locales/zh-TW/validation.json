@@ -1,0 +1,36 @@
+{
+  "username": {
+    "required": "使用者名稱為必填",
+    "minLength": "使用者名稱至少需要 3 個字元",
+    "maxLength": "使用者名稱最多 50 個字元",
+    "pattern": "使用者名稱僅能包含英文字母、數字、連字號和底線"
+  },
+  "password": {
+    "required": "密碼為必填",
+    "minLength": "密碼至少需要 8 個字元",
+    "uppercase": "密碼必須包含至少一個大寫字母",
+    "lowercase": "密碼必須包含至少一個小寫字母",
+    "number": "密碼必須包含至少一個數字",
+    "mismatch": "密碼不一致",
+    "sameasCurrent": "新密碼必須與目前密碼不同"
+  },
+  "email": {
+    "required": "電子郵件為必填"
+  },
+  "fhirUrl": {
+    "required": "FHIR 伺服器 URL 為必填",
+    "protocol": "URL 必須以 http:// 或 https:// 開頭",
+    "invalid": "URL 格式無效"
+  },
+  "json": {
+    "invalid": "JSON 格式無效"
+  },
+  "dateRange": {
+    "startBeforeEnd": "開始日期必須早於結束日期"
+  },
+  "hookType": {
+    "required": "Hook 類型為必填",
+    "invalid": "無效的 Hook 類型"
+  },
+  "required": "{{field}} 為必填"
+}

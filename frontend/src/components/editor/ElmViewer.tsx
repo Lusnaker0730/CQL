@@ -1,5 +1,6 @@
 import React from 'react'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -32,6 +33,7 @@ interface ElmViewerProps {
 }
 
 export default function ElmViewer({ terminologyResults = [], isTermValidating = false }: ElmViewerProps) {
+  const { t } = useTranslation('editor')
   const { elmJson, errors, warnings } = useSelector((state: RootState) => state.editor)
   const [tabValue, setTabValue] = React.useState(0)
 
@@ -61,12 +63,12 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
   return (
     <Paper sx={{ height: '100%', overflow: 'auto' }}>
       <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-        <Tab label="Metadata" {...a11yProps(0, 'elm')} />
+        <Tab label={t('elm.metadata')} {...a11yProps(0, 'elm')} />
         <Tab
           {...a11yProps(1, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
-              <span>Errors</span>
+              <span>{t('elm.errors')}</span>
               {errors.length > 0 && (
                 <Chip label={errors.length} color="error" size="small" />
               )}
@@ -77,19 +79,19 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           {...a11yProps(2, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
-              <span>Warnings</span>
+              <span>{t('elm.warnings')}</span>
               {warnings.length > 0 && (
                 <Chip label={warnings.length} color="warning" size="small" />
               )}
             </Stack>
           }
         />
-        <Tab label="ELM JSON" {...a11yProps(3, 'elm')} />
+        <Tab label={t('elm.elmJson')} {...a11yProps(3, 'elm')} />
         <Tab
           {...a11yProps(4, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
-              <span>Terminology</span>
+              <span>{t('elm.terminology')}</span>
               {isTermValidating ? (
                 <CircularProgress size={14} />
               ) : terminologyResults.length > 0 ? (
@@ -109,7 +111,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           <Stack spacing={2}>
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
-                Library
+                {t('elm.library')}
               </Typography>
               <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
                 {metadata.libraryId} v{metadata.version}
@@ -119,7 +121,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             {metadata.usings.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Using
+                  {t('elm.using')}
                 </Typography>
                 {metadata.usings.map((u: { localIdentifier: string; version: string }, i: number) => (
                   <Chip
@@ -141,7 +143,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             {metadata.includes.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Includes
+                  {t('elm.includes')}
                 </Typography>
                 {metadata.includes.map((inc: { localIdentifier: string; path: string; version: string }, i: number) => (
                   <Chip
@@ -163,7 +165,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             {metadata.parameters.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Parameters
+                  {t('elm.parameters')}
                 </Typography>
                 {metadata.parameters.map((p: { name: string }, i: number) => (
                   <Chip
@@ -185,7 +187,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             {metadata.valueSets.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Value Sets
+                  {t('elm.valueSets')}
                 </Typography>
                 {metadata.valueSets.map((vs: { name: string }, i: number) => (
                   <Chip
@@ -207,7 +209,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             {metadata.statements.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Expressions ({metadata.statements.length})
+                  {t('elm.expressions', { count: metadata.statements.length })}
                 </Typography>
                 {metadata.statements.map((stmt: { name: string; context: string }, i: number) => (
                   <Chip
@@ -228,7 +230,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           </Stack>
         ) : (
           <Typography color="text.secondary">
-            No ELM data available. Translate CQL to view metadata.
+            {t('elm.noElmData')}
           </Typography>
         )}
       </TabPanel>
@@ -249,14 +251,14 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                 }}
               >
                 <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
-                  Line {error.startLine}:{error.startColumn}
+                  {t('elm.lineCol', { line: error.startLine, column: error.startColumn })}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
               </Paper>
             ))}
           </Stack>
         ) : (
-          <Typography color="success.main">No errors</Typography>
+          <Typography color="success.main">{t('elm.noErrors')}</Typography>
         )}
       </TabPanel>
 
@@ -276,14 +278,14 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                 }}
               >
                 <Typography variant="body2" fontWeight="bold" sx={{ color: 'warning.dark' }}>
-                  Line {warning.startLine}:{warning.startColumn}
+                  {t('elm.lineCol', { line: warning.startLine, column: warning.startColumn })}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.primary' }}>{warning.message}</Typography>
               </Paper>
             ))}
           </Stack>
         ) : (
-          <Typography color="text.secondary">No warnings</Typography>
+          <Typography color="text.secondary">{t('elm.noWarnings')}</Typography>
         )}
       </TabPanel>
 
@@ -307,7 +309,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           </Box>
         ) : (
           <Typography color="text.secondary">
-            No ELM data available. Translate CQL to view ELM JSON.
+            {t('elm.noElmJson')}
           </Typography>
         )}
       </TabPanel>
@@ -316,18 +318,18 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         {isTermValidating ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={20} />
-            <Typography color="text.secondary">Validating terminology references...</Typography>
+            <Typography color="text.secondary">{t('elm.validatingTerminology')}</Typography>
           </Box>
         ) : terminologyResults.length > 0 ? (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell scope="col" sx={{ fontWeight: 600, width: 40 }}>Status</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Type</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Name</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Reference</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Detail</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600, width: 40 }}>{t('elm.terminologyStatus')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyType')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyName')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyReference')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyDetail')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -368,7 +370,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           </TableContainer>
         ) : (
           <Typography color="text.secondary">
-            No terminology references found. Translate CQL to validate terminology.
+            {t('elm.noTerminology')}
           </Typography>
         )}
       </TabPanel>

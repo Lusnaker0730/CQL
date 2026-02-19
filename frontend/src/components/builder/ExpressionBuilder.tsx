@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -63,6 +64,7 @@ export default function ExpressionBuilder({
   onInsert,
   onCancel,
 }: ExpressionBuilderProps) {
+  const { t } = useTranslation('builder')
   const [name, setName] = useState('')
   const [rows, setRows] = useState<ExpressionRow[]>([
     { id: nextId(), operand: '', operator: '', value: '', conjunction: 'and' },
@@ -160,13 +162,13 @@ export default function ExpressionBuilder({
     <Stack spacing={1}>
       <TextField
         size="small"
-        label="Definition Name"
+        label={t('definitions.name')}
         value={name}
         onChange={(e) => { setName(e.target.value); setPreviewSnippet('') }}
       />
 
       <Typography variant="caption" fontWeight={500} color="text.secondary">
-        Expression rows:
+        {t('expression.rows')}
       </Typography>
 
       {rows.map((row, idx) => (
@@ -207,7 +209,7 @@ export default function ExpressionBuilder({
               sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
             >
               <MenuItem value="">
-                <em>Select...</em>
+                <em>{t('expression.select')}</em>
               </MenuItem>
               {operandOptions.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '0.8rem' }}>
@@ -226,7 +228,7 @@ export default function ExpressionBuilder({
                 sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
               >
                 <MenuItem value="">
-                  <em>None</em>
+                  <em>{t('expression.none')}</em>
                 </MenuItem>
                 {ALL_OPERATORS.map((group) => [
                   <MenuItem key={`header-${group.group}`} disabled sx={{ fontSize: '0.7rem', fontWeight: 600, opacity: 1 }}>
@@ -247,13 +249,13 @@ export default function ExpressionBuilder({
                   value={row.value}
                   onChange={(e) => updateRow(row.id, 'value', e.target.value)}
                   sx={{ flex: 1, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
-                  placeholder='18, "Name", ...'
+                  placeholder={t('expression.valuePlaceholder')}
                 />
               )}
 
               {rows.length > 1 && (
-                <Tooltip title="Remove row">
-                  <IconButton size="small" onClick={() => removeRow(row.id)} sx={{ color: 'error.main' }} aria-label="Remove row">
+                <Tooltip title={t('expression.removeRow')}>
+                  <IconButton size="small" onClick={() => removeRow(row.id)} sx={{ color: 'error.main' }} aria-label={t('expression.removeRow')}>
                     <DeleteIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 </Tooltip>
@@ -264,13 +266,13 @@ export default function ExpressionBuilder({
       ))}
 
       <Button size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
-        Add Row
+        {t('expression.addRow')}
       </Button>
 
       <TextField
         select
         size="small"
-        label="Wrapping Function"
+        label={t('expression.wrappingFunction')}
         value={wrapping}
         onChange={(e) => { setWrapping(e.target.value); setPreviewSnippet('') }}
       >
@@ -288,9 +290,9 @@ export default function ExpressionBuilder({
       ) : (
         <Stack direction="row" spacing={1}>
           <Button size="small" variant="outlined" onClick={handlePreview} disabled={!isValid}>
-            Preview
+            {t('expression.preview')}
           </Button>
-          <Button size="small" onClick={onCancel}>Cancel</Button>
+          <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
         </Stack>
       )}
     </Stack>

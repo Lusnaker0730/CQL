@@ -4,6 +4,8 @@ import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { BrowserRouter } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import './i18n'
 import App from './App'
 import { store } from './store'
 import { createAppTheme } from './theme'
@@ -25,7 +27,11 @@ const queryClient = new QueryClient({
 // eslint-disable-next-line react-refresh/only-export-components
 function ThemedApp() {
   const { preferences } = usePreferences()
-  const theme = useMemo(() => createAppTheme(preferences.themeMode), [preferences.themeMode])
+  const { i18n } = useTranslation()
+  const theme = useMemo(
+    () => createAppTheme(preferences.themeMode, i18n.language),
+    [preferences.themeMode, i18n.language]
+  )
 
   return (
     <ThemeProvider theme={theme}>

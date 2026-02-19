@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Stack,
@@ -40,6 +41,7 @@ export default function CqlBuilderPanel({
   onGoToElement,
   onEditElement,
 }: CqlBuilderPanelProps) {
+  const { t } = useTranslation('builder')
   const { structure, isParsing, parseError, parse } = useCqlStructure()
   const [expanded, setExpanded] = useState<string | false>('includes')
 
@@ -64,7 +66,7 @@ export default function CqlBuilderPanel({
   const sections = [
     {
       id: 'includes',
-      label: 'Includes',
+      label: t('sections.includes'),
       count: structure.includes.length,
       content: (
         <IncludesSection
@@ -78,7 +80,7 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'valueSets',
-      label: 'Value Sets',
+      label: t('sections.valueSets'),
       count: structure.valueSets.length,
       content: (
         <ValueSetSection
@@ -92,7 +94,7 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'codes',
-      label: 'Codes',
+      label: t('sections.codes'),
       count: structure.codes.length,
       content: (
         <CodesSection
@@ -106,7 +108,7 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'concepts',
-      label: 'Concepts',
+      label: t('sections.concepts'),
       count: structure.concepts.length,
       content: (
         <ConceptsSection
@@ -121,7 +123,7 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'parameters',
-      label: 'Parameters',
+      label: t('sections.parameters'),
       count: structure.parameters.length,
       content: (
         <ParametersSection
@@ -135,7 +137,7 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'definitions',
-      label: 'Definitions',
+      label: t('sections.definitions'),
       count: structure.expressions.length,
       content: (
         <DefinitionsSection
@@ -152,7 +154,7 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'functions',
-      label: 'Functions',
+      label: t('sections.functions'),
       count: structure.functions.length,
       content: (
         <FunctionsSection
@@ -179,7 +181,7 @@ export default function CqlBuilderPanel({
       >
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="subtitle2" fontWeight={600} color="secondary.main">
-            CQL Builder
+            {t('title')}
           </Typography>
           <Button
             size="small"
@@ -188,7 +190,7 @@ export default function CqlBuilderPanel({
             disabled={isParsing}
             sx={{ fontSize: '0.75rem' }}
           >
-            {isParsing ? 'Parsing...' : 'Parse CQL'}
+            {isParsing ? t('parsing') : t('parseCql')}
           </Button>
         </Stack>
         {structure.libraryId && (

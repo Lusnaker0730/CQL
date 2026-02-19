@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -114,6 +115,7 @@ function generateQueryCql(
 }
 
 export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: QueryBuilderProps) {
+  const { t } = useTranslation('builder')
   const { showNotification } = useNotification()
   const [resourceType, setResourceType] = useState<string>('Observation')
   const [terminology, setTerminology] = useState('')
@@ -187,9 +189,9 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(cqlPreview)
-      showNotification('Copied to clipboard', 'success', 2000)
+      showNotification(t('common.copiedToClipboard'), 'success', 2000)
     } catch {
-      showNotification('Failed to copy', 'error', 2000)
+      showNotification(t('common.copyFailed'), 'error', 2000)
     }
   }
 
@@ -198,7 +200,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       <TextField
         select
         size="small"
-        label="Resource Type"
+        label={t('query.resourceType')}
         value={resourceType}
         onChange={(e) => handleResourceChange(e.target.value)}
       >
@@ -210,7 +212,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       <TextField
         select
         size="small"
-        label="Terminology Source"
+        label={t('query.terminologySource')}
         value={terminology}
         onChange={(e) => handleTerminologyChange(e.target.value)}
         SelectProps={{ displayEmpty: true }}
@@ -225,14 +227,14 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       <Stack direction="row" spacing={1}>
         <TextField
           size="small"
-          label="Alias"
+          label={t('query.alias')}
           value={alias}
           onChange={(e) => { setAlias(e.target.value); setAliasEdited(true) }}
           sx={{ width: 80 }}
         />
         <TextField
           size="small"
-          label="Definition Name"
+          label={t('query.definitionName')}
           value={definitionName}
           onChange={(e) => { setDefinitionName(e.target.value); setNameEdited(true) }}
           sx={{ flex: 1 }}
@@ -241,7 +243,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
 
       {/* Where Clauses */}
       <Typography variant="caption" fontWeight={600} color="text.secondary">
-        Where Clauses
+        {t('query.whereClauses')}
       </Typography>
       {whereClauses.map((clause, idx) => (
         <Stack key={clause.id} spacing={0.5}>
@@ -254,10 +256,10 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
               sx={{ alignSelf: 'flex-start' }}
             >
               <ToggleButton value="and" sx={{ textTransform: 'none', px: 1, py: 0, fontSize: '0.7rem' }}>
-                AND
+                {t('query.and')}
               </ToggleButton>
               <ToggleButton value="or" sx={{ textTransform: 'none', px: 1, py: 0, fontSize: '0.7rem' }}>
-                OR
+                {t('query.or')}
               </ToggleButton>
             </ToggleButtonGroup>
           )}
@@ -265,7 +267,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
             <TextField
               select
               size="small"
-              label="Field"
+              label={t('query.field')}
               value={clause.field}
               onChange={(e) => updateClause(clause.id, { field: e.target.value })}
               sx={{ flex: 2 }}
@@ -277,7 +279,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
             <TextField
               select
               size="small"
-              label="Op"
+              label={t('query.op')}
               value={clause.operator}
               onChange={(e) => updateClause(clause.id, { operator: e.target.value })}
               sx={{ flex: 1, minWidth: 80 }}
@@ -291,14 +293,14 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
                 <TextField
                   select
                   size="small"
-                  label="Value"
+                  label={t('query.value')}
                   value={clause.value}
                   onChange={(e) => updateClause(clause.id, { value: e.target.value })}
                   sx={{ flex: 2 }}
                   SelectProps={{ displayEmpty: true }}
                 >
                   <MenuItem value="" disabled>
-                    <em>Select...</em>
+                    <em>{t('query.selectOp')}</em>
                   </MenuItem>
                   {terminologyOptions.filter((o) => o.raw).map((opt) => (
                     <MenuItem key={opt.raw} value={`"${extractName(opt.raw)}"`}>
@@ -309,11 +311,11 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
               ) : (
                 <TextField
                   size="small"
-                  label="Value"
+                  label={t('query.value')}
                   value={clause.value}
                   onChange={(e) => updateClause(clause.id, { value: e.target.value })}
                   sx={{ flex: 2 }}
-                  placeholder="e.g. 'active'"
+                  placeholder={t('query.valuePlaceholder')}
                 />
               )
             )}
@@ -324,20 +326,20 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
         </Stack>
       ))}
       <Button size="small" startIcon={<AddIcon />} onClick={addWhereClause} sx={{ alignSelf: 'flex-start' }}>
-        Add Where Clause
+        {t('query.addWhereClause')}
       </Button>
 
       {/* Sort */}
       <FormControlLabel
         control={<Checkbox size="small" checked={enableSort} onChange={(e) => setEnableSort(e.target.checked)} />}
-        label={<Typography variant="body2">Sort</Typography>}
+        label={<Typography variant="body2">{t('query.sort')}</Typography>}
       />
       {enableSort && (
         <Stack direction="row" spacing={1}>
           <TextField
             select
             size="small"
-            label="Sort Field"
+            label={t('query.sortField')}
             value={sortField}
             onChange={(e) => setSortField(e.target.value)}
             sx={{ flex: 1 }}
@@ -353,10 +355,10 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
             onChange={(_, v) => { if (v) setSortDir(v) }}
           >
             <ToggleButton value="asc" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              asc
+              {t('query.asc')}
             </ToggleButton>
             <ToggleButton value="desc" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              desc
+              {t('query.desc')}
             </ToggleButton>
           </ToggleButtonGroup>
         </Stack>
@@ -365,15 +367,15 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       {/* Return */}
       <FormControlLabel
         control={<Checkbox size="small" checked={enableReturn} onChange={(e) => setEnableReturn(e.target.checked)} />}
-        label={<Typography variant="body2">Return Expression</Typography>}
+        label={<Typography variant="body2">{t('query.returnExpression')}</Typography>}
       />
       {enableReturn && (
         <TextField
           size="small"
-          label="Return Expression"
+          label={t('query.returnExpression')}
           value={returnExpr}
           onChange={(e) => setReturnExpr(e.target.value)}
-          placeholder={`e.g. ${alias}.value`}
+          placeholder={t('query.returnExpressionPlaceholder', { alias })}
           sx={{ '& input': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
         />
       )}
@@ -400,14 +402,14 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       {/* Actions */}
       <Stack direction="row" spacing={1} alignItems="center">
         <GradientButton onClick={handleInsert} disabled={!definitionName.trim()}>
-          Insert
+          {t('common.insert')}
         </GradientButton>
-        <Tooltip title="Copy to clipboard">
-          <IconButton size="small" onClick={handleCopy} aria-label="Copy to clipboard">
+        <Tooltip title={t('common.copyToClipboard')}>
+          <IconButton size="small" onClick={handleCopy} aria-label={t('common.copyToClipboard')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Button size="small" onClick={onCancel}>Cancel</Button>
+        <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
   )

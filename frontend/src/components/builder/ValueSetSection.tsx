@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -48,6 +49,7 @@ function parseValueSet(raw: string): { name: string; url: string } | null {
 type BrowseMode = 'vsac' | 'twcore'
 
 export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo, onEdit }: ValueSetSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [browseMode, setBrowseMode] = useState<BrowseMode>('vsac')
   const [searchTerm, setSearchTerm] = useState('')
@@ -177,13 +179,13 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No value sets found
+          {t('common.noItemsFound', { type: t('sections.valueSets').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add ValueSet
+          {t('common.addItem', { type: 'ValueSet' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -191,13 +193,13 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
             <>
               <TextField
                 size="small"
-                label="ValueSet Name"
+                label={t('valueSets.name')}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
               />
               <TextField
                 size="small"
-                label="URL / OID"
+                label={t('valueSets.urlOid')}
                 value={editUrl}
                 onChange={(e) => setEditUrl(e.target.value)}
               />
@@ -206,14 +208,14 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel="Update"
+                  insertLabel={t('common.update')}
                 />
               ) : (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="outlined" onClick={handleManualSave} disabled={!editName.trim() || !editUrl.trim()}>
-                    Preview Update
+                    {t('common.previewUpdate')}
                   </Button>
-                  <Button size="small" onClick={resetForm}>Cancel</Button>
+                  <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
                 </Stack>
               )}
             </>
@@ -230,11 +232,11 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
               >
                 <ToggleButton value="vsac" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
                   <SearchIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                  Search VSAC
+                  {t('valueSets.searchVsac')}
                 </ToggleButton>
                 <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
                   <BrowseIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                  Browse TWCORE
+                  {t('valueSets.browseTwcore')}
                 </ToggleButton>
               </ToggleButtonGroup>
 
@@ -242,8 +244,8 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                 <>
                   <TextField
                     size="small"
-                    label="Search VSAC ValueSets"
-                    placeholder="e.g. Diabetes, HbA1c..."
+                    label={t('valueSets.searchVsacTitle')}
+                    placeholder={t('valueSets.searchVsacPlaceholder')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     InputProps={{
@@ -269,7 +271,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                                 onClick={() => handleInsertValueSet(vs.title || vs.name, vs.url)}
                                 sx={{ minWidth: 0, px: 1, fontSize: '0.7rem' }}
                               >
-                                Insert
+                                {t('common.insert')}
                               </Button>
                             </Stack>
                           </Stack>
@@ -311,8 +313,8 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                 <>
                   <TextField
                     size="small"
-                    label="Filter TWCORE entries"
-                    placeholder="e.g. diabetes, 血壓..."
+                    label={t('codes.filterTwcore')}
+                    placeholder={t('codes.filterTwcorePlaceholder')}
                     value={twcoreFilter}
                     onChange={(e) => setTwcoreFilter(e.target.value)}
                   />
@@ -323,7 +325,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                     </Stack>
                   ) : filteredCatalog.length === 0 ? (
                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                      No matching TWCORE entries
+                      {t('valueSets.noTwcoreEntries')}
                     </Typography>
                   ) : (
                     <Stack sx={{ maxHeight: 300, overflow: 'auto' }}>
@@ -399,12 +401,12 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel="Insert"
+                  insertLabel={t('common.insert')}
                 />
               )}
 
               <Button size="small" onClick={resetForm}>
-                Cancel
+                {t('common.cancel')}
               </Button>
             </>
           )}
@@ -413,9 +415,9 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        title="Delete Element"
+        title={t('common.deleteElement')}
         itemName={deleteTarget || ''}
-        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

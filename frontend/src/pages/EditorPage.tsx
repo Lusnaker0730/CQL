@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Grid,
@@ -48,10 +49,12 @@ import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, use
 import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import { useNotification } from '../hooks/useNotification'
 import TabPanel, { a11yProps } from '../components/common/TabPanel'
 
 export default function EditorPage() {
+  const { t } = useTranslation('editor')
   const dispatch = useDispatch()
   const { cqlContent, isTranslating, errors, elmJson, cursorPosition } = useSelector((state: RootState) => state.editor)
   const [rightPanelTab, setRightPanelTab] = useState(0)
@@ -243,7 +246,7 @@ export default function EditorPage() {
   )
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2 }}>
       <input
         type="file"
         ref={fileInputRef}
@@ -278,7 +281,7 @@ export default function EditorPage() {
             >
               <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main', whiteSpace: 'nowrap' }}>
-                  CQL Editor
+                  {t('title')}
                 </Typography>
                 <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
                   <Button
@@ -299,7 +302,7 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    {isTranslating ? 'Translating...' : 'Translate'}
+                    {isTranslating ? t('toolbar.translating') : t('toolbar.translate')}
                   </Button>
                   <HelpTooltip text={helpContent.editor.translate} />
                   <Button
@@ -317,14 +320,14 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    Save Library
+                    {t('toolbar.saveLibrary')}
                   </Button>
                   {lastSavedLibraryId && (
-                    <Tooltip title={isFavorite(lastSavedLibraryId) ? 'Remove from favorites' : 'Add to favorites'}>
+                    <Tooltip title={isFavorite(lastSavedLibraryId) ? t('toolbar.removeFavorite') : t('toolbar.addFavorite')}>
                       <IconButton
                         size="small"
                         onClick={() => toggleFavorite(lastSavedLibraryId)}
-                        aria-label="Toggle favorite"
+                        aria-label={t('toolbar.toggleFavorite')}
                         sx={{ color: isFavorite(lastSavedLibraryId) ? 'warning.main' : 'text.secondary' }}
                       >
                         {isFavorite(lastSavedLibraryId) ? <StarIcon /> : <StarBorderIcon />}
@@ -347,7 +350,7 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    Export
+                    {t('toolbar.export')}
                   </Button>
                   <HelpTooltip text={helpContent.editor.export} />
                   <Button
@@ -365,7 +368,7 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    Import
+                    {t('toolbar.import')}
                   </Button>
                   <HelpTooltip text={helpContent.editor.import} />
                   <Button
@@ -383,7 +386,7 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    Share
+                    {t('toolbar.share')}
                   </Button>
                   <Button
                     size="small"
@@ -400,7 +403,7 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    Version
+                    {t('toolbar.version')}
                   </Button>
                   <Button
                     size="small"
@@ -417,7 +420,7 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    History
+                    {t('toolbar.history')}
                   </Button>
                   <Button
                     size="small"
@@ -434,9 +437,9 @@ export default function EditorPage() {
                       },
                     }}
                   >
-                    Compare
+                    {t('toolbar.compare')}
                   </Button>
-                  <Tooltip title={showBuilder ? 'Hide Builder Panel' : 'Show Builder Panel'}>
+                  <Tooltip title={showBuilder ? t('toolbar.hideBuilder') : t('toolbar.showBuilder')}>
                     <ToggleButton
                       size="small"
                       value="builder"
@@ -455,7 +458,7 @@ export default function EditorPage() {
                     >
                       <BuilderIcon sx={{ fontSize: 18, mr: 0.5 }} />
                       <Typography variant="caption" sx={{ textTransform: 'none' }}>
-                        Builder
+                        {t('toolbar.builder')}
                       </Typography>
                     </ToggleButton>
                   </Tooltip>
@@ -502,9 +505,9 @@ export default function EditorPage() {
                     bgcolor: 'rgba(27,58,92,0.03)',
                   }}
                 >
-                  <Tab label="ELM / Errors" {...a11yProps(0, 'editor')} />
-                  <Tab label="Execute" {...a11yProps(1, 'editor')} />
-                  <Tab label="Dependencies" {...a11yProps(2, 'editor')} />
+                  <Tab label={t('tabs.elmErrors')} {...a11yProps(0, 'editor')} />
+                  <Tab label={t('tabs.execute')} {...a11yProps(1, 'editor')} />
+                  <Tab label={t('tabs.dependencies')} {...a11yProps(2, 'editor')} />
                 </Tabs>
                 <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
                   <TabPanel value={rightPanelTab} index={0} prefix="editor" sx={{ height: '100%' }}>

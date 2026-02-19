@@ -10,6 +10,7 @@ import {
   Chip,
   LinearProgress,
 } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import type { DebugTrace } from '../../types'
 
 interface DebugPanelProps {
@@ -17,6 +18,7 @@ interface DebugPanelProps {
 }
 
 export default function DebugPanel({ trace }: DebugPanelProps) {
+  const { t } = useTranslation('editor')
   const maxExprTime = Math.max(
     ...trace.expressionTraces.map((t) => t.evaluationTimeMs),
     1
@@ -29,17 +31,17 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
   return (
     <Box sx={{ mt: 2 }}>
       <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'secondary.main' }}>
-        Expression Trace
+        {t('debug.expressionTrace')}
       </Typography>
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell scope="col">#</TableCell>
-              <TableCell scope="col">Expression</TableCell>
-              <TableCell scope="col">Result</TableCell>
-              <TableCell scope="col">Type</TableCell>
-              <TableCell scope="col" width={160}>Time</TableCell>
+              <TableCell scope="col">{t('debug.index')}</TableCell>
+              <TableCell scope="col">{t('debug.expression')}</TableCell>
+              <TableCell scope="col">{t('debug.result')}</TableCell>
+              <TableCell scope="col">{t('debug.type')}</TableCell>
+              <TableCell scope="col" width={160}>{t('debug.time')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -113,15 +115,15 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
             variant="subtitle2"
             sx={{ mt: 2, mb: 1, fontWeight: 600, color: 'secondary.main' }}
           >
-            FHIR Retrieve Trace
+            {t('debug.fhirRetrieveTrace')}
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell scope="col">Resource Type</TableCell>
-                  <TableCell scope="col">Count</TableCell>
-                  <TableCell scope="col" width={160}>Time</TableCell>
+                  <TableCell scope="col">{t('debug.resourceType')}</TableCell>
+                  <TableCell scope="col">{t('debug.count')}</TableCell>
+                  <TableCell scope="col" width={160}>{t('debug.time')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -173,7 +175,7 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
       )}
 
       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-        Total execution time: {trace.totalTimeMs}ms
+        {t('debug.totalTime', { ms: trace.totalTimeMs })}
       </Typography>
     </Box>
   )

@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import {
   Stack,
   TextField,
@@ -47,6 +49,7 @@ function parseCode(raw: string): { name: string; code: string; system: string; d
 type BrowseMode = 'manual' | 'twcore'
 
 export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit }: CodesSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [browseMode, setBrowseMode] = useState<BrowseMode>('manual')
   const [systemUrl, setSystemUrl] = useState('')
@@ -66,7 +69,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
   const { data: twcoreCatalog = [], isLoading: isTwcoreLoading } = useTwcoreFullCatalog()
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), 500)
+    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
     return () => clearTimeout(timer)
   }, [searchText])
 
@@ -211,13 +214,13 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No codes found
+          {t('common.noItemsFound', { type: t('sections.codes').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Code
+          {t('common.addItem', { type: 'Code' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -231,11 +234,11 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
             >
               <ToggleButton value="manual" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
                 <SearchIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                Manual / Search
+                {t('codes.manualSearch')}
               </ToggleButton>
               <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
                 <BrowseIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                Browse TWCORE
+                {t('codes.browseTwcore')}
               </ToggleButton>
             </ToggleButtonGroup>
           )}
@@ -245,7 +248,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               <TextField
                 select
                 size="small"
-                label="Code System"
+                label={t('codes.codeSystem')}
                 value={systemUrl}
                 onChange={(e) => handleSystemChange(e.target.value)}
               >
@@ -258,7 +261,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
 
               <TextField
                 size="small"
-                label="System Alias"
+                label={t('codes.systemAlias')}
                 value={systemAlias}
                 onChange={(e) => setSystemAlias(e.target.value)}
               />
@@ -266,7 +269,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               <Stack direction="row" spacing={1}>
                 <TextField
                   size="small"
-                  label="Code"
+                  label={t('codes.code')}
                   value={codeValue}
                   onChange={(e) => setCodeValue(e.target.value)}
                   fullWidth
@@ -278,16 +281,16 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                   disabled={!systemUrl || !codeValue || lookupMutation.isPending}
                   sx={{ minWidth: 80 }}
                 >
-                  {lookupMutation.isPending ? <CircularProgress size={16} /> : 'Lookup'}
+                  {lookupMutation.isPending ? <CircularProgress size={16} /> : t('codes.lookup')}
                 </Button>
               </Stack>
 
               <TextField
                 size="small"
-                label="Search by text"
+                label={t('codes.searchByText')}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder='e.g., "diabetes"'
+                placeholder={t('codes.searchPlaceholder')}
                 disabled={!systemUrl}
                 InputProps={{
                   endAdornment: isSearching ? <CircularProgress size={16} /> : null,
@@ -319,25 +322,25 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               )}
               {debouncedSearch.length >= 2 && !isSearching && isSearchError && (
                 <Alert severity="warning" sx={{ py: 0, fontSize: '0.8rem' }}>
-                  Search failed — terminology server may be unavailable. Try again later.
+                  {t('codes.searchFailed')}
                 </Alert>
               )}
               {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && !isSearchError && (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  No results found
+                  {t('codes.noResults')}
                 </Typography>
               )}
 
               <TextField
                 size="small"
-                label="Display Name"
+                label={t('codes.displayName')}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
 
               {lookupMutation.isError && (
                 <Alert severity="warning" sx={{ py: 0 }}>
-                  Code lookup failed — you can still enter manually.
+                  {t('codes.lookupFailed')}
                 </Alert>
               )}
             </>
@@ -347,8 +350,8 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
             <>
               <TextField
                 size="small"
-                label="Filter TWCORE entries"
-                placeholder="e.g. diabetes, 血壓..."
+                label={t('codes.filterTwcore')}
+                placeholder={t('codes.filterTwcorePlaceholder')}
                 value={twcoreFilter}
                 onChange={(e) => setTwcoreFilter(e.target.value)}
               />
@@ -359,7 +362,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                 </Stack>
               ) : filteredCatalog.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  No matching TWCORE entries
+                  {t('codes.noTwcoreEntries')}
                 </Typography>
               ) : (
                 <Stack sx={{ maxHeight: 300, overflow: 'auto' }}>
@@ -435,27 +438,27 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               snippet={previewSnippet}
               onInsert={handleConfirmInsert}
               onCancel={() => setPreviewSnippet('')}
-              insertLabel={editingItem ? 'Update' : 'Insert'}
+              insertLabel={editingItem ? t('common.update') : t('common.insert')}
             />
           ) : (browseMode === 'manual' || editingItem) ? (
             <Stack direction="row" spacing={1}>
               <Button size="small" variant="outlined" onClick={handleAdd}
                 disabled={!systemUrl || !codeValue || !systemAlias}>
-                Preview {editingItem ? 'Update' : 'Insert'}
+                {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
               </Button>
-              <Button size="small" onClick={resetForm}>Cancel</Button>
+              <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
             </Stack>
           ) : (
-            <Button size="small" onClick={resetForm}>Cancel</Button>
+            <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
           )}
         </Stack>
       )}
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        title="Delete Element"
+        title={t('common.deleteElement')}
         itemName={deleteTarget || ''}
-        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

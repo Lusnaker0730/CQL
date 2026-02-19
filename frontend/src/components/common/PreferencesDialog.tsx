@@ -16,6 +16,7 @@ import {
   Divider,
   Box,
 } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import { usePreferences } from '../../hooks/usePreferences'
 import FhirServerUrlField from './FhirServerUrlField'
 
@@ -26,19 +27,20 @@ interface PreferencesDialogProps {
 
 export default function PreferencesDialog({ open, onClose }: PreferencesDialogProps) {
   const { preferences, updatePreferences, resetPreferences } = usePreferences()
+  const { t } = useTranslation()
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Preferences</DialogTitle>
+      <DialogTitle>{t('preferences.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <Typography variant="subtitle2" color="text.secondary">
-            Editor Settings
+            {t('preferences.editorSettings')}
           </Typography>
 
           <Box>
             <Typography variant="body2" gutterBottom>
-              Font Size: {preferences.editorFontSize}px
+              {t('preferences.fontSize', { size: preferences.editorFontSize })}
             </Typography>
             <Slider
               value={preferences.editorFontSize}
@@ -56,30 +58,30 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
           </Box>
 
           <FormControl size="small" fullWidth>
-            <InputLabel>Tab Size</InputLabel>
+            <InputLabel>{t('preferences.tabSize')}</InputLabel>
             <Select
               value={preferences.editorTabSize}
               onChange={(e) => updatePreferences({ editorTabSize: e.target.value as number })}
-              label="Tab Size"
+              label={t('preferences.tabSize')}
             >
-              <MenuItem value={2}>2 spaces</MenuItem>
-              <MenuItem value={4}>4 spaces</MenuItem>
-              <MenuItem value={8}>8 spaces</MenuItem>
+              <MenuItem value={2}>{t('preferences.tabSizeSpaces', { count: 2 })}</MenuItem>
+              <MenuItem value={4}>{t('preferences.tabSizeSpaces', { count: 4 })}</MenuItem>
+              <MenuItem value={8}>{t('preferences.tabSizeSpaces', { count: 8 })}</MenuItem>
             </Select>
           </FormControl>
 
           <FormControl size="small" fullWidth>
-            <InputLabel>Word Wrap</InputLabel>
+            <InputLabel>{t('preferences.wordWrap')}</InputLabel>
             <Select
               value={preferences.editorWordWrap}
               onChange={(e) =>
                 updatePreferences({ editorWordWrap: e.target.value as 'on' | 'off' | 'wordWrapColumn' })
               }
-              label="Word Wrap"
+              label={t('preferences.wordWrap')}
             >
-              <MenuItem value="on">On</MenuItem>
-              <MenuItem value="off">Off</MenuItem>
-              <MenuItem value="wordWrapColumn">Word Wrap Column</MenuItem>
+              <MenuItem value="on">{t('preferences.wordWrapOn')}</MenuItem>
+              <MenuItem value="off">{t('preferences.wordWrapOff')}</MenuItem>
+              <MenuItem value="wordWrapColumn">{t('preferences.wordWrapColumn')}</MenuItem>
             </Select>
           </FormControl>
 
@@ -90,35 +92,35 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
                 onChange={(e) => updatePreferences({ editorMinimap: e.target.checked })}
               />
             }
-            label="Show Minimap"
+            label={t('preferences.showMinimap')}
           />
 
           <Divider />
 
           <Typography variant="subtitle2" color="text.secondary">
-            Appearance
+            {t('preferences.appearance')}
           </Typography>
 
           <FormControl size="small" fullWidth>
-            <InputLabel>Theme</InputLabel>
+            <InputLabel>{t('preferences.theme')}</InputLabel>
             <Select
               value={preferences.themeMode}
               onChange={(e) => updatePreferences({ themeMode: e.target.value as 'light' | 'dark' })}
-              label="Theme"
+              label={t('preferences.theme')}
             >
-              <MenuItem value="light">Light</MenuItem>
-              <MenuItem value="dark">Dark</MenuItem>
+              <MenuItem value="light">{t('preferences.themeLight')}</MenuItem>
+              <MenuItem value="dark">{t('preferences.themeDark')}</MenuItem>
             </Select>
           </FormControl>
 
           <Divider />
 
           <Typography variant="subtitle2" color="text.secondary">
-            Defaults
+            {t('preferences.defaults')}
           </Typography>
 
           <FhirServerUrlField
-            label="Default FHIR Server URL"
+            label={t('preferences.defaultFhirServerUrl')}
             value={preferences.defaultFhirServerUrl}
             onChange={(value) => updatePreferences({ defaultFhirServerUrl: value })}
             selfValidate
@@ -127,10 +129,10 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
         <Button onClick={resetPreferences} color="warning">
-          Reset to Defaults
+          {t('actions.resetToDefaults')}
         </Button>
         <Button onClick={onClose} variant="contained">
-          Done
+          {t('actions.done')}
         </Button>
       </DialogActions>
     </Dialog>

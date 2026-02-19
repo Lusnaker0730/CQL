@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -50,6 +51,7 @@ function getIncludeIdentifier(raw: string): string {
 }
 
 export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, onEdit }: IncludesSectionProps) {
+  const { t } = useTranslation('builder')
   const { data: metadata = [] } = useLibrariesMetadata()
   const [showForm, setShowForm] = useState(false)
   const [selectedLib, setSelectedLib] = useState<LibraryOption | null>(null)
@@ -153,13 +155,13 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No includes found
+          {t('common.noItemsFound', { type: t('sections.includes').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Include
+          {t('common.addItem', { type: 'Include' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -169,14 +171,14 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
             getOptionLabel={(o) => `${o.name} (${o.version})`}
             value={selectedLib}
             onChange={(_, val) => handleSelectLibrary(val)}
-            renderInput={(params) => <TextField {...params} label="Library" placeholder="Search libraries..." />}
+            renderInput={(params) => <TextField {...params} label={t('includes.library')} placeholder={t('includes.searchLibraries')} />}
           />
           {selectedLib && (
             <>
               <TextField
                 select
                 size="small"
-                label="Version"
+                label={t('includes.version')}
                 value={selectedVersion}
                 onChange={(e) => setSelectedVersion(e.target.value)}
                 disabled={loadingVersions}
@@ -189,7 +191,7 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
               </TextField>
               <TextField
                 size="small"
-                label="Alias"
+                label={t('includes.alias')}
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
               />
@@ -198,14 +200,14 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel={editingItem ? 'Update' : 'Insert'}
+                  insertLabel={editingItem ? t('common.update') : t('common.insert')}
                 />
               ) : (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="outlined" onClick={handleAdd} disabled={!selectedVersion || !alias}>
-                    Preview {editingItem ? 'Update' : 'Insert'}
+                    {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
                   </Button>
-                  <Button size="small" onClick={resetForm}>Cancel</Button>
+                  <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
                 </Stack>
               )}
             </>
@@ -215,9 +217,9 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        title="Delete Element"
+        title={t('common.deleteElement')}
         itemName={deleteTarget || ''}
-        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

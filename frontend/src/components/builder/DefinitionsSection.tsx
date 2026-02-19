@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -29,12 +30,12 @@ interface DefinitionsSectionProps {
 }
 
 const TEMPLATES = [
-  { label: 'Blank', template: '' },
-  { label: 'Age Filter', template: 'AgeInYearsAt(start of "Measurement Period") >= 18' },
-  { label: 'Condition Check', template: 'exists [Condition: "ValueSetName"] C\n    where C.clinicalStatus ~ "active"' },
-  { label: 'Encounter Check', template: 'exists [Encounter] E\n    where E.period during "Measurement Period"\n      and E.status = \'finished\'' },
-  { label: 'Medication Check', template: 'exists [MedicationRequest] M\n    where M.authoredOn during "Measurement Period"\n      and M.status = \'active\'' },
-  { label: 'Observation Value', template: '[Observation: "CodeName"] O\n    where O.effective in "Measurement Period"\n    sort by effective desc' },
+  { labelKey: 'blank' as const, template: '' },
+  { labelKey: 'ageFilter' as const, template: 'AgeInYearsAt(start of "Measurement Period") >= 18' },
+  { labelKey: 'conditionCheck' as const, template: 'exists [Condition: "ValueSetName"] C\n    where C.clinicalStatus ~ "active"' },
+  { labelKey: 'encounterCheck' as const, template: 'exists [Encounter] E\n    where E.period during "Measurement Period"\n      and E.status = \'finished\'' },
+  { labelKey: 'medicationCheck' as const, template: 'exists [MedicationRequest] M\n    where M.authoredOn during "Measurement Period"\n      and M.status = \'active\'' },
+  { labelKey: 'observationValue' as const, template: '[Observation: "CodeName"] O\n    where O.effective in "Measurement Period"\n    sort by effective desc' },
 ]
 
 export default function DefinitionsSection({
@@ -47,6 +48,7 @@ export default function DefinitionsSection({
   onGoTo,
   onEdit,
 }: DefinitionsSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'cdscard'>('template')
   const [name, setName] = useState('')
@@ -117,13 +119,13 @@ export default function DefinitionsSection({
         ))
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No definitions found
+          {t('common.noItemsFound', { type: t('sections.definitions').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Definition
+          {t('common.addItem', { type: 'Definition' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -135,19 +137,19 @@ export default function DefinitionsSection({
             sx={{ alignSelf: 'flex-start' }}
           >
             <ToggleButton value="template" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              Template
+              {t('definitions.template')}
             </ToggleButton>
             <ToggleButton value="retrieve" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              Retrieve
+              {t('definitions.retrieve')}
             </ToggleButton>
             <ToggleButton value="query" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              Query
+              {t('definitions.query')}
             </ToggleButton>
             <ToggleButton value="operator" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              Operators
+              {t('definitions.operators')}
             </ToggleButton>
             <ToggleButton value="cdscard" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              CDS Card
+              {t('definitions.cdsCard')}
             </ToggleButton>
           </ToggleButtonGroup>
 
@@ -155,7 +157,7 @@ export default function DefinitionsSection({
             <>
               <TextField
                 size="small"
-                label="Definition Name"
+                label={t('definitions.name')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -163,29 +165,29 @@ export default function DefinitionsSection({
               <TextField
                 select
                 size="small"
-                label="Context"
+                label={t('definitions.context')}
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
               >
-                <MenuItem value="Patient">Patient</MenuItem>
-                <MenuItem value="Population">Population</MenuItem>
+                <MenuItem value="Patient">{t('definitions.contextPatient')}</MenuItem>
+                <MenuItem value="Population">{t('definitions.contextPopulation')}</MenuItem>
               </TextField>
 
               <TextField
                 select
                 size="small"
-                label="Template"
+                label={t('definitions.template')}
                 value={templateIdx}
                 onChange={(e) => handleTemplateChange(Number(e.target.value))}
               >
-                {TEMPLATES.map((t, i) => (
-                  <MenuItem key={i} value={i}>{t.label}</MenuItem>
+                {TEMPLATES.map((tmpl, i) => (
+                  <MenuItem key={i} value={i}>{t(`definitions.templates.${tmpl.labelKey}`)}</MenuItem>
                 ))}
               </TextField>
 
               <TextField
                 size="small"
-                label="Expression"
+                label={t('definitions.expression')}
                 multiline
                 rows={3}
                 value={expression}
@@ -198,15 +200,15 @@ export default function DefinitionsSection({
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel={editingItem ? 'Update' : 'Insert'}
+                  insertLabel={editingItem ? t('common.update') : t('common.insert')}
                 />
               ) : (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="outlined" onClick={handleAdd}
                     disabled={!name.trim() || !expression.trim()}>
-                    Preview {editingItem ? 'Update' : 'Insert'}
+                    {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
                   </Button>
-                  <Button size="small" onClick={resetForm}>Cancel</Button>
+                  <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
                 </Stack>
               )}
             </>
@@ -256,9 +258,9 @@ export default function DefinitionsSection({
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        title="Delete Element"
+        title={t('common.deleteElement')}
         itemName={deleteTarget || ''}
-        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

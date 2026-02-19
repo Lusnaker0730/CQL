@@ -12,11 +12,13 @@ import {
 } from '@mui/material'
 import { LocalHospital as MedicalIcon } from '@mui/icons-material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '../api'
 import { validatePassword } from '../utils/validation'
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') || ''
 
@@ -31,7 +33,7 @@ export default function ResetPasswordPage() {
     const errors: { password?: string; confirm?: string } = {}
     const pwErr = validatePassword(newPassword)
     if (pwErr) errors.password = pwErr
-    if (newPassword !== confirmPassword) errors.confirm = 'Passwords do not match'
+    if (newPassword !== confirmPassword) errors.confirm = t('validation:password.mismatch')
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -41,7 +43,7 @@ export default function ResetPasswordPage() {
     setError('')
 
     if (!token) {
-      setError('Invalid reset link. Please request a new password reset.')
+      setError(t('auth.invalidResetLink'))
       return
     }
 
@@ -53,7 +55,7 @@ export default function ResetPasswordPage() {
       setSuccess(true)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } }
-      setError(axiosErr.response?.data?.error || 'Failed to reset password. The link may be expired.')
+      setError(axiosErr.response?.data?.error || t('auth.resetFailed'))
     } finally {
       setLoading(false)
     }
@@ -73,10 +75,10 @@ export default function ResetPasswordPage() {
         <Card sx={{ maxWidth: 420, width: '100%', mx: 2, borderRadius: 3 }}>
           <CardContent sx={{ p: 4, textAlign: 'center' }}>
             <Alert severity="error" sx={{ mb: 2 }}>
-              Invalid reset link. Please request a new password reset.
+              {t('auth.invalidResetLink')}
             </Alert>
             <Link component="button" variant="body2" onClick={() => navigate('/forgot-password')}>
-              Request New Reset Link
+              {t('auth.requestNewResetLink')}
             </Link>
           </CardContent>
         </Card>
@@ -112,10 +114,10 @@ export default function ResetPasswordPage() {
               <MedicalIcon sx={{ fontSize: 32, color: 'white' }} />
             </Box>
             <Typography variant="h5" fontWeight={700} color="text.primary">
-              Set New Password
+              {t('auth.setNewPassword')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Enter your new password below
+              {t('auth.enterNewPassword')}
             </Typography>
           </Box>
 
@@ -128,7 +130,7 @@ export default function ResetPasswordPage() {
           {success ? (
             <Box>
               <Alert severity="success" sx={{ mb: 2 }}>
-                Your password has been reset successfully!
+                {t('auth.passwordResetSuccess')}
               </Alert>
               <Button
                 fullWidth
@@ -137,14 +139,14 @@ export default function ResetPasswordPage() {
                 onClick={() => navigate('/login')}
                 sx={{ mt: 1, py: 1.5, borderRadius: 2 }}
               >
-                Go to Sign In
+                {t('auth.goToSignIn')}
               </Button>
             </Box>
           ) : (
             <Box component="form" onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="New Password"
+                label={t('auth.newPassword')}
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -157,7 +159,7 @@ export default function ResetPasswordPage() {
               />
               <TextField
                 fullWidth
-                label="Confirm Password"
+                label={t('auth.confirmPassword')}
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -178,7 +180,7 @@ export default function ResetPasswordPage() {
                 {loading ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  'Reset Password'
+                  t('auth.resetPasswordButton')
                 )}
               </Button>
               <Box sx={{ textAlign: 'center' }}>
@@ -188,7 +190,7 @@ export default function ResetPasswordPage() {
                   variant="body2"
                   onClick={() => navigate('/login')}
                 >
-                  Back to Sign In
+                  {t('auth.backToSignIn')}
                 </Link>
               </Box>
             </Box>

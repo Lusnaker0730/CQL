@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -50,6 +51,7 @@ function parseParameter(raw: string): { name: string; type: string; defaultValue
 }
 
 export default function ParametersSection({ parameters, onInsert, onDelete, onGoTo, onEdit }: ParametersSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [paramType, setParamType] = useState('Boolean')
@@ -121,19 +123,19 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No parameters found
+          {t('common.noItemsFound', { type: t('sections.parameters').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Parameter
+          {t('common.addItem', { type: 'Parameter' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
           <TextField
             size="small"
-            label="Parameter Name"
+            label={t('parameters.name')}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -141,7 +143,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
           <TextField
             select
             size="small"
-            label="Type"
+            label={t('parameters.type')}
             value={paramType}
             onChange={(e) => setParamType(e.target.value)}
           >
@@ -152,10 +154,10 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
 
           <TextField
             size="small"
-            label="Default Value (optional)"
+            label={t('parameters.defaultValue')}
             value={defaultValue}
             onChange={(e) => setDefaultValue(e.target.value)}
-            placeholder="e.g. true, 42, @2024-01-01"
+            placeholder={t('parameters.defaultPlaceholder')}
           />
 
           {previewSnippet ? (
@@ -163,14 +165,14 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
               snippet={previewSnippet}
               onInsert={handleConfirmInsert}
               onCancel={() => setPreviewSnippet('')}
-              insertLabel={editingItem ? 'Update' : 'Insert'}
+              insertLabel={editingItem ? t('common.update') : t('common.insert')}
             />
           ) : (
             <Stack direction="row" spacing={1}>
               <Button size="small" variant="outlined" onClick={handleAdd} disabled={!name.trim()}>
-                Preview {editingItem ? 'Update' : 'Insert'}
+                {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
               </Button>
-              <Button size="small" onClick={resetForm}>Cancel</Button>
+              <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
             </Stack>
           )}
         </Stack>
@@ -178,9 +180,9 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        title="Delete Element"
+        title={t('common.deleteElement')}
         itemName={deleteTarget || ''}
-        message={`Are you sure you want to delete "${deleteTarget}"? This will remove the corresponding lines from the CQL editor.`}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

@@ -1,0 +1,173 @@
+{
+  "title": "CQL Builder",
+  "parseCql": "Parse CQL",
+  "parsing": "Parsing...",
+  "sections": {
+    "includes": "Includes",
+    "valueSets": "Value Sets",
+    "codes": "Codes",
+    "concepts": "Concepts",
+    "parameters": "Parameters",
+    "definitions": "Definitions",
+    "functions": "Functions"
+  },
+  "common": {
+    "noItemsFound": "No {{type}} found",
+    "addItem": "Add {{type}}",
+    "previewInsert": "Preview Insert",
+    "previewUpdate": "Preview Update",
+    "update": "Update",
+    "insert": "Insert",
+    "cancel": "Cancel",
+    "deleteElement": "Delete Element",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This will remove the corresponding lines from the CQL editor.",
+    "goToDefinition": "Go to definition",
+    "delete": "Delete",
+    "copyToClipboard": "Copy to clipboard",
+    "copiedToClipboard": "Copied to clipboard",
+    "copyFailed": "Failed to copy"
+  },
+  "includes": {
+    "library": "Library",
+    "searchLibraries": "Search libraries...",
+    "version": "Version",
+    "alias": "Alias"
+  },
+  "valueSets": {
+    "name": "ValueSet Name",
+    "urlOid": "URL / OID",
+    "searchVsac": "Search VSAC",
+    "browseTwcore": "Browse TWCORE",
+    "searchVsacTitle": "Search VSAC ValueSets",
+    "searchVsacPlaceholder": "e.g. Diabetes, HbA1c...",
+    "noTwcoreEntries": "No matching TWCORE entries"
+  },
+  "codes": {
+    "manualSearch": "Manual / Search",
+    "browseTwcore": "Browse TWCORE",
+    "codeSystem": "Code System",
+    "systemAlias": "System Alias",
+    "code": "Code",
+    "lookup": "Lookup",
+    "searchByText": "Search by text",
+    "searchPlaceholder": "e.g., \"diabetes\"",
+    "searchFailed": "Search failed — terminology server may be unavailable. Try again later.",
+    "noResults": "No results found",
+    "displayName": "Display Name",
+    "lookupFailed": "Code lookup failed — you can still enter manually.",
+    "filterTwcore": "Filter TWCORE entries",
+    "filterTwcorePlaceholder": "e.g. diabetes, 血壓...",
+    "noTwcoreEntries": "No matching TWCORE entries"
+  },
+  "concepts": {
+    "name": "Concept Name",
+    "selectCodes": "Select codes to include:",
+    "noCodesAvailable": "No codes available. Add codes first.",
+    "display": "Display (optional)"
+  },
+  "parameters": {
+    "name": "Parameter Name",
+    "type": "Type",
+    "defaultValue": "Default Value (optional)",
+    "defaultPlaceholder": "e.g. true, 42, @2024-01-01"
+  },
+  "definitions": {
+    "template": "Template",
+    "retrieve": "Retrieve",
+    "query": "Query",
+    "operators": "Operators",
+    "cdsCard": "CDS Card",
+    "name": "Definition Name",
+    "context": "Context",
+    "contextPatient": "Patient",
+    "contextPopulation": "Population",
+    "expression": "Expression",
+    "templates": {
+      "blank": "Blank",
+      "ageFilter": "Age Filter",
+      "conditionCheck": "Condition Check",
+      "encounterCheck": "Encounter Check",
+      "medicationCheck": "Medication Check",
+      "observationValue": "Observation Value"
+    }
+  },
+  "functions": {
+    "name": "Function Name",
+    "arguments": "Arguments",
+    "argName": "Name",
+    "argType": "Type",
+    "addArgument": "Add Argument",
+    "body": "Function Body"
+  },
+  "expression": {
+    "rows": "Expression rows:",
+    "select": "Select...",
+    "none": "None",
+    "valuePlaceholder": "18, \"Name\", ...",
+    "removeRow": "Remove row",
+    "addRow": "Add Row",
+    "wrappingFunction": "Wrapping Function",
+    "preview": "Preview"
+  },
+  "query": {
+    "resourceType": "Resource Type",
+    "terminologySource": "Terminology Source",
+    "alias": "Alias",
+    "definitionName": "Definition Name",
+    "whereClauses": "Where Clauses",
+    "and": "AND",
+    "or": "OR",
+    "field": "Field",
+    "op": "Op",
+    "value": "Value",
+    "selectOp": "Select...",
+    "valuePlaceholder": "e.g. 'active'",
+    "addWhereClause": "Add Where Clause",
+    "sort": "Sort",
+    "sortField": "Sort Field",
+    "asc": "asc",
+    "desc": "desc",
+    "returnExpression": "Return Expression",
+    "returnExpressionPlaceholder": "e.g. {{alias}}.value"
+  },
+  "retrieve": {
+    "resourceType": "Resource Type",
+    "terminologySource": "Terminology Source",
+    "selectTerminology": "Select a valueset or code...",
+    "definitionName": "Definition Name",
+    "modifiers": "Modifiers",
+    "mostRecent": "Most Recent",
+    "activeConfirmed": "Active / Confirmed",
+    "lookBackPeriod": "Look Back Period",
+    "value": "Value",
+    "unit": "Unit",
+    "years": "years",
+    "months": "months",
+    "weeks": "weeks",
+    "days": "days",
+    "existsBoolean": "Exists (boolean)"
+  },
+  "operatorPanel": {
+    "expressionBuilder": "Expression Builder",
+    "operatorReference": "Operator Reference"
+  },
+  "operatorReference": {
+    "searchPlaceholder": "Search operators..."
+  },
+  "cdsCard": {
+    "nameHint": "Names starting with \"Card\" are detected as CDS Cards",
+    "summary": "Summary *",
+    "summaryLabel": "Summary",
+    "summaryExpr": "Summary (Expression)",
+    "detail": "Detail",
+    "detailLabel": "Detail",
+    "detailExpr": "Detail (Expression)",
+    "indicator": "Indicator",
+    "sourceLabel": "Source Label",
+    "sourceLabelLabel": "Source Label",
+    "sourceLabelExpr": "Source Label (Expression)",
+    "selectDefinition": "Select a definition...",
+    "literal": "Literal",
+    "expr": "Expr"
+  }
+}
