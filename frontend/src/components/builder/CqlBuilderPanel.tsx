@@ -244,7 +244,7 @@ export default function CqlBuilderPanel({
       </Box>
 
       {parseError && (
-        <Alert severity="warning" sx={{ mx: 1, mt: 1, py: 0 }}>
+        <Alert severity="warning" sx={{ mx: 1, mt: 1, py: 0, whiteSpace: 'pre-line' }}>
           {parseError}
         </Alert>
       )}

@@ -82,8 +82,14 @@ export function useCqlStructure() {
       if (controller.signal.aborted) return
       if (result.metadata) {
         setStructure(metadataToStructure(result.metadata))
+        lastParsedContent.current = cql
+      } else if (!result.success && result.errors?.length) {
+        const msg = result.errors
+          .slice(0, 3)
+          .map((e) => e.startLine ? `Line ${e.startLine}: ${e.message}` : e.message)
+          .join('\n')
+        setParseError(msg)
       }
-      lastParsedContent.current = cql
     } catch (err) {
       if ((err as Error).name === 'AbortError' || controller.signal.aborted) return
       setParseError((err as Error).message)
