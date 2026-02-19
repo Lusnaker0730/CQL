@@ -12,6 +12,7 @@ import {
   CircularProgress,
   Typography,
   Box,
+  useTheme,
 } from '@mui/material'
 import { CheckCircle as ValidateIcon } from '@mui/icons-material'
 import Editor, { type OnMount } from '@monaco-editor/react'
@@ -34,6 +35,7 @@ const SAMPLE_JSON = JSON.stringify(
 )
 
 export default function ValidateTab() {
+  const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const [validationStatus, setValidationStatus] = useState<'none' | 'valid' | 'invalid'>('none')
   const [issues, setIssues] = useState<{ severity: string; location?: string; diagnostics?: string; message?: string }[]>([])
@@ -64,6 +66,7 @@ export default function ValidateTab() {
         <Editor
           height="300px"
           language="json"
+          theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
           defaultValue={SAMPLE_JSON}
           onMount={handleEditorMount}
           options={{

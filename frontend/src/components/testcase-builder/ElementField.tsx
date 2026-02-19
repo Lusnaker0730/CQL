@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useTheme } from '@mui/material'
 import Editor from '@monaco-editor/react'
 import PrimitiveField from './PrimitiveField'
 import CodeField from './CodeField'
@@ -29,6 +29,8 @@ interface ElementFieldProps {
 }
 
 export default function ElementField({ element, path, value, onChange, initialChoiceType, depth }: ElementFieldProps) {
+  const theme = useTheme()
+
   // Deep fallback: render inline JSON editor
   if (depth >= 3) {
     return (
@@ -40,6 +42,7 @@ export default function ElementField({ element, path, value, onChange, initialCh
           <Editor
             height="100px"
             language="json"
+            theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
             value={value !== undefined ? JSON.stringify(value, null, 2) : ''}
             onChange={(v) => {
               try {

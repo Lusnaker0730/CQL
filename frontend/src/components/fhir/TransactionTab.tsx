@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Snackbar,
+  useTheme,
 } from '@mui/material'
 import {
   PlayArrow as ExecuteIcon,
@@ -45,6 +46,7 @@ const TRANSACTION_TEMPLATE = JSON.stringify(
 )
 
 export default function TransactionTab({ fhirServer }: TransactionTabProps) {
+  const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const [result, setResult] = useState<object | null>(null)
   const [copied, setCopied] = useState(false)
@@ -81,6 +83,7 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
         <Editor
           height="350px"
           language="json"
+          theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
           defaultValue={TRANSACTION_TEMPLATE}
           onMount={handleEditorMount}
           options={{

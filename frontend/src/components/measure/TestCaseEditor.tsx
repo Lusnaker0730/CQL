@@ -14,6 +14,7 @@ import {
   Autocomplete,
   Tabs,
   Tab,
+  useTheme,
 } from '@mui/material'
 import {
   Save as SaveIcon,
@@ -69,6 +70,7 @@ const DEFAULT_BUNDLE = `{
 
 function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: TestCaseEditorProps) {
   const { t } = useTranslation('measures')
+  const theme = useTheme()
   const queryClient = useQueryClient()
   const isNew = !testCase?.id
   const { state, dispatch } = useBundleBuilder()
@@ -348,6 +350,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
                 <Editor
                   height="300px"
                   language="json"
+                  theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                   value={bundleJson}
                   onChange={(v) => handleBundleChange(v || '')}
                   options={{

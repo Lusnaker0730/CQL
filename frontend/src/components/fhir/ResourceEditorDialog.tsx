@@ -16,6 +16,7 @@ import {
   Chip,
   Box,
   Stack,
+  useTheme,
 } from '@mui/material'
 import {
   Save as SaveIcon,
@@ -65,6 +66,7 @@ export default function ResourceEditorDialog({
   onClose,
   onSaved,
 }: ResourceEditorDialogProps) {
+  const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
   const [validationStatus, setValidationStatus] = useState<'none' | 'valid' | 'invalid'>('none')
@@ -129,6 +131,7 @@ export default function ResourceEditorDialog({
             <Editor
               height="400px"
               language="json"
+              theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
               defaultValue={initialJson || DEFAULT_TEMPLATE(resourceType)}
               onMount={handleEditorMount}
               options={{

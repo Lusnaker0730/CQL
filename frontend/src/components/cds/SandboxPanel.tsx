@@ -16,6 +16,7 @@ import {
   InputLabel,
   Tabs,
   Tab,
+  useTheme,
 } from '@mui/material'
 import {
   ViewModule as BuilderIcon,
@@ -58,6 +59,7 @@ export default function SandboxPanel() {
 }
 
 function SandboxPanelInner() {
+  const theme = useTheme()
   const { data: servicesData } = useCdsServices()
   const sandboxMutation = useSandboxInvoke()
   const { state, dispatch } = useBundleBuilder()
@@ -215,6 +217,7 @@ function SandboxPanelInner() {
             <Editor
               height="350px"
               language="json"
+              theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
               value={testDataJson}
               onChange={handleJsonChange}
               options={{
