@@ -8,10 +8,11 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 011 | 2026-02-20 | Medium | 版面配置（前端） | Footer 位置異常：flexbox 佈局修正 | UX 設計缺陷 | — |
-| 010 | 2026-02-20 | Low | CDS Hooks Sandbox（前後端） | CDS Card 顯示所有表達式擠在一行 | UX 設計缺陷 | — |
-| 009 | 2026-02-20 | High | Test Case Builder（前端） | FHIR Choice Type 序列化錯誤（value → valueQuantity） | 資料處理錯誤 | — |
-| 008 | 2026-02-19 | High | CDS Hooks Sandbox（後端） | CDS Sandbox Invoke 所有 CQL 表達式回傳 null | 資料處理錯誤 | — |
+| 012 | 2026-02-20 | Medium | 跨模組（前端） | Monaco Editor 夜間模式白屏 | 配置遺漏 | [`e375b1e`](../../commit/e375b1e) |
+| 011 | 2026-02-20 | Medium | 版面配置（前端） | Footer 位置異常：flexbox 佈局修正 | UX 設計缺陷 | [`5e69d32`](../../commit/5e69d32) |
+| 010 | 2026-02-20 | Low | CDS Hooks Sandbox（前後端） | CDS Card 顯示所有表達式擠在一行 | UX 設計缺陷 | [`5e69d32`](../../commit/5e69d32) |
+| 009 | 2026-02-20 | High | Test Case Builder（前端） | FHIR Choice Type 序列化錯誤（value → valueQuantity） | 資料處理錯誤 | [`5e69d32`](../../commit/5e69d32) |
+| 008 | 2026-02-19 | High | CDS Hooks Sandbox（後端） | CDS Sandbox Invoke 所有 CQL 表達式回傳 null | 資料處理錯誤 | [`5e69d32`](../../commit/5e69d32) |
 | 007 | 2026-02-19 | Medium | 版面配置（前端） | Footer fixed 定位仍遮擋操作按鈕 | UX 設計缺陷 | [`b570119`](../../commit/b570119) |
 | 006 | 2026-02-19 | Critical | Backend 基礎設施 | Backend OOM 導致所有 API 無回應 | 配置遺漏 | [`660347a`](../../commit/660347a) |
 | 005 | 2026-02-19 | Low | 版面配置（前端） | Footer 覆蓋頁面內容 | UX 設計缺陷 | [`741b7dc`](../../commit/741b7dc) |
@@ -29,6 +30,43 @@
 | 配置遺漏 | 環境設定、參數未正確配置 |
 | 資料處理錯誤 | 資料解析、轉換或驗證問題 |
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
+
+---
+
+## #012 — Monaco Editor 夜間模式白屏
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | 跨模組（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `SandboxPanel.tsx`、`ElementField.tsx`、`ResourceEditorDialog.tsx`、`TransactionTab.tsx`、`ValidateTab.tsx`、`TestCaseEditor.tsx` |
+| **Commit** | [`e375b1e`](../../commit/e375b1e) |
+
+### BUG 描述
+
+切換至夜間模式（Dark Mode）後，除 CQL Editor 以外的所有 Monaco Editor 實例仍顯示白色背景（light theme），與深色介面形成強烈對比，影響視覺一致性及可讀性。CQL Editor 正確使用自訂的 `cql-theme-dark`，但其餘 6 個 JSON editor 未設定 `theme` prop，Monaco 預設使用 light theme。
+
+**受影響位置**：
+1. CDS Sandbox — JSON (Prefetch) 編輯器
+2. Test Case Builder — 深層 JSON fallback 編輯器
+3. FHIR Browser — Resource Editor Dialog
+4. FHIR Browser — Transaction Tab
+5. FHIR Browser — Validate Tab
+6. Measures — Test Case Editor（JSON Advanced 分頁）
+
+### 修正方式
+
+- 6 個檔案各加入 `useTheme` hook，並在 `<Editor>` 元件上設定 `theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}`
+- JSON editor 使用 Monaco 內建的 `vs-dark` / `light` theme（不需自訂 theme）
+
+### 測試驗證
+
+- [x] TypeScript 編譯通過
+- [x] Frontend Docker 重建並部署成功
+- [x] 夜間模式下所有 Monaco Editor 顯示深色背景
+- [x] 日間模式下維持淺色背景不變
 
 ---
 
