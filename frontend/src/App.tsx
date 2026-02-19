@@ -45,7 +45,7 @@ export default function App() {
                   component="main"
                   sx={{
                     flexGrow: 1,
-                    pb: '36px',
+                    minHeight: 0,
                     background: (theme) =>
                       theme.palette.mode === 'dark'
                         ? 'linear-gradient(180deg, #1a1a1a 0%, #121212 100%)'
