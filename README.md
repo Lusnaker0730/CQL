@@ -20,6 +20,8 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 ### CDS Hooks
 - Clinical Decision Support Hooks integration with service discovery and invocation
 - Service management: create, edit, version, rollback, enable/disable
+- Strategy-based card generation: CQL Tuple cards (default) and FHIR PlanDefinition actions
+- PlanDefinition support: condition evaluation, priority mapping, dynamic values, sub-action suggestions
 - Feedback system: accept/override with reason tracking
 - Card and system action rendering with suggestion support
 - Usage analytics with invocation counts, error rates, and response times
@@ -106,7 +108,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       ├── service/
 │       │   ├── cql/            # CQL translation, execution, library management
 │       │   ├── fhir/           # FHIR data provider, validation, bulk export, VSAC, structure defs
-│       │   ├── cds/            # CDS Hooks service, analytics, feedback
+│       │   ├── cds/            # CDS Hooks: CRUD, invocation, card strategies, analytics, feedback
 │       │   └── measure/        # eCQM evaluation, reports, scheduling, comparison
 │       ├── model/              # DTOs and request/response models
 │       │   ├── auth/           # Auth and admin DTOs
@@ -401,7 +403,7 @@ define "Has Diabetes":
 ### Running Tests
 
 ```bash
-# Backend (240+ tests)
+# Backend (300+ tests)
 cd backend
 mvn test
 

@@ -29,6 +29,8 @@ public class CdsServiceConfigResponse {
     private String ownerUsername;
     private Boolean shared;
     private Map<String, String> prefetch;
+    private String planDefinitionJson;
+    private String cardGenerationMode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -45,4 +45,9 @@ public class CdsServiceConfigRequest {
     private Boolean enabled = true;
 
     private Map<String, String> prefetch;
+
+    private String planDefinitionJson;
+
+    @Size(max = 20, message = "Card generation mode must be at most 20 characters")
+    private String cardGenerationMode;
 }

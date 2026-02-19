@@ -1,0 +1,165 @@
+package com.cqlplatform.service.cds;
+
+import com.cqlplatform.model.CqlExecutionRequest;
+import com.cqlplatform.model.CqlExecutionResponse;
+import com.cqlplatform.model.cds.CdsRequest;
+import com.cqlplatform.model.cds.CdsResponse;
+import com.cqlplatform.service.cql.CqlExecutionService;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
+import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Orchestrates CDS service invocation: prefetch handling, CQL execution,
+ * and card generation via the appropriate strategy.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class CdsInvocationService {
+
+    private final CqlExecutionService executionService;
+    private final CqlTupleCardStrategy tupleStrategy;
+    private final PlanDefinitionCardStrategy planDefinitionStrategy;
+    private final FhirContext fhirContext;
+    private final ObjectMapper objectMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Timer cdsInvocationTimer;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter cdsInvocationCounter;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private Counter cdsInvocationErrorCounter;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private CdsAnalyticsService analyticsService;
+
+    /**
+     * Invoke a CDS service: execute CQL and generate cards.
+     */
+    public CdsResponse invoke(CdsHooksService.CdsServiceConfig config, CdsRequest request) {
+        String patientId = request.getContext() != null ? request.getContext().getPatientId() : "unknown";
+        log.info("Invoking CDS service: {} for patient: {}", config.getId(), patientId);
+        if (cdsInvocationCounter != null)
+            cdsInvocationCounter.increment();
+        Timer.Sample sample = cdsInvocationTimer != null ? Timer.start() : null;
+        long startTime = System.currentTimeMillis();
+
+        try {
+            CqlExecutionRequest execRequest = new CqlExecutionRequest();
+            execRequest.setCql(config.getCqlContent());
+            execRequest.setPatientId(request.getContext() != null ? request.getContext().getPatientId() : null);
+
+            RetrieveProvider prefetchProvider = buildPrefetchProvider(request);
+
+            if (prefetchProvider == null) {
+                String fhirServer = request.getFhirServer();
+                if (fhirServer != null && (fhirServer.contains("/r2/") || fhirServer.contains("/dstu2/"))) {
+                    log.warn("Client FHIR server is DSTU2 ({}), falling back to default R4 server", fhirServer);
+                    execRequest.setFhirServerUrl(null);
+                } else {
+                    execRequest.setFhirServerUrl(fhirServer);
+                }
+            }
+
+            CqlExecutionResponse execResponse;
+            if (prefetchProvider != null) {
+                execResponse = executionService.executeWithProvider(execRequest, prefetchProvider);
+            } else {
+                execResponse = executionService.execute(execRequest);
+            }
+
+            // Select strategy based on card generation mode
+            CardGenerationStrategy strategy = selectStrategy(config);
+            CdsResponse response = strategy.buildResponse(config, execResponse);
+
+            if (sample != null && cdsInvocationTimer != null)
+                sample.stop(cdsInvocationTimer);
+
+            if (analyticsService != null) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                analyticsService.recordInvocation(config.getId(), elapsed, true);
+            }
+
+            return response;
+        } catch (Exception e) {
+            if (cdsInvocationErrorCounter != null)
+                cdsInvocationErrorCounter.increment();
+            if (sample != null && cdsInvocationTimer != null)
+                sample.stop(cdsInvocationTimer);
+
+            if (analyticsService != null) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                analyticsService.recordInvocation(config.getId(), elapsed, false);
+            }
+
+            log.error("CDS service invocation failed", e);
+            return CdsResponse.builder()
+                    .cards(List.of(tupleStrategy.createErrorCard(e.getMessage())))
+                    .build();
+        }
+    }
+
+    private CardGenerationStrategy selectStrategy(CdsHooksService.CdsServiceConfig config) {
+        if ("plan_definition".equals(config.getCardGenerationMode())
+                && config.getPlanDefinitionJson() != null) {
+            return planDefinitionStrategy;
+        }
+        return tupleStrategy;
+    }
+
+    private RetrieveProvider buildPrefetchProvider(CdsRequest request) {
+        if (request.getPrefetch() == null || request.getPrefetch().isEmpty()) {
+            log.info("No prefetch data provided, will use FHIR server");
+            return null;
+        }
+
+        String patientId = request.getContext() != null ? request.getContext().getPatientId() : null;
+        List<Resource> resources = new ArrayList<>();
+        IParser jsonParser = fhirContext.newJsonParser();
+
+        for (Map.Entry<String, Object> entry : request.getPrefetch().entrySet()) {
+            try {
+                String json = objectMapper.writeValueAsString(entry.getValue());
+                Resource resource = (Resource) jsonParser.parseResource(json);
+
+                if (resource instanceof Bundle bundle) {
+                    if (bundle.hasEntry()) {
+                        for (Bundle.BundleEntryComponent bundleEntry : bundle.getEntry()) {
+                            if (bundleEntry.hasResource()) {
+                                resources.add(bundleEntry.getResource());
+                            }
+                        }
+                    }
+                } else {
+                    resources.add(resource);
+                }
+                log.info("Parsed prefetch key '{}': {}", entry.getKey(), resource.fhirType());
+            } catch (Exception e) {
+                log.warn("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
+            }
+        }
+
+        if (resources.isEmpty()) {
+            log.info("No usable resources found in prefetch data");
+            return null;
+        }
+
+        log.info("Built prefetch provider with {} resources", resources.size());
+        return new PrefetchRetrieveProvider(resources, patientId);
+    }
+}

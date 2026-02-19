@@ -55,6 +55,13 @@ public class CdsServiceConfigEntity {
     @Column(name = "service_name", length = 100)
     private String serviceName;
 
+    @Column(name = "plan_definition_json", columnDefinition = "TEXT")
+    private String planDefinitionJson;
+
+    @Column(name = "card_generation_mode", length = 20)
+    @Builder.Default
+    private String cardGenerationMode = "cql_tuple";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
