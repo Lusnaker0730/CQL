@@ -145,6 +145,7 @@
       "riskAdjustment": "Risk Adjustment Variables are CQL definitions used to describe risk factors for the measure. Select expressions from your CQL and add descriptions for each.",
       "supplementalData": "Supplemental Data Elements are CQL definitions that capture additional data points for reporting. These are not used in scoring but are included in measure reports.",
       "observations": "Observation Criteria define how continuous variable and ratio measures compute their observation values. Select a CQL expression and an aggregate method (Count, Sum, Average, etc.).",
+      "dataRequirements": "Data Requirements declare which FHIR resources and value sets your measure CQL logic needs. They are automatically extracted from the ELM translation and are critical for eCQM portability and EHR integration.",
       "versionManagement": "Create versioned snapshots of your library or measure. Use Major for breaking changes, Minor for new features, Patch for fixes. Compare versions side-by-side to see CQL changes."
     },
     "fhir": {

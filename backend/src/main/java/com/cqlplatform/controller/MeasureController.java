@@ -14,6 +14,7 @@ import com.cqlplatform.model.request.UsernameRequest;
 import com.cqlplatform.model.request.WorkflowActionRequest;
 import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import com.cqlplatform.service.cql.DataRequirementExtractor;
 import com.cqlplatform.service.measure.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,6 +58,7 @@ public class MeasureController {
     private final FhirMeasureBundleImportService bundleImportService;
     private final HqmfExportService hqmfExportService;
     private final BatchEvaluationService batchEvaluationService;
+    private final DataRequirementExtractor dataRequirementExtractor;
     private final OwnershipVerifier ownershipVerifier;
 
     // ===== Measure Definition CRUD =====
@@ -201,6 +203,28 @@ public class MeasureController {
                         return ResponseEntity.ok(response.getMetadata().getExpressions());
                     }
                     return ResponseEntity.ok(Collections.<CqlTranslationResponse.ExpressionInfo>emptyList());
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ===== Data Requirements =====
+
+    @GetMapping("/{id}/data-requirements")
+    @Operation(summary = "Get Data Requirements", description = "Extract FHIR DataRequirement resources from a measure's CQL/ELM")
+    public ResponseEntity<List<DataRequirementInfo>> getDataRequirements(@PathVariable Long id) {
+        return definitionService.getById(id)
+                .map(def -> {
+                    if (def.getCqlContent() == null || def.getCqlContent().isBlank()) {
+                        return ResponseEntity.ok(Collections.<DataRequirementInfo>emptyList());
+                    }
+                    CqlTranslationRequest request = new CqlTranslationRequest();
+                    request.setCql(def.getCqlContent());
+                    CqlTranslationResponse response = translationService.translate(request);
+                    if (!response.isSuccess() || response.getElmJson() == null) {
+                        return ResponseEntity.ok(Collections.<DataRequirementInfo>emptyList());
+                    }
+                    List<DataRequirementInfo> requirements = dataRequirementExtractor.extract(response.getElmJson());
+                    return ResponseEntity.ok(requirements);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

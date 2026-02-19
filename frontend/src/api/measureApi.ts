@@ -16,6 +16,7 @@ import type {
   DashboardSummary,
   BatchEvaluationRequest,
   BatchEvaluationResult,
+  DataRequirementInfo,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
@@ -75,6 +76,12 @@ export const measureApi = {
   // CQL Expressions (for population criteria mapping)
   getCqlExpressions: async (measureId: number): Promise<{ name: string; context: string; accessLevel: string; resultType: string | null }[]> => {
     const response = await api.get(`/measures/${measureId}/cql-expressions`)
+    return response.data
+  },
+
+  // Data Requirements
+  getDataRequirements: async (measureId: number): Promise<DataRequirementInfo[]> => {
+    const response = await api.get<DataRequirementInfo[]>(`/measures/${measureId}/data-requirements`)
     return response.data
   },
 

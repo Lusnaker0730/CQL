@@ -1,6 +1,10 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.model.CqlTranslationRequest;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
+import com.cqlplatform.service.cql.CqlTranslationService;
+import com.cqlplatform.service.cql.DataRequirementExtractor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -20,6 +24,8 @@ import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
 public class FhirMeasureService {
 
     private final MeasureDefinitionService definitionService;
+    private final CqlTranslationService translationService;
+    private final DataRequirementExtractor dataRequirementExtractor;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public MeasureDefinition importFhirMeasure(JsonNode fhirMeasureJson) {
@@ -204,6 +210,75 @@ public class FhirMeasureService {
             }
         }
 
+        // Data Requirements
+        addDataRequirements(measure, definition);
+
         return measure;
+    }
+
+    private void addDataRequirements(ObjectNode measure, MeasureDefinition definition) {
+        if (definition.getCqlContent() == null || definition.getCqlContent().isBlank()) {
+            return;
+        }
+        try {
+            CqlTranslationRequest request = new CqlTranslationRequest();
+            request.setCql(definition.getCqlContent());
+            CqlTranslationResponse response = translationService.translate(request);
+            if (!response.isSuccess() || response.getElmJson() == null) {
+                return;
+            }
+
+            List<DataRequirementInfo> requirements = dataRequirementExtractor.extract(response.getElmJson());
+            if (requirements.isEmpty()) {
+                return;
+            }
+
+            ArrayNode drArray = measure.putArray("dataRequirement");
+            for (DataRequirementInfo dr : requirements) {
+                ObjectNode drNode = drArray.addObject();
+                drNode.put("type", dr.getType());
+
+                if (dr.getProfile() != null && !dr.getProfile().isEmpty()) {
+                    ArrayNode profileArray = drNode.putArray("profile");
+                    for (String p : dr.getProfile()) {
+                        profileArray.add(p);
+                    }
+                }
+
+                if (dr.getCodeFilter() != null && !dr.getCodeFilter().isEmpty()) {
+                    ArrayNode cfArray = drNode.putArray("codeFilter");
+                    for (DataRequirementInfo.CodeFilterInfo cf : dr.getCodeFilter()) {
+                        ObjectNode cfNode = cfArray.addObject();
+                        if (cf.getPath() != null) {
+                            cfNode.put("path", cf.getPath());
+                        }
+                        if (cf.getValueSet() != null) {
+                            cfNode.put("valueSet", cf.getValueSet());
+                        }
+                        if (cf.getCode() != null && !cf.getCode().isEmpty()) {
+                            ArrayNode codeArray = cfNode.putArray("code");
+                            for (DataRequirementInfo.CodingInfo coding : cf.getCode()) {
+                                ObjectNode codeNode = codeArray.addObject();
+                                if (coding.getSystem() != null) codeNode.put("system", coding.getSystem());
+                                if (coding.getCode() != null) codeNode.put("code", coding.getCode());
+                                if (coding.getDisplay() != null) codeNode.put("display", coding.getDisplay());
+                            }
+                        }
+                    }
+                }
+
+                if (dr.getDateFilter() != null && !dr.getDateFilter().isEmpty()) {
+                    ArrayNode dfArray = drNode.putArray("dateFilter");
+                    for (DataRequirementInfo.DateFilterInfo df : dr.getDateFilter()) {
+                        ObjectNode dfNode = dfArray.addObject();
+                        if (df.getPath() != null) {
+                            dfNode.put("path", df.getPath());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to add data requirements to FHIR Measure export: {}", e.getMessage());
+        }
     }
 }

@@ -25,6 +25,7 @@ export const helpContent = {
     riskAdjustment: 'help.measures.riskAdjustment',
     supplementalData: 'help.measures.supplementalData',
     observations: 'help.measures.observations',
+    dataRequirements: 'help.measures.dataRequirements',
     versionManagement: 'help.measures.versionManagement',
   },
   fhir: {

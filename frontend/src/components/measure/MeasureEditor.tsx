@@ -31,6 +31,7 @@ import type { MeasureDefinition } from '../../types'
 import { measureApi } from '../../api'
 import MeasureDetailsTab from './MeasureDetailsTab'
 import MeasureCqlTab from './MeasureCqlTab'
+import DataRequirementsTab from './DataRequirementsTab'
 import PopulationCriteriaTab from './PopulationCriteriaTab'
 import MeasureEvaluationTab from './MeasureEvaluationTab'
 import MeasureReportHistory from './MeasureReportHistory'
@@ -393,6 +394,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         >
           <Tab label="Details" />
           <Tab label="CQL" />
+          <Tab label="Data Requirements" />
           <Tab label="Population Criteria" />
           <Tab label="Evaluate" />
           <Tab label="Test Cases" />
@@ -409,20 +411,23 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 2 && (
-          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <DataRequirementsTab measure={measure} />
         )}
         {tab === 3 && (
-          <MeasureEvaluationTab measure={measure} />
+          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 4 && (
-          <TestCasesTab measure={measure} readOnly={isLockedByOther} />
+          <MeasureEvaluationTab measure={measure} />
         )}
         {tab === 5 && (
+          <TestCasesTab measure={measure} readOnly={isLockedByOther} />
+        )}
+        {tab === 6 && (
           <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
             <MeasureReportHistory />
           </Box>
         )}
-        {tab === 6 && (
+        {tab === 7 && (
           <MeasureValidationPanel
             measureId={measure.id}
             onNavigateToTab={(tabIndex) => setTab(tabIndex)}

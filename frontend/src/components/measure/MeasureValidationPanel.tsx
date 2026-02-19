@@ -92,8 +92,8 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
     switch (issue.category) {
       case 'METADATA': onNavigateToTab(0); break       // Details
       case 'CQL': onNavigateToTab(1); break             // CQL
-      case 'POPULATIONS': onNavigateToTab(2); break     // Population Criteria
-      case 'TEST_CASES': onNavigateToTab(4); break      // Test Cases
+      case 'POPULATIONS': onNavigateToTab(3); break     // Population Criteria
+      case 'TEST_CASES': onNavigateToTab(5); break      // Test Cases
       default: break
     }
   }

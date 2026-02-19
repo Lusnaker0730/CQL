@@ -925,6 +925,31 @@ export interface AuditStatsResponse {
   dailyActivity: DailyActivityCount[]
 }
 
+// Data Requirements (extracted from ELM)
+export interface DataRequirementInfo {
+  type: string
+  profile?: string[]
+  codeFilter?: CodeFilterInfo[]
+  dateFilter?: DateFilterInfo[]
+}
+
+export interface CodeFilterInfo {
+  path: string
+  valueSet?: string
+  valueSetName?: string
+  code?: CodingInfo[]
+}
+
+export interface DateFilterInfo {
+  path: string
+}
+
+export interface CodingInfo {
+  system?: string
+  code?: string
+  display?: string
+}
+
 // CQL Repository
 export interface RepositoryLibrary {
   name: string
