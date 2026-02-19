@@ -1,6 +1,6 @@
 # CQL Platform
 
-A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, electronic quality measure (eCQM) management, FHIR resource browsing, and an admin dashboard with audit logging.
+A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, CDS authoring, electronic quality measure (eCQM) management, FHIR resource browsing, internationalization (i18n), and an admin dashboard with audit logging.
 
 ## Features
 
@@ -9,13 +9,37 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Real-time CQL-to-ELM translation with error/warning markers
 - CQL execution against FHIR servers with debug tracing
 - Library dependency resolution, versioning, and FHIR Library import/export
+- Library dependency analysis with impact visualization
+- Undo/redo support for builder operations with Redux history stack
 - Smart paste sanitization (strips smart quotes, zero-width chars from LLM outputs)
 
 ### CQL Builder Panel
 - Visual CQL construction panel alongside the editor
-- Sections for includes, value sets, codes, parameters, definitions, and functions
-- Terminology search and code lookup integration
+- Sections for includes, value sets, codes, concepts, parameters, definitions, and functions
+- Retrieve Builder: guided FHIR retrieve expression construction with C3F modifiers
+- Query Builder: visual WHERE/SORT/RETURN clause construction with field auto-complete
+- CDS Card Builder: CQL Tuple card generation with literal/expression field modes
+- Operator Panel: expression builder and operator reference
+- Syntax-highlighted CQL preview (Monaco `colorize()`) in all builder components
+- Duplicate name detection with confirmation dialog before snippet insertion
+- Terminology search, VSAC lookup, and TWCore browse integration
 - One-click CQL snippet generation and cursor insertion
+
+### CDS Authoring Tool
+- Visual artifact authoring with 11-tab workspace: Inclusions, Exclusions, Subpopulations, Base Elements, Recommendations, Parameters, Error Handling, External CQL, Review CQL, Testing, Summary
+- Drag-and-drop element tree with conjunction groups (AND/OR) and nested conditions
+- Template-based element selection with form-driven configuration
+- Modifier system: age range, gender, look back, most recent, active/confirmed, etc.
+- Automatic CQL generation from visual artifact tree
+- External CQL library upload, parsing, and integration
+- Artifact testing against FHIR patient data with result visualization
+- One-click deployment as CDS Hooks service
+- Save artifact as reusable CQL library
+- CQL import: parse existing CQL into visual artifact structure
+- Query builder for FHIR resource queries
+- TWCore catalog integration for Taiwan-specific code systems
+- CPG metadata editing for Clinical Practice Guideline compliance
+- Artifact duplication and version management
 
 ### CDS Hooks
 - Clinical Decision Support Hooks integration with service discovery and invocation
@@ -31,6 +55,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Two-panel layout: measure library browser + tabbed measure editor (Details, CQL, Population Criteria, Evaluate, Test Cases, Reports)
 - Population-based evaluation with stratification and risk adjustment support
 - Composite measures (opportunity and linear scoring)
+- Data requirements analysis for measures
 - Measure versioning with history, sharing, ownership transfer, and access control
 - Workflow lifecycle: draft → submit for review → approve/reject → retire
 - Measure locking to prevent concurrent edits
@@ -59,12 +84,21 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - ValueSet caching with per-cache TTL and admin eviction
 - Circuit breakers and retry with exponential backoff on all FHIR calls
 
+### Internationalization (i18n)
+- Multi-language support: English (en) and Traditional Chinese (zh-TW)
+- Language switcher in header toolbar with persistent preference (localStorage)
+- MUI locale integration for component-level translations
+- Namespace-based translation files: common, validation, editor, builder
+- Help tooltips with automatic i18n key resolution
+
 ### Administration
 - User management: create users, assign roles, enable/disable accounts
+- Personal API key management (create, list, revoke)
 - Password reset: self-service email flow and admin-initiated reset
 - Audit dashboard with log search, filtering, and CSV export
 - Audit statistics: daily activity, top users, action breakdowns
 - Compliance views: PHI access tracking, login activity, security events
+- SMART on FHIR configuration endpoint
 
 ### Frontend UX
 - Dark mode with persistent user preferences (editor font size, tab size, word wrap, minimap)
@@ -73,7 +107,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - React Error Boundaries preventing white-screen crashes with isolated per-page recovery
 - Unsaved changes guard on measure editor tabs
 - Global toast notification system
-- Recent/favorites sidebar for quick library access
+- Recent/favorites sidebar for quick library access with server-side persistence
 - Client-side input validation with DTO validation and JSON body XSS filtering
 - Inline help tooltips and quick-start guide drawer
 - Configurable backend URLs via environment variables
@@ -99,32 +133,60 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   ├── CqlController           # CQL translate, validate, execute, libraries
 │       │   ├── CdsHooksController      # CDS service discovery and invocation
 │       │   ├── CdsServiceConfigController  # CDS service management
+│       │   ├── AuthoringController     # CDS artifact CRUD, CQL generation, testing, deploy
 │       │   ├── MeasureController       # Measures, test cases, reports, schedules
 │       │   ├── FhirController          # FHIR resources, terminology, structure defs
 │       │   ├── AdminController         # User management
-│       │   └── AuditController         # Audit dashboard
+│       │   ├── AuditController         # Audit dashboard
+│       │   ├── SmartConfigController   # SMART on FHIR configuration
+│       │   ├── UserApiKeyController    # Personal API key management
+│       │   └── UserLibraryPrefsController  # Library favorites and recent history
 │       ├── entity/             # JPA entities
 │       ├── repository/         # Spring Data repositories
 │       ├── service/
 │       │   ├── cql/            # CQL translation, execution, library management
 │       │   ├── fhir/           # FHIR data provider, validation, bulk export, VSAC, structure defs
 │       │   ├── cds/            # CDS Hooks: CRUD, invocation, card strategies, analytics, feedback
-│       │   └── measure/        # eCQM evaluation, reports, scheduling, comparison
+│       │   ├── measure/        # eCQM evaluation, reports, scheduling, comparison
+│       │   └── authoring/      # CDS authoring: artifact CRUD, CQL generation, testing, import
 │       ├── model/              # DTOs and request/response models
 │       │   ├── auth/           # Auth and admin DTOs
 │       │   ├── audit/          # Audit log DTOs
-│       │   └── fhir/           # FHIR structure definition DTOs
+│       │   ├── authoring/      # Authoring DTOs (templates, modifiers, artifacts)
+│       │   ├── fhir/           # FHIR structure definition DTOs
+│       │   └── measure/        # Measure-specific DTOs
 │       └── exception/          # Global exception handling
 │
 ├── frontend/                   # React + TypeScript frontend
 │   ├── package.json
 │   ├── .env.example            # Environment variable template
 │   └── src/
+│       ├── i18n.ts             # i18next configuration (en + zh-TW)
 │       ├── components/
-│       │   ├── common/         # GradientButton, StatusChip, SectionHeader, ErrorBoundary, Skeletons
-│       │   ├── editor/         # CqlEditor, ElmViewer, LibraryQuickAccess
+│       │   ├── common/         # GradientButton, StatusChip, SectionHeader, ErrorBoundary,
+│       │   │                   # LanguageSwitcher, HelpTooltip, HelpDrawer, Skeletons, TabPanel
+│       │   ├── editor/         # CqlEditor, ElmViewer, LibraryQuickAccess, VersionHistory, DiffViewer
 │       │   ├── execution/      # ExecutionPanel, DebugPanel
-│       │   ├── builder/        # CqlBuilderPanel, IncludesSection, ValueSetSection, CodesSection, etc.
+│       │   ├── builder/        # CqlBuilderPanel, IncludesSection, ValueSetSection, CodesSection,
+│       │   │                   # ConceptsSection, ParametersSection, DefinitionsSection, FunctionsSection,
+│       │   │                   # RetrieveBuilder, QueryBuilder, CdsCardBuilder, OperatorPanel,
+│       │   │                   # ExpressionBuilder, CqlPreviewBox, SnippetPreview
+│       │   ├── authoring/      # CDS Authoring Tool
+│       │   │   ├── ArtifactList, ArtifactModal, ArtifactWorkspace
+│       │   │   ├── builder/           # ConjunctionGroup, ArtifactElement, ModifierCard
+│       │   │   ├── element-select/    # ElementSelect, ElementSelectDropdown
+│       │   │   ├── fields/            # NumberField, StringField, ValueSetField, ChooseCodeDialog
+│       │   │   ├── subpopulations/    # Subpopulations management
+│       │   │   ├── recommendations/   # Recommendations editor
+│       │   │   ├── error-statement/   # Error statement configuration
+│       │   │   ├── base-elements/     # Base elements management
+│       │   │   ├── parameters/        # Artifact parameters
+│       │   │   ├── external-cql/      # External CQL library management
+│       │   │   ├── cql-preview/       # CQL preview panel
+│       │   │   ├── testing/           # Artifact testing interface
+│       │   │   ├── summary/           # Artifact summary view
+│       │   │   ├── import/            # CQL import dialog
+│       │   │   └── query-builder/     # Visual FHIR query builder
 │       │   ├── cds/            # CdsPanel (invoke, manage, analytics, sandbox)
 │       │   ├── measure/        # MeasureEditor, MeasureLibrary, WorkflowIndicator, PopulationCriteriaTab, etc.
 │       │   ├── testcase-builder/  # VisualBundleBuilder, ResourceForm, ElementField, FHIR field components
@@ -132,14 +194,23 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   ├── terminology/    # TerminologyBrowser
 │       │   ├── layout/         # Header, Footer
 │       │   └── auth/           # ProtectedRoute
-│       ├── contexts/           # NotificationContext, PreferencesContext, LibraryHistoryContext, BundleBuilderContext
-│       ├── hooks/              # useCql, useCdsHooks, useMeasures, useCqlStructure, useFhirMetadata, useUnsavedChangesGuard, etc.
-│       ├── pages/              # EditorPage, CdsPage, MeasuresPage, FhirPage, TerminologyPage, AdminUsersPage, AuditDashboardPage, LoginPage
+│       ├── contexts/           # NotificationContext, PreferencesContext, LibraryHistoryContext,
+│       │                       # BundleBuilderContext, ResourceTypeContext
+│       ├── hooks/              # useCql, useCdsHooks, useMeasures, useCqlStructure, useFhirMetadata,
+│       │                       # useAuthoring, useArtifactCql, useArtifactTesting, useExternalCql,
+│       │                       # useCqlImport, useModifiers, useTemplates, useTwcoreCatalog,
+│       │                       # useLibraryPrefs, useTerminology, useUnsavedChangesGuard, etc.
+│       ├── pages/              # EditorPage, CdsPage, AuthoringPage, MeasuresPage, MeasureDashboardPage,
+│       │                       # FhirPage, TerminologyPage, AdminUsersPage, AuditDashboardPage,
+│       │                       # LoginPage, ForgotPasswordPage, ResetPasswordPage
+│       ├── locales/            # i18n translation files
+│       │   ├── en/             # English (common, validation, editor, builder)
+│       │   └── zh-TW/          # Traditional Chinese (common, validation, editor, builder)
 │       ├── api/                # Axios API clients (configurable base URLs)
-│       ├── store/              # Redux slices (auth, editor, execution)
+│       ├── store/              # Redux slices (auth, editor, execution, artifact)
 │       ├── utils/              # CQL syntax, validation utilities
 │       ├── constants/          # Help content
-│       ├── theme.ts            # MUI theme with light/dark mode support
+│       ├── theme.ts            # MUI theme with light/dark mode and locale support
 │       └── types/              # TypeScript interfaces
 │
 ├── docker/                     # Docker configuration
@@ -152,7 +223,10 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │   ├── prometheus-alerts.yml   # Alert rules
 │   └── scripts/                # backup-db.sh, restore-db.sh
 │
-├── k8s/                        # Kubernetes manifests (16 files)
+├── e2e/                        # Playwright end-to-end tests
+├── twcore/                     # TWCore synthetic patient data generator (Python)
+├── TWCOREDATA/                 # Taiwan Core FHIR patient data and IG material
+├── k8s/                        # Kubernetes manifests
 ├── load-tests/                 # k6 load testing scripts
 ├── docs/                       # Admin guide, deployment guide, runbooks
 └── .github/workflows/          # CI/CD pipelines
@@ -233,6 +307,7 @@ This starts all services with exposed ports:
 | `/api/cql/libraries/metadata` | GET | Library metadata for IntelliSense |
 | `/api/cql/libraries/{id}/fhir` | GET | Export as FHIR Library |
 | `/api/cql/libraries/import/fhir` | POST | Import FHIR Library |
+| `/api/cql/libraries/{id}/dependency-analysis` | GET | Library dependency analysis |
 
 ### CDS Hooks
 
@@ -245,6 +320,32 @@ This starts all services with exposed ports:
 | `/api/cds/services` | GET/POST/PUT/DELETE | Manage CDS service configs |
 | `/api/cds/services/analytics` | GET | Service usage analytics |
 
+### CDS Authoring
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/authoring/artifacts` | GET/POST | List / create CDS artifacts |
+| `/api/authoring/artifacts/{id}` | GET/PUT/DELETE | Single artifact CRUD |
+| `/api/authoring/artifacts/{id}/duplicate` | POST | Duplicate artifact |
+| `/api/authoring/templates` | GET | List form templates |
+| `/api/authoring/modifiers` | GET | List available modifiers |
+| `/api/authoring/artifacts/{id}/cql` | POST | Generate CQL from artifact tree |
+| `/api/authoring/artifacts/{id}/elm` | POST | Generate ELM from artifact |
+| `/api/authoring/artifacts/{id}/validate` | POST | Validate artifact CQL |
+| `/api/authoring/artifacts/{id}/external-cql` | GET | List external CQL libraries |
+| `/api/authoring/artifacts/{id}/external-cql/upload` | POST | Upload external CQL file |
+| `/api/authoring/artifacts/{id}/external-cql/content` | POST | Add external CQL from content |
+| `/api/authoring/artifacts/{artifactId}/external-cql/{libId}` | GET/DELETE | Get/delete external lib |
+| `/api/authoring/artifacts/{id}/test` | POST | Test artifact against patient |
+| `/api/authoring/artifacts/{id}/deploy-cds` | POST | Deploy artifact as CDS service |
+| `/api/authoring/artifacts/{id}/save-library` | POST | Save artifact as CQL library |
+| `/api/authoring/artifacts/{id}/summary` | GET | Get artifact summary |
+| `/api/authoring/import-cql` | POST | Import CQL into artifact structure |
+| `/api/authoring/query-builder/resources` | GET | FHIR resources for query builder |
+| `/api/authoring/query-builder/operators` | GET | Operators for query builder |
+| `/api/authoring/twcore-catalog` | GET | TWCore catalog entries |
+| `/api/authoring/twcore-catalog/code-systems` | GET | TWCore code systems |
+
 ### Quality Measures
 
 | Endpoint | Method | Description |
@@ -252,6 +353,7 @@ This starts all services with exposed ports:
 | `/api/measures` | GET/POST/PUT/DELETE | Manage measure definitions |
 | `/api/measures/{id}/$evaluate-measure` | POST | Evaluate quality measure |
 | `/api/measures/{id}/cql-expressions` | GET | List CQL expressions for a measure |
+| `/api/measures/{id}/data-requirements` | GET | Data requirements analysis |
 | `/api/measures/{id}/test-cases` | GET/POST | Test case CRUD |
 | `/api/measures/{id}/test-cases/{id}/run` | POST | Run single test case |
 | `/api/measures/{id}/test-cases/run` | POST | Run all test cases |
@@ -300,6 +402,18 @@ This starts all services with exposed ports:
 | `/api/fhir/ig/profiles` | GET | IG profiles |
 | `/api/fhir/cache/stats` | GET | Cache statistics |
 
+### User Preferences
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/cql/user-prefs/favorites` | GET | List favorite libraries |
+| `/api/cql/user-prefs/favorites/{libraryId}` | POST/DELETE | Add/remove favorite |
+| `/api/cql/user-prefs/recent` | GET | List recent libraries |
+| `/api/cql/user-prefs/recent/{libraryId}` | POST | Add to recent |
+| `/api/cql/user-prefs/recent` | DELETE | Clear recent history |
+| `/api/user/api-keys` | GET/POST | List / create API keys |
+| `/api/user/api-keys/{id}` | DELETE | Revoke API key |
+
 ### Administration (Admin only)
 
 | Endpoint | Method | Description |
@@ -315,6 +429,12 @@ This starts all services with exposed ports:
 | `/api/admin/audit/phi-access` | GET | PHI access events |
 | `/api/admin/audit/login-activity` | GET | Login activity |
 | `/api/admin/audit/security-events` | GET | Security events (401/403) |
+
+### Other
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/.well-known/smart-configuration` | GET | SMART on FHIR configuration |
 
 ## Configuration
 
@@ -377,6 +497,7 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 - Material-UI 5
 - Redux Toolkit
 - TanStack Query (React Query)
+- i18next + react-i18next + i18next-browser-languagedetector
 - Axios
 - React Router 6
 
@@ -434,6 +555,8 @@ npm run build
 |----------|--------|
 | Ctrl+S | Translate CQL |
 | Ctrl+Enter | Execute CQL |
+| Ctrl+Z | Undo (builder operations) |
+| Ctrl+Y | Redo (builder operations) |
 
 ## License
 
