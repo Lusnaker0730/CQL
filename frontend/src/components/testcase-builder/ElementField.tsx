@@ -22,11 +22,13 @@ interface ElementFieldProps {
   element: ElementMetadata
   path: string
   value: unknown
-  onChange: (value: unknown) => void
+  onChange: (value: unknown, choiceFieldName?: string) => void
+  /** For choice type elements loaded from JSON, the detected type (e.g. "Quantity") */
+  initialChoiceType?: string
   depth: number
 }
 
-export default function ElementField({ element, path, value, onChange, depth }: ElementFieldProps) {
+export default function ElementField({ element, path, value, onChange, initialChoiceType, depth }: ElementFieldProps) {
   // Deep fallback: render inline JSON editor
   if (depth >= 3) {
     return (
@@ -67,6 +69,7 @@ export default function ElementField({ element, path, value, onChange, depth }: 
         element={element}
         value={value}
         onChange={onChange}
+        initialChoiceType={initialChoiceType}
         depth={depth}
       />
     )

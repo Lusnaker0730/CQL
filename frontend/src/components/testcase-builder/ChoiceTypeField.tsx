@@ -7,14 +7,16 @@ import ElementField from './ElementField'
 interface ChoiceTypeFieldProps {
   element: ElementMetadata
   value: unknown
-  onChange: (value: unknown) => void
+  onChange: (value: unknown, choiceFieldName?: string) => void
+  /** Pre-detected choice type from existing data (e.g. "Quantity") */
+  initialChoiceType?: string
   depth: number
 }
 
-export default function ChoiceTypeField({ element, value, onChange, depth }: ChoiceTypeFieldProps) {
+export default function ChoiceTypeField({ element, value, onChange, initialChoiceType, depth }: ChoiceTypeFieldProps) {
   const { t } = useTranslation('measures')
   const choiceTypes = element.choiceTypes || []
-  const [selectedType, setSelectedType] = useState<string>(choiceTypes[0] || '')
+  const [selectedType, setSelectedType] = useState<string>(initialChoiceType || choiceTypes[0] || '')
 
   const handleTypeChange = (newType: string) => {
     setSelectedType(newType)
@@ -63,7 +65,7 @@ export default function ChoiceTypeField({ element, value, onChange, depth }: Cho
             element={syntheticElement}
             path={element.path}
             value={value}
-            onChange={onChange}
+            onChange={(val) => onChange(val, syntheticElement.name)}
             depth={depth}
           />
         </Box>

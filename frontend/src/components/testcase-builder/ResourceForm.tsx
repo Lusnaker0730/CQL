@@ -38,15 +38,29 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   const [selectedAttrs, setSelectedAttrs] = useState<Set<string>>(new Set())
 
   const handleFieldChange = useCallback(
-    (path: string, value: unknown) => {
+    (path: string, value: unknown, choiceFieldName?: string) => {
       if (!activeEntry) return
-      const fieldName = path.split('.').slice(1).join('.')
+      const baseName = path.split('.').slice(1).join('.')
       const newData = { ...activeEntry.resourceData }
 
-      if (value === undefined || value === null || value === '') {
-        delete newData[fieldName]
+      if (choiceFieldName) {
+        // Choice type: clean up old variants (keys starting with baseName + uppercase,
+        // e.g. "valueQuantity", "valueString") and the base name itself
+        for (const key of Object.keys(newData)) {
+          if (key === baseName || (key.startsWith(baseName) && key.length > baseName.length && /[A-Z]/.test(key[baseName.length]))) {
+            delete newData[key]
+          }
+        }
+
+        if (value !== undefined && value !== null && value !== '') {
+          newData[choiceFieldName] = value
+        }
       } else {
-        newData[fieldName] = value
+        if (value === undefined || value === null || value === '') {
+          delete newData[baseName]
+        } else {
+          newData[baseName] = value
+        }
       }
 
       dispatch({
@@ -90,11 +104,29 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
 
   const elements = metadata?.elements || []
   const requiredElements = elements.filter((el) => el.isRequired)
-  const filledOptionalNames = new Set(
-    Object.keys(activeEntry.resourceData).filter(
-      (k) => k !== 'id' && !requiredElements.some((r) => r.name === k)
-    )
-  )
+  // Build set of element names that have data (including choice type variants)
+  const filledOptionalNames = new Set<string>()
+  for (const key of Object.keys(activeEntry.resourceData)) {
+    if (key === 'id') continue
+    // Direct match: key equals an element name
+    const directEl = elements.find((e) => e.name === key)
+    if (directEl && !directEl.isRequired) {
+      filledOptionalNames.add(directEl.name)
+      continue
+    }
+    // Choice type variant: e.g., key "valueQuantity" matches element "value"
+    if (!directEl) {
+      const choiceEl = elements.find((e) =>
+        e.isChoiceType && e.choiceTypes?.some((ct) => {
+          const typedName = e.name + ct.charAt(0).toUpperCase() + ct.slice(1)
+          return typedName === key
+        })
+      )
+      if (choiceEl && !choiceEl.isRequired) {
+        filledOptionalNames.add(choiceEl.name)
+      }
+    }
+  }
   const visibleOptional = elements.filter(
     (el) => !el.isRequired && filledOptionalNames.has(el.name)
   )
@@ -121,7 +153,26 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   }
 
   const getFieldValue = (el: ElementMetadata) => {
+    // For choice types, look for typed keys (e.g., "valueQuantity" for element "value")
+    if (el.isChoiceType && el.choiceTypes) {
+      for (const ct of el.choiceTypes) {
+        const key = el.name + ct.charAt(0).toUpperCase() + ct.slice(1)
+        if (key in activeEntry.resourceData) {
+          return activeEntry.resourceData[key]
+        }
+      }
+    }
     return activeEntry.resourceData[el.name]
+  }
+
+  /** Detect which choice type is currently stored (e.g., "Quantity" from key "valueQuantity") */
+  const getSelectedChoiceType = (el: ElementMetadata): string | undefined => {
+    if (!el.isChoiceType || !el.choiceTypes) return undefined
+    for (const ct of el.choiceTypes) {
+      const key = el.name + ct.charAt(0).toUpperCase() + ct.slice(1)
+      if (key in activeEntry.resourceData) return ct
+    }
+    return undefined
   }
 
   return (
@@ -147,7 +198,8 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
                 element={el}
                 path={`${activeEntry.resourceType}.${el.name}`}
                 value={getFieldValue(el)}
-                onChange={(val) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val)}
+                onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
+                initialChoiceType={getSelectedChoiceType(el)}
                 depth={0}
               />
             ))}
@@ -169,7 +221,8 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
                 element={el}
                 path={`${activeEntry.resourceType}.${el.name}`}
                 value={getFieldValue(el)}
-                onChange={(val) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val)}
+                onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
+                initialChoiceType={getSelectedChoiceType(el)}
                 depth={0}
               />
             ))}

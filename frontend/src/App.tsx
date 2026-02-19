@@ -39,13 +39,13 @@ export default function App() {
           path="/*"
           element={
             <ProtectedRoute>
-              <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
                 <Header />
                 <Box
                   component="main"
                   sx={{
-                    flexGrow: 1,
-                    minHeight: 0,
+                    flex: 1,
+                    overflow: 'auto',
                     background: (theme) =>
                       theme.palette.mode === 'dark'
                         ? 'linear-gradient(180deg, #1a1a1a 0%, #121212 100%)'

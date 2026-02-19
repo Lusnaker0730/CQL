@@ -273,9 +273,14 @@ function SandboxPanelInner() {
                     </Typography>
                   </Stack>
                   {card.detail && (
-                    <Typography variant="body2" color="text.secondary">
-                      {card.detail}
-                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ whiteSpace: 'pre-line' }}
+                      dangerouslySetInnerHTML={{
+                        __html: card.detail.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
+                      }}
+                    />
                   )}
                   {card.suggestions && card.suggestions.length > 0 && (
                     <Box mt={1}>

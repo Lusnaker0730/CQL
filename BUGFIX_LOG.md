@@ -8,6 +8,9 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 011 | 2026-02-20 | Medium | 版面配置（前端） | Footer 位置異常：flexbox 佈局修正 | UX 設計缺陷 | — |
+| 010 | 2026-02-20 | Low | CDS Hooks Sandbox（前後端） | CDS Card 顯示所有表達式擠在一行 | UX 設計缺陷 | — |
+| 009 | 2026-02-20 | High | Test Case Builder（前端） | FHIR Choice Type 序列化錯誤（value → valueQuantity） | 資料處理錯誤 | — |
 | 008 | 2026-02-19 | High | CDS Hooks Sandbox（後端） | CDS Sandbox Invoke 所有 CQL 表達式回傳 null | 資料處理錯誤 | — |
 | 007 | 2026-02-19 | Medium | 版面配置（前端） | Footer fixed 定位仍遮擋操作按鈕 | UX 設計缺陷 | [`b570119`](../../commit/b570119) |
 | 006 | 2026-02-19 | Critical | Backend 基礎設施 | Backend OOM 導致所有 API 無回應 | 配置遺漏 | [`660347a`](../../commit/660347a) |
@@ -29,6 +32,104 @@
 
 ---
 
+## #011 — Footer 位置異常：flexbox 佈局修正
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | 版面配置（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | UX 設計缺陷 |
+| **影響範圍** | `frontend/src/App.tsx`、`frontend/src/constants/layout.ts` |
+| **Commit** | — |
+
+### BUG 描述
+
+Footer（CQL 規範、CDS Hooks、FHIR 連結）卡在畫面中間，無法固定在視窗底部。此問題在 #005 和 #007 中已嘗試修正，但 `PAGE_CONTENT_HEIGHT = calc(100vh - 48px)` 僅扣除 Header 高度（且 MUI Toolbar 預設高度為 64px 非 48px），未扣除 Footer 高度，導致 Footer 被推至 viewport 外或浮在內容中間。
+
+### 修正方式
+
+- **`App.tsx`**：外層 Box 改用 `display: flex`, `flexDirection: column`, `height: 100vh`，Main 區域設為 `flex: 1, overflow: auto`，Footer 自然固定在 viewport 底部
+- **`layout.ts`**：`PAGE_CONTENT_HEIGHT` 從 `calc(100vh - 48px)` 改為 `100%`（相對於 flex 分配的 main 空間）
+
+### 測試驗證
+
+- [x] TypeScript 編譯通過
+- [x] Frontend Docker 重建並部署成功
+- [x] Footer 固定在 viewport 底部，不隨內容滾動
+- [x] 各頁面內容可正常捲動
+
+---
+
+## #010 — CDS Card 顯示所有表達式擠在一行
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | CDS Hooks Sandbox（前後端） |
+| **嚴重程度** | Low |
+| **根因類型** | UX 設計缺陷 |
+| **影響範圍** | `backend/.../CqlTupleCardStrategy.java`、`frontend/.../SandboxPanel.tsx` |
+| **Commit** | — |
+
+### BUG 描述
+
+CDS Sandbox 的結果卡片將所有 CQL 表達式（LatestBMI、BMICalue、BMIClassification、CardSuggestion）全部串接在同一行顯示，包含冗長的 FHIR Resource 物件序列化文字。問題有二：
+
+1. **後端**：`CqlTupleCardStrategy` 將所有非 null 表達式（包含 FHIR Resource 物件）統一格式化為 `**key**: value` 並換行串接，未區分主要訊息與中間計算值
+2. **前端**：`SandboxPanel.tsx` 以純文字 `<Typography>` 渲染 card detail，不支援換行 (`\n`) 和 Markdown 粗體 (`**text**`)
+
+### 修正方式
+
+- **`CqlTupleCardStrategy.java`**：新增「主要訊息偵測」邏輯 — 表達式名稱含 Suggestion / Summary / Message / Recommendation 且為 String 時，作為 card 主要 detail；FHIR Resource 物件從合併卡片中排除（過於冗長）；其餘標量值作為補充資訊
+- **`SandboxPanel.tsx`**：card detail 加入 `whiteSpace: 'pre-line'` 支援換行，並以 `dangerouslySetInnerHTML` + regex 將 `**text**` 轉為 `<strong>text</strong>`
+
+### 測試驗證
+
+- [x] TypeScript 編譯通過、`mvn compile -q` 通過
+- [x] Docker 重建並部署成功
+- [x] BMI CDS card 主要顯示 CardSuggestion 訊息，BMIClassification 等補充值分行顯示
+- [x] FHIR Resource 物件不再出現在卡片文字中
+
+---
+
+## #009 — FHIR Choice Type 序列化錯誤（value → valueQuantity）
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | Test Case Builder（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `frontend/src/components/testcase-builder/ChoiceTypeField.tsx`、`ElementField.tsx`、`ResourceForm.tsx` |
+| **Commit** | — |
+
+### BUG 描述
+
+Visual Builder 中 FHIR Choice Type 欄位（如 `Observation.value[x]`）的值被序列化為基礎名稱 `"value"` 而非帶類型後綴的 `"valueQuantity"`。HAPI FHIR parser 以 lenient 模式忽略未知的 `"value"` 欄位（日誌警告 `Unknown element 'value' found while parsing`），導致 Observation 無值 → CQL `obs.value is not null` 過濾掉所有資源 → 表達式回傳 null。
+
+**根本原因**：`ChoiceTypeField` 正確建立合成元素名稱 `"valueQuantity"`（第 26 行），但將原始 `onChange` 直接傳遞給子 `ElementField`。`ResourceForm.handleFieldChange` 從 path `"Observation.value"` 擷取欄位名稱 `"value"` 儲存至 `resourceData`。`serializeToBundle` 直接複製 `resourceData` → JSON 產生 `"value"` 而非 `"valueQuantity"`。
+
+### 修正方式
+
+- **`ChoiceTypeField.tsx`**：onChange 包裝為 `(val) => onChange(val, syntheticElement.name)`，傳遞正確的帶類型欄位名（如 `"valueQuantity"`）；新增 `initialChoiceType` prop 支援從 JSON 載入時偵測已選類型
+- **`ElementField.tsx`**：onChange 簽名擴展為 `(value, choiceFieldName?) => void`；新增 `initialChoiceType` prop 傳遞至 ChoiceTypeField
+- **`ResourceForm.tsx`**：
+  - `handleFieldChange` 新增 `choiceFieldName` 參數：收到時先清除所有 choice type 變體（如 `valueQuantity`、`valueString` 等），再以正確 key 儲存
+  - `getFieldValue` 支援 choice type 查詢：遍歷 `choiceTypes` 尋找帶類型後綴的 key
+  - `getSelectedChoiceType` 偵測既有資料的 choice type（用於 JSON ↔ Visual Builder 雙向同步）
+  - `filledOptionalNames` 支援 choice type 變體匹配（如 `"valueQuantity"` 對應元素 `"value"`）
+
+### 測試驗證
+
+- [x] TypeScript 編譯通過
+- [x] Frontend Docker 重建並部署成功
+- [x] Visual Builder 設定 Observation value[x] = Quantity → JSON 序列化為 `"valueQuantity"`
+- [x] HAPI parser 不再產生 `Unknown element 'value'` 警告
+- [x] CDS Sandbox invoke → 所有 CQL 表達式正確回傳值
+
+---
+
 ## #008 — CDS Sandbox Invoke 所有 CQL 表達式回傳 null
 
 | 欄位 | 內容 |
@@ -44,20 +145,24 @@
 
 在 CDS Sandbox 中使用 Visual Builder 建立 Observation（例如 BMI: LOINC 39156-5, value 27 kg/m2）並 Invoke 時，CDS card 顯示 "No recommendations at this time."，所有 CQL 表達式（`LatestBMI`、`BMICalue`、`BMIClassification`、`CardSuggestion`）皆回傳 null。
 
-**根本原因**：CQL engine 在 `context Patient` 下執行 `[Observation: "BMI_CODE"]` retrieve 時，會根據 `Observation.subject` 欄位做 patient context 過濾。Visual Builder 建立的 Observation 預設不帶 `subject` 引用，而預設 sandbox 測試資料（`sandboxDefaults.ts`）則有 `subject: { reference: "Patient/test-patient-1" }`。缺少 subject 的資源被 CQL engine 的 context filter 靜默排除，導致 retrieve 回傳空集合 → `Last()` 回傳 null → 所有下游表達式連鎖為 null。
+**根本原因（雙重）**：
+
+1. **Subject 缺失**：Visual Builder 建立的 Observation 預設不帶 `subject` 引用，CQL engine 的 context filter 靜默排除無 subject 的資源
+2. **CQL engine context filter 類型比對失敗**：CQL engine 3.29.0 的 `RetrieveEvaluator` 執行 post-retrieval context filtering 時，將 FHIR `Reference` 物件與 String `"Patient/test-patient-1"` 做 `equals()` 比較，`Reference.equals(String)` 永遠回傳 false，導致所有資源被靜默排除
 
 ### 修正方式
 
-- **`CdsInvocationService.java`**：在 `buildPrefetchProvider()` 解析 prefetch 資源後，自動為缺少 `subject`/`patient` 引用的資源補上 `Patient/{patientId}`。覆蓋 12 種 FHIR 資源型別：Observation、Condition、Procedure、MedicationRequest、MedicationStatement、Encounter、AllergyIntolerance、Immunization、DiagnosticReport、ServiceRequest、CarePlan、Goal
-- **`PrefetchRetrieveProvider.java`**：將 retrieve 日誌從 DEBUG 提升到 INFO，記錄 dataType、codePath、codes、context 參數及過濾前後的候選數量，方便後續診斷
+- **`CdsInvocationService.java`**（修正 1 — subject 自動填充）：在 `buildPrefetchProvider()` 解析 prefetch 資源後，`ensureSubjectReference()` 自動為缺少 `subject`/`patient` 引用的資源補上 `Patient/{patientId}`。覆蓋 12 種 FHIR 資源型別
+- **`CdsInvocationService.java`**（修正 2 — 繞過 context filter）：當使用 prefetch provider 時，設定 `execRequest.setPatientId(null)` 繞過 CQL engine 的 post-retrieval context filtering。Prefetch 資料已為特定病患篩選，無需二次過濾
+- **`PrefetchRetrieveProvider.java`**：將 retrieve 日誌從 DEBUG 提升到 INFO，記錄完整的 retrieve 參數及過濾結果
 
 ### 測試驗證
 
 - [x] `mvn compile -q` 編譯通過
 - [x] Backend Docker 重建並部署成功
-- [ ] Visual Builder 建立 Observation（無 subject）→ Invoke → CQL 表達式正確回傳值
-- [ ] 有 subject 的資源不受影響（不重複設定）
-- [ ] 預設 sandbox 測試資料行為不變
+- [x] PrefetchRetrieveProvider 正確回傳 1 筆 Observation（code filter 正常）
+- [x] CQL 表達式（BMIClassification=Overweight, CardSuggestion=BMI:25 'kg/m2'...）正確回傳值
+- [x] 預設 sandbox 測試資料行為不變
 
 ---
 

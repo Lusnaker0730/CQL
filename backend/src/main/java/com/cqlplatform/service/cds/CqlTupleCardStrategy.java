@@ -41,7 +41,8 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
                 execResponse.isSuccess(),
                 execResponse.getResults() != null ? execResponse.getResults().size() : 0);
 
-        StringBuilder consolidatedDetail = new StringBuilder();
+        String primaryMessage = null; // Detected from "CardSuggestion" etc.
+        StringBuilder supplementaryDetail = new StringBuilder();
         String consolidatedIndicator = CdsConstants.INDICATOR_INFO;
         boolean hasExplicitCards = false;
 
@@ -97,13 +98,13 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
                                     .build());
                             continue;
                         }
-                        // Tuple without summary: add all fields to consolidated detail
+                        // Tuple without summary: add all fields to supplementary detail
                         Map<String, Object> elements = CdsTupleAccessor.getElements(value);
                         if (!elements.isEmpty()) {
                             elements.forEach((k, v) -> {
-                                if (consolidatedDetail.length() > 0)
-                                    consolidatedDetail.append("\n");
-                                consolidatedDetail.append("**").append(k).append("**: ")
+                                if (supplementaryDetail.length() > 0)
+                                    supplementaryDetail.append("\n");
+                                supplementaryDetail.append("**").append(k).append("**: ")
                                         .append(valueFormatter.formatValue(v));
                             });
                         }
@@ -113,12 +114,27 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
                     continue;
                 }
 
-                // All other types: append to consolidated detail
+                // Detect primary message expression (CardSuggestion, Summary, etc.)
+                String nameLower = exprName.toLowerCase();
+                if (value instanceof String && primaryMessage == null
+                        && (nameLower.contains("suggestion") || nameLower.contains("summary")
+                                || nameLower.contains("message") || nameLower.contains("recommendation"))) {
+                    primaryMessage = (String) value;
+                    continue;
+                }
+
+                // Skip verbose FHIR Resource objects from consolidated detail
+                if (value instanceof org.hl7.fhir.r4.model.Resource) {
+                    log.debug("Skipping FHIR Resource '{}' from consolidated card detail", exprName);
+                    continue;
+                }
+
+                // All other scalar types: append to supplementary detail
                 String formattedLine = valueFormatter.formatExpressionLine(exprName, value);
                 if (formattedLine != null) {
-                    if (consolidatedDetail.length() > 0)
-                        consolidatedDetail.append("\n");
-                    consolidatedDetail.append(formattedLine);
+                    if (supplementaryDetail.length() > 0)
+                        supplementaryDetail.append("\n");
+                    supplementaryDetail.append(formattedLine);
 
                     if (value instanceof Boolean && (Boolean) value) {
                         consolidatedIndicator = config.getDefaultIndicator() != null
@@ -131,16 +147,27 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
 
         // Only build the consolidated card when no explicit Tuple cards were produced
         // and the CQL is not using explicit card mode.
-        if (!hasExplicitCards && !explicitCardMode && consolidatedDetail.length() > 0) {
-            cards.add(CdsResponse.Card.builder()
-                    .uuid(IdGenerator.uuid())
-                    .summary(config.getTitle())
-                    .detail(consolidatedDetail.toString())
-                    .indicator(consolidatedIndicator)
-                    .source(CdsResponse.Source.builder()
-                            .label(config.getTitle())
-                            .build())
-                    .build());
+        if (!hasExplicitCards && !explicitCardMode) {
+            StringBuilder detail = new StringBuilder();
+            if (primaryMessage != null) {
+                detail.append(primaryMessage);
+            }
+            if (supplementaryDetail.length() > 0) {
+                if (detail.length() > 0) detail.append("\n\n");
+                detail.append(supplementaryDetail);
+            }
+
+            if (detail.length() > 0) {
+                cards.add(CdsResponse.Card.builder()
+                        .uuid(IdGenerator.uuid())
+                        .summary(config.getTitle())
+                        .detail(detail.toString())
+                        .indicator(consolidatedIndicator)
+                        .source(CdsResponse.Source.builder()
+                                .label(config.getTitle())
+                                .build())
+                        .build());
+            }
         }
 
         if (cards.isEmpty()) {
