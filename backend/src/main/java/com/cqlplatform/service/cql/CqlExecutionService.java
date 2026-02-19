@@ -118,6 +118,21 @@ public class CqlExecutionService {
             org.hl7.elm.r1.Library elmLibrary = translator.toELM();
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
 
+            // Extract source locators and dependencies for debug mode
+            Map<String, String> sourceLocators = new HashMap<>();
+            Map<String, List<String>> expressionDependencies = new HashMap<>();
+            if (request.isDebugMode()) {
+                if (elmLibrary.getStatements() != null && elmLibrary.getStatements().getDef() != null) {
+                    for (org.hl7.elm.r1.ExpressionDef def : elmLibrary.getStatements().getDef()) {
+                        if (def.getLocator() != null) {
+                            sourceLocators.put(def.getName(), def.getLocator());
+                        }
+                    }
+                }
+                String elmJsonStr = translator.toJson();
+                expressionDependencies = extractExpressionDependencies(elmJsonStr);
+            }
+
             // Register the source of the translated library so the engine can find it
             if (libraryId != null) {
                 libraryManager.getLibrarySourceLoader().registerProvider(
@@ -208,6 +223,8 @@ public class CqlExecutionService {
                                 .resultDisplay(formatDisplayValue(value))
                                 .evaluationTimeMs(exprTime)
                                 .order(traceOrder++)
+                                .sourceLocator(sourceLocators.get(expressionName))
+                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
                                 .build());
                     } catch (Exception e) {
                         long exprTime = System.currentTimeMillis() - exprStart;
@@ -224,6 +241,8 @@ public class CqlExecutionService {
                                 .resultDisplay("Error: " + e.getMessage())
                                 .evaluationTimeMs(exprTime)
                                 .order(traceOrder++)
+                                .sourceLocator(sourceLocators.get(expressionName))
+                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
                                 .build());
                     }
                 }
@@ -282,6 +301,7 @@ public class CqlExecutionService {
                         .expressionTraces(expressionTraces)
                         .retrieveTraces(tracingProvider != null ? tracingProvider.getTraces() : List.of())
                         .totalTimeMs(executionTime)
+                        .sourceLocators(sourceLocators)
                         .build();
             }
 
@@ -344,6 +364,49 @@ public class CqlExecutionService {
             return ((ZonedDateTime) value).toString();
         }
         return value.getClass().getSimpleName() + ": " + value.toString();
+    }
+
+    private Map<String, List<String>> extractExpressionDependencies(String elmJson) {
+        Map<String, List<String>> result = new HashMap<>();
+        if (elmJson == null) return result;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(elmJson);
+            com.fasterxml.jackson.databind.JsonNode statements = root.path("library").path("statements").path("def");
+            if (statements.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode def : statements) {
+                    String name = def.path("name").asText(null);
+                    if (name == null) continue;
+                    List<String> deps = new ArrayList<>();
+                    collectExpressionRefNodes(def, deps);
+                    deps.remove(name);
+                    if (!deps.isEmpty()) {
+                        result.put(name, deps);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract expression dependencies: {}", e.getMessage());
+        }
+        return result;
+    }
+
+    private void collectExpressionRefNodes(com.fasterxml.jackson.databind.JsonNode node, List<String> refs) {
+        if (node == null) return;
+        if (node.isObject()) {
+            if ("ExpressionRef".equals(node.path("type").asText(""))) {
+                String refName = node.path("name").asText(null);
+                if (refName != null && !refs.contains(refName)) {
+                    refs.add(refName);
+                }
+            }
+            for (java.util.Iterator<com.fasterxml.jackson.databind.JsonNode> it = node.elements(); it.hasNext(); ) {
+                collectExpressionRefNodes(it.next(), refs);
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode child : node) {
+                collectExpressionRefNodes(child, refs);
+            }
+        }
     }
 
     private static class InMemoryLibrarySourceProvider implements LibrarySourceProvider {

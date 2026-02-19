@@ -223,9 +223,10 @@ public class FhirController {
     @PostMapping(value = "/$validate", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Validate Resource", description = "Validate a FHIR resource against profiles")
     public ResponseEntity<FhirValidationService.ValidationResult> validateResource(
+            @RequestParam(required = false) String profile,
             @RequestBody String resourceJson) {
 
-        FhirValidationService.ValidationResult result = validationService.validateResource(resourceJson);
+        FhirValidationService.ValidationResult result = validationService.validateResource(resourceJson, profile);
         return ResponseEntity.ok(result);
     }
 

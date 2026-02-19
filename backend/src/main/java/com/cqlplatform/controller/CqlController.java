@@ -11,6 +11,7 @@ import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import com.cqlplatform.service.cql.CqlRepositoryService;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import com.cqlplatform.service.cql.DependencyAnalysisService;
 import com.cqlplatform.service.cql.FhirLibraryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,7 @@ public class CqlController {
     private final FhirLibraryService fhirLibraryService;
     private final CqlRepositoryService repositoryService;
     private final OwnershipVerifier ownershipVerifier;
+    private final DependencyAnalysisService dependencyAnalysisService;
 
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
@@ -251,5 +253,12 @@ public class CqlController {
     public ResponseEntity<List<CqlLibrary>> getDependents(@PathVariable String name) {
         List<CqlLibrary> dependents = libraryService.getDependents(name);
         return ResponseEntity.ok(dependents);
+    }
+
+    @GetMapping("/libraries/{id}/dependency-analysis")
+    @Operation(summary = "Analyze Dependencies", description = "Analyze library dependencies for version conflicts and mismatches")
+    public ResponseEntity<DependencyAnalysisService.DependencyAnalysisResult> analyzeDependencies(@PathVariable String id) {
+        DependencyAnalysisService.DependencyAnalysisResult result = dependencyAnalysisService.analyze(id);
+        return ResponseEntity.ok(result);
     }
 }

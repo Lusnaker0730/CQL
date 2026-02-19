@@ -7,9 +7,9 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 ### CQL Editor
 - Monaco-based editor with CQL syntax highlighting, IntelliSense auto-completion, and code snippets
 - Real-time CQL-to-ELM translation with error/warning markers
-- CQL execution against FHIR servers with debug tracing
+- CQL execution against FHIR servers with enhanced debug tracing (source locators, expression dependencies)
 - Library dependency resolution, versioning, and FHIR Library import/export
-- Library dependency analysis with impact visualization
+- Library dependency analysis with version conflict detection and impact visualization
 - Undo/redo support for builder operations with Redux history stack
 - Smart paste sanitization (strips smart quotes, zero-width chars from LLM outputs)
 
@@ -59,7 +59,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Measure versioning with history, sharing, ownership transfer, and access control
 - Workflow lifecycle: draft → submit for review → approve/reject → retire
 - Measure locking to prevent concurrent edits
-- Measure validation (full and quick) with care setting classification
+- Measure validation (full and quick) with care setting classification and QI-Core profile suggestions
 - Report persistence with export (FHIR MeasureReport, CSV, Excel, HQMF)
 - Scheduled/batch evaluation with cron expressions
 - Period-over-period comparison, trend analysis, and dashboard view
@@ -75,7 +75,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 
 ### FHIR Integration
 - Browse and search FHIR resources on any R4 server
-- Patient demographics search, resource validation, batch/transaction operations
+- Patient demographics search, resource validation (with optional profile URL), batch/transaction operations
 - Bulk Data Export ($export) with async polling
 - VSAC (Value Set Authority Center) integration for terminology
 - Terminology operations: ValueSet expand, CodeSystem validate-code, lookup, search
@@ -307,7 +307,7 @@ This starts all services with exposed ports:
 | `/api/cql/libraries/metadata` | GET | Library metadata for IntelliSense |
 | `/api/cql/libraries/{id}/fhir` | GET | Export as FHIR Library |
 | `/api/cql/libraries/import/fhir` | POST | Import FHIR Library |
-| `/api/cql/libraries/{id}/dependency-analysis` | GET | Library dependency analysis |
+| `/api/cql/libraries/{id}/dependency-analysis` | GET | Library dependency analysis with version conflict detection |
 
 ### CDS Hooks
 
@@ -385,7 +385,7 @@ This starts all services with exposed ports:
 | `/api/fhir/{resourceType}` | POST | Create resource |
 | `/api/fhir/{resourceType}/{id}` | PUT | Update resource |
 | `/api/fhir/{resourceType}/{id}` | DELETE | Delete resource |
-| `/api/fhir/$validate` | POST | Validate FHIR resource |
+| `/api/fhir/$validate` | POST | Validate FHIR resource (optional `?profile=` URL) |
 | `/api/fhir/Bundle/$transaction` | POST | Batch/transaction bundle |
 | `/api/fhir/$export` | POST | Bulk Data Export kick-off |
 | `/api/fhir/$export-status` | GET | Export status polling |

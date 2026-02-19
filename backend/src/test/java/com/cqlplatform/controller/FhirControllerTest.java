@@ -192,7 +192,7 @@ class FhirControllerTest {
     @Test
     @WithMockUser
     void validateResource_validResource_shouldReturn200() throws Exception {
-        when(validationService.validateResource(any())).thenReturn(
+        when(validationService.validateResource(any(), any())).thenReturn(
                 new FhirValidationService.ValidationResult(true, List.of()));
 
         mockMvc.perform(post("/api/fhir/$validate")
@@ -205,7 +205,7 @@ class FhirControllerTest {
     @Test
     @WithMockUser
     void validateResource_invalidResource_shouldReturnIssues() throws Exception {
-        when(validationService.validateResource(any())).thenReturn(
+        when(validationService.validateResource(any(), any())).thenReturn(
                 new FhirValidationService.ValidationResult(false, List.of(
                         new FhirValidationService.ValidationIssue("error", "Patient.gender", "Invalid gender value")
                 )));

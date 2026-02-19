@@ -18,11 +18,13 @@ import java.util.List;
 @Slf4j
 public class FhirValidationService {
 
+    private final FhirContext fhirContext;
     private final FhirValidator validator;
 
     public FhirValidationService(FhirContext fhirContext,
                                   @org.springframework.beans.factory.annotation.Autowired(required = false)
                                   FhirImplementationGuideService igService) {
+        this.fhirContext = fhirContext;
         ValidationSupportChain validationSupportChain;
 
         if (igService != null && igService.isLoaded()) {
@@ -49,9 +51,23 @@ public class FhirValidationService {
     }
 
     public ValidationResult validateResource(String resourceJson) {
-        log.debug("Validating FHIR resource");
+        return validateResource(resourceJson, null);
+    }
+
+    public ValidationResult validateResource(String resourceJson, String profileUrl) {
+        log.debug("Validating FHIR resource{}", profileUrl != null ? " against profile: " + profileUrl : "");
         try {
-            ca.uhn.fhir.validation.ValidationResult result = validator.validateWithResult(resourceJson);
+            String jsonToValidate = resourceJson;
+            if (profileUrl != null && !profileUrl.isBlank()) {
+                org.hl7.fhir.r4.model.Resource resource =
+                        (org.hl7.fhir.r4.model.Resource) fhirContext.newJsonParser().parseResource(resourceJson);
+                if (!resource.getMeta().hasProfile(profileUrl)) {
+                    resource.getMeta().addProfile(profileUrl);
+                }
+                jsonToValidate = fhirContext.newJsonParser().encodeResourceToString(resource);
+            }
+
+            ca.uhn.fhir.validation.ValidationResult result = validator.validateWithResult(jsonToValidate);
 
             List<ValidationIssue> issues = result.getMessages().stream()
                     .map(msg -> new ValidationIssue(

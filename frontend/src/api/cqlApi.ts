@@ -7,6 +7,7 @@ import type {
   LibraryMetadata,
   VersionComparison,
   RepositoryLibrary,
+  DependencyAnalysisResult,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
@@ -147,6 +148,11 @@ export const cqlApi = {
 
   getDependents: async (name: string): Promise<CqlLibrary[]> => {
     const response = await api.get<CqlLibrary[]>(`/cql/libraries/dependents/${encodeURIComponent(name)}`)
+    return response.data
+  },
+
+  analyzeDependencies: async (id: string): Promise<DependencyAnalysisResult> => {
+    const response = await api.get<DependencyAnalysisResult>(`/cql/libraries/${id}/dependency-analysis`)
     return response.data
   },
 }

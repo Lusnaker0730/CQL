@@ -158,6 +158,38 @@ export interface CqlLibrary {
   updatedAt: string
 }
 
+// Dependency analysis types
+export interface DependencyAnalysisResult {
+  dependencies: DependencyInfo[]
+  conflicts: VersionConflict[]
+  mismatches: VersionMismatch[]
+  hasIssues: boolean
+}
+
+export interface DependencyInfo {
+  name: string
+  declaredVersion?: string
+  resolvedVersion?: string
+  available: boolean
+  versionMatch: boolean
+  transitiveDeps?: DependencyInfo[]
+}
+
+export interface VersionConflict {
+  libraryName: string
+  requestedVersions: string[]
+  requestedBy: string[]
+  resolvedVersion: string
+  severity: string
+}
+
+export interface VersionMismatch {
+  libraryName: string
+  declaredVersion: string
+  availableVersion: string
+  requestedBy: string
+}
+
 export interface CdsServiceDefinition {
   id: string
   hook: string
@@ -666,6 +698,7 @@ export interface DebugTrace {
   expressionTraces: ExpressionTrace[]
   retrieveTraces: RetrieveTrace[]
   totalTimeMs: number
+  sourceLocators?: Record<string, string>
 }
 
 export interface ExpressionTrace {
@@ -674,6 +707,8 @@ export interface ExpressionTrace {
   resultDisplay: string
   evaluationTimeMs: number
   order: number
+  sourceLocator?: string
+  dependencies?: string[]
 }
 
 export interface RetrieveTrace {

@@ -351,9 +351,22 @@ public class CqlLibraryService {
         for (String dep : library.getDependencies()) {
             if (visited.contains(dep)) continue;
             visited.add(dep);
-            // dep format is "LibraryName version 'x.y.z'" — extract name
+            // dep format is "LibraryName version 'x.y.z'" — extract name and version
             String depName = dep.split("\\s+")[0].replace("\"", "");
-            getLatestLibrary(depName).ifPresent(depLib -> {
+            String depVersion = null;
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("version\\s+'([^']+)'").matcher(dep);
+            if (m.find()) {
+                depVersion = m.group(1);
+            }
+            // Try exact version first, fall back to latest
+            Optional<CqlLibrary> resolved = Optional.empty();
+            if (depVersion != null) {
+                resolved = getLibraryByNameAndVersion(depName, depVersion);
+            }
+            if (resolved.isEmpty()) {
+                resolved = getLatestLibrary(depName);
+            }
+            resolved.ifPresent(depLib -> {
                 result.add(depLib);
                 collectDependencies(depLib, result, visited);
             });
