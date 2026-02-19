@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,11 +28,11 @@ public class MeasureValidationService {
 
     // Required populations per scoring type
     private static final Map<String, List<String>> REQUIRED_POPULATIONS = Map.of(
-            "proportion", List.of("initial-population", "denominator", "numerator"),
-            "ratio", List.of("initial-population", "denominator", "numerator"),
-            "continuous-variable", List.of("initial-population", "measure-population"),
-            "cohort", List.of("initial-population"),
-            "composite", List.of()
+            ScoringTypeConstants.PROPORTION, List.of(INITIAL_POPULATION, DENOMINATOR, NUMERATOR),
+            ScoringTypeConstants.RATIO, List.of(INITIAL_POPULATION, DENOMINATOR, NUMERATOR),
+            ScoringTypeConstants.CONTINUOUS_VARIABLE, List.of(INITIAL_POPULATION, MEASURE_POPULATION),
+            ScoringTypeConstants.COHORT, List.of(INITIAL_POPULATION),
+            ScoringTypeConstants.COMPOSITE, List.of()
     );
 
     private static final Set<String> VALID_FHIR_RESOURCE_TYPES = Set.of(
@@ -192,7 +195,7 @@ public class MeasureValidationService {
 
         Set<String> cqlExpressionNames = getCqlExpressionNames(cqlResult);
         Map<String, String> expressionReturnTypes = getCqlExpressionReturnTypes(cqlResult);
-        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : "proportion";
+        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : ScoringTypeConstants.PROPORTION;
         List<String> required = REQUIRED_POPULATIONS.getOrDefault(scoringType, List.of());
 
         for (int gi = 0; gi < groups.size(); gi++) {
@@ -254,9 +257,9 @@ public class MeasureValidationService {
             }
 
             // Ratio dual-IP: both must have different associationType
-            if ("ratio".equalsIgnoreCase(scoringType)) {
+            if (ScoringTypeConstants.RATIO.equalsIgnoreCase(scoringType)) {
                 List<PopulationDefinition> ips = group.getPopulations().stream()
-                        .filter(p -> "initial-population".equals(p.getPopulationType()))
+                        .filter(p -> INITIAL_POPULATION.equals(p.getPopulationType()))
                         .collect(Collectors.toList());
                 if (ips.size() == 2) {
                     String assoc1 = ips.get(0).getAssociationType();
@@ -313,9 +316,9 @@ public class MeasureValidationService {
     private void validateObservations(MeasureDefinition measure, CqlTranslationResponse cqlResult, ValidationReport report) {
         if (measure.getGroupDefinitions() == null) return;
         Set<String> cqlExpressionNames = getCqlExpressionNames(cqlResult);
-        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : "proportion";
+        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : ScoringTypeConstants.PROPORTION;
 
-        boolean needsObservation = "continuous-variable".equalsIgnoreCase(scoringType);
+        boolean needsObservation = ScoringTypeConstants.CONTINUOUS_VARIABLE.equalsIgnoreCase(scoringType);
 
         for (int gi = 0; gi < measure.getGroupDefinitions().size(); gi++) {
             GroupDefinition group = measure.getGroupDefinitions().get(gi);

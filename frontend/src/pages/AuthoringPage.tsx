@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import ArtifactList from '../components/authoring/ArtifactList'
 import ArtifactModal from '../components/authoring/ArtifactModal'
 import ArtifactWorkspace from '../components/authoring/ArtifactWorkspace'
@@ -56,7 +57,7 @@ export default function AuthoringPage() {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       {!selectedId && (
         <>
           <Box sx={{ mb: 2 }}>

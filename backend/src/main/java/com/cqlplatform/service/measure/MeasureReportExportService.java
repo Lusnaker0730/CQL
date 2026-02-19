@@ -44,7 +44,7 @@ public class MeasureReportExportService {
         ObjectNode fhirReport = MAPPER.createObjectNode();
         fhirReport.put("resourceType", "MeasureReport");
         fhirReport.put("id", report.getId().toString());
-        fhirReport.put("status", report.getStatus() != null ? report.getStatus() : "complete");
+        fhirReport.put("status", report.getStatus() != null ? report.getStatus() : com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
         fhirReport.put("type", report.getReportType() != null ? report.getReportType() : "summary");
         fhirReport.put("measure", report.getMeasureName());
 
@@ -65,7 +65,7 @@ public class MeasureReportExportService {
                         ObjectNode code = popNode.putObject("code");
                         ArrayNode coding = code.putArray("coding");
                         ObjectNode codeEntry = coding.addObject();
-                        codeEntry.put("system", "http://terminology.hl7.org/CodeSystem/measure-population");
+                        codeEntry.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_POPULATION);
                         codeEntry.put("code", pop.getPopulationType());
                         popNode.put("count", pop.getCount() != null ? pop.getCount() : 0);
                     }

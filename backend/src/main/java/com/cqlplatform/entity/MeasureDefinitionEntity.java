@@ -41,11 +41,11 @@ public class MeasureDefinitionEntity {
 
     @Column(name = "status", length = 20)
     @Builder.Default
-    private String status = "draft";
+    private String status = com.cqlplatform.model.measure.MeasureStatusConstants.DRAFT;
 
     @Column(name = "scoring_type", length = 30)
     @Builder.Default
-    private String scoringType = "proportion";
+    private String scoringType = com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION;
 
     @Column(name = "cql_library_id", length = 200)
     private String cqlLibraryId;

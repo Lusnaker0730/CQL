@@ -1,9 +1,10 @@
 import { Box, Typography } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import TerminologyBrowser from '../components/terminology/TerminologyBrowser'
 
 export default function TerminologyPage() {
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2 }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
           Terminology Browser

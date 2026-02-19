@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class FhirDataProviderService {
 
     private final FhirContext fhirContext;
+    private final FhirClientFactory fhirClientFactory;
 
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
@@ -34,16 +35,7 @@ public class FhirDataProviderService {
     private final AtomicInteger retrieveCount = new AtomicInteger(0);
 
     public IGenericClient createClient(String fhirServerUrl) {
-        String serverUrl = fhirServerUrl != null ? fhirServerUrl : defaultFhirServerUrl;
-        log.debug("Creating FHIR Client for URL: {}", serverUrl);
-        IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
-
-        LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
-        loggingInterceptor.setLogRequestSummary(true);
-        loggingInterceptor.setLogResponseSummary(true);
-        client.registerInterceptor(loggingInterceptor);
-
-        return client;
+        return fhirClientFactory.createClient(fhirServerUrl);
     }
 
     public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider) {

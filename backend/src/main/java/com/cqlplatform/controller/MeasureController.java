@@ -241,7 +241,7 @@ public class MeasureController {
             MeasureDefinition def = definitionService.getById(defId).orElse(null);
             if (def != null) {
                 // Check for composite measure
-                if ("composite".equalsIgnoreCase(def.getScoringType())) {
+                if (com.cqlplatform.model.measure.ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(def.getScoringType())) {
                     MeasureEvaluationResult result = compositeMeasureService.evaluateComposite(def, request);
                     return ResponseEntity.ok(result);
                 }
@@ -633,7 +633,7 @@ public class MeasureController {
 
         Map<String, Long> byScoring = all.stream()
                 .collect(Collectors.groupingBy(
-                        m -> m.getScoringType() != null ? m.getScoringType() : "proportion",
+                        m -> m.getScoringType() != null ? m.getScoringType() : com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION,
                         Collectors.counting()));
         dashboard.put("byScoring", byScoring);
 

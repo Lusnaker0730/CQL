@@ -20,6 +20,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 
+import com.cqlplatform.model.measure.EvaluationStatusConstants;
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 /**
  * Orchestrates measure evaluation by delegating to focused services.
  * Flow: discover patients → execute CQL → evaluate populations → stratify → score → save.
@@ -198,18 +201,18 @@ public class MeasureEvaluationService {
         }
 
         List<PopulationResult> populations = new ArrayList<>();
-        populations.add(populationResult("initial-population", counts.get("Initial Population")));
-        populations.add(populationResult("denominator", counts.get("Denominator")));
+        populations.add(populationResult(INITIAL_POPULATION, counts.get("Initial Population")));
+        populations.add(populationResult(DENOMINATOR, counts.get("Denominator")));
 
         if (counts.get("Denominator Exclusions") > 0)
-            populations.add(populationResult("denominator-exclusion", counts.get("Denominator Exclusions")));
+            populations.add(populationResult(DENOMINATOR_EXCLUSION, counts.get("Denominator Exclusions")));
         if (counts.get("Denominator Exceptions") > 0)
-            populations.add(populationResult("denominator-exception", counts.get("Denominator Exceptions")));
+            populations.add(populationResult(DENOMINATOR_EXCEPTION, counts.get("Denominator Exceptions")));
 
-        populations.add(populationResult("numerator", counts.get("Numerator")));
+        populations.add(populationResult(NUMERATOR, counts.get("Numerator")));
 
         if (counts.get("Numerator Exclusions") > 0)
-            populations.add(populationResult("numerator-exclusion", counts.get("Numerator Exclusions")));
+            populations.add(populationResult(NUMERATOR_EXCLUSION, counts.get("Numerator Exclusions")));
 
         Double measureScore = scoreCalculator.calculateProportionScore(
                 counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
@@ -229,7 +232,7 @@ public class MeasureEvaluationService {
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .measureName(context.getMeasureId())
-                .status("complete")
+                .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
                 .reportType(context.getReportType())
@@ -259,15 +262,15 @@ public class MeasureEvaluationService {
 
             // Compute score per group
             Integer denom = populations.stream()
-                    .filter(p -> "denominator".equals(p.getPopulationType()))
+                    .filter(p -> DENOMINATOR.equals(p.getPopulationType()))
                     .map(PopulationResult::getCount)
                     .findFirst().orElse(0);
             Integer denomEx = populations.stream()
-                    .filter(p -> "denominator-exclusion".equals(p.getPopulationType()))
+                    .filter(p -> DENOMINATOR_EXCLUSION.equals(p.getPopulationType()))
                     .map(PopulationResult::getCount)
                     .findFirst().orElse(0);
             Integer numer = populations.stream()
-                    .filter(p -> "numerator".equals(p.getPopulationType()))
+                    .filter(p -> NUMERATOR.equals(p.getPopulationType()))
                     .map(PopulationResult::getCount)
                     .findFirst().orElse(0);
 
@@ -291,7 +294,7 @@ public class MeasureEvaluationService {
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .measureName(context.getMeasureId())
-                .status("complete")
+                .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
                 .reportType(context.getReportType())

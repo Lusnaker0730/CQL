@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Box,
   Paper,
@@ -129,7 +130,7 @@ function ProfilesTab() {
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -250,7 +251,7 @@ function ValueSetsTab() {
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -352,7 +353,7 @@ function CodeSystemsTab() {
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 

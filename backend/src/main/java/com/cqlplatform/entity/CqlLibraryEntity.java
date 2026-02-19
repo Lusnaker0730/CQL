@@ -41,7 +41,7 @@ public class CqlLibraryEntity {
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "active";
+    private String status = com.cqlplatform.model.measure.MeasureStatusConstants.ACTIVE;
 
     @Column(name = "owner_username", length = 100)
     private String ownerUsername;

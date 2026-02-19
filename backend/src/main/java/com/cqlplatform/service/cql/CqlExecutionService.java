@@ -111,18 +111,7 @@ public class CqlExecutionService {
     private CqlExecutionResponse doExecute(CqlExecutionRequest request, RetrieveProvider prefetchProvider, long startTime) {
         try {
             // Translate CQL to ELM
-            ModelManager modelManager = new ModelManager();
-            LibraryManager libraryManager = new LibraryManager(modelManager);
-
-            // Register database provider first so user libraries take precedence
-            if (libraryRepository != null) {
-                libraryManager.getLibrarySourceLoader()
-                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
-            }
-
-            // Register Library Source Provider to load FHIRHelpers from classpath resources
-            libraryManager.getLibrarySourceLoader()
-                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
+            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
 
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
 

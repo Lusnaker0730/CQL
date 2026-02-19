@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Box,
   TextField,
@@ -40,7 +41,7 @@ export default function ValueSetTab() {
   const [source, setSource] = useState<SourceMode>('remote')
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTitle(searchTitle), 300)
+    const timer = setTimeout(() => setDebouncedTitle(searchTitle), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [searchTitle])
 

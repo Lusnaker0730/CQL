@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { COPY_FEEDBACK_TIMEOUT_MS } from '../constants/timing'
 import {
   Box,
   Typography,
@@ -171,7 +172,7 @@ export default function AdminUsersPage() {
     if (resetResult) {
       await navigator.clipboard.writeText(resetResult.temporaryPassword)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_TIMEOUT_MS)
     }
   }
 

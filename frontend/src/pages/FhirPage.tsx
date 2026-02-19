@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, Typography, Tabs, Tab } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import {
   Storage as FhirIcon,
   MenuBook as IgIcon,
@@ -11,7 +12,7 @@ export default function FhirPage() {
   const [tabIndex, setTabIndex] = useState(0)
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
           FHIR Resources

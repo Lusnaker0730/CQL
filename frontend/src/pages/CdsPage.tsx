@@ -1,10 +1,11 @@
 import { Box, Grid, Typography } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import CdsPanel from '../components/cds/CdsPanel'
 import CqlEditor from '../components/editor/CqlEditor'
 
 export default function CdsPage() {
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2 }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
           CDS Hooks Integration

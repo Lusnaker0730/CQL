@@ -12,6 +12,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import com.cqlplatform.util.IdGenerator;
 
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 /**
  * Generates QRDA Category III XML (aggregate quality report) from MeasureReportEntity.
  */
@@ -21,12 +23,12 @@ import com.cqlplatform.util.IdGenerator;
 public class QrdaExportService {
 
     private static final Map<String, String> POPULATION_TYPE_OIDS = Map.of(
-            "initial-population", "2.16.840.1.113883.10.20.27.3.14",
-            "denominator", "2.16.840.1.113883.10.20.27.3.15",
-            "denominator-exclusion", "2.16.840.1.113883.10.20.27.3.17",
-            "denominator-exception", "2.16.840.1.113883.10.20.27.3.18",
-            "numerator", "2.16.840.1.113883.10.20.27.3.16",
-            "numerator-exclusion", "2.16.840.1.113883.10.20.27.3.19"
+            INITIAL_POPULATION, "2.16.840.1.113883.10.20.27.3.14",
+            DENOMINATOR, "2.16.840.1.113883.10.20.27.3.15",
+            DENOMINATOR_EXCLUSION, "2.16.840.1.113883.10.20.27.3.17",
+            DENOMINATOR_EXCEPTION, "2.16.840.1.113883.10.20.27.3.18",
+            NUMERATOR, "2.16.840.1.113883.10.20.27.3.16",
+            NUMERATOR_EXCLUSION, "2.16.840.1.113883.10.20.27.3.19"
     );
 
     public String exportQrdaIII(MeasureReportEntity report) {

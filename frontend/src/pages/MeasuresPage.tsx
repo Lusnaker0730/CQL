@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import MeasureLibrary from '../components/measure/MeasureLibrary'
 import MeasureEditor from '../components/measure/MeasureEditor'
 import MeasureComparison from '../components/measure/MeasureComparison'
@@ -31,7 +32,7 @@ export default function MeasuresPage() {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
           Quality Measures (eCQM)

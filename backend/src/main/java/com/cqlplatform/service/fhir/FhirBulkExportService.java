@@ -82,7 +82,7 @@ public class FhirBulkExportService {
                     .withNoParameters(Parameters.class)
                     .execute();
 
-            String status = "complete";
+            String status = com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE;
             List<BulkExportOutput> outputs = new ArrayList<>();
             String errorMessage = null;
             int retryAfterSeconds = 0;
@@ -126,7 +126,7 @@ public class FhirBulkExportService {
         } catch (Exception e) {
             log.error("Bulk export status poll failed", e);
             // Return in-progress if the poll itself fails with a retriable error
-            return new BulkExportStatusResult("in-progress", 10, List.of(), e.getMessage());
+            return new BulkExportStatusResult(com.cqlplatform.model.measure.EvaluationStatusConstants.IN_PROGRESS, 10, List.of(), e.getMessage());
         }
     }
 

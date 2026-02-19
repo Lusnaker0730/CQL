@@ -43,7 +43,7 @@ public class MeasureReportService {
                     .reportType(result.getReportType())
                     .periodStart(result.getPeriodStart())
                     .periodEnd(result.getPeriodEnd())
-                    .scoringType("proportion")
+                    .scoringType(com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION)
                     .measureScore(measureScore)
                     .totalPatients(totalPatients)
                     .resultJson(resultJson)

@@ -172,17 +172,17 @@ public class DataInitializer implements CommandLineRunner {
 
         List<PopulationDefinition> populations = List.of(
                 PopulationDefinition.builder()
-                        .populationType("initial-population")
+                        .populationType(com.cqlplatform.model.measure.PopulationTypeConstants.INITIAL_POPULATION)
                         .criteriaExpression("Initial Population")
                         .description("門診就醫之病人")
                         .build(),
                 PopulationDefinition.builder()
-                        .populationType("denominator")
+                        .populationType(com.cqlplatform.model.measure.PopulationTypeConstants.DENOMINATOR)
                         .criteriaExpression("Denominator")
                         .description("門診主次診斷為糖尿病且使用糖尿病用藥之病人數")
                         .build(),
                 PopulationDefinition.builder()
-                        .populationType("numerator")
+                        .populationType(com.cqlplatform.model.measure.PopulationTypeConstants.NUMERATOR)
                         .criteriaExpression("Numerator")
                         .description("分母ID中，在統計期間有執行醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)檢驗人數")
                         .build());
@@ -202,7 +202,7 @@ public class DataInitializer implements CommandLineRunner {
                 .title("糖尿病病人醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)執行率")
                 .description("衡量門診主次診斷為糖尿病且使用糖尿病用藥之病人，在統計期間有執行醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)檢驗的比率。")
                 .status("active")
-                .scoringType("proportion")
+                .scoringType(com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION)
                 .cqlLibraryId("DiabetesHbA1cRate")
                 .cqlContent(cqlContent)
                 .groupDefinitionList(groups)

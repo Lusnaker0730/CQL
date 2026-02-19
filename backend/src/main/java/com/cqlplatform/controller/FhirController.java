@@ -192,7 +192,7 @@ public class FhirController {
         }
 
         FhirBulkExportService.BulkExportStatusResult result = bulkExportService.pollExportStatus(statusUrl);
-        if ("in-progress".equals(result.status())) {
+        if (com.cqlplatform.model.measure.EvaluationStatusConstants.IN_PROGRESS.equals(result.status())) {
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(result);
         }
         return ResponseEntity.ok(result);

@@ -149,7 +149,7 @@ public class FhirMeasureBundleService {
         ObjectNode type = library.putObject("type");
         ArrayNode typeCoding = type.putArray("coding");
         ObjectNode typeCode = typeCoding.addObject();
-        typeCode.put("system", "http://terminology.hl7.org/CodeSystem/library-type");
+        typeCode.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_LIBRARY_TYPE);
         typeCode.put("code", "logic-library");
 
         ArrayNode content = library.putArray("content");

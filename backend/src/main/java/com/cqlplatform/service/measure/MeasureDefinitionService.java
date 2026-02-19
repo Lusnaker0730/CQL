@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import static com.cqlplatform.model.measure.MeasureStatusConstants.*;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -147,14 +150,14 @@ public class MeasureDefinitionService {
         }
 
         // Set current to active
-        existing.setStatus("active");
+        existing.setStatus(ACTIVE);
         repository.save(existing);
 
         // Create new draft copy
         MeasureDefinitionEntity newEntity = modelToEntity(entityToModel(existing));
         newEntity.setId(null);
         newEntity.setVersion(newVersion);
-        newEntity.setStatus("draft");
+        newEntity.setStatus(DRAFT);
         newEntity = repository.save(newEntity);
 
         log.info("Created version {} for measure {}", newVersion, existing.getName());
@@ -426,23 +429,17 @@ public class MeasureDefinitionService {
 
     // ===== Workflow =====
 
-    private static final Map<String, List<String>> VALID_TRANSITIONS = Map.of(
-            "draft", List.of("in-review"),
-            "in-review", List.of("active", "draft"),
-            "active", List.of("retired")
-    );
-
     @Transactional
     public MeasureDefinition submitForReview(Long id, String currentUser) {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-        validateTransition(entity.getStatus(), "in-review");
+        validateTransition(entity.getStatus(), IN_REVIEW);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("in-review");
+        entity.setStatus(IN_REVIEW);
         entity = repository.save(entity);
-        recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, "in-review");
+        recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, IN_REVIEW);
         log.info("Measure {} submitted for review by {}", id, currentUser);
         return entityToModel(entity);
     }
@@ -452,12 +449,12 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
-        validateTransition(entity.getStatus(), "active");
+        validateTransition(entity.getStatus(), ACTIVE);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("active");
+        entity.setStatus(ACTIVE);
         entity = repository.save(entity);
-        recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, "active");
+        recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, ACTIVE);
         log.info("Measure {} approved by {}", id, currentUser);
         return entityToModel(entity);
     }
@@ -467,12 +464,12 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
-        validateTransition(entity.getStatus(), "draft");
+        validateTransition(entity.getStatus(), DRAFT);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("draft");
+        entity.setStatus(DRAFT);
         entity = repository.save(entity);
-        recordAudit(id, "REJECT", currentUser, "Rejected: " + (reason != null ? reason : "no reason"), oldStatus, "draft");
+        recordAudit(id, "REJECT", currentUser, "Rejected: " + (reason != null ? reason : "no reason"), oldStatus, DRAFT);
         log.info("Measure {} rejected by {}: {}", id, currentUser, reason);
         return entityToModel(entity);
     }
@@ -482,12 +479,12 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-        validateTransition(entity.getStatus(), "retired");
+        validateTransition(entity.getStatus(), RETIRED);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("retired");
+        entity.setStatus(RETIRED);
         entity = repository.save(entity);
-        recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, "retired");
+        recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, RETIRED);
         log.info("Measure {} retired by {}", id, currentUser);
         return entityToModel(entity);
     }
@@ -541,8 +538,8 @@ public class MeasureDefinitionService {
                 .version(model.getVersion() != null ? model.getVersion() : "1.0.0")
                 .title(model.getTitle())
                 .description(model.getDescription())
-                .status(model.getStatus() != null ? model.getStatus() : "draft")
-                .scoringType(model.getScoringType() != null ? model.getScoringType() : "proportion")
+                .status(model.getStatus() != null ? model.getStatus() : DRAFT)
+                .scoringType(model.getScoringType() != null ? model.getScoringType() : ScoringTypeConstants.PROPORTION)
                 .cqlLibraryId(model.getCqlLibraryId())
                 .cqlContent(model.getCqlContent())
                 .fhirMeasureJson(model.getFhirMeasureJson())

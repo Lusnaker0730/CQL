@@ -71,7 +71,7 @@ public class ScheduledMeasureEvaluationService {
         evaluationService.evaluateMeasure(request, definition.getId(), definition);
 
         schedule.setLastRunAt(LocalDateTime.now());
-        schedule.setLastRunStatus("complete");
+        schedule.setLastRunStatus(com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
         updateNextRunTime(schedule);
         scheduleRepository.save(schedule);
     }

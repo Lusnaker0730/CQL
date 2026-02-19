@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -30,13 +32,13 @@ public class FhirMeasureService {
         String version = fhirMeasureJson.path("version").asText("1.0.0");
         String title = fhirMeasureJson.path("title").asText(null);
         String description = fhirMeasureJson.path("description").asText(null);
-        String status = fhirMeasureJson.path("status").asText("draft");
+        String status = fhirMeasureJson.path("status").asText(com.cqlplatform.model.measure.MeasureStatusConstants.DRAFT);
 
         // Extract scoring
-        String scoringType = "proportion";
+        String scoringType = ScoringTypeConstants.PROPORTION;
         JsonNode scoring = fhirMeasureJson.path("scoring");
         if (scoring.has("coding") && scoring.get("coding").isArray() && scoring.get("coding").size() > 0) {
-            scoringType = scoring.get("coding").get(0).path("code").asText("proportion");
+            scoringType = scoring.get("coding").get(0).path("code").asText(ScoringTypeConstants.PROPORTION);
         }
 
         // Extract groups
@@ -50,11 +52,11 @@ public class FhirMeasureService {
                 JsonNode populationNode = groupNode.path("population");
                 if (populationNode.isArray()) {
                     for (JsonNode popNode : populationNode) {
-                        String popType = "initial-population";
+                        String popType = INITIAL_POPULATION;
                         JsonNode codePop = popNode.path("code");
                         if (codePop.has("coding") && codePop.get("coding").isArray()
                                 && codePop.get("coding").size() > 0) {
-                            popType = codePop.get("coding").get(0).path("code").asText("initial-population");
+                            popType = codePop.get("coding").get(0).path("code").asText(INITIAL_POPULATION);
                         }
 
                         String criteria = popNode.path("criteria").path("expression").asText("");
@@ -136,7 +138,7 @@ public class FhirMeasureService {
         measure.put("id", definition.getId().toString());
         measure.put("name", definition.getName());
         measure.put("version", definition.getVersion());
-        measure.put("status", definition.getStatus() != null ? definition.getStatus() : "draft");
+        measure.put("status", definition.getStatus() != null ? definition.getStatus() : com.cqlplatform.model.measure.MeasureStatusConstants.DRAFT);
 
         if (definition.getTitle() != null) {
             measure.put("title", definition.getTitle());
@@ -149,8 +151,8 @@ public class FhirMeasureService {
         ObjectNode scoring = measure.putObject("scoring");
         ArrayNode scoringCoding = scoring.putArray("coding");
         ObjectNode scoringCode = scoringCoding.addObject();
-        scoringCode.put("system", "http://terminology.hl7.org/CodeSystem/measure-scoring");
-        scoringCode.put("code", definition.getScoringType() != null ? definition.getScoringType() : "proportion");
+        scoringCode.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_SCORING);
+        scoringCode.put("code", definition.getScoringType() != null ? definition.getScoringType() : ScoringTypeConstants.PROPORTION);
 
         // Groups
         if (definition.getGroupDefinitions() != null && !definition.getGroupDefinitions().isEmpty()) {
@@ -169,7 +171,7 @@ public class FhirMeasureService {
                         ObjectNode code = popNode.putObject("code");
                         ArrayNode coding = code.putArray("coding");
                         ObjectNode codeEntry = coding.addObject();
-                        codeEntry.put("system", "http://terminology.hl7.org/CodeSystem/measure-population");
+                        codeEntry.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_POPULATION);
                         codeEntry.put("code", pop.getPopulationType());
 
                         if (pop.getDescription() != null) {

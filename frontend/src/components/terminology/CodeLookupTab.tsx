@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import {
   Box,
   TextField,
@@ -62,7 +63,7 @@ export default function CodeLookupTab() {
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), 500)
+    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
     return () => clearTimeout(timer)
   }, [searchText])
 

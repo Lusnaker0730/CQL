@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInvalidatingMutation } from './useInvalidatingMutation'
 import { useDispatch, useSelector } from 'react-redux'
 import { cqlApi } from '../api'
 import type { RootState } from '../store'
@@ -174,49 +175,35 @@ export function useLibraryDependents(name: string | null) {
   })
 }
 
-export function useShareLibrary() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, targetUsername }: { id: string; targetUsername: string }) =>
+const LIBRARIES_KEY = ['libraries'] as const
+
+export const useShareLibrary = () =>
+  useInvalidatingMutation(
+    ({ id, targetUsername }: { id: string; targetUsername: string }) =>
       cqlApi.shareLibrary(id, targetUsername),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['libraries'] })
-    },
-  })
-}
+    LIBRARIES_KEY,
+  )
 
-export function useUnshareLibrary() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, targetUsername }: { id: string; targetUsername: string }) =>
+export const useUnshareLibrary = () =>
+  useInvalidatingMutation(
+    ({ id, targetUsername }: { id: string; targetUsername: string }) =>
       cqlApi.unshareLibrary(id, targetUsername),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['libraries'] })
-    },
-  })
-}
+    LIBRARIES_KEY,
+  )
 
-export function useTransferOwnership() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, newOwner }: { id: string; newOwner: string }) =>
+export const useTransferOwnership = () =>
+  useInvalidatingMutation(
+    ({ id, newOwner }: { id: string; newOwner: string }) =>
       cqlApi.transferOwnership(id, newOwner),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['libraries'] })
-    },
-  })
-}
+    LIBRARIES_KEY,
+  )
 
-export function useSetAccessLevel() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, accessLevel }: { id: string; accessLevel: string }) =>
+export const useSetAccessLevel = () =>
+  useInvalidatingMutation(
+    ({ id, accessLevel }: { id: string; accessLevel: string }) =>
       cqlApi.setAccessLevel(id, accessLevel),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['libraries'] })
-    },
-  })
-}
+    LIBRARIES_KEY,
+  )
 
 export function useCqlEditor() {
   const editor = useSelector((state: RootState) => state.editor)

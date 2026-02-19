@@ -295,7 +295,7 @@ public class FhirStructureDefinitionService {
         String typeName = elementPath.substring(0, dotIdx);
 
         // Build the StructureDefinition URL
-        String sdUrl = "http://hl7.org/fhir/StructureDefinition/" + typeName;
+        String sdUrl = com.cqlplatform.model.fhir.FhirCodeSystemConstants.STRUCTURE_DEFINITION_BASE + typeName;
         StructureDefinition sd = getStructureDefinition(sdUrl);
         if (sd == null || sd.getSnapshot() == null) {
             return null;

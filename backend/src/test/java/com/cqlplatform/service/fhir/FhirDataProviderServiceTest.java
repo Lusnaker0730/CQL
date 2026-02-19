@@ -17,7 +17,9 @@ class FhirDataProviderServiceTest {
     @BeforeEach
     void setUp() {
         FhirContext fhirContext = FhirContext.forR4();
-        service = new FhirDataProviderService(fhirContext);
+        FhirClientFactory clientFactory = new FhirClientFactory(fhirContext);
+        ReflectionTestUtils.setField(clientFactory, "defaultFhirServerUrl", "http://localhost:9999/fhir");
+        service = new FhirDataProviderService(fhirContext, clientFactory);
         ReflectionTestUtils.setField(service, "defaultFhirServerUrl", "http://localhost:9999/fhir");
     }
 

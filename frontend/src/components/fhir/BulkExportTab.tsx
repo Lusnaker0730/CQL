@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { POLL_INTERVAL_MS } from '../../constants/timing'
 import {
   Stack,
   Typography,
@@ -76,7 +77,7 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
     setIsPolling(true)
     setExportError(null)
     pollStatus(statusUrl)
-    pollingIntervalRef.current = setInterval(() => pollStatus(statusUrl), 5000)
+    pollingIntervalRef.current = setInterval(() => pollStatus(statusUrl), POLL_INTERVAL_MS)
   }, [pollStatus])
 
   useEffect(() => {
