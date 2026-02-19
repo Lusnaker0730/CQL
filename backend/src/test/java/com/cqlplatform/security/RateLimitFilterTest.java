@@ -81,8 +81,8 @@ class RateLimitFilterTest {
     }
 
     @Test
-    void shouldUseXForwardedForHeader() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.1, 10.0.0.1");
+    void shouldUseRemoteAddrIgnoringXForwardedFor() throws Exception {
+        when(request.getRemoteAddr()).thenReturn("10.0.0.1");
         when(request.getMethod()).thenReturn("GET");
 
         filter.doFilterInternal(request, response, filterChain);

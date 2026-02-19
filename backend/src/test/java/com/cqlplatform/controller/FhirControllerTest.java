@@ -286,7 +286,7 @@ class FhirControllerTest {
                 new FhirBulkExportService.BulkExportKickOffResult("http://example.com/status", "system", "2024-01-01T00:00:00Z"));
 
         mockMvc.perform(post("/api/fhir/$export")
-                        .param("fhirServer", "http://localhost:9999/fhir"))
+                        .param("fhirServer", "https://hapi.fhir.org/baseR4"))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.exportType").value("system"));
     }

@@ -59,7 +59,7 @@ class CdsHooksControllerTest {
 
         mockMvc.perform(post("/cds-services/test-service")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"hook\":\"patient-view\",\"context\":{\"patientId\":\"p1\"}}"))
+                        .content("{\"hook\":\"patient-view\",\"hookInstance\":\"test-instance\",\"context\":{\"patientId\":\"p1\"}}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cards[0].summary").value("Test Card"));
     }
@@ -125,7 +125,7 @@ class CdsHooksControllerTest {
 
         mockMvc.perform(post("/cds-services/test-service")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"hook\":\"order-select\",\"context\":{\"patientId\":\"p1\"}}"))
+                        .content("{\"hook\":\"order-select\",\"hookInstance\":\"test-instance\",\"context\":{\"patientId\":\"p1\"}}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Hook type mismatch"));
     }

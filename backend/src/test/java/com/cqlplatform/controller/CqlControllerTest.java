@@ -155,7 +155,7 @@ class CqlControllerTest {
         mockMvc.perform(post("/api/cql/libraries")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"cql\":\"library Test version '1.0'\",\"description\":\"desc\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Test"));
     }
 
