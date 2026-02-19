@@ -45,6 +45,7 @@ import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import GradientButton from '../common/GradientButton'
 import { FHIR_SERVER_PRESETS } from '../../constants/fhirServers'
+import { generateId } from '../../utils/validation'
 import {
   FEEDBACK_ACCEPTED,
   FEEDBACK_OVERRIDDEN,
@@ -120,7 +121,7 @@ export default function InvokeServicePanel() {
         serviceId: selectedService,
         request: {
           hook: service.hook,
-          hookInstance: crypto.randomUUID(),
+          hookInstance: generateId(),
           fhirServer,
           context: {
             ...(patientId ? { patientId } : {}),

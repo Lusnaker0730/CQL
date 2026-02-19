@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.util.UUID;
+import com.cqlplatform.util.IdGenerator;
 
 /**
  * Generates QRDA Category III XML (aggregate quality report) from MeasureReportEntity.
@@ -39,7 +39,7 @@ public class QrdaExportService {
         xml.append("  <realmCode code=\"US\"/>\n");
         xml.append("  <typeId root=\"2.16.840.1.113883.1.3\" extension=\"POCD_HD000040\"/>\n");
         xml.append("  <templateId root=\"2.16.840.1.113883.10.20.27.1.1\" extension=\"2024-05-01\"/>\n");
-        xml.append("  <id root=\"").append(esc(UUID.randomUUID().toString())).append("\"/>\n");
+        xml.append("  <id root=\"").append(esc(IdGenerator.uuid())).append("\"/>\n");
         xml.append("  <code code=\"55184-6\" codeSystem=\"2.16.840.1.113883.6.1\" displayName=\"Quality Reporting Document Architecture Category III\"/>\n");
         xml.append("  <title>QRDA III Report - ").append(esc(report.getMeasureName())).append("</title>\n");
         xml.append("  <effectiveTime value=\"").append(formatDateTime(LocalDateTime.now())).append("\"/>\n");

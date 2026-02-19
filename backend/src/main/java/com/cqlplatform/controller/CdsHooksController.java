@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.cqlplatform.util.IdGenerator;
 
 @RestController
 @RequestMapping("/cds-services")
@@ -73,7 +74,7 @@ public class CdsHooksController {
             CdsRequest cdsRequest = new CdsRequest();
             cdsRequest.setHook(sandboxRequest.getHook());
             cdsRequest.setHookInstance(sandboxRequest.getHookInstance() != null
-                    ? sandboxRequest.getHookInstance() : java.util.UUID.randomUUID().toString());
+                    ? sandboxRequest.getHookInstance() : IdGenerator.uuid());
             cdsRequest.setContext(sandboxRequest.getContext());
             // Use testData as prefetch, no fhirServer -> forces PrefetchRetrieveProvider
             cdsRequest.setPrefetch(sandboxRequest.getTestData());

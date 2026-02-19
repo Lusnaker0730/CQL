@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { generateId } from '../utils/validation'
 
 const STORAGE_KEY = 'fhir-query-history'
 const MAX_ENTRIES = 50
@@ -42,7 +43,7 @@ export default function useFhirQueryHistory() {
       }
 
       const entry: HistoryEntry = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         resourceType,
         params,
         fhirServer,

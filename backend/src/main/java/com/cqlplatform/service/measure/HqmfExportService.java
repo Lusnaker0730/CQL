@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import com.cqlplatform.util.IdGenerator;
 
 /**
  * Generates HQMF R2.1 XML (Health Quality Measure Format) for CMS submission.
@@ -49,12 +50,12 @@ public class HqmfExportService {
         // Header
         xml.append("  <typeId root=\"2.16.840.1.113883.1.3\" extension=\"POQM_HD000001UV02\"/>\n");
         xml.append("  <templateId root=\"2.16.840.1.113883.10.20.28.1.2\"/>\n");
-        xml.append("  <id root=\"").append(esc(UUID.randomUUID().toString())).append("\"/>\n");
+        xml.append("  <id root=\"").append(esc(IdGenerator.uuid())).append("\"/>\n");
         xml.append("  <code code=\"57024-2\" codeSystem=\"2.16.840.1.113883.6.1\" displayName=\"Health Quality Measure Document\"/>\n");
         xml.append("  <title>").append(esc(def.getTitle() != null ? def.getTitle() : def.getName())).append("</title>\n");
         xml.append("  <text>").append(esc(def.getDescription() != null ? def.getDescription() : "")).append("</text>\n");
         xml.append("  <statusCode code=\"").append(esc(def.getStatus() != null ? def.getStatus() : "draft")).append("\"/>\n");
-        xml.append("  <setId root=\"").append(esc(def.getMeasureSet() != null ? def.getMeasureSet() : UUID.randomUUID().toString())).append("\"/>\n");
+        xml.append("  <setId root=\"").append(esc(def.getMeasureSet() != null ? def.getMeasureSet() : IdGenerator.uuid())).append("\"/>\n");
         xml.append("  <versionNumber value=\"").append(esc(def.getVersion())).append("\"/>\n");
 
         // Measure attributes (scoring)
@@ -90,7 +91,7 @@ public class HqmfExportService {
             if (group.getPopulations() == null) continue;
             for (PopulationDefinition pop : group.getPopulations()) {
                 String popCode = POPULATION_CODES.getOrDefault(pop.getPopulationType(), "IPP");
-                String popUuid = UUID.randomUUID().toString();
+                String popUuid = IdGenerator.uuid();
                 xml.append("      <component>\n");
                 xml.append("        <").append(getHqmfPopulationElement(pop.getPopulationType())).append(">\n");
                 xml.append("          <id root=\"").append(popUuid).append("\" extension=\"").append(popCode).append("\"/>\n");

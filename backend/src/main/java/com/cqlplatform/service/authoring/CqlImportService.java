@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.cqlplatform.util.IdGenerator;
 
 /**
  * Service for importing CQL source code back into an artifact structure.
@@ -76,7 +77,7 @@ public class CqlImportService {
         Matcher paramMatcher = PARAMETER_PATTERN.matcher(cqlContent);
         while (paramMatcher.find()) {
             Map<String, Object> param = new LinkedHashMap<>();
-            param.put("uniqueId", UUID.randomUUID().toString());
+            param.put("uniqueId", IdGenerator.uuid());
             param.put("name", paramMatcher.group(1));
             param.put("type", paramMatcher.group(2));
             if (paramMatcher.group(3) != null) {

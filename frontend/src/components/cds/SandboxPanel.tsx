@@ -35,6 +35,7 @@ import { bundleToPrefetch, prefetchToBundle } from '../../utils/bundlePrefetchCo
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
 import { DEFAULT_PATIENT_ID, DEFAULT_PREFETCH } from '../../constants/sandboxDefaults'
+import { generateId } from '../../utils/validation'
 
 function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
   switch (indicator) {
@@ -153,7 +154,7 @@ function SandboxPanelInner() {
         request: {
           serviceId: selectedService,
           hook: service.hook,
-          hookInstance: crypto.randomUUID(),
+          hookInstance: generateId(),
           context: { patientId },
           testData,
         },

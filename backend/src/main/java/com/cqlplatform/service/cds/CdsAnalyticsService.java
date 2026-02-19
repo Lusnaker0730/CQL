@@ -71,24 +71,7 @@ public class CdsAnalyticsService {
                     .build();
         }
 
-        double avgResponseTime = analytics.getInvocationCount() > 0
-                ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()
-                : 0;
-
-        double errorRate = analytics.getInvocationCount() > 0
-                ? (double) analytics.getErrorCount() / analytics.getInvocationCount() * 100
-                : 0;
-
-        return CdsServiceAnalyticsDTO.builder()
-                .serviceId(serviceId)
-                .invocationCount(analytics.getInvocationCount())
-                .errorCount(analytics.getErrorCount())
-                .avgResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
-                .errorRate(Math.round(errorRate * 100.0) / 100.0)
-                .lastInvokedAt(analytics.getLastInvokedAt())
-                .feedbackAcceptedCount(acceptedCount)
-                .feedbackOverriddenCount(overriddenCount)
-                .build();
+        return buildDto(analytics, acceptedCount, overriddenCount);
     }
 
     @Transactional(readOnly = true)
@@ -101,26 +84,30 @@ public class CdsAnalyticsService {
                             analytics.getServiceId(), CdsConstants.FEEDBACK_ACCEPTED);
                     long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(
                             analytics.getServiceId(), CdsConstants.FEEDBACK_OVERRIDDEN);
-
-                    double avgResponseTime = analytics.getInvocationCount() > 0
-                            ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()
-                            : 0;
-
-                    double errorRate = analytics.getInvocationCount() > 0
-                            ? (double) analytics.getErrorCount() / analytics.getInvocationCount() * 100
-                            : 0;
-
-                    return CdsServiceAnalyticsDTO.builder()
-                            .serviceId(analytics.getServiceId())
-                            .invocationCount(analytics.getInvocationCount())
-                            .errorCount(analytics.getErrorCount())
-                            .avgResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
-                            .errorRate(Math.round(errorRate * 100.0) / 100.0)
-                            .lastInvokedAt(analytics.getLastInvokedAt())
-                            .feedbackAcceptedCount(acceptedCount)
-                            .feedbackOverriddenCount(overriddenCount)
-                            .build();
+                    return buildDto(analytics, acceptedCount, overriddenCount);
                 })
                 .collect(Collectors.toList());
+    }
+
+    private CdsServiceAnalyticsDTO buildDto(CdsServiceAnalyticsEntity analytics,
+                                            long acceptedCount, long overriddenCount) {
+        double avgResponseTime = analytics.getInvocationCount() > 0
+                ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()
+                : 0;
+
+        double errorRate = analytics.getInvocationCount() > 0
+                ? (double) analytics.getErrorCount() / analytics.getInvocationCount() * 100
+                : 0;
+
+        return CdsServiceAnalyticsDTO.builder()
+                .serviceId(analytics.getServiceId())
+                .invocationCount(analytics.getInvocationCount())
+                .errorCount(analytics.getErrorCount())
+                .avgResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
+                .errorRate(Math.round(errorRate * 100.0) / 100.0)
+                .lastInvokedAt(analytics.getLastInvokedAt())
+                .feedbackAcceptedCount(acceptedCount)
+                .feedbackOverriddenCount(overriddenCount)
+                .build();
     }
 }

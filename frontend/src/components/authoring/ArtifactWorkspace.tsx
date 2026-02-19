@@ -24,6 +24,7 @@ import {
   SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION,
   TAB_INDEX_REVIEW_CQL, TAB_INDEX_SUMMARY, KEYBOARD_SHORTCUTS,
 } from '../../constants/authoringConstants'
+import { generateId } from '../../utils/validation'
 
 interface ArtifactWorkspaceProps {
   artifact: Artifact
@@ -535,7 +536,7 @@ export default function ArtifactWorkspace({
               const SYSTEM_DEFS = SYSTEM_DEFINITIONS
 
               const makeRef = (d: { name: string; resultType?: string }) => ({
-                uniqueId: crypto.randomUUID(),
+                uniqueId: generateId(),
                 type: 'externalCqlRef' as const,
                 name: d.name,
                 returnType: d.resultType || 'System.Any',
@@ -574,7 +575,7 @@ export default function ArtifactWorkspace({
               const baseEls = defs
                 .filter((d) => !SYSTEM_DEFS.has(d.name))
                 .map((d) => ({
-                  uniqueId: crypto.randomUUID(),
+                  uniqueId: generateId(),
                   name: d.name,
                   type: 'externalCqlRef' as const,
                   returnType: d.resultType || 'System.Any',

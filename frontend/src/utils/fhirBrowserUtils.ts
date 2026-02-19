@@ -1,24 +1,3 @@
-export const FHIR_RESOURCE_TYPES = [
-  'Patient',
-  'Encounter',
-  'Condition',
-  'Observation',
-  'Procedure',
-  'MedicationRequest',
-  'MedicationStatement',
-  'DiagnosticReport',
-  'ServiceRequest',
-  'Immunization',
-  'AllergyIntolerance',
-  'CarePlan',
-  'Goal',
-  'Claim',
-  'Coverage',
-  'Organization',
-  'Practitioner',
-  'Location',
-]
-
 /** A loosely-typed FHIR resource with required resourceType. */
 export interface FhirResource extends Record<string, unknown> {
   resourceType: string
@@ -211,6 +190,9 @@ export const RESOURCE_DISPLAY_FIELDS: Record<string, DisplayField[]> = {
 const FALLBACK_FIELDS: DisplayField[] = [
   { key: 'lastUpdated', label: 'Last Updated', extract: r => str(r, 'meta.lastUpdated') },
 ]
+
+/** Derived from RESOURCE_DISPLAY_FIELDS keys — single source of truth for the browser dropdown. */
+export const FHIR_RESOURCE_TYPES = Object.keys(RESOURCE_DISPLAY_FIELDS)
 
 export function getDisplayFields(resourceType: string): DisplayField[] {
   return RESOURCE_DISPLAY_FIELDS[resourceType] || FALLBACK_FIELDS

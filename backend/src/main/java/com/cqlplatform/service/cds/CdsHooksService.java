@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import com.cqlplatform.util.IdGenerator;
 
 @Service
 @RequiredArgsConstructor
@@ -596,7 +597,7 @@ public class CdsHooksService {
                         if (summary != null) {
                             hasExplicitCards = true;
                             cards.add(CdsResponse.Card.builder()
-                                    .uuid(UUID.randomUUID().toString())
+                                    .uuid(IdGenerator.uuid())
                                     .summary(summary)
                                     .detail(detail)
                                     .indicator(indicator != null ? indicator : CdsConstants.INDICATOR_INFO)
@@ -647,7 +648,7 @@ public class CdsHooksService {
         // per CDS Hooks spec — intermediate results should not leak into the response.
         if (!hasExplicitCards && !explicitCardMode && consolidatedDetail.length() > 0) {
             cards.add(CdsResponse.Card.builder()
-                    .uuid(UUID.randomUUID().toString())
+                    .uuid(IdGenerator.uuid())
                     .summary(config.getTitle())
                     .detail(consolidatedDetail.toString())
                     .indicator(consolidatedIndicator)
@@ -873,7 +874,7 @@ public class CdsHooksService {
                 List<CdsResponse.Action> actions = parseActions(suggObj);
 
                 suggestions.add(CdsResponse.Suggestion.builder()
-                        .uuid(UUID.randomUUID().toString())
+                        .uuid(IdGenerator.uuid())
                         .label(label)
                         .isRecommended(isRecommended)
                         .actions(actions.isEmpty() ? null : actions)
@@ -951,7 +952,7 @@ public class CdsHooksService {
 
     private CdsResponse.Card createInfoCard(String summary, String detail) {
         return CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
+                .uuid(IdGenerator.uuid())
                 .summary(summary)
                 .detail(detail)
                 .indicator(CdsConstants.INDICATOR_INFO)
@@ -963,7 +964,7 @@ public class CdsHooksService {
 
     private CdsResponse.Card createErrorCard(String errorMessage) {
         return CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
+                .uuid(IdGenerator.uuid())
                 .summary(CdsConstants.ERROR_SUMMARY)
                 .detail(CdsConstants.ERROR_DETAIL_PREFIX + errorMessage)
                 .indicator(CdsConstants.INDICATOR_WARNING)

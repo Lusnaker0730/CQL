@@ -4,6 +4,7 @@ import { Add as AddIcon } from '@mui/icons-material'
 import { useFhirResourceTypes } from '../../hooks/useFhirMetadata'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { getResourceIcon, STRINGS } from './constants'
+import { generateId } from '../../utils/validation'
 
 interface AddResourceButtonProps {
   onDirty: () => void
@@ -17,7 +18,7 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
   const hasPatient = state.entries.some((e) => e.resourceType === 'Patient')
 
   const handleAdd = (resourceType: string) => {
-    const id = resourceType.toLowerCase() + '-' + crypto.randomUUID().slice(0, 8)
+    const id = resourceType.toLowerCase() + '-' + generateId().slice(0, 8)
     dispatch({
       type: 'ADD_ENTRY',
       payload: {

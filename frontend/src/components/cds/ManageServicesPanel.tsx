@@ -56,6 +56,7 @@ import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
 import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES } from '../../constants/cdsHooks'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 
 export default function ManageServicesPanel() {
   const dispatch = useDispatch()
@@ -71,6 +72,7 @@ export default function ManageServicesPanel() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<CdsServiceConfigResponse | null>(null)
   const [activeServiceId, setActiveServiceId] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [formData, setFormData] = useState<CdsServiceConfigRequest>({
     id: '',
     hook: 'patient-view',
@@ -147,12 +149,11 @@ export default function ManageServicesPanel() {
   }
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this service?')) {
-      try {
-        await deleteMutation.mutateAsync(id)
-      } catch (error) {
-        showNotification('Failed to delete service: ' + (error as Error).message, 'error')
-      }
+    try {
+      await deleteMutation.mutateAsync(id)
+      setPendingDeleteId(null)
+    } catch (error) {
+      showNotification('Failed to delete service: ' + (error as Error).message, 'error')
     }
   }
 
@@ -335,7 +336,7 @@ export default function ManageServicesPanel() {
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={(e) => { e.stopPropagation(); handleDelete(service.id) }}
+                    onClick={(e) => { e.stopPropagation(); setPendingDeleteId(service.id) }}
                     disabled={!isOwner}
                     aria-label="Delete service"
                   >
@@ -515,6 +516,15 @@ export default function ManageServicesPanel() {
           <Button onClick={() => setVersionsDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!pendingDeleteId}
+        itemName="this service"
+        message="Are you sure you want to delete this service? This action cannot be undone."
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => pendingDeleteId && handleDelete(pendingDeleteId)}
+        isPending={deleteMutation.isPending}
+      />
     </Stack>
   )
 }

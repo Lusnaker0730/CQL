@@ -10,6 +10,7 @@ import { useNotification } from '../../../hooks/useNotification'
 import { authoringApi } from '../../../api'
 import type { CqlImportResult } from '../../../types/authoring'
 import { SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION } from '../../../constants/authoringConstants'
+import { generateId } from '../../../utils/validation'
 
 interface ImportCqlDialogProps {
   open: boolean
@@ -57,7 +58,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
     libVersion?: string,
     returnType = 'System.Any'
   ) => ({
-    uniqueId: crypto.randomUUID(),
+    uniqueId: generateId(),
     type: 'externalCqlRef',
     name: defName,
     returnType,
@@ -133,7 +134,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
             const baseElements = defs
               .filter((d) => !SYSTEM_DEFINITIONS.has(d.name))
               .map((d) => ({
-                uniqueId: crypto.randomUUID(),
+                uniqueId: generateId(),
                 name: d.name,
                 type: 'externalCqlRef',
                 returnType: d.resultType || 'System.Any',
