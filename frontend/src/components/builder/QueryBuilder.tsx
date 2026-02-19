@@ -5,7 +5,6 @@ import {
   TextField,
   MenuItem,
   Typography,
-  Box,
   Button,
   IconButton,
   Tooltip,
@@ -20,6 +19,7 @@ import {
   ContentCopy as CopyIcon,
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
+import CqlPreviewBox from './CqlPreviewBox'
 import { useNotification } from '../../hooks/useNotification'
 import { fhirResourceProperties } from '../../utils/cqlSyntax'
 
@@ -216,6 +216,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
         value={terminology}
         onChange={(e) => handleTerminologyChange(e.target.value)}
         SelectProps={{ displayEmpty: true }}
+        InputLabelProps={{ shrink: true }}
       >
         {terminologyOptions.map((opt) => (
           <MenuItem key={opt.raw || '__none'} value={opt.raw}>
@@ -298,6 +299,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
                   onChange={(e) => updateClause(clause.id, { value: e.target.value })}
                   sx={{ flex: 2 }}
                   SelectProps={{ displayEmpty: true }}
+                  InputLabelProps={{ shrink: true }}
                 >
                   <MenuItem value="" disabled>
                     <em>{t('query.selectOp')}</em>
@@ -381,23 +383,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       )}
 
       {/* CQL Preview */}
-      <Box
-        sx={{
-          p: 1,
-          bgcolor: 'rgba(27,58,92,0.04)',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          fontFamily: 'monospace',
-          fontSize: '0.75rem',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          maxHeight: 120,
-          overflow: 'auto',
-        }}
-      >
-        {cqlPreview}
-      </Box>
+      <CqlPreviewBox code={cqlPreview} />
 
       {/* Actions */}
       <Stack direction="row" spacing={1} alignItems="center">

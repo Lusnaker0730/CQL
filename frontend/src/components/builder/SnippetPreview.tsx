@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { Box, Stack, Button, IconButton, Tooltip } from '@mui/material'
+import { Stack, Button, IconButton, Tooltip } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
+import CqlPreviewBox from './CqlPreviewBox'
 import { useNotification } from '../../hooks/useNotification'
 
 interface SnippetPreviewProps {
@@ -35,23 +36,7 @@ export default function SnippetPreview({
 
   return (
     <Stack spacing={0.75}>
-      <Box
-        sx={{
-          p: 1,
-          bgcolor: 'rgba(27,58,92,0.04)',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          fontFamily: 'monospace',
-          fontSize: '0.75rem',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          maxHeight: 120,
-          overflow: 'auto',
-        }}
-      >
-        {snippet}
-      </Box>
+      <CqlPreviewBox code={snippet} />
       <Stack direction="row" spacing={1} alignItems="center">
         <GradientButton onClick={onInsert} disabled={insertDisabled}>
           {insertLabel}

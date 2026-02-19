@@ -5,7 +5,6 @@ import {
   TextField,
   MenuItem,
   Typography,
-  Box,
   Button,
   IconButton,
   Tooltip,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
+import CqlPreviewBox from './CqlPreviewBox'
 import { useNotification } from '../../hooks/useNotification'
 
 interface CdsCardBuilderProps {
@@ -115,6 +115,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             value={summary.value}
             onChange={(e) => setSummary((s) => ({ ...s, value: e.target.value }))}
             SelectProps={{ displayEmpty: true }}
+            InputLabelProps={{ shrink: true }}
           >
             <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
@@ -157,6 +158,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             value={detail.value}
             onChange={(e) => setDetail((s) => ({ ...s, value: e.target.value }))}
             SelectProps={{ displayEmpty: true }}
+            InputLabelProps={{ shrink: true }}
           >
             <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
@@ -210,6 +212,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             value={sourceLabel.value}
             onChange={(e) => setSourceLabel((s) => ({ ...s, value: e.target.value }))}
             SelectProps={{ displayEmpty: true }}
+            InputLabelProps={{ shrink: true }}
           >
             <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
@@ -220,25 +223,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
       </Stack>
 
       {/* CQL Preview */}
-      {cqlPreview && (
-        <Box
-          sx={{
-            p: 1,
-            bgcolor: 'rgba(27,58,92,0.04)',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 1,
-            fontFamily: 'monospace',
-            fontSize: '0.75rem',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            maxHeight: 120,
-            overflow: 'auto',
-          }}
-        >
-          {cqlPreview}
-        </Box>
-      )}
+      <CqlPreviewBox code={cqlPreview} />
 
       {/* Action buttons */}
       <Stack direction="row" spacing={1} alignItems="center">

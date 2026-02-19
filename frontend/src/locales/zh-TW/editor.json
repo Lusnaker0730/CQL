@@ -15,7 +15,9 @@
     "hideBuilder": "隱藏建構器面板",
     "showBuilder": "顯示建構器面板",
     "removeFavorite": "從收藏中移除",
-    "addFavorite": "加入收藏"
+    "addFavorite": "加入收藏",
+    "undo": "復原",
+    "redo": "重做"
   },
   "tabs": {
     "elmErrors": "ELM / 錯誤",

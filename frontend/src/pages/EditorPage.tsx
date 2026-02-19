@@ -26,6 +26,8 @@ import {
   CompareArrows as CompareIcon,
   NewReleases as VersionIcon,
   Share as ShareIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
 } from '@mui/icons-material'
 import { useSelector, useDispatch } from 'react-redux'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -42,7 +44,7 @@ import CreateVersionDialog from '../components/editor/CreateVersionDialog'
 import VersionHistoryDialog from '../components/editor/VersionHistoryDialog'
 import VersionDiffDialog from '../components/editor/VersionDiffDialog'
 import type { RootState } from '../store'
-import { setCqlContent, setGoToLine } from '../store/editorSlice'
+import { setCqlContent, setCqlContentWithHistory, undo, redo, setGoToLine } from '../store/editorSlice'
 import { findElementLineRange } from '../utils/cqlElementLocator'
 import type { CqlElementType } from '../utils/cqlElementLocator'
 import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata, useLibrary } from '../hooks/useCql'
@@ -56,7 +58,9 @@ import TabPanel, { a11yProps } from '../components/common/TabPanel'
 export default function EditorPage() {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
-  const { cqlContent, isTranslating, errors, elmJson, cursorPosition } = useSelector((state: RootState) => state.editor)
+  const { cqlContent, isTranslating, errors, elmJson, cursorPosition, past, future } = useSelector((state: RootState) => state.editor)
+  const canUndo = past.length > 0
+  const canRedo = future.length > 0
   const [rightPanelTab, setRightPanelTab] = useState(0)
   const [showBuilder, setShowBuilder] = useState(false)
   const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
@@ -203,7 +207,7 @@ export default function EditorPage() {
       const lineIdx = Math.min(cursorPosition.line - 1, lines.length)
       // Insert the snippet at the end of the current line, with blank line separation
       lines.splice(lineIdx + 1, 0, '', snippet, '')
-      dispatch(setCqlContent(lines.join('\n')))
+      dispatch(setCqlContentWithHistory(lines.join('\n')))
     },
     [cqlContent, cursorPosition, dispatch]
   )
@@ -229,7 +233,7 @@ export default function EditorPage() {
         endIdx++
       }
       lines.splice(range.startLine - 1, endIdx - range.startLine + 2)
-      dispatch(setCqlContent(lines.join('\n')))
+      dispatch(setCqlContentWithHistory(lines.join('\n')))
     },
     [cqlContent, dispatch]
   )
@@ -240,7 +244,7 @@ export default function EditorPage() {
       if (!range) return
       const lines = cqlContent.split('\n')
       lines.splice(range.startLine - 1, range.endLine - range.startLine + 1, newSnippet)
-      dispatch(setCqlContent(lines.join('\n')))
+      dispatch(setCqlContentWithHistory(lines.join('\n')))
     },
     [cqlContent, dispatch]
   )
@@ -284,6 +288,20 @@ export default function EditorPage() {
                   {t('title')}
                 </Typography>
                 <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+                  <Tooltip title={t('toolbar.undo')}>
+                    <span>
+                      <IconButton size="small" onClick={() => dispatch(undo())} disabled={!canUndo}>
+                        <UndoIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title={t('toolbar.redo')}>
+                    <span>
+                      <IconButton size="small" onClick={() => dispatch(redo())} disabled={!canRedo}>
+                        <RedoIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                   <Button
                     size="small"
                     variant="contained"

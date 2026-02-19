@@ -5,7 +5,6 @@ import {
   TextField,
   MenuItem,
   Typography,
-  Box,
   FormControlLabel,
   Checkbox,
   Button,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
+import CqlPreviewBox from './CqlPreviewBox'
 import { useNotification } from '../../hooks/useNotification'
 
 interface RetrieveBuilderProps {
@@ -209,6 +209,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
         value={terminology}
         onChange={(e) => handleTerminologyChange(e.target.value)}
         SelectProps={{ displayEmpty: true }}
+        InputLabelProps={{ shrink: true }}
       >
         <MenuItem value="" disabled>
           <em>{t('retrieve.selectTerminology')}</em>
@@ -314,25 +315,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
         )}
       </Stack>
 
-      {cqlPreview && (
-        <Box
-          sx={{
-            p: 1,
-            bgcolor: 'rgba(27,58,92,0.04)',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 1,
-            fontFamily: 'monospace',
-            fontSize: '0.75rem',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            maxHeight: 120,
-            overflow: 'auto',
-          }}
-        >
-          {cqlPreview}
-        </Box>
-      )}
+      <CqlPreviewBox code={cqlPreview} />
 
       <Stack direction="row" spacing={1} alignItems="center">
         <GradientButton

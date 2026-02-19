@@ -154,6 +154,11 @@
   "operatorReference": {
     "searchPlaceholder": "搜尋運算子..."
   },
+  "duplicateWarning": {
+    "title": "偵測到重複名稱",
+    "message": "名為「{{name}}」的元素已存在。插入重複項可能會導致 CQL 編譯錯誤。",
+    "insertAnyway": "仍然插入"
+  },
   "cdsCard": {
     "nameHint": "以「Card」開頭的名稱會被偵測為 CDS 卡片",
     "summary": "摘要 *",

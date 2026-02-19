@@ -60,24 +60,35 @@ export function useCqlStructure() {
   const [parseError, setParseError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastParsedContent = useRef<string>('')
+  const abortRef = useRef<AbortController | null>(null)
 
   const parseNow = useCallback(async (cql: string) => {
     if (!cql.trim()) {
       setStructure(EMPTY_STRUCTURE)
       return
     }
+    // Skip if content unchanged
+    if (cql === lastParsedContent.current) return
+
+    // Cancel previous in-flight request
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setIsParsing(true)
     setParseError(null)
     try {
-      const result = await cqlApi.translate({ cql })
+      const result = await cqlApi.translate({ cql }, controller.signal)
+      if (controller.signal.aborted) return
       if (result.metadata) {
         setStructure(metadataToStructure(result.metadata))
       }
       lastParsedContent.current = cql
     } catch (err) {
+      if ((err as Error).name === 'AbortError' || controller.signal.aborted) return
       setParseError((err as Error).message)
     } finally {
-      setIsParsing(false)
+      if (!controller.signal.aborted) setIsParsing(false)
     }
   }, [])
 
@@ -96,6 +107,11 @@ export function useCqlStructure() {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [cqlContent, parseNow])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   return { structure, isParsing, parseError, parse }
 }

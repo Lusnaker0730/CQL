@@ -12,8 +12,8 @@ import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
 
 export const cqlApi = {
-  translate: async (request: CqlTranslationRequest): Promise<CqlTranslationResponse> => {
-    const response = await api.post<CqlTranslationResponse>('/cql/translate', request)
+  translate: async (request: CqlTranslationRequest, signal?: AbortSignal): Promise<CqlTranslationResponse> => {
+    const response = await api.post<CqlTranslationResponse>('/cql/translate', request, { signal })
     return response.data
   },
 

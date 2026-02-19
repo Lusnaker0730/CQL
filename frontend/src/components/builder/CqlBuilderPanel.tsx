@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -11,6 +11,10 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material'
 import {
   ExpandMore as ExpandMoreIcon,
@@ -44,6 +48,7 @@ export default function CqlBuilderPanel({
   const { t } = useTranslation('builder')
   const { structure, isParsing, parseError, parse } = useCqlStructure()
   const [expanded, setExpanded] = useState<string | false>('includes')
+  const [duplicateWarning, setDuplicateWarning] = useState<{ name: string; snippet: string } | null>(null)
 
   // Keep Monaco IntelliSense in sync with CQL structure
   useEffect(() => { updateCqlStructure(structure) }, [structure])
@@ -51,6 +56,24 @@ export default function CqlBuilderPanel({
   const handleAccordion = (panel: string) => (_: unknown, isExpanded: boolean) => {
     setExpanded(isExpanded ? panel : false)
   }
+
+  // Extract identifier name from a CQL snippet
+  const extractSnippetName = useCallback((snippet: string): string | null => {
+    const m = snippet.match(/^(?:define|parameter|valueset|codesystem|code|concept|include)\s+"([^"]+)"/)
+    return m ? m[1] : null
+  }, [])
+
+  // Collect all known names from the current structure
+  const getAllNames = useCallback((): string[] => {
+    const extract = (raw: string) => { const m = raw.match(/^"([^"]+)"/); return m?.[1] ?? '' }
+    return [
+      ...structure.expressions.map((e) => e.name),
+      ...structure.functions.map((f) => f.name),
+      ...structure.parameters.map(extract),
+      ...structure.valueSets.map(extract),
+      ...structure.codes.map(extract),
+    ]
+  }, [structure])
 
   const handleAutoIncludeC3F = (snippet: string) => {
     if (snippet.includes('C3F.') && !structure.includes.some((inc) => inc.includes('called C3F'))) {
@@ -63,6 +86,26 @@ export default function CqlBuilderPanel({
     }
   }
 
+  // Wrap insert with duplicate name check
+  const handleInsertWithCheck = useCallback((snippet: string) => {
+    const name = extractSnippetName(snippet)
+    if (name && getAllNames().includes(name)) {
+      setDuplicateWarning({ name, snippet })
+      return
+    }
+    onInsertSnippet(snippet)
+  }, [extractSnippetName, getAllNames, onInsertSnippet])
+
+  // Same check but routes through C3F auto-include
+  const handleInsertWithCheckC3F = useCallback((snippet: string) => {
+    const name = extractSnippetName(snippet)
+    if (name && getAllNames().includes(name)) {
+      setDuplicateWarning({ name, snippet })
+      return
+    }
+    handleAutoIncludeC3F(snippet)
+  }, [extractSnippetName, getAllNames, handleAutoIncludeC3F])
+
   const sections = [
     {
       id: 'includes',
@@ -71,7 +114,7 @@ export default function CqlBuilderPanel({
       content: (
         <IncludesSection
           includes={structure.includes}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('include', id)}
           onGoTo={(id) => onGoToElement?.('include', id)}
           onEdit={(id, snippet) => onEditElement?.('include', id, snippet)}
@@ -85,7 +128,7 @@ export default function CqlBuilderPanel({
       content: (
         <ValueSetSection
           valueSets={structure.valueSets}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('valueset', id)}
           onGoTo={(id) => onGoToElement?.('valueset', id)}
           onEdit={(id, snippet) => onEditElement?.('valueset', id, snippet)}
@@ -99,7 +142,7 @@ export default function CqlBuilderPanel({
       content: (
         <CodesSection
           codes={structure.codes}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('code', id)}
           onGoTo={(id) => onGoToElement?.('code', id)}
           onEdit={(id, snippet) => onEditElement?.('code', id, snippet)}
@@ -114,7 +157,7 @@ export default function CqlBuilderPanel({
         <ConceptsSection
           concepts={structure.concepts}
           codes={structure.codes}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('concept', id)}
           onGoTo={(id) => onGoToElement?.('concept', id)}
           onEdit={(id, snippet) => onEditElement?.('concept', id, snippet)}
@@ -128,7 +171,7 @@ export default function CqlBuilderPanel({
       content: (
         <ParametersSection
           parameters={structure.parameters}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('parameter', id)}
           onGoTo={(id) => onGoToElement?.('parameter', id)}
           onEdit={(id, snippet) => onEditElement?.('parameter', id, snippet)}
@@ -142,7 +185,7 @@ export default function CqlBuilderPanel({
       content: (
         <DefinitionsSection
           expressions={structure.expressions}
-          onInsert={handleAutoIncludeC3F}
+          onInsert={handleInsertWithCheckC3F}
           valueSets={structure.valueSets}
           codes={structure.codes}
           parameters={structure.parameters}
@@ -159,7 +202,7 @@ export default function CqlBuilderPanel({
       content: (
         <FunctionsSection
           functions={structure.functions}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('function', id)}
           onGoTo={(id) => onGoToElement?.('function', id)}
           onEdit={(id, snippet) => onEditElement?.('function', id, snippet)}
@@ -252,6 +295,27 @@ export default function CqlBuilderPanel({
           </Accordion>
         ))}
       </Box>
+
+      <Dialog open={!!duplicateWarning} onClose={() => setDuplicateWarning(null)}>
+        <DialogTitle>{t('duplicateWarning.title')}</DialogTitle>
+        <DialogContent>
+          <Typography>{t('duplicateWarning.message', { name: duplicateWarning?.name })}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDuplicateWarning(null)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (duplicateWarning) {
+                onInsertSnippet(duplicateWarning.snippet)
+                setDuplicateWarning(null)
+              }
+            }}
+          >
+            {t('duplicateWarning.insertAnyway')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

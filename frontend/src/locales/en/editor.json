@@ -15,7 +15,9 @@
     "hideBuilder": "Hide Builder Panel",
     "showBuilder": "Show Builder Panel",
     "removeFavorite": "Remove from favorites",
-    "addFavorite": "Add to favorites"
+    "addFavorite": "Add to favorites",
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "tabs": {
     "elmErrors": "ELM / Errors",

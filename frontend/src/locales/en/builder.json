@@ -154,6 +154,11 @@
   "operatorReference": {
     "searchPlaceholder": "Search operators..."
   },
+  "duplicateWarning": {
+    "title": "Duplicate Name Detected",
+    "message": "An element named \"{{name}}\" already exists. Inserting a duplicate may cause CQL compilation errors.",
+    "insertAnyway": "Insert Anyway"
+  },
   "cdsCard": {
     "nameHint": "Names starting with \"Card\" are detected as CDS Cards",
     "summary": "Summary *",
