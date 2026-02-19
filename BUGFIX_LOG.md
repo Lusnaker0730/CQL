@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 008 | 2026-02-19 | High | CDS Hooks Sandbox（後端） | CDS Sandbox Invoke 所有 CQL 表達式回傳 null | 資料處理錯誤 | — |
 | 007 | 2026-02-19 | Medium | 版面配置（前端） | Footer fixed 定位仍遮擋操作按鈕 | UX 設計缺陷 | [`b570119`](../../commit/b570119) |
 | 006 | 2026-02-19 | Critical | Backend 基礎設施 | Backend OOM 導致所有 API 無回應 | 配置遺漏 | [`660347a`](../../commit/660347a) |
 | 005 | 2026-02-19 | Low | 版面配置（前端） | Footer 覆蓋頁面內容 | UX 設計缺陷 | [`741b7dc`](../../commit/741b7dc) |
@@ -25,6 +26,38 @@
 | 配置遺漏 | 環境設定、參數未正確配置 |
 | 資料處理錯誤 | 資料解析、轉換或驗證問題 |
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
+
+---
+
+## #008 — CDS Sandbox Invoke 所有 CQL 表達式回傳 null
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-19 |
+| **功能分類** | CDS Hooks Sandbox（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cds/CdsInvocationService.java`、`backend/src/main/java/com/cqlplatform/service/cds/PrefetchRetrieveProvider.java` |
+| **Commit** | — |
+
+### BUG 描述
+
+在 CDS Sandbox 中使用 Visual Builder 建立 Observation（例如 BMI: LOINC 39156-5, value 27 kg/m2）並 Invoke 時，CDS card 顯示 "No recommendations at this time."，所有 CQL 表達式（`LatestBMI`、`BMICalue`、`BMIClassification`、`CardSuggestion`）皆回傳 null。
+
+**根本原因**：CQL engine 在 `context Patient` 下執行 `[Observation: "BMI_CODE"]` retrieve 時，會根據 `Observation.subject` 欄位做 patient context 過濾。Visual Builder 建立的 Observation 預設不帶 `subject` 引用，而預設 sandbox 測試資料（`sandboxDefaults.ts`）則有 `subject: { reference: "Patient/test-patient-1" }`。缺少 subject 的資源被 CQL engine 的 context filter 靜默排除，導致 retrieve 回傳空集合 → `Last()` 回傳 null → 所有下游表達式連鎖為 null。
+
+### 修正方式
+
+- **`CdsInvocationService.java`**：在 `buildPrefetchProvider()` 解析 prefetch 資源後，自動為缺少 `subject`/`patient` 引用的資源補上 `Patient/{patientId}`。覆蓋 12 種 FHIR 資源型別：Observation、Condition、Procedure、MedicationRequest、MedicationStatement、Encounter、AllergyIntolerance、Immunization、DiagnosticReport、ServiceRequest、CarePlan、Goal
+- **`PrefetchRetrieveProvider.java`**：將 retrieve 日誌從 DEBUG 提升到 INFO，記錄 dataType、codePath、codes、context 參數及過濾前後的候選數量，方便後續診斷
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] Backend Docker 重建並部署成功
+- [ ] Visual Builder 建立 Observation（無 subject）→ Invoke → CQL 表達式正確回傳值
+- [ ] 有 subject 的資源不受影響（不重複設定）
+- [ ] 預設 sandbox 測試資料行為不變
 
 ---
 

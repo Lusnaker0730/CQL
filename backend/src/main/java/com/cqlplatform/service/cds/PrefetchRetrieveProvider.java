@@ -35,22 +35,27 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
             Iterable<Code> codes, String valueSet, String datePath,
             String dateLowPath, String dateHighPath, Interval dateRange) {
 
-        log.debug("Retrieve called: dataType={}, codePath={}, codes={}", dataType, codePath, codes);
+        List<String> codeStrs = new ArrayList<>();
+        if (codes != null) {
+            for (Code code : codes) {
+                codeStrs.add(code.getCode());
+            }
+        }
+        log.info("Retrieve: dataType={}, codePath={}, codes={}, context={}, contextPath={}, contextValue={}",
+                dataType, codePath, codeStrs, context, contextPath, contextValue);
 
         List<Resource> candidates = resourcesByType.getOrDefault(dataType, Collections.emptyList());
+        int beforeFilter = candidates.size();
 
         // Filter by code if specified
-        if (codePath != null && codes != null) {
-            Set<String> codeValues = new HashSet<>();
-            for (Code code : codes) {
-                codeValues.add(code.getCode());
-            }
+        if (codePath != null && !codeStrs.isEmpty()) {
+            Set<String> codeValues = new HashSet<>(codeStrs);
             candidates = candidates.stream()
                     .filter(r -> matchesCode(r, codePath, codeValues))
                     .collect(Collectors.toList());
         }
 
-        log.debug("Returning {} {} resources", candidates.size(), dataType);
+        log.info("Retrieve result: {} {} resources (before code filter: {})", candidates.size(), dataType, beforeFilter);
         return new ArrayList<>(candidates);
     }
 

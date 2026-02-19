@@ -12,8 +12,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.*;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.springframework.stereotype.Service;
 
@@ -159,7 +158,49 @@ public class CdsInvocationService {
             return null;
         }
 
+        // Auto-populate subject references for sandbox/prefetch resources that lack them.
+        // The CQL engine filters retrieve results by patient context (e.g. Observation.subject),
+        // so resources without a subject reference would be silently excluded.
+        if (patientId != null) {
+            Reference patientRef = new Reference("Patient/" + patientId);
+            for (Resource resource : resources) {
+                ensureSubjectReference(resource, patientRef);
+            }
+        }
+
         log.info("Built prefetch provider with {} resources", resources.size());
         return new PrefetchRetrieveProvider(resources, patientId);
+    }
+
+    /**
+     * Ensures a resource has a subject/patient reference so the CQL engine's
+     * context filtering does not silently exclude it during evaluation.
+     */
+    private void ensureSubjectReference(Resource resource, Reference patientRef) {
+        if (resource instanceof Observation obs) {
+            if (!obs.hasSubject()) obs.setSubject(patientRef);
+        } else if (resource instanceof Condition cond) {
+            if (!cond.hasSubject()) cond.setSubject(patientRef);
+        } else if (resource instanceof Procedure proc) {
+            if (!proc.hasSubject()) proc.setSubject(patientRef);
+        } else if (resource instanceof MedicationRequest medReq) {
+            if (!medReq.hasSubject()) medReq.setSubject(patientRef);
+        } else if (resource instanceof MedicationStatement medStmt) {
+            if (!medStmt.hasSubject()) medStmt.setSubject(patientRef);
+        } else if (resource instanceof Encounter enc) {
+            if (!enc.hasSubject()) enc.setSubject(patientRef);
+        } else if (resource instanceof AllergyIntolerance allergy) {
+            if (!allergy.hasPatient()) allergy.setPatient(patientRef);
+        } else if (resource instanceof Immunization imm) {
+            if (!imm.hasPatient()) imm.setPatient(patientRef);
+        } else if (resource instanceof DiagnosticReport diag) {
+            if (!diag.hasSubject()) diag.setSubject(patientRef);
+        } else if (resource instanceof ServiceRequest svcReq) {
+            if (!svcReq.hasSubject()) svcReq.setSubject(patientRef);
+        } else if (resource instanceof CarePlan carePlan) {
+            if (!carePlan.hasSubject()) carePlan.setSubject(patientRef);
+        } else if (resource instanceof Goal goal) {
+            if (!goal.hasSubject()) goal.setSubject(patientRef);
+        }
     }
 }
