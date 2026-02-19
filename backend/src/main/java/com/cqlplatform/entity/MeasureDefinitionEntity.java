@@ -139,6 +139,12 @@ public class MeasureDefinitionEntity {
     @Column(name = "measure_set", length = 200)
     private String measureSet;
 
+    @Column(name = "nqf_number", length = 20)
+    private String nqfNumber;
+
+    @Column(name = "cms_measure_id", length = 20)
+    private String cmsMeasureId;
+
     @Column(name = "supplemental_data_guidance", columnDefinition = "TEXT")
     private String supplementalDataGuidance;
 

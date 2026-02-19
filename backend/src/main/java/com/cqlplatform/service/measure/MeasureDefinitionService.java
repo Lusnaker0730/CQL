@@ -79,6 +79,8 @@ public class MeasureDefinitionService {
         entity.setDisclaimer(definition.getDisclaimer());
         entity.setCopyright(definition.getCopyright());
         entity.setMeasureSet(definition.getMeasureSet());
+        entity.setNqfNumber(definition.getNqfNumber());
+        entity.setCmsMeasureId(definition.getCmsMeasureId());
         entity.setSupplementalDataGuidance(definition.getSupplementalDataGuidance());
         entity.setRiskAdjustmentDescription(definition.getRiskAdjustmentDescription());
         entity.setRiskAdjustmentList(definition.getRiskAdjustments());
@@ -290,6 +292,8 @@ public class MeasureDefinitionService {
                 .disclaimer(entity.getDisclaimer())
                 .copyright(entity.getCopyright())
                 .measureSet(entity.getMeasureSet())
+                .nqfNumber(entity.getNqfNumber())
+                .cmsMeasureId(entity.getCmsMeasureId())
                 .supplementalDataGuidance(entity.getSupplementalDataGuidance())
                 .riskAdjustmentDescription(entity.getRiskAdjustmentDescription())
                 .riskAdjustments(entity.getRiskAdjustmentList())
@@ -560,6 +564,8 @@ public class MeasureDefinitionService {
                 .disclaimer(model.getDisclaimer())
                 .copyright(model.getCopyright())
                 .measureSet(model.getMeasureSet())
+                .nqfNumber(model.getNqfNumber())
+                .cmsMeasureId(model.getCmsMeasureId())
                 .supplementalDataGuidance(model.getSupplementalDataGuidance())
                 .riskAdjustmentDescription(model.getRiskAdjustmentDescription())
                 .riskAdjustmentList(model.getRiskAdjustments())

@@ -367,6 +367,8 @@ export interface MeasureDefinition {
   disclaimer?: string
   copyright?: string
   measureSet?: string
+  nqfNumber?: string
+  cmsMeasureId?: string
   supplementalDataGuidance?: string
   riskAdjustmentDescription?: string
   riskAdjustments?: RiskAdjustmentDef[]

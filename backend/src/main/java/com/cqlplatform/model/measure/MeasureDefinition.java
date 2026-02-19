@@ -97,6 +97,12 @@ public class MeasureDefinition {
     private String copyright;
 
     private String measureSet;
+
+    @Size(max = 20)
+    private String nqfNumber;
+
+    @Size(max = 20)
+    private String cmsMeasureId;
     private String supplementalDataGuidance;
     private String riskAdjustmentDescription;
     private List<RiskAdjustmentDef> riskAdjustments;

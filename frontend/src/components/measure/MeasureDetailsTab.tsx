@@ -114,7 +114,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
     updateField('developers', devs)
   }
 
-  const generalFilled = sectionFilled([form.name, form.version, form.scoringType, form.measureSet, form.setting])
+  const generalFilled = sectionFilled([form.name, form.version, form.scoringType, form.measureSet, form.setting, form.nqfNumber, form.cmsMeasureId])
   const overviewFilled = sectionFilled([form.title, form.description, form.rationale, form.clinicalGuidance])
   const stewardFilled = sectionFilled([form.steward, form.developers])
   const refsFilled = sectionFilled([form.references])
@@ -208,6 +208,24 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.measureSet || ''}
                   onChange={(e) => updateField('measureSet', e.target.value)}
                   placeholder="e.g. CMS Quality Reporting"
+                />
+              </Stack>
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  label="NQF Number"
+                  size="small"
+                  fullWidth
+                  value={form.nqfNumber || ''}
+                  onChange={(e) => updateField('nqfNumber', e.target.value)}
+                  placeholder="e.g. 0059"
+                />
+                <TextField
+                  label="CMS Measure ID"
+                  size="small"
+                  fullWidth
+                  value={form.cmsMeasureId || ''}
+                  onChange={(e) => updateField('cmsMeasureId', e.target.value)}
+                  placeholder="e.g. CMS122v12"
                 />
               </Stack>
               <TextField
