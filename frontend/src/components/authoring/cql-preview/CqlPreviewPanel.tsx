@@ -4,6 +4,7 @@ import { WarningAmber as StaleIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useGenerateArtifactCql, useValidateArtifactCql } from '../../../hooks/useArtifactCql'
 import type { CqlTranslationResponse } from '../../../types'
+import { codeBlockSx } from '../../../constants/authoringConstants'
 
 interface CqlPreviewPanelProps {
   artifactId: number
@@ -141,18 +142,11 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {cql ? (
         <Box
           sx={{
+            ...codeBlockSx,
             flex: 1,
             minHeight: 0,
             overflow: 'auto',
             p: 2,
-            borderRadius: 1,
-            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
-            fontFamily: '"Fira Code", "Consolas", monospace',
-            fontSize: '0.85rem',
-            whiteSpace: 'pre-wrap',
-            lineHeight: 1.6,
-            border: 1,
-            borderColor: 'divider',
           }}
         >
           {cql}

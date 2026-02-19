@@ -11,6 +11,7 @@ import {
 import GradientButton from '../../common/GradientButton'
 import { useExternalCqlList, useUploadExternalCql, useDeleteExternalCql } from '../../../hooks/useExternalCql'
 import type { ExternalCqlLibrary } from '../../../types/authoring'
+import { codeBlockSx } from '../../../constants/authoringConstants'
 
 interface ExternalCqlProps {
   artifactId: number
@@ -250,16 +251,10 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>CQL Source</Typography>
                 <Box
                   sx={{
-                    p: 1.5,
-                    borderRadius: 1,
-                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
-                    fontFamily: '"Fira Code", "Consolas", monospace',
+                    ...codeBlockSx,
                     fontSize: '0.8rem',
-                    whiteSpace: 'pre-wrap',
                     maxHeight: 300,
                     overflow: 'auto',
-                    border: 1,
-                    borderColor: 'divider',
                   }}
                 >
                   {detailsLib.cqlContent}

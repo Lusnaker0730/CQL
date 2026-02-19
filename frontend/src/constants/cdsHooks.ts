@@ -31,6 +31,26 @@ export function isValidHookType(value: string): boolean {
   return CDS_HOOK_IDS.includes(value)
 }
 
+// --- CDS Card options for Recommendations ---
+
+export const CDS_SELECTION_BEHAVIORS = [
+  { value: '', label: '(None)' },
+  { value: 'at-most-one', label: 'At Most One' },
+  { value: 'any', label: 'Any' },
+] as const
+
+export const CDS_ACTION_RESOURCE_TYPES = [
+  { value: 'MedicationRequest', label: 'MedicationRequest' },
+  { value: 'ServiceRequest', label: 'ServiceRequest' },
+] as const
+
+export const CDS_LINK_TYPES = [
+  { value: 'absolute', label: 'Link' },
+  { value: 'smart', label: 'SMART App' },
+] as const
+
+export const DEFAULT_INDICATOR: CdsIndicatorType = 'info'
+
 // --- Feedback outcomes (keep in sync with backend CdsConstants) ---
 
 export const FEEDBACK_ACCEPTED = 'accepted' as const

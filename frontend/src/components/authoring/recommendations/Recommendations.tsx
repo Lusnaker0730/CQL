@@ -13,6 +13,10 @@ import GradientButton from '../../common/GradientButton'
 import type { Recommendation, Subpopulation, Suggestion, SuggestionAction } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
 import { SPECIAL_SUBPOPS } from '../../../constants/authoringConstants'
+import {
+  CDS_INDICATOR_TYPES, CDS_SELECTION_BEHAVIORS, CDS_ACTION_RESOURCE_TYPES,
+  CDS_LINK_TYPES, DEFAULT_INDICATOR,
+} from '../../../constants/cdsHooks'
 
 const GRADES = [
   { value: '', label: 'None' },
@@ -136,7 +140,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
     if (!rec) return
     const suggestions = [...(rec.suggestions || [])]
     const sug = { ...suggestions[sugIdx] }
-    sug.actions = [...(sug.actions || []), { type: 'create', description: '', resource: { resourceType: 'MedicationRequest' } }]
+    sug.actions = [...(sug.actions || []), { type: 'create', description: '', resource: { resourceType: CDS_ACTION_RESOURCE_TYPES[0].value } }]
     suggestions[sugIdx] = sug
     handleUpdate(uid, { suggestions })
   }
@@ -253,13 +257,13 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                       <FormControl size="small" sx={{ minWidth: 160 }}>
                         <InputLabel>Indicator</InputLabel>
                         <Select
-                          value={rec.indicator || 'info'}
+                          value={rec.indicator || DEFAULT_INDICATOR}
                           label="Indicator"
                           onChange={(e) => handleUpdate(rec.uid, { indicator: e.target.value })}
                         >
-                          <MenuItem value="info">Info</MenuItem>
-                          <MenuItem value="warning">Warning</MenuItem>
-                          <MenuItem value="critical">Critical</MenuItem>
+                          {CDS_INDICATOR_TYPES.map((ind) => (
+                            <MenuItem key={ind} value={ind}>{ind.charAt(0).toUpperCase() + ind.slice(1)}</MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                       <TextField
@@ -277,9 +281,9 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                           label="Selection Behavior"
                           onChange={(e) => handleUpdate(rec.uid, { selectionBehavior: e.target.value })}
                         >
-                          <MenuItem value="">(None)</MenuItem>
-                          <MenuItem value="at-most-one">At Most One</MenuItem>
-                          <MenuItem value="any">Any</MenuItem>
+                          {CDS_SELECTION_BEHAVIORS.map((sb) => (
+                            <MenuItem key={sb.value} value={sb.value}>{sb.label}</MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Stack>
@@ -364,8 +368,9 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                         value={link.type}
                         onChange={(e) => handleUpdateLink(rec.uid, li, 'type', e.target.value)}
                       >
-                        <MenuItem value="absolute">Link</MenuItem>
-                        <MenuItem value="smart">SMART App</MenuItem>
+                        {CDS_LINK_TYPES.map((lt) => (
+                          <MenuItem key={lt.value} value={lt.value}>{lt.label}</MenuItem>
+                        ))}
                       </Select>
                     </FormControl>
                     <TextField
@@ -436,13 +441,14 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                           />
                           <FormControl size="small" sx={{ minWidth: 180 }}>
                             <Select
-                              value={(act.resource?.resourceType as string) || 'MedicationRequest'}
+                              value={(act.resource?.resourceType as string) || CDS_ACTION_RESOURCE_TYPES[0].value}
                               onChange={(e) => handleUpdateAction(rec.uid, si, ai, {
                                 resource: { ...act.resource, resourceType: e.target.value },
                               })}
                             >
-                              <MenuItem value="MedicationRequest">MedicationRequest</MenuItem>
-                              <MenuItem value="ServiceRequest">ServiceRequest</MenuItem>
+                              {CDS_ACTION_RESOURCE_TYPES.map((rt) => (
+                                <MenuItem key={rt.value} value={rt.value}>{rt.label}</MenuItem>
+                              ))}
                             </Select>
                           </FormControl>
                           <TextField

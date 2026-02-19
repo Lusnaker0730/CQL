@@ -20,7 +20,10 @@ import { useModifiers } from '../../hooks/useModifiers'
 import { useExternalCqlList } from '../../hooks/useExternalCql'
 import type { Artifact, ArtifactRequest, ConjunctionGroup as ConjunctionGroupType, ElementInstance } from '../../types/authoring'
 import type { DynamicEntry } from './element-select/ElementSelectDropdown'
-import { SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION } from '../../constants/authoringConstants'
+import {
+  SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION,
+  TAB_INDEX_REVIEW_CQL, TAB_INDEX_SUMMARY, KEYBOARD_SHORTCUTS,
+} from '../../constants/authoringConstants'
 
 interface ArtifactWorkspaceProps {
   artifact: Artifact
@@ -226,7 +229,7 @@ export default function ArtifactWorkspace({
       }
       if (e.key === 'g' && !isInput) {
         e.preventDefault()
-        setTab(8) // Review CQL tab
+        setTab(TAB_INDEX_REVIEW_CQL)
         return
       }
       if (e.key === '/' || e.key === '?') {
@@ -234,11 +237,11 @@ export default function ArtifactWorkspace({
         setShowShortcutHelp((prev) => !prev)
         return
       }
-      // Ctrl+1-9 → tabs 0-8, Ctrl+0 → tab 10 (Summary)
+      // Ctrl+1-9 → tabs 0-8, Ctrl+0 → Summary
       if (!isInput && e.key >= '0' && e.key <= '9') {
         e.preventDefault()
-        const tabIndex = e.key === '0' ? 10 : parseInt(e.key) - 1
-        if (tabIndex <= 10) setTab(tabIndex)
+        const tabIndex = e.key === '0' ? TAB_INDEX_SUMMARY : parseInt(e.key) - 1
+        if (tabIndex <= TAB_INDEX_SUMMARY) setTab(tabIndex)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -643,18 +646,10 @@ export default function ArtifactWorkspace({
         <DialogTitle>Keyboard Shortcuts</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5}>
-            {[
-              ['Ctrl + S', 'Save artifact'],
-              ['Ctrl + Z', 'Undo last change'],
-              ['Ctrl + Y', 'Redo last change'],
-              ['Ctrl + G', 'Go to Review CQL'],
-              ['Ctrl + 1–9', 'Switch to tab 1–9'],
-              ['Ctrl + 0', 'Switch to Summary'],
-              ['Ctrl + /', 'Toggle this help'],
-            ].map(([key, desc]) => (
-              <Stack key={key} direction="row" alignItems="center" justifyContent="space-between">
-                <Chip label={key} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
-                <Typography variant="body2" color="text.secondary">{desc}</Typography>
+            {KEYBOARD_SHORTCUTS.map((sc) => (
+              <Stack key={sc.key} direction="row" alignItems="center" justifyContent="space-between">
+                <Chip label={sc.key} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
+                <Typography variant="body2" color="text.secondary">{sc.description}</Typography>
               </Stack>
             ))}
           </Stack>

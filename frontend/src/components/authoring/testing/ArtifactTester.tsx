@@ -8,6 +8,7 @@ import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useTestArtifact } from '../../../hooks/useArtifactTesting'
 import type { ArtifactTestResult } from '../../../types/authoring'
+import { codeBlockSx } from '../../../constants/authoringConstants'
 
 interface ArtifactTesterProps {
   artifactId: number
@@ -183,12 +184,8 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
               <AccordionDetails>
                 <Box
                   sx={{
-                    p: 1.5,
-                    borderRadius: 1,
-                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
-                    fontFamily: '"Fira Code", "Consolas", monospace',
+                    ...codeBlockSx,
                     fontSize: '0.8rem',
-                    whiteSpace: 'pre-wrap',
                     maxHeight: 400,
                     overflow: 'auto',
                   }}

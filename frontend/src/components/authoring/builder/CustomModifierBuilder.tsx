@@ -10,6 +10,7 @@ import {
 import type { Modifier } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
 import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
+import { CONJUNCTION_COLOR_AND, CONJUNCTION_COLOR_OR } from '../../../constants/authoringConstants'
 
 /** A single rule: field → operator → value */
 interface ModifierRule {
@@ -302,7 +303,7 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
     onChange({ ...group, groups: group.groups.filter((g) => g.id !== groupId) })
   }
 
-  const borderColor = group.conjunction === 'AND' ? '#0D7377' : '#E67E22'
+  const borderColor = group.conjunction === 'AND' ? CONJUNCTION_COLOR_AND : CONJUNCTION_COLOR_OR
 
   return (
     <Box

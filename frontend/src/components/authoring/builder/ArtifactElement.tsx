@@ -12,29 +12,7 @@ import {
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
 import type { ElementInstance, ModifierDefinition } from '../../../types/authoring'
-
-const RETURN_TYPE_COLORS: Record<string, string> = {
-  boolean: '#2196F3',
-  list_of_conditions: '#4CAF50',
-  list_of_observations: '#4CAF50',
-  list_of_medications: '#4CAF50',
-  list_of_procedures: '#4CAF50',
-  list_of_encounters: '#4CAF50',
-  list_of_immunizations: '#4CAF50',
-  list_of_allergy_intolerances: '#4CAF50',
-  list_of_devices: '#4CAF50',
-  list_of_service_requests: '#4CAF50',
-  list_of_medication_statements: '#4CAF50',
-  list_of_medication_requests: '#4CAF50',
-  list_of_any: '#4CAF50',
-  observation: '#FF9800',
-  condition: '#FF9800',
-  procedure: '#FF9800',
-  integer: '#9C27B0',
-  decimal: '#9C27B0',
-  system_quantity: '#9C27B0',
-  string: '#795548',
-}
+import { RETURN_TYPE_COLORS, RETURN_TYPE_COLOR_DEFAULT, ELEMENT_REF_BACKGROUNDS } from '../../../constants/authoringConstants'
 
 const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
   AgeRange: ViewIcon,
@@ -64,7 +42,7 @@ const ArtifactElement = memo(function ArtifactElement({
   const displayName = elementName || element.name
   const effectiveReturnType = getEffectiveReturnType(element)
   const chainError = getModifierChainError(element)
-  const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || '#757575'
+  const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || RETURN_TYPE_COLOR_DEFAULT
   const IconComp = ELEMENT_ICONS[element.type] || (element.type?.startsWith('Generic') ? ListIcon : ListIcon)
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -81,9 +59,7 @@ const ArtifactElement = memo(function ArtifactElement({
         borderLeftColor: rtColor,
         '&:hover': { boxShadow: 1 },
         transition: 'box-shadow 0.2s',
-        ...(element.type === 'baseElementRef' && { backgroundColor: '#E3F2FD' }),
-        ...(element.type === 'parameterRef' && { backgroundColor: '#F3E5F5' }),
-        ...(element.type === 'externalCqlRef' && { backgroundColor: '#E8F5E9' }),
+        ...(ELEMENT_REF_BACKGROUNDS[element.type] && { backgroundColor: ELEMENT_REF_BACKGROUNDS[element.type] }),
       }}
     >
       <Stack

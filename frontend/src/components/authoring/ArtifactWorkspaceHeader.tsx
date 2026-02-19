@@ -13,7 +13,7 @@ import { useGenerateArtifactCql } from '../../hooks/useArtifactCql'
 import CpgMetadataEditor from './CpgMetadataEditor'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
 import { CDS_HOOK_TYPES, getHookDescription } from '../../constants/cdsHooks'
-import { FHIR_VERSION_OPTIONS } from '../../constants/authoringConstants'
+import { FHIR_VERSION_OPTIONS, codeBlockSx } from '../../constants/authoringConstants'
 
 interface ArtifactWorkspaceHeaderProps {
   artifact: Artifact
@@ -153,7 +153,7 @@ export default function ArtifactWorkspaceHeader({
           p: 2,
           borderBottom: 1,
           borderColor: 'divider',
-          backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1a2332' : '#1B3A5C',
+          backgroundColor: (theme) => theme.palette.mode === 'dark' ? theme.palette.secondary.dark : theme.palette.secondary.main,
           color: '#fff',
         }}
       >
@@ -345,14 +345,9 @@ export default function ArtifactWorkspaceHeader({
           {viewCqlContent ? (
             <Box
               sx={{
+                ...codeBlockSx,
                 p: 2,
-                borderRadius: 1,
-                backgroundColor: '#1e1e1e',
                 color: '#d4d4d4',
-                fontFamily: '"Fira Code", "Consolas", monospace',
-                fontSize: '0.85rem',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.6,
                 maxHeight: '60vh',
                 overflow: 'auto',
               }}

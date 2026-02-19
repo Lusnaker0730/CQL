@@ -7,6 +7,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
 import { generateId } from '../../../utils/validation'
+import { codeBlockSx } from '../../../constants/authoringConstants'
 
 interface QueryCondition {
   id: string
@@ -245,14 +246,7 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Generated CQL</Typography>
             <Box
               sx={{
-                p: 1.5,
-                borderRadius: 1,
-                backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
-                fontFamily: '"Fira Code", "Consolas", monospace',
-                fontSize: '0.85rem',
-                whiteSpace: 'pre-wrap',
-                border: 1,
-                borderColor: 'divider',
+                ...codeBlockSx,
                 minHeight: 40,
               }}
             >

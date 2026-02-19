@@ -7,6 +7,7 @@ import ElementSelect from '../element-select/ElementSelect'
 import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 import { generateId } from '../../../utils/validation'
+import { CONJUNCTION_COLOR_AND, CONJUNCTION_COLOR_OR } from '../../../constants/authoringConstants'
 
 function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   const name = element.fields?.find((f) => f.id === 'element_name')?.value as string
@@ -113,7 +114,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
 
   const isRoot = depth === 0
   const conjunctionLabel = group.id === 'Or' ? 'Or' : 'And'
-  const borderColor = group.id === 'Or' ? '#E67E22' : '#0D7377'
+  const borderColor = group.id === 'Or' ? CONJUNCTION_COLOR_OR : CONJUNCTION_COLOR_AND
 
   const activeFilter = isRoot ? localSearch.trim().toLowerCase() : (searchFilter || '')
   const filteredChildren = useMemo(() => {
