@@ -1,28 +1,26 @@
 package com.cqlplatform.service.cql;
 
 import org.hl7.fhir.r4.model.BaseDateTimeType;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.TimeType;
 import org.opencds.cqf.cql.engine.fhir.model.R4FhirModelResolver;
-import org.opencds.cqf.cql.engine.runtime.Code;
 import org.opencds.cqf.cql.engine.runtime.DateTime;
 import org.opencds.cqf.cql.engine.runtime.Time;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 import java.util.TimeZone;
 
 /**
- * Extended R4FhirModelResolver that converts FHIR types to CQL engine types
- * so that CQL operations (equality, sort, contains) work correctly.
+ * Extended R4FhirModelResolver that converts FHIR date/time types to CQL engine
+ * DateTime types so they are Comparable during sort operations.
  *
- * Conversions:
- * - FHIR DateTimeType → CQL DateTime (fixes "not comparable" errors in sort)
- * - FHIR Coding → CQL Code (fixes "contains" on clinicalStatus.coding, etc.)
+ * Fixes: "Type org.hl7.fhir.r4.model.DateTimeType is not comparable"
+ *
+ * Note: FHIR Coding→CQL Code conversion is NOT done here because the CQL
+ * translator already bakes FHIRHelpers.ToCode() calls into the ELM. Converting
+ * early would cause "Could not resolve ToCode(Code)" signature mismatch errors.
  */
 public class ComparableR4FhirModelResolver extends R4FhirModelResolver {
 
@@ -32,26 +30,11 @@ public class ComparableR4FhirModelResolver extends R4FhirModelResolver {
 
     @Override
     public Object resolvePath(Object target, String path) {
-        // Handle path resolution on CQL Code objects (produced by our Coding→Code conversion)
-        if (target instanceof Code cqlCode) {
-            return resolveCodePath(cqlCode, path);
-        }
         Object result = super.resolvePath(target, path);
-        return convertFhirTypes(result);
+        return convertIfDateTimeType(result);
     }
 
-    private Object resolveCodePath(Code code, String path) {
-        return switch (path) {
-            case "code" -> code.getCode();
-            case "system" -> code.getSystem();
-            case "version" -> code.getVersion();
-            case "display" -> code.getDisplay();
-            default -> null;
-        };
-    }
-
-    @SuppressWarnings("unchecked")
-    private Object convertFhirTypes(Object value) {
+    private Object convertIfDateTimeType(Object value) {
         if (value instanceof BaseDateTimeType fhirDate) {
             return toEngineDateTime(fhirDate);
         }
@@ -61,28 +44,7 @@ public class ComparableR4FhirModelResolver extends R4FhirModelResolver {
                 return new Time(timeStr);
             }
         }
-        if (value instanceof Coding coding) {
-            return toCqlCode(coding);
-        }
-        // Convert List<Coding> to List<Code> for correct equality in CQL contains/in
-        if (value instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Coding) {
-            List<Code> codes = new ArrayList<>(list.size());
-            for (Object item : list) {
-                codes.add(toCqlCode((Coding) item));
-            }
-            return codes;
-        }
         return value;
-    }
-
-    private Code toCqlCode(Coding coding) {
-        if (coding == null) return null;
-        Code code = new Code();
-        if (coding.hasCode()) code.setCode(coding.getCode());
-        if (coding.hasSystem()) code.setSystem(coding.getSystem());
-        if (coding.hasVersion()) code.setVersion(coding.getVersion());
-        if (coding.hasDisplay()) code.setDisplay(coding.getDisplay());
-        return code;
     }
 
     private DateTime toEngineDateTime(BaseDateTimeType fhirDate) {

@@ -8,7 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 018 | 2026-02-20 | High | CQL Engine（後端） | FHIR Coding 與 CQL Code 類型不匹配導致 contains 永遠回傳 false | 架構缺陷 | [`878deef`](../../commit/878deef) |
+| ~~018~~ | 2026-02-20 | — | CQL Engine（後端） | ~~FHIR Coding→Code 轉換~~ **已撤回**（CQL Engine 已透過 FHIRHelpers 處理） | 誤判 | [`878deef`](../../commit/878deef) → reverted |
 | 017 | 2026-02-20 | High | CDS Hooks Sandbox（後端） | PrefetchRetrieveProvider 未展開 ValueSet 導致代碼過濾失效 | 架構缺陷 | [`878deef`](../../commit/878deef) |
 | 016 | 2026-02-20 | High | Test Case Builder（前後端） | CodeableConcept dropdown 使用 ValueSet URL 而非 CodeSystem URL | 資料處理錯誤 | [`6ca7a86`](../../commit/6ca7a86) |
 | 015 | 2026-02-20 | High | CQL Engine（後端） | VSAC ValueSet 未連接 CQL Engine 導致 CDS 規則失效 | 架構缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
@@ -40,39 +40,22 @@
 
 ---
 
-## #018 — FHIR Coding 與 CQL Code 類型不匹配導致 contains 永遠回傳 false
+## ~~#018~~ — FHIR Coding→Code 轉換 **已撤回**
 
 | 欄位 | 內容 |
 |------|------|
 | **日期** | 2026-02-20 |
 | **功能分類** | CQL Engine（後端） |
-| **嚴重程度** | High |
-| **根因類型** | 架構缺陷 |
-| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cql/ComparableR4FhirModelResolver.java` |
-| **Commit** | [`878deef`](../../commit/878deef) |
+| **嚴重程度** | — (已撤回) |
+| **根因類型** | 誤判 |
+| **影響範圍** | `ComparableR4FhirModelResolver.java` |
+| **Commit** | [`878deef`](../../commit/878deef) → reverted |
 
-### BUG 描述
+### 撤回原因
 
-CQL 中 `C.clinicalStatus.coding contains "Active"`（其中 `"Active"` 定義為 `code "Active": 'active' from "ConditionClinicalStatusCodes"`）永遠回傳 false，即使 Condition 資源的 clinicalStatus 編碼完全正確。
+原本認為 CQL Engine 的 `Contains` 評估器不會對 FHIR Coding 套用隱式轉換。實際測試後發現 CQL Translator 已在 ELM 中內嵌 `FHIRHelpers.ToCode(FHIR.Coding)` 呼叫。在 Model Resolver 中提前將 Coding→Code 反而導致執行時簽名不匹配：`Could not resolve call to operator 'ToCode(org.opencds.cqf.cql.engine.runtime.Code)' in library 'FHIRHelpers'`。
 
-**根本原因**：CQL Engine 使用 `R4FhirModelResolver.resolvePath()` 存取 FHIR 物件屬性。`.coding` 回傳的是原生 FHIR `Coding` 物件（Java 類型 `org.hl7.fhir.r4.model.Coding`），而 CQL `code` 定義產生的是 CQL Engine 內部 `Code` 物件（`org.opencds.cqf.cql.engine.runtime.Code`）。`contains` 運算子使用 `equals()` 比對，FHIR Coding 和 CQL Code 是不同 Java 類型，`equals()` 永遠回傳 false。
-
-雖然 FHIRHelpers 定義了 `ToCode(FHIR.Coding)` 隱式轉換，但 CQL Engine 3.29.0 的 `Equal` 評估器在比對 list 元素時不會自動套用隱式轉換，導致型別不匹配。
-
-### 修正方式
-
-- **`ComparableR4FhirModelResolver.java`**：擴展既有的 FHIR→CQL 型別轉換（原已支援 DateTimeType → DateTime）：
-  - 新增 `toCqlCode(Coding)` 將 FHIR Coding 轉為 CQL Code（含 code、system、version、display）
-  - `resolvePath()` 回傳結果為 FHIR `Coding` 時自動轉為 CQL `Code`
-  - `resolvePath()` 回傳結果為 `List<Coding>` 時整批轉為 `List<Code>`
-  - 新增 `resolveCodePath(Code, path)` 處理 CQL Code 物件的路徑解析（code、system、version、display）
-
-### 測試驗證
-
-- [x] `mvn compile -q` 編譯通過
-- [ ] CQL `C.clinicalStatus.coding contains "Active"` → 正確回傳 true
-- [ ] CQL `C.clinicalStatus.coding[0].code` → 正確回傳 "active"
-- [ ] 既有 DateTime 排序功能不受影響
+原始 `Has Diabetes = false` 的真正根因為 #016（CodeSystem URL 錯誤）和 #017（ValueSet 未展開），非型別轉換問題。
 
 ---
 
