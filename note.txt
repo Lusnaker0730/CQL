@@ -1,8 +1,87 @@
- Bash(cd /d/CQL/docker && docker-compose build frontend && docker-compose up -d frontend
+● 以下是 eCQM Implementation Checklist 與我們專案的完整比對分析：
+                                                                                             eCQM 實作清單支援度總覽                                                                                                                                                             
+  ┌──────────────────────────────┬────────┬──────────┐                                     
+  │           功能類別           │ 完成度 │   狀態   │   
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 指標撰寫 (Measure Authoring) │ 95%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ CQL 翻譯/驗證                │ 90%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 值集管理 (Value Set)         │ 85%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 測試案例管理                 │ 90%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 指標評估/計算                │ 90%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 計分方式 (Scoring)           │ 100%   │ 完整     │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 分層 (Stratification)        │ 100%   │ 完整     │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 複合指標 (Composite)         │ 100%   │ 完整     │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 報告/匯出                    │ 85%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ FHIR 整合                    │ 80%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 術語服務                     │ 80%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 版本管理                     │ 75%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 驗證/合規                    │ 75%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 補充資料 (Supplemental Data) │ 75%    │ 已實作   │
+  ├──────────────────────────────┼────────┼──────────┤
+  │ 資料需求 (Data Requirements) │ 30%    │ 關鍵缺口 │
+  └──────────────────────────────┴────────┴──────────┘
 
-User: admin
-Pass: admin
+  ---
+  已完整支援的功能
 
-cd /d/CQL/docker && docker compose build --no-cache 2>&1
+  - 所有計分類型：proportion、ratio、continuous-variable、cohort、composite (opportunity + 
+  linear)
+  - 完整的族群類型：IP、Denominator、DenEx、DenExcep、Numerator、NumEx、MeasurePop、Measure
+  PopEx
+  - 分層評估：多分層器、每群組分層、分層分數
+  - FHIR Measure/Bundle 匯入匯出（含遞迴依賴解析）
+  - HQMF R2.1 XML、QRDA Category III、CSV/Excel 匯出
+  - VSAC 值集整合（含 circuit breaker + retry）
+  - 視覺化測試案例建構器（15+ FHIR 資源類型）
+  - 評估的 orchestrator 模式（patient discovery → CQL 執行 → 族群評估 → 分層 → 計分）      
 
-cd "D:\CQL\docker" && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d hapi-fhir
+  ---
+  主要缺口（依優先順序）
+
+  P1：DataRequirement 資源產生（完成度 30%）
+
+  - 缺少：無法從 CQL/ELM 自動產生 FHIR DataRequirement 資源
+  - 影響：eCQM 提交到 EHR 系統需要 DataRequirement 來宣告資料需求
+  - 需要：解析 ELM Retrieve 元素 → 提取資料類型/過濾器/日期過濾 → 產生 DataRequirement     
+
+  P2：NQF/CMS 指標識別碼
+
+  - 缺少：MeasureDefinition 沒有 NQF Number 和 CMS Measure ID 欄位
+  - 影響：無法用標準識別碼追蹤和提交指標
+
+  P3：QI-Core Profile 驗證
+
+  - 現狀：IG 載入和 profile 載入已有，但 CQL 執行時未驗證資料是否符合 profile
+  - 影響：無法在撰寫階段發現 profile 不合規問題
+
+  P4：CQL 表達式除錯
+
+  - 現狀：基本的執行追蹤，無逐步執行或變數檢視
+  - 影響：複雜 CQL 表達式難以除錯
+
+  P5：Library 依賴版本約束
+
+  - 現狀：基本依賴解析可用，但沒有語意版本約束檢查和衝突偵測
+  - 影響：多函式庫指標可能有未偵測到的衝突
+
+  其他次要缺口
+
+  - 指標成熟度模型 (Maturity Model)
+  - 指標說明文件自動產生
+  - 觀察聚合方法型別驗證
+  - 版本廢棄/遷移處理
+  - 資料來源追蹤 (Data Provenance)
+  - 族群覆蓋率異常警告

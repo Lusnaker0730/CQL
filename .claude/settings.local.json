@@ -110,7 +110,31 @@
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
       "Bash(git branch:*)",
-      "Bash(du:*)"
+      "Bash(du:*)",
+      "Bash(test:*)",
+      "Bash(git -C D:\\\\CQL status)",
+      "Bash(tee:*)",
+      "WebFetch(domain:ecqi.healthit.gov)",
+      "Bash(mvn help:describe:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(# Find javap - check JAVA_HOME or common Windows paths which javap || ls \"\"/c/Program Files/Java/\"\"*/bin/javap.exe || ls \"\"/c/Program Files/Eclipse Adoptium/\"\"*/bin/javap.exe || ls \"\"$JAVA_HOME/bin/javap.exe\"\" || \\(echo \"\"JAVA_HOME=$JAVA_HOME\"\"; ls \"\"$JAVA_HOME/bin/\"\")",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/elm/executing/RetrieveEvaluator.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/retrieve/RetrieveProvider.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/retrieve/TerminologyAwareRetrieveProvider.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -p org/opencds/cqf/cql/engine/data/DataProvider.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -p org/opencds/cqf/cql/engine/data/CompositeDataProvider.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/data/CompositeDataProvider.class)",
+      "Bash(# Check for HAPI-based model resolvers in the local repo find ~/.m2/repository -name \"\"*.jar\"\" -path \"\"*cqf*\"\")",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/fhir/model/FhirModelResolver.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/fhir/retrieve/SearchParamFhirRetrieveProvider.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/fhir/retrieve/BaseFhirQueryGenerator.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/fhir/retrieve/RestFhirRetrieveProvider.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/execution/State.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p -constants org/opencds/cqf/cql/engine/elm/executing/RetrieveEvaluator.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -p org/opencds/cqf/cql/engine/model/ModelResolver.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/fhir/searchparam/SearchParameterResolver.class)",
+      "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/execution/CqlEngine.class)",
+      "Bash(ENCRYPTION_KEY=\"YourDevEncryptionKey32BytesLong!\" JWT_SECRET=\"YourDevJwtSecretKey32BytesLong!!\" mvn spring-boot:run:*)"
     ]
   }
 }

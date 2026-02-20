@@ -16,7 +16,6 @@ export default function Footer() {
         bgcolor: 'background.paper',
         borderTop: '1px solid',
         borderColor: 'rgba(13,115,119,0.1)',
-        flexShrink: 0,
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center">
