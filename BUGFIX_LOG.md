@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 023 | 2026-02-21 | Medium | Test Case Builder（後端） | Encounter.class 下拉選單顯示 1115 個代碼而非 11 個 | 資料處理錯誤 | [`3fc6de0`](../../commit/3fc6de0) |
 | 022 | 2026-02-20 | Low | Test Cases（前端） | 測試案例結果表格族群名稱未中文化 | i18n 遺漏 | [`0260852`](../../commit/0260852) |
 | 021 | 2026-02-20 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 FHIRHelpers.ToString 包裝的屬性比較 | 資料處理錯誤 | [`66a9ee2`](../../commit/66a9ee2) |
 | 020 | 2026-02-20 | Medium | eCQM 資料需求（前後端） | DataRequirements 標籤頁未顯示 Where 子句中的篩選條件 | 架構缺陷 | [`8efa589`](../../commit/8efa589) |
@@ -42,6 +43,54 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #023 — Encounter.class 下拉選單顯示 1115 個代碼而非 11 個
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | Test Case Builder（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/fhir/FhirStructureDefinitionService.java` |
+| **Commit** | [`3fc6de0`](../../commit/3fc6de0) |
+
+### BUG 描述
+
+Visual Builder 中新增 Encounter 資源時，`class` 欄位的下拉選單顯示 1115 個代碼（`_ActControlVariable`、`PDNPSPELAT`、`INFREG` 等無關代碼），使用者無法有效選擇正確的門診/住院/急診類別。
+
+**根本原因**：`Encounter.class` 的 binding ValueSet 為 `v3-ActEncounterCode`，其定義使用 `is-a` 層級篩選器：
+
+```xml
+<compose>
+  <include>
+    <system value="http://terminology.hl7.org/CodeSystem/v3-ActCode"/>
+    <filter>
+      <property value="concept"/>
+      <op value="is-a"/>
+      <value value="_ActEncounterCode"/>
+    </filter>
+  </include>
+</compose>
+```
+
+HAPI 的 `InMemoryTerminologyServerValidationSupport` 無法處理 CodeSystem 層級篩選器（`is-a`），在 `expandValueSet()` 時回傳整個 `v3-ActCode` CodeSystem（1115 個代碼），而非 `_ActEncounterCode` 的 11 個子代碼（AMB、EMER、IMP 等）。`expandValueSetCodes()` 直接信任 expansion 結果，未驗證結果合理性。
+
+### 修正方式
+
+- **`expandValueSetCodes()`**：新增 `MAX_BOUND_CODES = 80` 閾值。當 expansion 結果超過閾值且 compose 使用 filter 時，判定 expansion 失敗，改用手動層級解析
+- **`resolveFilteredCodes()`**：遍歷 compose 中的 `is-a` 篩選器，為每個篩選器呼叫 `findDescendantCodes()` 並排除 `compose.exclude` 中的代碼
+- **`findDescendantCodes()`**：透過 `validationSupport.fetchCodeSystem()` 取得 CodeSystem 定義，呼叫 `findConceptInHierarchy()` 遞迴定位祖先節點，再由 `collectDescendantCodes()` 收集所有子代代碼
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] Docker 後端重建部署成功
+- [x] Encounter.class boundCodes: 11 個代碼（AMB, EMER, FLD, HH, IMP, ACUTE, NONAC, OBSENC, PRENC, SS, VR）
+- [x] Encounter.status boundCodes: 9 個代碼（未受影響）
+- [x] Condition/Observation/MedicationRequest 各欄位 boundCodes 數量正常（無迴歸）
 
 ---
 
