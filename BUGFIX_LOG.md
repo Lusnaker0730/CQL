@@ -8,8 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 018 | 2026-02-20 | High | CQL Engine（後端） | FHIR Coding 與 CQL Code 類型不匹配導致 contains 永遠回傳 false | 架構缺陷 | — |
-| 017 | 2026-02-20 | High | CDS Hooks Sandbox（後端） | PrefetchRetrieveProvider 未展開 ValueSet 導致代碼過濾失效 | 架構缺陷 | — |
+| 018 | 2026-02-20 | High | CQL Engine（後端） | FHIR Coding 與 CQL Code 類型不匹配導致 contains 永遠回傳 false | 架構缺陷 | [`878deef`](../../commit/878deef) |
+| 017 | 2026-02-20 | High | CDS Hooks Sandbox（後端） | PrefetchRetrieveProvider 未展開 ValueSet 導致代碼過濾失效 | 架構缺陷 | [`878deef`](../../commit/878deef) |
 | 016 | 2026-02-20 | High | Test Case Builder（前後端） | CodeableConcept dropdown 使用 ValueSet URL 而非 CodeSystem URL | 資料處理錯誤 | [`6ca7a86`](../../commit/6ca7a86) |
 | 015 | 2026-02-20 | High | CQL Engine（後端） | VSAC ValueSet 未連接 CQL Engine 導致 CDS 規則失效 | 架構缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
 | 014 | 2026-02-20 | Medium | Test Case Builder（前端） | CodeableConcept boundCodes 未使用下拉選單 | UX 設計缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
@@ -49,7 +49,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cql/ComparableR4FhirModelResolver.java` |
-| **Commit** | — |
+| **Commit** | [`878deef`](../../commit/878deef) |
 
 ### BUG 描述
 
@@ -85,7 +85,7 @@ CQL 中 `C.clinicalStatus.coding contains "Active"`（其中 `"Active"` 定義�
 | **嚴重程度** | High |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `PrefetchRetrieveProvider.java`、`CqlExecutionService.java` |
-| **Commit** | — |
+| **Commit** | [`878deef`](../../commit/878deef) |
 
 ### BUG 描述
 
