@@ -324,6 +324,12 @@ public class FhirStructureDefinitionService {
     private record ExpandedCodes(List<String> codes, String codeSystemUrl) {}
 
     /**
+     * Maximum number of codes for a useful dropdown. Expansions exceeding this
+     * likely indicate the full CodeSystem was returned instead of a filtered subset.
+     */
+    private static final int MAX_BOUND_CODES = 80;
+
+    /**
      * Expand a ValueSet URL into its list of codes using the validation support chain.
      * Also extracts the CodeSystem URL from the ValueSet compose (needed for correct FHIR serialization).
      */
@@ -334,13 +340,24 @@ public class FhirStructureDefinitionService {
                 return new ExpandedCodes(Collections.emptyList(), null);
             }
 
-            // Extract CodeSystem URL from compose.include (first system found)
+            // Extract CodeSystem URL and filter info from compose.include
             String codeSystemUrl = null;
+            List<ValueSet.ConceptSetComponent> filterIncludes = new ArrayList<>();
             if (vs.hasCompose()) {
                 for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
                     if (include.hasSystem()) {
-                        codeSystemUrl = include.getSystem();
-                        break;
+                        if (codeSystemUrl == null) codeSystemUrl = include.getSystem();
+                        if (include.hasFilter()) filterIncludes.add(include);
+                    }
+                }
+            }
+
+            // Collect excluded codes
+            Set<String> excludedCodes = new HashSet<>();
+            if (vs.hasCompose()) {
+                for (ValueSet.ConceptSetComponent exclude : vs.getCompose().getExclude()) {
+                    for (ValueSet.ConceptReferenceComponent concept : exclude.getConcept()) {
+                        if (concept.getCode() != null) excludedCodes.add(concept.getCode());
                     }
                 }
             }
@@ -356,11 +373,25 @@ public class FhirStructureDefinitionService {
                         if (c.getCode() != null) {
                             codes.add(c.getCode());
                         }
-                        // Also capture system from expansion if not already found
                         if (codeSystemUrl == null && c.getSystem() != null) {
                             codeSystemUrl = c.getSystem();
                         }
                     }
+
+                    // If expansion is suspiciously large and compose uses filters,
+                    // the InMemoryTerminologyServer likely failed to apply hierarchy
+                    // filters and returned the entire CodeSystem. Resolve manually.
+                    if (codes.size() > MAX_BOUND_CODES && !filterIncludes.isEmpty()) {
+                        log.debug("Expansion of {} returned {} codes (> {}), attempting manual filter resolution",
+                                valueSetUrl, codes.size(), MAX_BOUND_CODES);
+                        List<String> filtered = resolveFilteredCodes(filterIncludes, excludedCodes);
+                        if (!filtered.isEmpty()) {
+                            return new ExpandedCodes(filtered, codeSystemUrl);
+                        }
+                        // If manual resolution fails, return empty rather than 1000+ codes
+                        return new ExpandedCodes(Collections.emptyList(), codeSystemUrl);
+                    }
+
                     return new ExpandedCodes(codes, codeSystemUrl);
                 }
             }
@@ -383,6 +414,75 @@ public class FhirStructureDefinitionService {
             log.debug("Failed to expand ValueSet {}: {}", valueSetUrl, e.getMessage());
         }
         return new ExpandedCodes(Collections.emptyList(), null);
+    }
+
+    /**
+     * Manually resolve is-a hierarchy filters by walking the CodeSystem concept tree.
+     * HAPI's InMemoryTerminologyServerValidationSupport doesn't handle hierarchical
+     * filters properly for large CodeSystems (e.g., v3-ActCode), returning the entire
+     * CodeSystem instead of the filtered subset.
+     */
+    private List<String> resolveFilteredCodes(List<ValueSet.ConceptSetComponent> filterIncludes, Set<String> excludedCodes) {
+        List<String> result = new ArrayList<>();
+        for (ValueSet.ConceptSetComponent include : filterIncludes) {
+            String systemUrl = include.getSystem();
+            for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
+                if ("concept".equals(filter.getProperty()) && filter.getOp() == ValueSet.FilterOperator.ISA) {
+                    String ancestorCode = filter.getValue();
+                    List<String> descendants = findDescendantCodes(systemUrl, ancestorCode);
+                    for (String code : descendants) {
+                        if (!excludedCodes.contains(code)) {
+                            result.add(code);
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Find all descendant codes of a given ancestor code in a CodeSystem's concept hierarchy.
+     */
+    private List<String> findDescendantCodes(String codeSystemUrl, String ancestorCode) {
+        IBaseResource csResource = validationSupport.fetchCodeSystem(codeSystemUrl);
+        if (!(csResource instanceof CodeSystem cs)) {
+            log.debug("CodeSystem {} not found for hierarchy resolution", codeSystemUrl);
+            return Collections.emptyList();
+        }
+
+        // Find the ancestor concept in the hierarchy
+        CodeSystem.ConceptDefinitionComponent ancestor = findConceptInHierarchy(cs.getConcept(), ancestorCode);
+        if (ancestor == null) {
+            log.debug("Ancestor code {} not found in CodeSystem {}", ancestorCode, codeSystemUrl);
+            return Collections.emptyList();
+        }
+
+        // Collect all descendant codes (excluding the abstract ancestor itself)
+        List<String> descendants = new ArrayList<>();
+        collectDescendantCodes(ancestor.getConcept(), descendants);
+        return descendants;
+    }
+
+    private CodeSystem.ConceptDefinitionComponent findConceptInHierarchy(
+            List<CodeSystem.ConceptDefinitionComponent> concepts, String targetCode) {
+        for (CodeSystem.ConceptDefinitionComponent concept : concepts) {
+            if (targetCode.equals(concept.getCode())) {
+                return concept;
+            }
+            CodeSystem.ConceptDefinitionComponent found = findConceptInHierarchy(concept.getConcept(), targetCode);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private void collectDescendantCodes(List<CodeSystem.ConceptDefinitionComponent> concepts, List<String> result) {
+        for (CodeSystem.ConceptDefinitionComponent concept : concepts) {
+            if (concept.getCode() != null) {
+                result.add(concept.getCode());
+            }
+            collectDescendantCodes(concept.getConcept(), result);
+        }
     }
 
     // --- Type name helpers ---
