@@ -975,6 +975,8 @@ export interface CodeFilterInfo {
   path: string
   valueSet?: string
   valueSetName?: string
+  codeSystemUrl?: string
+  codeSystemName?: string
   code?: CodingInfo[]
 }
 

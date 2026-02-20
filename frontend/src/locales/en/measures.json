@@ -302,6 +302,7 @@
     "filterTypes": {
       "code": "Code",
       "valueSet": "Value Set",
+      "codeSystem": "Code System",
       "date": "Date",
       "dateFilter": "Date filter"
     }

@@ -50,7 +50,7 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
 
   const resourceTypeCount = Object.keys(grouped).length
   const valueSetCount = requirements.reduce((count, req) => {
-    return count + (req.codeFilter?.filter(cf => cf.valueSet)?.length ?? 0)
+    return count + (req.codeFilter?.filter(cf => cf.valueSet || cf.codeSystemUrl)?.length ?? 0)
   }, 0)
 
   if (!measure.cqlContent) {
@@ -187,6 +187,27 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
                 </Typography>
                 <Typography variant="caption" color="text.secondary" fontFamily="monospace">
                   {cf.valueSet}
+                </Typography>
+              </Stack>
+            )}
+            {!cf.valueSet && cf.codeSystemUrl && (
+              <Stack spacing={0.5}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Chip
+                    label={t('dataRequirements.filterTypes.codeSystem')}
+                    size="small"
+                    variant="outlined"
+                    color="success"
+                    sx={{ fontSize: '0.7rem' }}
+                  />
+                  {cf.codeSystemName && (
+                    <Typography variant="body2" fontWeight={500}>
+                      {cf.codeSystemName}
+                    </Typography>
+                  )}
+                </Stack>
+                <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                  {cf.codeSystemUrl}
                 </Typography>
               </Stack>
             )}

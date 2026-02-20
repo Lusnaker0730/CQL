@@ -14,6 +14,8 @@ import java.util.*;
 /**
  * Extracts FHIR DataRequirement resources from ELM JSON by walking the
  * expression tree and collecting all Retrieve elements.
+ * Handles both inline code filters ([Condition: "Diabetes"]) and
+ * bare Retrieve + Where clause patterns ([Condition] C where ...).
  */
 @Service
 @Slf4j
@@ -21,6 +23,12 @@ public class DataRequirementExtractor {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String FHIR_NS_PREFIX = "{http://hl7.org/fhir}";
+
+    private static final Set<String> DATE_COMPARISON_TYPES = Set.of(
+            "Overlaps", "During", "IncludedIn", "In", "Before", "After",
+            "SameOrBefore", "SameOrAfter", "Meets", "MeetsAfter", "MeetsBefore",
+            "Starts", "Ends"
+    );
 
     /**
      * Extract DataRequirement entries from ELM JSON.
@@ -36,12 +44,13 @@ public class DataRequirementExtractor {
         try {
             JsonNode root = MAPPER.readTree(elmJson);
 
-            // Build a map of ValueSetDef name -> id (OID/URL) from the library's valueSets section
+            // Build lookup maps from library-level definitions
             Map<String, String> valueSetMap = buildValueSetMap(root);
+            Map<String, String> codeSystemMap = buildCodeSystemMap(root);
 
-            // Collect all Retrieve nodes
+            // Collect all Retrieve nodes (including Query-enhanced ones)
             List<RetrieveInfo> retrieves = new ArrayList<>();
-            collectRetrieves(root, retrieves);
+            collectRetrieves(root, retrieves, codeSystemMap, new HashSet<>());
 
             // Convert to DataRequirementInfo and deduplicate
             return deduplicateRequirements(retrieves, valueSetMap);
@@ -53,7 +62,6 @@ public class DataRequirementExtractor {
 
     /**
      * Build a mapping from ValueSetDef name to its id (OID or URL).
-     * ELM structure: library.valueSets.def[] with {name, id} fields.
      */
     private Map<String, String> buildValueSetMap(JsonNode root) {
         Map<String, String> map = new HashMap<>();
@@ -71,29 +79,484 @@ public class DataRequirementExtractor {
     }
 
     /**
-     * Recursively walk the ELM JSON tree and collect Retrieve nodes.
+     * Build a mapping from CodeSystemDef name to its id (URL).
+     * ELM structure: library.codeSystems.def[] with {name, id} fields.
      */
-    private void collectRetrieves(JsonNode node, List<RetrieveInfo> retrieves) {
+    private Map<String, String> buildCodeSystemMap(JsonNode root) {
+        Map<String, String> map = new HashMap<>();
+        JsonNode codeSystems = root.path("library").path("codeSystems").path("def");
+        if (codeSystems.isArray()) {
+            for (JsonNode cs : codeSystems) {
+                String name = cs.path("name").asText(null);
+                String id = cs.path("id").asText(null);
+                if (name != null && id != null) {
+                    map.put(name, id);
+                }
+            }
+        }
+        return map;
+    }
+
+    /**
+     * Recursively walk the ELM JSON tree and collect Retrieve nodes.
+     * When a Query node is found with a bare Retrieve source, analyze the Where clause.
+     * Tracks visited nodes by identity to avoid processing the same Retrieve twice.
+     */
+    private void collectRetrieves(JsonNode node, List<RetrieveInfo> retrieves,
+                                  Map<String, String> codeSystemMap, Set<JsonNode> handledRetrieves) {
         if (node == null) {
             return;
         }
 
         if (node.isObject()) {
             String type = node.path("type").asText(null);
-            if ("Retrieve".equals(type)) {
+
+            if ("Query".equals(type)) {
+                // Handle Query nodes specially: extract Retrieve from source and enhance from Where
+                handleQuery(node, retrieves, codeSystemMap, handledRetrieves);
+                // Still recurse into non-source children (e.g. let clauses may contain nested queries)
+                // but skip source to avoid double-counting
+                JsonNode where = node.get("where");
+                if (where != null) {
+                    collectRetrieves(where, retrieves, codeSystemMap, handledRetrieves);
+                }
+                JsonNode let = node.get("let");
+                if (let != null) {
+                    collectRetrieves(let, retrieves, codeSystemMap, handledRetrieves);
+                }
+                JsonNode relationship = node.get("relationship");
+                if (relationship != null) {
+                    collectRetrieves(relationship, retrieves, codeSystemMap, handledRetrieves);
+                }
+                JsonNode ret = node.get("return");
+                if (ret != null) {
+                    collectRetrieves(ret, retrieves, codeSystemMap, handledRetrieves);
+                }
+                return;
+            }
+
+            if ("Retrieve".equals(type) && !handledRetrieves.contains(node)) {
                 RetrieveInfo info = parseRetrieve(node);
                 if (info != null) {
                     retrieves.add(info);
+                    handledRetrieves.add(node);
                 }
             }
-            for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
-                collectRetrieves(it.next(), retrieves);
+
+            // Generic recursion for all other node types
+            if (!"Query".equals(type)) {
+                for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+                    collectRetrieves(it.next(), retrieves, codeSystemMap, handledRetrieves);
+                }
             }
         } else if (node.isArray()) {
             for (JsonNode child : node) {
-                collectRetrieves(child, retrieves);
+                collectRetrieves(child, retrieves, codeSystemMap, handledRetrieves);
             }
         }
+    }
+
+    /**
+     * Handle a Query node: extract Retrieve from source[0] and enhance from Where clause.
+     */
+    private void handleQuery(JsonNode queryNode, List<RetrieveInfo> retrieves,
+                             Map<String, String> codeSystemMap, Set<JsonNode> handledRetrieves) {
+        JsonNode sources = queryNode.get("source");
+        if (sources == null || !sources.isArray() || sources.isEmpty()) {
+            return;
+        }
+
+        // Process each source in the Query
+        for (JsonNode source : sources) {
+            JsonNode sourceExpr = source.get("expression");
+            if (sourceExpr == null) {
+                continue;
+            }
+
+            String sourceType = sourceExpr.path("type").asText(null);
+            if (!"Retrieve".equals(sourceType)) {
+                // Recurse into non-Retrieve sources (e.g., function calls, other queries)
+                collectRetrieves(sourceExpr, retrieves, codeSystemMap, handledRetrieves);
+                continue;
+            }
+
+            // Already handled
+            if (handledRetrieves.contains(sourceExpr)) {
+                continue;
+            }
+
+            RetrieveInfo info = parseRetrieve(sourceExpr);
+            if (info == null) {
+                continue;
+            }
+            handledRetrieves.add(sourceExpr);
+
+            String alias = source.path("alias").asText(null);
+
+            // If the Retrieve has no inline code filter, try to extract from Where clause
+            boolean hasInlineCodes = (info.valueSetRefName != null || !info.directCodes.isEmpty());
+            JsonNode where = queryNode.get("where");
+            if (where != null && alias != null) {
+                enhanceFromWhere(where, info, alias, codeSystemMap, hasInlineCodes);
+            }
+
+            retrieves.add(info);
+        }
+    }
+
+    /**
+     * Analyze the Where clause of a Query to extract additional filter information
+     * for a Retrieve that has no inline code filter.
+     */
+    private void enhanceFromWhere(JsonNode where, RetrieveInfo info, String alias,
+                                  Map<String, String> codeSystemMap, boolean hasInlineCodes) {
+        walkWhereClause(where, info, alias, codeSystemMap, hasInlineCodes);
+    }
+
+    /**
+     * Recursive AST walker for Where clause patterns.
+     */
+    private void walkWhereClause(JsonNode node, RetrieveInfo info, String alias,
+                                 Map<String, String> codeSystemMap, boolean hasInlineCodes) {
+        if (node == null || !node.isObject()) {
+            return;
+        }
+
+        String type = node.path("type").asText("");
+
+        switch (type) {
+            case "And":
+            case "Or":
+                // Recurse into both operands
+                JsonNode andOps = node.get("operand");
+                if (andOps != null && andOps.isArray()) {
+                    for (JsonNode op : andOps) {
+                        walkWhereClause(op, info, alias, codeSystemMap, hasInlineCodes);
+                    }
+                }
+                break;
+
+            case "Not":
+                JsonNode notOp = node.get("operand");
+                if (notOp != null) {
+                    walkWhereClause(notOp, info, alias, codeSystemMap, hasInlineCodes);
+                }
+                break;
+
+            case "Exists":
+                // exists(C.code.coding Y where Y.system = "url" ...) pattern
+                JsonNode existsOp = node.get("operand");
+                if (existsOp != null && !hasInlineCodes) {
+                    handleExistsPattern(existsOp, info, alias, codeSystemMap);
+                }
+                break;
+
+            case "InValueSet":
+                // C.code in "ValueSetName" pattern
+                if (!hasInlineCodes) {
+                    handleInValueSetPattern(node, info, alias);
+                }
+                break;
+
+            default:
+                // Check for date comparison patterns
+                if (DATE_COMPARISON_TYPES.contains(type)) {
+                    handleDateComparisonPattern(node, info, alias);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Handle exists(...) pattern to extract code system info.
+     * Looks for: Exists → Query(source: Property chain) → Where(Equal/Equivalent(.system, Literal))
+     */
+    private void handleExistsPattern(JsonNode existsOperand, RetrieveInfo info, String alias,
+                                     Map<String, String> codeSystemMap) {
+        String opType = existsOperand.path("type").asText("");
+
+        if ("Query".equals(opType)) {
+            // Inner query: source is typically a property chain like C.code.coding
+            JsonNode innerSources = existsOperand.get("source");
+            if (innerSources != null && innerSources.isArray() && !innerSources.isEmpty()) {
+                JsonNode innerSourceExpr = innerSources.get(0).get("expression");
+                String codePath = extractCodePathFromPropertyChain(innerSourceExpr, alias);
+                if (codePath != null && info.codeProperty == null) {
+                    info.codeProperty = codePath;
+                }
+            }
+
+            // Analyze inner Where for system = "url" pattern
+            JsonNode innerWhere = existsOperand.get("where");
+            if (innerWhere != null) {
+                String innerAlias = innerSources != null && innerSources.isArray() && !innerSources.isEmpty()
+                        ? innerSources.get(0).path("alias").asText(null) : null;
+                extractCodeSystemFromInnerWhere(innerWhere, info, innerAlias, codeSystemMap);
+            }
+        } else if ("Filter".equals(opType)) {
+            // Filter node: source + condition
+            JsonNode filterSource = existsOperand.get("source");
+            String codePath = extractCodePathFromPropertyChain(filterSource, alias);
+            if (codePath != null && info.codeProperty == null) {
+                info.codeProperty = codePath;
+            }
+            JsonNode condition = existsOperand.get("condition");
+            if (condition != null) {
+                extractCodeSystemFromInnerWhere(condition, info, null, codeSystemMap);
+            }
+        }
+    }
+
+    /**
+     * Extract the code path from a property chain like C.code.coding -> "code".
+     * Returns the first property after the alias (e.g., "code" from C.code.coding).
+     */
+    private String extractCodePathFromPropertyChain(JsonNode node, String alias) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+
+        String type = node.path("type").asText("");
+        if (!"Property".equals(type)) {
+            return null;
+        }
+
+        // Build the property chain from inside out
+        List<String> chain = new ArrayList<>();
+        JsonNode current = node;
+        while (current != null && "Property".equals(current.path("type").asText(""))) {
+            chain.add(0, current.path("path").asText(""));
+            current = current.get("source");
+        }
+
+        // Check if the innermost source references our alias
+        if (current != null) {
+            String refType = current.path("type").asText("");
+            String refName = current.path("name").asText("");
+            if ("AliasRef".equals(refType) && alias.equals(refName) && !chain.isEmpty()) {
+                return chain.get(0); // Return first property (e.g., "code" from code.coding)
+            }
+        }
+
+        // Alternative: scope-based property (no explicit source, uses scope attribute)
+        if (current == null && !chain.isEmpty()) {
+            String scope = node.path("scope").asText(null);
+            // For the outer property (C.code.coding), the outermost node may have scope = alias
+            // but more commonly the innermost is an AliasRef
+            if (scope != null && scope.equals(alias)) {
+                return chain.get(0);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract code system URL from inner Where clause of exists() pattern.
+     * Looks for Equal/Equivalent comparing .system to a string literal or CodeSystemRef.
+     */
+    private void extractCodeSystemFromInnerWhere(JsonNode node, RetrieveInfo info,
+                                                  String innerAlias, Map<String, String> codeSystemMap) {
+        if (node == null || !node.isObject()) {
+            return;
+        }
+
+        String type = node.path("type").asText("");
+
+        if ("And".equals(type) || "Or".equals(type)) {
+            JsonNode ops = node.get("operand");
+            if (ops != null && ops.isArray()) {
+                for (JsonNode op : ops) {
+                    extractCodeSystemFromInnerWhere(op, info, innerAlias, codeSystemMap);
+                }
+            }
+            return;
+        }
+
+        if ("Equal".equals(type) || "Equivalent".equals(type)) {
+            JsonNode ops = node.get("operand");
+            if (ops == null || !ops.isArray() || ops.size() < 2) {
+                return;
+            }
+
+            // Look for pattern: Property(.system) = Literal("url")
+            JsonNode left = ops.get(0);
+            JsonNode right = ops.get(1);
+
+            String systemUrl = extractSystemComparison(left, right, innerAlias);
+            if (systemUrl == null) {
+                systemUrl = extractSystemComparison(right, left, innerAlias);
+            }
+
+            if (systemUrl != null && info.codeSystemUrl == null) {
+                info.codeSystemUrl = systemUrl;
+                // Try to find the code system name from the map
+                for (Map.Entry<String, String> entry : codeSystemMap.entrySet()) {
+                    if (entry.getValue().equals(systemUrl)) {
+                        info.codeSystemName = entry.getKey();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if left is a Property accessing .system and right is a Literal string URL.
+     */
+    private String extractSystemComparison(JsonNode propertyNode, JsonNode literalNode, String innerAlias) {
+        if (propertyNode == null || literalNode == null) {
+            return null;
+        }
+
+        // Check left is a Property with path "system" (or "url")
+        String propType = propertyNode.path("type").asText("");
+        if (!"Property".equals(propType)) {
+            return null;
+        }
+        String path = propertyNode.path("path").asText("");
+        if (!"system".equals(path) && !"url".equals(path)) {
+            return null;
+        }
+
+        // Check right is a Literal string
+        String litType = literalNode.path("type").asText("");
+        if ("Literal".equals(litType)) {
+            String valueType = literalNode.path("valueType").asText("");
+            if (valueType.contains("String") || valueType.isEmpty()) {
+                return literalNode.path("value").asText(null);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle InValueSet pattern: operand[0] is a property, operand[1] or "valueset" is a ValueSetRef.
+     */
+    private void handleInValueSetPattern(JsonNode node, RetrieveInfo info, String alias) {
+        // InValueSet has "code" (the operand) and "valueset" (ValueSetRef name)
+        JsonNode codeOp = node.get("code");
+        JsonNode valueSetNode = node.get("valueset");
+
+        if (codeOp != null && valueSetNode != null) {
+            String codePath = extractPropertyPath(codeOp, alias);
+            String vsName = valueSetNode.path("name").asText(null);
+
+            if (codePath != null && vsName != null) {
+                if (info.codeProperty == null) {
+                    info.codeProperty = codePath;
+                }
+                if (info.valueSetRefName == null) {
+                    info.valueSetRefName = vsName;
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle date comparison patterns (Overlaps, During, IncludedIn, etc.)
+     * where one operand is a property of the alias and the other references "Measurement Period".
+     */
+    private void handleDateComparisonPattern(JsonNode node, RetrieveInfo info, String alias) {
+        JsonNode ops = node.get("operand");
+        if (ops == null || !ops.isArray() || ops.size() < 2) {
+            return;
+        }
+
+        JsonNode left = ops.get(0);
+        JsonNode right = ops.get(1);
+
+        // Try both orderings: (property, parameterRef) and (parameterRef, property)
+        String datePath = tryExtractDateFilter(left, right, alias);
+        if (datePath == null) {
+            datePath = tryExtractDateFilter(right, left, alias);
+        }
+
+        if (datePath != null && info.dateProperty == null) {
+            info.dateProperty = datePath;
+        }
+    }
+
+    /**
+     * Try to extract a date filter path from a (property, parameterRef) pair.
+     * The property side may be wrapped in FunctionRef (e.g., NormalizeInterval).
+     */
+    private String tryExtractDateFilter(JsonNode propertyNode, JsonNode paramNode, String alias) {
+        if (!isParameterRef(paramNode)) {
+            return null;
+        }
+
+        // Direct property: E.period
+        String path = extractPropertyPath(propertyNode, alias);
+        if (path != null) {
+            return path;
+        }
+
+        // FunctionRef wrapping: NormalizeInterval(P.performed)
+        String fnType = propertyNode.path("type").asText("");
+        if ("FunctionRef".equals(fnType)) {
+            JsonNode fnOps = propertyNode.get("operand");
+            if (fnOps != null && fnOps.isArray()) {
+                for (JsonNode fnOp : fnOps) {
+                    path = extractPropertyPath(fnOp, alias);
+                    if (path != null) {
+                        return path;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if a node is a ParameterRef (typically "Measurement Period").
+     */
+    private boolean isParameterRef(JsonNode node) {
+        if (node == null) {
+            return false;
+        }
+        String type = node.path("type").asText("");
+        return "ParameterRef".equals(type);
+    }
+
+    /**
+     * Extract a simple property path from a Property node referencing the given alias.
+     * E.g., Property(source=AliasRef("E"), path="period") -> "period"
+     */
+    private String extractPropertyPath(JsonNode node, String alias) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+
+        String type = node.path("type").asText("");
+        if (!"Property".equals(type)) {
+            return null;
+        }
+
+        String path = node.path("path").asText(null);
+        if (path == null) {
+            return null;
+        }
+
+        // Check source is AliasRef with matching alias
+        JsonNode source = node.get("source");
+        if (source != null) {
+            String sourceType = source.path("type").asText("");
+            String sourceName = source.path("name").asText("");
+            if ("AliasRef".equals(sourceType) && alias.equals(sourceName)) {
+                return path;
+            }
+        }
+
+        // Check scope-based property
+        String scope = node.path("scope").asText(null);
+        if (scope != null && scope.equals(alias)) {
+            return path;
+        }
+
+        return null;
     }
 
     /**
@@ -125,14 +588,12 @@ public class DataRequirementExtractor {
                     valueSetRefName = codesNode.path("name").asText(null);
                     break;
                 case "ToList":
-                    // Single code wrapped in ToList: codes.operand is a CodeRef or code literal
                     JsonNode operand = codesNode.get("operand");
                     if (operand != null) {
                         extractCodeRef(operand, directCodes);
                     }
                     break;
                 case "List":
-                    // Multiple codes: codes.element[] contains CodeRef entries
                     JsonNode elements = codesNode.get("element");
                     if (elements != null && elements.isArray()) {
                         for (JsonNode elem : elements) {
@@ -141,7 +602,6 @@ public class DataRequirementExtractor {
                     }
                     break;
                 default:
-                    // Could be a CodeRef directly
                     extractCodeRef(codesNode, directCodes);
                     break;
             }
@@ -178,13 +638,12 @@ public class DataRequirementExtractor {
     }
 
     /**
-     * Deduplicate retrieves by (resourceType + codeProperty + valueSetRef/codes) and
-     * convert to DataRequirementInfo objects.
+     * Deduplicate retrieves by (resourceType + codeProperty + valueSetRef/codes + codeSystemUrl)
+     * and convert to DataRequirementInfo objects.
      */
     private List<DataRequirementInfo> deduplicateRequirements(
             List<RetrieveInfo> retrieves, Map<String, String> valueSetMap) {
 
-        // Use a LinkedHashMap keyed by dedup key to preserve insertion order
         Map<String, DataRequirementInfo> dedupMap = new LinkedHashMap<>();
 
         for (RetrieveInfo ri : retrieves) {
@@ -196,8 +655,10 @@ public class DataRequirementExtractor {
             DataRequirementInfo.DataRequirementInfoBuilder builder = DataRequirementInfo.builder()
                     .type(ri.resourceType);
 
-            // Code filter
-            if (ri.codeProperty != null && (ri.valueSetRefName != null || !ri.directCodes.isEmpty())) {
+            // Code filter from inline codes or Where clause code system
+            boolean hasCodeFilter = ri.codeProperty != null
+                    && (ri.valueSetRefName != null || !ri.directCodes.isEmpty() || ri.codeSystemUrl != null);
+            if (hasCodeFilter) {
                 CodeFilterInfo.CodeFilterInfoBuilder cfBuilder = CodeFilterInfo.builder()
                         .path(ri.codeProperty);
 
@@ -205,6 +666,11 @@ public class DataRequirementExtractor {
                     String valueSetId = valueSetMap.get(ri.valueSetRefName);
                     cfBuilder.valueSet(valueSetId != null ? valueSetId : ri.valueSetRefName);
                     cfBuilder.valueSetName(ri.valueSetRefName);
+                }
+
+                if (ri.codeSystemUrl != null) {
+                    cfBuilder.codeSystemUrl(ri.codeSystemUrl);
+                    cfBuilder.codeSystemName(ri.codeSystemName);
                 }
 
                 if (!ri.directCodes.isEmpty()) {
@@ -235,6 +701,9 @@ public class DataRequirementExtractor {
         if (ri.valueSetRefName != null) {
             key.append('|').append(ri.valueSetRefName);
         }
+        if (ri.codeSystemUrl != null) {
+            key.append("|cs:").append(ri.codeSystemUrl);
+        }
         for (CodingInfo c : ri.directCodes) {
             key.append('|');
             if (c.getSystem() != null) key.append(c.getSystem());
@@ -252,6 +721,8 @@ public class DataRequirementExtractor {
         String codeProperty;
         String dateProperty;
         String valueSetRefName;
+        String codeSystemUrl;
+        String codeSystemName;
         List<CodingInfo> directCodes = new ArrayList<>();
     }
 }

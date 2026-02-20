@@ -25,6 +25,8 @@ public class DataRequirementInfo {
         private String path;
         private String valueSet;
         private String valueSetName;
+        private String codeSystemUrl;
+        private String codeSystemName;
         private List<CodingInfo> code;
     }
 

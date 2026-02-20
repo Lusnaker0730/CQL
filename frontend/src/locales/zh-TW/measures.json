@@ -302,6 +302,7 @@
     "filterTypes": {
       "code": "代碼",
       "valueSet": "值集",
+      "codeSystem": "代碼系統",
       "date": "日期",
       "dateFilter": "日期篩選"
     }
