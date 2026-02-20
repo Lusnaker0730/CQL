@@ -18,10 +18,10 @@
 | 014 | 2026-02-20 | Medium | Test Case Builder（前端） | CodeableConcept boundCodes 未使用下拉選單 | UX 設計缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
 | 013 | 2026-02-20 | Medium | CQL Builder（前端） | TWCORE 選碼導致 Monaco Editor 白屏 | 配置遺漏 | [`4c9ae86`](../../commit/4c9ae86) |
 | 012 | 2026-02-20 | Medium | 跨模組（前端） | Monaco Editor 夜間模式白屏 | 配置遺漏 | [`e375b1e`](../../commit/e375b1e) |
-| 011 | 2026-02-20 | Medium | 版面配置（前端） | Footer 位置異常：flexbox 佈局修正 | UX 設計缺陷 | [`5e69d32`](../../commit/5e69d32) |
+| 011 | 2026-02-20 | Medium | 版面配置（前端） | Footer 位置異常：flexbox 佈局修正 | UX 設計缺陷 | [`d82710d`](../../commit/d82710d) |
 | 010 | 2026-02-20 | Low | CDS Hooks Sandbox（前後端） | CDS Card 顯示所有表達式擠在一行 | UX 設計缺陷 | [`5e69d32`](../../commit/5e69d32) |
 | 009 | 2026-02-20 | High | Test Case Builder（前端） | FHIR Choice Type 序列化錯誤（value → valueQuantity） | 資料處理錯誤 | [`5e69d32`](../../commit/5e69d32) |
-| 008 | 2026-02-19 | High | CDS Hooks Sandbox（後端） | CDS Sandbox Invoke 所有 CQL 表達式回傳 null | 資料處理錯誤 | [`5e69d32`](../../commit/5e69d32) |
+| 008 | 2026-02-19 | High | CDS Hooks Sandbox（後端） | CDS Sandbox Invoke 所有 CQL 表達式回傳 null | 資料處理錯誤 | [`fccd012`](../../commit/fccd012) |
 | 007 | 2026-02-19 | Medium | 版面配置（前端） | Footer fixed 定位仍遮擋操作按鈕 | UX 設計缺陷 | [`b570119`](../../commit/b570119) |
 | 006 | 2026-02-19 | Critical | Backend 基礎設施 | Backend OOM 導致所有 API 無回應 | 配置遺漏 | [`660347a`](../../commit/660347a) |
 | 005 | 2026-02-19 | Low | 版面配置（前端） | Footer 覆蓋頁面內容 | UX 設計缺陷 | [`741b7dc`](../../commit/741b7dc) |
@@ -128,7 +128,7 @@ Measures 頁面的「Data Requirements」標籤頁對所有資源類型皆顯示
 - [x] `mvn compile -q` 編譯通過
 - [x] `mvn test -Dtest=DataRequirementExtractorTest` 全部 17 個測試通過
 - [x] `npx tsc --noEmit` TypeScript 編譯通過
-- [ ] Docker 重建 → DataRequirements 標籤頁顯示 Condition(code: ICD-10-CM)、MedicationRequest(medication: ATC)、Encounter(period: date filter) 等篩選條件
+- [x] Docker 重建 → DataRequirements 標籤頁顯示 Condition(code: ICD-10-CM)、MedicationRequest(medication: ATC)、Encounter(period: date filter) 等篩選條件（於 #021 修正後驗證通過）
 
 ---
 
@@ -212,9 +212,9 @@ CDS Sandbox 中 ValueSet 基礎的 CQL 檢索（如 `[Condition: "Diabetes"]`，
 ### 測試驗證
 
 - [x] `mvn compile -q` 編譯通過
-- [ ] CDS Sandbox `[Condition: "Diabetes"]` retrieve → 正確展開 VSAC ValueSet 並過濾 Condition
-- [ ] 無 ValueSet 的 retrieve → 行為不變
-- [ ] TerminologyProvider 不可用時 → graceful fallback（回傳所有資源）
+- [x] CDS Sandbox `[Condition: "Diabetes"]` retrieve → 正確展開 VSAC ValueSet 並過濾 Condition
+- [x] 無 ValueSet 的 retrieve → 行為不變
+- [x] TerminologyProvider 不可用時 → graceful fallback（回傳所有資源）
 
 ---
 
@@ -250,8 +250,8 @@ CQL 中 `C.clinicalStatus.coding contains "Active"`（其中 `"Active"` 的 syst
 - [x] `mvn compile -q` 編譯通過
 - [x] `tsc --noEmit` 編譯通過
 - [x] Docker 重建並部署成功
-- [ ] clinicalStatus 選 "active" → JSON coding system 為 `http://terminology.hl7.org/CodeSystem/condition-clinical`
-- [ ] CDS Sandbox DM CQL → `Has Diabetes` 正確判定為 true
+- [x] clinicalStatus 選 "active" → JSON coding system 為 `http://terminology.hl7.org/CodeSystem/condition-clinical`
+- [x] CDS Sandbox DM CQL → `Has Diabetes` 正確判定為 true
 
 ---
 
@@ -286,9 +286,9 @@ CDS Sandbox 測試含有 VSAC ValueSet 參照（如 `http://cts.nlm.nih.gov/fhir
 
 - [x] `mvn compile -q` 編譯通過
 - [x] `tsc --noEmit` 編譯通過
-- [ ] CDS Sandbox 含 VSAC ValueSet 的 CQL 規則 → CQL Engine 正確解析 ValueSet
-- [ ] PreferencesDialog 顯示 VSAC 狀態和 API Key 設定
-- [ ] 更新 API Key 後 VSAC 狀態切換為「已設定」
+- [x] CDS Sandbox 含 VSAC ValueSet 的 CQL 規則 → CQL Engine 正確解析 ValueSet
+- [x] PreferencesDialog 顯示 VSAC 狀態和 API Key 設定
+- [x] 更新 API Key 後 VSAC 狀態切換為「已設定」
 
 ---
 
@@ -317,9 +317,9 @@ Visual Builder 中 `clinicalStatus`（type `CodeableConcept`）等帶有 `boundC
 ### 測試驗證
 
 - [x] `tsc --noEmit` 編譯通過
-- [ ] Condition clinicalStatus 顯示為下拉選單（active/inactive/resolved 等）
-- [ ] 選擇後 JSON 正確生成 `{ coding: [{ system: "...", code: "active", display: "Active" }] }`
-- [ ] 無 boundCodes 的 CodeableConcept 欄位仍顯示完整 coding 編輯器
+- [x] Condition clinicalStatus 顯示為下拉選單（active/inactive/resolved 等）
+- [x] 選擇後 JSON 正確生成 `{ coding: [{ system: "...", code: "active", display: "Active" }] }`
+- [x] 無 boundCodes 的 CodeableConcept 欄位仍顯示完整 coding 編輯器
 
 ---
 
@@ -350,9 +350,9 @@ Visual Builder 中 `clinicalStatus`（type `CodeableConcept`）等帶有 `boundC
 ### 測試驗證
 
 - [x] TypeScript 編譯通過
-- [ ] 深色模式下選擇 TWCORE 代碼 → Monaco Editor 維持深色背景
-- [ ] 淺色模式下選擇 TWCORE 代碼 → Monaco Editor 維持淺色背景
-- [ ] 代碼預覽框（SnippetPreview）語法著色正確
+- [x] 深色模式下選擇 TWCORE 代碼 → Monaco Editor 維持深色背景
+- [x] 淺色模式下選擇 TWCORE 代碼 → Monaco Editor 維持淺色背景
+- [x] 代碼預覽框（SnippetPreview）語法著色正確
 
 ---
 
@@ -402,7 +402,7 @@ Visual Builder 中 `clinicalStatus`（type `CodeableConcept`）等帶有 `boundC
 | **嚴重程度** | Medium |
 | **根因類型** | UX 設計缺陷 |
 | **影響範圍** | `frontend/src/App.tsx`、`frontend/src/constants/layout.ts` |
-| **Commit** | — |
+| **Commit** | [`d82710d`](../../commit/d82710d) |
 
 ### BUG 描述
 
@@ -431,7 +431,7 @@ Footer（CQL 規範、CDS Hooks、FHIR 連結）卡在畫面中間，無法固�
 | **嚴重程度** | Low |
 | **根因類型** | UX 設計缺陷 |
 | **影響範圍** | `backend/.../CqlTupleCardStrategy.java`、`frontend/.../SandboxPanel.tsx` |
-| **Commit** | — |
+| **Commit** | [`5e69d32`](../../commit/5e69d32) |
 
 ### BUG 描述
 
@@ -463,7 +463,7 @@ CDS Sandbox 的結果卡片將所有 CQL 表達式（LatestBMI、BMICalue、BMIC
 | **嚴重程度** | High |
 | **根因類型** | 資料處理錯誤 |
 | **影響範圍** | `frontend/src/components/testcase-builder/ChoiceTypeField.tsx`、`ElementField.tsx`、`ResourceForm.tsx` |
-| **Commit** | — |
+| **Commit** | [`5e69d32`](../../commit/5e69d32) |
 
 ### BUG 描述
 
@@ -500,7 +500,7 @@ Visual Builder 中 FHIR Choice Type 欄位（如 `Observation.value[x]`）的值
 | **嚴重程度** | High |
 | **根因類型** | 資料處理錯誤 |
 | **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cds/CdsInvocationService.java`、`backend/src/main/java/com/cqlplatform/service/cds/PrefetchRetrieveProvider.java` |
-| **Commit** | — |
+| **Commit** | [`fccd012`](../../commit/fccd012)、[`5e69d32`](../../commit/5e69d32) |
 
 ### BUG 描述
 
@@ -551,9 +551,9 @@ Visual Builder 中 FHIR Choice Type 欄位（如 `Observation.value[x]`）的值
 ### 測試驗證
 
 - [x] TypeScript 編譯通過
-- [ ] Footer 緊貼在頁面內容下方，不遮擋任何操作按鈕
-- [ ] CDS Sandbox Visual Builder 的 Invoke 按鈕可正常點擊
-- [ ] 各頁面（Editor、CDS、Measures、FHIR、Authoring）版面正常
+- [x] Footer 緊貼在頁面內容下方，不遮擋任何操作按鈕
+- [x] CDS Sandbox Visual Builder 的 Invoke 按鈕可正常點擊
+- [x] 各頁面（Editor、CDS、Measures、FHIR、Authoring）版面正常
 
 ---
 
