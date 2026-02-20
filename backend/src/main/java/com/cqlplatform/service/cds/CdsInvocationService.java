@@ -77,13 +77,9 @@ public class CdsInvocationService {
 
             CqlExecutionResponse execResponse;
             if (prefetchProvider != null) {
-                // Clear patientId when using prefetch: the CQL engine's internal
-                // RetrieveEvaluator applies post-retrieval context filtering that
-                // compares Observation.subject (a FHIR Reference object) with the
-                // patient ID string. This comparison fails because Reference.equals(String)
-                // is always false. Since prefetch data is curated for the sandbox patient,
-                // context filtering is unnecessary.
-                execRequest.setPatientId(null);
+                // Keep the patientId so the CQL engine can establish a proper Patient
+                // context.  Without a patient context the engine cannot evaluate
+                // Patient-context expressions and all retrieves return empty.
                 execResponse = executionService.executeWithProvider(execRequest, prefetchProvider);
             } else {
                 execResponse = executionService.execute(execRequest);
