@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 016 | 2026-02-20 | High | Test Case Builder（前後端） | CodeableConcept dropdown 使用 ValueSet URL 而非 CodeSystem URL | 資料處理錯誤 | [`6ca7a86`](../../commit/6ca7a86) |
 | 015 | 2026-02-20 | High | CQL Engine（後端） | VSAC ValueSet 未連接 CQL Engine 導致 CDS 規則失效 | 架構缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
 | 014 | 2026-02-20 | Medium | Test Case Builder（前端） | CodeableConcept boundCodes 未使用下拉選單 | UX 設計缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
 | 013 | 2026-02-20 | Medium | CQL Builder（前端） | TWCORE 選碼導致 Monaco Editor 白屏 | 配置遺漏 | [`4c9ae86`](../../commit/4c9ae86) |
@@ -34,6 +35,43 @@
 | 資料處理錯誤 | 資料解析、轉換或驗證問題 |
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
+
+---
+
+## #016 — CodeableConcept dropdown 使用 ValueSet URL 而非 CodeSystem URL
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | Test Case Builder（前後端） |
+| **嚴重程度** | High |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `ElementMetadata.java`、`FhirStructureDefinitionService.java`、`CodeableConceptField.tsx`、`ChoiceTypeField.tsx`、`types/index.ts` |
+| **Commit** | [`6ca7a86`](../../commit/6ca7a86) |
+
+### BUG 描述
+
+#014 新增的 CodeableConcept dropdown 在使用者選擇代碼後，產生的 coding `system` 為 **ValueSet URL**（如 `http://hl7.org/fhir/ValueSet/condition-clinical`），而非正確的 **CodeSystem URL**（`http://terminology.hl7.org/CodeSystem/condition-clinical`）。
+
+CQL 中 `C.clinicalStatus.coding contains "Active"`（其中 `"Active"` 的 system 為 CodeSystem URL）會比對 code + system，因 system 不匹配導致永遠回傳 false。即使使用者在 dropdown 選擇了 "active"，CQL 仍判定 `Has Diabetes` = false → CDS Card 顯示 "No recommendations at this time"。
+
+**根本原因**：`ElementMetadata` 僅提供 `bindingValueSetUrl`（ValueSet URL），未提供 CodeSystem URL。`CodeableConceptField` 直接以 `bindingValueSetUrl` 作為 coding system，但 ValueSet URL ≠ CodeSystem URL。
+
+### 修正方式
+
+- **`ElementMetadata.java`**：新增 `bindingCodeSystemUrl` 欄位
+- **`FhirStructureDefinitionService.java`**：`expandValueSetCodes()` 重構為回傳 `ExpandedCodes` record（含 codes + codeSystemUrl）。從 ValueSet 的 `compose.include[].system` 和 expansion `contains[].system` 提取 CodeSystem URL
+- **`types/index.ts`**：前端 `ElementMetadata` 新增 `bindingCodeSystemUrl` 欄位
+- **`CodeableConceptField.tsx`**：dropdown 產生 coding 時優先使用 `bindingCodeSystemUrl`，fallback 為 `bindingValueSetUrl`
+- **`ChoiceTypeField.tsx`**：合成 ElementMetadata 物件新增 `bindingCodeSystemUrl: null`
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] `tsc --noEmit` 編譯通過
+- [x] Docker 重建並部署成功
+- [ ] clinicalStatus 選 "active" → JSON coding system 為 `http://terminology.hl7.org/CodeSystem/condition-clinical`
+- [ ] CDS Sandbox DM CQL → `Has Diabetes` 正確判定為 true
 
 ---
 
