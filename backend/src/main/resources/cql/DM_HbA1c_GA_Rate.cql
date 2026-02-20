@@ -147,7 +147,8 @@ define "HbA1c Tests During Measurement Period":
     where P.status = 'completed'
       and exists(
         P.code.coding Coding
-          where CodeStartsWith(Coding.code.value, '09006')
+          where Coding.system = 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/nhi-order'
+            and CodeStartsWith(Coding.code.value, '09006')
       )
       and NormalizeInterval(P.performed) overlaps "Measurement Period"
 
@@ -159,7 +160,8 @@ define "Glycated Albumin Tests During Measurement Period":
     where P.status = 'completed'
       and exists(
         P.code.coding Coding
-          where CodeStartsWith(Coding.code.value, '09139')
+          where Coding.system = 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/nhi-order'
+            and CodeStartsWith(Coding.code.value, '09139')
       )
       and NormalizeInterval(P.performed) overlaps "Measurement Period"
 
