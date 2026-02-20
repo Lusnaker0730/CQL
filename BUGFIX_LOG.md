@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 018 | 2026-02-20 | High | CQL Engine（後端） | FHIR Coding 與 CQL Code 類型不匹配導致 contains 永遠回傳 false | 架構缺陷 | — |
+| 017 | 2026-02-20 | High | CDS Hooks Sandbox（後端） | PrefetchRetrieveProvider 未展開 ValueSet 導致代碼過濾失效 | 架構缺陷 | — |
 | 016 | 2026-02-20 | High | Test Case Builder（前後端） | CodeableConcept dropdown 使用 ValueSet URL 而非 CodeSystem URL | 資料處理錯誤 | [`6ca7a86`](../../commit/6ca7a86) |
 | 015 | 2026-02-20 | High | CQL Engine（後端） | VSAC ValueSet 未連接 CQL Engine 導致 CDS 規則失效 | 架構缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
 | 014 | 2026-02-20 | Medium | Test Case Builder（前端） | CodeableConcept boundCodes 未使用下拉選單 | UX 設計缺陷 | [`69dd9a1`](../../commit/69dd9a1) |
@@ -35,6 +37,76 @@
 | 資料處理錯誤 | 資料解析、轉換或驗證問題 |
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
+
+---
+
+## #018 — FHIR Coding 與 CQL Code 類型不匹配導致 contains 永遠回傳 false
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | CQL Engine（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cql/ComparableR4FhirModelResolver.java` |
+| **Commit** | — |
+
+### BUG 描述
+
+CQL 中 `C.clinicalStatus.coding contains "Active"`（其中 `"Active"` 定義為 `code "Active": 'active' from "ConditionClinicalStatusCodes"`）永遠回傳 false，即使 Condition 資源的 clinicalStatus 編碼完全正確。
+
+**根本原因**：CQL Engine 使用 `R4FhirModelResolver.resolvePath()` 存取 FHIR 物件屬性。`.coding` 回傳的是原生 FHIR `Coding` 物件（Java 類型 `org.hl7.fhir.r4.model.Coding`），而 CQL `code` 定義產生的是 CQL Engine 內部 `Code` 物件（`org.opencds.cqf.cql.engine.runtime.Code`）。`contains` 運算子使用 `equals()` 比對，FHIR Coding 和 CQL Code 是不同 Java 類型，`equals()` 永遠回傳 false。
+
+雖然 FHIRHelpers 定義了 `ToCode(FHIR.Coding)` 隱式轉換，但 CQL Engine 3.29.0 的 `Equal` 評估器在比對 list 元素時不會自動套用隱式轉換，導致型別不匹配。
+
+### 修正方式
+
+- **`ComparableR4FhirModelResolver.java`**：擴展既有的 FHIR→CQL 型別轉換（原已支援 DateTimeType → DateTime）：
+  - 新增 `toCqlCode(Coding)` 將 FHIR Coding 轉為 CQL Code（含 code、system、version、display）
+  - `resolvePath()` 回傳結果為 FHIR `Coding` 時自動轉為 CQL `Code`
+  - `resolvePath()` 回傳結果為 `List<Coding>` 時整批轉為 `List<Code>`
+  - 新增 `resolveCodePath(Code, path)` 處理 CQL Code 物件的路徑解析（code、system、version、display）
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [ ] CQL `C.clinicalStatus.coding contains "Active"` → 正確回傳 true
+- [ ] CQL `C.clinicalStatus.coding[0].code` → 正確回傳 "active"
+- [ ] 既有 DateTime 排序功能不受影響
+
+---
+
+## #017 — PrefetchRetrieveProvider 未展開 ValueSet 導致代碼過濾失效
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | CDS Hooks Sandbox（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `PrefetchRetrieveProvider.java`、`CqlExecutionService.java` |
+| **Commit** | — |
+
+### BUG 描述
+
+CDS Sandbox 中 ValueSet 基礎的 CQL 檢索（如 `[Condition: "Diabetes"]`，其中 "Diabetes" 為 VSAC ValueSet）未進行代碼過濾。CQL Engine 將 ValueSet URL 傳遞給 `RetrieveProvider.retrieve()` 的 `valueSet` 參數（`codes` 為 null），但 `PrefetchRetrieveProvider` 完全忽略 `valueSet` 參數，回傳所有該類型的資源而不做代碼篩選。
+
+**根本原因**：`PrefetchRetrieveProvider` 是為 CDS Hooks prefetch 設計的簡易記憶體 RetrieveProvider，僅處理 `codes` 參數（已展開的代碼清單），未處理 `valueSet` 參數（ValueSet URL）。CQL Engine 3.29.0 期望 DataProvider 自行處理 ValueSet 展開，而非由 Engine 預先展開後傳遞 codes。
+
+### 修正方式
+
+- **`PrefetchRetrieveProvider.java`**：
+  - 新增 `TerminologyProvider terminologyProvider` 欄位及 `setTerminologyProvider()` 方法
+  - `retrieve()` 方法：當 `codes=null` 且 `valueSet` 非空時，呼叫 `terminologyProvider.expand(new ValueSetInfo().withId(valueSet))` 展開 ValueSet 取得代碼清單
+  - 日誌新增 `valueSet` 參數輸出
+- **`CqlExecutionService.java`**：在 `doExecute()` 中，當使用 PrefetchRetrieveProvider 時，自動注入已建立的 TerminologyProvider
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [ ] CDS Sandbox `[Condition: "Diabetes"]` retrieve → 正確展開 VSAC ValueSet 並過濾 Condition
+- [ ] 無 ValueSet 的 retrieve → 行為不變
+- [ ] TerminologyProvider 不可用時 → graceful fallback（回傳所有資源）
 
 ---
 

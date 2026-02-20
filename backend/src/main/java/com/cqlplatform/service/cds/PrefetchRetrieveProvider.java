@@ -5,17 +5,22 @@ import org.hl7.fhir.r4.model.*;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.runtime.Code;
 import org.opencds.cqf.cql.engine.runtime.Interval;
+import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
+import org.opencds.cqf.cql.engine.terminology.ValueSetInfo;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * In-memory RetrieveProvider that serves FHIR resources from CDS Hooks prefetch data.
+ * Supports terminology-aware retrieval: when a ValueSet URL is provided, expands it
+ * via the TerminologyProvider to filter resources by code.
  */
 @Slf4j
 public class PrefetchRetrieveProvider implements RetrieveProvider {
 
     private final Map<String, List<Resource>> resourcesByType = new HashMap<>();
+    private TerminologyProvider terminologyProvider;
 
     public PrefetchRetrieveProvider(List<Resource> resources, String patientId) {
         for (Resource resource : resources) {
@@ -29,11 +34,31 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
                 log.debug("  {} {} resource(s)", list.size(), type));
     }
 
+    /**
+     * Set a TerminologyProvider for ValueSet expansion during retrieves.
+     * Without this, ValueSet-based retrieves (e.g. [Condition: "Diabetes"]) will
+     * return all resources of the matching type without code filtering.
+     */
+    public void setTerminologyProvider(TerminologyProvider terminologyProvider) {
+        this.terminologyProvider = terminologyProvider;
+    }
+
     @Override
     public Iterable<Object> retrieve(String context, String contextPath, Object contextValue,
             String dataType, String templateId, String codePath,
             Iterable<Code> codes, String valueSet, String datePath,
             String dateLowPath, String dateHighPath, Interval dateRange) {
+
+        // If the CQL engine passed a ValueSet URL but no expanded codes,
+        // expand the ValueSet via the TerminologyProvider to get codes for filtering.
+        if (codes == null && valueSet != null && !valueSet.isBlank() && terminologyProvider != null) {
+            log.info("Expanding ValueSet for retrieve: {}", valueSet);
+            try {
+                codes = terminologyProvider.expand(new ValueSetInfo().withId(valueSet));
+            } catch (Exception e) {
+                log.warn("Failed to expand ValueSet {}: {}", valueSet, e.getMessage());
+            }
+        }
 
         List<String> codeStrs = new ArrayList<>();
         if (codes != null) {
@@ -41,8 +66,8 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
                 codeStrs.add(code.getCode());
             }
         }
-        log.info("Retrieve: dataType={}, codePath={}, codes={}, context={}, contextPath={}, contextValue={}",
-                dataType, codePath, codeStrs, context, contextPath, contextValue);
+        log.info("Retrieve: dataType={}, codePath={}, codes={}, valueSet={}, context={}, contextPath={}, contextValue={}",
+                dataType, codePath, codeStrs, valueSet, context, contextPath, contextValue);
 
         List<Resource> candidates = resourcesByType.getOrDefault(dataType, Collections.emptyList());
         int beforeFilter = candidates.size();

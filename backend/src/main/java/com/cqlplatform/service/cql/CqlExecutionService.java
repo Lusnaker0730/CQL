@@ -154,6 +154,10 @@ public class CqlExecutionService {
             RetrieveProvider retrieveProvider;
             if (prefetchProvider != null) {
                 log.info("Using prefetch data provider for CQL execution");
+                // Wire up TerminologyProvider so PrefetchRetrieveProvider can expand ValueSets
+                if (prefetchProvider instanceof com.cqlplatform.service.cds.PrefetchRetrieveProvider pfp) {
+                    pfp.setTerminologyProvider(terminologyProvider);
+                }
                 retrieveProvider = prefetchProvider;
             } else {
                 retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
