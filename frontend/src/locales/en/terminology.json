@@ -63,6 +63,20 @@
     "detailName": "Name",
     "detailDesignations": "Designations"
   },
+  "drawer": {
+    "title": "Terminology Lookup",
+    "tabCodeSearch": "Code Search",
+    "tabValueSetBrowse": "ValueSet Browse",
+    "tabCodeLookup": "Code Lookup",
+    "copyTooltip": "Copy to clipboard",
+    "copied": "Copied!",
+    "useCode": "Use",
+    "useCodeTooltip": "Insert this code into the field",
+    "noResults": "No results found.",
+    "searchPlaceholder": "Search codes by text...",
+    "systemPlaceholder": "Select or enter code system URL",
+    "quickSystems": "Quick Select"
+  },
   "codeValidation": {
     "systemLabel": "Code System URL",
     "systemPlaceholder": "http://loinc.org",

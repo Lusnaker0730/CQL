@@ -3,11 +3,12 @@ import {
   Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip,
   FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
+import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 import TwcoreCodePicker from './TwcoreCodePicker'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
@@ -33,12 +34,14 @@ function CodingField({
   onChange,
   onRemove,
   onTwcoreBrowse,
+  onTerminologySearch,
   bindingUrl,
 }: {
   coding: Coding
   onChange: (coding: Coding) => void
   onRemove: () => void
   onTwcoreBrowse: () => void
+  onTerminologySearch: () => void
   bindingUrl?: string | null
 }) {
   const { t } = useTranslation('measures')
@@ -87,6 +90,11 @@ function CodingField({
         onChange={(e) => onChange({ ...coding, display: e.target.value })}
         sx={{ flex: 1 }}
       />
+      <Tooltip title={t('testCaseBuilder.fields.searchTerminology')}>
+        <IconButton size="small" onClick={onTerminologySearch} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.searchTerminology')}>
+          <SearchIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
         <IconButton size="small" onClick={onTwcoreBrowse} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.browseTwcoreAria')}>
           <MenuBookIcon fontSize="small" />
@@ -106,6 +114,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
   const resourceType = useCurrentResourceType()
   const [twcoreOpen, setTwcoreOpen] = useState(false)
   const [twcoreTargetIdx, setTwcoreTargetIdx] = useState<number>(0)
+  const { openDrawer } = useTerminologyDrawer()
 
   // When boundCodes are available (required/extensible binding), show a simple dropdown
   const hasBoundCodes = element.boundCodes && element.boundCodes.length > 0
@@ -170,6 +179,21 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
     })
   }
 
+  const handleTerminologySearch = (index: number) => {
+    openDrawer({
+      tab: 0,
+      system: codings[index]?.system || element.bindingValueSetUrl || '',
+      onSelect: (coding) => {
+        updateCoding(index, {
+          ...codings[index],
+          system: coding.system,
+          code: coding.code,
+          display: coding.display,
+        })
+      },
+    })
+  }
+
   return (
     <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
       <Typography variant="caption" fontWeight={600} color="text.secondary">
@@ -183,6 +207,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
           onChange={(c) => updateCoding(i, c)}
           onRemove={() => removeCoding(i)}
           onTwcoreBrowse={() => handleTwcoreBrowse(i)}
+          onTerminologySearch={() => handleTerminologySearch(i)}
           bindingUrl={element.bindingValueSetUrl}
         />
       ))}

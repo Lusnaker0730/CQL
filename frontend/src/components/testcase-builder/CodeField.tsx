@@ -3,11 +3,12 @@ import {
   Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack,
   FormControl, InputLabel, Select, MenuItem, FormHelperText,
 } from '@mui/material'
-import { MenuBook as MenuBookIcon } from '@mui/icons-material'
+import { MenuBook as MenuBookIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
+import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 import TwcoreCodePicker from './TwcoreCodePicker'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
@@ -22,6 +23,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   const [inputValue, setInputValue] = useState(String(value || ''))
   const [twcoreOpen, setTwcoreOpen] = useState(false)
   const resourceType = useCurrentResourceType()
+  const { openDrawer } = useTerminologyDrawer()
 
   const hasBinding = !!element.bindingValueSetUrl
   const isRequiredBinding = element.bindingStrength === 'required' && element.boundCodes.length > 0
@@ -32,6 +34,25 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
     enabled: hasBinding && !isRequiredBinding && inputValue.length >= 1,
     staleTime: 30_000,
   })
+
+  const searchButton = (
+    <Tooltip title={t('testCaseBuilder.fields.searchTerminology')}>
+      <IconButton
+        size="small"
+        onClick={() => openDrawer({
+          tab: 0,
+          system: element.bindingValueSetUrl || '',
+          onSelect: (coding) => {
+            onChange(coding.code)
+            setInputValue(coding.code)
+          },
+        })}
+        aria-label={t('testCaseBuilder.fields.searchTerminology')}
+      >
+        <SearchIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  )
 
   const twcoreButton = (
     <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
@@ -86,6 +107,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
           required={element.isRequired}
           helperText={element.description || undefined}
         />
+        {searchButton}
         {twcoreButton}
         {twcorePicker}
       </Stack>
@@ -137,6 +159,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
         )}
         sx={{ flex: 1 }}
       />
+      {searchButton}
       {twcoreButton}
       {twcorePicker}
     </Stack>

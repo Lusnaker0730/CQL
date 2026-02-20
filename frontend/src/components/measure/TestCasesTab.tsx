@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -41,6 +41,7 @@ import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
+import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
 
 interface TestCasesTabProps {
   measure: MeasureDefinition
@@ -57,7 +58,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
-  const [editing, setEditing] = useState<TestCase | null | 'new'>(null)
+  const [editing, setEditingRaw] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [coverageData, setCoverageData] = useState<Record<number, { data: CoverageResult | null; loading: boolean }>>({})
@@ -67,6 +68,32 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     queryFn: () => measureApi.getTestCases(measure.id!),
     enabled: !!measure.id,
   })
+
+  // Wrap setEditing to persist to sessionStorage
+  const setEditing = (val: TestCase | null | 'new') => {
+    setEditingRaw(val)
+    if (val === null) {
+      clearEditingState(measure.id!)
+    } else if (val === 'new') {
+      saveEditingState(measure.id!, 'new')
+    } else if (val.id) {
+      saveEditingState(measure.id!, val.id)
+    }
+  }
+
+  // Restore editing state from sessionStorage on remount
+  useEffect(() => {
+    if (isLoading) return
+    const savedId = loadEditingState(measure.id!)
+    if (savedId === null) return
+    if (savedId === 'new') {
+      setEditingRaw('new')
+    } else {
+      const found = testCases.find((tc) => tc.id === savedId)
+      if (found) setEditingRaw(found)
+      else clearEditingState(measure.id!) // stale reference
+    }
+  }, [measure.id, isLoading, testCases])
 
   const deleteMutation = useMutation({
     mutationFn: (testCaseId: number) => measureApi.deleteTestCase(measure.id!, testCaseId),

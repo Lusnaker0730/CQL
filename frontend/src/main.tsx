@@ -12,6 +12,7 @@ import { createAppTheme } from './theme'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { LibraryHistoryProvider } from './contexts/LibraryHistoryContext'
+import { TerminologyDrawerProvider } from './contexts/TerminologyDrawerContext'
 import GlobalNotification from './components/common/GlobalNotification'
 import { usePreferences } from './hooks/usePreferences'
 
@@ -50,9 +51,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <PreferencesProvider>
           <NotificationProvider>
-            <LibraryHistoryProvider>
-              <ThemedApp />
-            </LibraryHistoryProvider>
+            <TerminologyDrawerProvider>
+              <LibraryHistoryProvider>
+                <ThemedApp />
+              </LibraryHistoryProvider>
+            </TerminologyDrawerProvider>
           </NotificationProvider>
         </PreferencesProvider>
       </QueryClientProvider>

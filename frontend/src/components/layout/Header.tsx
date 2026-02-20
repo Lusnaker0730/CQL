@@ -19,6 +19,7 @@ import {
   Person as PersonIcon,
   Settings as SettingsIcon,
   HelpOutline as HelpIcon,
+  ManageSearch as ManageSearchIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
@@ -29,6 +30,8 @@ import { usePreferences } from '../../hooks/usePreferences'
 import PreferencesDialog from '../common/PreferencesDialog'
 import HelpDrawer from '../common/HelpDrawer'
 import LanguageSwitcher from '../common/LanguageSwitcher'
+import TerminologyLookupDrawer from '../terminology/TerminologyLookupDrawer'
+import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 
 const baseNavItems = [
   { labelKey: 'nav.editor', path: '/' },
@@ -48,6 +51,7 @@ export default function Header() {
   const { preferences, updatePreferences } = usePreferences()
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const { isOpen: terminologyOpen, openDrawer: openTerminology, closeDrawer: closeTerminology } = useTerminologyDrawer()
 
   const navItems = user?.role === 'ADMIN'
     ? [...baseNavItems, { labelKey: 'nav.users', path: '/admin/users' }, { labelKey: 'nav.auditLog', path: '/admin/audit' }]
@@ -176,6 +180,19 @@ export default function Header() {
             <LanguageSwitcher />
             <IconButton
               color="inherit"
+              onClick={() => terminologyOpen ? closeTerminology() : openTerminology()}
+              aria-label={t('toolbar.terminologyLookup')}
+              title={t('toolbar.terminologyLookup')}
+              sx={{
+                backgroundColor: terminologyOpen ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
+                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+                transition: 'background-color 0.2s ease',
+              }}
+            >
+              <ManageSearchIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+            <IconButton
+              color="inherit"
               onClick={toggleDarkMode}
               aria-label={preferences.themeMode === 'dark' ? t('toolbar.switchToLight') : t('toolbar.switchToDark')}
               title={preferences.themeMode === 'dark' ? t('toolbar.switchToLight') : t('toolbar.switchToDark')}
@@ -251,6 +268,7 @@ export default function Header() {
 
       <PreferencesDialog open={prefsOpen} onClose={() => setPrefsOpen(false)} />
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <TerminologyLookupDrawer />
     </>
   )
 }

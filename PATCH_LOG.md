@@ -11,6 +11,7 @@
 | 001 | 2026-02-19 | 跨模組 | UCUM 單位下拉選單統一 | Test Case Builder, CQL Builder, eQCM, Authoring |
 | 002 | 2026-02-19 | i18n | Measures 模組國際化（en / zh-TW） | Measures, Dashboard, Test Case Builder |
 | 003 | 2026-02-20 | i18n | 全平台國際化完成（Phase 5-9） | CDS, FHIR, Terminology, Authoring, Admin |
+| 004 | 2026-02-20 | 跨模組 | 術語查詢 Drawer + 測試案例草稿自動儲存 | Header, Terminology, Test Case Builder, Measures |
 
 ---
 
@@ -272,3 +273,103 @@
 - `npm run build` — 建置成功
 - 10 組 locale 檔案均存在於 `en/` 和 `zh-TW/` 目錄
 - 語言切換（en ↔ zh-TW）涵蓋全平台所有頁面
+
+---
+
+## #004 — 術語查詢 Drawer + 測試案例草稿自動儲存
+
+- **日期**: 2026-02-20
+- **範圍**: 跨模組 UX 改善
+- **分類**: 功能新增 / 使用者體驗
+
+### 問題描述
+
+使用者編輯 CQL 或建構測試案例病人時，經常需要查詢術語代碼（ICD-10、LOINC、SNOMED 等）。目前存在三個痛點：
+
+1. **測試案例編輯器無草稿持久化** — 切換到其他 Tab（如 CQL）會銷毀所有未儲存的工作，無任何警告
+2. **視覺化建構器的代碼欄位僅支援 TWCORE 瀏覽** — 無通用代碼搜尋（依系統 + 文字）
+3. **無法在編輯中查詢術語** — 必須完全離開目前的工作環境
+
+### 修改內容
+
+#### Feature A：全域術語查詢 Drawer
+
+右側 MUI Drawer（420px），透過 Header 工具列的 `ManageSearch` 圖示開啟，包含 3 個分頁：
+
+| 分頁 | 重用 Hook | 用途 |
+|------|-----------|------|
+| Code Search | `useSearchCodes` | 在代碼系統中依文字搜尋代碼 |
+| ValueSet Browse | `useSearchValueSets` + `useExpandValueSet` | 尋找值集，展開查看代碼 |
+| Code Lookup | `useLookupCode` | 查詢特定系統 + 代碼的詳細資訊 |
+
+每列結果有 **Copy**（剪貼簿）和 **Use**（透過 callback 插入欄位）按鈕。
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/contexts/TerminologyDrawerContext.tsx` |
+| 新增 | `frontend/src/hooks/useTerminologyDrawer.ts` |
+| 新增 | `frontend/src/components/terminology/TerminologyLookupDrawer.tsx` |
+| 新增 | `frontend/src/components/terminology/DrawerCodeSearchPanel.tsx` |
+| 新增 | `frontend/src/components/terminology/DrawerValueSetPanel.tsx` |
+| 新增 | `frontend/src/components/terminology/DrawerCodeLookupPanel.tsx` |
+| 修改 | `frontend/src/main.tsx` — 加入 `<TerminologyDrawerProvider>` |
+| 修改 | `frontend/src/components/layout/Header.tsx` — 新增工具列按鈕 + 渲染 Drawer |
+
+關鍵設計：`openDrawer(options?)` 支援 `tab`、`system`、`searchText`、`onSelect` callback，讓代碼欄位可以開啟 Drawer 並接收選取結果，無需緊密耦合。
+
+#### Feature B：測試案例編輯器草稿自動儲存
+
+仿照 `MeasureCqlTab.tsx` 的 localStorage 模式。
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/hooks/useTestCaseDraft.ts` |
+| 修改 | `frontend/src/components/measure/TestCaseEditor.tsx` |
+| 修改 | `frontend/src/components/measure/TestCasesTab.tsx` |
+
+- `useTestCaseDraft` hook：debounced 5 秒存入 localStorage，鍵格式 `testcase-draft-{measureId}-{testCaseId|'new'}`，7 天過期
+- `TestCaseEditor`：掛載時還原草稿，變更時自動儲存，儲存成功時清除；顯示 info Alert 附帶「捨棄草稿」按鈕
+- `TestCasesTab`：`editing` 狀態持久化至 `sessionStorage`（`testcase-editing-{measureId}`），切換 Tab 時保留編輯中的測試案例
+
+**流程：**
+```
+使用者編輯測試案例 → debounced 5 秒存入 localStorage
+使用者切換 MeasureEditor Tab → TestCaseEditor 卸載（狀態遺失）
+使用者切回 Test Cases Tab →
+  TestCasesTab 讀取 sessionStorage → 重新開啟對應測試案例的 TestCaseEditor
+  TestCaseEditor 讀取 localStorage → 還原草稿
+  顯示 Alert：「已還原先前未儲存的草稿。」[捨棄草稿]
+使用者儲存 → 清除 localStorage 草稿 + sessionStorage 編輯狀態
+```
+
+#### Feature C：視覺化建構器代碼欄位的術語搜尋按鈕
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/components/testcase-builder/CodeField.tsx` |
+| 修改 | `frontend/src/components/testcase-builder/CodeableConceptField.tsx` |
+
+- `CodeField`：在非 required binding 路徑新增 `Search` 圖示按鈕 → `openDrawer({ tab: 0, system: ..., onSelect: ... })`
+- `CodeableConceptField`：每個 coding 列新增 `Search` 圖示按鈕 → `openDrawer({ tab: 0, onSelect: updateCoding })`
+
+#### i18n 鍵新增
+
+| 檔案 | 新增鍵 |
+|------|--------|
+| `locales/{en,zh-TW}/terminology.json` | 12 個 `drawer.*` 鍵 |
+| `locales/{en,zh-TW}/common.json` | `toolbar.terminologyLookup` |
+| `locales/{en,zh-TW}/measures.json` | `testCaseEditor.draftRestored`、`testCaseEditor.discardDraft`、`testCaseBuilder.fields.searchTerminology` |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 6（Context、Hook、4 個 Drawer 元件） + 1（useTestCaseDraft Hook） |
+| 修改檔案 | 8（main.tsx、Header.tsx、TestCaseEditor、TestCasesTab、CodeField、CodeableConceptField、6 個 locale JSON） |
+| 新增 i18n 鍵 | 17（12 + 1 + 4） |
+
+### 驗證
+
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+- 無新增後端端點，全部重用既有 API 和 React Query hooks

@@ -27,6 +27,7 @@ import GradientButton from '../common/GradientButton'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import { useTestCaseDraft, clearTestCaseDraft } from '../../hooks/useTestCaseDraft'
 import {
   BundleBuilderProvider,
   useBundleBuilder,
@@ -90,7 +91,41 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
   const existingSeries: string[] = []
   const [isDirty, setIsDirty] = useState(false)
   const [bundleTab, setBundleTab] = useState(0) // 0 = Visual, 1 = JSON
+  const [showDraftAlert, setShowDraftAlert] = useState(false)
   useUnsavedChangesGuard(isDirty)
+
+  // Draft auto-save
+  const { restoredDraft, dismissDraft } = useTestCaseDraft({
+    measureId: measure.id!,
+    testCaseId: testCase?.id ?? null,
+    title,
+    description,
+    bundleJson,
+    expectedPops,
+    series,
+  })
+
+  // Restore draft on mount (only once)
+  const draftAppliedRef = useRef(false)
+  useEffect(() => {
+    if (restoredDraft && !draftAppliedRef.current) {
+      draftAppliedRef.current = true
+      setTitle(restoredDraft.title)
+      setDescription(restoredDraft.description)
+      setBundleJson(restoredDraft.bundleJson)
+      setExpectedPops(restoredDraft.expectedPops)
+      setSeries(restoredDraft.series)
+      setShowDraftAlert(true)
+      try {
+        const entries = parseFromBundle(restoredDraft.bundleJson)
+        if (entries.length > 0) {
+          dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+        }
+      } catch {
+        // Invalid JSON in draft — user can fix in JSON tab
+      }
+    }
+  }, [restoredDraft, dispatch])
 
   // Track whether sync is in progress to prevent loops
   const syncingRef = useRef(false)
@@ -213,6 +248,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+      clearTestCaseDraft(measure.id!, testCase?.id ?? null)
       onSaved()
     },
   })
@@ -246,6 +282,40 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {(saveMutation.error as Error).message}
+        </Alert>
+      )}
+
+      {showDraftAlert && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                dismissDraft()
+                setShowDraftAlert(false)
+                // Reset to server values
+                setTitle(testCase?.title || '')
+                setDescription(testCase?.description || '')
+                const json = testCase?.patientBundleJson || DEFAULT_BUNDLE
+                setBundleJson(json)
+                setExpectedPops(testCase?.expectedPopulations || {
+                  'initial-population': true, 'denominator': true, 'numerator': false,
+                })
+                setSeries(testCase?.series || '')
+                try {
+                  const entries = parseFromBundle(json)
+                  dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+                } catch { /* ignore */ }
+              }}
+            >
+              {t('testCaseEditor.discardDraft')}
+            </Button>
+          }
+        >
+          {t('testCaseEditor.draftRestored')}
         </Alert>
       )}
 

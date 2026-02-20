@@ -63,6 +63,20 @@
     "detailName": "名稱",
     "detailDesignations": "別名"
   },
+  "drawer": {
+    "title": "術語查詢",
+    "tabCodeSearch": "代碼搜尋",
+    "tabValueSetBrowse": "值集瀏覽",
+    "tabCodeLookup": "代碼查詢",
+    "copyTooltip": "複製到剪貼簿",
+    "copied": "已複製！",
+    "useCode": "使用",
+    "useCodeTooltip": "將此代碼插入欄位",
+    "noResults": "找不到結果。",
+    "searchPlaceholder": "依顯示文字搜尋代碼...",
+    "systemPlaceholder": "選擇或輸入代碼系統 URL",
+    "quickSystems": "快速選擇"
+  },
   "codeValidation": {
     "systemLabel": "代碼系統 URL",
     "systemPlaceholder": "http://loinc.org",
