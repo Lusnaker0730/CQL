@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -40,6 +41,7 @@ interface ElementSelectDropdownProps {
 }
 
 export default function ElementSelectDropdown({ templates, dynamicEntries, onSelect, onSelectDynamic }: ElementSelectDropdownProps) {
+  const { t } = useTranslation('authoring')
   const [search, setSearch] = useState('')
 
   const visibleCategories = templates
@@ -73,7 +75,7 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, onSel
         <TextField
           size="small"
           fullWidth
-          placeholder="Search elements..."
+          placeholder={t('elementSelect.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
@@ -90,7 +92,7 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, onSel
       {isEmpty ? (
         <Box sx={{ p: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            No elements found
+            {t('elementSelect.noElements')}
           </Typography>
         </Box>
       ) : (
@@ -116,7 +118,7 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, onSel
                     >
                       <ListItemText
                         primary={entry.name}
-                        secondary={getElementDescription(entry, category.name)}
+                        secondary={t(`elementDescriptions.${entry.id}`, { defaultValue: '' }) || ELEMENT_DESCRIPTIONS[entry.id] || entry.returnType?.replace(/_/g, ' ') || category.name}
                         primaryTypographyProps={{ variant: 'body2' }}
                         secondaryTypographyProps={{ variant: 'caption' }}
                       />
@@ -188,6 +190,3 @@ const ELEMENT_DESCRIPTIONS: Record<string, string> = {
   BooleanParameter: 'Configurable true/false parameter',
 }
 
-function getElementDescription(entry: FormTemplate, categoryName: string): string {
-  return ELEMENT_DESCRIPTIONS[entry.id] || entry.returnType?.replace(/_/g, ' ') || categoryName
-}

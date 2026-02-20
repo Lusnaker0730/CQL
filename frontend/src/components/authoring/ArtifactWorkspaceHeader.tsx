@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Typography, Stack, IconButton, Tooltip, TextField, Menu, MenuItem, ListItemIcon, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, CircularProgress,
@@ -34,6 +35,8 @@ export default function ArtifactWorkspaceHeader({
   onNameChange,
   onUpdate,
 }: ArtifactWorkspaceHeaderProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [deployDialog, setDeployDialog] = useState(false)
   const [deployHook, setDeployHook] = useState('patient-view')
@@ -157,8 +160,8 @@ export default function ArtifactWorkspaceHeader({
           color: '#fff',
         }}
       >
-        <Tooltip title="Back to artifact list">
-          <IconButton onClick={onBack} size="small" sx={{ color: '#fff' }} aria-label="Back to artifact list">
+        <Tooltip title={t('header.backToList')}>
+          <IconButton onClick={onBack} size="small" sx={{ color: '#fff' }} aria-label={t('header.backToList')}>
             <BackIcon />
           </IconButton>
         </Tooltip>
@@ -183,7 +186,7 @@ export default function ArtifactWorkspaceHeader({
 
         {isDirty && (
           <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.7)' }}>
-            Unsaved changes
+            {t('header.unsavedChanges')}
           </Typography>
         )}
 
@@ -204,7 +207,7 @@ export default function ArtifactWorkspaceHeader({
               '&:hover': { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
             }}
           >
-            View CQL
+            {t('header.viewCql')}
           </Button>
 
           {/* DOWNLOAD CQL - prominent button */}
@@ -223,7 +226,7 @@ export default function ArtifactWorkspaceHeader({
               '&:hover': { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
             }}
           >
-            Download CQL
+            {t('header.downloadCql')}
           </Button>
 
           {/* SAVE - prominent button */}
@@ -243,27 +246,27 @@ export default function ArtifactWorkspaceHeader({
               '&.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
             }}
           >
-            Save
+            {tc('actions.save')}
           </Button>
 
           {/* More actions menu */}
-          <Tooltip title="More actions">
-            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: '#fff' }} aria-label="More actions">
+          <Tooltip title={t('header.moreActions')}>
+            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: '#fff' }} aria-label={t('header.moreActions')}>
               <MoreIcon />
             </IconButton>
           </Tooltip>
           <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { setAnchorEl(null); setDeployDialog(true) }}>
               <ListItemIcon><DeployIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Deploy as CDS Service</ListItemText>
+              <ListItemText>{t('header.deployCdsService')}</ListItemText>
             </MenuItem>
             <MenuItem onClick={handleSaveAsLibrary} disabled={saveLibMutation.isPending}>
               <ListItemIcon><LibraryIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Save as CQL Library</ListItemText>
+              <ListItemText>{t('header.saveAsLibrary')}</ListItemText>
             </MenuItem>
             <MenuItem onClick={() => { setAnchorEl(null); setCpgDialogOpen(true) }}>
               <ListItemIcon><CpgIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>CPG Metadata</ListItemText>
+              <ListItemText>{t('header.cpgMetadata')}</ListItemText>
             </MenuItem>
           </Menu>
         </Stack>
@@ -281,34 +284,34 @@ export default function ArtifactWorkspaceHeader({
       )}
       {deployMutation.isError && (
         <Alert severity="error" onClose={() => deployMutation.reset()} sx={{ mx: 2, mt: 1 }}>
-          <Typography variant="subtitle2">Deploy Failed</Typography>
+          <Typography variant="subtitle2">{t('header.deployFailed')}</Typography>
           <Typography variant="body2">
             {(deployMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Ensure your artifact has valid inclusion criteria and at least one recommendation before deploying.
+            {t('header.deployHint')}
           </Typography>
         </Alert>
       )}
       {saveLibMutation.isError && (
         <Alert severity="error" onClose={() => saveLibMutation.reset()} sx={{ mx: 2, mt: 1 }}>
-          <Typography variant="subtitle2">Save as Library Failed</Typography>
+          <Typography variant="subtitle2">{t('header.saveLibFailed')}</Typography>
           <Typography variant="body2">
             {(saveLibMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Verify that the artifact generates valid CQL before saving as a library.
+            {t('header.saveLibHint')}
           </Typography>
         </Alert>
       )}
       {generateCqlMutation.isError && (
         <Alert severity="error" onClose={() => generateCqlMutation.reset()} sx={{ mx: 2, mt: 1 }}>
-          <Typography variant="subtitle2">CQL Generation Failed</Typography>
+          <Typography variant="subtitle2">{t('header.cqlGenFailed')}</Typography>
           <Typography variant="body2">
             {(generateCqlMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Check that all elements have required fields filled in and modifier chains are compatible.
+            {t('header.cqlGenHint')}
           </Typography>
         </Alert>
       )}
@@ -316,12 +319,12 @@ export default function ArtifactWorkspaceHeader({
       {/* View CQL Dialog */}
       <Dialog open={viewCqlDialog} onClose={() => setViewCqlDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          Generated CQL
-          <IconButton onClick={() => setViewCqlDialog(false)} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
+          {t('header.generatedCql')}
+          <IconButton onClick={() => setViewCqlDialog(false)} size="small" aria-label={tc('actions.close')}><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">FHIR Version:</Typography>
+            <Typography variant="body2" color="text.secondary">{t('header.fhirVersion')}</Typography>
             <TextField
               select
               size="small"
@@ -339,7 +342,7 @@ export default function ArtifactWorkspaceHeader({
               onClick={() => handleViewCql(selectedFhirVersion)}
               disabled={generateCqlMutation.isPending}
             >
-              {generateCqlMutation.isPending ? 'Regenerating...' : 'Regenerate'}
+              {generateCqlMutation.isPending ? t('header.regenerating') : t('header.regenerate')}
             </Button>
           </Stack>
           {viewCqlContent ? (
@@ -355,11 +358,11 @@ export default function ArtifactWorkspaceHeader({
               {viewCqlContent}
             </Box>
           ) : (
-            <Typography color="text.secondary">No CQL generated.</Typography>
+            <Typography color="text.secondary">{t('header.noCqlGenerated')}</Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setViewCqlDialog(false)}>Close</Button>
+          <Button onClick={() => setViewCqlDialog(false)}>{tc('actions.close')}</Button>
           <Button
             variant="contained"
             startIcon={<DownloadIcon />}
@@ -375,7 +378,7 @@ export default function ArtifactWorkspaceHeader({
               }
             }}
           >
-            Download
+            {t('header.download')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -390,14 +393,14 @@ export default function ArtifactWorkspaceHeader({
 
       {/* Deploy Dialog */}
       <Dialog open={deployDialog} onClose={() => setDeployDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Deploy as CDS Service</DialogTitle>
+        <DialogTitle>{t('header.deployTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              This will generate CQL from your artifact and register it as a CDS Hooks service.
+              {t('header.deployDescription')}
             </Typography>
             <TextField
-              label="Hook Type"
+              label={t('header.hookTypeLabel')}
               value={deployHook}
               onChange={(e) => setDeployHook(e.target.value)}
               size="small"
@@ -412,9 +415,9 @@ export default function ArtifactWorkspaceHeader({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeployDialog(false)}>Cancel</Button>
+          <Button onClick={() => setDeployDialog(false)}>{tc('actions.cancel')}</Button>
           <Button onClick={handleDeploy} variant="contained" disabled={deployMutation.isPending}>
-            {deployMutation.isPending ? 'Deploying...' : 'Deploy'}
+            {deployMutation.isPending ? t('header.deploying') : t('header.deploy')}
           </Button>
         </DialogActions>
       </Dialog>

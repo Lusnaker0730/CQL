@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import { setCqlContent } from '../../store/editorSlice'
 
 import {
@@ -83,6 +84,8 @@ export default function InvokeServicePanel() {
   const dispatch = useDispatch()
   const invokeMutation = useInvokeCdsService()
   const feedbackMutation = useSubmitCdsFeedback()
+  const { t } = useTranslation('cds')
+  const { t: tc } = useTranslation('common')
 
   const { showNotification } = useNotification()
 
@@ -130,7 +133,7 @@ export default function InvokeServicePanel() {
       })
       setCdsResponse(response)
     } catch (error) {
-      showNotification('CDS invocation failed: ' + (error as Error).message, 'error')
+      showNotification(t('invoke.invokeFailed', { error: (error as Error).message }), 'error')
     }
   }
 
@@ -142,9 +145,9 @@ export default function InvokeServicePanel() {
           feedback: [{ card: cardUuid, outcome: FEEDBACK_ACCEPTED }],
         },
       })
-      showNotification('Feedback submitted: accepted', 'success')
+      showNotification(t('invoke.feedbackAccepted'), 'success')
     } catch {
-      showNotification('Failed to submit feedback', 'error')
+      showNotification(t('invoke.feedbackFailed'), 'error')
     }
   }
 
@@ -169,17 +172,17 @@ export default function InvokeServicePanel() {
         },
       })
       setOverrideDialogOpen(false)
-      showNotification('Feedback submitted: overridden', 'success')
+      showNotification(t('invoke.feedbackOverridden'), 'success')
     } catch {
-      showNotification('Failed to submit feedback', 'error')
+      showNotification(t('invoke.feedbackFailed'), 'error')
     }
   }
 
   return (
     <Stack spacing={2}>
       <FormControl fullWidth size="small">
-        <InputLabel>CDS Service</InputLabel>
-        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label="CDS Service">
+        <InputLabel>{t('invoke.serviceLabel')}</InputLabel>
+        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
           {services.map((service: CdsServiceDefinition) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
@@ -211,13 +214,13 @@ export default function InvokeServicePanel() {
       />
 
       <TextField
-        label="Patient ID (Optional)"
+        label={t('invoke.patientIdLabel')}
         value={patientId}
         onChange={(e) => setPatientId(e.target.value)}
         size="small"
         fullWidth
-        placeholder="e.g., example-patient-1"
-        helperText="Leave empty if service doesn't require patient context"
+        placeholder={t('invoke.patientIdPlaceholder')}
+        helperText={t('invoke.patientIdHelperText')}
       />
 
       <GradientButton
@@ -230,7 +233,7 @@ export default function InvokeServicePanel() {
           },
         }}
       >
-        {invokeMutation.isPending ? 'Invoking...' : 'Invoke Service'}
+        {invokeMutation.isPending ? t('invoke.invoking') : t('invoke.invokeButton')}
       </GradientButton>
 
       <Divider />
@@ -238,17 +241,17 @@ export default function InvokeServicePanel() {
       {loadingServices && <CircularProgress />}
 
       {servicesError && (
-        <Alert severity="error">Failed to load CDS services. Please check the backend connection.</Alert>
+        <Alert severity="error">{t('invoke.loadError')}</Alert>
       )}
 
       {invokeMutation.isError && (
-        <Alert severity="error">Failed to invoke CDS service: {(invokeMutation.error as Error).message}</Alert>
+        <Alert severity="error">{t('invoke.invokeError', { error: (invokeMutation.error as Error).message })}</Alert>
       )}
 
       {cards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
-            Response Cards ({cards.length})
+            {t('invoke.responseCards', { count: cards.length })}
           </Typography>
           <Stack spacing={2}>
             {cards.map((card) => (
@@ -286,13 +289,13 @@ export default function InvokeServicePanel() {
 
                   {card.source && (
                     <Typography variant="caption" color="text.secondary">
-                      Source: {card.source.label}
+                      {t('invoke.source', { label: card.source.label })}
                     </Typography>
                   )}
 
                   {card.suggestions && card.suggestions.length > 0 && (
                     <Box mt={2}>
-                      <Typography variant="subtitle2">Suggestions</Typography>
+                      <Typography variant="subtitle2">{t('invoke.suggestions')}</Typography>
                       <List dense>
                         {card.suggestions.map((suggestion) => (
                           <ListItem key={suggestion.uuid}>
@@ -301,7 +304,7 @@ export default function InvokeServicePanel() {
                             </ListItemIcon>
                             <ListItemText
                               primary={suggestion.label}
-                              secondary={suggestion.isRecommended ? 'Recommended' : undefined}
+                              secondary={suggestion.isRecommended ? t('invoke.recommended') : undefined}
                             />
                             {suggestion.actions && suggestion.actions.length > 0 && (
                               <Stack direction="row" spacing={0.5}>
@@ -324,7 +327,7 @@ export default function InvokeServicePanel() {
 
                   {card.links && card.links.length > 0 && (
                     <Box mt={2}>
-                      <Typography variant="subtitle2">Links</Typography>
+                      <Typography variant="subtitle2">{t('invoke.links')}</Typography>
                       <Stack direction="row" spacing={1} mt={1}>
                         {card.links.map((link, i) => (
                           <Button
@@ -352,10 +355,10 @@ export default function InvokeServicePanel() {
                 </CardContent>
                 <CardActions sx={{ px: 2, pb: 1.5 }}>
                   <Button size="small" sx={{ color: 'success.main' }} onClick={() => handleAccept(card.uuid)}>
-                    Accept
+                    {t('invoke.accept')}
                   </Button>
                   <Button size="small" sx={{ color: 'text.secondary' }} onClick={() => handleOverrideClick(card.uuid)}>
-                    Override
+                    {t('invoke.override')}
                   </Button>
                 </CardActions>
               </Card>
@@ -367,14 +370,14 @@ export default function InvokeServicePanel() {
       {cdsResponse?.systemActions && cdsResponse.systemActions.length > 0 && (
         <Alert severity="info" sx={{ mt: 2 }}>
           <Typography variant="subtitle2" gutterBottom>
-            System Actions ({cdsResponse.systemActions.length})
+            {t('invoke.systemActions', { count: cdsResponse.systemActions.length })}
           </Typography>
           <List dense>
             {cdsResponse.systemActions.map((action, i) => (
               <ListItem key={`${action.type}-${action.resourceId || i}`}>
                 <ListItemText
-                  primary={`${action.type}: ${action.description || 'No description'}`}
-                  secondary={action.resourceId ? `Resource: ${action.resourceId}` : undefined}
+                  primary={`${action.type}: ${action.description || t('invoke.noDescription')}`}
+                  secondary={action.resourceId ? t('invoke.resource', { resourceId: action.resourceId }) : undefined}
                 />
               </ListItem>
             ))}
@@ -384,15 +387,15 @@ export default function InvokeServicePanel() {
 
       {cards.length === 0 && !invokeMutation.isPending && selectedService && (
         <Typography variant="body2" color="text.secondary" textAlign="center">
-          No cards returned. Invoke a CDS service to see results.
+          {t('invoke.noCards')}
         </Typography>
       )}
 
       <Dialog open={overrideDialogOpen} onClose={() => setOverrideDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Override Reason</DialogTitle>
+        <DialogTitle>{t('invoke.overrideDialogTitle')}</DialogTitle>
         <DialogContent>
           <TextField
-            label="Reason for override"
+            label={t('invoke.overrideReasonLabel')}
             value={overrideReason}
             onChange={(e) => setOverrideReason(e.target.value)}
             fullWidth
@@ -402,9 +405,9 @@ export default function InvokeServicePanel() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOverrideDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setOverrideDialogOpen(false)}>{tc('actions.cancel')}</Button>
           <Button onClick={handleOverrideSubmit} variant="contained" color="warning">
-            Submit Override
+            {t('invoke.submitOverride')}
           </Button>
         </DialogActions>
       </Dialog>

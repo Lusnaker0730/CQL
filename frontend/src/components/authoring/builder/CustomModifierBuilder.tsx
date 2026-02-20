@@ -7,6 +7,7 @@ import {
 import {
   Add as AddIcon, Delete as DeleteIcon, Close as CloseIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import type { Modifier } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
 import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
@@ -122,6 +123,7 @@ export default function CustomModifierBuilder({
   inputType,
   onAdd,
 }: CustomModifierBuilderProps) {
+  const { t } = useTranslation('authoring')
   const [rootGroup, setRootGroup] = useState<ModifierRuleGroup>(createEmptyGroup())
   const { data: apiResources } = useQueryBuilderResources()
   const { data: apiOperators } = useQueryBuilderOperators()
@@ -219,19 +221,18 @@ export default function CustomModifierBuilder({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Build Custom Modifier
+        {t('customModifier.title')}
         <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
         {availableFields.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 2 }}>
-            Custom modifier builder is not available for the type "{inputType.replace(/_/g, ' ')}".
-            Only FHIR resource list types are supported.
+            {t('customModifier.notAvailable', { type: inputType.replace(/_/g, ' ') })}
           </Typography>
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Build filter rules based on FHIR resource properties. Rules with a pink background are incomplete.
+              {t('customModifier.description')}
             </Typography>
             <RuleGroupEditor
               group={rootGroup}
@@ -245,9 +246,9 @@ export default function CustomModifierBuilder({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose}>{t('common:actions.cancel')}</Button>
         <Button variant="contained" onClick={handleAdd} disabled={!isValid}>
-          Add
+          {t('common:actions.add')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -266,6 +267,7 @@ interface RuleGroupEditorProps {
 }
 
 function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValueOptions, onChange, depth }: RuleGroupEditorProps) {
+  const { t } = useTranslation('authoring')
   const handleToggleConjunction = () => {
     onChange({ ...group, conjunction: group.conjunction === 'AND' ? 'OR' : 'AND' })
   }
@@ -328,10 +330,10 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
           }}
         />
         <Button size="small" startIcon={<AddIcon />} onClick={handleAddRule}>
-          Add rule
+          {t('customModifier.addRule')}
         </Button>
         <Button size="small" startIcon={<AddIcon />} onClick={handleAddGroup}>
-          Add group
+          {t('customModifier.addGroup')}
         </Button>
       </Stack>
 
@@ -385,6 +387,7 @@ interface RuleEditorProps {
 }
 
 function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptions, onChange, onRemove }: RuleEditorProps) {
+  const { t } = useTranslation('authoring')
   const selectedField = availableFields.find((f) => f.field === rule.field)
   const fieldType = selectedField?.type || 'string'
   const operators = getOperatorsForType(fieldType)
@@ -408,10 +411,10 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
     >
       {/* Field selector */}
       <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel>Property</InputLabel>
+        <InputLabel>{t('customModifier.propertyLabel')}</InputLabel>
         <Select
           value={rule.field}
-          label="Property"
+          label={t('customModifier.propertyLabel')}
           onChange={(e) => onChange({ field: e.target.value, operator: '', value: '' })}
         >
           {availableFields.map((f) => (
@@ -423,10 +426,10 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
       {/* Operator selector */}
       {rule.field && (
         <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Operator</InputLabel>
+          <InputLabel>{t('customModifier.operatorLabel')}</InputLabel>
           <Select
             value={rule.operator}
-            label="Operator"
+            label={t('customModifier.operatorLabel')}
             onChange={(e) => onChange({ operator: e.target.value, value: '' })}
           >
             {operators.map((op) => (
@@ -440,10 +443,10 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
       {rule.field && rule.operator && needsValue && (
         codeOptions ? (
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Value</InputLabel>
+            <InputLabel>{t('customModifier.valueLabel')}</InputLabel>
             <Select
               value={rule.value}
-              label="Value"
+              label={t('customModifier.valueLabel')}
               onChange={(e) => onChange({ value: e.target.value })}
             >
               {codeOptions.map((v) => (
@@ -456,7 +459,7 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
             <TextField
               size="small"
               type="number"
-              label="Value"
+              label={t('customModifier.valueLabel')}
               value={rule.value.split(' ')[0] || ''}
               onChange={(e) => onChange({ value: `${e.target.value} ${rule.value.split(' ')[1] || 'days'}` })}
               sx={{ width: 80 }}
@@ -466,17 +469,17 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
                 value={rule.value.split(' ')[1] || 'days'}
                 onChange={(e) => onChange({ value: `${rule.value.split(' ')[0] || ''} ${e.target.value}` })}
               >
-                <MenuItem value="days">days</MenuItem>
-                <MenuItem value="weeks">weeks</MenuItem>
-                <MenuItem value="months">months</MenuItem>
-                <MenuItem value="years">years</MenuItem>
+                <MenuItem value="days">{t('customModifier.days')}</MenuItem>
+                <MenuItem value="weeks">{t('customModifier.weeks')}</MenuItem>
+                <MenuItem value="months">{t('customModifier.months')}</MenuItem>
+                <MenuItem value="years">{t('customModifier.years')}</MenuItem>
               </Select>
             </FormControl>
           </Stack>
         ) : (
           <TextField
             size="small"
-            label="Value"
+            label={t('customModifier.valueLabel')}
             value={rule.value}
             onChange={(e) => onChange({ value: e.target.value })}
             type={fieldType === 'decimal' ? 'number' : 'text'}
@@ -486,7 +489,7 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
       )}
 
       <Box sx={{ flex: 1 }} />
-      <IconButton size="small" color="error" onClick={onRemove} aria-label="Remove rule">
+      <IconButton size="small" color="error" onClick={onRemove} aria-label={t('customModifier.removeRule')}>
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Stack>

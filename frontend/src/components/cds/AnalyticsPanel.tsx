@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   Alert,
   Table,
@@ -13,13 +14,14 @@ import CardListSkeleton from '../common/CardListSkeleton'
 
 export default function AnalyticsPanel() {
   const { data: analytics, isLoading, isError } = useCdsAnalytics()
+  const { t } = useTranslation('cds')
 
   if (isLoading) return <CardListSkeleton />
-  if (isError) return <Alert severity="error">Failed to load analytics</Alert>
+  if (isError) return <Alert severity="error">{t('analytics.loadError')}</Alert>
 
   if (!analytics || analytics.length === 0) {
     return (
-      <Alert severity="info">No analytics data available yet. Invoke CDS services to generate analytics.</Alert>
+      <Alert severity="info">{t('analytics.noData')}</Alert>
     )
   }
 
@@ -28,14 +30,14 @@ export default function AnalyticsPanel() {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell scope="col">Service</TableCell>
-            <TableCell scope="col" align="right">Invocations</TableCell>
-            <TableCell scope="col" align="right">Errors</TableCell>
-            <TableCell scope="col" align="right">Error Rate</TableCell>
-            <TableCell scope="col" align="right">Avg Time (ms)</TableCell>
-            <TableCell scope="col" align="right">Accepted</TableCell>
-            <TableCell scope="col" align="right">Overridden</TableCell>
-            <TableCell scope="col">Last Invoked</TableCell>
+            <TableCell scope="col">{t('analytics.colService')}</TableCell>
+            <TableCell scope="col" align="right">{t('analytics.colInvocations')}</TableCell>
+            <TableCell scope="col" align="right">{t('analytics.colErrors')}</TableCell>
+            <TableCell scope="col" align="right">{t('analytics.colErrorRate')}</TableCell>
+            <TableCell scope="col" align="right">{t('analytics.colAvgTime')}</TableCell>
+            <TableCell scope="col" align="right">{t('analytics.colAccepted')}</TableCell>
+            <TableCell scope="col" align="right">{t('analytics.colOverridden')}</TableCell>
+            <TableCell scope="col">{t('analytics.colLastInvoked')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

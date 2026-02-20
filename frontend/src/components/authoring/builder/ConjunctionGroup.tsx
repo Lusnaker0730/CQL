@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, memo } from 'react'
 import { Box, Typography, Stack, TextField, InputAdornment, Chip } from '@mui/material'
 import { FilterList as FilterIcon, RemoveCircleOutline as ExcludeIcon, Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import ConjunctionTypeSelect from './ConjunctionTypeSelect'
 import ArtifactElement from './ArtifactElement'
 import ElementSelect from '../element-select/ElementSelect'
@@ -50,6 +51,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   onUpdateElement,
   onOutdentElement,
 }: ConjunctionGroupProps) {
+  const { t } = useTranslation('authoring')
   const [localSearch, setLocalSearch] = useState('')
 
   const handleConjunctionChange = useCallback(
@@ -113,7 +115,8 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   )
 
   const isRoot = depth === 0
-  const conjunctionLabel = group.id === 'Or' ? 'Or' : 'And'
+  const conjunctionId = group.id === 'Or' ? 'Or' : 'And'
+  const conjunctionLabel = group.id === 'Or' ? t('conjunctionType.or') : t('conjunctionType.and')
   const borderColor = group.id === 'Or' ? CONJUNCTION_COLOR_OR : CONJUNCTION_COLOR_AND
 
   const activeFilter = isRoot ? localSearch.trim().toLowerCase() : (searchFilter || '')
@@ -139,12 +142,12 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       {/* Header */}
       <Stack direction="row" alignItems="center" spacing={1} mb={1}>
         <ConjunctionTypeSelect
-          value={conjunctionLabel}
+          value={conjunctionId}
           onChange={handleConjunctionChange}
         />
         {group.childInstances.length > 0 && (
           <Typography variant="caption" color="text.secondary">
-            {group.childInstances.length} element{group.childInstances.length !== 1 ? 's' : ''}
+            {t('conjunction.elementCount', { count: group.childInstances.length })}
           </Typography>
         )}
       </Stack>
@@ -153,7 +156,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       {isRoot && group.childInstances.length >= 3 && (
         <TextField
           size="small"
-          placeholder="Filter elements by name, type..."
+          placeholder={t('conjunction.filterPlaceholder')}
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           fullWidth
@@ -180,7 +183,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       {/* Filter result indicator */}
       {isFiltering && hiddenCount > 0 && (
         <Chip
-          label={`${filteredChildren.length} of ${group.childInstances.length} elements shown`}
+          label={t('conjunction.filterResult', { shown: filteredChildren.length, total: group.childInstances.length })}
           size="small"
           variant="outlined"
           sx={{ mb: 1, fontSize: '0.75rem' }}
@@ -209,20 +212,20 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
             ) : null
           )}
           <Typography variant="body2" color="text.secondary" fontWeight={500} mb={0.5}>
-            No elements in {treeName.toLowerCase()}
+            {t('conjunction.noElements', { treeName: treeName.toLowerCase() })}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
             {treeName === 'Inclusions'
-              ? 'Define who this artifact applies to. Add demographics, conditions, observations, or other criteria.'
+              ? t('conjunction.inclusionHint')
               : treeName === 'Exclusions'
-                ? 'Define who should be excluded. Patients matching these criteria will be removed from the population.'
-                : 'Click "Add Element" below to start building logic for this group.'}
+                ? t('conjunction.exclusionHint')
+                : t('conjunction.genericHint')}
           </Typography>
         </Box>
       ) : filteredChildren.length === 0 ? (
         <Box sx={{ py: 2, textAlign: 'center', mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            No elements match "{isRoot ? localSearch : searchFilter}"
+            {t('conjunction.noFilterMatch', { filter: isRoot ? localSearch : searchFilter })}
           </Typography>
         </Box>
       ) : (

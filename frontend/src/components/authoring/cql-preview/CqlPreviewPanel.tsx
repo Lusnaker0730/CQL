@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
 import { WarningAmber as StaleIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
@@ -13,6 +14,7 @@ interface CqlPreviewPanelProps {
 }
 
 export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDirty }: CqlPreviewPanelProps) {
+  const { t } = useTranslation('authoring')
   const [cql, setCql] = useState<string | null>(null)
   const [validation, setValidation] = useState<CqlTranslationResponse | null>(null)
   const [saving, setSaving] = useState(false)
@@ -73,7 +75,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {isDirty && (
         <Alert severity="info" sx={{ mb: 1 }} icon={false}>
           <Typography variant="caption">
-            You have unsaved changes. They will be auto-saved when you generate or validate.
+            {t('cqlPreview.unsavedAutoSave')}
           </Typography>
         </Alert>
       )}
@@ -81,29 +83,29 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {cqlIsStale && !isDirty && (
         <Alert severity="warning" sx={{ mb: 1 }} icon={<StaleIcon fontSize="small" />}>
           <Typography variant="caption">
-            The artifact has been modified since this CQL was generated. Click &quot;Generate CQL&quot; to update.
+            {t('cqlPreview.staleWarning')}
           </Typography>
         </Alert>
       )}
 
       <Stack direction="row" spacing={1} mb={2}>
         <GradientButton onClick={handleGenerate} disabled={isLoading}>
-          {saving ? 'Saving...' : 'Generate CQL'}
+          {saving ? t('cqlPreview.saving') : t('cqlPreview.generateCql')}
         </GradientButton>
         <GradientButton onClick={handleValidate} disabled={isLoading}>
-          {saving ? 'Saving...' : 'Validate'}
+          {saving ? t('cqlPreview.saving') : t('cqlPreview.validate')}
         </GradientButton>
         {isLoading && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
       </Stack>
 
       {generateMutation.isError && (
         <Alert severity="error" onClose={() => generateMutation.reset()} sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">CQL Generation Failed</Typography>
+          <Typography variant="subtitle2">{t('cqlPreview.genFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(generateMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Common causes: empty element fields, missing value sets, or incompatible modifier chains. Check the Inclusions and Exclusions tabs for incomplete elements.
+            {t('cqlPreview.genFailedHint')}
           </Typography>
         </Alert>
       )}
@@ -111,14 +113,14 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {validation && (
         <Box sx={{ mb: 2 }}>
           {validation.success ? (
-            <Alert severity="success">CQL is valid — no errors found. Ready for testing or deployment.</Alert>
+            <Alert severity="success">{t('cqlPreview.validSuccess')}</Alert>
           ) : (
             <Alert severity="error">
               <Typography variant="subtitle2">
-                Validation found {errors.length} error{errors.length !== 1 ? 's' : ''}
+                {t('cqlPreview.validationErrors', { count: errors.length })}
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                Review the errors below. Line numbers indicate where the issue occurs in the generated CQL.
+                {t('cqlPreview.validationReview')}
               </Typography>
             </Alert>
           )}
@@ -154,7 +156,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       ) : (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography variant="body2">
-            Click &quot;Generate CQL&quot; to preview the generated CQL code from your artifact.
+            {t('cqlPreview.emptyState')}
           </Typography>
         </Box>
       )}

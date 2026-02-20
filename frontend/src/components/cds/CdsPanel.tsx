@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Paper, Typography, Tabs, Tab } from '@mui/material'
 import { Analytics as AnalyticsIcon, VpnKey as KeyIcon } from '@mui/icons-material'
@@ -11,19 +12,20 @@ import ApiKeyManager from './ApiKeyManager'
 
 export default function CdsPanel() {
   const [tabValue, setTabValue] = useState(0)
+  const { t } = useTranslation('cds')
 
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>
-        CDS Hooks
+        {t('panel.title')}
       </Typography>
 
       <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
-        <Tab label="Invoke Service" {...a11yProps(0, 'cds')} />
-        <Tab label="Manage Services" {...a11yProps(1, 'cds')} />
-        <Tab label="Analytics" icon={<AnalyticsIcon />} iconPosition="start" {...a11yProps(2, 'cds')} />
-        <Tab label="Sandbox" {...a11yProps(3, 'cds')} />
-        <Tab label="API Keys" icon={<KeyIcon />} iconPosition="start" {...a11yProps(4, 'cds')} />
+        <Tab label={t('panel.tabInvoke')} {...a11yProps(0, 'cds')} />
+        <Tab label={t('panel.tabManage')} {...a11yProps(1, 'cds')} />
+        <Tab label={t('panel.tabAnalytics')} icon={<AnalyticsIcon />} iconPosition="start" {...a11yProps(2, 'cds')} />
+        <Tab label={t('panel.tabSandbox')} {...a11yProps(3, 'cds')} />
+        <Tab label={t('panel.tabApiKeys')} icon={<KeyIcon />} iconPosition="start" {...a11yProps(4, 'cds')} />
       </Tabs>
 
       <TabPanel value={tabValue} index={0} prefix="cds" sx={{ pt: 2 }}>

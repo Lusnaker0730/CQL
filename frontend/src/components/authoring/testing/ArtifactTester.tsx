@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, TextField, Alert, CircularProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -15,6 +16,7 @@ interface ArtifactTesterProps {
 }
 
 export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
+  const { t } = useTranslation('authoring')
   const [patientIdsInput, setPatientIdsInput] = useState('')
   const [fhirServerUrl, setFhirServerUrl] = useState('')
   const [result, setResult] = useState<ArtifactTestResult | null>(null)
@@ -37,39 +39,39 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>Test Artifact</Typography>
+      <Typography variant="h6" sx={{ mb: 2 }}>{t('testing.title')}</Typography>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Execute the generated CQL against patient data from a FHIR server to verify your artifact logic.
+        {t('testing.description')}
       </Typography>
 
       <Stack spacing={2} sx={{ mb: 3 }}>
         <TextField
-          label="FHIR Server URL"
+          label={t('testing.fhirServerLabel')}
           value={fhirServerUrl}
           onChange={(e) => setFhirServerUrl(e.target.value)}
           size="small"
           fullWidth
-          placeholder="e.g., http://localhost:8080/fhir"
-          helperText="Base URL of a FHIR R4 server with patient data (must be accessible from this server)"
+          placeholder={t('testing.fhirServerPlaceholder')}
+          helperText={t('testing.fhirServerHelper')}
         />
         <TextField
-          label="Patient IDs"
+          label={t('testing.patientIdsLabel')}
           value={patientIdsInput}
           onChange={(e) => setPatientIdsInput(e.target.value)}
           size="small"
           fullWidth
           multiline
           minRows={2}
-          placeholder="Enter patient IDs separated by commas or new lines"
-          helperText="e.g., patient-1, patient-2, patient-3"
+          placeholder={t('testing.patientIdsPlaceholder')}
+          helperText={t('testing.patientIdsHelper')}
         />
         <Box>
           <GradientButton
             onClick={handleTest}
             disabled={testMutation.isPending || !patientIdsInput.trim() || !fhirServerUrl.trim()}
           >
-            {testMutation.isPending ? 'Testing...' : 'Run Test'}
+            {testMutation.isPending ? t('testing.testing') : t('testing.runTest')}
           </GradientButton>
           {testMutation.isPending && <CircularProgress size={20} sx={{ ml: 1, verticalAlign: 'middle' }} />}
         </Box>
@@ -77,12 +79,12 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
 
       {testMutation.isError && (
         <Alert severity="error" onClose={() => testMutation.reset()} sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">Test Failed</Typography>
+          <Typography variant="subtitle2">{t('testing.testFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(testMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Verify the FHIR server URL is accessible, the patient IDs exist, and the artifact generates valid CQL.
+            {t('testing.testFailedHint')}
           </Typography>
         </Alert>
       )}
@@ -93,20 +95,19 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
             severity={result.successCount === result.totalPatients ? 'success' : 'warning'}
             sx={{ mb: 2 }}
           >
-            Tested {result.totalPatients} patient(s): {result.successCount} succeeded,{' '}
-            {result.totalPatients - result.successCount} failed.
+            {t('testing.resultSummary', { total: result.totalPatients, success: result.successCount, failed: result.totalPatients - result.successCount })}
           </Alert>
 
           <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Patient ID</TableCell>
-                  <TableCell>Inclusion</TableCell>
-                  <TableCell>Exclusion</TableCell>
-                  <TableCell>In Population</TableCell>
-                  <TableCell>Recommendation</TableCell>
-                  <TableCell>Status</TableCell>
+                  <TableCell>{t('testing.colPatientId')}</TableCell>
+                  <TableCell>{t('testing.colInclusion')}</TableCell>
+                  <TableCell>{t('testing.colExclusion')}</TableCell>
+                  <TableCell>{t('testing.colInPopulation')}</TableCell>
+                  <TableCell>{t('testing.colRecommendation')}</TableCell>
+                  <TableCell>{t('testing.colStatus')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -129,7 +130,7 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={pr.success ? 'OK' : 'Error'}
+                        label={pr.success ? t('testing.ok') : t('testing.error')}
                         color={pr.success ? 'success' : 'error'}
                         size="small"
                       />
@@ -144,7 +145,7 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
           {result.patientResults.some((pr) => pr.expressions) && (
             <Accordion variant="outlined">
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2">Detailed Expression Results</Typography>
+                <Typography variant="subtitle2">{t('testing.detailedResults')}</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 {result.patientResults
@@ -152,7 +153,7 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
                   .map((pr) => (
                     <Box key={pr.patientId} sx={{ mb: 2 }}>
                       <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                        Patient: {pr.patientId}
+                        {t('testing.patient', { id: pr.patientId })}
                       </Typography>
                       <Table size="small">
                         <TableBody>
@@ -179,7 +180,7 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
           {result.cql && (
             <Accordion variant="outlined" sx={{ mt: 1 }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2">Generated CQL</Typography>
+                <Typography variant="subtitle2">{t('testing.generatedCql')}</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Box

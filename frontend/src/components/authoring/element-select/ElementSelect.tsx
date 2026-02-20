@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Popover } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementSelectDropdown from './ElementSelectDropdown'
@@ -13,6 +14,7 @@ interface ElementSelectProps {
 }
 
 export default function ElementSelect({ templates, dynamicEntries, onSelect }: ElementSelectProps) {
+  const { t } = useTranslation('authoring')
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
 
   const handleSelect = (template: FormTemplate) => {
@@ -66,7 +68,7 @@ export default function ElementSelect({ templates, dynamicEntries, onSelect }: E
         startIcon={<AddIcon />}
         onClick={(e) => setAnchorEl(e.currentTarget)}
       >
-        Add Element
+        {t('elementSelect.addElement')}
       </Button>
       <Popover
         open={Boolean(anchorEl)}

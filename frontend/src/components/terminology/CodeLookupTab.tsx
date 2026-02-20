@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import {
   Box,
@@ -38,6 +39,7 @@ const INTERNATIONAL_CODE_SYSTEMS = [
 ]
 
 export default function CodeLookupTab() {
+  const { t } = useTranslation('terminology')
   const [system, setSystem] = useState('')
   const [code, setCode] = useState('')
   const [searchText, setSearchText] = useState('')
@@ -90,7 +92,7 @@ export default function CodeLookupTab() {
     <Stack spacing={2}>
       <Box>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          TW Core IG Code Systems
+          {t('codeLookup.twCoreSystems')}
         </Typography>
         {twcoreCodeSystems.length > 0 ? (
           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
@@ -108,7 +110,7 @@ export default function CodeLookupTab() {
           </Stack>
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>
-            Loading TW Core IG code systems...
+            {t('codeLookup.loadingTwCore')}
           </Typography>
         )}
         <Button
@@ -117,7 +119,7 @@ export default function CodeLookupTab() {
           onClick={() => setShowIntlSystems(!showIntlSystems)}
           sx={{ mb: 0.5, textTransform: 'none', fontSize: '0.75rem' }}
         >
-          {showIntlSystems ? 'Hide International Systems' : 'Show International Systems'}
+          {showIntlSystems ? t('codeLookup.hideIntlSystems') : t('codeLookup.showIntlSystems')}
         </Button>
         <Collapse in={showIntlSystems}>
           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
@@ -137,12 +139,12 @@ export default function CodeLookupTab() {
       </Box>
 
       <TextField
-        label="Code System URL"
+        label={t('codeLookup.systemLabel')}
         value={system}
         onChange={(e) => setSystem(e.target.value)}
         size="small"
         fullWidth
-        placeholder="http://loinc.org"
+        placeholder={t('codeLookup.systemPlaceholder')}
       />
 
       {/* Text Search Section */}
@@ -153,19 +155,19 @@ export default function CodeLookupTab() {
           onClick={() => setShowTextSearch(!showTextSearch)}
           sx={{ mb: 0.5 }}
         >
-          {showTextSearch ? 'Hide Text Search' : 'Search by Text'}
+          {showTextSearch ? t('codeLookup.hideTextSearch') : t('codeLookup.searchByText')}
         </Button>
         <Collapse in={showTextSearch}>
           <Stack spacing={1.5} sx={{ p: 1.5, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
             <TextField
-              label="Search text"
+              label={t('codeLookup.searchTextLabel')}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               size="small"
               fullWidth
-              placeholder='e.g., "blood pressure"'
+              placeholder={t('codeLookup.searchTextPlaceholder')}
               disabled={!system}
-              helperText={!system ? 'Select a code system first' : undefined}
+              helperText={!system ? t('codeLookup.selectSystemFirst') : undefined}
               InputProps={{
                 endAdornment: isSearching ? <CircularProgress size={18} /> : null,
               }}
@@ -175,8 +177,8 @@ export default function CodeLookupTab() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell scope="col" sx={{ fontWeight: 600, py: 0.75 }}>Code</TableCell>
-                      <TableCell scope="col" sx={{ fontWeight: 600, py: 0.75 }}>Display</TableCell>
+                      <TableCell scope="col" sx={{ fontWeight: 600, py: 0.75 }}>{t('codeLookup.colCode')}</TableCell>
+                      <TableCell scope="col" sx={{ fontWeight: 600, py: 0.75 }}>{t('codeLookup.colDisplay')}</TableCell>
                       <TableCell scope="col" sx={{ width: 40, py: 0.75 }} />
                     </TableRow>
                   </TableHead>
@@ -204,7 +206,7 @@ export default function CodeLookupTab() {
                                 `code "${r.display}": '${r.code}' from "${label}"`
                               )
                             }}
-                            aria-label="Copy code"
+                            aria-label={t('codeLookup.copyCode')}
                           >
                             <CopyIcon fontSize="small" />
                           </IconButton>
@@ -217,7 +219,7 @@ export default function CodeLookupTab() {
             )}
             {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && (
               <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                No results found for &quot;{debouncedSearch}&quot;
+                {t('codeLookup.noSearchResults', { query: debouncedSearch })}
               </Typography>
             )}
           </Stack>
@@ -227,12 +229,12 @@ export default function CodeLookupTab() {
       <Divider />
 
       <TextField
-        label="Code"
+        label={t('codeLookup.codeLabel')}
         value={code}
         onChange={(e) => setCode(e.target.value)}
         size="small"
         fullWidth
-        placeholder="e.g., 4548-4"
+        placeholder={t('codeLookup.codePlaceholder')}
         onKeyDown={(e) => { if (e.key === 'Enter') handleLookup() }}
       />
 
@@ -244,12 +246,12 @@ export default function CodeLookupTab() {
           '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' },
         }}
       >
-        {lookupMutation.isPending ? 'Looking up...' : 'Lookup Code'}
+        {lookupMutation.isPending ? t('codeLookup.lookingUp') : t('codeLookup.lookupCode')}
       </GradientButton>
 
       {lookupMutation.isError && (
         <Alert severity="error">
-          Lookup failed: {(lookupMutation.error as Error).message}
+          {t('codeLookup.lookupFailed', { error: (lookupMutation.error as Error).message })}
         </Alert>
       )}
 
@@ -265,37 +267,37 @@ export default function CodeLookupTab() {
         >
           <Stack spacing={1.5}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle2" color="primary.dark">Code Details</Typography>
+              <Typography variant="subtitle2" color="primary.dark">{t('codeLookup.codeDetails')}</Typography>
               <Button size="small" startIcon={<CopyIcon />} onClick={handleCopyCql}>
-                Copy to CQL
+                {t('codeLookup.copyCql')}
               </Button>
             </Stack>
 
             <Box>
-              <Typography variant="caption" color="text.secondary">System</Typography>
+              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailSystem')}</Typography>
               <Typography variant="body2">{lookupMutation.data.system}</Typography>
             </Box>
 
             <Box>
-              <Typography variant="caption" color="text.secondary">Code</Typography>
+              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailCode')}</Typography>
               <Typography variant="body2" fontWeight={600}>{lookupMutation.data.code}</Typography>
             </Box>
 
             <Box>
-              <Typography variant="caption" color="text.secondary">Display</Typography>
+              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailDisplay')}</Typography>
               <Typography variant="body2">{lookupMutation.data.display}</Typography>
             </Box>
 
             {lookupMutation.data.name && (
               <Box>
-                <Typography variant="caption" color="text.secondary">Name</Typography>
+                <Typography variant="caption" color="text.secondary">{t('codeLookup.detailName')}</Typography>
                 <Typography variant="body2">{lookupMutation.data.name}</Typography>
               </Box>
             )}
 
             {lookupMutation.data.designations?.length > 0 && (
               <Box>
-                <Typography variant="caption" color="text.secondary">Designations</Typography>
+                <Typography variant="caption" color="text.secondary">{t('codeLookup.detailDesignations')}</Typography>
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
                   {lookupMutation.data.designations.map((d, i) => (
                     <Chip key={i} label={d} size="small" variant="outlined" />

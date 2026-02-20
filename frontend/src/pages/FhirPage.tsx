@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, Typography, Tabs, Tab } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import {
   Storage as FhirIcon,
@@ -9,13 +10,14 @@ import FhirBrowser from '../components/fhir/FhirBrowser'
 import ImplementationGuideBrowser from '../components/fhir/ImplementationGuideBrowser'
 
 export default function FhirPage() {
+  const { t } = useTranslation('fhir')
   const [tabIndex, setTabIndex] = useState(0)
 
   return (
     <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
-          FHIR Resources
+          {t('page.title')}
         </Typography>
         <Box
           sx={{
@@ -27,7 +29,7 @@ export default function FhirPage() {
           }}
         />
         <Typography variant="body2" color="text.secondary">
-          Browse FHIR resources and Implementation Guide artifacts.
+          {t('page.subtitle')}
         </Typography>
       </Box>
 
@@ -36,8 +38,8 @@ export default function FhirPage() {
         onChange={(_, v) => setTabIndex(v)}
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
       >
-        <Tab icon={<FhirIcon />} iconPosition="start" label="FHIR Browser" />
-        <Tab icon={<IgIcon />} iconPosition="start" label="TW Core IG" />
+        <Tab icon={<FhirIcon />} iconPosition="start" label={t('page.tabFhirBrowser')} />
+        <Tab icon={<IgIcon />} iconPosition="start" label={t('page.tabTwCoreIg')} />
       </Tabs>
 
       <Box sx={{ flex: 1, overflow: 'auto' }}>

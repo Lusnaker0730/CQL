@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import ArtifactList from '../components/authoring/ArtifactList'
@@ -9,6 +10,8 @@ import { useArtifacts, useArtifact, useCreateArtifact, useDeleteArtifact, useDup
 import type { ArtifactSummary, Artifact, ArtifactRequest } from '../types/authoring'
 
 export default function AuthoringPage() {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -62,7 +65,7 @@ export default function AuthoringPage() {
         <>
           <Box sx={{ mb: 2 }}>
             <Typography variant="h5" sx={{ mb: 0.5 }}>
-              CDS Authoring Tool
+              {t('page.title')}
             </Typography>
             <Box
               sx={{
@@ -74,7 +77,7 @@ export default function AuthoringPage() {
               }}
             />
             <Typography variant="body2" color="text.secondary">
-              Build clinical decision support rules visually and generate CQL automatically.
+              {t('page.subtitle')}
             </Typography>
           </Box>
 
@@ -144,14 +147,14 @@ export default function AuthoringPage() {
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>Delete Artifact</DialogTitle>
+        <DialogTitle>{t('page.deleteTitle')}</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete this artifact? This action cannot be undone.
+          {t('page.deleteConfirm')}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteTarget(null)}>{tc('actions.cancel')}</Button>
           <Button onClick={handleDelete} color="error" variant="contained">
-            Delete
+            {tc('actions.delete')}
           </Button>
         </DialogActions>
       </Dialog>

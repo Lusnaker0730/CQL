@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, Card, CardContent, Chip, Divider, List, ListItem, ListItemText,
 } from '@mui/material'
@@ -8,6 +9,7 @@ interface ArtifactSummaryViewProps {
 }
 
 export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewProps) {
+  const { t } = useTranslation('authoring')
   const includeCount = artifact.expTreeInclude?.childInstances?.length || 0
   const excludeCount = artifact.expTreeExclude?.childInstances?.length || 0
   const subpopCount = (artifact.subpopulations || []).filter((sp) => !sp.special).length
@@ -18,20 +20,20 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>Artifact Summary</Typography>
+      <Typography variant="h6" sx={{ mb: 2 }}>{t('summary.title')}</Typography>
 
       {/* Metadata */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Metadata</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>{t('summary.metadata')}</Typography>
           <Stack spacing={0.5}>
-            <MetadataRow label="Name" value={artifact.name} />
-            <MetadataRow label="Version" value={artifact.version} />
-            <MetadataRow label="Status" value={artifact.status} chip />
-            <MetadataRow label="FHIR Version" value={artifact.fhirVersion} />
-            {artifact.description && <MetadataRow label="Description" value={artifact.description} />}
-            {artifact.publisher && <MetadataRow label="Publisher" value={artifact.publisher} />}
-            {artifact.purpose && <MetadataRow label="Purpose" value={artifact.purpose} />}
+            <MetadataRow label={t('summary.name')} value={artifact.name} />
+            <MetadataRow label={t('summary.version')} value={artifact.version} />
+            <MetadataRow label={t('summary.status')} value={artifact.status} chip />
+            <MetadataRow label={t('summary.fhirVersion')} value={artifact.fhirVersion} />
+            {artifact.description && <MetadataRow label={t('summary.description')} value={artifact.description} />}
+            {artifact.publisher && <MetadataRow label={t('summary.publisher')} value={artifact.publisher} />}
+            {artifact.purpose && <MetadataRow label={t('summary.purpose')} value={artifact.purpose} />}
           </Stack>
         </CardContent>
       </Card>
@@ -39,24 +41,24 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
       {/* Logic Overview */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Logic Overview</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>{t('summary.logicOverview')}</Typography>
           <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 1 }}>
-            <StatBadge label="Inclusion Elements" count={includeCount} />
-            <StatBadge label="Exclusion Elements" count={excludeCount} />
-            <StatBadge label="Subpopulations" count={subpopCount} />
-            <StatBadge label="Base Elements" count={baseElCount} />
-            <StatBadge label="Parameters" count={paramCount} />
+            <StatBadge label={t('summary.inclusionElements')} count={includeCount} />
+            <StatBadge label={t('summary.exclusionElements')} count={excludeCount} />
+            <StatBadge label={t('summary.subpopulations')} count={subpopCount} />
+            <StatBadge label={t('summary.baseElements')} count={baseElCount} />
+            <StatBadge label={t('summary.parametersLabel')} count={paramCount} />
           </Stack>
 
           {includeCount > 0 && (
             <Box sx={{ mt: 1.5 }}>
-              <Typography variant="caption" color="text.secondary">Inclusion Criteria ({includeCount} element{includeCount !== 1 ? 's' : ''})</Typography>
+              <Typography variant="caption" color="text.secondary">{t('summary.inclusionCriteria', { count: includeCount })}</Typography>
               <List dense>
                 {artifact.expTreeInclude.childInstances.map((el) => (
                   <ListItem key={el.uniqueId} sx={{ py: 0 }}>
                     <ListItemText
                       primary={el.name}
-                      secondary={`Type: ${el.type} | Return: ${el.returnType}`}
+                      secondary={t('summary.typeReturn', { type: el.type, returnType: el.returnType })}
                       primaryTypographyProps={{ variant: 'body2' }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -68,13 +70,13 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
 
           {excludeCount > 0 && (
             <Box sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary">Exclusion Criteria ({excludeCount} element{excludeCount !== 1 ? 's' : ''})</Typography>
+              <Typography variant="caption" color="text.secondary">{t('summary.exclusionCriteria', { count: excludeCount })}</Typography>
               <List dense>
                 {artifact.expTreeExclude.childInstances.map((el) => (
                   <ListItem key={el.uniqueId} sx={{ py: 0 }}>
                     <ListItemText
                       primary={el.name}
-                      secondary={`Type: ${el.type} | Return: ${el.returnType}`}
+                      secondary={t('summary.typeReturn', { type: el.type, returnType: el.returnType })}
                       primaryTypographyProps={{ variant: 'body2' }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -91,7 +93,7 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Recommendations ({recCount})
+              {t('summary.recommendations', { count: recCount })}
             </Typography>
             <List dense>
               {artifact.recommendations.map((rec, i) => (
@@ -99,14 +101,14 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip label={`#${i + 1}`} size="small" />
                     {rec.grade && <Chip label={`Grade ${rec.grade}`} size="small" variant="outlined" />}
-                    {rec.cdsCardMode && <Chip label="CDS Card" size="small" color="info" />}
+                    {rec.cdsCardMode && <Chip label={t('summary.cdsCard')} size="small" color="info" />}
                   </Stack>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {rec.text || '(No text)'}
+                    {rec.text || t('summary.noText')}
                   </Typography>
                   {rec.subpopulations && rec.subpopulations.length > 0 && (
                     <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary">Applies to:</Typography>
+                      <Typography variant="caption" color="text.secondary">{t('summary.appliesTo')}</Typography>
                       {rec.subpopulations.map((sp) => (
                         <Chip key={sp.uniqueId} label={sp.subpopulationName} size="small" variant="outlined" />
                       ))}
@@ -124,7 +126,7 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
       {hasErrorStatement && (
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Error Handling</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>{t('summary.errorHandling')}</Typography>
             {artifact.errorStatement?.ifThenClauses?.map((clause, i) => (
               <Typography key={i} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                 {i === 0 ? 'if' : 'else if'} {clause.ifCondition.label}: &quot;{clause.thenClause}&quot;

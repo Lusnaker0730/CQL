@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { COPY_FEEDBACK_TIMEOUT_MS } from '../constants/timing'
 import {
   Box,
@@ -41,6 +42,8 @@ import type { AdminResetPasswordResponse, AdminCreateUserRequest } from '../type
 import { getStoredUsername } from '../utils/validation'
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const currentUsername = getStoredUsername()
 
@@ -89,14 +92,14 @@ export default function AdminUsersPage() {
       await adminApi.createUser(createForm)
       setCreateDialogOpen(false)
       setCreateForm({ username: '', password: '', email: '', role: 'USER' })
-      setSuccess('User created successfully')
+      setSuccess(t('users.success.userCreated'))
       refreshUsers()
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string }; status?: number } }
       if (axiosErr.response?.status === 400) {
-        setError('Username already exists or invalid input')
+        setError(t('users.errors.usernameExists'))
       } else {
-        setError(axiosErr.response?.data?.error || 'Failed to create user')
+        setError(axiosErr.response?.data?.error || t('users.errors.createFailed'))
       }
     } finally {
       setCreateLoading(false)
@@ -113,7 +116,7 @@ export default function AdminUsersPage() {
       setResetDialogOpen(true)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } }
-      setError(axiosErr.response?.data?.error || 'Failed to reset password')
+      setError(axiosErr.response?.data?.error || t('users.errors.resetFailed'))
     } finally {
       setResetLoading(null)
     }
@@ -123,19 +126,19 @@ export default function AdminUsersPage() {
   const handleRoleChange = (userId: number, username: string, newRole: string) => {
     setConfirmDialog({
       open: true,
-      title: 'Change User Role',
-      message: `Change ${username}'s role to ${newRole}?`,
+      title: t('users.confirmDialog.changeRoleTitle'),
+      message: t('users.confirmDialog.changeRoleMessage', { username, role: newRole }),
       onConfirm: async () => {
         setConfirmDialog((prev) => ({ ...prev, open: false }))
         setError('')
         setActionLoading(userId)
         try {
           await adminApi.updateUserRole(userId, newRole)
-          setSuccess(`${username}'s role updated to ${newRole}`)
+          setSuccess(t('users.success.roleUpdated', { username, role: newRole }))
           refreshUsers()
         } catch (err: unknown) {
           const axiosErr = err as { response?: { data?: { error?: string } } }
-          setError(axiosErr.response?.data?.error || 'Failed to update role')
+          setError(axiosErr.response?.data?.error || t('users.errors.updateRoleFailed'))
         } finally {
           setActionLoading(null)
         }
@@ -148,19 +151,19 @@ export default function AdminUsersPage() {
     const action = currentlyEnabled ? 'disable' : 'enable'
     setConfirmDialog({
       open: true,
-      title: `${currentlyEnabled ? 'Disable' : 'Enable'} User`,
-      message: `Are you sure you want to ${action} ${username}?`,
+      title: currentlyEnabled ? t('users.confirmDialog.disableUserTitle') : t('users.confirmDialog.enableUserTitle'),
+      message: t('users.confirmDialog.toggleEnabledMessage', { action, username }),
       onConfirm: async () => {
         setConfirmDialog((prev) => ({ ...prev, open: false }))
         setError('')
         setActionLoading(userId)
         try {
           await adminApi.updateUserEnabled(userId, !currentlyEnabled)
-          setSuccess(`${username} has been ${action}d`)
+          setSuccess(t('users.success.userToggled', { username, action }))
           refreshUsers()
         } catch (err: unknown) {
           const axiosErr = err as { response?: { data?: { error?: string } } }
-          setError(axiosErr.response?.data?.error || `Failed to ${action} user`)
+          setError(axiosErr.response?.data?.error || t('users.errors.toggleFailed', { action }))
         } finally {
           setActionLoading(null)
         }
@@ -188,7 +191,7 @@ export default function AdminUsersPage() {
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={700}>
-          User Management
+          {t('users.title')}
         </Typography>
         <Button
           variant="contained"
@@ -196,7 +199,7 @@ export default function AdminUsersPage() {
           onClick={() => setCreateDialogOpen(true)}
           sx={{ borderRadius: 2 }}
         >
-          Create User
+          {t('users.createUser')}
         </Button>
       </Box>
 
@@ -217,12 +220,12 @@ export default function AdminUsersPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Username</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Created</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('users.columns.username')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('users.columns.email')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('users.columns.role')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('users.columns.status')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('users.columns.created')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }} align="right">{t('users.columns.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -235,7 +238,7 @@ export default function AdminUsersPage() {
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">No users found</Typography>
+                    <Typography color="text.secondary">{t('users.noUsersFound')}</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -245,7 +248,7 @@ export default function AdminUsersPage() {
                       <Typography fontWeight={500}>
                         {user.username}
                         {isCurrentUser(user.username) && (
-                          <Chip label="You" size="small" sx={{ ml: 1 }} variant="outlined" />
+                          <Chip label={t('users.youChip')} size="small" sx={{ ml: 1 }} variant="outlined" />
                         )}
                       </Typography>
                     </TableCell>
@@ -263,21 +266,21 @@ export default function AdminUsersPage() {
                           size="small"
                           sx={{ fontSize: '0.875rem' }}
                         >
-                          <MenuItem value="ADMIN">ADMIN</MenuItem>
-                          <MenuItem value="USER">USER</MenuItem>
+                          <MenuItem value="ADMIN">{t('users.roles.admin')}</MenuItem>
+                          <MenuItem value="USER">{t('users.roles.user')}</MenuItem>
                         </Select>
                       </FormControl>
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {user.forcePasswordChange ? (
-                          <Chip label="Force Change" size="small" color="warning" variant="outlined" />
+                          <Chip label={t('users.status.forceChange')} size="small" color="warning" variant="outlined" />
                         ) : user.enabled ? (
-                          <Chip label="Active" size="small" color="success" variant="outlined" />
+                          <Chip label={t('users.status.active')} size="small" color="success" variant="outlined" />
                         ) : (
-                          <Chip label="Disabled" size="small" color="error" variant="outlined" />
+                          <Chip label={t('users.status.disabled')} size="small" color="error" variant="outlined" />
                         )}
-                        <Tooltip title={isCurrentUser(user.username) ? "Cannot disable yourself" : (user.enabled ? "Disable user" : "Enable user")}>
+                        <Tooltip title={isCurrentUser(user.username) ? t('users.tooltips.cannotDisableSelf') : (user.enabled ? t('users.tooltips.disableUser') : t('users.tooltips.enableUser'))}>
                           <span>
                             <Switch
                               size="small"
@@ -295,7 +298,7 @@ export default function AdminUsersPage() {
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Reset user's password">
+                      <Tooltip title={t('users.tooltips.resetPassword')}>
                         <span>
                           <Button
                             size="small"
@@ -310,7 +313,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleResetPassword(user.id)}
                             disabled={resetLoading !== null || actionLoading === user.id}
                           >
-                            Reset Password
+                            {t('users.resetPasswordButton')}
                           </Button>
                         </span>
                       </Tooltip>
@@ -325,11 +328,11 @@ export default function AdminUsersPage() {
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Create User</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t('users.createDialog.title')}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField
-              label="Username"
+              label={t('users.createDialog.usernameLabel')}
               value={createForm.username}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, username: e.target.value }))}
               fullWidth
@@ -338,17 +341,17 @@ export default function AdminUsersPage() {
               inputProps={{ maxLength: 50 }}
             />
             <TextField
-              label="Password"
+              label={t('users.createDialog.passwordLabel')}
               type="password"
               value={createForm.password}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
               fullWidth
               required
-              helperText="Minimum 8 characters, must include uppercase, lowercase, and a number"
+              helperText={t('users.createDialog.passwordHelperText')}
               inputProps={{ maxLength: 100 }}
             />
             <TextField
-              label="Email"
+              label={t('users.createDialog.emailLabel')}
               type="email"
               value={createForm.email}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
@@ -356,21 +359,21 @@ export default function AdminUsersPage() {
               inputProps={{ maxLength: 200 }}
             />
             <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t('users.createDialog.roleLabel')}</InputLabel>
               <Select
                 value={createForm.role}
-                label="Role"
+                label={t('users.createDialog.roleLabel')}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value as 'ADMIN' | 'USER' }))}
               >
-                <MenuItem value="USER">USER</MenuItem>
-                <MenuItem value="ADMIN">ADMIN</MenuItem>
+                <MenuItem value="USER">{t('users.roles.user')}</MenuItem>
+                <MenuItem value="ADMIN">{t('users.roles.admin')}</MenuItem>
               </Select>
             </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCreateDialogOpen(false)} disabled={createLoading}>
-            Cancel
+            {tc('actions.cancel')}
           </Button>
           <Button
             onClick={handleCreateUser}
@@ -379,25 +382,23 @@ export default function AdminUsersPage() {
             startIcon={createLoading ? <CircularProgress size={16} /> : undefined}
             sx={{ borderRadius: 2 }}
           >
-            Create
+            {t('users.createDialog.createButton')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Temporary Password Dialog */}
       <Dialog open={resetDialogOpen} onClose={handleCloseResetDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Password Reset Successful</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t('users.resetDialog.title')}</DialogTitle>
         <DialogContent>
           {resetResult && (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }}>
                 {resetResult.message}
               </Alert>
+              <Typography variant="body2" sx={{ mb: 1 }} dangerouslySetInnerHTML={{ __html: t('users.resetDialog.userLabel', { username: resetResult.username }) }} />
               <Typography variant="body2" sx={{ mb: 1 }}>
-                User: <strong>{resetResult.username}</strong>
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Temporary Password:
+                {t('users.resetDialog.temporaryPasswordLabel')}
               </Typography>
               <TextField
                 fullWidth
@@ -407,8 +408,8 @@ export default function AdminUsersPage() {
                   sx: { fontFamily: 'monospace', fontSize: '1.1rem' },
                   endAdornment: (
                     <InputAdornment position="end">
-                      <Tooltip title={copied ? 'Copied!' : 'Copy to clipboard'}>
-                        <IconButton onClick={handleCopy} size="small" aria-label="Copy to clipboard">
+                      <Tooltip title={copied ? t('users.resetDialog.copiedTooltip') : t('users.resetDialog.copyTooltip')}>
+                        <IconButton onClick={handleCopy} size="small" aria-label={t('users.resetDialog.copyAriaLabel')}>
                           {copied ? (
                             <CheckIcon color="success" />
                           ) : (
@@ -422,14 +423,14 @@ export default function AdminUsersPage() {
                 sx={{ mb: 2 }}
               />
               <Alert severity="warning">
-                Share this password securely with the user. They will be required to change it upon next login.
+                {t('users.resetDialog.shareWarning')}
               </Alert>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={handleCloseResetDialog} variant="contained" sx={{ borderRadius: 2 }}>
-            Done
+            {tc('actions.done')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -441,9 +442,9 @@ export default function AdminUsersPage() {
           <DialogContentText>{confirmDialog.message}</DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}>Cancel</Button>
+          <Button onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}>{tc('actions.cancel')}</Button>
           <Button onClick={confirmDialog.onConfirm} variant="contained" sx={{ borderRadius: 2 }}>
-            Confirm
+            {tc('actions.confirm')}
           </Button>
         </DialogActions>
       </Dialog>

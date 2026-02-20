@@ -20,6 +20,7 @@ import {
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
@@ -59,6 +60,7 @@ interface SearchTabProps {
 }
 
 export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) {
+  const { t } = useTranslation('fhir')
   const [searchParams, setSearchParams] = useState('')
   const [searchMode, setSearchMode] = useState<'structured' | 'raw'>('structured')
   const [searchResult, setSearchResult] = useState<FhirBundle | null>(null)
@@ -140,7 +142,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           startIcon={searchMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
           sx={{ '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
         >
-          {searchMutation.isPending ? 'Searching...' : 'Search'}
+          {searchMutation.isPending ? t('search.searching') : t('search.searchButton')}
         </GradientButton>
         <Button
           variant="outlined"
@@ -149,13 +151,13 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           onClick={() => setCreateOpen(true)}
           sx={{ textTransform: 'none' }}
         >
-          Create Resource
+          {t('search.createResource')}
         </Button>
       </Stack>
 
       {searchMutation.isError && (
         <Alert severity="error">
-          Search failed: {(searchMutation.error as Error).message}
+          {t('search.searchFailed', { error: (searchMutation.error as Error).message })}
         </Alert>
       )}
 
@@ -163,9 +165,9 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" mb={1} justifyContent="space-between">
             <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="subtitle2">Results</Typography>
+              <Typography variant="subtitle2">{t('search.results')}</Typography>
               <Chip
-                label={`${getResourceCount(searchResult)} resources`}
+                label={t('search.resourceCount', { count: getResourceCount(searchResult) })}
                 size="small"
                 sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }}
               />
@@ -178,7 +180,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                   onClick={() => handlePageNav(paginationLinks.prev!)}
                   disabled={searchMutation.isPending}
                 >
-                  Prev
+                  {t('search.prev')}
                 </Button>
               )}
               {paginationLinks.next && (
@@ -188,7 +190,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                   onClick={() => handlePageNav(paginationLinks.next!)}
                   disabled={searchMutation.isPending}
                 >
-                  Next
+                  {t('search.next')}
                 </Button>
               )}
             </Stack>
@@ -205,8 +207,8 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('search.colType')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('search.colId')}</TableCell>
                     {fields.map(f => (
                       <TableCell key={f.key} sx={{ fontWeight: 600 }}>{f.label}</TableCell>
                     ))}
@@ -238,7 +240,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
               </Table>
             </TableContainer>
           ) : (
-            <Alert severity="info">No resources found.</Alert>
+            <Alert severity="info">{t('search.noResources')}</Alert>
           )}
         </Box>
       )}

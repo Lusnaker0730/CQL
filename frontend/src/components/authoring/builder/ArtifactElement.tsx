@@ -9,6 +9,7 @@ import {
   Build as ModIcon, Warning as WarningIcon,
   FormatIndentIncrease as IndentIcon, FormatIndentDecrease as OutdentIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
 import type { ElementInstance, ModifierDefinition } from '../../../types/authoring'
@@ -36,6 +37,7 @@ const ArtifactElement = memo(function ArtifactElement({
   onIndent,
   onOutdent,
 }: ArtifactElementProps) {
+  const { t } = useTranslation('authoring')
   const [expanded, setExpanded] = useState(true)
 
   const elementName = element.fields?.find((f) => f.id === 'element_name')?.value as string
@@ -69,7 +71,7 @@ const ArtifactElement = memo(function ArtifactElement({
         sx={{ px: 2, py: 1, cursor: 'pointer' }}
         onClick={() => setExpanded(!expanded)}
       >
-        <IconButton size="small" aria-label={expanded ? 'Collapse element' : 'Expand element'}>
+        <IconButton size="small" aria-label={expanded ? t('element.collapse') : t('element.expand')}>
           {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
         </IconButton>
 
@@ -102,10 +104,10 @@ const ArtifactElement = memo(function ArtifactElement({
         )}
 
         {chainError && (
-          <Tooltip title={chainError}>
+          <Tooltip title={t('element.modifierChainError', chainError)}>
             <Chip
               icon={<WarningIcon sx={{ fontSize: '0.85rem !important' }} />}
-              label="Chain Error"
+              label={t('element.chainError')}
               size="small"
               color="warning"
               sx={{ fontSize: '0.7rem' }}
@@ -114,33 +116,33 @@ const ArtifactElement = memo(function ArtifactElement({
         )}
 
         {onIndent && (
-          <Tooltip title="Indent into new group">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="Indent into new group">
+          <Tooltip title={t('element.indent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label={t('element.indent')}>
               <IndentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
 
         {onOutdent && (
-          <Tooltip title="Outdent to parent group">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="Outdent to parent group">
+          <Tooltip title={t('element.outdent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label={t('element.outdent')}>
               <OutdentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
 
-        <Tooltip title="Copy element info">
-          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label="Copy element info">
+        <Tooltip title={t('element.copyInfo')}>
+          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label={t('element.copyInfo')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="Remove element">
+        <Tooltip title={t('element.remove')}>
           <IconButton
             size="small"
             color="error"
             onClick={(e) => { e.stopPropagation(); onRemove() }}
-            aria-label="Remove element"
+            aria-label={t('element.remove')}
           >
             <DeleteIcon fontSize="small" />
           </IconButton>
@@ -175,13 +177,13 @@ function getEffectiveReturnType(element: ElementInstance): string {
   return element.returnType
 }
 
-function getModifierChainError(element: ElementInstance): string | null {
+function getModifierChainError(element: ElementInstance): { name: string; expected: string; actual: string } | null {
   if (!element.modifiers || element.modifiers.length === 0) return null
   let currentType = element.returnType
   for (let i = 0; i < element.modifiers.length; i++) {
     const mod = element.modifiers[i]
     if (!mod.inputTypes.includes(currentType)) {
-      return `Modifier "${mod.name}" expects ${mod.inputTypes.join('/')} but receives ${currentType.replace(/_/g, ' ')}`
+      return { name: mod.name, expected: mod.inputTypes.join('/'), actual: currentType.replace(/_/g, ' ') }
     }
     currentType = mod.returnType
   }

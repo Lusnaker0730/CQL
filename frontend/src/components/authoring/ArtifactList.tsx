@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Card,
@@ -53,6 +54,8 @@ export default function ArtifactList({
   onDelete,
   onDuplicate,
 }: ArtifactListProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('updatedAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -92,16 +95,16 @@ export default function ArtifactList({
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">CDS Artifacts</Typography>
+          <Typography variant="h6">{t('list.title')}</Typography>
           <Stack direction="row" spacing={1}>
-            <GradientButton onClick={onImport} variant="outlined">Import CQL</GradientButton>
-            <GradientButton onClick={onCreate}>New Artifact</GradientButton>
+            <GradientButton onClick={onImport} variant="outlined">{t('list.importCql')}</GradientButton>
+            <GradientButton onClick={onCreate}>{t('list.newArtifact')}</GradientButton>
           </Stack>
         </Stack>
 
         <TextField
           size="small"
-          placeholder="Search artifacts..."
+          placeholder={t('list.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
@@ -116,7 +119,7 @@ export default function ArtifactList({
 
         {!!error && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            Failed to load artifacts
+            {t('list.loadError')}
           </Alert>
         )}
 
@@ -125,11 +128,11 @@ export default function ArtifactList({
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Version</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Updated</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t('list.colName')}</TableCell>
+                  <TableCell>{t('list.colVersion')}</TableCell>
+                  <TableCell>{t('list.colStatus')}</TableCell>
+                  <TableCell>{t('list.colUpdated')}</TableCell>
+                  <TableCell align="right">{t('list.colActions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -148,7 +151,7 @@ export default function ArtifactList({
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color="text.secondary">
-              {search ? 'No artifacts match your search.' : 'No artifacts yet. Create one to get started.'}
+              {search ? t('list.noResults') : t('list.emptyState')}
             </Typography>
           </Box>
         ) : (
@@ -162,7 +165,7 @@ export default function ArtifactList({
                       direction={sortField === 'name' ? sortDir : 'asc'}
                       onClick={() => handleSort('name')}
                     >
-                      Name
+                      {t('list.colName')}
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>
@@ -171,7 +174,7 @@ export default function ArtifactList({
                       direction={sortField === 'version' ? sortDir : 'asc'}
                       onClick={() => handleSort('version')}
                     >
-                      Version
+                      {t('list.colVersion')}
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>
@@ -180,7 +183,7 @@ export default function ArtifactList({
                       direction={sortField === 'status' ? sortDir : 'asc'}
                       onClick={() => handleSort('status')}
                     >
-                      Status
+                      {t('list.colStatus')}
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>
@@ -189,10 +192,10 @@ export default function ArtifactList({
                       direction={sortField === 'updatedAt' ? sortDir : 'asc'}
                       onClick={() => handleSort('updatedAt')}
                     >
-                      Updated
+                      {t('list.colUpdated')}
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell align="right">{t('list.colActions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -224,7 +227,7 @@ export default function ArtifactList({
                     </TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0} justifyContent="flex-end">
-                        <Tooltip title="Edit">
+                        <Tooltip title={t('list.edit')}>
                           <IconButton
                             size="small"
                             onClick={(e) => {
@@ -235,7 +238,7 @@ export default function ArtifactList({
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Duplicate">
+                        <Tooltip title={t('list.duplicate')}>
                           <IconButton
                             size="small"
                             onClick={(e) => {
@@ -246,7 +249,7 @@ export default function ArtifactList({
                             <DuplicateIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete">
+                        <Tooltip title={tc('actions.delete')}>
                           <IconButton
                             size="small"
                             color="error"

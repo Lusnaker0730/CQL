@@ -4,6 +4,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton, TextField,
 } from '@mui/material'
 import { Build as ModifierIcon, Close as CloseIcon, Check as CheckIcon, Handyman as BuildIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import StringField from '../fields/StringField'
 import NumberField from '../fields/NumberField'
 import TextAreaField from '../fields/TextAreaField'
@@ -41,6 +42,7 @@ export default function ArtifactElementBody({
   modifiers: allModifiers,
   onUpdate,
 }: ArtifactElementBodyProps) {
+  const { t } = useTranslation('authoring')
   const [modifierDialogOpen, setModifierDialogOpen] = useState(false)
   const [customBuilderOpen, setCustomBuilderOpen] = useState(false)
   const currentReturnType = getEffectiveReturnType(element)
@@ -113,7 +115,7 @@ export default function ArtifactElementBody({
       {/* Return Type */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
         <Typography variant="body2" fontWeight={600} color="text.secondary">
-          Return Type:
+          {t('elementBody.returnType')}
         </Typography>
         <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />
         <Typography variant="body2">
@@ -126,7 +128,7 @@ export default function ArtifactElementBody({
         <>
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" color="text.secondary" mb={1}>
-            Modifiers
+            {t('elementBody.modifiers')}
           </Typography>
           <Stack spacing={1} mb={1}>
             {element.modifiers.map((mod, i) => (
@@ -150,7 +152,7 @@ export default function ArtifactElementBody({
               size="small"
               startIcon={<ModifierIcon />}
             >
-              SELECT MODIFIERS
+              {t('elementBody.selectModifiers')}
             </GradientButton>
           )}
           {currentReturnType.startsWith('list_of_') && (
@@ -160,7 +162,7 @@ export default function ArtifactElementBody({
               startIcon={<BuildIcon />}
               onClick={() => setCustomBuilderOpen(true)}
             >
-              BUILD NEW MODIFIER
+              {t('elementBody.buildNewModifier')}
             </Button>
           )}
         </Stack>
@@ -212,6 +214,7 @@ function SelectModifiersDialog({
   currentReturnType,
   onAdd,
 }: SelectModifiersDialogProps) {
+  const { t } = useTranslation('authoring')
   const [selectedModId, setSelectedModId] = useState<string>('')
   const [filterText, setFilterText] = useState('')
 
@@ -238,7 +241,7 @@ function SelectModifiersDialog({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        Select Modifiers
+        {t('elementBody.selectModifiersTitle')}
         <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
@@ -246,12 +249,12 @@ function SelectModifiersDialog({
         <ExpressionPhrase element={element} variant="full" />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 2 }}>
-          <Typography variant="body2" fontWeight={600}>Return Type:</Typography>
+          <Typography variant="body2" fontWeight={600}>{t('elementBody.returnType')}</Typography>
           <Typography variant="body2">{formatReturnType(currentReturnType)}</Typography>
         </Box>
 
         <Divider sx={{ my: 2 }}>
-          <Chip label="WITH MODIFIERS" size="small" color="primary" />
+          <Chip label={t('elementBody.withModifiers')} size="small" color="primary" />
         </Divider>
 
         {/* Search filter */}
@@ -259,7 +262,7 @@ function SelectModifiersDialog({
           <TextField
             fullWidth
             size="small"
-            placeholder="Filter modifiers..."
+            placeholder={t('elementBody.filterModifiers')}
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             sx={{ mb: 1 }}
@@ -268,10 +271,10 @@ function SelectModifiersDialog({
 
         {/* Modifier dropdown */}
         <FormControl fullWidth size="small">
-          <InputLabel>Select modifier...</InputLabel>
+          <InputLabel>{t('elementBody.selectModifierLabel')}</InputLabel>
           <Select
             value={selectedModId}
-            label="Select modifier..."
+            label={t('elementBody.selectModifierLabel')}
             onChange={(e) => setSelectedModId(e.target.value)}
           >
             {filteredModifiers.map((mod) => (
@@ -290,31 +293,30 @@ function SelectModifiersDialog({
         {selectedMod && (
           <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" gutterBottom>{selectedMod.name}</Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Accepts <strong>{selectedMod.inputTypes.map(formatReturnType).join(', ')}</strong> and
-              returns <strong>{formatReturnType(selectedMod.returnType)}</strong>.
-            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom
+              dangerouslySetInnerHTML={{ __html: t('elementBody.modAccepts', { input: selectedMod.inputTypes.map(formatReturnType).join(', '), output: formatReturnType(selectedMod.returnType) }) }}
+            />
             {selectedMod.cqlLibraryFunction && (
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', mt: 1, color: 'primary.main' }}>
-                CQL: {selectedMod.cqlLibraryFunction}(expression)
+                {t('elementBody.modCqlLabel', { fn: selectedMod.cqlLibraryFunction })}
               </Typography>
             )}
             {selectedMod.values && Object.keys(selectedMod.values).length > 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                Requires: {Object.keys(selectedMod.values).join(', ')}
+                {t('elementBody.modRequires', { fields: Object.keys(selectedMod.values).join(', ') })}
               </Typography>
             )}
           </Box>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>CANCEL</Button>
+        <Button onClick={handleClose}>{t('common:actions.cancel')}</Button>
         <Button
           variant="contained"
           onClick={handleAdd}
           disabled={!selectedMod}
         >
-          ADD
+          {t('common:actions.add')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -334,6 +336,7 @@ function FieldRenderer({
   onChange: (value: unknown) => void
   onFieldUpdate: (updates: Partial<ElementField>) => void
 }) {
+  const { t } = useTranslation('authoring')
   if (field.static) {
     return (
       <Typography variant="body2" color="text.secondary">
@@ -346,14 +349,14 @@ function FieldRenderer({
   const getFieldHints = (f: ElementField): { placeholder?: string; helperText?: string } => {
     if (f.id === 'element_name') {
       return {
-        placeholder: 'e.g. "Male Patients", "Adults 20-40"',
-        helperText: 'Optional. Custom label for this element in the expression tree.',
+        placeholder: t('elementBody.elementNamePlaceholder'),
+        helperText: t('elementBody.elementNameHelper'),
       }
     }
     if (f.id === 'comment') {
       return {
-        placeholder: 'e.g. "Filter for adult male patients per guideline X"',
-        helperText: 'Optional. Internal note for documentation purposes.',
+        placeholder: t('elementBody.commentPlaceholder'),
+        helperText: t('elementBody.commentHelper'),
       }
     }
     return {}

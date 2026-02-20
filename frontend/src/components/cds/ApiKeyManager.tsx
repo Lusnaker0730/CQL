@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -38,6 +39,8 @@ export default function ApiKeyManager() {
   const generateMutation = useGenerateApiKey()
   const revokeMutation = useRevokeApiKey()
   const { showNotification } = useNotification()
+  const { t } = useTranslation('cds')
+  const { t: tc } = useTranslation('common')
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [keyName, setKeyName] = useState('')
@@ -53,35 +56,35 @@ export default function ApiKeyManager() {
       const result = await generateMutation.mutateAsync(keyName.trim())
       setNewlyCreatedKey(result.key || null)
       setKeyName('')
-      showNotification('API key generated successfully', 'success')
+      showNotification(t('apiKeys.generateSuccess'), 'success')
     } catch {
-      showNotification('Failed to generate API key', 'error')
+      showNotification(t('apiKeys.generateFailed'), 'error')
     }
   }
 
   const handleRevoke = async (id: number) => {
-    if (!window.confirm('Are you sure you want to revoke this API key? This cannot be undone.')) return
+    if (!window.confirm(t('apiKeys.revokeConfirm'))) return
     try {
       await revokeMutation.mutateAsync(id)
-      showNotification('API key revoked', 'success')
+      showNotification(t('apiKeys.revokeSuccess'), 'success')
     } catch {
-      showNotification('Failed to revoke API key', 'error')
+      showNotification(t('apiKeys.revokeFailed'), 'error')
     }
   }
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
-    showNotification('Copied to clipboard', 'info')
+    showNotification(t('apiKeys.copied'), 'info')
   }
 
   if (isLoading) return <TableSkeleton columns={4} rows={3} />
-  if (isError) return <Alert severity="error">Failed to load API keys</Alert>
+  if (isError) return <Alert severity="error">{t('apiKeys.loadError')}</Alert>
 
   return (
     <Stack spacing={3}>
       <Alert severity="info" icon={<KeyIcon />}>
         <Typography variant="subtitle2" gutterBottom>
-          Your Per-User CDS Endpoint
+          {t('apiKeys.endpointTitle')}
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <Typography
@@ -96,19 +99,19 @@ export default function ApiKeyManager() {
           >
             {perUserEndpoint}
           </Typography>
-          <Tooltip title="Copy endpoint URL">
-            <IconButton size="small" onClick={() => handleCopy(perUserEndpoint)} aria-label="Copy endpoint URL">
+          <Tooltip title={t('apiKeys.copyEndpoint')}>
+            <IconButton size="small" onClick={() => handleCopy(perUserEndpoint)} aria-label={t('apiKeys.copyEndpoint')}>
               <CopyIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Use this URL for EHR CDS Hooks integration. Authenticate with an API key: Authorization: Bearer {'<your-api-key>'}
+          {t('apiKeys.endpointHelp')}
         </Typography>
       </Alert>
 
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="subtitle1">API Keys</Typography>
+        <Typography variant="subtitle1">{t('apiKeys.title')}</Typography>
         <GradientButton
           startIcon={<AddIcon />}
           onClick={() => {
@@ -116,12 +119,12 @@ export default function ApiKeyManager() {
             setNewlyCreatedKey(null)
           }}
         >
-          Generate New Key
+          {t('apiKeys.generateNew')}
         </GradientButton>
       </Box>
 
       {(!keys || keys.length === 0) && (
-        <Alert severity="info">No API keys yet. Generate one to enable external CDS Hooks access.</Alert>
+        <Alert severity="info">{t('apiKeys.noKeys')}</Alert>
       )}
 
       {keys && keys.length > 0 && (
@@ -129,18 +132,18 @@ export default function ApiKeyManager() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell scope="col">Name</TableCell>
-                <TableCell scope="col">Key</TableCell>
-                <TableCell scope="col">Created</TableCell>
-                <TableCell scope="col">Last Used</TableCell>
-                <TableCell scope="col">Status</TableCell>
-                <TableCell scope="col" align="right">Actions</TableCell>
+                <TableCell scope="col">{t('apiKeys.colName')}</TableCell>
+                <TableCell scope="col">{t('apiKeys.colKey')}</TableCell>
+                <TableCell scope="col">{t('apiKeys.colCreated')}</TableCell>
+                <TableCell scope="col">{t('apiKeys.colLastUsed')}</TableCell>
+                <TableCell scope="col">{t('apiKeys.colStatus')}</TableCell>
+                <TableCell scope="col" align="right">{t('apiKeys.colActions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {keys.map((key) => (
                 <TableRow key={key.id}>
-                  <TableCell>{key.name || 'Unnamed'}</TableCell>
+                  <TableCell>{key.name || t('apiKeys.unnamed')}</TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontFamily: '"Consolas", monospace', fontSize: '0.8rem' }}>
                       {key.keyPreview || '****'}
@@ -150,11 +153,11 @@ export default function ApiKeyManager() {
                     {key.createdAt ? new Date(key.createdAt).toLocaleDateString() : '-'}
                   </TableCell>
                   <TableCell>
-                    {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'Never'}
+                    {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : t('apiKeys.never')}
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={key.active ? 'Active' : 'Revoked'}
+                      label={key.active ? t('apiKeys.active') : t('apiKeys.revoked')}
                       color={key.active ? 'success' : 'default'}
                       size="small"
                     />
@@ -166,7 +169,7 @@ export default function ApiKeyManager() {
                         color="error"
                         onClick={() => handleRevoke(key.id)}
                         disabled={revokeMutation.isPending}
-                        aria-label="Revoke API key"
+                        aria-label={t('apiKeys.revokeAriaLabel')}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -179,27 +182,26 @@ export default function ApiKeyManager() {
         </TableContainer>
       )}
 
-      {/* Generate Key Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Generate New API Key</DialogTitle>
+        <DialogTitle>{t('apiKeys.generateDialogTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {!newlyCreatedKey && (
               <TextField
-                label="Key Name"
+                label={t('apiKeys.keyNameLabel')}
                 value={keyName}
                 onChange={(e) => setKeyName(e.target.value)}
                 size="small"
                 fullWidth
-                placeholder="e.g., EHR Integration, Test Key"
-                helperText="A friendly label for this API key"
+                placeholder={t('apiKeys.keyNamePlaceholder')}
+                helperText={t('apiKeys.keyNameHelperText')}
               />
             )}
 
             {newlyCreatedKey && (
               <Alert severity="warning">
                 <Typography variant="subtitle2" gutterBottom>
-                  Save this key now — it won't be shown again!
+                  {t('apiKeys.saveKeyWarning')}
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                   <Typography
@@ -216,8 +218,8 @@ export default function ApiKeyManager() {
                   >
                     {newlyCreatedKey}
                   </Typography>
-                  <Tooltip title="Copy key">
-                    <IconButton onClick={() => handleCopy(newlyCreatedKey)} aria-label="Copy API key">
+                  <Tooltip title={t('apiKeys.copyKey')}>
+                    <IconButton onClick={() => handleCopy(newlyCreatedKey)} aria-label={t('apiKeys.copyKey')}>
                       <CopyIcon />
                     </IconButton>
                   </Tooltip>
@@ -228,14 +230,14 @@ export default function ApiKeyManager() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCreateDialogOpen(false)} sx={{ color: 'text.secondary' }}>
-            {newlyCreatedKey ? 'Done' : 'Cancel'}
+            {newlyCreatedKey ? tc('actions.done') : tc('actions.cancel')}
           </Button>
           {!newlyCreatedKey && (
             <GradientButton
               onClick={handleGenerate}
               disabled={!keyName.trim() || generateMutation.isPending}
             >
-              {generateMutation.isPending ? 'Generating...' : 'Generate'}
+              {generateMutation.isPending ? t('apiKeys.generating') : t('apiKeys.generate')}
             </GradientButton>
           )}
         </DialogActions>

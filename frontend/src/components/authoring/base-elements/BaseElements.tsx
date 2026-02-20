@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent, Chip,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
@@ -19,6 +20,7 @@ interface BaseElementsProps {
 }
 
 export default function BaseElements({ baseElements, templates, modifiers, dynamicEntries, onChange }: BaseElementsProps) {
+  const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
     ? baseElements.find((be) => be.uniqueId === pendingDeleteId)?.name || 'this base element'
@@ -47,9 +49,9 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
   }
 
   const getNameError = (be: BaseElement): string | undefined => {
-    if (!be.name.trim()) return 'Name is required'
+    if (!be.name.trim()) return t('baseElements.nameRequired')
     if (baseElements.some((b) => b.uniqueId !== be.uniqueId && b.name.trim() === be.name.trim()))
-      return 'Duplicate base element name'
+      return t('baseElements.duplicateName')
     return undefined
   }
 
@@ -67,20 +69,20 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Base Elements</Typography>
+        <Typography variant="h6">{t('baseElements.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={handleAdd}>
-          Add Base Element
+          {t('baseElements.add')}
         </GradientButton>
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Define reusable elements that can be referenced across inclusions, exclusions, and subpopulations.
+        {t('baseElements.description')}
       </Typography>
 
       {baseElements.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
-            No base elements defined. Add base elements to create reusable logic blocks.
+            {t('baseElements.emptyState')}
           </Typography>
         </Box>
       ) : (
@@ -100,8 +102,8 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
                   />
                   <Chip label={be.returnType} size="small" variant="outlined" />
                   <Box sx={{ flex: 1 }} />
-                  <Tooltip title="Remove base element">
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)} aria-label="Remove base element">
+                  <Tooltip title={t('baseElements.removeTooltip')}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)} aria-label={t('baseElements.removeTooltip')}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -132,19 +134,19 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
       )}
 
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
-        <DialogTitle>Delete Base Element</DialogTitle>
+        <DialogTitle>{t('baseElements.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete <strong>{pendingDeleteName}</strong>? Any references to this element in other parts of the artifact will break.
-          </DialogContentText>
+          <DialogContentText
+            dangerouslySetInnerHTML={{ __html: t('baseElements.deleteConfirm', { name: pendingDeleteName }) }}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+          <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>
           <Button
             color="error"
             onClick={() => { if (pendingDeleteId) handleRemove(pendingDeleteId); setPendingDeleteId(null) }}
           >
-            Delete
+            {t('actions.delete', { ns: 'common' })}
           </Button>
         </DialogActions>
       </Dialog>

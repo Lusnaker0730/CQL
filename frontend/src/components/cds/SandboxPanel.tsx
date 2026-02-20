@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Box,
@@ -64,6 +65,7 @@ function SandboxPanelInner() {
   const sandboxMutation = useSandboxInvoke()
   const { state, dispatch } = useBundleBuilder()
   const { showNotification } = useNotification()
+  const { t } = useTranslation('cds')
 
   const [selectedService, setSelectedService] = useState('')
   const [patientId, setPatientId] = useState(DEFAULT_PATIENT_ID)
@@ -173,19 +175,19 @@ function SandboxPanelInner() {
       })
       setSandboxResponse(response)
     } catch (error) {
-      showNotification('Sandbox invocation failed: ' + (error as Error).message, 'error')
+      showNotification(t('sandbox.invokeFailed', { error: (error as Error).message }), 'error')
     }
   }
 
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        Test CDS services without a real FHIR server. Build test data visually or edit JSON directly.
+        {t('sandbox.description')}
       </Alert>
 
       <FormControl fullWidth size="small">
-        <InputLabel>CDS Service</InputLabel>
-        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label="CDS Service">
+        <InputLabel>{t('sandbox.serviceLabel')}</InputLabel>
+        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('sandbox.serviceLabel')}>
           {services.map((service: CdsServiceDefinition) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
@@ -195,7 +197,7 @@ function SandboxPanelInner() {
       </FormControl>
 
       <TextField
-        label="Patient ID"
+        label={t('sandbox.patientIdLabel')}
         value={patientId}
         onChange={(e) => setPatientId(e.target.value)}
         size="small"
@@ -204,8 +206,8 @@ function SandboxPanelInner() {
 
       <Box>
         <Tabs value={dataTab} onChange={(_, v) => setDataTab(v)} sx={{ mb: 1 }}>
-          <Tab icon={<BuilderIcon />} iconPosition="start" label="Visual Builder" sx={{ textTransform: 'none', minHeight: 42 }} />
-          <Tab icon={<JsonIcon />} iconPosition="start" label="JSON (Prefetch)" sx={{ textTransform: 'none', minHeight: 42 }} />
+          <Tab icon={<BuilderIcon />} iconPosition="start" label={t('sandbox.tabVisualBuilder')} sx={{ textTransform: 'none', minHeight: 42 }} />
+          <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabJsonPrefetch')} sx={{ textTransform: 'none', minHeight: 42 }} />
         </Tabs>
 
         {dataTab === 0 && (
@@ -242,17 +244,17 @@ function SandboxPanelInner() {
           },
         }}
       >
-        {sandboxMutation.isPending ? 'Invoking...' : 'Invoke in Sandbox'}
+        {sandboxMutation.isPending ? t('sandbox.invoking') : t('sandbox.invokeButton')}
       </GradientButton>
 
       {sandboxMutation.isError && (
-        <Alert severity="error">Sandbox invocation failed: {(sandboxMutation.error as Error).message}</Alert>
+        <Alert severity="error">{t('sandbox.invokeError', { error: (sandboxMutation.error as Error).message })}</Alert>
       )}
 
       {sandboxResponse && sandboxResponse.cards && sandboxResponse.cards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
-            Sandbox Results ({sandboxResponse.cards.length} cards)
+            {t('sandbox.results', { count: sandboxResponse.cards.length })}
           </Typography>
           <Stack spacing={2}>
             {sandboxResponse.cards.map((card: CdsCard) => (
@@ -288,7 +290,7 @@ function SandboxPanelInner() {
                   {card.suggestions && card.suggestions.length > 0 && (
                     <Box mt={1}>
                       <Typography variant="caption" fontWeight="bold">
-                        Suggestions:
+                        {t('sandbox.suggestions')}
                       </Typography>
                       {card.suggestions.map((s) => (
                         <Chip key={s.uuid} label={s.label} size="small" sx={{ ml: 0.5 }} variant="outlined" />
@@ -304,10 +306,10 @@ function SandboxPanelInner() {
 
       {sandboxResponse?.systemActions && sandboxResponse.systemActions.length > 0 && (
         <Alert severity="info">
-          <Typography variant="subtitle2">System Actions</Typography>
+          <Typography variant="subtitle2">{t('sandbox.systemActions')}</Typography>
           {sandboxResponse.systemActions.map((action, i) => (
             <Typography key={`${action.type}-${i}`} variant="body2">
-              {action.type}: {action.description || 'No description'}
+              {action.type}: {action.description || t('invoke.noDescription')}
             </Typography>
           ))}
         </Alert>

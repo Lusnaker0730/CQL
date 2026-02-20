@@ -27,6 +27,7 @@ import {
   Stop as StopIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
@@ -39,6 +40,7 @@ interface BulkExportTabProps {
 }
 
 export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
+  const { t } = useTranslation('fhir')
   const [exportType, setExportType] = useState('system')
   const [exportResourceTypes, setExportResourceTypes] = useState('')
   const [exportSince, setExportSince] = useState('')
@@ -132,11 +134,11 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
   }
 
   const getStatusLabel = (): string => {
-    if (exportMutation.isPending) return 'Initiating...'
-    if (!exportStatus) return 'Pending'
-    if (exportStatus.status === 'completed') return 'Completed'
-    if (exportStatus.status === 'error') return 'Error'
-    return 'In Progress'
+    if (exportMutation.isPending) return t('bulkExport.statusInitiating')
+    if (!exportStatus) return t('bulkExport.statusPending')
+    if (exportStatus.status === 'completed') return t('bulkExport.statusCompleted')
+    if (exportStatus.status === 'error') return t('bulkExport.statusError')
+    return t('bulkExport.statusInProgress')
   }
 
   const getStatusColor = (): 'default' | 'primary' | 'success' | 'error' | 'warning' => {
@@ -149,52 +151,52 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="subtitle2">Bulk Data Export ($export)</Typography>
+        <Typography variant="subtitle2">{t('bulkExport.title')}</Typography>
         <HelpTooltip text={helpContent.fhir.bulkExport} />
       </Stack>
 
       {!exportStatusUrl && (
         <>
           <FormControl fullWidth size="small">
-            <InputLabel>Export Type</InputLabel>
+            <InputLabel>{t('bulkExport.exportTypeLabel')}</InputLabel>
             <Select
               value={exportType}
               onChange={(e) => setExportType(e.target.value)}
-              label="Export Type"
+              label={t('bulkExport.exportTypeLabel')}
             >
-              <MenuItem value="system">System (All Resources)</MenuItem>
-              <MenuItem value="patient">Patient Compartment</MenuItem>
-              <MenuItem value="group">Group Compartment</MenuItem>
+              <MenuItem value="system">{t('bulkExport.systemAll')}</MenuItem>
+              <MenuItem value="patient">{t('bulkExport.patientCompartment')}</MenuItem>
+              <MenuItem value="group">{t('bulkExport.groupCompartment')}</MenuItem>
             </Select>
           </FormControl>
 
           <TextField
-            label="Resource Types (optional)"
+            label={t('bulkExport.resourceTypesLabel')}
             value={exportResourceTypes}
             onChange={(e) => setExportResourceTypes(e.target.value)}
             size="small"
             fullWidth
-            placeholder="e.g., Patient,Observation,Condition"
-            helperText="Comma-separated list of resource types to include"
+            placeholder={t('bulkExport.resourceTypesPlaceholder')}
+            helperText={t('bulkExport.resourceTypesHelperText')}
           />
 
           <TextField
-            label="Since (optional)"
+            label={t('bulkExport.sinceLabel')}
             value={exportSince}
             onChange={(e) => setExportSince(e.target.value)}
             size="small"
             fullWidth
             type="datetime-local"
             InputLabelProps={{ shrink: true }}
-            helperText="Only include resources modified after this date"
+            helperText={t('bulkExport.sinceHelperText')}
           />
 
           <FormControl fullWidth size="small">
-            <InputLabel>Output Format</InputLabel>
+            <InputLabel>{t('bulkExport.outputFormatLabel')}</InputLabel>
             <Select
               value={exportOutputFormat}
               onChange={(e) => setExportOutputFormat(e.target.value)}
-              label="Output Format"
+              label={t('bulkExport.outputFormatLabel')}
             >
               <MenuItem value="application/fhir+ndjson">NDJSON</MenuItem>
             </Select>
@@ -206,23 +208,23 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
             startIcon={exportMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <ExportIcon />}
             sx={{ '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
           >
-            {exportMutation.isPending ? 'Starting Export...' : 'Start Export'}
+            {exportMutation.isPending ? t('bulkExport.startingExport') : t('bulkExport.startExport')}
           </GradientButton>
         </>
       )}
 
       {exportError && (
-        <Alert severity="error">Export error: {exportError}</Alert>
+        <Alert severity="error">{t('bulkExport.exportError', { error: exportError })}</Alert>
       )}
 
       {exportStatusUrl && (
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-            <Typography variant="subtitle2">Export Status</Typography>
+            <Typography variant="subtitle2">{t('bulkExport.exportStatus')}</Typography>
             <Chip label={getStatusLabel()} size="small" color={getStatusColor()} sx={{ fontWeight: 600 }} />
             {exportStatus?.status === 'completed' && (
               <Chip
-                label={`${getTotalResourceCount()} total resources`}
+                label={t('bulkExport.totalResources', { count: getTotalResourceCount() })}
                 size="small"
                 sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }}
               />
@@ -240,12 +242,12 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
                 startIcon={<StopIcon />}
                 size="small"
               >
-                Stop Polling
+                {t('bulkExport.stopPolling')}
               </Button>
             )}
             {(!isPolling || exportStatus?.status === 'completed' || exportStatus?.status === 'error') && (
               <Button variant="outlined" onClick={handleResetExport} startIcon={<ExportIcon />} size="small">
-                New Export
+                {t('bulkExport.newExport')}
               </Button>
             )}
           </Stack>
@@ -261,9 +263,9 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell scope="col" sx={{ fontWeight: 600 }}>Resource Type</TableCell>
-                    <TableCell scope="col" sx={{ fontWeight: 600 }} align="right">Count</TableCell>
-                    <TableCell scope="col" sx={{ fontWeight: 600 }}>Download</TableCell>
+                    <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('bulkExport.colResourceType')}</TableCell>
+                    <TableCell scope="col" sx={{ fontWeight: 600 }} align="right">{t('bulkExport.colCount')}</TableCell>
+                    <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('bulkExport.colDownload')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -291,7 +293,7 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
 
           {exportStatus?.status === 'completed' && exportStatus.output?.length === 0 && (
             <Alert severity="info">
-              Export completed but no resources were found matching the criteria.
+              {t('bulkExport.noResourcesFound')}
             </Alert>
           )}
         </Box>

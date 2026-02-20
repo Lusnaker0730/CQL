@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, FormControl, InputLabel, Select, MenuItem, TextField, Chip,
   Card, CardContent, IconButton, Tooltip,
@@ -22,6 +23,7 @@ interface QueryBuilderProps {
 }
 
 export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
+  const { t } = useTranslation('authoring')
   const [resourceType, setResourceType] = useState('')
   const [conditions, setConditions] = useState<QueryCondition[]>([])
   const [valueSetName, setValueSetName] = useState('')
@@ -113,19 +115,18 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>Query Builder</Typography>
+      <Typography variant="h6" sx={{ mb: 2 }}>{t('queryBuilder.title')}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Build FHIR resource queries visually. Select a resource type, add filter conditions,
-        and generate the CQL query.
+        {t('queryBuilder.description')}
       </Typography>
 
       <Stack spacing={2}>
         {/* Resource Type */}
         <FormControl size="small" fullWidth>
-          <InputLabel>Resource Type</InputLabel>
+          <InputLabel>{t('queryBuilder.resourceType')}</InputLabel>
           <Select
             value={resourceType}
-            label="Resource Type"
+            label={t('queryBuilder.resourceType')}
             onChange={(e) => {
               setResourceType(e.target.value)
               setConditions([])
@@ -142,10 +143,10 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
         {resourceType && (
           <TextField
             size="small"
-            label="Value Set (optional)"
+            label={t('queryBuilder.valueSetOptional')}
             value={valueSetName}
             onChange={(e) => setValueSetName(e.target.value)}
-            placeholder="e.g., Diabetes Value Set"
+            placeholder={t('queryBuilder.valueSetPlaceholder')}
             fullWidth
           />
         )}
@@ -154,9 +155,9 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
         {resourceType && (
           <>
             <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="subtitle2">Conditions</Typography>
+              <Typography variant="subtitle2">{t('queryBuilder.conditions')}</Typography>
               <GradientButton size="small" startIcon={<AddIcon />} onClick={handleAddCondition}>
-                Add Condition
+                {t('queryBuilder.addCondition')}
               </GradientButton>
             </Stack>
 
@@ -166,10 +167,10 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
                   <Stack direction="row" spacing={1} alignItems="center">
                     {/* Property */}
                     <FormControl size="small" sx={{ minWidth: 160 }}>
-                      <InputLabel>Property</InputLabel>
+                      <InputLabel>{t('queryBuilder.propertyLabel')}</InputLabel>
                       <Select
                         value={cond.property}
-                        label="Property"
+                        label={t('queryBuilder.propertyLabel')}
                         onChange={(e) => handlePropertyChange(cond.id, e.target.value)}
                       >
                         {selectedResource?.properties.map((p) => (
@@ -183,10 +184,10 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
 
                     {/* Operator */}
                     <FormControl size="small" sx={{ minWidth: 150 }}>
-                      <InputLabel>Operator</InputLabel>
+                      <InputLabel>{t('queryBuilder.operatorLabel')}</InputLabel>
                       <Select
                         value={cond.operator}
-                        label="Operator"
+                        label={t('queryBuilder.operatorLabel')}
                         onChange={(e) => handleUpdateCondition(cond.id, { operator: e.target.value })}
                         disabled={!cond.property}
                       >
@@ -203,10 +204,10 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
                         if (prop?.values) {
                           return (
                             <FormControl size="small" sx={{ minWidth: 140 }}>
-                              <InputLabel>Value</InputLabel>
+                              <InputLabel>{t('queryBuilder.valueLabel')}</InputLabel>
                               <Select
                                 value={cond.value}
-                                label="Value"
+                                label={t('queryBuilder.valueLabel')}
                                 onChange={(e) => handleUpdateCondition(cond.id, { value: e.target.value })}
                               >
                                 {prop.values.map((v) => (
@@ -219,7 +220,7 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
                         return (
                           <TextField
                             size="small"
-                            label="Value"
+                            label={t('queryBuilder.valueLabel')}
                             value={cond.value}
                             onChange={(e) => handleUpdateCondition(cond.id, { value: e.target.value })}
                             sx={{ flex: 1 }}
@@ -228,8 +229,8 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
                       })()
                     )}
 
-                    <Tooltip title="Remove condition">
-                      <IconButton size="small" color="error" onClick={() => handleRemoveCondition(cond.id)} aria-label="Remove condition">
+                    <Tooltip title={t('queryBuilder.removeCondition')}>
+                      <IconButton size="small" color="error" onClick={() => handleRemoveCondition(cond.id)} aria-label={t('queryBuilder.removeCondition')}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -243,14 +244,14 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
         {/* Preview */}
         {resourceType && (
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Generated CQL</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('queryBuilder.generatedCql')}</Typography>
             <Box
               sx={{
                 ...codeBlockSx,
                 minHeight: 40,
               }}
             >
-              {generatedCql || '(Select a resource type to start building)'}
+              {generatedCql || t('queryBuilder.selectToStart')}
             </Box>
 
             {onInsertCql && generatedCql && (
@@ -259,7 +260,7 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
                 sx={{ mt: 1 }}
                 onClick={() => onInsertCql(generatedCql)}
               >
-                Insert into Editor
+                {t('queryBuilder.insertIntoEditor')}
               </GradientButton>
             )}
           </Box>

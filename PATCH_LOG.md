@@ -10,6 +10,7 @@
 |---|------|------|------|----------|
 | 001 | 2026-02-19 | 跨模組 | UCUM 單位下拉選單統一 | Test Case Builder, CQL Builder, eQCM, Authoring |
 | 002 | 2026-02-19 | i18n | Measures 模組國際化（en / zh-TW） | Measures, Dashboard, Test Case Builder |
+| 003 | 2026-02-20 | i18n | 全平台國際化完成（Phase 5-9） | CDS, FHIR, Terminology, Authoring, Admin |
 
 ---
 
@@ -162,3 +163,112 @@
 - `npm run build` — 建置成功
 - `grep` 確認 measure / testcase-builder 元件中無殘留硬編碼英文字串
 - 語言切換（en ↔ zh-TW）正常運作
+
+---
+
+## #003 — 全平台國際化完成（Phase 5-9）
+
+- **日期**: 2026-02-20
+- **範圍**: i18n — 剩餘 5 個模組全面翻譯
+- **分類**: 國際化 / 使用者體驗
+
+### 問題描述
+
+平台的 i18n 架構已在 Phase 1-4 完成 Core（common, validation, editor, builder）和 Measures 模組，但 CDS Hooks、FHIR Browser、Terminology、Authoring、Admin/Audit 等 5 個模組仍使用硬編碼英文字串，共約 860+ 個字串未國際化。
+
+### 修改內容
+
+#### Phase 5：CDS Hooks 模組（~120 keys）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/locales/en/cds.json` |
+| 新增 | `frontend/src/locales/zh-TW/cds.json` |
+| 修改 | `frontend/src/pages/CdsPage.tsx` |
+| 修改 | `frontend/src/components/cds/CdsPanel.tsx` |
+| 修改 | `frontend/src/components/cds/InvokeServicePanel.tsx` |
+| 修改 | `frontend/src/components/cds/ManageServicesPanel.tsx` |
+| 修改 | `frontend/src/components/cds/SandboxPanel.tsx` |
+| 修改 | `frontend/src/components/cds/AnalyticsPanel.tsx` |
+| 修改 | `frontend/src/components/cds/ApiKeyManager.tsx` |
+
+- 命名空間 `cds`，頂層鍵：`page`, `panel`, `invoke`, `manage`, `sandbox`, `analytics`, `apiKey`
+- 7 個元件 + 1 個頁面全部替換為 `t()` 呼叫
+
+#### Phase 6：FHIR Browser 模組（~200 keys）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/locales/en/fhir.json` |
+| 新增 | `frontend/src/locales/zh-TW/fhir.json` |
+| 修改 | `frontend/src/pages/FhirPage.tsx` |
+| 修改 | `components/fhir/` 下全部 12 個元件 |
+
+- 命名空間 `fhir`，頂層鍵：`page`, `browser`, `search`, `searchParams`, `read`, `validate`, `terminology`, `transaction`, `bulkExport`, `detail`, `editor`, `history`, `ig`
+- 13 個檔案全部替換，含 `ImplementationGuideBrowser` 內 5 個子元件
+
+#### Phase 7：Terminology 模組（~70 keys）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/locales/en/terminology.json` |
+| 新增 | `frontend/src/locales/zh-TW/terminology.json` |
+| 修改 | `frontend/src/pages/TerminologyPage.tsx` |
+| 修改 | `components/terminology/TerminologyBrowser.tsx` |
+| 修改 | `components/terminology/ValueSetTab.tsx` |
+| 修改 | `components/terminology/CodeLookupTab.tsx` |
+| 修改 | `components/terminology/CodeValidationTab.tsx` |
+
+- 命名空間 `terminology`，頂層鍵：`page`, `browser`, `valueSet`, `codeLookup`, `codeValidation`
+- 複數支援：`resultCount` / `resultCount_other`
+
+#### Phase 8：Authoring 模組（~450 keys）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/locales/en/authoring.json` |
+| 新增 | `frontend/src/locales/zh-TW/authoring.json` |
+| 修改 | `frontend/src/pages/AuthoringPage.tsx` |
+| 修改 | `components/authoring/` 下全部 30 個元件 |
+
+- 命名空間 `authoring`，20 個頂層鍵：`page`, `list`, `modal`, `workspace`, `header`, `cpg`, `conjunction`, `element`, `elementBody`, `expression`, `modifier`, `conjunctionType`, `customModifier`, `elementSelect`, `elementDescriptions`, `valueSetField`, `chooseCode`, `subpopulations`, `recommendations`, `errorStatement`, `baseElements`, `parameters`, `externalCql`, `cqlPreview`, `testing`, `summary`, `importCql`, `queryBuilder`
+- 含 HTML 的翻譯鍵（如 `expression.ageIs`）使用 `dangerouslySetInnerHTML` 渲染
+- 模組層級常數（`GRADES`, `CONDITION_OPTIONS`, `PARAMETER_TYPES`, `TAB_LABELS`）移入元件內部以存取 `t()`
+- `ElementSelectDropdown` 使用動態鍵 `` t(`elementDescriptions.${id}`) `` 搭配靜態 fallback
+
+#### Phase 9：Admin & Audit 模組（~90 keys）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/locales/en/admin.json` |
+| 新增 | `frontend/src/locales/zh-TW/admin.json` |
+| 修改 | `frontend/src/pages/AdminUsersPage.tsx` |
+| 修改 | `frontend/src/pages/AuditDashboardPage.tsx` |
+
+- 命名空間 `admin`，頂層鍵：`users`, `audit`
+- `AuditDashboardPage` 將 `t` 作為 prop 傳遞給同檔案內的子元件
+
+#### 共同：註冊命名空間
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/i18n.ts` |
+
+- 新增 5 個命名空間：`cds`, `fhir`, `terminology`, `authoring`, `admin`
+- 平台現共有 10 個命名空間：common, validation, editor, builder, measures, cds, fhir, terminology, authoring, admin
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 10（5 組 locale JSON） |
+| 修改檔案 | ~55 |
+| 翻譯鍵數 | ~930 |
+| 命名空間 | 5 個新增（平台共 10 個） |
+
+### 驗證
+
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+- 10 組 locale 檔案均存在於 `en/` 和 `zh-TW/` 目錄
+- 語言切換（en ↔ zh-TW）涵蓋全平台所有頁面

@@ -12,14 +12,24 @@ import builderEn from './locales/en/builder.json'
 import builderZhTW from './locales/zh-TW/builder.json'
 import measuresEn from './locales/en/measures.json'
 import measuresZhTW from './locales/zh-TW/measures.json'
+import cdsEn from './locales/en/cds.json'
+import cdsZhTW from './locales/zh-TW/cds.json'
+import fhirEn from './locales/en/fhir.json'
+import fhirZhTW from './locales/zh-TW/fhir.json'
+import terminologyEn from './locales/en/terminology.json'
+import terminologyZhTW from './locales/zh-TW/terminology.json'
+import authoringEn from './locales/en/authoring.json'
+import authoringZhTW from './locales/zh-TW/authoring.json'
+import adminEn from './locales/en/admin.json'
+import adminZhTW from './locales/zh-TW/admin.json'
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
-      en: { common: commonEn, validation: validationEn, editor: editorEn, builder: builderEn, measures: measuresEn },
-      'zh-TW': { common: commonZhTW, validation: validationZhTW, editor: editorZhTW, builder: builderZhTW, measures: measuresZhTW },
+      en: { common: commonEn, validation: validationEn, editor: editorEn, builder: builderEn, measures: measuresEn, cds: cdsEn, fhir: fhirEn, terminology: terminologyEn, authoring: authoringEn, admin: adminEn },
+      'zh-TW': { common: commonZhTW, validation: validationZhTW, editor: editorZhTW, builder: builderZhTW, measures: measuresZhTW, cds: cdsZhTW, fhir: fhirZhTW, terminology: terminologyZhTW, authoring: authoringZhTW, admin: adminZhTW },
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'zh-TW'],

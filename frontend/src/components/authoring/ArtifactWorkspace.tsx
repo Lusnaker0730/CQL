@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip } from '@mui/material'
 import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon } from '@mui/icons-material'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
@@ -31,20 +32,6 @@ interface ArtifactWorkspaceProps {
   onBack: () => void
   onArtifactUpdate: (updated: Artifact) => void
 }
-
-const TAB_LABELS = [
-  'Inclusions',
-  'Exclusions',
-  'Subpopulations',
-  'Base Elements',
-  'Recommendations',
-  'Parameters',
-  'Error Handling',
-  'External CQL',
-  'Review CQL',
-  'Testing',
-  'Summary',
-]
 
 const DEFAULT_TREE: ConjunctionGroupType = {
   id: 'And',
@@ -104,6 +91,23 @@ export default function ArtifactWorkspace({
   onBack,
   onArtifactUpdate,
 }: ArtifactWorkspaceProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
+
+  const TAB_LABELS = [
+    t('workspace.tabInclusions'),
+    t('workspace.tabExclusions'),
+    t('workspace.tabSubpopulations'),
+    t('workspace.tabBaseElements'),
+    t('workspace.tabRecommendations'),
+    t('workspace.tabParameters'),
+    t('workspace.tabErrorHandling'),
+    t('workspace.tabExternalCql'),
+    t('workspace.tabReviewCql'),
+    t('workspace.tabTesting'),
+    t('workspace.tabSummary'),
+  ]
+
   const [tab, setTab] = useState(0)
   const [localArtifact, setLocalArtifact] = useState<Artifact>(artifact)
   const [isDirty, setIsDirty] = useState(false)
@@ -625,26 +629,26 @@ export default function ArtifactWorkspace({
 
       {/* Unsaved changes confirmation dialog */}
       <Dialog open={showBackConfirm} onClose={() => setShowBackConfirm(false)}>
-        <DialogTitle>Unsaved Changes</DialogTitle>
+        <DialogTitle>{t('workspace.unsavedTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+            {t('workspace.unsavedMessage')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBackConfirm(false)}>Cancel</Button>
+          <Button onClick={() => setShowBackConfirm(false)}>{tc('actions.cancel')}</Button>
           <Button
             color="error"
             onClick={() => { setShowBackConfirm(false); onBack() }}
           >
-            Discard Changes
+            {t('workspace.discardChanges')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Keyboard shortcut help dialog */}
       <Dialog open={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Keyboard Shortcuts</DialogTitle>
+        <DialogTitle>{t('workspace.shortcutsTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5}>
             {KEYBOARD_SHORTCUTS.map((sc) => (
@@ -656,7 +660,7 @@ export default function ArtifactWorkspace({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowShortcutHelp(false)}>Close</Button>
+          <Button onClick={() => setShowShortcutHelp(false)}>{tc('actions.close')}</Button>
         </DialogActions>
       </Dialog>
     </Card>

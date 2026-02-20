@@ -13,6 +13,7 @@ import {
   PlayArrow as ExecuteIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
@@ -46,6 +47,7 @@ const TRANSACTION_TEMPLATE = JSON.stringify(
 )
 
 export default function TransactionTab({ fhirServer }: TransactionTabProps) {
+  const { t } = useTranslation('fhir')
   const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const [result, setResult] = useState<object | null>(null)
@@ -74,9 +76,9 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="subtitle2">Execute FHIR Bundle Transaction</Typography>
+      <Typography variant="subtitle2">{t('transaction.title')}</Typography>
       <Typography variant="body2" color="text.secondary">
-        Submit a FHIR Bundle of type &quot;transaction&quot; or &quot;batch&quot; for processing.
+        {t('transaction.description')}
       </Typography>
 
       <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
@@ -102,21 +104,21 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
         startIcon={executeMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <ExecuteIcon />}
         sx={{ alignSelf: 'flex-start', '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
       >
-        {executeMutation.isPending ? 'Executing...' : 'Execute'}
+        {executeMutation.isPending ? t('transaction.executing') : t('transaction.executeButton')}
       </GradientButton>
 
       {executeMutation.isError && (
         <Alert severity="error">
-          Transaction failed: {(executeMutation.error as Error).message}
+          {t('transaction.transactionFailed', { error: (executeMutation.error as Error).message })}
         </Alert>
       )}
 
       {result && (
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-            <Typography variant="subtitle2">Response</Typography>
+            <Typography variant="subtitle2">{t('transaction.response')}</Typography>
             <Button size="small" startIcon={<CopyIcon />} onClick={handleCopyResult}>
-              Copy
+              {t('transaction.copy')}
             </Button>
           </Stack>
           <Box
@@ -139,7 +141,7 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
       )}
 
       <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)}>
-        <Alert severity="success" variant="filled">Response JSON copied</Alert>
+        <Alert severity="success" variant="filled">{t('transaction.jsonCopied')}</Alert>
       </Snackbar>
     </Stack>
   )

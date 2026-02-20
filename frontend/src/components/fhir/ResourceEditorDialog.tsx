@@ -22,6 +22,7 @@ import {
   Save as SaveIcon,
   CheckCircle as ValidateIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
@@ -66,6 +67,8 @@ export default function ResourceEditorDialog({
   onClose,
   onSaved,
 }: ResourceEditorDialogProps) {
+  const { t } = useTranslation('fhir')
+  const { t: tc } = useTranslation('common')
   const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
@@ -113,8 +116,8 @@ export default function ResourceEditorDialog({
   }
 
   const title = mode === 'create'
-    ? `Create ${resourceType}`
-    : `Edit ${resourceType}/${resourceId}`
+    ? t('editor.createTitle', { resourceType })
+    : t('editor.editTitle', { resourceType, resourceId })
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -146,7 +149,7 @@ export default function ResourceEditorDialog({
 
           {validationStatus !== 'none' && (
             <Chip
-              label={validationStatus === 'valid' ? 'Valid' : 'Invalid'}
+              label={validationStatus === 'valid' ? t('editor.valid') : t('editor.invalid')}
               color={validationStatus === 'valid' ? 'success' : 'error'}
               size="small"
               sx={{ alignSelf: 'flex-start' }}
@@ -158,9 +161,9 @@ export default function ResourceEditorDialog({
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Severity</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Location</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Message</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('editor.colSeverity')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('editor.colLocation')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('editor.colMessage')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -195,17 +198,17 @@ export default function ResourceEditorDialog({
           startIcon={validateMutation.isPending ? <CircularProgress size={16} /> : <ValidateIcon />}
           size="small"
         >
-          Validate
+          {t('editor.validateButton')}
         </Button>
         <GradientButton
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
           startIcon={saveMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
         >
-          {saveMutation.isPending ? 'Saving...' : 'Save'}
+          {saveMutation.isPending ? t('editor.saving') : t('editor.saveButton')}
         </GradientButton>
         <Button onClick={handleClose} size="small">
-          Cancel
+          {tc('actions.cancel')}
         </Button>
       </DialogActions>
     </Dialog>

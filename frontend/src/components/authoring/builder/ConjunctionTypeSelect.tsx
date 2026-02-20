@@ -1,4 +1,5 @@
 import { Select, MenuItem, FormControl } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 
 interface ConjunctionTypeSelectProps {
   value: string
@@ -6,6 +7,8 @@ interface ConjunctionTypeSelectProps {
 }
 
 export default function ConjunctionTypeSelect({ value, onChange }: ConjunctionTypeSelectProps) {
+  const { t } = useTranslation('authoring')
+
   return (
     <FormControl size="small">
       <Select
@@ -20,8 +23,8 @@ export default function ConjunctionTypeSelect({ value, onChange }: ConjunctionTy
           },
         }}
       >
-        <MenuItem value="And">And</MenuItem>
-        <MenuItem value="Or">Or</MenuItem>
+        <MenuItem value="And">{t('conjunctionType.and')}</MenuItem>
+        <MenuItem value="Or">{t('conjunctionType.or')}</MenuItem>
       </Select>
     </FormControl>
   )

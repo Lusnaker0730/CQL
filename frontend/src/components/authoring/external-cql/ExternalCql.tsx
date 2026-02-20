@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, Alert, CircularProgress, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Tooltip, Chip, Dialog,
@@ -19,6 +20,7 @@ interface ExternalCqlProps {
 }
 
 export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalCqlProps) {
+  const { t } = useTranslation('authoring')
   const { data: libraries = [], isLoading, error } = useExternalCqlList(artifactId)
   const uploadMutation = useUploadExternalCql(artifactId)
   const deleteMutation = useDeleteExternalCql(artifactId)
@@ -63,13 +65,13 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">External CQL Libraries</Typography>
+        <Typography variant="h6">{t('externalCql.title')}</Typography>
         <GradientButton
           startIcon={<UploadIcon />}
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadMutation.isPending}
         >
-          Upload Library
+          {t('externalCql.upload')}
         </GradientButton>
         <input
           ref={fileInputRef}
@@ -98,32 +100,32 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
       >
         <UploadIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
         <Typography variant="body2">
-          Drag and drop a .cql file here, or click &quot;Upload Library&quot; above
+          {t('externalCql.dropHint')}
         </Typography>
       </Box>
 
       {uploadMutation.isPending && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <CircularProgress size={16} />
-          <Typography variant="body2">Uploading and parsing...</Typography>
+          <Typography variant="body2">{t('externalCql.uploading')}</Typography>
         </Box>
       )}
 
       {uploadMutation.isError && (
         <Alert severity="error" onClose={() => uploadMutation.reset()} sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">Upload Failed</Typography>
+          <Typography variant="subtitle2">{t('externalCql.uploadFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(uploadMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Ensure the file is a valid .cql file with a library declaration (e.g., library MyLib version '1.0.0') and uses FHIR 4.0.1.
+            {t('externalCql.uploadFileHint')}
           </Typography>
         </Alert>
       )}
 
       {uploadMutation.isSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Library uploaded successfully.
+          {t('externalCql.uploadSuccess')}
         </Alert>
       )}
 
@@ -131,14 +133,14 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
 
       {!!error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load libraries.
+          {t('externalCql.loadError')}
         </Alert>
       )}
 
       {!isLoading && libraries.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
-            No external CQL libraries uploaded. Upload libraries to reference them in your artifact logic.
+            {t('externalCql.emptyState')}
           </Typography>
         </Box>
       ) : (
@@ -146,11 +148,11 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Version</TableCell>
-                <TableCell>FHIR Version</TableCell>
-                <TableCell>Uploaded</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('externalCql.colName')}</TableCell>
+                <TableCell>{t('externalCql.colVersion')}</TableCell>
+                <TableCell>{t('externalCql.colFhirVersion')}</TableCell>
+                <TableCell>{t('externalCql.colUploaded')}</TableCell>
+                <TableCell align="right">{t('externalCql.colActions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -171,13 +173,13 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
                     {lib.createdAt ? new Date(lib.createdAt).toLocaleDateString() : '-'}
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="View details">
-                      <IconButton size="small" onClick={() => setDetailsLib(lib)} aria-label="View details">
+                    <Tooltip title={t('externalCql.viewDetails')}>
+                      <IconButton size="small" onClick={() => setDetailsLib(lib)} aria-label={t('externalCql.viewDetails')}>
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(lib)} aria-label="Delete library">
+                    <Tooltip title={t('actions.delete', { ns: 'common' })}>
+                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(lib)} aria-label={t('actions.delete', { ns: 'common' })}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -199,7 +201,7 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
             <Stack spacing={2} sx={{ mt: 1 }}>
               {detailsLib.details?.definitions && detailsLib.details.definitions.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Definitions</Typography>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.definitions')}</Typography>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap">
                     {detailsLib.details.definitions.map((d) => (
                       <Chip
@@ -216,7 +218,7 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
 
               {detailsLib.details?.parameters && detailsLib.details.parameters.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Parameters</Typography>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.parametersLabel')}</Typography>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap">
                     {detailsLib.details.parameters.map((p) => (
                       <Chip key={p} label={p} size="small" variant="outlined" sx={{ mb: 0.5 }} />
@@ -227,7 +229,7 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
 
               {detailsLib.details?.valueSets && detailsLib.details.valueSets.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Value Sets</Typography>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.valueSetsLabel')}</Typography>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap">
                     {detailsLib.details.valueSets.map((vs) => (
                       <Chip key={vs} label={vs} size="small" variant="outlined" sx={{ mb: 0.5 }} />
@@ -238,7 +240,7 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
 
               {detailsLib.details?.errors && detailsLib.details.errors.length > 0 && (
                 <Alert severity="warning">
-                  <Typography variant="subtitle2">Translation Warnings</Typography>
+                  <Typography variant="subtitle2">{t('externalCql.translationWarnings')}</Typography>
                   {detailsLib.details.errors.map((err, i) => (
                     <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
                       {err.message}
@@ -248,7 +250,7 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
               )}
 
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>CQL Source</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.cqlSource')}</Typography>
                 <Box
                   sx={{
                     ...codeBlockSx,
@@ -277,24 +279,24 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
               }}
               sx={{ mr: 'auto' }}
             >
-              Apply to Artifact
+              {t('externalCql.applyToArtifact')}
             </Button>
           )}
-          <Button onClick={() => setDetailsLib(null)}>Close</Button>
+          <Button onClick={() => setDetailsLib(null)}>{t('actions.close', { ns: 'common' })}</Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>Delete Library</DialogTitle>
+        <DialogTitle>{t('externalCql.deleteTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete &quot;{deleteTarget?.name}&quot;? This cannot be undone.
+            {t('externalCql.deleteConfirm', { name: deleteTarget?.name })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">Delete</Button>
+          <Button onClick={() => setDeleteTarget(null)}>{t('actions.close', { ns: 'common' })}</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">{t('actions.delete', { ns: 'common' })}</Button>
         </DialogActions>
       </Dialog>
     </Box>

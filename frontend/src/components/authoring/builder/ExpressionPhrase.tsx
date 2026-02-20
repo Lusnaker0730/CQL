@@ -1,4 +1,6 @@
 import { Box, Typography, Chip } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { ElementInstance } from '../../../types/authoring'
 
 interface ExpressionPhraseProps {
@@ -7,7 +9,8 @@ interface ExpressionPhraseProps {
 }
 
 export default function ExpressionPhrase({ element, variant = 'inline' }: ExpressionPhraseProps) {
-  const phrase = buildPhrase(element)
+  const { t } = useTranslation('authoring')
+  const phrase = buildPhrase(element, t)
 
   if (variant === 'full') {
     return (
@@ -29,47 +32,47 @@ export default function ExpressionPhrase({ element, variant = 'inline' }: Expres
 
   return (
     <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-      {phraseToString(element)}
+      {phraseToString(element, t)}
     </Typography>
   )
 }
 
-function buildPhrase(element: ElementInstance) {
+function buildPhrase(element: ElementInstance, t: TFunction) {
   switch (element.type) {
     case 'AgeRange':
-      return buildAgeRangePhrase(element)
+      return buildAgeRangePhrase(element, t)
     case 'Gender':
-      return buildGenderPhrase(element)
+      return buildGenderPhrase(element, t)
     default:
       if (element.type?.startsWith('Generic')) {
-        return buildGenericResourcePhrase(element)
+        return buildGenericResourcePhrase(element, t)
       }
       return buildDefaultPhrase(element)
   }
 }
 
-function buildAgeRangePhrase(element: ElementInstance) {
+function buildAgeRangePhrase(element: ElementInstance, t: TFunction) {
   const minAge = getFieldValue(element, 'min_age')
   const maxAge = getFieldValue(element, 'max_age')
   const unit = getFieldValue(element, 'unit_of_time') || 'year'
   const unitLabel = unit.endsWith('s') ? unit : unit + 's'
 
   const parts: React.ReactNode[] = []
-  parts.push(<span key="prefix">The patient&apos;s <strong>age</strong> is </span>)
+  parts.push(<span key="prefix" dangerouslySetInnerHTML={{ __html: t('expression.ageIs') }} />)
 
   if (minAge && maxAge) {
-    parts.push(<span key="between">between </span>)
+    parts.push(<span key="between">{t('expression.between')}</span>)
     parts.push(<ValueChip key="min" label={`${minAge} ${unitLabel}`} />)
     parts.push(<span key="and"> and </span>)
     parts.push(<ValueChip key="max" label={`${maxAge} ${unitLabel}`} />)
   } else if (minAge) {
-    parts.push(<span key="gte">at least </span>)
+    parts.push(<span key="gte">{t('expression.atLeast')}</span>)
     parts.push(<ValueChip key="min" label={`${minAge} ${unitLabel}`} />)
   } else if (maxAge) {
-    parts.push(<span key="lte">at most </span>)
+    parts.push(<span key="lte">{t('expression.atMost')}</span>)
     parts.push(<ValueChip key="max" label={`${maxAge} ${unitLabel}`} />)
   } else {
-    parts.push(<span key="any">any age</span>)
+    parts.push(<span key="any">{t('expression.anyAge')}</span>)
   }
 
   const modifierPhrase = buildModifierPhrase(element)
@@ -84,18 +87,18 @@ function buildAgeRangePhrase(element: ElementInstance) {
   )
 }
 
-function buildGenderPhrase(element: ElementInstance) {
+function buildGenderPhrase(element: ElementInstance, t: TFunction) {
   const gender = getFieldValue(element, 'gender')
 
   return (
     <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <span>The patient&apos;s <strong>gender</strong> is </span>
-      {gender ? <ValueChip label={gender} /> : <Box component="span" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>not set</Box>}
+      <span dangerouslySetInnerHTML={{ __html: t('expression.genderIs') }} />
+      {gender ? <ValueChip label={gender} /> : <Box component="span" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>{t('expression.notSet')}</Box>}
     </Typography>
   )
 }
 
-function buildGenericResourcePhrase(element: ElementInstance) {
+function buildGenericResourcePhrase(element: ElementInstance, t: TFunction) {
   const resourceType = element.type.replace('Generic', '').replace('_vsac', '')
   const vsacField = element.fields?.find((f) => f.type?.endsWith('_vsac'))
 
@@ -107,7 +110,7 @@ function buildGenericResourcePhrase(element: ElementInstance) {
   parts.push(
     <span key="prefix">
       <strong>{resourceType}</strong>
-      {valueSets.length > 0 || codes.length > 0 || legacyValue ? ' matching ' : ''}
+      {valueSets.length > 0 || codes.length > 0 || legacyValue ? t('expression.matching') : ''}
     </span>
   )
 
@@ -179,21 +182,21 @@ function ValueChip({ label }: { label: string }) {
 }
 
 /** Flat string version for collapsed view */
-function phraseToString(element: ElementInstance): string {
+function phraseToString(element: ElementInstance, t: TFunction): string {
   switch (element.type) {
     case 'AgeRange': {
       const min = getFieldValue(element, 'min_age')
       const max = getFieldValue(element, 'max_age')
       const unit = getFieldValue(element, 'unit_of_time') || 'year'
       const u = unit.endsWith('s') ? unit : unit + 's'
-      if (min && max) return `Age is between ${min} ${u} and ${max} ${u}`
-      if (min) return `Age is at least ${min} ${u}`
-      if (max) return `Age is at most ${max} ${u}`
-      return 'Age range not configured'
+      if (min && max) return `${stripHtml(t('expression.ageIs'))}${t('expression.between')}${min} ${u} and ${max} ${u}`
+      if (min) return `${stripHtml(t('expression.ageIs'))}${t('expression.atLeast')}${min} ${u}`
+      if (max) return `${stripHtml(t('expression.ageIs'))}${t('expression.atMost')}${max} ${u}`
+      return t('expression.ageRangeNotConfigured')
     }
     case 'Gender': {
       const g = getFieldValue(element, 'gender')
-      return g ? `Gender is ${g}` : 'Gender not set'
+      return g ? `${stripHtml(t('expression.genderIs'))}${g}` : t('expression.genderNotSet')
     }
     default: {
       const rt = element.type?.startsWith('Generic')
@@ -203,6 +206,11 @@ function phraseToString(element: ElementInstance): string {
       return `${rt}${mods}`
     }
   }
+}
+
+/** Strip HTML tags from a string for use in plain-text contexts */
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '')
 }
 
 function getFieldValue(element: ElementInstance, fieldId: string): string {

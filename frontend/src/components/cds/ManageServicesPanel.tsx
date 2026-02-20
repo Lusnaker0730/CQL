@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import { setCqlContent } from '../../store/editorSlice'
 import type { RootState } from '../../store'
 
@@ -68,6 +69,8 @@ export default function ManageServicesPanel() {
   const rollbackMutation = useRollbackCdsService()
   const shareMutation = useToggleCdsServiceShared()
   const { showNotification } = useNotification()
+  const { t } = useTranslation('cds')
+  const { t: tc } = useTranslation('common')
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<CdsServiceConfigResponse | null>(null)
@@ -144,7 +147,7 @@ export default function ManageServicesPanel() {
       }
       handleClose()
     } catch (error) {
-      showNotification('Failed to save service: ' + (error as Error).message, 'error')
+      showNotification(t('manage.saveFailed', { error: (error as Error).message }), 'error')
     }
   }
 
@@ -153,7 +156,7 @@ export default function ManageServicesPanel() {
       await deleteMutation.mutateAsync(id)
       setPendingDeleteId(null)
     } catch (error) {
-      showNotification('Failed to delete service: ' + (error as Error).message, 'error')
+      showNotification(t('manage.deleteFailed', { error: (error as Error).message }), 'error')
     }
   }
 
@@ -167,7 +170,7 @@ export default function ManageServicesPanel() {
       await rollbackMutation.mutateAsync({ serviceName, version })
       setVersionsDialogOpen(false)
     } catch (error) {
-      showNotification('Failed to rollback: ' + (error as Error).message, 'error')
+      showNotification(t('manage.rollbackFailed', { error: (error as Error).message }), 'error')
     }
   }
 
@@ -201,24 +204,24 @@ export default function ManageServicesPanel() {
           enabled: service.enabled,
         },
       })
-      showNotification('CQL content saved to service', 'success')
+      showNotification(t('manage.cqlSavedToService'), 'success')
     } catch (error) {
-      showNotification('Failed to save CQL to service: ' + (error as Error).message, 'error')
+      showNotification(t('manage.cqlSaveFailed', { error: (error as Error).message }), 'error')
     }
   }
 
   if (isLoading) return <TableSkeleton columns={5} />
-  if (isError) return <Alert severity="error">Failed to load services</Alert>
+  if (isError) return <Alert severity="error">{t('manage.loadError')}</Alert>
 
   return (
     <Stack spacing={2}>
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="subtitle1">Configured Services</Typography>
+        <Typography variant="subtitle1">{t('manage.title')}</Typography>
         <GradientButton
           startIcon={<AddIcon />}
           onClick={handleOpenCreate}
         >
-          New Service
+          {t('manage.newService')}
         </GradientButton>
       </Box>
 
@@ -234,23 +237,23 @@ export default function ManageServicesPanel() {
               onClick={handleSaveCqlToService}
               disabled={updateMutation.isPending}
             >
-              {updateMutation.isPending ? 'Saving...' : 'Save CQL'}
+              {updateMutation.isPending ? t('manage.saving') : t('manage.saveCql')}
             </Button>
           }
         >
-          Editing <strong>{services?.find((s) => s.id === activeServiceId)?.title}</strong> — edit CQL in the left editor, then click Save.
+          <span dangerouslySetInnerHTML={{ __html: t('manage.editingAlert', { name: services?.find((s) => s.id === activeServiceId)?.title }) }} />
         </Alert>
       )}
 
       {services?.length === 0 && (
-        <Alert severity="info">No CDS services configured. Create one to get started.</Alert>
+        <Alert severity="info">{t('manage.noServices')}</Alert>
       )}
 
       {services?.map((service) => {
         const currentUser = safeParseJson<{ username?: string }>(localStorage.getItem('user'), {})
         const isOwner = !service.ownerUsername || service.ownerUsername === currentUser?.username
         const isShared = service.shared
-        const ownershipLabel = isShared ? 'Shared' : isOwner ? 'Mine' : `Owner: ${service.ownerUsername}`
+        const ownershipLabel = isShared ? t('manage.shared') : isOwner ? t('manage.mine') : t('manage.ownerLabel', { owner: service.ownerUsername })
 
         return (
           <Card
@@ -278,7 +281,7 @@ export default function ManageServicesPanel() {
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
                       {service.title}
                     </Typography>
-                    {service.version && <Chip label={`v${service.version}`} size="small" variant="outlined" />}
+                    {service.version && <Chip label={t('manage.versionLabel', { version: service.version })} size="small" variant="outlined" />}
                     <Chip
                       label={ownershipLabel}
                       size="small"
@@ -287,8 +290,8 @@ export default function ManageServicesPanel() {
                     />
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    ID: {service.id} | Hook: {service.hook}
-                    {service.serviceName && service.serviceName !== service.id && ` | Name: ${service.serviceName}`}
+                    {t('manage.serviceDetails', { id: service.id, hook: service.hook })}
+                    {service.serviceName && service.serviceName !== service.id && t('manage.serviceNameSuffix', { name: service.serviceName })}
                   </Typography>
                   {service.description && (
                     <Typography variant="body2" sx={{ mt: 1, color: 'text.primary' }}>
@@ -298,7 +301,7 @@ export default function ManageServicesPanel() {
                 </Box>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Chip
-                    label={service.enabled ? 'Enabled' : 'Disabled'}
+                    label={service.enabled ? t('manage.enabled') : t('manage.disabled')}
                     color={service.enabled ? 'success' : 'default'}
                     size="small"
                   />
@@ -306,8 +309,8 @@ export default function ManageServicesPanel() {
                     <IconButton
                       size="small"
                       onClick={(e) => { e.stopPropagation(); handleShowVersions(service.serviceName!) }}
-                      title="View versions"
-                      aria-label="View versions"
+                      title={t('manage.viewVersions')}
+                      aria-label={t('manage.viewVersions')}
                     >
                       <HistoryIcon fontSize="small" />
                     </IconButton>
@@ -319,8 +322,8 @@ export default function ManageServicesPanel() {
                       shareMutation.mutate({ id: service.id, shared: !service.shared })
                     }}
                     sx={{ color: service.shared ? 'primary.main' : 'text.secondary' }}
-                    title={service.shared ? 'Unshare service' : 'Share service'}
-                    aria-label={service.shared ? 'Unshare service' : 'Share service'}
+                    title={service.shared ? t('manage.unshare') : t('manage.shareService')}
+                    aria-label={service.shared ? t('manage.unshare') : t('manage.shareService')}
                   >
                     <ShareIcon fontSize="small" />
                   </IconButton>
@@ -329,7 +332,7 @@ export default function ManageServicesPanel() {
                     onClick={(e) => { e.stopPropagation(); handleOpenEdit(service) }}
                     sx={{ color: 'primary.main' }}
                     disabled={!isOwner && !isShared}
-                    aria-label="Edit service"
+                    aria-label={t('manage.editService')}
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
@@ -338,7 +341,7 @@ export default function ManageServicesPanel() {
                     color="error"
                     onClick={(e) => { e.stopPropagation(); setPendingDeleteId(service.id) }}
                     disabled={!isOwner}
-                    aria-label="Delete service"
+                    aria-label={t('manage.deleteService')}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -350,11 +353,11 @@ export default function ManageServicesPanel() {
       })}
 
       <Dialog open={dialogOpen} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>{editingService ? 'Edit CDS Service' : 'Create CDS Service'}</DialogTitle>
+        <DialogTitle>{editingService ? t('manage.editDialogTitle') : t('manage.createDialogTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Service ID"
+              label={t('manage.serviceIdLabel')}
               value={formData.id}
               onChange={(e) => {
                 setFormData({ ...formData, id: e.target.value })
@@ -363,12 +366,12 @@ export default function ManageServicesPanel() {
               size="small"
               fullWidth
               disabled={!!editingService}
-              helperText={formErrors.id || 'Unique identifier for the service (cannot be changed after creation)'}
+              helperText={formErrors.id || t('manage.serviceIdHelperText')}
               error={!!formErrors.id}
             />
 
             <TextField
-              label="Title"
+              label={t('manage.titleLabel')}
               value={formData.title}
               onChange={(e) => {
                 setFormData({ ...formData, title: e.target.value })
@@ -383,11 +386,11 @@ export default function ManageServicesPanel() {
 
             <Stack direction="row" spacing={1} alignItems="center">
               <FormControl fullWidth size="small">
-                <InputLabel>Hook Type</InputLabel>
+                <InputLabel>{t('manage.hookTypeLabel')}</InputLabel>
                 <Select
                   value={formData.hook}
                   onChange={(e) => setFormData({ ...formData, hook: e.target.value })}
-                  label="Hook Type"
+                  label={t('manage.hookTypeLabel')}
                 >
                   {CDS_HOOK_IDS.map((hook) => (
                     <MenuItem key={hook} value={hook}>
@@ -400,7 +403,7 @@ export default function ManageServicesPanel() {
             </Stack>
 
             <TextField
-              label="Description"
+              label={t('manage.descriptionLabel')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               size="small"
@@ -410,11 +413,11 @@ export default function ManageServicesPanel() {
             />
 
             <FormControl fullWidth size="small">
-              <InputLabel>Default Indicator</InputLabel>
+              <InputLabel>{t('manage.defaultIndicatorLabel')}</InputLabel>
               <Select
                 value={formData.defaultIndicator}
                 onChange={(e) => setFormData({ ...formData, defaultIndicator: e.target.value })}
-                label="Default Indicator"
+                label={t('manage.defaultIndicatorLabel')}
               >
                 {CDS_INDICATOR_TYPES.map((indicator) => (
                   <MenuItem key={indicator} value={indicator}>
@@ -431,18 +434,18 @@ export default function ManageServicesPanel() {
                 onClick={() => setLibraryPickerOpen(true)}
                 sx={{ color: 'primary.main' }}
               >
-                Load from Library
+                {t('manage.loadFromLibrary')}
               </Button>
             </Stack>
             <TextField
-              label="CQL Content"
+              label={t('manage.cqlContentLabel')}
               value={formData.cqlContent}
               onChange={(e) => setFormData({ ...formData, cqlContent: e.target.value })}
               size="small"
               fullWidth
               multiline
               rows={8}
-              placeholder="Enter CQL code for this service..."
+              placeholder={t('manage.cqlContentPlaceholder')}
               sx={{
                 '& .MuiInputBase-root': {
                   fontFamily: '"Consolas", monospace',
@@ -463,25 +466,25 @@ export default function ManageServicesPanel() {
                   color="primary"
                 />
               }
-              label="Enabled"
+              label={t('manage.enabledLabel')}
             />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={handleClose} sx={{ color: 'text.secondary' }}>
-            Cancel
+            {tc('actions.cancel')}
           </Button>
           <GradientButton
             onClick={handleSave}
             disabled={!formData.id || !formData.title || createMutation.isPending || updateMutation.isPending}
           >
-            {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save'}
+            {createMutation.isPending || updateMutation.isPending ? t('manage.saving') : tc('actions.save')}
           </GradientButton>
         </DialogActions>
       </Dialog>
 
       <Dialog open={versionsDialogOpen} onClose={() => setVersionsDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Service Versions: {versionsServiceName}</DialogTitle>
+        <DialogTitle>{t('manage.versionsDialogTitle', { name: versionsServiceName })}</DialogTitle>
         <DialogContent>
           {versions && versions.length > 0 ? (
             <List>
@@ -495,32 +498,32 @@ export default function ManageServicesPanel() {
                       onClick={() => handleRollback(versionsServiceName!, v.version!)}
                       disabled={rollbackMutation.isPending}
                     >
-                      {v.enabled ? 'Active' : 'Rollback'}
+                      {v.enabled ? t('manage.versionActive') : t('manage.versionRollback')}
                     </Button>
                   }
                 >
                   <ListItemText
-                    primary={`v${v.version} - ${v.title}`}
-                    secondary={`Hook: ${v.hook} | ${v.enabled ? 'Enabled' : 'Disabled'} | ${v.createdAt || ''}`}
+                    primary={t('manage.versionListEntry', { version: v.version, title: v.title })}
+                    secondary={t('manage.versionInfo', { hook: v.hook, status: v.enabled ? t('manage.enabled') : t('manage.disabled'), date: v.createdAt || '' })}
                   />
                 </ListItem>
               ))}
             </List>
           ) : (
             <Typography variant="body2" color="text.secondary">
-              No versions found.
+              {t('manage.noVersions')}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setVersionsDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setVersionsDialogOpen(false)}>{tc('actions.close')}</Button>
         </DialogActions>
       </Dialog>
 
       <ConfirmDeleteDialog
         open={!!pendingDeleteId}
-        itemName="this service"
-        message="Are you sure you want to delete this service? This action cannot be undone."
+        itemName={t('manage.deleteItemName')}
+        message={t('manage.deleteConfirmMessage')}
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => pendingDeleteId && handleDelete(pendingDeleteId)}
         isPending={deleteMutation.isPending}

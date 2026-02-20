@@ -10,6 +10,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
 import FhirServerUrlField from '../common/FhirServerUrlField'
@@ -24,6 +25,7 @@ import BulkExportTab from './BulkExportTab'
 import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 
 export default function FhirBrowser() {
+  const { t } = useTranslation('fhir')
   const [tabValue, setTabValue] = useState(0)
   const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
@@ -32,7 +34,7 @@ export default function FhirBrowser() {
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>
-        FHIR Browser
+        {t('browser.title')}
       </Typography>
 
       <Stack spacing={2}>
@@ -50,11 +52,11 @@ export default function FhirBrowser() {
         </Stack>
 
         <FormControl fullWidth size="small">
-          <InputLabel>Resource Type</InputLabel>
+          <InputLabel>{t('browser.resourceTypeLabel')}</InputLabel>
           <Select
             value={resourceType}
             onChange={(e) => setResourceType(e.target.value)}
-            label="Resource Type"
+            label={t('browser.resourceTypeLabel')}
           >
             {FHIR_RESOURCE_TYPES.map((type) => (
               <MenuItem key={type} value={type}>
@@ -70,12 +72,12 @@ export default function FhirBrowser() {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label="Search" {...a11yProps(0, 'fhir')} />
-          <Tab label="Read" {...a11yProps(1, 'fhir')} />
-          <Tab label="Validate" {...a11yProps(2, 'fhir')} />
-          <Tab label="Terminology" {...a11yProps(3, 'fhir')} />
-          <Tab label="Transaction" {...a11yProps(4, 'fhir')} />
-          <Tab label="Bulk Export" {...a11yProps(5, 'fhir')} />
+          <Tab label={t('browser.tabSearch')} {...a11yProps(0, 'fhir')} />
+          <Tab label={t('browser.tabRead')} {...a11yProps(1, 'fhir')} />
+          <Tab label={t('browser.tabValidate')} {...a11yProps(2, 'fhir')} />
+          <Tab label={t('browser.tabTerminology')} {...a11yProps(3, 'fhir')} />
+          <Tab label={t('browser.tabTransaction')} {...a11yProps(4, 'fhir')} />
+          <Tab label={t('browser.tabBulkExport')} {...a11yProps(5, 'fhir')} />
         </Tabs>
 
         <TabPanel value={tabValue} index={0} prefix="fhir" sx={{ py: 2 }}>
