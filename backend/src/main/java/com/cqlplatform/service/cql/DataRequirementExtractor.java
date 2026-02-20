@@ -321,15 +321,17 @@ public class DataRequirementExtractor {
             return null;
         }
 
-        // Build the property chain from inside out
+        // Build the property chain from inside out, tracking the innermost Property node
         List<String> chain = new ArrayList<>();
         JsonNode current = node;
+        JsonNode lastProperty = null;
         while (current != null && "Property".equals(current.path("type").asText(""))) {
+            lastProperty = current;
             chain.add(0, current.path("path").asText(""));
             current = current.get("source");
         }
 
-        // Check if the innermost source references our alias
+        // Check if the innermost source references our alias via AliasRef
         if (current != null) {
             String refType = current.path("type").asText("");
             String refName = current.path("name").asText("");
@@ -339,12 +341,19 @@ public class DataRequirementExtractor {
         }
 
         // Alternative: scope-based property (no explicit source, uses scope attribute)
+        // The scope can be on the outermost or innermost Property node depending on the chain
         if (current == null && !chain.isEmpty()) {
+            // Check outermost node's scope
             String scope = node.path("scope").asText(null);
-            // For the outer property (C.code.coding), the outermost node may have scope = alias
-            // but more commonly the innermost is an AliasRef
             if (scope != null && scope.equals(alias)) {
                 return chain.get(0);
+            }
+            // Check innermost Property's scope (e.g., M.medication has scope="M", coding wraps it)
+            if (lastProperty != null) {
+                scope = lastProperty.path("scope").asText(null);
+                if (scope != null && scope.equals(alias)) {
+                    return chain.get(0);
+                }
             }
         }
 
@@ -403,18 +412,22 @@ public class DataRequirementExtractor {
 
     /**
      * Check if left is a Property accessing .system and right is a Literal string URL.
+     * The Property may be wrapped in a FunctionRef (e.g., FHIRHelpers.ToString(Coding.system))
+     * due to the CQL-to-ELM translator converting FHIR uri types.
      */
     private String extractSystemComparison(JsonNode propertyNode, JsonNode literalNode, String innerAlias) {
         if (propertyNode == null || literalNode == null) {
             return null;
         }
 
-        // Check left is a Property with path "system" (or "url")
-        String propType = propertyNode.path("type").asText("");
-        if (!"Property".equals(propType)) {
+        // Unwrap FunctionRef (e.g., FHIRHelpers.ToString) to reach the inner Property
+        JsonNode unwrapped = unwrapToProperty(propertyNode);
+        if (unwrapped == null) {
             return null;
         }
-        String path = propertyNode.path("path").asText("");
+
+        // Check unwrapped is a Property with path "system" (or "url")
+        String path = unwrapped.path("path").asText("");
         if (!"system".equals(path) && !"url".equals(path)) {
             return null;
         }
@@ -428,6 +441,32 @@ public class DataRequirementExtractor {
             }
         }
 
+        return null;
+    }
+
+    /**
+     * Unwrap FunctionRef/As/Convert nodes to reach the underlying Property node.
+     * CQL-to-ELM translator wraps FHIR primitive types (uri, code, etc.) in
+     * FHIRHelpers.ToString/ToCode, producing: FunctionRef → Property instead of bare Property.
+     */
+    private JsonNode unwrapToProperty(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        String type = node.path("type").asText("");
+        if ("Property".equals(type)) {
+            return node;
+        }
+        if ("FunctionRef".equals(type)) {
+            JsonNode ops = node.get("operand");
+            if (ops != null && ops.isArray() && !ops.isEmpty()) {
+                return unwrapToProperty(ops.get(0));
+            }
+        }
+        if ("As".equals(type) || "Convert".equals(type)) {
+            JsonNode operand = node.get("operand");
+            return unwrapToProperty(operand);
+        }
         return null;
     }
 
