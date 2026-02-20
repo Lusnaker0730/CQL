@@ -36,6 +36,7 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
     choiceTypes: [],
     bindingStrength: null,
     bindingValueSetUrl: null,
+    bindingCodeSystemUrl: null,
     boundCodes: [],
     children: [],
     description: element.description,

@@ -165,6 +165,7 @@ public class FhirStructureDefinitionService {
         // Binding info
         String bindingStrength = null;
         String bindingValueSetUrl = null;
+        String bindingCodeSystemUrl = null;
         List<String> boundCodes = Collections.emptyList();
         var bindingInfo = extractBinding(path, datatypeContext);
         if (bindingInfo != null) {
@@ -172,7 +173,9 @@ public class FhirStructureDefinitionService {
             bindingValueSetUrl = bindingInfo.valueSetUrl;
             if (("required".equals(bindingStrength) || "extensible".equals(bindingStrength))
                     && bindingValueSetUrl != null) {
-                boundCodes = expandValueSetCodes(bindingValueSetUrl);
+                var expanded = expandValueSetCodes(bindingValueSetUrl);
+                boundCodes = expanded.codes;
+                bindingCodeSystemUrl = expanded.codeSystemUrl;
             }
         }
 
@@ -187,7 +190,7 @@ public class FhirStructureDefinitionService {
                 elementName, path, typeName,
                 isArray, isRequired, min, maxStr,
                 false, Collections.emptyList(),
-                bindingStrength, bindingValueSetUrl, boundCodes,
+                bindingStrength, bindingValueSetUrl, bindingCodeSystemUrl, boundCodes,
                 children, description,
                 Collections.emptyList()
         );
@@ -213,7 +216,7 @@ public class FhirStructureDefinitionService {
                 elementName, path, "choice",
                 isArray, isRequired, min, max,
                 true, choiceTypes,
-                null, null, Collections.emptyList(),
+                null, null, null, Collections.emptyList(),
                 Collections.emptyList(), null,
                 Collections.emptyList()
         );
@@ -236,7 +239,7 @@ public class FhirStructureDefinitionService {
                 elementName, path, "Reference",
                 isArray, isRequired, min, max,
                 false, Collections.emptyList(),
-                null, null, Collections.emptyList(),
+                null, null, null, Collections.emptyList(),
                 Collections.emptyList(), null,
                 referenceTargets
         );
@@ -318,14 +321,28 @@ public class FhirStructureDefinitionService {
         return null;
     }
 
+    private record ExpandedCodes(List<String> codes, String codeSystemUrl) {}
+
     /**
      * Expand a ValueSet URL into its list of codes using the validation support chain.
+     * Also extracts the CodeSystem URL from the ValueSet compose (needed for correct FHIR serialization).
      */
-    private List<String> expandValueSetCodes(String valueSetUrl) {
+    private ExpandedCodes expandValueSetCodes(String valueSetUrl) {
         try {
             IBaseResource vsResource = validationSupport.fetchValueSet(valueSetUrl);
             if (!(vsResource instanceof ValueSet vs)) {
-                return Collections.emptyList();
+                return new ExpandedCodes(Collections.emptyList(), null);
+            }
+
+            // Extract CodeSystem URL from compose.include (first system found)
+            String codeSystemUrl = null;
+            if (vs.hasCompose()) {
+                for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
+                    if (include.hasSystem()) {
+                        codeSystemUrl = include.getSystem();
+                        break;
+                    }
+                }
             }
 
             // Try expansion via validation support
@@ -339,8 +356,12 @@ public class FhirStructureDefinitionService {
                         if (c.getCode() != null) {
                             codes.add(c.getCode());
                         }
+                        // Also capture system from expansion if not already found
+                        if (codeSystemUrl == null && c.getSystem() != null) {
+                            codeSystemUrl = c.getSystem();
+                        }
                     }
-                    return codes;
+                    return new ExpandedCodes(codes, codeSystemUrl);
                 }
             }
 
@@ -355,13 +376,13 @@ public class FhirStructureDefinitionService {
                     }
                 }
                 if (!codes.isEmpty()) {
-                    return codes;
+                    return new ExpandedCodes(codes, codeSystemUrl);
                 }
             }
         } catch (Exception e) {
             log.debug("Failed to expand ValueSet {}: {}", valueSetUrl, e.getMessage());
         }
-        return Collections.emptyList();
+        return new ExpandedCodes(Collections.emptyList(), null);
     }
 
     // --- Type name helpers ---

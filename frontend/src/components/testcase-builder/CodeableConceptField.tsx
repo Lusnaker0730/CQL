@@ -118,7 +118,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
       }
       onChange({
         coding: [{
-          system: element.bindingValueSetUrl || undefined,
+          system: element.bindingCodeSystemUrl || element.bindingValueSetUrl || undefined,
           code,
           display: code.charAt(0).toUpperCase() + code.slice(1),
         }],
