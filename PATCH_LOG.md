@@ -12,6 +12,7 @@
 | 002 | 2026-02-19 | i18n | Measures 模組國際化（en / zh-TW） | Measures, Dashboard, Test Case Builder |
 | 003 | 2026-02-20 | i18n | 全平台國際化完成（Phase 5-9） | CDS, FHIR, Terminology, Authoring, Admin |
 | 004 | 2026-02-20 | 跨模組 | 術語查詢 Drawer + 測試案例草稿自動儲存 | Header, Terminology, Test Case Builder, Measures |
+| 005 | 2026-02-20 | 安全性 | MeasureController 授權與 IDOR 修復 | Backend — MeasureController, ScheduledMeasureEvaluationService |
 
 ---
 
@@ -373,3 +374,64 @@
 - `npx tsc --noEmit` — 無型別錯誤
 - `npm run build` — 建置成功
 - 無新增後端端點，全部重用既有 API 和 React Query hooks
+
+---
+
+## #005 — MeasureController 授權與 IDOR 修復
+
+- **日期**: 2026-02-20
+- **範圍**: 安全性 — 後端授權強化
+- **分類**: 安全性 / 存取控制
+
+### 問題描述
+
+`MeasureController` 存在多項授權缺陷：部分端點缺少所有權檢查，允許任意已認證使用者修改或刪除他人的指標；測試案例端點存在 IDOR（不安全的直接物件參考）漏洞；排程端點完全無授權保護。
+
+### 修改內容
+
+#### 新增輔助方法
+
+| 方法 | 用途 |
+|------|------|
+| `requireMeasure(Long id)` | 取得指標或拋出 404 |
+| `requireOwnedMeasure(Long id)` | 取得指標並驗證當前使用者為擁有者（或 ADMIN） |
+| `verifyTestCaseBelongsToMeasure(Long measureId, Long testCaseId)` | 驗證測試案例確實屬於指定指標，防止 IDOR |
+| `requireOwnedSchedule(Long scheduleId)` | 透過排程的 `measureDefinitionId` 查詢父指標並驗證所有權 |
+
+#### 高優先級修復
+
+| 問題 | 端點 | 修復 |
+|------|------|------|
+| `updateMeasure` 所有權繞過 | `PUT /{id}` | 改為 `requireOwnedMeasure(id)` |
+| `deleteMeasure` 無授權 | `DELETE /{id}` | 新增 `requireOwnedMeasure(id)` |
+| 測試案例 IDOR | 7 個 `/{measureId}/test-cases/**` 端點 | 新增 `requireMeasure` / `requireOwnedMeasure` + `verifyTestCaseBelongsToMeasure` |
+
+#### 中優先級修復
+
+| 問題 | 端點 | 修復 |
+|------|------|------|
+| `exportReport` 無所有權檢查 | `GET /reports/{reportId}/export` | 新增 `evaluatedBy` 所有權檢查（比照 `getReport` / `deleteReport`） |
+| 排程端點無授權 | 5 個排程端點 | `getSchedules` / `createSchedule` 使用 `requireOwnedMeasure(measureId)`；`updateSchedule` / `deleteSchedule` / `triggerSchedule` 使用 `requireOwnedSchedule(scheduleId)` |
+| `getMeasuresByOwner` 資訊洩漏 | `GET /owner/{username}` | 限制為本人或 ADMIN，否則回傳 403 |
+| `getSharedMeasures` 資訊洩漏 | `GET /shared/{username}` | 限制為本人或 ADMIN，否則回傳 403 |
+
+#### 服務層新增
+
+| 動作 | 檔案 | 修改 |
+|------|------|------|
+| 修改 | `ScheduledMeasureEvaluationService.java` | 新增 `getScheduleById(Long)` 方法，回傳 `Optional<MeasureScheduleEntity>` |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 修改檔案 | 2（MeasureController.java, ScheduledMeasureEvaluationService.java） |
+| 修復端點 | 15 個（3 高優先 + 12 中優先） |
+| 新增方法 | 4 個輔助方法（Controller） + 1 個服務方法 |
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- 所有變更遵循既有 `OwnershipVerifier` 模式（`verifyOwnership` / `isAdmin` / `getCurrentUsername`）
+- 唯讀端點（`getTestCase`, `runTestCase`, `runAllTestCases`, `runWithCoverage`）使用 `requireMeasure`（驗證存在性但不限制擁有者）
+- 變更端點（`createTestCase`, `updateTestCase`, `deleteTestCase`）使用 `requireOwnedMeasure`（需擁有者或 ADMIN）

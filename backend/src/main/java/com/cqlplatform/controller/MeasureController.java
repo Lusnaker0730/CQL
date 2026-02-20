@@ -28,6 +28,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.web.server.ResponseStatusException;
+
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -61,6 +63,39 @@ public class MeasureController {
     private final DataRequirementExtractor dataRequirementExtractor;
     private final OwnershipVerifier ownershipVerifier;
 
+    // ===== Helpers =====
+
+    /** Fetch a measure or throw 404. */
+    private MeasureDefinition requireMeasure(Long id) {
+        return definitionService.getById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Measure not found: " + id));
+    }
+
+    /** Fetch a measure and verify the current user owns it (or is admin). */
+    private MeasureDefinition requireOwnedMeasure(Long id) {
+        MeasureDefinition m = requireMeasure(id);
+        ownershipVerifier.verifyOwnership(m.getOwnerUsername());
+        return m;
+    }
+
+    /** Fetch a schedule by ID and verify ownership of its parent measure. */
+    private MeasureScheduleEntity requireOwnedSchedule(Long scheduleId) {
+        MeasureScheduleEntity schedule = scheduleService.getScheduleById(scheduleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Schedule not found: " + scheduleId));
+        requireOwnedMeasure(schedule.getMeasureDefinitionId());
+        return schedule;
+    }
+
+    /** Verify a test case belongs to the given measure, throw 400 if mismatch. */
+    private void verifyTestCaseBelongsToMeasure(Long measureId, Long testCaseId) {
+        testCaseService.getById(testCaseId).ifPresent(tc -> {
+            if (tc.getMeasureDefinitionId() != null && !tc.getMeasureDefinitionId().equals(measureId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Test case " + testCaseId + " does not belong to measure " + measureId);
+            }
+        });
+    }
+
     // ===== Measure Definition CRUD =====
 
     @GetMapping
@@ -93,14 +128,15 @@ public class MeasureController {
     public ResponseEntity<MeasureDefinition> updateMeasure(
             @PathVariable Long id,
             @Valid @RequestBody MeasureDefinition definition) {
-        definitionService.getById(id).ifPresent(m -> ownershipVerifier.verifyOwnership(m.getOwnerUsername()));
+        requireOwnedMeasure(id);
         MeasureDefinition updated = definitionService.update(id, definition);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete Measure", description = "Delete a measure definition (ADMIN only)")
+    @Operation(summary = "Delete Measure", description = "Delete a measure definition (owner or ADMIN)")
     public ResponseEntity<Void> deleteMeasure(@PathVariable Long id) {
+        requireOwnedMeasure(id);
         definitionService.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -346,50 +382,62 @@ public class MeasureController {
     // ===== Report Export =====
 
     @GetMapping("/reports/{reportId}/export")
-    @Operation(summary = "Export Report", description = "Export a measure report in FHIR, CSV, or Excel format")
+    @Operation(summary = "Export Report", description = "Export a measure report in FHIR, CSV, or Excel format (owner or admin only)")
     public ResponseEntity<byte[]> exportReport(
             @PathVariable Long reportId,
             @RequestParam(defaultValue = "fhir") String format) {
+        Optional<MeasureReportEntity> opt = reportService.getReport(reportId);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(opt.get().getEvaluatedBy())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return exportService.exportReport(reportId, format);
     }
 
     // ===== Schedules =====
 
     @GetMapping("/{measureId}/schedules")
-    @Operation(summary = "List Schedules", description = "List schedules for a measure")
+    @Operation(summary = "List Schedules", description = "List schedules for a measure (owner or admin only)")
     public ResponseEntity<List<MeasureScheduleEntity>> getSchedules(@PathVariable Long measureId) {
+        requireOwnedMeasure(measureId);
         return ResponseEntity.ok(scheduleService.getSchedulesForMeasure(measureId));
     }
 
     @PostMapping("/{measureId}/schedules")
-    @Operation(summary = "Create Schedule", description = "Create a new schedule for a measure")
+    @Operation(summary = "Create Schedule", description = "Create a new schedule for a measure (owner or admin only)")
     public ResponseEntity<MeasureScheduleEntity> createSchedule(
             @PathVariable Long measureId,
             @Valid @RequestBody MeasureScheduleEntity schedule) {
+        requireOwnedMeasure(measureId);
         schedule.setMeasureDefinitionId(measureId);
         MeasureScheduleEntity created = scheduleService.createSchedule(schedule);
         return ResponseEntity.ok(created);
     }
 
     @PutMapping("/schedules/{scheduleId}")
-    @Operation(summary = "Update Schedule", description = "Update a schedule")
+    @Operation(summary = "Update Schedule", description = "Update a schedule (owner or admin only)")
     public ResponseEntity<MeasureScheduleEntity> updateSchedule(
             @PathVariable Long scheduleId,
             @Valid @RequestBody MeasureScheduleEntity schedule) {
+        requireOwnedSchedule(scheduleId);
         MeasureScheduleEntity updated = scheduleService.updateSchedule(scheduleId, schedule);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/schedules/{scheduleId}")
-    @Operation(summary = "Delete Schedule", description = "Delete a schedule")
+    @Operation(summary = "Delete Schedule", description = "Delete a schedule (owner or admin only)")
     public ResponseEntity<Void> deleteSchedule(@PathVariable Long scheduleId) {
+        requireOwnedSchedule(scheduleId);
         scheduleService.deleteSchedule(scheduleId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/schedules/{scheduleId}/trigger")
-    @Operation(summary = "Trigger Schedule", description = "Manually trigger a scheduled evaluation")
+    @Operation(summary = "Trigger Schedule", description = "Manually trigger a scheduled evaluation (owner or admin only)")
     public ResponseEntity<MeasureEvaluationResult> triggerSchedule(@PathVariable Long scheduleId) {
+        requireOwnedSchedule(scheduleId);
         MeasureEvaluationResult result = scheduleService.triggerManually(scheduleId);
         return ResponseEntity.ok(result);
     }
@@ -430,6 +478,8 @@ public class MeasureController {
     public ResponseEntity<TestCase> getTestCase(
             @PathVariable Long measureId,
             @PathVariable Long testCaseId) {
+        requireMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
         return testCaseService.getById(testCaseId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -440,6 +490,7 @@ public class MeasureController {
     public ResponseEntity<TestCase> createTestCase(
             @PathVariable Long measureId,
             @Valid @RequestBody TestCase testCase) {
+        requireOwnedMeasure(measureId);
         TestCase created = testCaseService.create(measureId, testCase);
         return ResponseEntity.ok(created);
     }
@@ -450,6 +501,8 @@ public class MeasureController {
             @PathVariable Long measureId,
             @PathVariable Long testCaseId,
             @Valid @RequestBody TestCase testCase) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
         TestCase updated = testCaseService.update(testCaseId, testCase);
         return ResponseEntity.ok(updated);
     }
@@ -459,6 +512,8 @@ public class MeasureController {
     public ResponseEntity<Void> deleteTestCase(
             @PathVariable Long measureId,
             @PathVariable Long testCaseId) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
         testCaseService.delete(testCaseId);
         return ResponseEntity.noContent().build();
     }
@@ -468,6 +523,8 @@ public class MeasureController {
     public ResponseEntity<TestCaseRunResult> runTestCase(
             @PathVariable Long measureId,
             @PathVariable Long testCaseId) {
+        requireMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
         TestCaseRunResult result = testCaseService.runTestCase(testCaseId);
         return ResponseEntity.ok(result);
     }
@@ -475,6 +532,7 @@ public class MeasureController {
     @PostMapping("/{measureId}/test-cases/run")
     @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure")
     public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(@PathVariable Long measureId) {
+        requireMeasure(measureId);
         List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId);
         return ResponseEntity.ok(results);
     }
@@ -484,6 +542,8 @@ public class MeasureController {
     public ResponseEntity<CoverageResult> runWithCoverage(
             @PathVariable Long measureId,
             @PathVariable Long testCaseId) {
+        requireMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
         CoverageResult coverage = testCaseService.runWithCoverage(testCaseId);
         return ResponseEntity.ok(coverage);
     }
@@ -555,14 +615,20 @@ public class MeasureController {
     }
 
     @GetMapping("/owner/{username}")
-    @Operation(summary = "Get Measures by Owner", description = "Returns all measures owned by a user")
+    @Operation(summary = "Get Measures by Owner", description = "Returns all measures owned by a user (own user or admin only)")
     public ResponseEntity<List<MeasureDefinition>> getMeasuresByOwner(@PathVariable String username) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(definitionService.getMeasuresByOwner(username));
     }
 
     @GetMapping("/shared/{username}")
-    @Operation(summary = "Get Shared Measures", description = "Returns measures shared with a user or public")
+    @Operation(summary = "Get Shared Measures", description = "Returns measures shared with a user or public (own user or admin only)")
     public ResponseEntity<List<MeasureDefinition>> getSharedMeasures(@PathVariable String username) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(definitionService.getSharedMeasures(username));
     }
 
