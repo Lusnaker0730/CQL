@@ -8,7 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 021 | 2026-02-20 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 FHIRHelpers.ToString 包裝的屬性比較 | 資料處理錯誤 | TBD |
+| 021 | 2026-02-20 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 FHIRHelpers.ToString 包裝的屬性比較 | 資料處理錯誤 | [`66a9ee2`](../../commit/66a9ee2) |
 | 020 | 2026-02-20 | Medium | eCQM 資料需求（前後端） | DataRequirements 標籤頁未顯示 Where 子句中的篩選條件 | 架構缺陷 | [`8efa589`](../../commit/8efa589) |
 | 019 | 2026-02-20 | High | CDS Hooks Sandbox（後端） | CDS Prefetch 執行清除 patientId 導致 Patient context 失效 | 邏輯錯誤 | [`c08372c`](../../commit/c08372c) |
 | ~~018~~ | 2026-02-20 | — | CQL Engine（後端） | ~~FHIR Coding→Code 轉換~~ **已撤回**（CQL Engine 已透過 FHIRHelpers 處理） | 誤判 | [`878deef`](../../commit/878deef) → reverted |
@@ -52,7 +52,7 @@
 | **嚴重程度** | Medium |
 | **根因類型** | 資料處理錯誤 |
 | **影響範圍** | `DataRequirementExtractor.java` |
-| **Commit** | TBD |
+| **Commit** | [`66a9ee2`](../../commit/66a9ee2) |
 | **關聯** | #020 修正的後續問題 |
 
 ### BUG 描述
