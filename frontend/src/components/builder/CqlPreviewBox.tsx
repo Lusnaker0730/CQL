@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Box } from '@mui/material'
-import * as monaco from 'monaco-editor'
+import { useMonaco } from '@monaco-editor/react'
+import { usePreferences } from '../../hooks/usePreferences'
 
 interface CqlPreviewBoxProps {
   code: string
@@ -9,21 +10,27 @@ interface CqlPreviewBoxProps {
 
 export default function CqlPreviewBox({ code, maxHeight = 120 }: CqlPreviewBoxProps) {
   const [colorizedHtml, setColorizedHtml] = useState<string>('')
+  const monaco = useMonaco()
+  const { preferences } = usePreferences()
+  const isDark = preferences.themeMode === 'dark'
 
   useEffect(() => {
-    if (!code) {
+    if (!code || !monaco) {
       setColorizedHtml('')
       return
     }
     let cancelled = false
+    // Ensure the correct theme is active so colorize() picks up the right colors
+    const themeName = isDark ? 'cql-theme-dark' : 'cql-theme'
+    monaco.editor.setTheme(themeName)
+
     monaco.editor.colorize(code, 'cql', { tabSize: 2 }).then((html) => {
       if (!cancelled) setColorizedHtml(html)
     }).catch(() => {
-      // Fallback: if colorize fails, clear html so plain text renders
       if (!cancelled) setColorizedHtml('')
     })
     return () => { cancelled = true }
-  }, [code])
+  }, [code, monaco, isDark])
 
   if (!code) return null
 
@@ -31,7 +38,7 @@ export default function CqlPreviewBox({ code, maxHeight = 120 }: CqlPreviewBoxPr
     <Box
       sx={{
         p: 1,
-        bgcolor: 'rgba(27,58,92,0.04)',
+        bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(27,58,92,0.04)',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 1,
@@ -41,7 +48,7 @@ export default function CqlPreviewBox({ code, maxHeight = 120 }: CqlPreviewBoxPr
         wordBreak: 'break-all',
         maxHeight,
         overflow: 'auto',
-        '& .mtk1': { color: '#1B3A5C' },
+        '& .mtk1': { color: isDark ? '#D4D4D4' : '#1B3A5C' },
       }}
     >
       {colorizedHtml ? (
