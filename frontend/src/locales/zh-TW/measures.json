@@ -372,6 +372,14 @@
       "numerator": "分子",
       "numerator-exclusion": "分子排除"
     },
+    "populationTypesShort": {
+      "initial-population": "初始",
+      "denominator": "分母",
+      "denominator-exclusion": "母除",
+      "denominator-exception": "母外",
+      "numerator": "分子",
+      "numerator-exclusion": "子除"
+    },
     "tabs": {
       "visualBuilder": "視覺化建構器",
       "jsonAdvanced": "JSON（進階）"

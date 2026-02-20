@@ -250,7 +250,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             {tc.expectedPopulations && (
               <Stack direction="row" spacing={0.25}>
                 {Object.entries(tc.expectedPopulations).filter(([, v]) => v).map(([key]) => (
-                  <Chip key={key} label={key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).substring(0, 3)} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }} />
+                  <Chip key={key} label={t(`testCaseEditor.populationTypesShort.${key}`, key.substring(0, 3))} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }} />
                 ))}
               </Stack>
             )}

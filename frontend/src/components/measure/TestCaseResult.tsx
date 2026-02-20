@@ -82,7 +82,7 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
             {result.comparisons.map((comp) => (
               <TableRow key={comp.populationType}>
                 <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>
-                  {comp.populationType}
+                  {t(`testCaseEditor.populationTypes.${comp.populationType}`, comp.populationType)}
                 </TableCell>
                 <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }} align="center">
                   {comp.expected == null ? t('testCaseResult.na') : comp.expected ? t('testCaseResult.yes') : t('testCaseResult.no')}

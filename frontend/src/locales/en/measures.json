@@ -372,6 +372,14 @@
       "numerator": "Numerator",
       "numerator-exclusion": "Numerator Exclusion"
     },
+    "populationTypesShort": {
+      "initial-population": "Ini",
+      "denominator": "Den",
+      "denominator-exclusion": "DEx",
+      "denominator-exception": "DXp",
+      "numerator": "Num",
+      "numerator-exclusion": "NEx"
+    },
     "tabs": {
       "visualBuilder": "Visual Builder",
       "jsonAdvanced": "JSON (Advanced)"
