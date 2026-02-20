@@ -16,10 +16,29 @@ public class LocalTerminologyProvider implements TerminologyProvider {
 
     private final FhirImplementationGuideService igService;
     private final TerminologyProvider remoteProvider;
+    private final VsacService vsacService;
 
     public LocalTerminologyProvider(FhirImplementationGuideService igService, TerminologyProvider remoteProvider) {
+        this(igService, remoteProvider, null);
+    }
+
+    public LocalTerminologyProvider(FhirImplementationGuideService igService, TerminologyProvider remoteProvider, VsacService vsacService) {
         this.igService = igService;
         this.remoteProvider = remoteProvider;
+        this.vsacService = vsacService;
+    }
+
+    private static boolean isVsacUrl(String url) {
+        return url != null && url.contains("cts.nlm.nih.gov");
+    }
+
+    private static String extractVsacOid(String url) {
+        // e.g. http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.103.12.1001
+        int lastSlash = url.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < url.length() - 1) {
+            return url.substring(lastSlash + 1);
+        }
+        return url;
     }
 
     @Override
@@ -29,6 +48,19 @@ public class LocalTerminologyProvider implements TerminologyProvider {
             if (vs != null) {
                 log.debug("Checking code {} membership in local ValueSet {}", code.getCode(), valueSet.getId());
                 return isCodeInValueSet(code, vs);
+            }
+        }
+        // Try VSAC for cts.nlm.nih.gov ValueSet URLs
+        if (vsacService != null && isVsacUrl(valueSet.getId())) {
+            try {
+                String oid = extractVsacOid(valueSet.getId());
+                log.info("Resolving VSAC ValueSet for membership check: {} (OID: {})", valueSet.getId(), oid);
+                ValueSet vs = vsacService.expandValueSetByOid(oid);
+                if (vs != null) {
+                    return isCodeInValueSet(code, vs);
+                }
+            } catch (Exception e) {
+                log.warn("VSAC ValueSet resolution failed for {}: {}", valueSet.getId(), e.getMessage());
             }
         }
         // Fallback to remote
@@ -45,6 +77,19 @@ public class LocalTerminologyProvider implements TerminologyProvider {
             if (vs != null) {
                 log.debug("Expanding local ValueSet: {}", valueSet.getId());
                 return expandValueSet(vs);
+            }
+        }
+        // Try VSAC for cts.nlm.nih.gov ValueSet URLs
+        if (vsacService != null && isVsacUrl(valueSet.getId())) {
+            try {
+                String oid = extractVsacOid(valueSet.getId());
+                log.info("Expanding VSAC ValueSet: {} (OID: {})", valueSet.getId(), oid);
+                ValueSet vs = vsacService.expandValueSetByOid(oid);
+                if (vs != null) {
+                    return expandValueSet(vs);
+                }
+            } catch (Exception e) {
+                log.warn("VSAC ValueSet expansion failed for {}: {}", valueSet.getId(), e.getMessage());
             }
         }
         // Fallback to remote

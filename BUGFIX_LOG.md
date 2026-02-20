@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 015 | 2026-02-20 | High | CQL Engine（後端） | VSAC ValueSet 未連接 CQL Engine 導致 CDS 規則失效 | 架構缺陷 | — |
+| 014 | 2026-02-20 | Medium | Test Case Builder（前端） | CodeableConcept boundCodes 未使用下拉選單 | UX 設計缺陷 | — |
 | 013 | 2026-02-20 | Medium | CQL Builder（前端） | TWCORE 選碼導致 Monaco Editor 白屏 | 配置遺漏 | [`4c9ae86`](../../commit/4c9ae86) |
 | 012 | 2026-02-20 | Medium | 跨模組（前端） | Monaco Editor 夜間模式白屏 | 配置遺漏 | [`e375b1e`](../../commit/e375b1e) |
 | 011 | 2026-02-20 | Medium | 版面配置（前端） | Footer 位置異常：flexbox 佈局修正 | UX 設計缺陷 | [`5e69d32`](../../commit/5e69d32) |
@@ -31,6 +33,75 @@
 | 配置遺漏 | 環境設定、參數未正確配置 |
 | 資料處理錯誤 | 資料解析、轉換或驗證問題 |
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
+| 架構缺陷 | 元件間整合或資料流路徑設計不當 |
+
+---
+
+## #015 — VSAC ValueSet 未連接 CQL Engine 導致 CDS 規則失效
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | CQL Engine（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `LocalTerminologyProvider.java`、`FhirTerminologyService.java`、`VsacService.java`、`SettingsController.java`、`SecurityConfig.java` |
+| **Commit** | — |
+
+### BUG 描述
+
+CDS Sandbox 測試含有 VSAC ValueSet 參照（如 `http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.103.12.1001`）的 CQL 規則時，CQL Engine 無法解析 ValueSet，導致 `in` 運算子永遠回傳 false，CDS Card 顯示「No recommendations at this time」。
+
+**根本原因**：`VsacService` 已存在且 API Key 已設定，但僅被 `FhirController` 的 REST API 使用。CQL Engine 的執行路徑為 `CqlExecutionService` → `FhirTerminologyService.createTerminologyProvider()` → `LocalTerminologyProvider(igService, R4FhirTerminologyProvider(tx.fhir.org))`，完全未接入 `VsacService`。當 ValueSet URL 為 `cts.nlm.nih.gov` 時，`tx.fhir.org` 無法解析，導致 fallback 失敗。
+
+### 修正方式
+
+- **`LocalTerminologyProvider.java`**：新增 `VsacService` 為可選依賴。`in()` 和 `expand()` 方法新增 VSAC 層：當 ValueSet URL 包含 `cts.nlm.nih.gov` 時，提取 OID 並委派 `VsacService.expandValueSetByOid()` 解析
+- **`FhirTerminologyService.java`**：注入 `VsacService`（`@Autowired(required = false)`），傳遞至 `LocalTerminologyProvider`。Terminology 解析鏈改為：Local IG → VSAC → Remote (tx.fhir.org)
+- **`VsacService.java`**：新增 `isConfigured()`、`getApiUrl()`、`updateApiKey()` 方法，支援執行時更新 API Key
+- **`SettingsController.java`**（新增）：`GET /api/settings/vsac-status` 查詢 VSAC 狀態；`PUT /api/settings/vsac-api-key` 更新 API Key（ADMIN 限定）
+- **`SecurityConfig.java`**：`PUT /api/settings/**` 限制為 ADMIN 角色
+- **前端 `PreferencesDialog.tsx`**：新增「術語服務」區段，顯示 VSAC 連線狀態（Chip 指示已設定/未設定）、伺服器 URL、API Key 輸入與更新按鈕
+- **i18n**：en/zh-TW 各新增 14 個 `preferences.vsac*` 鍵值
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] `tsc --noEmit` 編譯通過
+- [ ] CDS Sandbox 含 VSAC ValueSet 的 CQL 規則 → CQL Engine 正確解析 ValueSet
+- [ ] PreferencesDialog 顯示 VSAC 狀態和 API Key 設定
+- [ ] 更新 API Key 後 VSAC 狀態切換為「已設定」
+
+---
+
+## #014 — CodeableConcept boundCodes 未使用下拉選單
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-20 |
+| **功能分類** | Test Case Builder（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | UX 設計缺陷 |
+| **影響範圍** | `frontend/src/components/testcase-builder/CodeableConceptField.tsx` |
+| **Commit** | — |
+
+### BUG 描述
+
+Visual Builder 中 `clinicalStatus`（type `CodeableConcept`）等帶有 `boundCodes` 的欄位，仍顯示為完整的 coding 複合編輯器（system + code + display 三欄 + TWCORE 瀏覽按鈕 + 新增 coding 按鈕 + text 欄位）。一般使用者不知道需要填入完整的 coding 物件才能使 CQL 正確判斷。
+
+**根本原因**：`CodeField.tsx`（primitive `code` type）已有 `boundCodes` 下拉邏輯（#003），但 `CodeableConceptField.tsx`（complex `CodeableConcept` type）從未實作此功能。後端 `FhirStructureDefinitionService` 已正確回傳 `boundCodes: ["active", "recurrence", "relapse", "inactive", "remission", "resolved"]`，但前端忽略此資訊。
+
+### 修正方式
+
+- **`CodeableConceptField.tsx`**：在元件頂部新增 `hasBoundCodes` 判斷分支。當 `element.boundCodes.length > 0` 時，渲染 MUI `Select` 下拉選單取代複合編輯器。選擇後自動生成完整的 `CodeableConcept` 結構（含 `coding[0].system`、`code`、`display`）
+- 新增 `FormControl`、`InputLabel`、`Select`、`MenuItem` imports
+
+### 測試驗證
+
+- [x] `tsc --noEmit` 編譯通過
+- [ ] Condition clinicalStatus 顯示為下拉選單（active/inactive/resolved 等）
+- [ ] 選擇後 JSON 正確生成 `{ coding: [{ system: "...", code: "active", display: "Active" }] }`
+- [ ] 無 boundCodes 的 CodeableConcept 欄位仍顯示完整 coding 編輯器
 
 ---
 

@@ -74,7 +74,20 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "defaults": "Defaults",
-    "defaultFhirServerUrl": "Default FHIR Server URL"
+    "defaultFhirServerUrl": "Default FHIR Server URL",
+    "terminology": "Terminology",
+    "vsacStatus": "VSAC Status:",
+    "vsacConfigured": "Configured",
+    "vsacNotConfigured": "Not Configured",
+    "vsacUnavailable": "Unavailable",
+    "vsacUrl": "Server URL",
+    "vsacApiKey": "VSAC API Key",
+    "vsacApiKeyPlaceholder": "Enter your UMLS/VSAC API key",
+    "vsacApiKeyHelp": "Required for resolving VSAC ValueSets (e.g. NLM OID-based). Get a key at https://uts.nlm.nih.gov/uts/",
+    "vsacKeySave": "Update API Key",
+    "vsacKeySaving": "Saving...",
+    "vsacKeySaved": "VSAC API key updated successfully",
+    "vsacKeySaveFailed": "Failed to update VSAC API key"
   },
   "errors": {
     "applicationError": "Application Error",

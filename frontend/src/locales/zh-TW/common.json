@@ -74,7 +74,20 @@
     "themeLight": "淺色",
     "themeDark": "深色",
     "defaults": "預設值",
-    "defaultFhirServerUrl": "預設 FHIR 伺服器 URL"
+    "defaultFhirServerUrl": "預設 FHIR 伺服器 URL",
+    "terminology": "術語服務",
+    "vsacStatus": "VSAC 狀態：",
+    "vsacConfigured": "已設定",
+    "vsacNotConfigured": "未設定",
+    "vsacUnavailable": "無法連線",
+    "vsacUrl": "伺服器網址",
+    "vsacApiKey": "VSAC API Key",
+    "vsacApiKeyPlaceholder": "輸入您的 UMLS/VSAC API Key",
+    "vsacApiKeyHelp": "解析 VSAC ValueSet（如 NLM OID）時必須提供。請至 https://uts.nlm.nih.gov/uts/ 申請",
+    "vsacKeySave": "更新 API Key",
+    "vsacKeySaving": "儲存中...",
+    "vsacKeySaved": "VSAC API Key 更新成功",
+    "vsacKeySaveFailed": "VSAC API Key 更新失敗"
   },
   "errors": {
     "applicationError": "應用程式錯誤",

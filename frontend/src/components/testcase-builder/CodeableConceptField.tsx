@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip } from '@mui/material'
+import {
+  Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip,
+  FormControl, InputLabel, Select, MenuItem,
+} from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
@@ -103,6 +106,40 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
   const resourceType = useCurrentResourceType()
   const [twcoreOpen, setTwcoreOpen] = useState(false)
   const [twcoreTargetIdx, setTwcoreTargetIdx] = useState<number>(0)
+
+  // When boundCodes are available (required/extensible binding), show a simple dropdown
+  const hasBoundCodes = element.boundCodes && element.boundCodes.length > 0
+  if (hasBoundCodes) {
+    const selectedCode = codings[0]?.code || ''
+    const handleSelect = (code: string) => {
+      if (!code) {
+        onChange(undefined)
+        return
+      }
+      onChange({
+        coding: [{
+          system: element.bindingValueSetUrl || undefined,
+          code,
+          display: code.charAt(0).toUpperCase() + code.slice(1),
+        }],
+      })
+    }
+    return (
+      <FormControl fullWidth size="small" required={element.isRequired} sx={{ mb: 1 }}>
+        <InputLabel>{element.name}</InputLabel>
+        <Select
+          value={selectedCode}
+          onChange={(e) => handleSelect(e.target.value)}
+          label={element.name}
+        >
+          <MenuItem value=""><em>{t('testCaseBuilder.fields.selectCode', 'Select...')}</em></MenuItem>
+          {element.boundCodes.map((code) => (
+            <MenuItem key={code} value={code}>{code}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    )
+  }
 
   const updateCoding = (index: number, coding: Coding) => {
     const newCodings = [...codings]

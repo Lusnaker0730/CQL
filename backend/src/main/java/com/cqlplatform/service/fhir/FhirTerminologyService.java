@@ -43,6 +43,7 @@ public class FhirTerminologyService {
     private final FhirContext fhirContext;
     private final CacheManager cacheManager;
     private final FhirImplementationGuideService igService;
+    private final VsacService vsacService;
 
     @Value("${fhir.terminology.url:https://tx.fhir.org/r4}")
     private String defaultTerminologyServerUrl;
@@ -50,10 +51,13 @@ public class FhirTerminologyService {
     public FhirTerminologyService(FhirContext fhirContext,
                                    CacheManager cacheManager,
                                    @org.springframework.beans.factory.annotation.Autowired(required = false)
-                                   FhirImplementationGuideService igService) {
+                                   FhirImplementationGuideService igService,
+                                   @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                   VsacService vsacService) {
         this.fhirContext = fhirContext;
         this.cacheManager = cacheManager;
         this.igService = igService;
+        this.vsacService = vsacService;
     }
 
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
@@ -61,9 +65,12 @@ public class FhirTerminologyService {
         IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
         TerminologyProvider remoteProvider = new R4FhirTerminologyProvider(client);
 
-        if (igService != null && igService.isLoaded()) {
-            log.debug("Creating hybrid local/remote terminology provider");
-            return new LocalTerminologyProvider(igService, remoteProvider);
+        boolean hasIg = igService != null && igService.isLoaded();
+        boolean hasVsac = vsacService != null;
+
+        if (hasIg || hasVsac) {
+            log.debug("Creating terminology provider with local IG={}, VSAC={}", hasIg, hasVsac);
+            return new LocalTerminologyProvider(hasIg ? igService : null, remoteProvider, hasVsac ? vsacService : null);
         }
         return remoteProvider;
     }

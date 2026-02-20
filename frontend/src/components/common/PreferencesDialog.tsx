@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -15,9 +16,16 @@ import {
   Typography,
   Divider,
   Box,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Chip,
+  Alert,
 } from '@mui/material'
+import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { usePreferences } from '../../hooks/usePreferences'
+import { settingsApi, type VsacStatus } from '../../api/settingsApi'
 import FhirServerUrlField from './FhirServerUrlField'
 
 interface PreferencesDialogProps {
@@ -28,6 +36,35 @@ interface PreferencesDialogProps {
 export default function PreferencesDialog({ open, onClose }: PreferencesDialogProps) {
   const { preferences, updatePreferences, resetPreferences } = usePreferences()
   const { t } = useTranslation()
+
+  const [vsacStatus, setVsacStatus] = useState<VsacStatus | null>(null)
+  const [vsacApiKey, setVsacApiKey] = useState('')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [vsacSaving, setVsacSaving] = useState(false)
+  const [vsacMessage, setVsacMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      settingsApi.getVsacStatus()
+        .then(setVsacStatus)
+        .catch(() => setVsacStatus(null))
+    }
+  }, [open])
+
+  const handleSaveVsacKey = async () => {
+    setVsacSaving(true)
+    setVsacMessage(null)
+    try {
+      const result = await settingsApi.updateVsacApiKey(vsacApiKey)
+      setVsacStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
+      setVsacApiKey('')
+      setVsacMessage({ type: 'success', text: t('preferences.vsacKeySaved') })
+    } catch {
+      setVsacMessage({ type: 'error', text: t('preferences.vsacKeySaveFailed') })
+    } finally {
+      setVsacSaving(false)
+    }
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -125,6 +162,71 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
             onChange={(value) => updatePreferences({ defaultFhirServerUrl: value })}
             selfValidate
           />
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            {t('preferences.terminology')}
+          </Typography>
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Typography variant="body2">{t('preferences.vsacStatus')}</Typography>
+              {vsacStatus ? (
+                <Chip
+                  size="small"
+                  icon={vsacStatus.configured ? <CheckCircle /> : <Cancel />}
+                  label={vsacStatus.configured ? t('preferences.vsacConfigured') : t('preferences.vsacNotConfigured')}
+                  color={vsacStatus.configured ? 'success' : 'warning'}
+                  variant="outlined"
+                />
+              ) : (
+                <Chip size="small" label={t('preferences.vsacUnavailable')} color="default" variant="outlined" />
+              )}
+            </Box>
+
+            {vsacStatus && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                {t('preferences.vsacUrl')}: {vsacStatus.url}
+              </Typography>
+            )}
+
+            <TextField
+              label={t('preferences.vsacApiKey')}
+              size="small"
+              fullWidth
+              type={showApiKey ? 'text' : 'password'}
+              value={vsacApiKey}
+              onChange={(e) => setVsacApiKey(e.target.value)}
+              placeholder={t('preferences.vsacApiKeyPlaceholder')}
+              helperText={t('preferences.vsacApiKeyHelp')}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowApiKey(!showApiKey)} edge="end">
+                      {showApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleSaveVsacKey}
+              disabled={!vsacApiKey.trim() || vsacSaving}
+              sx={{ mt: 1, textTransform: 'none' }}
+            >
+              {vsacSaving ? t('preferences.vsacKeySaving') : t('preferences.vsacKeySave')}
+            </Button>
+
+            {vsacMessage && (
+              <Alert severity={vsacMessage.type} sx={{ mt: 1 }} onClose={() => setVsacMessage(null)}>
+                {vsacMessage.text}
+              </Alert>
+            )}
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>

@@ -21,7 +21,7 @@ public class VsacService {
 
     private final FhirContext fhirContext;
     private final String vsacApiUrl;
-    private final String vsacApiKey;
+    private volatile String vsacApiKey;
 
     public VsacService(FhirContext fhirContext,
                        @Value("${vsac.api.url:https://cts.nlm.nih.gov/fhir/}") String vsacApiUrl,
@@ -34,6 +34,23 @@ public class VsacService {
             log.warn("VSAC API key is not configured. VSAC ValueSet operations will fail. Set VSAC_API_KEY environment variable.");
         } else {
             log.info("VSAC API key configured ({}...)", vsacApiKey.substring(0, Math.min(8, vsacApiKey.length())));
+        }
+    }
+
+    public boolean isConfigured() {
+        return vsacApiKey != null && !vsacApiKey.isBlank();
+    }
+
+    public String getApiUrl() {
+        return vsacApiUrl;
+    }
+
+    public void updateApiKey(String newApiKey) {
+        this.vsacApiKey = newApiKey;
+        if (newApiKey != null && !newApiKey.isBlank()) {
+            log.info("VSAC API key updated at runtime ({}...)", newApiKey.substring(0, Math.min(8, newApiKey.length())));
+        } else {
+            log.warn("VSAC API key cleared at runtime");
         }
     }
 

@@ -97,6 +97,7 @@ public class SecurityConfig {
 
         // ADMIN only endpoints
         auth.requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/settings/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
                 // CDS service deletion: ownership enforced in controller (allows user to delete own)
                 .requestMatchers(HttpMethod.DELETE, "/api/cds/services/**").authenticated()
