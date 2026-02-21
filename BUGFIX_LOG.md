@@ -8,12 +8,12 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 031 | 2026-02-21 | High | eCQM 種子資料（後端） | 種子 CQL 語法錯誤導致 DataRequirements 標籤頁空白 | 資料處理錯誤 | [`pending`](#031) |
-| 030 | 2026-02-21 | High | API 客戶端（前端） | departmentApi/ehrApi/indicatorApi 使用原生 axios 無 JWT 攔截器致 401 | 配置遺漏 | [`pending`](#030) |
-| 029 | 2026-02-21 | High | 通知系統（前後端） | SSE EventSource 無法傳送 Authorization 標頭致 401 | 架構缺陷 | [`pending`](#029) |
-| 028 | 2026-02-21 | Medium | Docker 基礎設施（後端） | DataInitializer 僅在 dev profile 啟用，Docker 環境無種子資料 | 配置遺漏 | [`pending`](#028) |
-| 027 | 2026-02-21 | Medium | Docker 基礎設施（後端） | PatientImportEntity @Lob 與 PostgreSQL schema validation 不相容 | 配置遺漏 | [`pending`](#027) |
-| 026 | 2026-02-21 | Critical | Docker 基礎設施（後端） | Flyway V24-V29 使用 H2 語法導致 PostgreSQL 部署失敗 | 配置遺漏 | [`pending`](#026) |
+| 031 | 2026-02-21 | High | eCQM 種子資料（後端） | 種子 CQL 語法錯誤導致 DataRequirements 標籤頁空白 | 資料處理錯誤 | [`63a5781`](../../commit/63a5781) |
+| 030 | 2026-02-21 | High | API 客戶端（前端） | departmentApi/ehrApi/indicatorApi 使用原生 axios 無 JWT 攔截器致 401 | 配置遺漏 | [`63a5781`](../../commit/63a5781) |
+| 029 | 2026-02-21 | High | 通知系統（前後端） | SSE EventSource 無法傳送 Authorization 標頭致 401 | 架構缺陷 | [`63a5781`](../../commit/63a5781) |
+| 028 | 2026-02-21 | Medium | Docker 基礎設施（後端） | DataInitializer 僅在 dev profile 啟用，Docker 環境無種子資料 | 配置遺漏 | [`63a5781`](../../commit/63a5781) |
+| 027 | 2026-02-21 | Medium | Docker 基礎設施（後端） | PatientImportEntity @Lob 與 PostgreSQL schema validation 不相容 | 配置遺漏 | [`63a5781`](../../commit/63a5781) |
+| 026 | 2026-02-21 | Critical | Docker 基礎設施（後端） | Flyway V24-V29 使用 H2 語法導致 PostgreSQL 部署失敗 | 配置遺漏 | [`63a5781`](../../commit/63a5781) |
 | 025 | 2026-02-21 | High | CDS Authoring（後端） | CQL 產生器未對 list 型別表達式自動加 exists() 導致驗證失敗 | 邏輯錯誤 | [`0d418f1`](../../commit/0d418f1) |
 | 024 | 2026-02-21 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 Equal/Equivalent + CodeRef 模式（如 E.class ~ "AMB"） | 資料處理錯誤 | [`53b19ca`](../../commit/53b19ca) |
 | 023 | 2026-02-21 | Medium | Test Case Builder（後端） | Encounter.class 下拉選單顯示 1115 個代碼而非 11 個 | 資料處理錯誤 | [`3fc6de0`](../../commit/3fc6de0) |
@@ -63,7 +63,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 資料處理錯誤 |
 | **影響範圍** | `backend/src/main/java/com/cqlplatform/config/DataInitializer.java` |
-| **Commit** | [`pending`](#031) |
+| **Commit** | [`63a5781`](../../commit/63a5781) |
 
 ### BUG 描述
 
@@ -103,7 +103,7 @@ Docker 環境中 Measures 頁面的「資料需求」（Data Requirements）標�
 | **嚴重程度** | High |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `frontend/src/api/departmentApi.ts`、`frontend/src/api/ehrApi.ts`、`frontend/src/api/indicatorApi.ts` |
-| **Commit** | [`pending`](#030) |
+| **Commit** | [`63a5781`](../../commit/63a5781) |
 
 ### BUG 描述
 
@@ -138,7 +138,7 @@ Docker 環境中 Measures 頁面的「資料需求」（Data Requirements）標�
 | **嚴重程度** | High |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `backend/src/main/java/com/cqlplatform/security/JwtAuthenticationFilter.java`、`frontend/src/hooks/useNotifications.ts` |
-| **Commit** | [`pending`](#029) |
+| **Commit** | [`63a5781`](../../commit/63a5781) |
 
 ### BUG 描述
 
@@ -169,7 +169,7 @@ Docker 環境中 Measures 頁面的「資料需求」（Data Requirements）標�
 | **嚴重程度** | Medium |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `backend/src/main/java/com/cqlplatform/config/DataInitializer.java` |
-| **Commit** | [`pending`](#028) |
+| **Commit** | [`63a5781`](../../commit/63a5781) |
 
 ### BUG 描述
 
@@ -198,7 +198,7 @@ Docker 環境啟動後資料庫為空，無法使用 `admin/admin` 登入。`Dat
 | **嚴重程度** | Medium |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `backend/src/main/java/com/cqlplatform/entity/PatientImportEntity.java` |
-| **Commit** | [`pending`](#027) |
+| **Commit** | [`63a5781`](../../commit/63a5781) |
 
 ### BUG 描述
 
@@ -227,7 +227,7 @@ Docker 環境中後端啟動時 Hibernate schema validation 失敗。`PatientImp
 | **嚴重程度** | Critical |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `backend/src/main/resources/db/migration/V24__notifications.sql`、`V25__indicator_catalog.sql`、`V26__department_multi_tenancy.sql`、`V27__dashboard_enhancements.sql`、`V28__ehr_integration.sql`、`V29__okta_sso.sql` |
-| **Commit** | [`pending`](#026) |
+| **Commit** | [`63a5781`](../../commit/63a5781) |
 | **關聯** | Docker 環境使用 PostgreSQL，開發環境使用 H2 |
 
 ### BUG 描述
