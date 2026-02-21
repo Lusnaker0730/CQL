@@ -1,6 +1,6 @@
 -- Notification system for workflow events and collaboration
 CREATE TABLE notification (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     recipient VARCHAR(100) NOT NULL,
     type VARCHAR(50) NOT NULL,
     title VARCHAR(500) NOT NULL,

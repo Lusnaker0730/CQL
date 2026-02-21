@@ -1,31 +1,31 @@
-import axios from 'axios'
+import { api } from './client'
 import type { IndicatorCatalogEntry } from '../types'
 
-const API = '/api/indicators'
+const API = '/indicators'
 
 export const indicatorApi = {
   search: async (params?: { source?: string; category?: string; search?: string }) => {
-    const { data } = await axios.get<IndicatorCatalogEntry[]>(API, { params })
+    const { data } = await api.get<IndicatorCatalogEntry[]>(API, { params })
     return data
   },
 
   getByCode: async (code: string, source = 'MOH') => {
-    const { data } = await axios.get<IndicatorCatalogEntry>(`${API}/${code}`, { params: { source } })
+    const { data } = await api.get<IndicatorCatalogEntry>(`${API}/${code}`, { params: { source } })
     return data
   },
 
   create: async (entry: IndicatorCatalogEntry) => {
-    const { data } = await axios.post<IndicatorCatalogEntry>(API, entry)
+    const { data } = await api.post<IndicatorCatalogEntry>(API, entry)
     return data
   },
 
   update: async (code: string, entry: IndicatorCatalogEntry, source = 'MOH') => {
-    const { data } = await axios.put<IndicatorCatalogEntry>(`${API}/${code}`, entry, { params: { source } })
+    const { data } = await api.put<IndicatorCatalogEntry>(`${API}/${code}`, entry, { params: { source } })
     return data
   },
 
   bulkImport: async (entries: Record<string, unknown>[]) => {
-    const { data } = await axios.post<{ created: number; skipped: number; errors: string[] }>(
+    const { data } = await api.post<{ created: number; skipped: number; errors: string[] }>(
       `${API}/import`,
       entries
     )

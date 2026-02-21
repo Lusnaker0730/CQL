@@ -27,8 +27,7 @@ public class PatientImportEntity {
     @Column(name = "resource_count")
     private int resourceCount;
 
-    @Column(name = "bundle_json")
-    @Lob
+    @Column(name = "bundle_json", columnDefinition = "TEXT")
     private String bundleJson;
 
     @Column(name = "target_measure_id")

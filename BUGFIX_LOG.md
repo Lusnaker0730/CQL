@@ -8,6 +8,12 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 031 | 2026-02-21 | High | eCQM 種子資料（後端） | 種子 CQL 語法錯誤導致 DataRequirements 標籤頁空白 | 資料處理錯誤 | [`pending`](#031) |
+| 030 | 2026-02-21 | High | API 客戶端（前端） | departmentApi/ehrApi/indicatorApi 使用原生 axios 無 JWT 攔截器致 401 | 配置遺漏 | [`pending`](#030) |
+| 029 | 2026-02-21 | High | 通知系統（前後端） | SSE EventSource 無法傳送 Authorization 標頭致 401 | 架構缺陷 | [`pending`](#029) |
+| 028 | 2026-02-21 | Medium | Docker 基礎設施（後端） | DataInitializer 僅在 dev profile 啟用，Docker 環境無種子資料 | 配置遺漏 | [`pending`](#028) |
+| 027 | 2026-02-21 | Medium | Docker 基礎設施（後端） | PatientImportEntity @Lob 與 PostgreSQL schema validation 不相容 | 配置遺漏 | [`pending`](#027) |
+| 026 | 2026-02-21 | Critical | Docker 基礎設施（後端） | Flyway V24-V29 使用 H2 語法導致 PostgreSQL 部署失敗 | 配置遺漏 | [`pending`](#026) |
 | 025 | 2026-02-21 | High | CDS Authoring（後端） | CQL 產生器未對 list 型別表達式自動加 exists() 導致驗證失敗 | 邏輯錯誤 | [`0d418f1`](../../commit/0d418f1) |
 | 024 | 2026-02-21 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 Equal/Equivalent + CodeRef 模式（如 E.class ~ "AMB"） | 資料處理錯誤 | [`53b19ca`](../../commit/53b19ca) |
 | 023 | 2026-02-21 | Medium | Test Case Builder（後端） | Encounter.class 下拉選單顯示 1115 個代碼而非 11 個 | 資料處理錯誤 | [`3fc6de0`](../../commit/3fc6de0) |
@@ -45,6 +51,218 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #031 — 種子 CQL 語法錯誤導致 DataRequirements 標籤頁空白
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | eCQM 種子資料（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/config/DataInitializer.java` |
+| **Commit** | [`pending`](#031) |
+
+### BUG 描述
+
+Docker 環境中 Measures 頁面的「資料需求」（Data Requirements）標籤頁對種子指標 DiabetesHbA1cRate 顯示「未找到資料需求」。`GET /api/measures/{id}/data-requirements` 回傳空陣列 `[]`。
+
+**根本原因**：`DataInitializer.seedDemoMeasure()` 中嵌入的 CQL 內容含有多處語法錯誤，CQL 翻譯失敗（`success: false`、`elmJson: null`），導致 `DataRequirementExtractor` 無法從 ELM AST 擷取資料需求。CQL 錯誤包含三類：
+
+1. **`exists` 語法錯誤**：`C.code.coding exists (coding where ...)` — `exists` 應在查詢表達式前方，正確語法為 `exists(C.code.coding Coding where ...)`
+2. **`starts with` 非 CQL 運算子**：`coding.code starts with 'E08'` — `starts` 是區間運算子、`with` 是查詢關鍵字，字串前綴比對應使用 `StartsWith()` 函數
+3. **FHIR 原始類型需 `.value`**：`Coding.code` 為 FHIR `code` 類型，字串操作需明確取值 `Coding.code.value`
+4. **Encounter.class 比較錯誤**：`E.class.code in { 'AMB', 'IMP' }` — `Encounter.class` 為 `Coding` 型別，應定義 `code` 常數並使用等價比較 `E.class ~ "AMB"`
+5. **日期區間語法**：`E.period starts during` 應為 `E.period overlaps`
+
+### 修正方式
+
+- **`DataInitializer.java`**：完整重寫種子 CQL 內容，參照已驗證的 `DM_HbA1c_GA_Rate.cql` 語法模式：
+  - `exists(C.code.coding Coding where ...)` — 正確的 `exists` 位置
+  - `StartsWith(Coding.code.value, 'E08')` — 使用 `StartsWith()` 函數 + `.value` 取值
+  - 新增 `codesystem "ActCode"` 及 `code "AMB"/"IMP"` 定義，使用 `E.class ~ "AMB"` 等價比較
+  - `E.period overlaps "Measurement Period"` — 正確的期間重疊語法
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] Docker 後端重建，CQL 翻譯成功（0 errors, 0 warnings）
+- [x] `GET /api/measures/1/data-requirements` 回傳 5 種資源類型（Encounter, Condition, MedicationRequest, Observation ×2）
+- [x] DataRequirements 標籤頁正確顯示代碼篩選和日期篩選
+
+---
+
+## #030 — departmentApi/ehrApi/indicatorApi 使用原生 axios 無 JWT 攔截器致 401
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | API 客戶端（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `frontend/src/api/departmentApi.ts`、`frontend/src/api/ehrApi.ts`、`frontend/src/api/indicatorApi.ts` |
+| **Commit** | [`pending`](#030) |
+
+### BUG 描述
+
+登入後所有使用 Department、EHR、Indicator API 的頁面（如 Dashboard 部門選擇器、EHR 連線管理、指標目錄）回傳 401 Unauthorized。瀏覽器開發者工具顯示請求標頭中無 `Authorization: Bearer` JWT token。
+
+**根本原因**：`departmentApi.ts`、`ehrApi.ts`、`indicatorApi.ts` 三個 API 模組使用 `import axios from 'axios'`（原生 axios 實例），而非 `import { api } from './client'`（已設定 JWT 攔截器的 axios 實例）。`client.ts` 中的 `api` 實例在 request interceptor 中自動附加 `Authorization: Bearer <token>` 標頭，原生 `axios` 不含此攔截器。
+
+此外，三個模組的 URL 前綴為 `/api/departments`、`/api/ehr`、`/api/indicators`（硬編碼 `/api`），但 `client.ts` 的 `api` 實例已設定 `baseURL: '/api'`，改用 `api` 後需移除 `/api` 前綴以避免雙重前綴 `/api/api/...`。
+
+### 修正方式
+
+- **`departmentApi.ts`**：`import axios from 'axios'` → `import { api } from './client'`，URL 從 `/api/departments` → `/departments`，所有 `axios.get/post/put` → `api.get/post/put`
+- **`ehrApi.ts`**：同上，`/api/ehr` → `/ehr`
+- **`indicatorApi.ts`**：同上，`/api/indicators` → `/indicators`
+
+### 測試驗證
+
+- [x] `npx tsc --noEmit` TypeScript 編譯通過
+- [x] Docker 前端重建部署成功
+- [x] 登入後 Dashboard 部門選擇器正常載入
+- [x] EHR 連線管理頁面正常載入
+- [x] 指標目錄頁面正常載入
+
+---
+
+## #029 — SSE EventSource 無法傳送 Authorization 標頭致 401
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | 通知系統（前後端） |
+| **嚴重程度** | High |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/security/JwtAuthenticationFilter.java`、`frontend/src/hooks/useNotifications.ts` |
+| **Commit** | [`pending`](#029) |
+
+### BUG 描述
+
+登入後瀏覽器 console 出現 `/api/notifications/subscribe` 401 Unauthorized 錯誤。SSE（Server-Sent Events）通知訂閱端點無法通過 JWT 認證。
+
+**根本原因**：瀏覽器原生 `EventSource` API 不支援自訂 HTTP 標頭。`useNotifications` hook 使用 `new EventSource(url)` 建立 SSE 連線，無法附加 `Authorization: Bearer <token>` 標頭。後端 `JwtAuthenticationFilter` 僅從 `Authorization` 標頭讀取 JWT token，SSE 請求因此被拒絕。
+
+### 修正方式
+
+- **`JwtAuthenticationFilter.java`**：新增 query parameter token fallback — 當 `Authorization` 標頭不存在且 `request.getParameter("token")` 有值時，合成 `"Bearer " + token` 作為認證標頭
+- **`useNotifications.ts`**：建立 EventSource URL 時附加 `?token=${encodeURIComponent(token)}`，將 JWT token 以 query parameter 傳遞
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] Docker 前後端重建部署成功
+- [x] SSE 連線建立成功，瀏覽器 console 無 401 錯誤
+- [x] 通知即時推送功能正常
+
+---
+
+## #028 — DataInitializer 僅在 dev profile 啟用，Docker 環境無種子資料
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | Docker 基礎設施（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/config/DataInitializer.java` |
+| **Commit** | [`pending`](#028) |
+
+### BUG 描述
+
+Docker 環境啟動後資料庫為空，無法使用 `admin/admin` 登入。`DataInitializer` 建立預設管理員帳號和種子指標，但未在 Docker 環境中執行。
+
+**根本原因**：`DataInitializer` 標註 `@Profile("dev")`，僅在 `dev` profile 啟用。Docker 環境使用 `SPRING_PROFILES_ACTIVE=docker` profile，`DataInitializer` 不會載入。
+
+### 修正方式
+
+- **`DataInitializer.java`**：`@Profile("dev")` → `@Profile({"dev", "docker"})`
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] Docker 啟動後 admin/admin 可正常登入
+- [x] 種子指標 DiabetesHbA1cRate 正確建立
+
+---
+
+## #027 — PatientImportEntity @Lob 與 PostgreSQL schema validation 不相容
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | Docker 基礎設施（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/entity/PatientImportEntity.java` |
+| **Commit** | [`pending`](#027) |
+
+### BUG 描述
+
+Docker 環境中後端啟動時 Hibernate schema validation 失敗。`PatientImportEntity.bundleJson` 欄位使用 `@Lob` 標註，Hibernate 在 PostgreSQL 中將其映射為 `oid`（大物件引用），但 Flyway migration 將 `bundle_json` 欄位定義為 `TEXT`。`oid` ≠ `TEXT` 導致 schema validation 不匹配。
+
+**根本原因**：`@Lob` 在 H2 中映射為 `CLOB`（相容），但在 PostgreSQL 中映射為 `oid`。Flyway V28 migration 已將 `CLOB` 修正為 `TEXT`（PostgreSQL 相容），但 JPA entity 仍使用 `@Lob`。
+
+### 修正方式
+
+- **`PatientImportEntity.java`**：移除 `@Lob` 標註，改為 `@Column(name = "bundle_json", columnDefinition = "TEXT")`，明確指定 PostgreSQL 相容的欄位類型
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [x] Docker 後端啟動，Hibernate schema validation 通過
+- [x] EHR 匯入功能正常存取 bundle_json 欄位
+
+---
+
+## #026 — Flyway V24-V29 使用 H2 語法導致 PostgreSQL 部署失敗
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | Docker 基礎設施（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `backend/src/main/resources/db/migration/V24__notifications.sql`、`V25__indicator_catalog.sql`、`V26__department_multi_tenancy.sql`、`V27__dashboard_enhancements.sql`、`V28__ehr_integration.sql`、`V29__okta_sso.sql` |
+| **Commit** | [`pending`](#026) |
+| **關聯** | Docker 環境使用 PostgreSQL，開發環境使用 H2 |
+
+### BUG 描述
+
+Docker 環境啟動時後端 Flyway migration 失敗，PostgreSQL 拒絕 H2 專用的 SQL 語法。6 個 migration 檔案（V24-V29）在 P2 功能和 Okta SSO 開發期間使用 H2 語法撰寫，未考慮 Docker 環境的 PostgreSQL 相容性。
+
+**錯誤 SQL 語法**：
+
+| H2 語法 | PostgreSQL 語法 | 影響檔案 |
+|---------|----------------|---------|
+| `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | V24, V25, V26, V27, V28 |
+| `CLOB` | `TEXT` | V28 |
+| `DOUBLE` | `DOUBLE PRECISION` | V27 |
+| `ALTER COLUMN password VARCHAR(255) NULL` | `ALTER COLUMN password DROP NOT NULL` | V29 |
+
+### 修正方式
+
+- **V24**：`id BIGINT AUTO_INCREMENT PRIMARY KEY` → `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY`
+- **V25**：同上
+- **V26**：同上
+- **V27**：同上 + `DOUBLE` → `DOUBLE PRECISION`
+- **V28**：同上 + `CLOB` → `TEXT`
+- **V29**：`ALTER COLUMN password VARCHAR(255) NULL` → `ALTER COLUMN password DROP NOT NULL`
+
+**附帶修正**（Docker 基礎設施）：
+- **`docker/nginx.conf` + `frontend/nginx.conf`**：`/twcoredata/` location 新增 `resolver 127.0.0.11 valid=30s`，避免 nginx 啟動時因 taiwan-fhir-generator 容器不存在而失敗
+- **`docker/docker-compose.yml`**：移除過時的 `version: '3.8'`，新增 Okta SSO 環境變數（`OKTA_ENABLED`、`OKTA_CLIENT_ID`、`OKTA_CLIENT_SECRET`、`OKTA_ISSUER`）
+- **`docker/docker-compose.dev.yml`**：移除 `version: '3.8'`，frontend port 從 `5173:80` → `5173:8080`（配合 nginx 監聽 port 8080）
+
+### 測試驗證
+
+- [x] Docker Compose 全 8 服務啟動成功（postgres, backend, frontend, hapi-fhir, prometheus, grafana, alertmanager, taiwan-fhir-generator）
+- [x] Flyway V24-V29 migration 全部通過
+- [x] PostgreSQL schema 結構正確
+- [x] nginx 啟動正常，taiwan-fhir-generator proxy 可用
 
 ---
 

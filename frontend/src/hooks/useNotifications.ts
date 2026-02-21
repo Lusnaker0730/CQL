@@ -51,13 +51,11 @@ export function useNotifications() {
     if (!token) return
 
     const baseUrl = import.meta.env.VITE_API_URL || '/api'
-    const url = `${baseUrl}/notifications/subscribe`
+    // EventSource doesn't support custom headers, so pass JWT as query parameter
+    const url = `${baseUrl}/notifications/subscribe?token=${encodeURIComponent(token)}`
 
-    // EventSource doesn't support custom headers, so we use a workaround
-    // by appending the token as a query parameter (backend should support this)
-    // For simplicity, we'll poll instead if SSE fails
     try {
-      const es = new EventSource(url, { withCredentials: true })
+      const es = new EventSource(url)
       eventSourceRef.current = es
 
       es.addEventListener('notification', () => {

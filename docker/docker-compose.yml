@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -50,6 +48,10 @@ services:
       - FHIR_SERVER_URL=${FHIR_SERVER_URL}
       - FHIR_TERMINOLOGY_URL=${FHIR_TERMINOLOGY_URL}
       - VSAC_API_KEY=${VSAC_API_KEY:-}
+      - OKTA_ENABLED=${OKTA_ENABLED:-false}
+      - OKTA_CLIENT_ID=${OKTA_CLIENT_ID:-}
+      - OKTA_CLIENT_SECRET=${OKTA_CLIENT_SECRET:-}
+      - OKTA_ISSUER=${OKTA_ISSUER:-}
     depends_on:
       postgres:
         condition: service_healthy

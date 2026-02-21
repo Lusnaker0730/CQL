@@ -34,6 +34,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         String requestPath = request.getRequestURI();
 
+        // For SSE endpoints, fall back to query parameter token since EventSource
+        // API does not support custom headers
+        if (header == null && request.getParameter("token") != null) {
+            header = "Bearer " + request.getParameter("token");
+        }
+
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
 

@@ -1,31 +1,31 @@
-import axios from 'axios'
+import { api } from './client'
 import type { Department } from '../types'
 
-const API = '/api/departments'
+const API = '/departments'
 
 export const departmentApi = {
   getAll: async () => {
-    const { data } = await axios.get<Department[]>(API)
+    const { data } = await api.get<Department[]>(API)
     return data
   },
 
   getByCode: async (code: string) => {
-    const { data } = await axios.get<Department>(`${API}/${code}`)
+    const { data } = await api.get<Department>(`${API}/${code}`)
     return data
   },
 
   getChildren: async (code: string) => {
-    const { data } = await axios.get<Department[]>(`${API}/${code}/children`)
+    const { data } = await api.get<Department[]>(`${API}/${code}/children`)
     return data
   },
 
   create: async (dept: Department) => {
-    const { data } = await axios.post<Department>(API, dept)
+    const { data } = await api.post<Department>(API, dept)
     return data
   },
 
   update: async (code: string, dept: Department) => {
-    const { data } = await axios.put<Department>(`${API}/${code}`, dept)
+    const { data } = await api.put<Department>(`${API}/${code}`, dept)
     return data
   },
 }
