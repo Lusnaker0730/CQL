@@ -133,11 +133,25 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> search(String searchTerm) {
-        if (searchTerm == null || searchTerm.isBlank()) {
-            return getAll();
+        return search(searchTerm, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> search(String searchTerm, String department) {
+        boolean hasSearch = searchTerm != null && !searchTerm.isBlank();
+        boolean hasDept = department != null && !department.isBlank();
+
+        List<MeasureDefinitionEntity> entities;
+        if (hasSearch && hasDept) {
+            entities = repository.findByDepartmentAndSearchTerm(department, searchTerm);
+        } else if (hasDept) {
+            entities = repository.findByDepartment(department);
+        } else if (hasSearch) {
+            entities = repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm);
+        } else {
+            entities = repository.findAll();
         }
-        return repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm)
-                .stream()
+        return entities.stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }

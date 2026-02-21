@@ -37,6 +37,7 @@ import {
   DEFAULT_REFERENCE_TYPE,
 } from '../../constants/measureConstants'
 import type { MeasureDefinition, MeasureReference } from '../../types'
+import DepartmentSelector from '../common/DepartmentSelector'
 import IndicatorMappingSection from './IndicatorMappingSection'
 
 interface MeasureDetailsTabProps {
@@ -231,22 +232,30 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   placeholder={t('details.fields.cmsMeasureIdPlaceholder')}
                 />
               </Stack>
-              <TextField
-                label={t('details.fields.setting')}
-                select
-                size="small"
-                fullWidth
-                value={form.setting || ''}
-                onChange={(e) => updateField('setting', e.target.value)}
-                helperText={t('details.fields.settingHelper')}
-              >
-                <MenuItem value="">
-                  <em>{t('details.fields.none')}</em>
-                </MenuItem>
-                {MEASURE_SETTING_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                ))}
-              </TextField>
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  label={t('details.fields.setting')}
+                  select
+                  size="small"
+                  fullWidth
+                  value={form.setting || ''}
+                  onChange={(e) => updateField('setting', e.target.value)}
+                  helperText={t('details.fields.settingHelper')}
+                >
+                  <MenuItem value="">
+                    <em>{t('details.fields.none')}</em>
+                  </MenuItem>
+                  {MEASURE_SETTING_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </TextField>
+                <DepartmentSelector
+                  value={form.department || ''}
+                  onChange={(v) => updateField('department', v)}
+                  label={t('details.fields.department')}
+                  showAll={false}
+                />
+              </Stack>
               {form.compositeScoring && (
                 <TextField
                   label={t('details.fields.compositeScoring')}

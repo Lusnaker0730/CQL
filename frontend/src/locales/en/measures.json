@@ -63,6 +63,7 @@
       "status": "Status",
       "scoring": "Scoring",
       "setting": "Setting",
+      "department": "Department",
       "owner": "Owner",
       "actions": "Actions"
     },
@@ -193,6 +194,8 @@
       "cmsMeasureIdPlaceholder": "e.g. CMS122v12",
       "setting": "Setting",
       "settingHelper": "Care setting where this measure applies",
+      "department": "Department",
+      "departmentHelper": "Assign this measure to a department for filtering and reporting",
       "none": "None",
       "compositeScoring": "Composite Scoring"
     },

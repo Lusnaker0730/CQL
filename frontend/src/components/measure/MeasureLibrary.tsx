@@ -40,6 +40,7 @@ import {
 import { Checkbox } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import LibraryPicker from '../common/LibraryPicker'
+import DepartmentSelector from '../common/DepartmentSelector'
 import GradientButton from '../common/GradientButton'
 import StatusChip from '../common/StatusChip'
 import TableSkeleton from '../common/TableSkeleton'
@@ -70,6 +71,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
   const [filterTab, setFilterTab] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -95,8 +97,8 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const currentUser = getStoredUsername()
 
   const { data: allMeasures = [], isLoading } = useQuery({
-    queryKey: ['measures', search],
-    queryFn: () => measureApi.getMeasures(search || undefined),
+    queryKey: ['measures', search, departmentFilter],
+    queryFn: () => measureApi.getMeasures(search || undefined, departmentFilter || undefined),
   })
 
   const measures = useMemo(
@@ -230,15 +232,23 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         </Stack>
       </Stack>
 
-      <TextField
-        size="small"
-        fullWidth
-        placeholder={t('library.searchPlaceholder')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-        sx={{ mb: 1 }}
-      />
+      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder={t('library.searchPlaceholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
+        />
+        <DepartmentSelector
+          value={departmentFilter}
+          onChange={setDepartmentFilter}
+          label={t('library.tableHeaders.department')}
+          size="small"
+          fullWidth={false}
+        />
+      </Stack>
 
       <Tabs
         value={filterTab}
@@ -275,7 +285,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               <TableCell scope="col">{t('library.tableHeaders.version')}</TableCell>
               <TableCell scope="col">{t('library.tableHeaders.status')}</TableCell>
               <TableCell scope="col">{t('library.tableHeaders.scoring')}</TableCell>
-              <TableCell scope="col">{t('library.tableHeaders.setting')}</TableCell>
+              <TableCell scope="col">{t('library.tableHeaders.department')}</TableCell>
               <TableCell scope="col">{t('library.tableHeaders.owner')}</TableCell>
               <TableCell scope="col" align="right">{t('library.tableHeaders.actions')}</TableCell>
             </TableRow>
@@ -330,8 +340,8 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 </TableCell>
                 <TableCell>{m.scoringType}</TableCell>
                 <TableCell>
-                  {m.setting ? (
-                    <Chip label={m.setting} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20, textTransform: 'capitalize' }} />
+                  {m.department ? (
+                    <Chip label={m.department} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
                   ) : (
                     <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
                   )}

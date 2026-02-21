@@ -101,12 +101,11 @@ public class MeasureController {
     // ===== Measure Definition CRUD =====
 
     @GetMapping
-    @Operation(summary = "List Measures", description = "List all measure definitions, optionally filtered by search term")
+    @Operation(summary = "List Measures", description = "List all measure definitions, optionally filtered by search term and department")
     public ResponseEntity<List<MeasureDefinition>> listMeasures(
-            @RequestParam(required = false) String search) {
-        List<MeasureDefinition> measures = (search != null && !search.isBlank())
-                ? definitionService.search(search)
-                : definitionService.getAll();
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String department) {
+        List<MeasureDefinition> measures = definitionService.search(search, department);
         return ResponseEntity.ok(measures);
     }
 

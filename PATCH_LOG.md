@@ -24,6 +24,7 @@
 | 014 | 2026-02-21 | eQCM | P2-9: 指標儀表板增強（Recharts） | Backend + Frontend (Dashboard) | [`3dbf07a`](../../commit/3dbf07a) |
 | 015 | 2026-02-21 | FHIR | P2-8: EHR/HIS 整合連接器 | Backend + Frontend (FHIR, Measures) | [`3dbf07a`](../../commit/3dbf07a) |
 | 016 | 2026-02-21 | 安全性 | Okta SSO (OIDC) 整合 | Backend + Frontend (Auth, Admin) | [`7d48d6b`](../../commit/7d48d6b) |
+| 017 | 2026-02-22 | eQCM | 補完科別分類功能（篩選 + 指派） | Backend + Frontend (Measures) | |
 
 ---
 
@@ -1267,5 +1268,102 @@ MeasureLibrary 的 FHIR Bundle 匯入功能僅支援文字區域貼上 JSON，�
 - 預設行為（OKTA_ENABLED=false）：GET /api/auth/okta/config → `{"enabled":false}`，登入頁無 Okta 按鈕
 - 本地登入流程不受影響
 - 啟用 Okta 後：完整 OIDC Authorization Code Flow + JIT 用戶建立
+
+---
+
+## #017 — 補完科別分類功能（篩選 + 指派）
+
+- **日期**: 2026-02-22
+- **範圍**: eQCM — 科別分類補完
+- **分類**: 功能補完 / 醫學中心適用性
+
+### 問題描述
+
+科別（Department）功能已有 CRUD 基礎設施（DepartmentEntity、DepartmentController、DepartmentSelector 元件），Dashboard 也有科別篩選，但指標管理頁面（MeasureLibrary + MeasureDetailsTab）缺少科別指派和篩選功能，導致科別分類無法在指標層級實際使用。
+
+### 修改內容
+
+#### Step 1：後端 — Repository 新增查詢方法
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/src/main/java/com/cqlplatform/repository/MeasureDefinitionRepository.java` |
+
+- 新增 `findByDepartment(String department)` — 依科別代碼查詢
+- 新增 `findByDepartmentAndSearchTerm(String department, String search)` — `@Query` 結合科別 + 名稱/標題模糊搜尋
+
+#### Step 2：後端 — Service 新增科別篩選邏輯
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` |
+
+- 新增 `search(String searchTerm, String department)` 多載方法
+- 4 種組合（search+dept / dept-only / search-only / all）各走不同 Repository 查詢
+- 原有 `search(String)` 委派至新方法（department=null），無 breaking change
+
+#### Step 3：後端 — Controller 加 department 參數
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/src/main/java/com/cqlplatform/controller/MeasureController.java` |
+
+- `GET /api/measures` 新增 `@RequestParam(required = false) String department`
+- 改用 `definitionService.search(search, department)` 統一入口
+
+#### Step 4：前端 — measureApi 加 department 參數
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/api/measureApi.ts` |
+
+- `getMeasures(search?, department?)` 新增第二選用參數
+- 動態建構 `params` 物件，僅在有值時附加
+
+#### Step 5：前端 — MeasureLibrary 加科別篩選器
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/components/measure/MeasureLibrary.tsx` |
+
+- 搜尋列旁新增 `DepartmentSelector`（showAll=true），與搜尋框水平排列
+- `departmentFilter` 狀態 + 傳入 `measureApi.getMeasures(search, department)`
+- React Query queryKey 包含 `departmentFilter`，切換科別自動重新查詢
+- 表格 "Setting" 欄改為 "Department" 欄，顯示 `m.department` Chip
+
+#### Step 6：前端 — MeasureDetailsTab 加科別欄位
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/components/measure/MeasureDetailsTab.tsx` |
+
+- General Information accordion 的 Setting 欄位旁新增 `DepartmentSelector`（showAll=false）
+- 使用 `updateField('department', value)` 連動表單狀態和 dirty 追蹤
+
+#### Step 7：i18n 翻譯鍵新增
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/locales/en/measures.json` |
+| 修改 | `frontend/src/locales/zh-TW/measures.json` |
+
+- `library.tableHeaders.department`: "Department" / "科別"
+- `details.fields.department`: "Department" / "科別"
+- `details.fields.departmentHelper`: helper text（EN + zh-TW）
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 修改檔案 | 9（3 後端 + 4 前端 + 2 locale） |
+| 新增 i18n 鍵 | 3（EN + zh-TW 各一份） |
+| 新增後端方法 | 3（2 Repository + 1 Service） |
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- 無 DB 遷移（`department` 欄位已在 V26 建立）
+- 既有 `search(String)` 保持向下相容
 
 ---

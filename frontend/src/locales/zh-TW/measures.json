@@ -63,6 +63,7 @@
       "status": "狀態",
       "scoring": "評分",
       "setting": "情境",
+      "department": "科別",
       "owner": "擁有者",
       "actions": "操作"
     },
@@ -193,6 +194,8 @@
       "cmsMeasureIdPlaceholder": "例如 CMS122v12",
       "setting": "情境",
       "settingHelper": "此指標適用的照護情境",
+      "department": "科別",
+      "departmentHelper": "將此指標指派至科別以進行篩選和報告",
       "none": "無",
       "compositeScoring": "複合評分"
     },

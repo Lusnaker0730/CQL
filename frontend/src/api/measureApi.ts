@@ -54,8 +54,10 @@ export const measureApi = {
   },
 
   // Measure Definition CRUD
-  getMeasures: async (search?: string): Promise<MeasureDefinition[]> => {
-    const params = search ? { search } : {}
+  getMeasures: async (search?: string, department?: string): Promise<MeasureDefinition[]> => {
+    const params: Record<string, string> = {}
+    if (search) params.search = search
+    if (department) params.department = department
     const response = await api.get<MeasureDefinition[]>('/measures', { params })
     return response.data
   },
