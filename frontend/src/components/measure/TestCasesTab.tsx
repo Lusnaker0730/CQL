@@ -41,6 +41,7 @@ import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
+import TestCaseImportDialog from './TestCaseImportDialog'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
 
 interface TestCasesTabProps {
@@ -61,6 +62,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [editing, setEditingRaw] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [coverageData, setCoverageData] = useState<Record<number, { data: CoverageResult | null; loading: boolean }>>({})
 
   const { data: testCases = [], isLoading } = useQuery({
@@ -134,80 +136,36 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     },
   })
 
-  const importRef = React.useRef<HTMLInputElement>(null)
+  const toExportShape = (tc: TestCase) => ({
+    title: tc.title,
+    description: tc.description,
+    series: tc.series,
+    sortOrder: tc.sortOrder,
+    expectedPopulations: tc.expectedPopulations,
+    patientBundleJson: tc.patientBundleJson,
+  })
 
-  const exportSingleTestCase = (tc: TestCase) => {
-    const exportData = {
-      title: tc.title,
-      description: tc.description,
-      series: tc.series,
-      expectedPopulations: tc.expectedPopulations,
-      patientBundleJson: tc.patientBundleJson,
-    }
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${tc.title.replace(/[^a-z0-9]/gi, '_')}.json`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const exportSingleTestCase = (tc: TestCase) => {
+    const blob = new Blob([JSON.stringify(toExportShape(tc), null, 2)], { type: 'application/json' })
+    downloadBlob(blob, `${tc.title.replace(/[^a-z0-9]/gi, '_')}.json`)
   }
 
   const exportAllTestCases = () => {
     if (testCases.length === 0) return
-    const exportData = testCases.map((tc) => ({
-      title: tc.title,
-      description: tc.description,
-      series: tc.series,
-      expectedPopulations: tc.expectedPopulations,
-      patientBundleJson: tc.patientBundleJson,
-    }))
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${measure.name || 'measure'}-test-cases.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const importMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const text = await file.text()
-      const parsed = JSON.parse(text)
-      const rawItems: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
-      const results: TestCase[] = []
-      for (const raw of rawItems) {
-        const item = raw as Record<string, unknown>
-        // Support MADiE format: detect by checking for 'json' or 'patientBundleJson' field
-        const bundleJson = (item.patientBundleJson as string | undefined) || (item.json as string | undefined)
-          || (item.resourceType === 'Bundle' ? JSON.stringify(item) : undefined)
-        const groupPopValues = item.groupPopulationValues as Array<{ name: string; expected: boolean }> | undefined
-        const tc: TestCase = {
-          title: (item.title as string) || (item.name as string) || file.name.replace(/\.json$/, ''),
-          description: (item.description as string) || '',
-          series: (item.series as string) || (item.groupName as string) || undefined,
-          expectedPopulations: (item.expectedPopulations as Record<string, boolean>) || groupPopValues?.reduce(
-            (acc: Record<string, boolean>, p: { name: string; expected: boolean }) => {
-              acc[p.name] = p.expected
-              return acc
-            }, {}
-          ) || {},
-          patientBundleJson: typeof bundleJson === 'string' ? bundleJson : JSON.stringify(bundleJson),
-        }
-        results.push(await measureApi.createTestCase(measure.id!, tc))
-      }
-      return results
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
-      if (importRef.current) importRef.current.value = ''
-    },
-  })
-
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) importMutation.mutate(file)
+    const blob = new Blob(
+      [JSON.stringify(testCases.map(toExportShape), null, 2)],
+      { type: 'application/json' }
+    )
+    downloadBlob(blob, `${measure.name || 'measure'}-test-cases.json`)
   }
 
   const passCount = testCases.filter((tc) => tc.status === 'pass').length
@@ -364,14 +322,12 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           <Button
             size="small"
             startIcon={<ImportIcon />}
-            onClick={() => importRef.current?.click()}
+            onClick={() => setImportDialogOpen(true)}
             variant="outlined"
-            disabled={importMutation.isPending}
             sx={{ borderColor: 'rgba(13,115,119,0.4)', color: 'primary.dark' }}
           >
-            {importMutation.isPending ? t('testCases.importing') : t('testCases.import')}
+            {t('testCases.import')}
           </Button>
-          <input ref={importRef} type="file" accept=".json" hidden onChange={handleFileImport} />
           <GradientButton
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
@@ -390,18 +346,6 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       {runAllMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {(runAllMutation.error as Error).message}
-        </Alert>
-      )}
-
-      {importMutation.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {t('testCases.importFailed', { error: (importMutation.error as Error).message })}
-        </Alert>
-      )}
-
-      {importMutation.isSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {t('testCases.importSuccess')}
         </Alert>
       )}
 
@@ -444,6 +388,11 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         </Stack>
       )}
       <DateCalculatorDialog open={dateCalcOpen} onClose={() => setDateCalcOpen(false)} />
+      <TestCaseImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        measureId={measure.id!}
+      />
     </Box>
   )
 }

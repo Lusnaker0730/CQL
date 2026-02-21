@@ -14,6 +14,7 @@
 | 004 | 2026-02-20 | 跨模組 | 術語查詢 Drawer + 測試案例草稿自動儲存 | Header, Terminology, Test Case Builder, Measures | [`7429103`](../../commit/7429103) |
 | 005 | 2026-02-20 | 安全性 | MeasureController 授權與 IDOR 修復 | Backend — MeasureController, ScheduledMeasureEvaluationService | [`b8f57a6`](../../commit/b8f57a6) |
 | 006 | 2026-02-21 | eQCM | Population Criteria 佈局優化 + Reporting 分頁 | Measures (Frontend + Backend) | [`3b66db3`](../../commit/3b66db3) |
+| 007 | 2026-02-21 | eQCM | 測試案例批次匯入 + 日期平移 | Measures (Frontend + Backend) | |
 
 ---
 
@@ -573,5 +574,82 @@ Population Criteria Tab 存在多項與 MADiE 的差異：所有內容擠在單�
 - `mvn compile -q` — 編譯成功
 - 所有既有狀態（groups, riskAdjustments, supplementalData）在子分頁間切換時保持不變
 - 儲存操作包含新欄位 improvementNotation 和 rateAggregation
+
+---
+
+## #007 — 測試案例批次匯入 + 日期平移
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — 測試案例管理增強
+- **分類**: 功能新增 / 醫學中心適用性
+
+### 問題描述
+
+醫學中心需要從 HIS 系統批次匯入真實病歷資料作為測試資料集，並將歷史病歷的日期調整到評估期間內。原有匯入功能僅在前端逐筆呼叫 API，無日期平移能力，不適合大量資料匯入場景。
+
+### 修改內容
+
+#### Feature A：後端日期平移服務
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/java/com/cqlplatform/service/measure/DateShiftService.java` |
+
+- 遞迴走訪 FHIR Bundle JSON，識別所有日期相關欄位（`effectiveDateTime`、`birthDate`、`start`、`end`、`issued`、`authored` 等 20+ 個欄位名）
+- 支援 FHIR 日期格式：`YYYY-MM-DD`、`YYYY-MM-DDThh:mm:ss+zz:zz`、`YYYY-MM`
+- `shiftDates(bundleJson, shiftDays)` — 平移所有日期
+- `calculateAutoShift(bundleJson, targetPeriodEnd)` — 自動計算平移天數使最晚日期對齊目標期間
+
+#### Feature B：後端批次匯入端點
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/java/com/cqlplatform/model/measure/BatchTestCaseImportRequest.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/model/measure/BatchTestCaseImportResult.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/TestCaseService.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/controller/MeasureController.java` |
+
+- `BatchTestCaseImportRequest`：包含 `testCases` 清單和 `dateShiftDays` 參數
+- `BatchTestCaseImportResult`：回傳 `successCount`、`failureCount`、`imported` 清單、`errors` 詳細訊息
+- `TestCaseService.batchImport()` — 逐筆匯入，失敗不中斷，記錄錯誤
+- `POST /api/measures/{measureId}/test-cases/batch-import` — 需擁有者或 ADMIN 權限
+
+#### Feature C：前端匯入對話框
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/components/measure/TestCaseImportDialog.tsx` |
+| 修改 | `frontend/src/components/measure/TestCasesTab.tsx` |
+| 修改 | `frontend/src/api/measureApi.ts` |
+| 修改 | `frontend/src/types/index.ts` |
+
+- `TestCaseImportDialog`：完整匯入對話框，包含：
+  - 拖放上傳區（支援 .json / .ndjson）
+  - 檔案解析預覽（顯示標題、系列、族群數量）
+  - 日期平移開關 + 天數輸入
+  - 匯入進度條 + 結果摘要（成功/失敗數、錯誤明細）
+  - 支援：JSON 陣列、單一測試案例、MADiE 格式、原始 FHIR Bundle
+- `TestCasesTab`：移除舊有 inline 匯入邏輯，改用 `TestCaseImportDialog`
+- 匯出增強：新增 `sortOrder` 欄位至匯出格式，提取共用 `toExportShape` 和 `downloadBlob` 輔助函式
+
+#### i18n 鍵新增
+
+| 檔案 | 新增鍵 |
+|------|--------|
+| `locales/{en,zh-TW}/measures.json` | 18 個 `importDialog.*` 鍵 |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 4（1 服務 + 2 模型 + 1 元件） |
+| 修改檔案 | 6（2 後端 + 2 前端 + 2 locale） |
+| 新增 i18n 鍵 | 18（EN + zh-TW） |
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
 
 ---

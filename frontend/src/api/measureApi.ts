@@ -17,6 +17,7 @@ import type {
   BatchEvaluationRequest,
   BatchEvaluationResult,
   DataRequirementInfo,
+  BatchTestCaseImportResult,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
@@ -205,6 +206,18 @@ export const measureApi = {
 
   runWithCoverage: async (measureId: number, testCaseId: number): Promise<CoverageResult> => {
     const response = await api.post<CoverageResult>(`/measures/${measureId}/test-cases/${testCaseId}/run-with-coverage`)
+    return response.data
+  },
+
+  batchImportTestCases: async (
+    measureId: number,
+    testCases: TestCase[],
+    dateShiftDays: number = 0
+  ): Promise<BatchTestCaseImportResult> => {
+    const response = await api.post<BatchTestCaseImportResult>(
+      `/measures/${measureId}/test-cases/batch-import`,
+      { testCases, dateShiftDays }
+    )
     return response.data
   },
 

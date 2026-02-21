@@ -406,6 +406,25 @@
       "delete": "刪除測試案例"
     }
   },
+  "importDialog": {
+    "title": "匯入測試案例",
+    "dropHint": "點擊或拖曳 JSON 檔案至此處以匯入測試案例",
+    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、或原始 FHIR Bundle",
+    "noValidCases": "檔案中未找到有效的測試案例。每個項目必須包含病人 Bundle。",
+    "parseError": "檔案解析失敗：{{error}}",
+    "preview": "在 {{file}} 中找到 {{count}} 個測試案例",
+    "removeFromImport": "從匯入中移除",
+    "enableDateShift": "啟用日期平移（調整病人 Bundle 中的所有日期）",
+    "shiftDays": "平移天數",
+    "shiftDaysHelp": "正數 = 往後、負數 = 往前",
+    "shiftExplanation": "病人 Bundle 中所有的日期、日期時間和期間欄位都將按指定天數平移。適用於將歷史資料對齊至評估期間。",
+    "importing": "正在匯入 {{count}} 個測試案例...",
+    "importError": "匯入失敗：{{error}}",
+    "resultSummary": "成功匯入 {{success}}/{{total}} 個測試案例",
+    "done": "完成",
+    "cancel": "取消",
+    "importCount": "匯入 {{count}} 個測試案例"
+  },
   "testCaseEditor": {
     "newTitle": "新增測試案例",
     "editTitle": "編輯：{{name}}",

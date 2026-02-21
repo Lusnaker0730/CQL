@@ -406,6 +406,25 @@
       "delete": "Delete test case"
     }
   },
+  "importDialog": {
+    "title": "Import Test Cases",
+    "dropHint": "Click or drag a JSON file here to import test cases",
+    "formatHint": "Supports: JSON array, single test case, MADiE format, or bare FHIR Bundle",
+    "noValidCases": "No valid test cases found in the file. Each item must contain a patient Bundle.",
+    "parseError": "Failed to parse file: {{error}}",
+    "preview": "{{count}} test case(s) found in {{file}}",
+    "removeFromImport": "Remove from import",
+    "enableDateShift": "Enable date shifting (adjust all dates in patient bundles)",
+    "shiftDays": "Shift days",
+    "shiftDaysHelp": "Positive = forward, negative = backward",
+    "shiftExplanation": "All date, dateTime, and period fields in patient bundles will be shifted by the specified number of days. Useful for aligning historical data with the measurement period.",
+    "importing": "Importing {{count}} test case(s)...",
+    "importError": "Import failed: {{error}}",
+    "resultSummary": "{{success}} of {{total}} test case(s) imported successfully",
+    "done": "Done",
+    "cancel": "Cancel",
+    "importCount": "Import {{count}} test case(s)"
+  },
   "testCaseEditor": {
     "newTitle": "New Test Case",
     "editTitle": "Edit: {{name}}",

@@ -518,6 +518,17 @@ public class MeasureController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{measureId}/test-cases/batch-import")
+    @Operation(summary = "Batch Import Test Cases", description = "Import multiple test cases at once with optional date shifting")
+    public ResponseEntity<BatchTestCaseImportResult> batchImportTestCases(
+            @PathVariable Long measureId,
+            @RequestBody BatchTestCaseImportRequest request) {
+        requireOwnedMeasure(measureId);
+        BatchTestCaseImportResult result = testCaseService.batchImport(
+                measureId, request.getTestCases(), request.getDateShiftDays());
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/{measureId}/test-cases/{testCaseId}/run")
     @Operation(summary = "Run Test Case", description = "Execute a single test case against the measure's CQL")
     public ResponseEntity<TestCaseRunResult> runTestCase(

@@ -755,6 +755,14 @@ export interface PopulationComparison {
   match: boolean
 }
 
+export interface BatchTestCaseImportResult {
+  totalReceived: number
+  successCount: number
+  failureCount: number
+  imported: TestCase[]
+  errors: string[]
+}
+
 // Implementation Guide types
 export interface IgPackageMetadata {
   name: string

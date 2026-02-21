@@ -25,6 +25,7 @@ public class TestCaseService {
     private final TestCaseRepository repository;
     private final MeasureDefinitionService definitionService;
     private final CqlExecutionService cqlExecutionService;
+    private final DateShiftService dateShiftService;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -79,6 +80,44 @@ public class TestCaseService {
     public void delete(Long id) {
         repository.deleteById(id);
         log.info("Deleted test case {}", id);
+    }
+
+    // ===== Batch Import =====
+
+    @Transactional
+    public BatchTestCaseImportResult batchImport(Long measureDefinitionId, List<TestCase> testCases, int dateShiftDays) {
+        definitionService.getById(measureDefinitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+
+        List<TestCase> imported = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < testCases.size(); i++) {
+            try {
+                TestCase tc = testCases.get(i);
+                // Apply date shifting if requested
+                if (dateShiftDays != 0 && tc.getPatientBundleJson() != null && !tc.getPatientBundleJson().isBlank()) {
+                    tc.setPatientBundleJson(dateShiftService.shiftDates(tc.getPatientBundleJson(), dateShiftDays));
+                }
+                TestCase created = create(measureDefinitionId, tc);
+                imported.add(created);
+            } catch (Exception e) {
+                String title = testCases.get(i).getTitle();
+                errors.add(String.format("Item %d (%s): %s", i + 1, title != null ? title : "untitled", e.getMessage()));
+                log.warn("Failed to import test case {} for measure {}", i, measureDefinitionId, e);
+            }
+        }
+
+        log.info("Batch imported {}/{} test cases for measure {} (dateShift={})",
+                imported.size(), testCases.size(), measureDefinitionId, dateShiftDays);
+
+        return BatchTestCaseImportResult.builder()
+                .totalReceived(testCases.size())
+                .successCount(imported.size())
+                .failureCount(errors.size())
+                .imported(imported)
+                .errors(errors)
+                .build();
     }
 
     // ===== Execution =====
