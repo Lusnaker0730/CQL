@@ -30,6 +30,7 @@ import { usePreferences } from '../../hooks/usePreferences'
 import PreferencesDialog from '../common/PreferencesDialog'
 import HelpDrawer from '../common/HelpDrawer'
 import LanguageSwitcher from '../common/LanguageSwitcher'
+import NotificationBell from './NotificationBell'
 import TerminologyLookupDrawer from '../terminology/TerminologyLookupDrawer'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 
@@ -177,6 +178,7 @@ export default function Header() {
                 }}
               />
             )}
+            <NotificationBell />
             <LanguageSwitcher />
             <IconButton
               color="inherit"

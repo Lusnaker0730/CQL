@@ -59,6 +59,7 @@ public class MeasureController {
     private final FhirMeasureBundleService bundleService;
     private final FhirMeasureBundleImportService bundleImportService;
     private final HqmfExportService hqmfExportService;
+    private final HumanReadableService humanReadableService;
     private final BatchEvaluationService batchEvaluationService;
     private final DataRequirementExtractor dataRequirementExtractor;
     private final OwnershipVerifier ownershipVerifier;
@@ -220,6 +221,17 @@ public class MeasureController {
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-hqmf.xml")
                 .header("Content-Type", "application/xml")
                 .body(hqmf.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/{id}/export/human-readable")
+    @Operation(summary = "Export Human Readable", description = "Generates a human-readable HTML narrative document for the measure")
+    public ResponseEntity<byte[]> exportHumanReadable(@PathVariable Long id) {
+        MeasureDefinition measure = requireMeasure(id);
+        String html = humanReadableService.generateHtml(measure);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=measure-" + id + "-narrative.html")
+                .header("Content-Type", "text/html; charset=UTF-8")
+                .body(html.getBytes(StandardCharsets.UTF_8));
     }
 
     // ===== CQL Expressions =====

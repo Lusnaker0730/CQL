@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   Paper,
   Typography,
@@ -77,6 +77,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const [importOpen, setImportOpen] = useState(false)
   const [importJson, setImportJson] = useState('')
   const [importType, setImportType] = useState<'measure' | 'bundle'>('measure')
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [selectedMeasureIds, setSelectedMeasureIds] = useState<Set<number>>(new Set())
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
@@ -479,11 +480,37 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             <MenuItem value="measure">{t('library.importDialog.measureSingle')}</MenuItem>
             <MenuItem value="bundle">{t('library.importDialog.measureBundle')}</MenuItem>
           </TextField>
+          <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+            <Button
+              size="small"
+              startIcon={<UploadIcon />}
+              variant="outlined"
+              onClick={() => importFileRef.current?.click()}
+            >
+              {t('library.importDialog.uploadFile')}
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+              {t('library.importDialog.orPaste')}
+            </Typography>
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".json,.xml"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  file.text().then((text) => setImportJson(text))
+                }
+                if (importFileRef.current) importFileRef.current.value = ''
+              }}
+            />
+          </Stack>
           <TextField
             label={importType === 'bundle' ? t('library.importDialog.bundleJson') : t('library.importDialog.measureJson')}
             fullWidth
             multiline
-            rows={12}
+            rows={10}
             value={importJson}
             onChange={(e) => setImportJson(e.target.value)}
             placeholder={importType === 'bundle'

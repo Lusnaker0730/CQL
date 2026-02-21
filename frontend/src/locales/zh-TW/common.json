@@ -167,6 +167,15 @@
       "bulkExport": "啟動 FHIR 批次資料匯出（$export）。系統匯出所有資源；病患/群組匯出範圍限定為特定區室。結果為 NDJSON 檔案。"
     }
   },
+  "notifications": {
+    "title": "通知",
+    "markAllRead": "全部標為已讀",
+    "empty": "沒有通知",
+    "justNow": "剛剛",
+    "minutesAgo": "{{count}} 分鐘前",
+    "hoursAgo": "{{count}} 小時前",
+    "daysAgo": "{{count}} 天前"
+  },
   "language": {
     "english": "English",
     "traditionalChinese": "繁體中文",

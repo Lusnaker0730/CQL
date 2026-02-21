@@ -69,6 +69,12 @@ public class MeasureDefinition {
     private String lockedBy;
     private LocalDateTime lockedAt;
 
+    // Workflow review tracking
+    private String reviewedBy;
+    private String approvedBy;
+    private String reviewComment;
+    private LocalDateTime reviewedAt;
+
     @Pattern(regexp = "inpatient|outpatient|emergency|community|long-term-care|home-health|")
     private String setting;
 

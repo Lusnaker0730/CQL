@@ -5,6 +5,7 @@ import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.service.NotificationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class MeasureDefinitionService {
 
     private final MeasureDefinitionRepository repository;
     private final MeasureAuditRepository auditRepository;
+    private final NotificationService notificationService;
 
     @Value("${measure.locking.timeout-minutes:30}")
     private int lockTimeoutMinutes;
@@ -284,6 +286,10 @@ public class MeasureDefinitionService {
                 .updatedAt(entity.getUpdatedAt())
                 .lockedBy(entity.getLockedBy())
                 .lockedAt(entity.getLockedAt())
+                .reviewedBy(entity.getReviewedBy())
+                .approvedBy(entity.getApprovedBy())
+                .reviewComment(entity.getReviewComment())
+                .reviewedAt(entity.getReviewedAt())
                 .setting(entity.getSetting())
                 // Enhanced metadata
                 .rationale(entity.getRationale())
@@ -324,6 +330,10 @@ public class MeasureDefinitionService {
         entity = repository.save(entity);
         recordAudit(id, "SHARE", currentUser, "Shared with " + targetUsername, null, null);
         log.info("Shared measure {} with user {}", id, targetUsername);
+
+        // Notify the target user
+        notificationService.notifyMeasureShared(currentUser, targetUsername, entity.getName(), id);
+
         return entityToModel(entity);
     }
 
@@ -449,6 +459,10 @@ public class MeasureDefinitionService {
         entity = repository.save(entity);
         recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, IN_REVIEW);
         log.info("Measure {} submitted for review by {}", id, currentUser);
+
+        // Notify shared users (reviewers)
+        notificationService.notifyMeasureSubmitted(currentUser, entity.getSharedWithList(), entity.getName(), id);
+
         return entityToModel(entity);
     }
 
@@ -461,9 +475,17 @@ public class MeasureDefinitionService {
 
         String oldStatus = entity.getStatus();
         entity.setStatus(ACTIVE);
+        entity.setApprovedBy(currentUser);
+        entity.setReviewedBy(currentUser);
+        entity.setReviewedAt(java.time.LocalDateTime.now());
+        entity.setReviewComment(null);
         entity = repository.save(entity);
         recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, ACTIVE);
         log.info("Measure {} approved by {}", id, currentUser);
+
+        // Notify the measure owner
+        notificationService.notifyMeasureApproved(currentUser, entity.getOwnerUsername(), entity.getName(), id);
+
         return entityToModel(entity);
     }
 
@@ -476,9 +498,17 @@ public class MeasureDefinitionService {
 
         String oldStatus = entity.getStatus();
         entity.setStatus(DRAFT);
+        entity.setReviewedBy(currentUser);
+        entity.setReviewedAt(java.time.LocalDateTime.now());
+        entity.setReviewComment(reason);
+        entity.setApprovedBy(null);
         entity = repository.save(entity);
         recordAudit(id, "REJECT", currentUser, "Rejected: " + (reason != null ? reason : "no reason"), oldStatus, DRAFT);
         log.info("Measure {} rejected by {}: {}", id, currentUser, reason);
+
+        // Notify the measure owner
+        notificationService.notifyMeasureRejected(currentUser, entity.getOwnerUsername(), entity.getName(), id, reason);
+
         return entityToModel(entity);
     }
 

@@ -285,9 +285,9 @@ export const measureApi = {
     return response.data
   },
 
-  rejectMeasure: async (id: number): Promise<MeasureDefinition> => {
+  rejectMeasure: async (id: number, reason?: string): Promise<MeasureDefinition> => {
     const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser, reason })
     return response.data
   },
 
@@ -352,6 +352,13 @@ export const measureApi = {
 
   exportHqmf: async (id: number): Promise<Blob> => {
     const response = await api.get(`/measures/${id}/export/hqmf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  exportHumanReadable: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${id}/export/human-readable`, {
       responseType: 'blob',
     })
     return response.data

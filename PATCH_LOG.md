@@ -14,7 +14,11 @@
 | 004 | 2026-02-20 | 跨模組 | 術語查詢 Drawer + 測試案例草稿自動儲存 | Header, Terminology, Test Case Builder, Measures | [`7429103`](../../commit/7429103) |
 | 005 | 2026-02-20 | 安全性 | MeasureController 授權與 IDOR 修復 | Backend — MeasureController, ScheduledMeasureEvaluationService | [`b8f57a6`](../../commit/b8f57a6) |
 | 006 | 2026-02-21 | eQCM | Population Criteria 佈局優化 + Reporting 分頁 | Measures (Frontend + Backend) | [`3b66db3`](../../commit/3b66db3) |
-| 007 | 2026-02-21 | eQCM | 測試案例批次匯入 + 日期平移 | Measures (Frontend + Backend) | |
+| 007 | 2026-02-21 | eQCM | 測試案例批次匯入 + 日期平移 | Measures (Frontend + Backend) | [`76cf867`](../../commit/76cf867) |
+| 008 | 2026-02-21 | eQCM | P1-7: 人類可讀文件匯出 | Measures (Backend + Frontend) | — |
+| 009 | 2026-02-21 | eQCM | P1-4: 審核者欄位 + 退回原因 UI | Measures (Backend + Frontend) | — |
+| 010 | 2026-02-21 | eQCM | P1-6: FHIR Bundle 檔案上傳匯入 | Measures (Frontend) | — |
+| 011 | 2026-02-21 | 通知 | P1-5: 持久化通知系統 + 工作流程推播 | Backend + Frontend (Header) | — |
 
 ---
 
@@ -645,6 +649,190 @@ Population Criteria Tab 存在多項與 MADiE 的差異：所有內容擠在單�
 | 新增檔案 | 4（1 服務 + 2 模型 + 1 元件） |
 | 修改檔案 | 6（2 後端 + 2 前端 + 2 locale） |
 | 新增 i18n 鍵 | 18（EN + zh-TW） |
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+
+---
+
+## #008 — P1-7: 人類可讀文件匯出
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — 文件輸出
+- **分類**: 功能新增 / 醫學中心適用性
+
+### 問題描述
+
+醫學中心在指標發布前需要產出人類可讀的指標文件供臨床委員會審閱。需要完整的 HTML 文件，包含指標描述、族群準則表格、CQL 邏輯程式碼、以及中繼資料。
+
+### 修改內容
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/java/com/cqlplatform/service/measure/HumanReadableService.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/controller/MeasureController.java` |
+| 修改 | `frontend/src/api/measureApi.ts` |
+| 修改 | `frontend/src/components/measure/MeasureEditor.tsx` |
+| 修改 | `frontend/src/locales/{en,zh-TW}/measures.json` |
+
+- `HumanReadableService`：產生完整 HTML 文件，包含：
+  - CSS 樣式（teal/navy 配色，@media print 列印支援）
+  - 標題區含狀態徽章
+  - 目錄（TOC）
+  - 描述、理論基礎、臨床指引
+  - 每群組族群準則表格
+  - 分層器表格
+  - CQL 原始碼 `<pre>` 區塊
+  - 補充資料、中繼資料表格、頁尾
+- `GET /api/measures/{id}/export/human-readable` — 回傳 `text/html`
+- 前端：匯出選單新增「Human Readable」選項，以 `Blob` 開啟新視窗
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+
+---
+
+## #009 — P1-4: 審核者欄位 + 退回原因 UI
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — 審核工作流程增強
+- **分類**: 功能新增 / 工作流程
+
+### 問題描述
+
+審核工作流程缺少審核者追蹤欄位和退回原因 UI。當審核者退回指標時，擁有者無法看到退回原因，需重新溝通才能了解需要修改的內容。
+
+### 修改內容
+
+#### 後端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V23__review_workflow_fields.sql` |
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/MeasureDefinitionEntity.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/model/measure/MeasureDefinition.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` |
+
+- V23 遷移：新增 `reviewed_by`、`approved_by`、`review_comment`、`reviewed_at` 欄位
+- `approveMeasure()`：設定 `approvedBy`、`reviewedBy`、`reviewedAt`，清除 `reviewComment`
+- `rejectMeasure()`：設定 `reviewedBy`、`reviewedAt`、`reviewComment`，清除 `approvedBy`
+
+#### 前端
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/types/index.ts` |
+| 修改 | `frontend/src/components/measure/MeasureEditor.tsx` |
+| 修改 | `frontend/src/hooks/useMeasures.ts` |
+| 修改 | `frontend/src/api/measureApi.ts` |
+| 修改 | `frontend/src/locales/{en,zh-TW}/measures.json` |
+
+- MeasureEditor：退回時顯示對話框（含原因 TextField），狀態為 draft 且有 reviewComment 時顯示退回通知 Alert
+- `useRejectMeasure` hook 改為接受 `{ id, reason }` 物件
+- `rejectMeasure` API 新增 `reason` 選用參數
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+
+---
+
+## #010 — P1-6: FHIR Bundle 檔案上傳匯入
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — FHIR Measure Bundle 匯入增強
+- **分類**: UX 改善
+
+### 問題描述
+
+MeasureLibrary 的 FHIR Bundle 匯入功能僅支援文字區域貼上 JSON，不支援檔案上傳。使用者需要從檔案系統複製內容到剪貼簿再貼上，不便操作。
+
+### 修改內容
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/components/measure/MeasureLibrary.tsx` |
+| 修改 | `frontend/src/locales/{en,zh-TW}/measures.json` |
+
+- 新增 Upload File 按鈕 + 隱藏 `<input type="file">`（.json, .xml）
+- 選擇檔案後自動讀取內容填入文字區域
+- 文字區域行數從 12 減少到 10 以容納按鈕
+
+### 驗證
+
+- `npx tsc --noEmit` — 無型別錯誤
+
+---
+
+## #011 — P1-5: 持久化通知系統 + 工作流程推播
+
+- **日期**: 2026-02-21
+- **範圍**: 通知系統
+- **分類**: 功能新增 / 協作
+
+### 問題描述
+
+平台缺少通知系統。當指標被提交審核、核准或退回時，相關使用者不會收到任何通知，必須手動刷新頁面才能看到狀態變更。醫學中心需要即時通知機制以加速審核流程。
+
+### 修改內容
+
+#### 後端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V24__notifications.sql` |
+| 新增 | `backend/src/main/java/com/cqlplatform/entity/NotificationEntity.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/repository/NotificationRepository.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/NotificationService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/controller/NotificationController.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` |
+
+- `notification` 資料表：recipient、type、title、message、link、is_read、created_at、read_at
+- `NotificationService`：完整 CRUD + SSE（Server-Sent Events）即時推播
+  - 工作流程通知：`notifyMeasureSubmitted`（通知所有審核者）、`notifyMeasureApproved`、`notifyMeasureRejected`、`notifyMeasureShared`
+  - SSE emitter 管理：`ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>>`
+- `NotificationController`：6 個端點
+  - `GET /api/notifications` — 最新 50 則通知
+  - `GET /api/notifications/unread-count` — 未讀數量
+  - `POST /api/notifications/{id}/read` — 標記已讀
+  - `POST /api/notifications/read-all` — 全部標記已讀
+  - `DELETE /api/notifications/{id}` — 刪除通知
+  - `GET /api/notifications/subscribe` — SSE 訂閱
+- `MeasureDefinitionService`：在 `submitForReview`、`approveMeasure`、`rejectMeasure`、`shareMeasure` 中注入通知觸發
+
+#### 前端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/api/notificationApi.ts` |
+| 新增 | `frontend/src/hooks/useNotifications.ts` |
+| 新增 | `frontend/src/components/layout/NotificationBell.tsx` |
+| 修改 | `frontend/src/components/layout/Header.tsx` |
+| 修改 | `frontend/src/locales/{en,zh-TW}/common.json` |
+
+- `notificationApi`：封裝 5 個 API 呼叫（getNotifications、getUnreadCount、markAsRead、markAllAsRead、deleteNotification）
+- `useNotifications` hook：React Query 查詢 + SSE 訂閱自動刷新
+- `NotificationBell`：Header 工具列的通知鈴鐺按鈕
+  - `Badge` 顯示未讀數量（max 99）
+  - `Popover` 下拉面板：通知列表 + 時間戳 + 類型圖示
+  - 每則通知可點擊導航到相關頁面、刪除、標記已讀
+  - 全部標記已讀按鈕
+  - 空狀態提示
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 8（4 後端 + 1 SQL + 3 前端） |
+| 修改檔案 | 4（1 後端 + 1 前端 + 2 locale） |
+| 新增 i18n 鍵 | 7（EN + zh-TW） |
+| 新增 API 端點 | 6 |
 
 ### 驗證
 

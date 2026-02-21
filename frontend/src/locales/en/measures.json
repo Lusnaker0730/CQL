@@ -95,12 +95,20 @@
       "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped, {{valueSets}} value sets found.",
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
-      "exportError": "Export failed: {{error}}"
+      "exportError": "Export failed: {{error}}",
+      "uploadFile": "Upload File",
+      "orPaste": "or paste JSON below"
     }
   },
   "editor": {
     "lockedWarning": "Locked by {{user}}. Editing disabled.",
     "lockedBy": "Locked by {{user}}",
+    "rejectionNotice": "This measure was rejected by {{reviewer}}: \"{{comment}}\". Please address the feedback and resubmit.",
+    "rejectDialog": {
+      "title": "Reject Measure",
+      "reasonLabel": "Rejection Reason",
+      "reasonPlaceholder": "Please provide feedback on why this measure is being rejected..."
+    },
     "buttons": {
       "versioning": "Versioning",
       "lock": "Lock",
@@ -128,7 +136,8 @@
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "CQL Only",
       "elmOnly": "ELM Only",
-      "hqmfXml": "HQMF (XML)"
+      "hqmfXml": "HQMF (XML)",
+      "humanReadable": "Human Readable (HTML)"
     },
     "versionMenu": {
       "createVersion": "Create Version",

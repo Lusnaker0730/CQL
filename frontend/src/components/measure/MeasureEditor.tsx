@@ -11,6 +11,11 @@ import {
   Divider,
   Alert,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material'
 import {
   History as HistoryIcon,
@@ -74,6 +79,8 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
   const queryClient = useQueryClient()
 
   const { showNotification } = useNotification()
@@ -168,6 +175,10 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           blob = await measureApi.exportHqmf(measure.id)
           filename = `${measure.name}-hqmf.xml`
           break
+        case 'human-readable':
+          blob = await measureApi.exportHumanReadable(measure.id)
+          filename = `${measure.name}-narrative.html`
+          break
         default:
           return
       }
@@ -219,6 +230,11 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }}>
           {t('editor.lockedWarning', { user: measure.lockedBy })}
           {measure.lockedAt && ` at ${new Date(measure.lockedAt).toLocaleString()}`}
+        </Alert>
+      )}
+      {measure.reviewComment && measure.status === 'draft' && (
+        <Alert severity="info" sx={{ borderRadius: 0 }}>
+          {t('editor.rejectionNotice', { reviewer: measure.reviewedBy || '—', comment: measure.reviewComment })}
         </Alert>
       )}
       <Stack
@@ -357,7 +373,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               <Button
                 size="small"
                 startIcon={<RejectIcon />}
-                onClick={() => handleWorkflowAction(rejectMutation, t('editor.workflowMessages.rejected'))}
+                onClick={() => { setRejectReason(''); setRejectDialogOpen(true) }}
                 disabled={rejectMutation.isPending}
                 color="error"
                 variant="outlined"
@@ -474,6 +490,48 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         measureName={measure.title || measure.name}
       />
 
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('editor.rejectDialog.title')}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label={t('editor.rejectDialog.reasonLabel')}
+            placeholder={t('editor.rejectDialog.reasonPlaceholder')}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setRejectDialogOpen(false)
+              if (!measure.id) return
+              rejectMutation.mutate({ id: measure.id, reason: rejectReason || undefined }, {
+                onSuccess: (updated) => {
+                  onMeasureUpdate(updated)
+                  setWorkflowAlert({ severity: 'success', message: t('editor.workflowMessages.rejected') })
+                  queryClient.invalidateQueries({ queryKey: ['measures'] })
+                  setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
+                },
+                onError: (err) => {
+                  setWorkflowAlert({ severity: 'error', message: (err as Error).message || t('editor.errors.actionFailed') })
+                  setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
+                },
+              })
+            }}
+          >
+            {t('editor.buttons.reject')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Menu
         anchorEl={exportAnchor}
         open={Boolean(exportAnchor)}
@@ -484,6 +542,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => handleExport('cql')}>{t('editor.exportFormats.cqlOnly')}</MenuItem>
         <MenuItem onClick={() => handleExport('elm')}>{t('editor.exportFormats.elmOnly')}</MenuItem>
         <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
+        <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>
 
       <Menu

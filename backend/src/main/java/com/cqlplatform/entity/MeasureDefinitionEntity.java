@@ -103,6 +103,18 @@ public class MeasureDefinitionEntity {
     @Column(name = "locked_at")
     private LocalDateTime lockedAt;
 
+    @Column(name = "reviewed_by", length = 100)
+    private String reviewedBy;
+
+    @Column(name = "approved_by", length = 100)
+    private String approvedBy;
+
+    @Column(name = "review_comment", length = 2000)
+    private String reviewComment;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
     @Column(name = "setting", length = 50)
     private String setting;
 

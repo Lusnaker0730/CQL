@@ -412,6 +412,10 @@ export interface MeasureDefinition {
   accessLevel?: string
   lockedBy?: string
   lockedAt?: string
+  reviewedBy?: string
+  approvedBy?: string
+  reviewComment?: string
+  reviewedAt?: string
 }
 
 export interface MeasureAuditEntry {

@@ -95,11 +95,19 @@
       "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過，{{valueSets}} 個值集已找到。",
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
-      "exportError": "匯出失敗：{{error}}"
+      "exportError": "匯出失敗：{{error}}",
+      "uploadFile": "上傳檔案",
+      "orPaste": "或在下方貼上 JSON"
     }
   },
   "editor": {
     "lockedWarning": "已被 {{user}} 鎖定，無法編輯。",
+    "rejectionNotice": "此指標已被 {{reviewer}} 駁回：「{{comment}}」。請處理回饋意見後重新提交。",
+    "rejectDialog": {
+      "title": "駁回指標",
+      "reasonLabel": "駁回原因",
+      "reasonPlaceholder": "請提供駁回此指標的原因..."
+    },
     "lockedBy": "已被 {{user}} 鎖定",
     "buttons": {
       "versioning": "版本管理",
@@ -128,7 +136,8 @@
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "僅 CQL",
       "elmOnly": "僅 ELM",
-      "hqmfXml": "HQMF (XML)"
+      "hqmfXml": "HQMF (XML)",
+      "humanReadable": "人類可讀文件 (HTML)"
     },
     "versionMenu": {
       "createVersion": "建立版本",
