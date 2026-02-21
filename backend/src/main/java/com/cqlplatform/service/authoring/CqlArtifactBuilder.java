@@ -287,6 +287,14 @@ public class CqlArtifactBuilder {
             }
         }
 
+        // Auto-wrap with exists() if the final return type is still a list.
+        // Conjunction expressions (and/or) require boolean operands, so list-returning
+        // elements must be converted via exists().
+        String finalReturnType = getFinalReturnType(element, modifiers);
+        if (finalReturnType != null && finalReturnType.startsWith("list_of_")) {
+            expr = String.format("exists(%s)", expr);
+        }
+
         return expr;
     }
 
@@ -1003,6 +1011,21 @@ public class CqlArtifactBuilder {
             default:
                 return value.toString();
         }
+    }
+
+    /**
+     * Determine the final return type of an element after all modifiers are applied.
+     * If modifiers are present, uses the last modifier's returnType; otherwise
+     * falls back to the element's own returnType.
+     */
+    @SuppressWarnings("unchecked")
+    private String getFinalReturnType(Map<String, Object> element, List<Map<String, Object>> modifiers) {
+        if (modifiers != null && !modifiers.isEmpty()) {
+            Map<String, Object> lastMod = modifiers.get(modifiers.size() - 1);
+            String rt = getStr(lastMod, "returnType", null);
+            if (rt != null) return rt;
+        }
+        return getStr(element, "returnType", null);
     }
 
     private String getStr(Map<String, Object> map, String key, String defaultVal) {

@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 025 | 2026-02-21 | High | CDS Authoring（後端） | CQL 產生器未對 list 型別表達式自動加 exists() 導致驗證失敗 | 邏輯錯誤 | TBD |
 | 024 | 2026-02-21 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 Equal/Equivalent + CodeRef 模式（如 E.class ~ "AMB"） | 資料處理錯誤 | [`53b19ca`](../../commit/53b19ca) |
 | 023 | 2026-02-21 | Medium | Test Case Builder（後端） | Encounter.class 下拉選單顯示 1115 個代碼而非 11 個 | 資料處理錯誤 | [`3fc6de0`](../../commit/3fc6de0) |
 | 022 | 2026-02-20 | Low | Test Cases（前端） | 測試案例結果表格族群名稱未中文化 | i18n 遺漏 | [`0260852`](../../commit/0260852) |
@@ -44,6 +45,67 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #025 — CQL 產生器未對 list 型別表達式自動加 exists() 導致驗證失敗
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/authoring/CqlArtifactBuilder.java` |
+| **Commit** | TBD |
+
+### BUG 描述
+
+CDS Authoring Tool 產生的 CQL 在驗證時出現錯誤：`Could not resolve call to operator Not with signature (list<FHIR.Condition>)`。
+
+當排除條件（Exclusion）包含 Generic 資源元素（如 `GenericCondition_vsac`）並套用 list-returning 修飾器（如 `ActiveCondition`）時，產生的 CQL 如下：
+
+```cql
+define "MeetsExclusionCriteria":
+  C3F.ActiveCondition([Condition: "Disorders of lipoprotein metabolism..."])
+
+define "InPopulation":
+  "MeetsInclusionCriteria" and not "MeetsExclusionCriteria"
+```
+
+`C3F.ActiveCondition()` 回傳 `list<FHIR.Condition>`，但 `InPopulation` 中的 `not` 運算子需要布林值。CQL Engine 無法對清單執行否定運算，導致驗證失敗。
+
+**根本原因**：`CqlArtifactBuilder.buildExpression()` 在套用所有修飾器後，未檢查最終回傳型別。當修飾器鏈的最終型別仍為清單（如 `list_of_conditions`、`list_of_observations` 等），表達式被直接嵌入 `and`/`or` 邏輯運算，而這些運算子僅接受布林運算元。
+
+修飾器如 `CheckExistence`（`exists()`）可將清單轉為布林值，但使用者若未手動加入此修飾器，產生的 CQL 就會出錯。同類問題影響所有 Generic 資源類型（Condition、Observation、Procedure、MedicationRequest 等）搭配 list-returning 修飾器（Active、Confirmed、Completed、MostRecent 等）的情境。
+
+### 修正方式
+
+- **`CqlArtifactBuilder.java`**：
+  - `buildExpression()` 末尾新增自動型別檢測：套用所有修飾器後，呼叫 `getFinalReturnType()` 取得最終回傳型別。若型別以 `list_of_` 開頭，自動用 `exists()` 包裝表達式
+  - 新增 `getFinalReturnType()` 輔助方法：優先取最後一個修飾器的 `returnType`，fallback 為元素本身的 `returnType`
+
+### 修正結果
+
+修正前產生的 CQL：
+```cql
+define "MeetsExclusionCriteria":
+  C3F.ActiveCondition([Condition: "..."])    ← list<Condition>，驗證失敗
+```
+
+修正後產生的 CQL：
+```cql
+define "MeetsExclusionCriteria":
+  exists(C3F.ActiveCondition([Condition: "..."]))    ← boolean，驗證通過
+```
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [ ] Authoring 建立含 Condition + Active 修飾器的排除條件 → 產生 CQL 包含 `exists()`
+- [ ] CQL 驗證通過，無 `operator Not with signature (list<...>)` 錯誤
+- [ ] 已有 `CheckExistence` 修飾器的元素不會重複包裝 `exists(exists(...))`
+- [ ] 回傳布林值的修飾器（如 `ValueComparisonNumber`）不受影響
 
 ---
 
