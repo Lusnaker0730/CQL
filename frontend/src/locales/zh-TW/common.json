@@ -176,6 +176,13 @@
     "hoursAgo": "{{count}} 小時前",
     "daysAgo": "{{count}} 天前"
   },
+  "department": {
+    "label": "部門",
+    "all": "所有部門",
+    "assign": "指定部門",
+    "filter": "依部門篩選",
+    "none": "無部門"
+  },
   "language": {
     "english": "English",
     "traditionalChinese": "繁體中文",

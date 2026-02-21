@@ -30,6 +30,31 @@ public class OwnershipVerifier {
         }
     }
 
+    public boolean isDepartmentAdmin() {
+        Authentication auth = getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_DEPARTMENT_ADMIN".equals(a.getAuthority()));
+    }
+
+    public String getCurrentDepartment() {
+        Authentication auth = getAuthentication();
+        if (auth != null && auth.getDetails() instanceof String) {
+            return (String) auth.getDetails();
+        }
+        return null;
+    }
+
+    public void verifySameDepartment(String resourceDepartment) {
+        if (isAdmin()) return;
+        if (isDepartmentAdmin()) {
+            String userDept = getCurrentDepartment();
+            if (userDept != null && userDept.equals(resourceDepartment)) {
+                return;
+            }
+        }
+        throw new AccessDeniedException("You do not have permission to access resources in this department");
+    }
+
     private Authentication getAuthentication() {
         return SecurityContextHolder.getContext().getAuthentication();
     }

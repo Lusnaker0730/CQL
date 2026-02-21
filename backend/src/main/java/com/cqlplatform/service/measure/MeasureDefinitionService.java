@@ -90,6 +90,13 @@ public class MeasureDefinitionService {
         entity.setImprovementNotation(definition.getImprovementNotation());
         entity.setRateAggregation(definition.getRateAggregation());
 
+        // Indicator code mapping
+        entity.setMohIndicatorCode(definition.getMohIndicatorCode());
+        entity.setNhiaP4pCode(definition.getNhiaP4pCode());
+        entity.setDrgIndicatorCode(definition.getDrgIndicatorCode());
+        entity.setIndicatorCategory(definition.getIndicatorCategory());
+        entity.setDepartment(definition.getDepartment());
+
         // Sharing fields from update
         if (definition.getOwnerUsername() != null) {
             entity.setOwnerUsername(definition.getOwnerUsername());
@@ -308,6 +315,12 @@ public class MeasureDefinitionService {
                 .supplementalData(entity.getSupplementalDataList())
                 .improvementNotation(entity.getImprovementNotation())
                 .rateAggregation(entity.getRateAggregation())
+                // Indicator code mapping
+                .mohIndicatorCode(entity.getMohIndicatorCode())
+                .nhiaP4pCode(entity.getNhiaP4pCode())
+                .drgIndicatorCode(entity.getDrgIndicatorCode())
+                .indicatorCategory(entity.getIndicatorCategory())
+                .department(entity.getDepartment())
                 .build();
     }
 
@@ -606,6 +619,12 @@ public class MeasureDefinitionService {
                 .supplementalDataList(model.getSupplementalData())
                 .improvementNotation(model.getImprovementNotation())
                 .rateAggregation(model.getRateAggregation())
+                // Indicator code mapping
+                .mohIndicatorCode(model.getMohIndicatorCode())
+                .nhiaP4pCode(model.getNhiaP4pCode())
+                .drgIndicatorCode(model.getDrgIndicatorCode())
+                .indicatorCategory(model.getIndicatorCategory())
+                .department(model.getDepartment())
                 .build();
     }
 }

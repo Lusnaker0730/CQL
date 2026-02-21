@@ -62,6 +62,7 @@ public class MeasureController {
     private final HumanReadableService humanReadableService;
     private final BatchEvaluationService batchEvaluationService;
     private final DataRequirementExtractor dataRequirementExtractor;
+    private final DashboardService dashboardService;
     private final OwnershipVerifier ownershipVerifier;
 
     // ===== Helpers =====
@@ -803,5 +804,59 @@ public class MeasureController {
     @Operation(summary = "Get Audit Trail", description = "Returns the audit trail for a measure")
     public ResponseEntity<List<MeasureAuditEntity>> getAuditTrail(@PathVariable Long id) {
         return ResponseEntity.ok(definitionService.getAuditTrail(id));
+    }
+
+    // ===== Enhanced Dashboard =====
+
+    @GetMapping("/dashboard/enhanced")
+    @Operation(summary = "Enhanced Dashboard", description = "Returns enhanced dashboard with trends, alerts, department scores")
+    public ResponseEntity<EnhancedDashboardData> getEnhancedDashboard(
+            @RequestParam(required = false) String department) {
+        return ResponseEntity.ok(dashboardService.getEnhancedDashboard(department));
+    }
+
+    @GetMapping("/dashboard/trends")
+    @Operation(summary = "Score Trends", description = "Returns time-series trend data for measures")
+    public ResponseEntity<List<EnhancedDashboardData.TrendDataPoint>> getTrends(
+            @RequestParam(required = false) Long measureId,
+            @RequestParam(defaultValue = "monthly") String periodType,
+            @RequestParam(defaultValue = "12") int count) {
+        return ResponseEntity.ok(dashboardService.getTrends(measureId, periodType, count));
+    }
+
+    @GetMapping("/dashboard/department/{code}")
+    @Operation(summary = "Department Drill-down", description = "Returns department-specific dashboard data")
+    public ResponseEntity<Map<String, Object>> getDepartmentDrilldown(@PathVariable String code) {
+        return ResponseEntity.ok(dashboardService.getDepartmentDrilldown(code));
+    }
+
+    @GetMapping("/dashboard/alerts")
+    @Operation(summary = "Threshold Alerts", description = "Returns threshold violation alerts")
+    public ResponseEntity<List<ThresholdAlert>> getAlerts(
+            @RequestParam(required = false) String department) {
+        return ResponseEntity.ok(dashboardService.getAlerts(department));
+    }
+
+    @PostMapping("/{id}/thresholds")
+    @Operation(summary = "Set Threshold", description = "Sets a threshold for a measure")
+    public ResponseEntity<com.cqlplatform.entity.MeasureThresholdEntity> setThreshold(
+            @PathVariable Long id,
+            @RequestBody com.cqlplatform.entity.MeasureThresholdEntity threshold) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(dashboardService.setThreshold(id, threshold));
+    }
+
+    @GetMapping("/{id}/thresholds")
+    @Operation(summary = "Get Thresholds", description = "Returns thresholds for a measure")
+    public ResponseEntity<List<com.cqlplatform.entity.MeasureThresholdEntity>> getThresholds(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(dashboardService.getThresholds(id));
+    }
+
+    @GetMapping("/dashboard/report")
+    @Operation(summary = "Quality Report", description = "Generates a quality report")
+    public ResponseEntity<QualityReport> getQualityReport(
+            @RequestParam(defaultValue = "monthly") String type,
+            @RequestParam(required = false) String department) {
+        return ResponseEntity.ok(dashboardService.generateReport(type, department));
     }
 }

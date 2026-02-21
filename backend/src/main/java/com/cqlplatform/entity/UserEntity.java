@@ -24,8 +24,19 @@ public class UserEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false)
+    @Column
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20)
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    @Column(name = "external_id")
+    private String externalId;
+
+    @Column(name = "display_name", length = 200)
+    private String displayName;
 
     @Column(length = 500)
     @Convert(converter = EncryptionConverter.class)
@@ -53,8 +64,15 @@ public class UserEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "department", length = 100)
+    private String department;
+
     public enum Role {
-        ADMIN, USER
+        ADMIN, USER, DEPARTMENT_ADMIN
+    }
+
+    public enum AuthProvider {
+        LOCAL, OKTA
     }
 
     @PrePersist

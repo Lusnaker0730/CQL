@@ -21,6 +21,7 @@ import {
   Close as CloseIcon,
   ViewModule as BuilderIcon,
   Code as JsonIcon,
+  CloudDownload as EhrImportIcon,
 } from '@mui/icons-material'
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
@@ -36,6 +37,7 @@ import {
 } from '../../contexts/BundleBuilderContext'
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import type { TestCase, MeasureDefinition } from '../../types'
+import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
 
 interface TestCaseEditorProps {
   measure: MeasureDefinition
@@ -92,6 +94,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
   const [isDirty, setIsDirty] = useState(false)
   const [bundleTab, setBundleTab] = useState(0) // 0 = Visual, 1 = JSON
   const [showDraftAlert, setShowDraftAlert] = useState(false)
+  const [ehrImportOpen, setEhrImportOpen] = useState(false)
   useUnsavedChangesGuard(isDirty)
 
   // Draft auto-save
@@ -266,6 +269,14 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           {isNew ? t('testCaseEditor.newTitle') : t('testCaseEditor.editTitle', { name: testCase?.title })}
         </Typography>
         <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            startIcon={<EhrImportIcon />}
+            onClick={() => setEhrImportOpen(true)}
+            disabled={readOnly}
+          >
+            {t('ehr.importFromEhr', { ns: 'fhir' })}
+          </Button>
           <Button size="small" startIcon={<CloseIcon />} onClick={onClose}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
@@ -437,6 +448,23 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           )}
         </Box>
       </Stack>
+
+      {ehrImportOpen && (
+        <EhrImportForTestCase
+          open={ehrImportOpen}
+          measureId={measure.id}
+          onClose={() => setEhrImportOpen(false)}
+          onImported={(json) => {
+            setBundleJson(json)
+            setIsDirty(true)
+            try {
+              const entries = parseFromBundle(json)
+              dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+            } catch { /* ignore parse errors */ }
+            setEhrImportOpen(false)
+          }}
+        />
+      )}
     </Box>
   )
 }

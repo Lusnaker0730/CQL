@@ -74,6 +74,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/okta/config").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/okta/callback").permitAll()
                 // SMART on FHIR configuration
                 .requestMatchers("/.well-known/smart-configuration").permitAll()
                 // CDS Hooks sandbox requires authentication
@@ -96,7 +98,7 @@ public class SecurityConfig {
         }
 
         // ADMIN only endpoints
-        auth.requestMatchers("/api/admin/**").hasRole("ADMIN")
+        auth.requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "DEPARTMENT_ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/settings/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/fhir/cache/**").hasRole("ADMIN")
                 // CDS service deletion: ownership enforced in controller (allows user to delete own)

@@ -5,9 +5,11 @@ import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import {
   Storage as FhirIcon,
   MenuBook as IgIcon,
+  CloudSync as EhrIcon,
 } from '@mui/icons-material'
 import FhirBrowser from '../components/fhir/FhirBrowser'
 import ImplementationGuideBrowser from '../components/fhir/ImplementationGuideBrowser'
+import EhrConnectionList from '../components/ehr/EhrConnectionList'
 
 export default function FhirPage() {
   const { t } = useTranslation('fhir')
@@ -40,11 +42,13 @@ export default function FhirPage() {
       >
         <Tab icon={<FhirIcon />} iconPosition="start" label={t('page.tabFhirBrowser')} />
         <Tab icon={<IgIcon />} iconPosition="start" label={t('page.tabTwCoreIg')} />
+        <Tab icon={<EhrIcon />} iconPosition="start" label={t('page.tabEhrConnections')} />
       </Tabs>
 
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {tabIndex === 0 && <FhirBrowser />}
         {tabIndex === 1 && <ImplementationGuideBrowser />}
+        {tabIndex === 2 && <EhrConnectionList />}
       </Box>
     </Box>
   )

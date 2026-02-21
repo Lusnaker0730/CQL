@@ -183,6 +183,23 @@ public class MeasureDefinitionEntity {
     @Column(name = "rate_aggregation", length = 2000)
     private String rateAggregation;
 
+    // Indicator code mapping
+    @Column(name = "moh_indicator_code", length = 50)
+    private String mohIndicatorCode;
+
+    @Column(name = "nhia_p4p_code", length = 50)
+    private String nhiaP4pCode;
+
+    @Column(name = "drg_indicator_code", length = 50)
+    private String drgIndicatorCode;
+
+    @Column(name = "indicator_category", length = 100)
+    private String indicatorCategory;
+
+    // Department (soft multi-tenancy)
+    @Column(name = "department", length = 100)
+    private String department;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

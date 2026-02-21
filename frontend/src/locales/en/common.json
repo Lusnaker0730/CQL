@@ -176,6 +176,13 @@
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
   },
+  "department": {
+    "label": "Department",
+    "all": "All Departments",
+    "assign": "Assign Department",
+    "filter": "Filter by Department",
+    "none": "No Department"
+  },
   "language": {
     "english": "English",
     "traditionalChinese": "繁體中文",

@@ -2,7 +2,11 @@ package com.cqlplatform.service.fhir;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.client.interceptor.BasicAuthInterceptor;
+import ca.uhn.fhir.rest.client.interceptor.BearerTokenAuthInterceptor;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
+import com.cqlplatform.entity.EhrConnectionEntity;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +49,37 @@ public class FhirClientFactory {
     public IGenericClient createPlainClient(String fhirServerUrl) {
         String serverUrl = fhirServerUrl != null ? fhirServerUrl : defaultFhirServerUrl;
         return fhirContext.newRestfulGenericClient(serverUrl);
+    }
+
+    /**
+     * Creates an authenticated FHIR client based on the EHR connection's auth configuration.
+     * Supports basic auth (username/password) and bearer token authentication.
+     */
+    public IGenericClient createAuthenticatedClient(EhrConnectionEntity connection) {
+        IGenericClient client = createClient(connection.getFhirServerUrl());
+
+        if ("basic".equals(connection.getAuthType()) && connection.getCredentials() != null) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                var creds = mapper.readTree(connection.getCredentials());
+                String username = creds.has("username") ? creds.get("username").asText() : "";
+                String password = creds.has("password") ? creds.get("password").asText() : "";
+                client.registerInterceptor(new BasicAuthInterceptor(username, password));
+            } catch (Exception e) {
+                log.warn("Failed to parse basic auth credentials for connection {}", connection.getId(), e);
+            }
+        } else if ("bearer".equals(connection.getAuthType()) && connection.getCredentials() != null) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                var creds = mapper.readTree(connection.getCredentials());
+                String token = creds.has("token") ? creds.get("token").asText() : "";
+                client.registerInterceptor(new BearerTokenAuthInterceptor(token));
+            } catch (Exception e) {
+                log.warn("Failed to parse bearer token credentials for connection {}", connection.getId(), e);
+            }
+        }
+
+        return client;
     }
 
     public String getDefaultFhirServerUrl() {

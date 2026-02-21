@@ -21,13 +21,29 @@
       "measure": "Measure",
       "score": "Score",
       "status": "Status",
-      "date": "Date"
+      "date": "Date",
+      "target": "Target"
     },
     "loadError": "Failed to load dashboard data. {{error}}",
     "noData": "No dashboard data available.",
     "na": "N/A",
     "unknownError": "Unknown error",
-    "inReview": "In Review"
+    "inReview": "In Review",
+    "scoreTrend": "Score Trend",
+    "noDepartmentData": "No department data available",
+    "periodType": "Period",
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly",
+    "departmentScores": "Department Scores",
+    "qualityReport": "Quality Report",
+    "noReportData": "No report data available",
+    "averageScore": "Average Score",
+    "aboveTarget": "Above Target",
+    "belowTarget": "Below Target",
+    "alerts": "Alerts",
+    "noAlerts": "No threshold alerts",
+    "score": "Score"
   },
   "library": {
     "title": "Measure Library",
@@ -786,6 +802,26 @@
       "false": "FALSE",
       "na": "NA"
     }
+  },
+  "indicators": {
+    "title": "Indicator Code Mapping",
+    "mapped": "Mapped",
+    "mohCode": "MOH Indicator Code",
+    "nhiaCode": "NHIA P4P Code",
+    "drgCode": "DRG Indicator Code",
+    "category": "Indicator Category",
+    "noCategory": "None",
+    "browse": "Browse Catalog",
+    "hint": "Map this measure to national indicator codes (MOH, NHIA P4P, DRG) for reporting compliance.",
+    "catalogTitle": "Indicator Catalog",
+    "search": "Search indicators...",
+    "source": "Source",
+    "allSources": "All Sources",
+    "noResults": "No indicators found.",
+    "code": "Code",
+    "name": "Name",
+    "select": "Select",
+    "close": "Close"
   },
   "testCaseBuilder": {
     "bundleEntries": "BUNDLE ENTRIES",

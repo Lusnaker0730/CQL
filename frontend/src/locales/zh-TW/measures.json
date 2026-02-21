@@ -21,13 +21,29 @@
       "measure": "指標",
       "score": "分數",
       "status": "狀態",
-      "date": "日期"
+      "date": "日期",
+      "target": "目標"
     },
     "loadError": "無法載入儀表板資料。{{error}}",
     "noData": "無儀表板資料。",
     "na": "N/A",
     "unknownError": "未知錯誤",
-    "inReview": "審核中"
+    "inReview": "審核中",
+    "scoreTrend": "分數趨勢",
+    "noDepartmentData": "無部門資料",
+    "periodType": "期間",
+    "monthly": "月度",
+    "quarterly": "季度",
+    "yearly": "年度",
+    "departmentScores": "部門分數",
+    "qualityReport": "品質報告",
+    "noReportData": "無報告資料",
+    "averageScore": "平均分數",
+    "aboveTarget": "達標",
+    "belowTarget": "未達標",
+    "alerts": "警示",
+    "noAlerts": "無閾值警示",
+    "score": "分數"
   },
   "library": {
     "title": "指標庫",
@@ -786,6 +802,26 @@
       "false": "FALSE",
       "na": "NA"
     }
+  },
+  "indicators": {
+    "title": "指標代碼對應",
+    "mapped": "已對應",
+    "mohCode": "衛福部指標代碼",
+    "nhiaCode": "健保署 P4P 代碼",
+    "drgCode": "DRG 指標代碼",
+    "category": "指標類別",
+    "noCategory": "無",
+    "browse": "瀏覽目錄",
+    "hint": "將此指標對應至國家指標代碼（衛福部、健保署 P4P、DRG），以符合報告要求。",
+    "catalogTitle": "指標目錄",
+    "search": "搜尋指標...",
+    "source": "來源",
+    "allSources": "所有來源",
+    "noResults": "未找到指標。",
+    "code": "代碼",
+    "name": "名稱",
+    "select": "選擇",
+    "close": "關閉"
   },
   "testCaseBuilder": {
     "bundleEntries": "BUNDLE 項目",

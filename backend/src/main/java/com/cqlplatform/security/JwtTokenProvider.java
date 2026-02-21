@@ -32,16 +32,24 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String username, String role) {
+        return generateToken(username, role, null);
+    }
+
+    public String generateToken(String username, String role, String department) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(username)
                 .claim("role", role)
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(key)
-                .compact();
+                .expiration(expiry);
+
+        if (department != null) {
+            builder.claim("department", department);
+        }
+
+        return builder.signWith(key).compact();
     }
 
     public String getUsername(String token) {
@@ -50,6 +58,10 @@ public class JwtTokenProvider {
 
     public String getRole(String token) {
         return getClaims(token).getPayload().get("role", String.class);
+    }
+
+    public String getDepartment(String token) {
+        return getClaims(token).getPayload().get("department", String.class);
     }
 
     public boolean validateToken(String token) {

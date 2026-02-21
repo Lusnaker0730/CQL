@@ -37,6 +37,7 @@ import {
   DEFAULT_REFERENCE_TYPE,
 } from '../../constants/measureConstants'
 import type { MeasureDefinition, MeasureReference } from '../../types'
+import IndicatorMappingSection from './IndicatorMappingSection'
 
 interface MeasureDetailsTabProps {
   measure: MeasureDefinition
@@ -401,6 +402,16 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
             </Stack>
           </AccordionDetails>
         </Accordion>
+
+        {/* Indicator Code Mapping */}
+        <IndicatorMappingSection
+          measure={form}
+          onChange={(updates) => {
+            setForm((prev) => ({ ...prev, ...updates }))
+            setIsDirty(true)
+          }}
+          readOnly={readOnly}
+        />
 
         {/* Legal */}
         <Accordion>

@@ -18,6 +18,11 @@ import type {
   BatchEvaluationResult,
   DataRequirementInfo,
   BatchTestCaseImportResult,
+  EnhancedDashboardData,
+  TrendSeriesPoint,
+  ThresholdAlert,
+  MeasureThreshold,
+  QualityReportData,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
@@ -378,6 +383,50 @@ export const measureApi = {
   // Batch Evaluation
   batchEvaluate: async (request: BatchEvaluationRequest): Promise<BatchEvaluationResult> => {
     const response = await api.post<BatchEvaluationResult>('/measures/batch-evaluate', request)
+    return response.data
+  },
+
+  // Enhanced Dashboard
+  getEnhancedDashboard: async (department?: string): Promise<EnhancedDashboardData> => {
+    const response = await api.get<EnhancedDashboardData>('/measures/dashboard/enhanced', {
+      params: department ? { department } : undefined,
+    })
+    return response.data
+  },
+
+  getDashboardTrends: async (measureId?: number, periodType = 'monthly', count = 12): Promise<TrendSeriesPoint[]> => {
+    const response = await api.get<TrendSeriesPoint[]>('/measures/dashboard/trends', {
+      params: { measureId, periodType, count },
+    })
+    return response.data
+  },
+
+  getDepartmentDrilldown: async (code: string): Promise<Record<string, unknown>> => {
+    const response = await api.get<Record<string, unknown>>(`/measures/dashboard/department/${code}`)
+    return response.data
+  },
+
+  getDashboardAlerts: async (department?: string): Promise<ThresholdAlert[]> => {
+    const response = await api.get<ThresholdAlert[]>('/measures/dashboard/alerts', {
+      params: department ? { department } : undefined,
+    })
+    return response.data
+  },
+
+  setThreshold: async (measureId: number, threshold: MeasureThreshold): Promise<MeasureThreshold> => {
+    const response = await api.post<MeasureThreshold>(`/measures/${measureId}/thresholds`, threshold)
+    return response.data
+  },
+
+  getThresholds: async (measureId: number): Promise<MeasureThreshold[]> => {
+    const response = await api.get<MeasureThreshold[]>(`/measures/${measureId}/thresholds`)
+    return response.data
+  },
+
+  getQualityReport: async (type = 'monthly', department?: string): Promise<QualityReportData> => {
+    const response = await api.get<QualityReportData>('/measures/dashboard/report', {
+      params: { type, department },
+    })
     return response.data
   },
 }

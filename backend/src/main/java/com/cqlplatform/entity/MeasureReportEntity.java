@@ -67,6 +67,9 @@ public class MeasureReportEntity {
     @Column(name = "evaluation_duration_ms")
     private Long evaluationDurationMs;
 
+    @Column(name = "department", length = 100)
+    private String department;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

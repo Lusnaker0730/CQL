@@ -19,6 +19,10 @@
 | 009 | 2026-02-21 | eQCM | P1-4: 審核者欄位 + 退回原因 UI | Measures (Backend + Frontend) | [`b106739`](../../commit/b106739) |
 | 010 | 2026-02-21 | eQCM | P1-6: FHIR Bundle 檔案上傳匯入 | Measures (Frontend) | [`b106739`](../../commit/b106739) |
 | 011 | 2026-02-21 | 通知 | P1-5: 持久化通知系統 + 工作流程推播 | Backend + Frontend (Header) | [`b106739`](../../commit/b106739) |
+| 012 | 2026-02-21 | eQCM | P2-11: 衛福部指標代碼對照 | Backend + Frontend (Measures) | |
+| 013 | 2026-02-21 | 跨模組 | P2-10: 科別多租戶隔離 | Backend + Frontend (Auth, Measures, Admin) | |
+| 014 | 2026-02-21 | eQCM | P2-9: 指標儀表板增強（Recharts） | Backend + Frontend (Dashboard) | |
+| 015 | 2026-02-21 | FHIR | P2-8: EHR/HIS 整合連接器 | Backend + Frontend (FHIR, Measures) | |
 
 ---
 
@@ -833,6 +837,249 @@ MeasureLibrary 的 FHIR Bundle 匯入功能僅支援文字區域貼上 JSON，�
 | 修改檔案 | 4（1 後端 + 1 前端 + 2 locale） |
 | 新增 i18n 鍵 | 7（EN + zh-TW） |
 | 新增 API 端點 | 6 |
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+
+---
+
+## #012 — P2-11: 衛福部指標代碼對照
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — 指標代碼管理
+- **分類**: 功能新增 / 醫學中心適用性
+
+### 問題描述
+
+醫學中心需要將 eCQM 指標對應到衛福部、健保署 P4P/DRG、及 CMS 的官方指標代碼，以便在品質申報時進行代碼關聯。目前平台的指標定義缺少這些代碼欄位，也無法瀏覽官方指標清單。
+
+### 修改內容
+
+#### 後端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V25__indicator_catalog.sql` |
+| 新增 | `backend/src/main/java/com/cqlplatform/entity/IndicatorCatalogEntity.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/repository/IndicatorCatalogRepository.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/measure/IndicatorCatalogService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/controller/IndicatorCatalogController.java` |
+| 新增 | `backend/src/main/resources/data/indicator_catalog_seed.json` |
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/MeasureDefinitionEntity.java` — 新增 4 欄位 |
+| 修改 | `backend/src/main/java/com/cqlplatform/model/measure/MeasureDefinition.java` — 新增 4 欄位 |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` — entityToModel/modelToEntity/update |
+
+- V25 遷移：`measure_definition` 新增 `moh_indicator_code`、`nhia_p4p_code`、`drg_indicator_code`、`indicator_category`；新增 `indicator_catalog` 資料表（code + source 唯一約束）
+- `IndicatorCatalogController`：5 個端點（搜尋、取得、建立、更新、批次匯入）
+- 種子資料：13 筆（5 MOH + 3 NHIA_P4P + 2 DRG + 3 CMS）
+
+#### 前端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/api/indicatorApi.ts` |
+| 新增 | `frontend/src/components/measure/IndicatorCatalogDialog.tsx` |
+| 新增 | `frontend/src/components/measure/IndicatorMappingSection.tsx` |
+| 修改 | `frontend/src/types/index.ts` — `IndicatorCatalogEntry` 介面 |
+| 修改 | `frontend/src/components/measure/MeasureDetailsTab.tsx` — 嵌入 IndicatorMappingSection |
+| 修改 | `frontend/src/locales/{en,zh-TW}/measures.json` — 18 個 `indicators.*` 鍵 |
+
+- `IndicatorMappingSection`：可收合手風琴，含 4 個代碼欄位（MOH、NHIA、DRG、類別），每欄位有搜尋按鈕開啟目錄瀏覽對話框
+- `IndicatorCatalogDialog`：搜尋 + 來源篩選 + 表格選取
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+
+---
+
+## #013 — P2-10: 科別多租戶隔離
+
+- **日期**: 2026-02-21
+- **範圍**: 跨模組 — 軟性多租戶
+- **分類**: 功能新增 / 醫學中心適用性
+
+### 問題描述
+
+醫學中心有多個科別，各科的指標和資料需要適當隔離，同時支援跨科共享。需要科別概念、科別層級的資料篩選、科別管理員角色。
+
+### 修改內容
+
+#### 後端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V26__department_multi_tenancy.sql` |
+| 新增 | `backend/src/main/java/com/cqlplatform/entity/DepartmentEntity.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/repository/DepartmentRepository.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/DepartmentService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/controller/DepartmentController.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/UserEntity.java` — 新增 `department`、`DEPARTMENT_ADMIN` 角色 |
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/MeasureDefinitionEntity.java` — 新增 `department` |
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/MeasureReportEntity.java` — 新增 `department` |
+| 修改 | `backend/src/main/java/com/cqlplatform/model/measure/MeasureDefinition.java` — 新增 `department` |
+| 修改 | `backend/src/main/java/com/cqlplatform/security/OwnershipVerifier.java` — `isDepartmentAdmin`、`getCurrentDepartment`、`verifySameDepartment` |
+| 修改 | `backend/src/main/java/com/cqlplatform/security/JwtTokenProvider.java` — department claim |
+| 修改 | `backend/src/main/java/com/cqlplatform/config/SecurityConfig.java` — `DEPARTMENT_ADMIN` 授權 |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` — department 篩選 |
+
+- V26 遷移：`department` 資料表（含 10 筆醫院科別種子資料）；`app_user`、`measure_definition`、`measure_report` 新增 `department` 欄位
+- `DepartmentController`：5 個端點（列表、取得、子科別、建立、更新）
+- JWT token 攜帶 department claim
+- `DEPARTMENT_ADMIN` 角色可管理同科別的使用者和指標
+
+#### 前端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/api/departmentApi.ts` |
+| 新增 | `frontend/src/components/common/DepartmentSelector.tsx` |
+| 修改 | `frontend/src/types/index.ts` — `Department` 介面 |
+| 修改 | `frontend/src/store/authSlice.ts` — department 狀態 |
+| 修改 | `frontend/src/locales/{en,zh-TW}/common.json` — 5 個 `department.*` 鍵 |
+
+- `DepartmentSelector`：可重用下拉選單，useQuery 載入科別清單，支援「全部」選項
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+
+---
+
+## #014 — P2-9: 指標儀表板增強（Recharts）
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — 品質監控視覺化
+- **分類**: 功能新增 / 醫學中心適用性
+
+### 問題描述
+
+醫學中心需要完善的品質監控視覺化：趨勢圖（月/季/年）、科別維度下鑽分析、閾值告警、自動產生品質報告。原有儀表板僅有基本概覽卡片和近期評估表格。
+
+### 修改內容
+
+#### 依賴新增
+
+- `recharts` v2.x — 宣告式 React 圖表庫，含 LineChart、BarChart、PieChart、ResponsiveContainer
+
+#### 後端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V27__dashboard_enhancements.sql` |
+| 新增 | `backend/src/main/java/com/cqlplatform/entity/MeasureThresholdEntity.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/repository/MeasureThresholdRepository.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/model/measure/ThresholdAlert.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/model/measure/EnhancedDashboardData.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/model/measure/QualityReport.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/measure/DashboardService.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/controller/MeasureController.java` — 7 個新端點 |
+
+- V27 遷移：`measure_threshold` 資料表（target/warning/critical 閾值）
+- `DashboardService`：趨勢計算、科別下鑽、閾值告警偵測、品質報告產生
+- 新端點：`/dashboard/enhanced`、`/dashboard/trends`、`/dashboard/department/{code}`、`/dashboard/alerts`、`/{id}/thresholds`（GET/POST）、`/dashboard/report`
+
+#### 前端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/components/dashboard/ScoreTrendChart.tsx` — Recharts LineChart（多指標疊加 + 閾值參考線） |
+| 新增 | `frontend/src/components/dashboard/DepartmentDrilldownChart.tsx` — Recharts BarChart（依閾值著色） |
+| 新增 | `frontend/src/components/dashboard/ScoreDistributionChart.tsx` — Recharts PieChart |
+| 新增 | `frontend/src/components/dashboard/ThresholdAlertPanel.tsx` — 告警清單（嚴重/警告圖示） |
+| 新增 | `frontend/src/components/dashboard/QualityReportPanel.tsx` — 品質報告摘要 + 指標分數表格 |
+| 新增 | `frontend/src/components/dashboard/DashboardFilterBar.tsx` — 科別 + 期間篩選列 |
+| 修改 | `frontend/src/api/measureApi.ts` — 7 個新 API 函式 |
+| 修改 | `frontend/src/types/index.ts` — 7 個新介面 |
+| 修改 | `frontend/src/pages/MeasureDashboardPage.tsx` — 重建佈局 |
+| 修改 | `frontend/src/locales/{en,zh-TW}/measures.json` — 17 個 `dashboard.*` 鍵 |
+
+儀表板佈局：
+```
+┌─────────────────────────────────────────────────┐
+│ FilterBar: [科別 ▼] [月度 ▼]                    │
+├──────────────────────┬──────────────────────────┤
+│ 概覽卡片 (5)         │ 閾值告警面板             │
+├──────────────────────┴──────────────────────────┤
+│ 分數趨勢圖 (LineChart, 全寬)                    │
+├────────────────────────┬────────────────────────┤
+│ 科別下鑽 (BarChart)    │ 評分分佈 (PieChart)    │
+├────────────────────────┴────────────────────────┤
+│ 近期評估表格           │ 品質報告面板           │
+└─────────────────────────────────────────────────┘
+```
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- `npm run build` — 建置成功
+
+---
+
+## #015 — P2-8: EHR/HIS 整合連接器
+
+- **日期**: 2026-02-21
+- **範圍**: FHIR — 院內系統整合
+- **分類**: 功能新增 / 醫學中心適用性
+
+### 問題描述
+
+醫學中心需要與院內 HIS 系統整合：預設連接 FHIR R4 Server、依身分證/病歷號搜尋病人、自動匯入病歷作為測試資料。目前平台的 FHIR 操作僅對手動設定的單一伺服器。
+
+### 修改內容
+
+#### 後端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V28__ehr_integration.sql` |
+| 新增 | `backend/src/main/java/com/cqlplatform/entity/EhrConnectionEntity.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/entity/PatientImportEntity.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/repository/EhrConnectionRepository.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/repository/PatientImportRepository.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/model/fhir/PatientSearchResult.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/model/fhir/PatientImportPreview.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/fhir/EhrConnectionService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/fhir/PatientSearchService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/fhir/PatientImportService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/controller/EhrIntegrationController.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/fhir/FhirClientFactory.java` — `createAuthenticatedClient` |
+
+- V28 遷移：`ehr_connection`（連線管理）+ `patient_import`（匯入記錄）
+- `EhrConnectionService`：CRUD + `testConnection`（metadata capability 檢查）
+- `PatientSearchService`：依 identifier/name 搜尋病人 + 資源預覽（$everything / 逐類型查詢）
+- `PatientImportService`：$everything → Bundle → TestCase 建立
+- `FhirClientFactory.createAuthenticatedClient`：支援 basic（BasicAuthInterceptor）和 bearer（BearerTokenAuthInterceptor）驗證
+- `EhrIntegrationController`：10 個端點（連線 CRUD、測試、病人搜尋、預覽、匯入、匯入記錄）
+
+#### 前端
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/api/ehrApi.ts` |
+| 新增 | `frontend/src/components/ehr/EhrConnectionList.tsx` — 連線表格 + 測試/編輯/刪除 |
+| 新增 | `frontend/src/components/ehr/EhrConnectionForm.tsx` — 建立/編輯對話框（含驗證方式切換） |
+| 新增 | `frontend/src/components/ehr/PatientSearchPanel.tsx` — 病人搜尋面板 |
+| 新增 | `frontend/src/components/ehr/PatientImportDialog.tsx` — 匯入預覽 + 確認 |
+| 新增 | `frontend/src/components/ehr/PatientImportHistory.tsx` — 匯入歷史表格 |
+| 新增 | `frontend/src/components/ehr/EhrImportForTestCase.tsx` — 步驟式匯入對話框（選連線→搜病人→預覽→匯入） |
+| 修改 | `frontend/src/api/index.ts` — 匯出 `ehrApi` |
+| 修改 | `frontend/src/types/index.ts` — 4 個新介面 |
+| 修改 | `frontend/src/pages/FhirPage.tsx` — 新增「EHR 連線」第三分頁 |
+| 修改 | `frontend/src/components/measure/TestCaseEditor.tsx` — 「從 EHR 匯入」按鈕 |
+| 修改 | `frontend/src/locales/{en,zh-TW}/fhir.json` — 50+ 個 `ehr.*` 鍵 |
+
+- FhirPage 新增第三個分頁：EHR Connections（CloudSync 圖示）
+- TestCaseEditor 工具列新增「Import from EHR」按鈕，開啟 EhrImportForTestCase 步驟式對話框
+- 連線管理：狀態徽章（untested/success/failed）、驗證方式選擇（none/basic/bearer）、科別歸屬
 
 ### 驗證
 

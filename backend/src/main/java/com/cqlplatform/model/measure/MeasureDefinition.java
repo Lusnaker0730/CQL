@@ -121,6 +121,23 @@ public class MeasureDefinition {
     @NoXss
     private String rateAggregation;
 
+    // Indicator code mapping
+    @Size(max = 50)
+    private String mohIndicatorCode;
+
+    @Size(max = 50)
+    private String nhiaP4pCode;
+
+    @Size(max = 50)
+    private String drgIndicatorCode;
+
+    @Size(max = 100)
+    private String indicatorCategory;
+
+    // Department (soft multi-tenancy)
+    @Size(max = 100)
+    private String department;
+
     // Nested records
     @Data
     @Builder

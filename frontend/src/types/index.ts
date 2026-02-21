@@ -52,6 +52,7 @@ export interface UserSummary {
   role: string
   enabled: boolean
   forcePasswordChange: boolean
+  department?: string
   createdAt: string
 }
 
@@ -59,7 +60,8 @@ export interface AdminCreateUserRequest {
   username: string
   password: string
   email?: string
-  role: 'ADMIN' | 'USER'
+  role: 'ADMIN' | 'USER' | 'DEPARTMENT_ADMIN'
+  department?: string
 }
 
 export interface CqlTranslationRequest {
@@ -416,6 +418,13 @@ export interface MeasureDefinition {
   approvedBy?: string
   reviewComment?: string
   reviewedAt?: string
+  // Department
+  department?: string
+  // Indicator code mapping
+  mohIndicatorCode?: string
+  nhiaP4pCode?: string
+  drgIndicatorCode?: string
+  indicatorCategory?: string
 }
 
 export interface MeasureAuditEntry {
@@ -1004,10 +1013,150 @@ export interface CodingInfo {
   display?: string
 }
 
+// Enhanced Dashboard types
+export interface EnhancedDashboardData {
+  totalMeasures: number
+  byStatus: Record<string, number>
+  byScoring: Record<string, number>
+  departmentScores: Record<string, number>
+  alerts: ThresholdAlert[]
+  recentTrends?: TrendSeriesPoint[]
+  recentEvaluations: EnhancedDashboardEvaluation[]
+}
+
+export interface ThresholdAlert {
+  measureId: number
+  measureName: string
+  thresholdType: string
+  thresholdValue: number
+  actualScore: number
+  comparisonOperator: string
+  department?: string
+  severity: string
+}
+
+export interface TrendSeriesPoint {
+  period: string
+  measureName: string
+  measureId?: number
+  score?: number
+}
+
+export interface MeasureThreshold {
+  id?: number
+  measureDefinitionId: number
+  thresholdType: string
+  thresholdValue: number
+  comparisonOperator: string
+  department?: string
+  active?: boolean
+}
+
+export interface EnhancedDashboardEvaluation {
+  id: number
+  measureName: string
+  score?: number
+  status?: string
+  department?: string
+  createdAt?: string
+}
+
+export interface QualityReportData {
+  reportType: string
+  periodLabel: string
+  department?: string
+  totalMeasures: number
+  measuresAboveTarget: number
+  measuresBelowTarget: number
+  averageScore: number
+  measureScores: MeasureScoreSummary[]
+  departmentAverages: Record<string, number>
+}
+
+export interface MeasureScoreSummary {
+  measureId: number
+  measureName: string
+  score?: number
+  status: string
+  targetThreshold?: number
+}
+
+// Department types
+export interface Department {
+  id?: number
+  code: string
+  name: string
+  description?: string
+  parentCode?: string
+  active?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+// Indicator Catalog types
+export interface IndicatorCatalogEntry {
+  id?: number
+  code: string
+  name: string
+  nameEn?: string
+  category?: string
+  subcategory?: string
+  description?: string
+  source: string
+  version?: string
+  active?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
 // CQL Repository
 export interface RepositoryLibrary {
   name: string
   version: string
   description: string
   filename: string
+}
+
+// EHR/HIS Integration types
+export interface EhrConnection {
+  id?: number
+  name: string
+  fhirServerUrl: string
+  authType: 'none' | 'basic' | 'bearer'
+  credentials?: string
+  department?: string
+  status?: string
+  lastTestedAt?: string
+  lastTestMessage?: string
+  active?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface PatientSearchResult {
+  id: string
+  name: string
+  birthDate?: string
+  gender?: string
+  identifier?: string
+}
+
+export interface PatientImportPreview {
+  patientId: string
+  patientName: string
+  resourceCounts: Record<string, number>
+  totalResources: number
+}
+
+export interface PatientImport {
+  id?: number
+  connectionId: number
+  patientFhirId: string
+  patientIdentifier?: string
+  patientName?: string
+  resourceCount: number
+  targetMeasureId?: number
+  targetTestCaseId?: number
+  importedBy?: string
+  createdAt?: string
 }
