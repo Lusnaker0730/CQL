@@ -23,6 +23,7 @@
 | 013 | 2026-02-21 | 跨模組 | P2-10: 科別多租戶隔離 | Backend + Frontend (Auth, Measures, Admin) | [`3dbf07a`](../../commit/3dbf07a) |
 | 014 | 2026-02-21 | eQCM | P2-9: 指標儀表板增強（Recharts） | Backend + Frontend (Dashboard) | [`3dbf07a`](../../commit/3dbf07a) |
 | 015 | 2026-02-21 | FHIR | P2-8: EHR/HIS 整合連接器 | Backend + Frontend (FHIR, Measures) | [`3dbf07a`](../../commit/3dbf07a) |
+| 016 | 2026-02-21 | 安全性 | Okta SSO (OIDC) 整合 | Backend + Frontend (Auth, Admin) | [`pending`] |
 
 ---
 
@@ -1086,5 +1087,185 @@ MeasureLibrary 的 FHIR Bundle 匯入功能僅支援文字區域貼上 JSON，�
 - `mvn compile -q` — 編譯成功
 - `npx tsc --noEmit` — 無型別錯誤
 - `npm run build` — 建置成功
+
+---
+
+## #016 — Okta SSO (OIDC) 整合
+
+- **日期**: 2026-02-21
+- **範圍**: 安全性 — 企業 SSO 登入
+- **分類**: 功能新增 / 企業適用性
+
+### 問題描述
+
+平台目前僅支援本地帳密（username/password）+ JWT 認證。企業用戶需要透過 Okta SSO 單一登入，以簡化帳號管理並符合企業安全政策。需要在保留現有本地登入的同時，加入 OIDC Authorization Code Flow。
+
+### 架構決策
+
+採用 **Backend-Mediated Authorization Code Flow**：保留現有 JWT 架構不變，不引入 Spring `oauth2Login`（避免與 stateless 設計衝突），由後端自行處理 OIDC token exchange。
+
+```
+用戶點擊 "使用 Okta 登入"
+  → 前端 redirect 到 Okta 授權頁（帶 state/nonce）
+  → Okta 驗證後 redirect 回 /auth/okta/callback?code=xxx&state=yyy
+  → 前端 POST /api/auth/okta/callback { code, redirectUri, nonce }
+  → 後端 exchange code → 驗證 ID token → JIT 建立/查找用戶 → 產生本地 JWT
+  → 前端收到 JWT → dispatch setCredentials（與本地登入完全一致）
+```
+
+### 修改內容
+
+#### Step 1：資料庫遷移
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V29__okta_sso.sql` |
+
+- `app_user.password` 改為 nullable（SSO 用戶無密碼）
+- 新增 `auth_provider`（VARCHAR(20), NOT NULL, DEFAULT 'LOCAL'）
+- 新增 `external_id`（VARCHAR(255)）— Okta subject ID
+- 新增 `display_name`（VARCHAR(200)）— Okta 顯示名稱
+- 唯一索引 `idx_user_external_id` on (auth_provider, external_id)
+
+#### Step 2：Maven 依賴
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/pom.xml` |
+
+- 新增 `com.nimbusds:nimbus-jose-jwt:9.37.3` — OIDC ID token 簽章驗證（JWKS）
+
+#### Step 3：Okta 設定
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/src/main/resources/application.yml` |
+| 新增 | `backend/src/main/java/com/cqlplatform/config/OktaProperties.java` |
+
+- `application.yml` 新增 `okta:` 區段（4 個環境變數：`OKTA_ENABLED`, `OKTA_CLIENT_ID`, `OKTA_CLIENT_SECRET`, `OKTA_ISSUER`）
+- `OktaProperties`：`@ConfigurationProperties(prefix = "okta")`，衍生方法 `getTokenEndpoint()`、`getJwksUri()`、`getAuthorizationEndpoint()`
+
+#### Step 4：OIDC 服務
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/java/com/cqlplatform/service/OktaOidcService.java` |
+| 新增 | `backend/src/main/java/com/cqlplatform/service/OktaUserInfo.java` |
+
+- `OktaOidcService`（`@ConditionalOnProperty(name = "okta.enabled", havingValue = "true")`）
+  - `exchangeCodeForUser(code, redirectUri, nonce)` → OktaUserInfo
+  - POST Okta token endpoint（Basic Auth）
+  - Nimbus JWKS processor 驗證 ID token 簽章
+  - 驗證 iss、aud、nonce、exp claims
+  - 擷取 sub、email、preferred_username、name
+- `OktaUserInfo`：DTO（sub, email, preferredUsername, name）
+
+#### Step 5：UserEntity + Repository + UserDetailsService
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/UserEntity.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/repository/UserRepository.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/security/CustomUserDetailsService.java` |
+
+- `UserEntity`：新增 `AuthProvider` enum（LOCAL, OKTA）、`authProvider`、`externalId`、`displayName` 欄位；`password` 改為 nullable
+- `UserRepository`：新增 `findByAuthProviderAndExternalId(AuthProvider, String)`
+- `CustomUserDetailsService`：null password → placeholder `"{noop}SSO_USER_NO_PASSWORD"`（SSO 用戶無法透過本地登入端點認證）
+
+#### Step 6：AuthController 擴充
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/java/com/cqlplatform/model/auth/OktaCallbackRequest.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/controller/AuthController.java` |
+
+- `OktaCallbackRequest`：code（NotBlank）、redirectUri（NotBlank）、nonce（optional）
+- `GET /api/auth/okta/config`：回傳 Okta 設定（enabled, authorizationEndpoint, clientId, scopes）
+- `POST /api/auth/okta/callback`：exchange code → JIT provisioning → JWT
+  - JIT：`findByAuthProviderAndExternalId(OKTA, sub)` → 未找到則建立新用戶（role=USER, 無密碼）
+  - Username 衍生順序：preferred_username > email prefix > okta_{sub}，唯一性保障
+  - 更新 displayName/email（若 Okta 端已變更）
+  - 檢查 enabled 旗標，拒絕已停用用戶
+- `GET /api/auth/me`：回應新增 `authProvider`、`displayName`
+
+#### Step 7：SecurityConfig + AdminController
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/src/main/java/com/cqlplatform/config/SecurityConfig.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/controller/AdminController.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/model/auth/UserSummary.java` |
+
+- SecurityConfig：Okta 端點加入 public 白名單
+- AdminController：`toUserSummary()` 包含 `authProvider`；`resetUserPassword()` 拒絕 OKTA 用戶
+- UserSummary：新增 `authProvider` 欄位
+
+#### Step 8：前端類型 + API
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/types/index.ts` |
+| 修改 | `frontend/src/api/authApi.ts` |
+
+- 新增 `OktaConfig`、`OktaCallbackRequest` 介面
+- `User` 和 `UserSummary` 新增 `authProvider?`、`displayName?`
+- `authApi` 新增 `getOktaConfig()`、`oktaCallback()`
+
+#### Step 9：OktaCallbackPage
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/pages/OktaCallbackPage.tsx` |
+
+- 從 URL 擷取 code + state
+- 驗證 state 匹配 sessionStorage（CSRF 防護）
+- 呼叫 `authApi.oktaCallback()` → dispatch `setCredentials` → navigate `/`
+- 錯誤狀態：Alert + 「返回登入」按鈕
+
+#### Step 10：LoginPage + App.tsx
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/pages/LoginPage.tsx` |
+| 修改 | `frontend/src/App.tsx` |
+
+- LoginPage：掛載時 `getOktaConfig()` → 啟用時顯示 Divider（"OR"）+ 「使用 Okta 登入」按鈕
+- 按鈕點擊：生成 state/nonce → 存入 sessionStorage → redirect Okta 授權 URL
+- App.tsx：lazy import `OktaCallbackPage`，新增 `/auth/okta/callback` 路由
+
+#### Step 11：AdminUsersPage
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/pages/AdminUsersPage.tsx` |
+
+- 使用者名稱旁顯示 "Okta SSO" Chip（`color="info"`）
+- OKTA 用戶隱藏「重設密碼」按鈕
+
+#### Step 12：i18n
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/locales/en/common.json` |
+| 修改 | `frontend/src/locales/zh-TW/common.json` |
+
+- 8 個新 `auth.*` 鍵（EN + zh-TW）：or、loginWithOkta、ssoProcessing、ssoFailed、ssoMissingCode、ssoStateMismatch、authProviderLocal、authProviderOkta
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 6（1 SQL + 1 Config + 2 Service + 1 Model + 1 Page） |
+| 修改檔案 | 13（5 Backend + 5 Frontend + 2 locale + 1 pom.xml） |
+| 新增 i18n 鍵 | 8（EN + zh-TW） |
+| 新增 API 端點 | 2（GET /okta/config + POST /okta/callback） |
+
+### 驗證
+
+- `mvn compile -q` — 編譯成功
+- `npx tsc --noEmit` — 無型別錯誤
+- 預設行為（OKTA_ENABLED=false）：GET /api/auth/okta/config → `{"enabled":false}`，登入頁無 Okta 按鈕
+- 本地登入流程不受影響
+- 啟用 Okta 後：完整 OIDC Authorization Code Flow + JIT 用戶建立
 
 ---

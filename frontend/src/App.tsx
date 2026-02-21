@@ -23,6 +23,7 @@ const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const AuditDashboardPage = lazy(() => import('./pages/AuditDashboardPage'))
 const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
+const OktaCallbackPage = lazy(() => import('./pages/OktaCallbackPage'))
 
 export default function App() {
   const user = useSelector((state: RootState) => state.auth.user)
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/okta/callback" element={<Suspense fallback={<PageLoadingFallback />}><OktaCallbackPage /></Suspense>} />
         <Route
           path="/*"
           element={

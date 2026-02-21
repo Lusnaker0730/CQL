@@ -6,6 +6,8 @@ import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   ChangePasswordRequest,
+  OktaConfig,
+  OktaCallbackRequest,
 } from '../types'
 import { api } from './client'
 
@@ -37,6 +39,16 @@ export const authApi = {
 
   changePassword: async (request: ChangePasswordRequest): Promise<{ message: string }> => {
     const response = await api.post<{ message: string }>('/auth/change-password', request)
+    return response.data
+  },
+
+  getOktaConfig: async (): Promise<OktaConfig> => {
+    const response = await api.get<OktaConfig>('/auth/okta/config')
+    return response.data
+  },
+
+  oktaCallback: async (request: OktaCallbackRequest): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/auth/okta/callback', request)
     return response.data
   },
 }

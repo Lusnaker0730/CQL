@@ -80,6 +80,13 @@ smart:
   authorization-endpoint: ${SMART_AUTH_ENDPOINT:http://localhost:8080/api/auth/login}
   token-endpoint: ${SMART_TOKEN_ENDPOINT:http://localhost:8080/api/auth/login}
 
+# Okta SSO Configuration
+okta:
+  enabled: ${OKTA_ENABLED:false}
+  client-id: ${OKTA_CLIENT_ID:}
+  client-secret: ${OKTA_CLIENT_SECRET:}
+  issuer: ${OKTA_ISSUER:}
+
 # CQL Platform Configuration
 cql:
   translation:

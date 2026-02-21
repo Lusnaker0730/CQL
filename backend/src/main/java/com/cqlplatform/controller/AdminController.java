@@ -85,9 +85,14 @@ public class AdminController {
     }
 
     @PostMapping("/users/{userId}/reset-password")
-    public ResponseEntity<AdminResetPasswordResponse> resetUserPassword(@PathVariable Long userId) {
+    public ResponseEntity<?> resetUserPassword(@PathVariable Long userId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getAuthProvider() == UserEntity.AuthProvider.OKTA) {
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of("error", "Cannot reset password for SSO users"));
+        }
 
         String temporaryPassword = passwordResetService.adminResetPassword(userId);
 
@@ -106,6 +111,7 @@ public class AdminController {
                 .role(user.getRole().name())
                 .enabled(user.getEnabled())
                 .forcePasswordChange(Boolean.TRUE.equals(user.getForcePasswordChange()))
+                .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : "LOCAL")
                 .createdAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : "")
                 .build();
     }

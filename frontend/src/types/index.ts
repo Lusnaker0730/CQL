@@ -23,6 +23,8 @@ export interface User {
   email: string
   role: string
   forcePasswordChange: boolean
+  authProvider?: string
+  displayName?: string
 }
 
 export interface ForgotPasswordRequest {
@@ -52,8 +54,22 @@ export interface UserSummary {
   role: string
   enabled: boolean
   forcePasswordChange: boolean
+  authProvider?: string
   department?: string
   createdAt: string
+}
+
+export interface OktaConfig {
+  enabled: boolean
+  authorizationEndpoint?: string
+  clientId?: string
+  scopes?: string
+}
+
+export interface OktaCallbackRequest {
+  code: string
+  redirectUri: string
+  nonce?: string
 }
 
 export interface AdminCreateUserRequest {

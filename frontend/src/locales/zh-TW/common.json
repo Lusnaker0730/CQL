@@ -222,6 +222,14 @@
     "passwordChangeDescription": "您的密碼已被管理員重設。您必須設定新密碼才能繼續使用。",
     "currentPassword": "目前 / 臨時密碼",
     "changePassword": "變更密碼",
-    "changePasswordFailed": "密碼變更失敗"
+    "changePasswordFailed": "密碼變更失敗",
+    "or": "或",
+    "loginWithOkta": "使用 Okta 登入",
+    "ssoProcessing": "正在處理 SSO 登入...",
+    "ssoFailed": "SSO 驗證失敗，請重試。",
+    "ssoMissingCode": "缺少身分提供者的授權碼。",
+    "ssoStateMismatch": "安全驗證失敗，請重新登入。",
+    "authProviderLocal": "本機",
+    "authProviderOkta": "Okta SSO"
   }
 }

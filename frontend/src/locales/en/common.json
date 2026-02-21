@@ -222,6 +222,14 @@
     "passwordChangeDescription": "Your password has been reset by an administrator. You must set a new password before continuing.",
     "currentPassword": "Current / Temporary Password",
     "changePassword": "Change Password",
-    "changePasswordFailed": "Failed to change password"
+    "changePasswordFailed": "Failed to change password",
+    "or": "OR",
+    "loginWithOkta": "Login with Okta",
+    "ssoProcessing": "Processing SSO login...",
+    "ssoFailed": "SSO authentication failed. Please try again.",
+    "ssoMissingCode": "Missing authorization code from identity provider.",
+    "ssoStateMismatch": "Security validation failed. Please try logging in again.",
+    "authProviderLocal": "Local",
+    "authProviderOkta": "Okta SSO"
   }
 }
