@@ -47,10 +47,11 @@ public class DataRequirementExtractor {
             // Build lookup maps from library-level definitions
             Map<String, String> valueSetMap = buildValueSetMap(root);
             Map<String, String> codeSystemMap = buildCodeSystemMap(root);
+            Map<String, CodeDefInfo> codeDefMap = buildCodeDefMap(root);
 
             // Collect all Retrieve nodes (including Query-enhanced ones)
             List<RetrieveInfo> retrieves = new ArrayList<>();
-            collectRetrieves(root, retrieves, codeSystemMap, new HashSet<>());
+            collectRetrieves(root, retrieves, codeSystemMap, codeDefMap, new HashSet<>());
 
             // Convert to DataRequirementInfo and deduplicate
             return deduplicateRequirements(retrieves, valueSetMap);
@@ -98,12 +99,36 @@ public class DataRequirementExtractor {
     }
 
     /**
+     * Build a mapping from code definition name to its code system info.
+     * ELM structure: library.codes.def[] with {name, id, codeSystem: {name}} fields.
+     */
+    private Map<String, CodeDefInfo> buildCodeDefMap(JsonNode root) {
+        Map<String, CodeDefInfo> map = new HashMap<>();
+        JsonNode codes = root.path("library").path("codes").path("def");
+        if (codes.isArray()) {
+            for (JsonNode cd : codes) {
+                String name = cd.path("name").asText(null);
+                String codeSystemName = cd.path("codeSystem").path("name").asText(null);
+                if (name != null && codeSystemName != null) {
+                    CodeDefInfo info = new CodeDefInfo();
+                    info.codeSystemName = codeSystemName;
+                    info.code = cd.path("id").asText(null);
+                    info.display = cd.path("display").asText(null);
+                    map.put(name, info);
+                }
+            }
+        }
+        return map;
+    }
+
+    /**
      * Recursively walk the ELM JSON tree and collect Retrieve nodes.
      * When a Query node is found with a bare Retrieve source, analyze the Where clause.
      * Tracks visited nodes by identity to avoid processing the same Retrieve twice.
      */
     private void collectRetrieves(JsonNode node, List<RetrieveInfo> retrieves,
-                                  Map<String, String> codeSystemMap, Set<JsonNode> handledRetrieves) {
+                                  Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                                  Set<JsonNode> handledRetrieves) {
         if (node == null) {
             return;
         }
@@ -113,24 +138,24 @@ public class DataRequirementExtractor {
 
             if ("Query".equals(type)) {
                 // Handle Query nodes specially: extract Retrieve from source and enhance from Where
-                handleQuery(node, retrieves, codeSystemMap, handledRetrieves);
+                handleQuery(node, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 // Still recurse into non-source children (e.g. let clauses may contain nested queries)
                 // but skip source to avoid double-counting
                 JsonNode where = node.get("where");
                 if (where != null) {
-                    collectRetrieves(where, retrieves, codeSystemMap, handledRetrieves);
+                    collectRetrieves(where, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 }
                 JsonNode let = node.get("let");
                 if (let != null) {
-                    collectRetrieves(let, retrieves, codeSystemMap, handledRetrieves);
+                    collectRetrieves(let, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 }
                 JsonNode relationship = node.get("relationship");
                 if (relationship != null) {
-                    collectRetrieves(relationship, retrieves, codeSystemMap, handledRetrieves);
+                    collectRetrieves(relationship, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 }
                 JsonNode ret = node.get("return");
                 if (ret != null) {
-                    collectRetrieves(ret, retrieves, codeSystemMap, handledRetrieves);
+                    collectRetrieves(ret, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 }
                 return;
             }
@@ -146,12 +171,12 @@ public class DataRequirementExtractor {
             // Generic recursion for all other node types
             if (!"Query".equals(type)) {
                 for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
-                    collectRetrieves(it.next(), retrieves, codeSystemMap, handledRetrieves);
+                    collectRetrieves(it.next(), retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 }
             }
         } else if (node.isArray()) {
             for (JsonNode child : node) {
-                collectRetrieves(child, retrieves, codeSystemMap, handledRetrieves);
+                collectRetrieves(child, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
             }
         }
     }
@@ -160,7 +185,8 @@ public class DataRequirementExtractor {
      * Handle a Query node: extract Retrieve from source[0] and enhance from Where clause.
      */
     private void handleQuery(JsonNode queryNode, List<RetrieveInfo> retrieves,
-                             Map<String, String> codeSystemMap, Set<JsonNode> handledRetrieves) {
+                             Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                             Set<JsonNode> handledRetrieves) {
         JsonNode sources = queryNode.get("source");
         if (sources == null || !sources.isArray() || sources.isEmpty()) {
             return;
@@ -176,7 +202,7 @@ public class DataRequirementExtractor {
             String sourceType = sourceExpr.path("type").asText(null);
             if (!"Retrieve".equals(sourceType)) {
                 // Recurse into non-Retrieve sources (e.g., function calls, other queries)
-                collectRetrieves(sourceExpr, retrieves, codeSystemMap, handledRetrieves);
+                collectRetrieves(sourceExpr, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
                 continue;
             }
 
@@ -197,7 +223,7 @@ public class DataRequirementExtractor {
             boolean hasInlineCodes = (info.valueSetRefName != null || !info.directCodes.isEmpty());
             JsonNode where = queryNode.get("where");
             if (where != null && alias != null) {
-                enhanceFromWhere(where, info, alias, codeSystemMap, hasInlineCodes);
+                enhanceFromWhere(where, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
             }
 
             retrieves.add(info);
@@ -209,15 +235,17 @@ public class DataRequirementExtractor {
      * for a Retrieve that has no inline code filter.
      */
     private void enhanceFromWhere(JsonNode where, RetrieveInfo info, String alias,
-                                  Map<String, String> codeSystemMap, boolean hasInlineCodes) {
-        walkWhereClause(where, info, alias, codeSystemMap, hasInlineCodes);
+                                  Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                                  boolean hasInlineCodes) {
+        walkWhereClause(where, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
     }
 
     /**
      * Recursive AST walker for Where clause patterns.
      */
     private void walkWhereClause(JsonNode node, RetrieveInfo info, String alias,
-                                 Map<String, String> codeSystemMap, boolean hasInlineCodes) {
+                                 Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                                 boolean hasInlineCodes) {
         if (node == null || !node.isObject()) {
             return;
         }
@@ -231,7 +259,7 @@ public class DataRequirementExtractor {
                 JsonNode andOps = node.get("operand");
                 if (andOps != null && andOps.isArray()) {
                     for (JsonNode op : andOps) {
-                        walkWhereClause(op, info, alias, codeSystemMap, hasInlineCodes);
+                        walkWhereClause(op, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
                     }
                 }
                 break;
@@ -239,7 +267,7 @@ public class DataRequirementExtractor {
             case "Not":
                 JsonNode notOp = node.get("operand");
                 if (notOp != null) {
-                    walkWhereClause(notOp, info, alias, codeSystemMap, hasInlineCodes);
+                    walkWhereClause(notOp, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
                 }
                 break;
 
@@ -255,6 +283,18 @@ public class DataRequirementExtractor {
                 // C.code in "ValueSetName" pattern
                 if (!hasInlineCodes) {
                     handleInValueSetPattern(node, info, alias);
+                }
+                break;
+
+            case "Equal":
+            case "Equivalent":
+                // Handle direct property ~ CodeRef patterns (e.g., E.class ~ "AMB")
+                if (!hasInlineCodes) {
+                    handleCodeRefComparison(node, info, alias, codeSystemMap, codeDefMap);
+                }
+                // Also check for date comparison patterns within Equal/Equivalent
+                if (DATE_COMPARISON_TYPES.contains(type)) {
+                    handleDateComparisonPattern(node, info, alias);
                 }
                 break;
 
@@ -491,6 +531,84 @@ public class DataRequirementExtractor {
                 }
             }
         }
+    }
+
+    /**
+     * Handle Equal/Equivalent with CodeRef pattern.
+     * Detects: E.class ~ "AMB" which in ELM becomes:
+     *   Equivalent(Property(source=AliasRef("E"), path="class"), CodeRef(name="AMB"))
+     * The Property side may be wrapped in FunctionRef (e.g., FHIRHelpers.ToCode).
+     */
+    private void handleCodeRefComparison(JsonNode node, RetrieveInfo info, String alias,
+                                          Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap) {
+        JsonNode ops = node.get("operand");
+        if (ops == null || !ops.isArray() || ops.size() < 2) {
+            return;
+        }
+
+        JsonNode left = ops.get(0);
+        JsonNode right = ops.get(1);
+
+        // Try both orderings: (Property, CodeRef) and (CodeRef, Property)
+        if (!tryExtractCodeRefFilter(left, right, info, alias, codeSystemMap, codeDefMap)) {
+            tryExtractCodeRefFilter(right, left, info, alias, codeSystemMap, codeDefMap);
+        }
+    }
+
+    /**
+     * Try to extract a code filter from a (property, codeRef) pair.
+     * Returns true if a CodeRef pattern was found and processed.
+     */
+    private boolean tryExtractCodeRefFilter(JsonNode propertyNode, JsonNode codeRefNode,
+                                             RetrieveInfo info, String alias,
+                                             Map<String, String> codeSystemMap,
+                                             Map<String, CodeDefInfo> codeDefMap) {
+        if (codeRefNode == null) {
+            return false;
+        }
+
+        // Check if codeRefNode is a CodeRef
+        String codeRefType = codeRefNode.path("type").asText("");
+        if (!"CodeRef".equals(codeRefType)) {
+            return false;
+        }
+
+        String codeRefName = codeRefNode.path("name").asText(null);
+        if (codeRefName == null) {
+            return false;
+        }
+
+        // Extract property path from the property side (may be wrapped in FunctionRef)
+        JsonNode unwrapped = unwrapToProperty(propertyNode);
+        String propPath = null;
+        if (unwrapped != null) {
+            propPath = extractPropertyPath(unwrapped, alias);
+        }
+
+        if (propPath == null) {
+            return false;
+        }
+
+        // Look up the CodeRef in codeDefMap to get code system info
+        CodeDefInfo codeDef = codeDefMap.get(codeRefName);
+        if (codeDef != null) {
+            if (info.codeProperty == null) {
+                info.codeProperty = propPath;
+            }
+            String resolvedSystemUrl = codeSystemMap.get(codeDef.codeSystemName);
+            if (resolvedSystemUrl != null && info.codeSystemUrl == null) {
+                info.codeSystemUrl = resolvedSystemUrl;
+                info.codeSystemName = codeDef.codeSystemName;
+            }
+            // Add the code as a direct code reference
+            info.directCodes.add(CodingInfo.builder()
+                    .system(resolvedSystemUrl)
+                    .code(codeDef.code)
+                    .display(codeDef.display)
+                    .build());
+        }
+
+        return true;
     }
 
     /**
@@ -763,5 +881,15 @@ public class DataRequirementExtractor {
         String codeSystemUrl;
         String codeSystemName;
         List<CodingInfo> directCodes = new ArrayList<>();
+    }
+
+    /**
+     * Intermediate representation of a code definition from library.codes.def[].
+     * Maps a named code (e.g., "AMB") to its code system and value.
+     */
+    private static class CodeDefInfo {
+        String codeSystemName;  // e.g., "ActCode"
+        String code;            // e.g., "AMB"
+        String display;         // e.g., "ambulatory"
     }
 }

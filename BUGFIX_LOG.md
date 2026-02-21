@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 024 | 2026-02-21 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 Equal/Equivalent + CodeRef 模式（如 E.class ~ "AMB"） | 資料處理錯誤 | [`pending`](../../commit/pending) |
 | 023 | 2026-02-21 | Medium | Test Case Builder（後端） | Encounter.class 下拉選單顯示 1115 個代碼而非 11 個 | 資料處理錯誤 | [`3fc6de0`](../../commit/3fc6de0) |
 | 022 | 2026-02-20 | Low | Test Cases（前端） | 測試案例結果表格族群名稱未中文化 | i18n 遺漏 | [`0260852`](../../commit/0260852) |
 | 021 | 2026-02-20 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 FHIRHelpers.ToString 包裝的屬性比較 | 資料處理錯誤 | [`66a9ee2`](../../commit/66a9ee2) |
@@ -43,6 +44,72 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #024 — DataRequirements 未解析 Equal/Equivalent + CodeRef 模式
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-21 |
+| **功能分類** | eCQM 資料需求（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/cql/DataRequirementExtractor.java` |
+| **Commit** | [`pending`](../../commit/pending) |
+
+### 問題描述
+
+CQL 中 `E.class ~ "AMB"` 語法在 ELM 中生成 `Equivalent(Property, CodeRef)` 模式。DataRequirementExtractor 的 `walkWhereClause` 方法僅處理 `Exists`（嵌套子查詢比較）和 `InValueSet` 模式，未處理直接的 `Equal`/`Equivalent` + `CodeRef` 比較。導致 Encounter 資料需求只顯示 `dateFilter: period`，未顯示 `codeFilter: class → ActCode/AMB`。
+
+### 根因分析
+
+ELM AST 中 `E.class ~ "AMB"` 轉譯為：
+```json
+{
+  "type": "Equivalent",
+  "operand": [
+    { "type": "FunctionRef", "name": "ToCode", "operand": [{ "type": "Property", "path": "class", "source": { "type": "AliasRef", "name": "E" } }] },
+    { "type": "CodeRef", "name": "AMB" }
+  ]
+}
+```
+
+`CodeRef` 引用 `library.codes.def[]` 中定義的命名代碼（如 `code "AMB": 'AMB' from "ActCode"`），需要：
+1. 從 ELM 的 `library.codes.def[]` 建立代碼定義映射（code name → code system + value）
+2. 在 `walkWhereClause` 中識別 `Equal`/`Equivalent` 節點，解開 `FunctionRef` 包裝取得 `Property`，並查詢 `CodeRef` 對應的代碼系統
+3. 將解析結果合併到 `RetrieveInfo` 的 `codeProperty`、`codeSystemUrl`、`directCodes`
+
+### 修正方式
+
+1. **新增 `buildCodeDefMap()`**：遍歷 `library.codes.def[]`，建立 `Map<String, CodeDefInfo>`（名稱→代碼系統+值+顯示文字）
+2. **新增 `CodeDefInfo` 內部類別**：存儲代碼定義的中間表示
+3. **傳遞 `codeDefMap` 貫穿調用鏈**：`collectRetrieves` → `handleQuery` → `enhanceFromWhere` → `walkWhereClause`
+4. **新增 `handleCodeRefComparison()`**：在 `walkWhereClause` 的 `Equal`/`Equivalent` 分支中，偵測 `Property`↔`CodeRef` 配對
+5. **新增 `tryExtractCodeRefFilter()`**：解開 FunctionRef 包裝取得 Property path，查詢 CodeRef → CodeDefInfo → 解析代碼系統 URL
+
+### 修正結果
+
+修正前 Encounter 資料需求：
+```json
+{ "type": "Encounter", "codeFilter": null, "dateFilter": [{"path": "period"}] }
+```
+
+修正後：
+```json
+{
+  "type": "Encounter",
+  "codeFilter": [{ "path": "class", "codeSystemUrl": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "codeSystemName": "ActCode", "code": [{ "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" }] }],
+  "dateFilter": [{"path": "period"}]
+}
+```
+
+### 測試驗證
+
+- [x] `mvn compile -q` 通過
+- [x] Measure 1 (DM_HbA1c_GA_Rate) DataRequirements 正確顯示 Encounter class → ActCode/AMB
+- [x] Measure 2 (DM_FastingLipid_Rate) DataRequirements 同樣正確
+- [x] 其他資源類型（Condition、MedicationRequest、Procedure）資料需求未受影響
 
 ---
 
