@@ -37,7 +37,6 @@ import {
   SCORING_TEMPLATES,
   POPULATION_BASIS_OPTIONS,
   createPopulationsFromTemplate,
-  getPopulationLabel,
   autoMapExpressions,
   getPopulationTypesForScoring,
   OBSERVATION_REQUIRED_SCORING,
@@ -68,6 +67,7 @@ function createGroupFromScoring(index: number, scoringType: string): GroupDefini
 
 export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOnly }: PopulationCriteriaTabProps) {
   const { t } = useTranslation('measures')
+  const popLabel = (type: string) => t(`populationCard.types.${type}`, type)
   const queryClient = useQueryClient()
   const [groups, setGroups] = useState<GroupDefinition[]>(
     measure.groupDefinitions?.length
@@ -188,13 +188,13 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           if (!usedTypes.includes(req)) {
             msgs.push({
               type: 'error',
-              message: `${group.groupId}: ${t('populationCriteria.validation.missingRequired', { name: getPopulationLabel(req) })}`,
+              message: `${group.groupId}: ${t('populationCriteria.validation.missingRequired', { name: popLabel(req) })}`,
             })
           }
         } else if (!usedTypes.includes(req)) {
           msgs.push({
             type: 'error',
-            message: `${group.groupId}: ${t('populationCriteria.validation.missingRequired', { name: getPopulationLabel(req) })}`,
+            message: `${group.groupId}: ${t('populationCriteria.validation.missingRequired', { name: popLabel(req) })}`,
           })
         }
       }
@@ -204,7 +204,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
         if (template.required.includes(pop.populationType) && !pop.criteriaExpression) {
           msgs.push({
             type: 'warning',
-            message: `${group.groupId}: ${t('populationCriteria.validation.noExpression', { name: getPopulationLabel(pop.populationType) })}`,
+            message: `${group.groupId}: ${t('populationCriteria.validation.noExpression', { name: popLabel(pop.populationType) })}`,
           })
         }
       }
@@ -234,7 +234,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           } else {
             msgs.push({
               type: 'error',
-              message: `${group.groupId}: ${t('populationCriteria.validation.duplicatePopulation', { name: getPopulationLabel(type) })}`,
+              message: `${group.groupId}: ${t('populationCriteria.validation.duplicatePopulation', { name: popLabel(type) })}`,
             })
           }
         }
@@ -249,7 +249,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             if (expr?.resultType && !expr.resultType.toLowerCase().includes('boolean')) {
               msgs.push({
                 type: 'warning',
-                message: `${group.groupId}: ${t('populationCriteria.validation.nonBooleanReturn', { name: getPopulationLabel(pop.populationType) })}`,
+                message: `${group.groupId}: ${t('populationCriteria.validation.nonBooleanReturn', { name: popLabel(pop.populationType) })}`,
               })
             }
           }
@@ -475,7 +475,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography variant="subtitle1" fontWeight={600}>
-                    {group.groupId || t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
+                    {t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
                   </Typography>
                   <Chip label={t('populationCriteria.populationCount', { count: pops.length })} size="small" />
                 </Stack>
@@ -590,7 +590,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                               setAddMenuAnchor(null)
                             }}
                           >
-                            {getPopulationLabel(type)}
+                            {popLabel(type)}
                           </MenuItem>
                         ))}
                       </Menu>
@@ -645,7 +645,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                           SelectProps={{
                             multiple: true,
                             renderValue: (selected) =>
-                              (selected as string[]).map((v) => getPopulationLabel(v)).join(', '),
+                              (selected as string[]).map((v) => popLabel(v)).join(', '),
                           }}
                           value={strat.associations || []}
                           onChange={(e) => updateStratifier(groupIdx, stratIdx, 'associations', e.target.value as unknown as string[])}
@@ -653,7 +653,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                           {stratifierAssociationOptions.map((type) => (
                             <MenuItem key={type} value={type}>
                               <Checkbox checked={(strat.associations || []).includes(type)} size="small" />
-                              <ListItemText primary={getPopulationLabel(type)} />
+                              <ListItemText primary={popLabel(type)} />
                             </MenuItem>
                           ))}
                         </TextField>

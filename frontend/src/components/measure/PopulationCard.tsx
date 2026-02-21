@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import {
-  Box,
   Paper,
   Typography,
   Stack,
@@ -20,7 +19,6 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material'
 import HelpTooltip from '../common/HelpTooltip'
-import { getPopulationLabel, getPopulationConfig } from '../../constants/populationConfig'
 import type { PopulationDefinition } from '../../types'
 
 export interface CqlExpression {
@@ -58,8 +56,8 @@ export default function PopulationCard({
   populationBasis,
 }: PopulationCardProps) {
   const { t } = useTranslation('measures')
-  const config = getPopulationConfig(population.populationType)
-  const label = getPopulationLabel(population.populationType)
+  const label = t(`populationCard.types.${population.populationType}`, population.populationType)
+  const description = t(`populationCard.descriptions.${population.populationType}`, '')
   const missingExpression = isRequired && !population.criteriaExpression
 
   const selectedExpr = expressions.find((e) => e.name === population.criteriaExpression)
@@ -89,7 +87,7 @@ export default function PopulationCard({
             variant={isRequired ? 'filled' : 'outlined'}
             sx={{ height: 20, fontSize: '0.7rem' }}
           />
-          {config?.description && <HelpTooltip text={config.description} />}
+          {description && <HelpTooltip text={description} />}
           {missingExpression && (
             <Tooltip title={t('populationCard.missingExpression')}>
               <WarningIcon color="warning" sx={{ fontSize: 18 }} />
@@ -124,7 +122,7 @@ export default function PopulationCard({
         </FormControl>
       )}
 
-      <Box>
+      <Stack spacing={1.5}>
         <TextField
           select={expressions.length > 0}
           label={t('populationCard.cqlExpression')}
@@ -153,7 +151,18 @@ export default function PopulationCard({
             </MenuItem>
           ))}
         </TextField>
-      </Box>
+        <TextField
+          label={t('populationCard.description')}
+          size="small"
+          fullWidth
+          multiline
+          minRows={1}
+          maxRows={3}
+          value={population.description || ''}
+          onChange={(e) => onChange('description', e.target.value)}
+          placeholder={t('populationCard.descriptionPlaceholder')}
+        />
+      </Stack>
     </Paper>
   )
 }

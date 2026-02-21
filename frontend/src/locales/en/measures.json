@@ -278,7 +278,29 @@
     "numerator": "Numerator",
     "cqlExpression": "CQL Expression",
     "none": "None",
-    "unknown": "unknown"
+    "unknown": "unknown",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe the criteria for this population...",
+    "types": {
+      "initial-population": "Initial Population",
+      "denominator": "Denominator",
+      "denominator-exclusion": "Denominator Exclusion",
+      "denominator-exception": "Denominator Exception",
+      "numerator": "Numerator",
+      "numerator-exclusion": "Numerator Exclusion",
+      "measure-population": "Measure Population",
+      "measure-population-exclusion": "Measure Population Exclusion"
+    },
+    "descriptions": {
+      "initial-population": "The initial set of patients to be evaluated by the measure.",
+      "denominator": "The lower portion of a fraction used to calculate a rate. Typically a subset of the Initial Population.",
+      "denominator-exclusion": "Patients removed from the denominator before determining membership in the numerator.",
+      "denominator-exception": "Patients who should have met the numerator criteria but did not due to valid exceptions.",
+      "numerator": "The upper portion of a fraction. Patients from the denominator meeting the desired criteria.",
+      "numerator-exclusion": "Patients removed from the numerator. Used in ratio measures.",
+      "measure-population": "The population basis for continuous variable measures.",
+      "measure-population-exclusion": "Patients excluded from the measure population in continuous variable measures."
+    }
   },
   "dataRequirements": {
     "title": "Data Requirements",

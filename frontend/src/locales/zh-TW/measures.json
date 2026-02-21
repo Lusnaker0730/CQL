@@ -278,7 +278,29 @@
     "numerator": "分子",
     "cqlExpression": "CQL 運算式",
     "none": "無",
-    "unknown": "未知"
+    "unknown": "未知",
+    "description": "說明",
+    "descriptionPlaceholder": "描述此族群的條件定義...",
+    "types": {
+      "initial-population": "初始族群",
+      "denominator": "分母",
+      "denominator-exclusion": "分母排除",
+      "denominator-exception": "分母例外",
+      "numerator": "分子",
+      "numerator-exclusion": "分子排除",
+      "measure-population": "指標族群",
+      "measure-population-exclusion": "指標族群排除"
+    },
+    "descriptions": {
+      "initial-population": "要納入指標評估的初始病人集合。",
+      "denominator": "用於計算比率的分數下半部，通常是初始族群的子集。",
+      "denominator-exclusion": "在判斷分子成員資格前，從分母中移除的病人。",
+      "denominator-exception": "本應符合分子條件但因有效例外而未符合的病人。",
+      "numerator": "分數的上半部。從分母中符合所需條件的病人。",
+      "numerator-exclusion": "從分子中移除的病人，用於比率型指標。",
+      "measure-population": "連續變數型指標的族群基礎。",
+      "measure-population-exclusion": "在連續變數型指標中從指標族群排除的病人。"
+    }
   },
   "dataRequirements": {
     "title": "資料需求",
