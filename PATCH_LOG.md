@@ -13,6 +13,7 @@
 | 003 | 2026-02-20 | i18n | 全平台國際化完成（Phase 5-9） | CDS, FHIR, Terminology, Authoring, Admin | [`b2b7b07`](../../commit/b2b7b07) |
 | 004 | 2026-02-20 | 跨模組 | 術語查詢 Drawer + 測試案例草稿自動儲存 | Header, Terminology, Test Case Builder, Measures | [`7429103`](../../commit/7429103) |
 | 005 | 2026-02-20 | 安全性 | MeasureController 授權與 IDOR 修復 | Backend — MeasureController, ScheduledMeasureEvaluationService | [`b8f57a6`](../../commit/b8f57a6) |
+| 006 | 2026-02-21 | eQCM | Population Criteria 佈局優化 + Reporting 分頁 | Measures (Frontend + Backend) | [`3b66db3`](../../commit/3b66db3) |
 
 ---
 
@@ -435,5 +436,142 @@
 - 所有變更遵循既有 `OwnershipVerifier` 模式（`verifyOwnership` / `isAdmin` / `getCurrentUsername`）
 - 唯讀端點（`getTestCase`, `runTestCase`, `runAllTestCases`, `runWithCoverage`）使用 `requireMeasure`（驗證存在性但不限制擁有者）
 - 變更端點（`createTestCase`, `updateTestCase`, `deleteTestCase`）使用 `requireOwnedMeasure`（需擁有者或 ADMIN）
+
+---
+
+## #006 — Population Criteria 佈局優化 + Reporting 分頁
+
+- **日期**: 2026-02-21
+- **範圍**: eQCM — Population Criteria Tab 重構
+- **分類**: UX 改善 / 功能新增
+
+### 問題描述
+
+Population Criteria Tab 存在多項與 MADiE 的差異：所有內容擠在單一垂直捲動頁面、缺少 Reporting 分頁（Improvement Notation + Rate Aggregation）、無佈局分欄（標準族群 vs 排除族群）、無完成度指示器、無側邊欄導覽、分層缺少說明欄位。
+
+### 修改內容
+
+#### Feature A：子分頁結構
+
+將單一頁面拆分為 4 個子分頁：
+
+| 子分頁 | 索引 | 內容 |
+|--------|------|------|
+| Populations | 0 | 群組欄位 + 雙欄族群卡片 + 觀察條件 + 評分單位 |
+| Stratifications | 1 | 每群組的分層管理（含新增的說明欄位） |
+| Reporting | 2 | Improvement Notation + Rate Aggregation（新增） |
+| Supplemental | 3 | 風險校正 + 補充資料 |
+
+- `subTab` 狀態控制顯示，切換分頁不遺失未儲存的變更
+- 儲存按鈕和驗證提示始終顯示於頂部
+
+#### Feature B：雙欄族群佈局
+
+在 Populations 子分頁中，將族群卡片分為左右兩欄：
+
+| 左欄（標準族群） | 右欄（排除/例外） |
+|------------------|-------------------|
+| Initial Population | Denominator Exclusion |
+| Denominator | Denominator Exception |
+| Numerator | Numerator Exclusion |
+| Measure Population | Measure Population Exclusion |
+
+- 使用 MUI `Grid` 組件，`md={6}` 雙欄，`xs={12}` 小螢幕垂直堆疊
+- 無排除族群時左欄自動展開為 `md={12}`
+- `EXCLUSION_POPULATION_TYPES` 常數定義分類邏輯
+
+#### Feature C：Reporting 分頁 + 後端支援
+
+新增 Improvement Notation 和 Rate Aggregation 欄位：
+
+**後端：**
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/src/main/resources/db/migration/V22__improvement_notation_rate_aggregation.sql` |
+| 修改 | `backend/src/main/java/com/cqlplatform/model/measure/MeasureDefinition.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/entity/MeasureDefinitionEntity.java` |
+| 修改 | `backend/src/main/java/com/cqlplatform/service/measure/MeasureDefinitionService.java` |
+
+- V22 遷移：新增 `improvement_notation VARCHAR(20)` 和 `rate_aggregation VARCHAR(2000)` 欄位
+- Model：新增 `improvementNotation`（驗證 `increase|decrease|`）和 `rateAggregation`（@Size max=2000）
+- Entity + Service：entityToModel / modelToEntity / update 三處同步更新
+
+**前端：**
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/types/index.ts` — 新增 `improvementNotation` 和 `rateAggregation` 欄位 |
+| 修改 | `frontend/src/components/measure/PopulationCriteriaTab.tsx` — Reporting 子分頁 UI |
+
+- Improvement Notation：下拉選單（increase / decrease / 未設定）
+- Rate Aggregation：多行文字輸入，說明如何彙總多個族群的計算結果
+
+#### Feature D：完成度指示器
+
+在標題列下方新增 `LinearProgress` 進度條，含 Tooltip 詳細清單：
+
+| 檢查項目 | 條件 |
+|----------|------|
+| 已定義族群 | 任一群組有族群 |
+| 已指定運算式 | 任一族群有 CQL 運算式 |
+| 已設定改善標記 | improvementNotation 有值 |
+| 已定義分層 | 任一群組有分層 |
+| 已定義補充資料 | 有風險校正或補充資料元素 |
+
+- 顯示 `x/5` 計數和百分比進度條
+- 100% 完成時進度條變為綠色
+- Hover Tooltip 顯示每項的 ✓/○ 狀態
+
+#### Feature E：左側導覽列
+
+新增可摺疊側邊欄（180px），使用 MUI `List` + `ListItemButton`：
+
+| 區段 | 項目 | 點擊行為 |
+|------|------|----------|
+| Groups | 每個群組 | 切換到 Populations 子分頁 + 捲動到該群組 |
+| — | Stratifiers | 切換到 Stratifications 子分頁 |
+| — | Reporting | 切換到 Reporting 子分頁 |
+| — | Supplemental | 切換到 Supplemental 子分頁 |
+
+- 每個項目顯示 ✓（綠色）/ ○（灰色）完成狀態
+- `ChevronLeft` / `ChevronRight` 按鈕切換收合
+- 響應式：`md+` 顯示側邊欄，`xs/sm` 隱藏（回退使用水平 Tabs）
+- 群組點擊使用 `scrollIntoView({ behavior: 'smooth' })` 平滑捲動
+
+#### Feature F：分層說明欄位
+
+每個 Stratifier 卡片新增多行 `TextField`（2-4 行）：
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/components/measure/PopulationCriteriaTab.tsx` — Stratifications 子分頁 |
+
+- 使用 `StratifierDefinition.description` 既有欄位（型別和後端已支援）
+- 位於 CQL 運算式和 Population Associations 下方
+
+#### i18n 鍵新增
+
+| 檔案 | 新增鍵 |
+|------|--------|
+| `locales/{en,zh-TW}/measures.json` | `populationCriteria.subTabs.*`（4）、`exclusions`、`noStratifiers` |
+| | `populationCriteria.reporting.*`（7）、`populationCriteria.completeness.*`（6） |
+| | `populationCriteria.sidebar.*`（3）、`stratifierFields.description/descriptionPlaceholder`（2） |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 1（V22 SQL 遷移） |
+| 修改檔案 | 7（3 後端 + 3 前端 + 1 型別） |
+| 新增 i18n 鍵 | ~22（EN + zh-TW 各一份） |
+| PopulationCriteriaTab | +546 / -213 行 |
+
+### 驗證
+
+- `npx tsc --noEmit` — 無型別錯誤
+- `mvn compile -q` — 編譯成功
+- 所有既有狀態（groups, riskAdjustments, supplementalData）在子分頁間切換時保持不變
+- 儲存操作包含新欄位 improvementNotation 和 rateAggregation
 
 ---

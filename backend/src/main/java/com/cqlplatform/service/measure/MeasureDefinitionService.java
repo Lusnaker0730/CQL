@@ -85,6 +85,8 @@ public class MeasureDefinitionService {
         entity.setRiskAdjustmentDescription(definition.getRiskAdjustmentDescription());
         entity.setRiskAdjustmentList(definition.getRiskAdjustments());
         entity.setSupplementalDataList(definition.getSupplementalData());
+        entity.setImprovementNotation(definition.getImprovementNotation());
+        entity.setRateAggregation(definition.getRateAggregation());
 
         // Sharing fields from update
         if (definition.getOwnerUsername() != null) {
@@ -298,6 +300,8 @@ public class MeasureDefinitionService {
                 .riskAdjustmentDescription(entity.getRiskAdjustmentDescription())
                 .riskAdjustments(entity.getRiskAdjustmentList())
                 .supplementalData(entity.getSupplementalDataList())
+                .improvementNotation(entity.getImprovementNotation())
+                .rateAggregation(entity.getRateAggregation())
                 .build();
     }
 
@@ -570,6 +574,8 @@ public class MeasureDefinitionService {
                 .riskAdjustmentDescription(model.getRiskAdjustmentDescription())
                 .riskAdjustmentList(model.getRiskAdjustments())
                 .supplementalDataList(model.getSupplementalData())
+                .improvementNotation(model.getImprovementNotation())
+                .rateAggregation(model.getRateAggregation())
                 .build();
     }
 }

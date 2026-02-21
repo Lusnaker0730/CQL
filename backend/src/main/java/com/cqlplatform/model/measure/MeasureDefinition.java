@@ -108,6 +108,13 @@ public class MeasureDefinition {
     private List<RiskAdjustmentDef> riskAdjustments;
     private List<SupplementalDataDef> supplementalData;
 
+    @Pattern(regexp = "increase|decrease|")
+    private String improvementNotation;
+
+    @Size(max = 2000)
+    @NoXss
+    private String rateAggregation;
+
     // Nested records
     @Data
     @Builder

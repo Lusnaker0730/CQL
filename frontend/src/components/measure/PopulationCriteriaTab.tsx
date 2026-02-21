@@ -15,11 +15,23 @@ import {
   Menu,
   Checkbox,
   ListItemText,
+  Tabs,
+  Tab,
+  Grid,
+  Tooltip,
+  LinearProgress,
+  List,
+  ListItemButton,
+  ListSubheader,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Save as SaveIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as UncheckedIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
@@ -65,10 +77,17 @@ function createGroupFromScoring(index: number, scoringType: string): GroupDefini
   }
 }
 
+const EXCLUSION_POPULATION_TYPES = new Set([
+  'denominator-exclusion', 'denominator-exception',
+  'numerator-exclusion', 'measure-population-exclusion',
+])
+
 export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOnly }: PopulationCriteriaTabProps) {
   const { t } = useTranslation('measures')
   const popLabel = (type: string) => t(`populationCard.types.${type}`, type)
   const queryClient = useQueryClient()
+  const [subTab, setSubTab] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [groups, setGroups] = useState<GroupDefinition[]>(
     measure.groupDefinitions?.length
       ? measure.groupDefinitions
@@ -77,6 +96,8 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
   const [isDirty, setIsDirty] = useState(false)
   const [riskAdjustments, setRiskAdjustments] = useState(measure.riskAdjustments || [])
   const [supplementalData, setSupplementalData] = useState(measure.supplementalData || [])
+  const [improvementNotation, setImprovementNotation] = useState(measure.improvementNotation || '')
+  const [rateAggregation, setRateAggregation] = useState(measure.rateAggregation || '')
   const prevScoringRef = useRef(measure.scoringType)
   const [scoringChanged, setScoringChanged] = useState(false)
   const [addMenuAnchor, setAddMenuAnchor] = useState<{ el: HTMLElement; groupIdx: number } | null>(null)
@@ -273,7 +294,14 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      measureApi.updateMeasure(measure.id!, { ...measure, groupDefinitions: groups, riskAdjustments, supplementalData }),
+      measureApi.updateMeasure(measure.id!, {
+        ...measure,
+        groupDefinitions: groups,
+        riskAdjustments,
+        supplementalData,
+        improvementNotation: improvementNotation || undefined,
+        rateAggregation: rateAggregation || undefined,
+      }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['measures'] })
       onMeasureUpdate(updated)
@@ -379,9 +407,73 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
   const stratifierAssociationOptions = getPopulationTypesForScoring(measure.scoringType)
 
+  // Completeness indicator
+  const completenessChecks = useMemo(() => {
+    const hasPops = groups.some((g) => (g.populations || []).length > 0)
+    const hasExprs = groups.some((g) =>
+      (g.populations || []).some((p) => !!p.criteriaExpression)
+    )
+    const hasNotation = !!improvementNotation
+    const hasStrats = groups.some((g) => (g.stratifiers || []).length > 0)
+    const hasSupp = supplementalData.length > 0 || riskAdjustments.length > 0
+    return [
+      { key: 'populations', done: hasPops },
+      { key: 'expressions', done: hasExprs },
+      { key: 'improvementNotation', done: hasNotation },
+      { key: 'stratifiers', done: hasStrats },
+      { key: 'supplemental', done: hasSupp },
+    ]
+  }, [groups, improvementNotation, supplementalData, riskAdjustments])
+
+  const completedCount = completenessChecks.filter((c) => c.done).length
+  const completenessPercent = Math.round((completedCount / completenessChecks.length) * 100)
+
+  // Sidebar navigation items
+  const sidebarGroupItems = useMemo(() =>
+    groups.map((g, i) => {
+      const pops = g.populations || []
+      const hasPopsWithExpr = pops.some((p) => !!p.criteriaExpression)
+      return {
+        key: `group-${i}`,
+        label: t('populationCriteria.groupLabel', { number: i + 1 }),
+        done: hasPopsWithExpr,
+        groupIdx: i,
+      }
+    }),
+    [groups, t]
+  )
+
+  const sidebarSectionItems = useMemo(() => [
+    {
+      key: 'stratifiers',
+      label: t('populationCriteria.subTabs.stratifications'),
+      subTab: 1,
+      done: groups.some((g) => (g.stratifiers || []).length > 0),
+    },
+    {
+      key: 'reporting',
+      label: t('populationCriteria.subTabs.reporting'),
+      subTab: 2,
+      done: !!improvementNotation,
+    },
+    {
+      key: 'supplemental',
+      label: t('populationCriteria.subTabs.supplemental'),
+      subTab: 3,
+      done: supplementalData.length > 0 || riskAdjustments.length > 0,
+    },
+  ], [groups, improvementNotation, supplementalData, riskAdjustments, t])
+
+  const handleSidebarGroupClick = (groupIdx: number) => {
+    setSubTab(0)
+    setTimeout(() => {
+      document.getElementById(`pop-group-${groupIdx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
+
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
         <Stack direction="row" spacing={0.5} alignItems="center">
           <Typography variant="h6">{t('populationCriteria.title')}</Typography>
           <HelpTooltip text={helpContent.measures.populationCriteria} />
@@ -398,6 +490,49 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             {saveMutation.isPending ? t('populationCriteria.saving') : t('populationCriteria.save')}
           </GradientButton>
         </Stack>
+      </Stack>
+
+      {/* Completeness indicator */}
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+        <Tooltip
+          arrow
+          title={
+            <Stack spacing={0.5} sx={{ py: 0.5 }}>
+              {completenessChecks.map((c) => (
+                <Stack key={c.key} direction="row" spacing={0.5} alignItems="center">
+                  {c.done ? (
+                    <CheckCircleIcon sx={{ fontSize: 14, color: 'success.light' }} />
+                  ) : (
+                    <UncheckedIcon sx={{ fontSize: 14, color: 'grey.500' }} />
+                  )}
+                  <Typography variant="caption">
+                    {t(`populationCriteria.completeness.${c.key}`)}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
+          }
+        >
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, cursor: 'default' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+              {t('populationCriteria.completeness.label')} {completedCount}/{completenessChecks.length}
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={completenessPercent}
+              sx={{
+                flex: 1,
+                height: 6,
+                borderRadius: 3,
+                bgcolor: 'action.hover',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 3,
+                  bgcolor: completenessPercent === 100 ? 'success.main' : 'primary.main',
+                },
+              }}
+            />
+          </Stack>
+        </Tooltip>
       </Stack>
 
       {saveMutation.isError && (
@@ -444,120 +579,234 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
         </Alert>
       )}
 
-      <Stack spacing={3}>
-        {groups.map((group, groupIdx) => {
-          const pops = group.populations || []
-          const unusedOptional = getUnusedOptionalTypes(groupIdx)
-          const ipCount = pops.filter((p) => p.populationType === 'initial-population').length
-          const showDualIpButton = measure.scoringType === SCORING_TYPE.RATIO && ipCount < 2
-          const showAssociationType = measure.scoringType === SCORING_TYPE.RATIO && ipCount === 2
+      <Box sx={{ display: 'flex', gap: 2, minHeight: 0 }}>
+        {/* Left sidebar navigation */}
+        <Paper
+          variant="outlined"
+          sx={{
+            width: sidebarOpen ? 180 : 40,
+            flexShrink: 0,
+            transition: 'width 0.2s',
+            overflow: 'hidden',
+            display: { xs: 'none', md: 'block' },
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: sidebarOpen ? 'flex-end' : 'center', p: 0.5 }}>
+            <Tooltip title={sidebarOpen ? t('populationCriteria.sidebar.collapse') : t('populationCriteria.sidebar.expand')}>
+              <IconButton size="small" onClick={() => setSidebarOpen((v) => !v)}>
+                {sidebarOpen ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+          {sidebarOpen && (
+            <List dense disablePadding>
+              <ListSubheader sx={{ lineHeight: '28px', fontSize: '0.7rem', bgcolor: 'transparent' }}>
+                {t('populationCriteria.sidebar.groups')}
+              </ListSubheader>
+              {sidebarGroupItems.map((item) => (
+                <ListItemButton
+                  key={item.key}
+                  selected={subTab === 0}
+                  onClick={() => handleSidebarGroupClick(item.groupIdx)}
+                  sx={{ py: 0.25, pl: 2 }}
+                >
+                  {item.done ? (
+                    <CheckCircleIcon sx={{ fontSize: 14, mr: 1, color: 'success.main' }} />
+                  ) : (
+                    <UncheckedIcon sx={{ fontSize: 14, mr: 1, color: 'text.disabled' }} />
+                  )}
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{ variant: 'body2', fontSize: '0.8rem' }}
+                  />
+                </ListItemButton>
+              ))}
+              <Divider sx={{ my: 0.5 }} />
+              {sidebarSectionItems.map((item) => (
+                <ListItemButton
+                  key={item.key}
+                  selected={subTab === item.subTab}
+                  onClick={() => setSubTab(item.subTab)}
+                  sx={{ py: 0.25, pl: 2 }}
+                >
+                  {item.done ? (
+                    <CheckCircleIcon sx={{ fontSize: 14, mr: 1, color: 'success.main' }} />
+                  ) : (
+                    <UncheckedIcon sx={{ fontSize: 14, mr: 1, color: 'text.disabled' }} />
+                  )}
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{ variant: 'body2', fontSize: '0.8rem' }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </Paper>
 
-          // Sort: required first, then optional
-          const requiredTypes = template?.required || []
-          const sortedPops = [...pops].sort((a, b) => {
-            const aReq = requiredTypes.includes(a.populationType) ? 0 : 1
-            const bReq = requiredTypes.includes(b.populationType) ? 0 : 1
-            if (aReq !== bReq) return aReq - bReq
-            // Within same group, maintain template order
-            const aIdx = requiredTypes.indexOf(a.populationType)
-            const bIdx = requiredTypes.indexOf(b.populationType)
-            if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
-            return 0
-          })
-          // Map sorted populations back to their original indices for updates
-          const sortedWithIdx = sortedPops.map((pop) => ({
-            pop,
-            originalIdx: pops.indexOf(pop),
-          }))
+        {/* Main content area */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Tabs
+            value={subTab}
+            onChange={(_, v) => setSubTab(v)}
+            sx={{ minHeight: 36, mb: 2, borderBottom: 1, borderColor: 'divider', display: { md: 'none', xs: 'flex' } }}
+          >
+            <Tab label={t('populationCriteria.subTabs.populations')} sx={{ minHeight: 36, textTransform: 'none' }} />
+            <Tab label={t('populationCriteria.subTabs.stratifications')} sx={{ minHeight: 36, textTransform: 'none' }} />
+            <Tab label={t('populationCriteria.subTabs.reporting')} sx={{ minHeight: 36, textTransform: 'none' }} />
+            <Tab label={t('populationCriteria.subTabs.supplemental')} sx={{ minHeight: 36, textTransform: 'none' }} />
+          </Tabs>
 
-          return (
-            <Paper key={groupIdx} variant="outlined" sx={{ p: 2 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
-                  </Typography>
-                  <Chip label={t('populationCriteria.populationCount', { count: pops.length })} size="small" />
+      {/* Sub-tab 0: Populations */}
+      {subTab === 0 && (
+        <Stack spacing={3}>
+          {groups.map((group, groupIdx) => {
+            const pops = group.populations || []
+            const unusedOptional = getUnusedOptionalTypes(groupIdx)
+            const ipCount = pops.filter((p) => p.populationType === 'initial-population').length
+            const showDualIpButton = measure.scoringType === SCORING_TYPE.RATIO && ipCount < 2
+            const showAssociationType = measure.scoringType === SCORING_TYPE.RATIO && ipCount === 2
+
+            const requiredTypes = template?.required || []
+            const sortedPops = [...pops].sort((a, b) => {
+              const aReq = requiredTypes.includes(a.populationType) ? 0 : 1
+              const bReq = requiredTypes.includes(b.populationType) ? 0 : 1
+              if (aReq !== bReq) return aReq - bReq
+              const aIdx = requiredTypes.indexOf(a.populationType)
+              const bIdx = requiredTypes.indexOf(b.populationType)
+              if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
+              return 0
+            })
+            const sortedWithIdx = sortedPops.map((pop) => ({
+              pop,
+              originalIdx: pops.indexOf(pop),
+            }))
+
+            // Split into standard (left) and exclusion (right) columns
+            const standardPops = sortedWithIdx.filter(({ pop }) => !EXCLUSION_POPULATION_TYPES.has(pop.populationType))
+            const exclusionPops = sortedWithIdx.filter(({ pop }) => EXCLUSION_POPULATION_TYPES.has(pop.populationType))
+            const hasExclusions = exclusionPops.length > 0
+
+            return (
+              <Paper key={groupIdx} id={`pop-group-${groupIdx}`} variant="outlined" sx={{ p: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
+                    </Typography>
+                    <Chip label={t('populationCriteria.populationCount', { count: pops.length })} size="small" />
+                  </Stack>
+                  {groups.length > 1 && (
+                    <IconButton size="small" aria-label={t('populationCriteria.removeGroup')} color="error" onClick={() => removeGroup(groupIdx)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </Stack>
-                {groups.length > 1 && (
-                  <IconButton size="small" aria-label={t('populationCriteria.removeGroup')} color="error" onClick={() => removeGroup(groupIdx)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Stack>
 
-              <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                  <TextField
+                    label={t('populationCriteria.fields.groupDescription')}
+                    size="small"
+                    fullWidth
+                    value={group.description || ''}
+                    onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
+                  />
+                  <TextField
+                    label={t('populationCriteria.fields.rateNumber')}
+                    size="small"
+                    type="number"
+                    sx={{ width: 90 }}
+                    value={group.rateIndex ?? ''}
+                    onChange={(e) => updateGroup(groupIdx, 'rateIndex', e.target.value ? parseInt(e.target.value) : undefined)}
+                    helperText={t('populationCriteria.fields.rateNumberHelper')}
+                  />
+                  <TextField
+                    label={t('populationCriteria.fields.rateDescription')}
+                    size="small"
+                    sx={{ minWidth: 200 }}
+                    value={group.rateDescription || ''}
+                    onChange={(e) => updateGroup(groupIdx, 'rateDescription', e.target.value)}
+                    helperText={t('populationCriteria.fields.rateDescriptionHelper')}
+                  />
+                </Stack>
+
                 <TextField
-                  label={t('populationCriteria.fields.groupDescription')}
+                  select
+                  label={t('populationCriteria.fields.populationBasis')}
                   size="small"
                   fullWidth
-                  value={group.description || ''}
-                  onChange={(e) => updateGroup(groupIdx, 'description', e.target.value)}
-                />
-                <TextField
-                  label={t('populationCriteria.fields.rateNumber')}
-                  size="small"
-                  type="number"
-                  sx={{ width: 90 }}
-                  value={group.rateIndex ?? ''}
-                  onChange={(e) => updateGroup(groupIdx, 'rateIndex', e.target.value ? parseInt(e.target.value) : undefined)}
-                  helperText={t('populationCriteria.fields.rateNumberHelper')}
-                />
-                <TextField
-                  label={t('populationCriteria.fields.rateDescription')}
-                  size="small"
-                  sx={{ minWidth: 200 }}
-                  value={group.rateDescription || ''}
-                  onChange={(e) => updateGroup(groupIdx, 'rateDescription', e.target.value)}
-                  helperText={t('populationCriteria.fields.rateDescriptionHelper')}
-                />
-              </Stack>
+                  value={group.populationBasis || 'Boolean'}
+                  onChange={(e) => updateGroup(groupIdx, 'populationBasis', e.target.value)}
+                  sx={{ mb: 2 }}
+                  helperText={t('populationCriteria.fields.populationBasisHelper')}
+                >
+                  {POPULATION_BASIS_OPTIONS.map((opt) => (
+                    <MenuItem key={opt} value={opt}>
+                      {opt}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-              <TextField
-                select
-                label={t('populationCriteria.fields.populationBasis')}
-                size="small"
-                fullWidth
-                value={group.populationBasis || 'Boolean'}
-                onChange={(e) => updateGroup(groupIdx, 'populationBasis', e.target.value)}
-                sx={{ mb: 2 }}
-                helperText={t('populationCriteria.fields.populationBasisHelper')}
-              >
-                {POPULATION_BASIS_OPTIONS.map((opt) => (
-                  <MenuItem key={opt} value={opt}>
-                    {opt}
-                  </MenuItem>
-                ))}
-              </TextField>
+                <Grid container spacing={2}>
+                  {/* Left column: standard populations */}
+                  <Grid item xs={12} md={hasExclusions ? 6 : 12}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      {t('populationCriteria.populations')}
+                    </Typography>
+                    <Stack spacing={1.5}>
+                      {standardPops.map(({ pop, originalIdx }) => {
+                        const isIp = pop.populationType === 'initial-population'
+                        const lastIpIdx = pops.reduce((last, p, i) => p.populationType === 'initial-population' ? i : last, -1)
+                        const isSecondIp = isIp && ipCount === 2 && originalIdx === lastIpIdx
+                        const canRemove = isSecondIp || !requiredTypes.includes(pop.populationType)
 
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                {t('populationCriteria.populations')}
-              </Typography>
+                        return (
+                          <PopulationCard
+                            key={`${pop.populationType}-${originalIdx}`}
+                            population={pop}
+                            isRequired={requiredTypes.includes(pop.populationType)}
+                            expressions={patientExpressions}
+                            onChange={(field, value) => updatePopulation(groupIdx, originalIdx, field, value)}
+                            onRemove={() => removePopulation(groupIdx, originalIdx)}
+                            canRemove={canRemove}
+                            showAssociationType={isIp && showAssociationType}
+                            populationBasis={group.populationBasis}
+                          />
+                        )
+                      })}
+                    </Stack>
+                  </Grid>
 
-              <Stack spacing={1.5} mb={2}>
-                {sortedWithIdx.map(({ pop, originalIdx }) => {
-                  const isIp = pop.populationType === 'initial-population'
-                  // Second IP in ratio is removable
-                  const lastIpIdx = pops.reduce((last, p, i) => p.populationType === 'initial-population' ? i : last, -1)
-                  const isSecondIp = isIp && ipCount === 2 && originalIdx === lastIpIdx
-                  const canRemove = isSecondIp || !requiredTypes.includes(pop.populationType)
+                  {/* Right column: exclusion / exception populations */}
+                  {hasExclusions && (
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        {t('populationCriteria.exclusions')}
+                      </Typography>
+                      <Stack spacing={1.5}>
+                        {exclusionPops.map(({ pop, originalIdx }) => {
+                          const canRemove = !requiredTypes.includes(pop.populationType)
 
-                  return (
-                    <PopulationCard
-                      key={`${pop.populationType}-${originalIdx}`}
-                      population={pop}
-                      isRequired={requiredTypes.includes(pop.populationType)}
-                      expressions={patientExpressions}
-                      onChange={(field, value) => updatePopulation(groupIdx, originalIdx, field, value)}
-                      onRemove={() => removePopulation(groupIdx, originalIdx)}
-                      canRemove={canRemove}
-                      showAssociationType={isIp && showAssociationType}
-                      populationBasis={group.populationBasis}
-                    />
-                  )
-                })}
+                          return (
+                            <PopulationCard
+                              key={`${pop.populationType}-${originalIdx}`}
+                              population={pop}
+                              isRequired={requiredTypes.includes(pop.populationType)}
+                              expressions={patientExpressions}
+                              onChange={(field, value) => updatePopulation(groupIdx, originalIdx, field, value)}
+                              onRemove={() => removePopulation(groupIdx, originalIdx)}
+                              canRemove={canRemove}
+                              showAssociationType={false}
+                              populationBasis={group.populationBasis}
+                            />
+                          )
+                        })}
+                      </Stack>
+                    </Grid>
+                  )}
+                </Grid>
 
-                <Stack direction="row" spacing={1} sx={{ alignSelf: 'flex-start' }}>
+                <Stack direction="row" spacing={1} sx={{ alignSelf: 'flex-start', mt: 2 }}>
                   {showDualIpButton && (
                     <Button
                       size="small"
@@ -597,125 +846,209 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     </>
                   )}
                 </Stack>
-              </Stack>
 
-              <Divider sx={{ my: 2 }} />
+                {OBSERVATION_REQUIRED_SCORING.has(measure.scoringType) && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <ObservationSection
+                      observations={group.observations}
+                      onChange={(obs) => updateGroup(groupIdx, 'observations', obs)}
+                      expressionNames={expressionNames}
+                      populationTypes={(group.populations || []).map(p => p.populationType)}
+                      readOnly={measure.status === 'active'}
+                    />
+                  </>
+                )}
 
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                {t('populationCriteria.stratifiers')}
-              </Typography>
+                <Divider sx={{ my: 2 }} />
+                <UcumUnitField
+                  label={t('populationCriteria.scoringUnit.label')}
+                  fullWidth
+                  value={group.scoringUnit || ''}
+                  onChange={(val) => updateGroup(groupIdx, 'scoringUnit', val)}
+                  placeholder={t('populationCriteria.scoringUnit.placeholder')}
+                  helperText={t('populationCriteria.scoringUnit.helper')}
+                />
+              </Paper>
+            )
+          })}
+        </Stack>
+      )}
 
-              <Stack spacing={1.5}>
-                {(group.stratifiers || []).map((strat, stratIdx) => (
-                  <Paper key={stratIdx} variant="outlined" sx={{ p: 1.5 }}>
-                    <Stack spacing={1.5}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <TextField
-                          label={t('populationCriteria.stratifierFields.stratifierId')}
-                          size="small"
-                          value={strat.stratifierId}
-                          onChange={(e) => updateStratifier(groupIdx, stratIdx, 'stratifierId', e.target.value)}
-                          sx={{ minWidth: 140 }}
-                        />
-                        <TextField
-                          select={expressionNames.length > 0}
-                          label={t('populationCriteria.stratifierFields.cqlExpression')}
-                          size="small"
-                          fullWidth
-                          value={strat.criteriaExpression}
-                          onChange={(e) => updateStratifier(groupIdx, stratIdx, 'criteriaExpression', e.target.value)}
-                        >
-                          {expressionNames.map((name) => (
-                            <MenuItem key={name} value={name}>
-                              {name}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                        <IconButton size="small" aria-label={t('populationCriteria.stratifierFields.removeStratifier')} color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Stack>
+      {/* Sub-tab 1: Stratifications */}
+      {subTab === 1 && (
+        <Stack spacing={3}>
+          {groups.map((group, groupIdx) => {
+            const strats = group.stratifiers || []
+            return (
+              <Paper key={groupIdx} variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} mb={2}>
+                  {t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
+                </Typography>
 
-                      {strat.criteriaExpression && stratifierAssociationOptions.length > 0 && (
-                        <TextField
-                          select
-                          label={t('populationCriteria.stratifierFields.populationAssociations')}
-                          size="small"
-                          fullWidth
-                          SelectProps={{
-                            multiple: true,
-                            renderValue: (selected) =>
-                              (selected as string[]).map((v) => popLabel(v)).join(', '),
-                          }}
-                          value={strat.associations || []}
-                          onChange={(e) => updateStratifier(groupIdx, stratIdx, 'associations', e.target.value as unknown as string[])}
-                        >
-                          {stratifierAssociationOptions.map((type) => (
-                            <MenuItem key={type} value={type}>
-                              <Checkbox checked={(strat.associations || []).includes(type)} size="small" />
-                              <ListItemText primary={popLabel(type)} />
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
-                    </Stack>
-                  </Paper>
-                ))}
+                {strats.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('populationCriteria.noStratifiers')}
+                  </Typography>
+                ) : (
+                  <Stack spacing={1.5} mb={2}>
+                    {strats.map((strat, stratIdx) => (
+                      <Paper key={stratIdx} variant="outlined" sx={{ p: 1.5 }}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <TextField
+                              label={t('populationCriteria.stratifierFields.stratifierId')}
+                              size="small"
+                              value={strat.stratifierId}
+                              onChange={(e) => updateStratifier(groupIdx, stratIdx, 'stratifierId', e.target.value)}
+                              sx={{ minWidth: 140 }}
+                            />
+                            <TextField
+                              select={expressionNames.length > 0}
+                              label={t('populationCriteria.stratifierFields.cqlExpression')}
+                              size="small"
+                              fullWidth
+                              value={strat.criteriaExpression}
+                              onChange={(e) => updateStratifier(groupIdx, stratIdx, 'criteriaExpression', e.target.value)}
+                            >
+                              {expressionNames.map((name) => (
+                                <MenuItem key={name} value={name}>
+                                  {name}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                            <IconButton size="small" aria-label={t('populationCriteria.stratifierFields.removeStratifier')} color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+
+                          {strat.criteriaExpression && stratifierAssociationOptions.length > 0 && (
+                            <TextField
+                              select
+                              label={t('populationCriteria.stratifierFields.populationAssociations')}
+                              size="small"
+                              fullWidth
+                              SelectProps={{
+                                multiple: true,
+                                renderValue: (selected) =>
+                                  (selected as string[]).map((v) => popLabel(v)).join(', '),
+                              }}
+                              value={strat.associations || []}
+                              onChange={(e) => updateStratifier(groupIdx, stratIdx, 'associations', e.target.value as unknown as string[])}
+                            >
+                              {stratifierAssociationOptions.map((type) => (
+                                <MenuItem key={type} value={type}>
+                                  <Checkbox checked={(strat.associations || []).includes(type)} size="small" />
+                                  <ListItemText primary={popLabel(type)} />
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+
+                          <TextField
+                            label={t('populationCriteria.stratifierFields.description')}
+                            size="small"
+                            fullWidth
+                            multiline
+                            minRows={2}
+                            maxRows={4}
+                            value={strat.description || ''}
+                            onChange={(e) => updateStratifier(groupIdx, stratIdx, 'description', e.target.value)}
+                            placeholder={t('populationCriteria.stratifierFields.descriptionPlaceholder')}
+                          />
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                )}
+
                 <Button size="small" startIcon={<AddIcon />} onClick={() => addStratifier(groupIdx)} sx={{ alignSelf: 'flex-start' }}>
                   {t('populationCriteria.stratifierFields.addStratifier')}
                 </Button>
-              </Stack>
+              </Paper>
+            )
+          })}
+        </Stack>
+      )}
 
-              {OBSERVATION_REQUIRED_SCORING.has(measure.scoringType) && (
-                <>
-                  <Divider sx={{ my: 2 }} />
-                  <ObservationSection
-                    observations={group.observations}
-                    onChange={(obs) => updateGroup(groupIdx, 'observations', obs)}
-                    expressionNames={expressionNames}
-                    populationTypes={(group.populations || []).map(p => p.populationType)}
-                    readOnly={measure.status === 'active'}
-                  />
-                </>
-              )}
-
-              <Divider sx={{ my: 2 }} />
-              <UcumUnitField
-                label={t('populationCriteria.scoringUnit.label')}
+      {/* Sub-tab 2: Reporting */}
+      {subTab === 2 && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                {t('populationCriteria.reporting.improvementNotation')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {t('populationCriteria.reporting.improvementNotationHelper')}
+              </Typography>
+              <TextField
+                select
+                size="small"
                 fullWidth
-                value={group.scoringUnit || ''}
-                onChange={(val) => updateGroup(groupIdx, 'scoringUnit', val)}
-                placeholder={t('populationCriteria.scoringUnit.placeholder')}
-                helperText={t('populationCriteria.scoringUnit.helper')}
-              />
-            </Paper>
-          )
-        })}
-      </Stack>
+                value={improvementNotation}
+                onChange={(e) => { setImprovementNotation(e.target.value); setIsDirty(true) }}
+                sx={{ maxWidth: 400 }}
+              >
+                <MenuItem value="">
+                  <em>{t('populationCriteria.reporting.notSet')}</em>
+                </MenuItem>
+                <MenuItem value="increase">{t('populationCriteria.reporting.increase')}</MenuItem>
+                <MenuItem value="decrease">{t('populationCriteria.reporting.decrease')}</MenuItem>
+              </TextField>
+            </Box>
 
-      <Divider sx={{ my: 3 }} />
-      <Stack spacing={2}>
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Typography variant="h6">{t('populationCriteria.riskAdjustment')}</Typography>
-          <HelpTooltip text={helpContent.measures.riskAdjustment} />
+            <Divider />
+
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                {t('populationCriteria.reporting.rateAggregation')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {t('populationCriteria.reporting.rateAggregationHelper')}
+              </Typography>
+              <TextField
+                size="small"
+                fullWidth
+                multiline
+                minRows={3}
+                maxRows={8}
+                value={rateAggregation}
+                onChange={(e) => { setRateAggregation(e.target.value); setIsDirty(true) }}
+                placeholder={t('populationCriteria.reporting.rateAggregationPlaceholder')}
+              />
+            </Box>
+          </Stack>
+        </Paper>
+      )}
+
+      {/* Sub-tab 3: Supplemental */}
+      {subTab === 3 && (
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Typography variant="h6">{t('populationCriteria.riskAdjustment')}</Typography>
+            <HelpTooltip text={helpContent.measures.riskAdjustment} />
+          </Stack>
+          <RiskAdjustmentSection
+            riskAdjustments={riskAdjustments}
+            onChange={(val) => { setRiskAdjustments(val); setIsDirty(true) }}
+            expressionNames={expressionNames}
+            readOnly={measure.status === 'active'}
+          />
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Typography variant="h6">{t('populationCriteria.supplementalData')}</Typography>
+            <HelpTooltip text={helpContent.measures.supplementalData} />
+          </Stack>
+          <SupplementalDataSection
+            supplementalData={supplementalData}
+            onChange={(val) => { setSupplementalData(val); setIsDirty(true) }}
+            expressionNames={expressionNames}
+            readOnly={measure.status === 'active'}
+          />
         </Stack>
-        <RiskAdjustmentSection
-          riskAdjustments={riskAdjustments}
-          onChange={(val) => { setRiskAdjustments(val); setIsDirty(true) }}
-          expressionNames={expressionNames}
-          readOnly={measure.status === 'active'}
-        />
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Typography variant="h6">{t('populationCriteria.supplementalData')}</Typography>
-          <HelpTooltip text={helpContent.measures.supplementalData} />
-        </Stack>
-        <SupplementalDataSection
-          supplementalData={supplementalData}
-          onChange={(val) => { setSupplementalData(val); setIsDirty(true) }}
-          expressionNames={expressionNames}
-          readOnly={measure.status === 'active'}
-        />
-      </Stack>
+      )}
+        </Box>
+      </Box>
     </Box>
   )
 }

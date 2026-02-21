@@ -247,7 +247,9 @@
       "cqlExpression": "CQL Expression",
       "removeStratifier": "Remove stratifier",
       "populationAssociations": "Population Associations",
-      "addStratifier": "Add Stratifier"
+      "addStratifier": "Add Stratifier",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe the criteria for this stratifier..."
     },
     "scoringUnit": {
       "label": "Scoring Unit",
@@ -256,6 +258,37 @@
     },
     "riskAdjustment": "Risk Adjustment",
     "supplementalData": "Supplemental Data",
+    "subTabs": {
+      "populations": "Populations",
+      "stratifications": "Stratifications",
+      "reporting": "Reporting",
+      "supplemental": "Supplemental"
+    },
+    "sidebar": {
+      "groups": "Groups",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar"
+    },
+    "exclusions": "Exclusions / Exceptions",
+    "noStratifiers": "No stratifiers defined. Add a stratifier to disaggregate measure results.",
+    "reporting": {
+      "improvementNotation": "Improvement Notation",
+      "improvementNotationHelper": "Indicates whether an increase or decrease in the measure score represents improvement.",
+      "increase": "Increased score indicates improvement",
+      "decrease": "Decreased score indicates improvement",
+      "notSet": "Not set",
+      "rateAggregation": "Rate Aggregation",
+      "rateAggregationPlaceholder": "Describe how rates are aggregated across populations or reporting periods...",
+      "rateAggregationHelper": "Describes how to combine or aggregate calculations from multiple populations or rate groups."
+    },
+    "completeness": {
+      "label": "Completeness",
+      "populations": "Populations defined",
+      "expressions": "Expressions assigned",
+      "improvementNotation": "Improvement notation set",
+      "stratifiers": "Stratifiers defined",
+      "supplemental": "Supplemental data defined"
+    },
     "validation": {
       "missingRequired": "Missing required population \"{{name}}\"",
       "noExpression": "\"{{name}}\" has no expression assigned",

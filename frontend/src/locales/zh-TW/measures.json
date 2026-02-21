@@ -247,7 +247,9 @@
       "cqlExpression": "CQL 運算式",
       "removeStratifier": "移除分層",
       "populationAssociations": "族群關聯",
-      "addStratifier": "新增分層"
+      "addStratifier": "新增分層",
+      "description": "說明",
+      "descriptionPlaceholder": "描述此分層的條件..."
     },
     "scoringUnit": {
       "label": "評分單位",
@@ -256,6 +258,37 @@
     },
     "riskAdjustment": "風險校正",
     "supplementalData": "補充資料",
+    "subTabs": {
+      "populations": "族群",
+      "stratifications": "分層",
+      "reporting": "報告",
+      "supplemental": "補充資料"
+    },
+    "sidebar": {
+      "groups": "群組",
+      "collapse": "收合側邊欄",
+      "expand": "展開側邊欄"
+    },
+    "exclusions": "排除 / 例外",
+    "noStratifiers": "尚未定義分層。新增分層以依特定條件分解指標結果。",
+    "reporting": {
+      "improvementNotation": "改善標記",
+      "improvementNotationHelper": "指示指標分數的增加或減少是否代表改善。",
+      "increase": "分數增加代表改善",
+      "decrease": "分數減少代表改善",
+      "notSet": "未設定",
+      "rateAggregation": "比率彙總",
+      "rateAggregationPlaceholder": "描述如何在族群或報告期間之間彙總比率...",
+      "rateAggregationHelper": "描述如何合併或彙總來自多個族群或比率群組的計算結果。"
+    },
+    "completeness": {
+      "label": "完成度",
+      "populations": "已定義族群",
+      "expressions": "已指定運算式",
+      "improvementNotation": "已設定改善標記",
+      "stratifiers": "已定義分層",
+      "supplemental": "已定義補充資料"
+    },
     "validation": {
       "missingRequired": "缺少必要族群「{{name}}」",
       "noExpression": "「{{name}}」未指定運算式",

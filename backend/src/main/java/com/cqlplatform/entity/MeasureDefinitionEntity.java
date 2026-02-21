@@ -165,6 +165,12 @@ public class MeasureDefinitionEntity {
     @Builder.Default
     private List<MeasureDefinition.SupplementalDataDef> supplementalDataList = new ArrayList<>();
 
+    @Column(name = "improvement_notation", length = 20)
+    private String improvementNotation;
+
+    @Column(name = "rate_aggregation", length = 2000)
+    private String rateAggregation;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

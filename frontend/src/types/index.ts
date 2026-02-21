@@ -405,6 +405,8 @@ export interface MeasureDefinition {
   riskAdjustmentDescription?: string
   riskAdjustments?: RiskAdjustmentDef[]
   supplementalData?: SupplementalDataDef[]
+  improvementNotation?: string
+  rateAggregation?: string
   ownerUsername?: string
   sharedWith?: string[]
   accessLevel?: string
