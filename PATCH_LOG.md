@@ -19,10 +19,10 @@
 | 009 | 2026-02-21 | eQCM | P1-4: 審核者欄位 + 退回原因 UI | Measures (Backend + Frontend) | [`b106739`](../../commit/b106739) |
 | 010 | 2026-02-21 | eQCM | P1-6: FHIR Bundle 檔案上傳匯入 | Measures (Frontend) | [`b106739`](../../commit/b106739) |
 | 011 | 2026-02-21 | 通知 | P1-5: 持久化通知系統 + 工作流程推播 | Backend + Frontend (Header) | [`b106739`](../../commit/b106739) |
-| 012 | 2026-02-21 | eQCM | P2-11: 衛福部指標代碼對照 | Backend + Frontend (Measures) | |
-| 013 | 2026-02-21 | 跨模組 | P2-10: 科別多租戶隔離 | Backend + Frontend (Auth, Measures, Admin) | |
-| 014 | 2026-02-21 | eQCM | P2-9: 指標儀表板增強（Recharts） | Backend + Frontend (Dashboard) | |
-| 015 | 2026-02-21 | FHIR | P2-8: EHR/HIS 整合連接器 | Backend + Frontend (FHIR, Measures) | |
+| 012 | 2026-02-21 | eQCM | P2-11: 衛福部指標代碼對照 | Backend + Frontend (Measures) | [`3dbf07a`](../../commit/3dbf07a) |
+| 013 | 2026-02-21 | 跨模組 | P2-10: 科別多租戶隔離 | Backend + Frontend (Auth, Measures, Admin) | [`3dbf07a`](../../commit/3dbf07a) |
+| 014 | 2026-02-21 | eQCM | P2-9: 指標儀表板增強（Recharts） | Backend + Frontend (Dashboard) | [`3dbf07a`](../../commit/3dbf07a) |
+| 015 | 2026-02-21 | FHIR | P2-8: EHR/HIS 整合連接器 | Backend + Frontend (FHIR, Measures) | [`3dbf07a`](../../commit/3dbf07a) |
 
 ---
 
