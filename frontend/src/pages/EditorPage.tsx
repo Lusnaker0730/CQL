@@ -59,7 +59,11 @@ import TabPanel, { a11yProps } from '../components/common/TabPanel'
 export default function EditorPage() {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
-  const { cqlContent, isTranslating, errors, elmJson, cursorPosition } = useSelector((state: RootState) => state.editor)
+  const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
+  const isTranslating = useSelector((state: RootState) => state.editor.isTranslating)
+  const errors = useSelector((state: RootState) => state.editor.errors)
+  const elmJson = useSelector((state: RootState) => state.editor.elmJson)
+  const cursorPosition = useSelector((state: RootState) => state.editor.cursorPosition)
   const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
   const [rightPanelTab, setRightPanelTab] = useState(0)
   const [showBuilder, setShowBuilder] = useState(false)
@@ -135,11 +139,11 @@ export default function EditorPage() {
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
   const { data: currentLibrary } = useLibrary(lastSavedLibraryId)
 
-  const handleTranslate = () => {
+  const handleTranslate = useCallback(() => {
     translateMutation.mutate({ cql: cqlContent })
-  }
+  }, [cqlContent, translateMutation])
 
-  const handleSaveLibrary = () => {
+  const handleSaveLibrary = useCallback(() => {
     saveLibraryMutation.mutate(
       { cql: cqlContent },
       {
@@ -149,9 +153,9 @@ export default function EditorPage() {
         },
       }
     )
-  }
+  }, [cqlContent, saveLibraryMutation, addToRecent])
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     saveLibraryMutation.mutate(
       { cql: cqlContent },
       {
@@ -171,11 +175,11 @@ export default function EditorPage() {
         },
       }
     )
-  }
+  }, [cqlContent, saveLibraryMutation, addToRecent, exportMutation])
 
-  const handleImport = () => {
+  const handleImport = useCallback(() => {
     fileInputRef.current?.click()
-  }
+  }, [])
 
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

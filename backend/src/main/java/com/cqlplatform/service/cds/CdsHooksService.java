@@ -182,7 +182,7 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getAllServices() {
-        return repository.findAll().stream()
+        return repository.findAllWithPrefetch().stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
@@ -196,7 +196,7 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getServicesByOwner(String username) {
-        return repository.findByOwnerUsername(username).stream()
+        return repository.findByOwnerUsernameWithPrefetch(username).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }

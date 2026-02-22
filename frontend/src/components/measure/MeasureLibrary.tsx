@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Paper,
   Typography,
@@ -97,9 +97,15 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const { showNotification } = useNotification()
   const currentUser = getStoredUsername()
 
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
   const { data: allMeasures = [], isLoading } = useQuery({
-    queryKey: ['measures', search, departmentFilter],
-    queryFn: () => measureApi.getMeasures(search || undefined, departmentFilter || undefined),
+    queryKey: ['measures', debouncedSearch, departmentFilter],
+    queryFn: () => measureApi.getMeasures(debouncedSearch || undefined, departmentFilter || undefined),
   })
 
   const measures = useMemo(

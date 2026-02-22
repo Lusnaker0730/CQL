@@ -25,6 +25,13 @@ public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConf
 
     List<CdsServiceConfigEntity> findByOwnerUsername(String username);
 
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems")
+    List<CdsServiceConfigEntity> findAllWithPrefetch();
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.ownerUsername = :username")
+    List<CdsServiceConfigEntity> findByOwnerUsernameWithPrefetch(String username);
+
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
             "WHERE c.ownerUsername = :username OR c.shared = true")
     List<CdsServiceConfigEntity> findByOwnerUsernameOrSharedTrue(String username);
