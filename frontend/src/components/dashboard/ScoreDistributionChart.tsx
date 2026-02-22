@@ -22,7 +22,7 @@ export default function ScoreDistributionChart({ data, title }: ScoreDistributio
         {title || t('dashboard.scoringDistribution')}
       </Typography>
       <Box sx={{ width: '100%', height: 300 }}>
-        <ResponsiveContainer>
+        <ResponsiveContainer minWidth={0} minHeight={0}>
           <PieChart>
             <Pie
               data={chartData}

@@ -45,6 +45,7 @@ public class DashboardService {
 
         // Recent evaluations
         List<MeasureReportEntity> reports = reportRepository.findAll().stream()
+                .filter(r -> r.getCreatedAt() != null)
                 .sorted(Comparator.comparing(MeasureReportEntity::getCreatedAt).reversed())
                 .limit(10)
                 .collect(Collectors.toList());
@@ -79,6 +80,7 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public List<EnhancedDashboardData.TrendDataPoint> getTrends(Long measureId, String periodType, int count) {
         List<MeasureReportEntity> reports = reportRepository.findAll().stream()
+                .filter(r -> r.getCreatedAt() != null)
                 .filter(r -> measureId == null || measureId.equals(r.getMeasureDefinitionId()))
                 .sorted(Comparator.comparing(MeasureReportEntity::getCreatedAt).reversed())
                 .limit(count)
@@ -89,7 +91,7 @@ public class DashboardService {
 
         return reports.stream()
                 .map(r -> EnhancedDashboardData.TrendDataPoint.builder()
-                        .period(r.getPeriodStart() + " to " + r.getPeriodEnd())
+                        .period((r.getPeriodStart() != null ? r.getPeriodStart() : "?") + " to " + (r.getPeriodEnd() != null ? r.getPeriodEnd() : "?"))
                         .measureName(r.getMeasureName())
                         .measureId(r.getMeasureDefinitionId())
                         .score(r.getMeasureScore())
@@ -112,9 +114,9 @@ public class DashboardService {
         Map<Long, MeasureReportEntity> latestByMeasure = new LinkedHashMap<>();
         for (MeasureReportEntity r : reports) {
             Long mId = r.getMeasureDefinitionId();
-            if (mId != null) {
+            if (mId != null && r.getCreatedAt() != null) {
                 MeasureReportEntity existing = latestByMeasure.get(mId);
-                if (existing == null || r.getCreatedAt().isAfter(existing.getCreatedAt())) {
+                if (existing == null || existing.getCreatedAt() == null || r.getCreatedAt().isAfter(existing.getCreatedAt())) {
                     latestByMeasure.put(mId, r);
                 }
             }
@@ -254,9 +256,9 @@ public class DashboardService {
         Map<Long, MeasureReportEntity> latestByMeasure = new HashMap<>();
         for (MeasureReportEntity r : reportRepository.findAll()) {
             Long mId = r.getMeasureDefinitionId();
-            if (mId != null) {
+            if (mId != null && r.getCreatedAt() != null) {
                 MeasureReportEntity existing = latestByMeasure.get(mId);
-                if (existing == null || r.getCreatedAt().isAfter(existing.getCreatedAt())) {
+                if (existing == null || existing.getCreatedAt() == null || r.getCreatedAt().isAfter(existing.getCreatedAt())) {
                     latestByMeasure.put(mId, r);
                 }
             }

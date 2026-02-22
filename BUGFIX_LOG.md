@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 035 | 2026-02-22 | High | 品質指標儀表板（後端） | DashboardService 多處 NullPointerException 導致所有 Dashboard API 回傳 500 | 邏輯錯誤 | [`pending`](#) |
+| 034 | 2026-02-22 | Low | 品質指標儀表板（前端） | Recharts ResponsiveContainer 初始化時計算 width/height 為 -1 | 配置遺漏 | [`pending`](#) |
 | 033 | 2026-02-22 | Medium | CQL 編輯器（前端） | 工具列 Undo/Redo 按鈕無效 — Redux 歷史與 Monaco 原生 undo 脫節 | 架構缺陷 | [`dca6617`](../../commit/dca6617) |
 | 032 | 2026-02-21 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 ToConcept 包裝的 CodeRef 及 Case 包裝的日期屬性 | 資料處理錯誤 | [`b50d94a`](../../commit/b50d94a) |
 | 031 | 2026-02-21 | High | eCQM 種子資料（後端） | 種子 CQL 語法錯誤導致 DataRequirements 標籤頁空白 | 資料處理錯誤 | [`63a5781`](../../commit/63a5781) |
@@ -53,6 +55,74 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #035 — DashboardService 多處 NullPointerException 導致 Dashboard API 回傳 500
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-22 |
+| **功能分類** | 品質指標儀表板（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/measure/DashboardService.java` |
+| **Commit** | [`pending`](#) |
+
+### BUG 描述
+
+品質指標儀表板頁面所有 API 端點回傳 HTTP 500：`/dashboard/enhanced`、`/dashboard/trends`、`/dashboard/alerts`、`/dashboard/report`。
+
+**根本原因（多處 null 未防護）**：
+
+1. **Comparator NPE**：`getEnhancedDashboard()` 與 `getTrends()` 使用 `Comparator.comparing(MeasureReportEntity::getCreatedAt)` 排序。若任何 `MeasureReportEntity.createdAt` 為 null，Comparator 拋出 `NullPointerException`。
+2. **isAfter() NPE**：`getLatestScoresMap()` 與 `getDepartmentDrilldown()` 中直接呼叫 `r.getCreatedAt().isAfter(existing.getCreatedAt())`，若 `createdAt` 為 null 則 NPE。
+3. **字串串接 null**：`getTrends()` 中 `r.getPeriodStart() + " to " + r.getPeriodEnd()` 在 `periodStart`/`periodEnd` 為 null 時產生 `"null to null"` 字串。
+
+### 修正方式
+
+- **Comparator 排序前**：增加 `.filter(r -> r.getCreatedAt() != null)` 過濾空值記錄
+- **isAfter() 比較前**：外層增加 `r.getCreatedAt() != null` 條件，內層增加 `existing.getCreatedAt() == null` fallback
+- **period 字串串接**：使用三元運算子防護 null（`r.getPeriodStart() != null ? ... : "?"`）
+
+### 測試驗證
+
+- [x] `mvn compile -q` 編譯通過
+- [ ] `/api/measures/dashboard/enhanced` 回傳 200
+- [ ] `/api/measures/dashboard/trends` 回傳 200
+- [ ] `/api/measures/dashboard/alerts` 回傳 200
+- [ ] `/api/measures/dashboard/report` 回傳 200
+
+---
+
+## #034 — Recharts ResponsiveContainer 初始化時計算 width/height 為 -1
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-22 |
+| **功能分類** | 品質指標儀表板（前端） |
+| **嚴重程度** | Low |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `frontend/src/components/dashboard/ScoreTrendChart.tsx`、`DepartmentDrilldownChart.tsx`、`ScoreDistributionChart.tsx` |
+| **Commit** | [`pending`](#) |
+
+### BUG 描述
+
+瀏覽器 console 持續出現 Recharts 警告：
+```
+The width(-1) and height(-1) of chart should be greater than 0
+```
+
+**根本原因**：`ResponsiveContainer` 使用 `ResizeObserver` 測量父元素尺寸。在元件初始掛載或父容器尚未完成 layout 時，測量結果可能為 -1。Recharts 官方建議設定 `minWidth={0}` 以防止負值。
+
+### 修正方式
+
+- 三個圖表元件的 `<ResponsiveContainer>` 均加上 `minWidth={0} minHeight={0}` 屬性
+
+### 測試驗證
+
+- [x] `npx tsc --noEmit` 編譯通過
+- [ ] 瀏覽器 console 不再出現 width/height 警告
 
 ---
 
