@@ -5,6 +5,7 @@ import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +31,9 @@ class MeasureDefinitionServiceTest {
 
     @Mock
     private MeasureAuditRepository auditRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private MeasureDefinitionService service;

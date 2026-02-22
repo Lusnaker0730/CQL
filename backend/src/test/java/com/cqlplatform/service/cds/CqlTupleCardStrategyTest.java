@@ -91,7 +91,9 @@ class CqlTupleCardStrategyTest {
         CdsResponse response = strategy.buildResponse(config, execResponse);
 
         assertThat(response.getCards()).hasSize(1);
-        assertThat(response.getCards().get(0).getDetail()).contains("**Message**: Hello World");
+        // "Message" matches the primary message heuristic (nameLower.contains("message")),
+        // so it becomes the card detail directly rather than a formatted supplementary line
+        assertThat(response.getCards().get(0).getDetail()).contains("Hello World");
     }
 
     @Test
