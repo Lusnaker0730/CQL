@@ -319,8 +319,7 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getSharedLibraries(String username) {
-        return libraryRepository.findAll().stream()
-                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+        return libraryRepository.findSharedWithUser("%\"" + username + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }

@@ -7,31 +7,45 @@ import ca.uhn.fhir.rest.client.interceptor.BearerTokenAuthInterceptor;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Centralized FHIR client creation with standard logging interceptors.
- * Replaces duplicated fhirContext.newRestfulGenericClient() + interceptor setup.
+ * Caches unauthenticated clients per URL (10-minute TTL) to avoid repeated client creation.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class FhirClientFactory {
 
     private final FhirContext fhirContext;
 
+    private static final long CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+    private final Map<String, CachedClient> clientCache = new ConcurrentHashMap<>();
+
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
+    public FhirClientFactory(FhirContext fhirContext) {
+        this.fhirContext = fhirContext;
+    }
+
     /**
-     * Creates a FHIR client with logging interceptors for the given URL.
+     * Returns a cached FHIR client with logging interceptors for the given URL.
      * Falls back to the default FHIR server URL if null is provided.
      */
     public IGenericClient createClient(String fhirServerUrl) {
         String serverUrl = fhirServerUrl != null ? fhirServerUrl : defaultFhirServerUrl;
+        CachedClient cached = clientCache.get(serverUrl);
+        if (cached != null && !cached.isExpired()) {
+            return cached.client;
+        }
+
         log.debug("Creating FHIR Client for URL: {}", serverUrl);
         IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
 
@@ -40,20 +54,29 @@ public class FhirClientFactory {
         loggingInterceptor.setLogResponseSummary(true);
         client.registerInterceptor(loggingInterceptor);
 
+        clientCache.put(serverUrl, new CachedClient(client));
         return client;
     }
 
     /**
-     * Creates a plain FHIR client without interceptors, for services that manage their own configuration.
+     * Returns a cached plain FHIR client without interceptors.
      */
     public IGenericClient createPlainClient(String fhirServerUrl) {
         String serverUrl = fhirServerUrl != null ? fhirServerUrl : defaultFhirServerUrl;
-        return fhirContext.newRestfulGenericClient(serverUrl);
+        String cacheKey = serverUrl + "::plain";
+        CachedClient cached = clientCache.get(cacheKey);
+        if (cached != null && !cached.isExpired()) {
+            return cached.client;
+        }
+
+        IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
+        clientCache.put(cacheKey, new CachedClient(client));
+        return client;
     }
 
     /**
      * Creates an authenticated FHIR client based on the EHR connection's auth configuration.
-     * Supports basic auth (username/password) and bearer token authentication.
+     * Authenticated clients are NOT cached since credentials may change.
      */
     public IGenericClient createAuthenticatedClient(EhrConnectionEntity connection) {
         IGenericClient client = createClient(connection.getFhirServerUrl());
@@ -84,5 +107,19 @@ public class FhirClientFactory {
 
     public String getDefaultFhirServerUrl() {
         return defaultFhirServerUrl;
+    }
+
+    private static class CachedClient {
+        final IGenericClient client;
+        final long createdAt;
+
+        CachedClient(IGenericClient client) {
+            this.client = client;
+            this.createdAt = System.currentTimeMillis();
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - createdAt > CACHE_TTL_MS;
+        }
     }
 }

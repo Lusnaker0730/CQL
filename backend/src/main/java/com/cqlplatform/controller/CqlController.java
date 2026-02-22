@@ -61,12 +61,21 @@ public class CqlController {
     }
 
     @GetMapping("/libraries")
-    @Operation(summary = "List CQL Libraries", description = "Returns all stored CQL libraries")
+    @Operation(summary = "List CQL Libraries", description = "Returns all stored CQL libraries. Supports pagination via page/size params.")
     public ResponseEntity<List<CqlLibrary>> listLibraries(
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false, defaultValue = "200") Integer size) {
         List<CqlLibrary> libraries = search != null ?
                 libraryService.searchLibraries(search) :
                 libraryService.getAllLibraries();
+        if (page != null) {
+            int start = page * size;
+            if (start >= libraries.size()) {
+                return ResponseEntity.ok(List.of());
+            }
+            libraries = libraries.subList(start, Math.min(start + size, libraries.size()));
+        }
         return ResponseEntity.ok(libraries);
     }
 

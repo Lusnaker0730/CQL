@@ -33,4 +33,10 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
     List<MeasureDefinitionEntity> findByOwnerUsername(String ownerUsername);
 
     List<MeasureDefinitionEntity> findByAccessLevel(String accessLevel);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT e FROM MeasureDefinitionEntity e WHERE e.accessLevel = 'public' " +
+        "OR e.sharedWith LIKE :pattern")
+    List<MeasureDefinitionEntity> findSharedWithUser(
+        @org.springframework.data.repository.query.Param("pattern") String pattern);
 }

@@ -101,11 +101,20 @@ public class MeasureController {
     // ===== Measure Definition CRUD =====
 
     @GetMapping
-    @Operation(summary = "List Measures", description = "List all measure definitions, optionally filtered by search term and department")
+    @Operation(summary = "List Measures", description = "List all measure definitions, optionally filtered by search term and department. Supports pagination via page/size params.")
     public ResponseEntity<List<MeasureDefinition>> listMeasures(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String department) {
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false, defaultValue = "200") Integer size) {
         List<MeasureDefinition> measures = definitionService.search(search, department);
+        if (page != null) {
+            int start = page * size;
+            if (start >= measures.size()) {
+                return ResponseEntity.ok(List.of());
+            }
+            measures = measures.subList(start, Math.min(start + size, measures.size()));
+        }
         return ResponseEntity.ok(measures);
     }
 

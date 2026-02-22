@@ -466,8 +466,7 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findAll().stream()
-                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+        return repository.findSharedWithUser("%\"" + username + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }

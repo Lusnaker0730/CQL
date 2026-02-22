@@ -14,12 +14,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,7 +68,7 @@ class DashboardServiceTest {
     @Test
     void getEnhancedDashboard_noMeasures_shouldReturnEmptyDashboard() {
         when(definitionRepository.findAll()).thenReturn(List.of());
-        when(reportRepository.findAll()).thenReturn(List.of());
+        when(reportRepository.findTop10ByOrderByCreatedAtDesc()).thenReturn(List.of());
         when(thresholdRepository.findByActiveTrue()).thenReturn(List.of());
 
         EnhancedDashboardData result = service.getEnhancedDashboard(null);
@@ -81,7 +85,7 @@ class DashboardServiceTest {
                 createMeasure(2L, "M2", "draft", "proportion", "oncology"),
                 createMeasure(3L, "M3", "active", "ratio", "cardiology")
         ));
-        when(reportRepository.findAll()).thenReturn(List.of());
+        when(reportRepository.findTop10ByOrderByCreatedAtDesc()).thenReturn(List.of());
         when(thresholdRepository.findByActiveTrue()).thenReturn(List.of());
 
         EnhancedDashboardData result = service.getEnhancedDashboard(null);
@@ -95,12 +99,15 @@ class DashboardServiceTest {
 
     @Test
     void getEnhancedDashboard_withDepartmentFilter_shouldFilterMeasures() {
-        when(definitionRepository.findAll()).thenReturn(List.of(
-                createMeasure(1L, "M1", "active", "proportion", "cardiology"),
-                createMeasure(2L, "M2", "draft", "proportion", "oncology")
+        when(definitionRepository.findByDepartment("cardiology")).thenReturn(List.of(
+                createMeasure(1L, "M1", "active", "proportion", "cardiology")
         ));
-        when(reportRepository.findAll()).thenReturn(List.of());
+        when(reportRepository.findTop10ByOrderByCreatedAtDesc()).thenReturn(List.of());
         when(thresholdRepository.findByDepartmentAndActiveTrue("cardiology")).thenReturn(List.of());
+        // computeDepartmentScores still calls findAll
+        when(definitionRepository.findAll()).thenReturn(List.of(
+                createMeasure(1L, "M1", "active", "proportion", "cardiology")
+        ));
 
         EnhancedDashboardData result = service.getEnhancedDashboard("cardiology");
 
@@ -111,12 +118,19 @@ class DashboardServiceTest {
 
     @Test
     void getTrends_shouldReturnChronologicalOrder() {
-        MeasureReportEntity r1 = createReport(1L, 10L, "M1", 0.8, null);
+        MeasureReportEntity r1 = createReport(2L, 10L, "M1", 0.8, null);
         r1.setCreatedAt(LocalDateTime.now().minusDays(2));
-        MeasureReportEntity r2 = createReport(2L, 10L, "M1", 0.9, null);
+        r1.setPeriodStart(null);
+        r1.setPeriodEnd(null);
+        MeasureReportEntity r2 = createReport(1L, 10L, "M1", 0.9, null);
         r2.setCreatedAt(LocalDateTime.now().minusDays(1));
+        r2.setPeriodStart(null);
+        r2.setPeriodEnd(null);
 
-        when(reportRepository.findAll()).thenReturn(List.of(r1, r2));
+        // findRecentByOptionalMeasure returns DESC order (r2 first, r1 second)
+        // Must be mutable list since service calls Collections.reverse()
+        when(reportRepository.findRecentByOptionalMeasure(eq((Long) null), any(PageRequest.class)))
+                .thenReturn(new java.util.ArrayList<>(List.of(r2, r1)));
 
         List<EnhancedDashboardData.TrendDataPoint> trends = service.getTrends(null, "monthly", 10);
 
@@ -130,10 +144,11 @@ class DashboardServiceTest {
     void getTrends_withMeasureIdFilter_shouldFilterByMeasure() {
         MeasureReportEntity r1 = createReport(1L, 10L, "M1", 0.8, null);
         r1.setCreatedAt(LocalDateTime.now());
-        MeasureReportEntity r2 = createReport(2L, 20L, "M2", 0.9, null);
-        r2.setCreatedAt(LocalDateTime.now());
+        r1.setPeriodStart(null);
+        r1.setPeriodEnd(null);
 
-        when(reportRepository.findAll()).thenReturn(List.of(r1, r2));
+        when(reportRepository.findRecentByOptionalMeasure(eq(10L), any(PageRequest.class)))
+                .thenReturn(new java.util.ArrayList<>(List.of(r1)));
 
         List<EnhancedDashboardData.TrendDataPoint> trends = service.getTrends(10L, "monthly", 10);
 
@@ -145,12 +160,12 @@ class DashboardServiceTest {
 
     @Test
     void getDepartmentDrilldown_shouldGroupByMeasure() {
-        when(definitionRepository.findAll()).thenReturn(List.of(
+        when(definitionRepository.findByDepartment("cardiology")).thenReturn(List.of(
                 createMeasure(1L, "M1", "active", "proportion", "cardiology")
         ));
-        when(reportRepository.findAll()).thenReturn(List.of(
-                createReport(1L, 1L, "M1", 0.75, "cardiology")
-        ));
+        MeasureReportEntity report = createReport(1L, 1L, "M1", 0.75, "cardiology");
+        when(reportRepository.findByDepartmentOrderByCreatedAtDesc("cardiology"))
+                .thenReturn(List.of(report));
 
         Map<String, Object> result = service.getDepartmentDrilldown("cardiology");
 
@@ -164,16 +179,18 @@ class DashboardServiceTest {
 
     @Test
     void getDepartmentDrilldown_shouldPickLatestScorePerMeasure() {
-        when(definitionRepository.findAll()).thenReturn(List.of(
+        when(definitionRepository.findByDepartment("cardiology")).thenReturn(List.of(
                 createMeasure(1L, "M1", "active", "proportion", "cardiology")
         ));
 
-        MeasureReportEntity older = createReport(1L, 1L, "M1", 0.5, "cardiology");
-        older.setCreatedAt(LocalDateTime.now().minusDays(10));
+        // findByDepartmentOrderByCreatedAtDesc returns newest first
         MeasureReportEntity newer = createReport(2L, 1L, "M1", 0.9, "cardiology");
         newer.setCreatedAt(LocalDateTime.now());
+        MeasureReportEntity older = createReport(1L, 1L, "M1", 0.5, "cardiology");
+        older.setCreatedAt(LocalDateTime.now().minusDays(10));
 
-        when(reportRepository.findAll()).thenReturn(List.of(older, newer));
+        when(reportRepository.findByDepartmentOrderByCreatedAtDesc("cardiology"))
+                .thenReturn(List.of(newer, older));
 
         Map<String, Object> result = service.getDepartmentDrilldown("cardiology");
 
@@ -198,8 +215,8 @@ class DashboardServiceTest {
 
         MeasureReportEntity report = createReport(1L, 1L, "M1", 0.5, null);
         report.setCreatedAt(LocalDateTime.now());
-        when(reportRepository.findAll()).thenReturn(List.of(report));
-        when(definitionRepository.findAll()).thenReturn(List.of(
+        when(reportRepository.findLatestByMeasureDefinitionId(1L)).thenReturn(List.of(report));
+        when(definitionRepository.findById(1L)).thenReturn(Optional.of(
                 createMeasure(1L, "M1", "active", "proportion", null)
         ));
 
@@ -230,14 +247,13 @@ class DashboardServiceTest {
 
     @Test
     void generateReport_shouldReturnReportWithScores() {
-        when(definitionRepository.findAll()).thenReturn(List.of(
-                createMeasure(1L, "M1", "active", "proportion", null)
-        ));
+        MeasureDefinitionEntity measure = createMeasure(1L, "M1", "active", "proportion", null);
+        when(definitionRepository.findAll()).thenReturn(List.of(measure));
         when(thresholdRepository.findByActiveTrue()).thenReturn(List.of());
 
         MeasureReportEntity report = createReport(1L, 1L, "M1", 0.85, null);
         report.setCreatedAt(LocalDateTime.now());
-        when(reportRepository.findAll()).thenReturn(List.of(report));
+        when(reportRepository.findLatestByMeasureDefinitionId(1L)).thenReturn(List.of(report));
 
         QualityReport result = service.generateReport("monthly", null);
 
