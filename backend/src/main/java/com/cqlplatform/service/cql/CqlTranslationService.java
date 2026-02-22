@@ -98,11 +98,20 @@ public class CqlTranslationService {
         }
     }
 
-    @Cacheable(value = "cqlValidation", key = "#cql.hashCode()")
+    @Cacheable(value = "cqlValidation", key = "T(com.cqlplatform.service.cql.CqlTranslationService).normalizeCacheKey(#cql)")
     public CqlTranslationResponse validate(String cql) {
         CqlTranslationRequest request = new CqlTranslationRequest();
         request.setCql(cql);
         return translate(request);
+    }
+
+    /**
+     * Normalize CQL content for cache key generation.
+     * Collapses whitespace to avoid cache misses on formatting-only changes.
+     */
+    public static String normalizeCacheKey(String cql) {
+        if (cql == null) return "";
+        return String.valueOf(cql.replaceAll("\\s+", " ").trim().hashCode());
     }
 
     public CompiledLibrary compile(String cql) {

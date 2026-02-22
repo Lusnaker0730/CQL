@@ -32,6 +32,9 @@ public class FhirDataProviderService {
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
+    @Value("${fhir.patient.batch-size:100}")
+    private int patientBatchSize;
+
     private final AtomicInteger retrieveCount = new AtomicInteger(0);
 
     public IGenericClient createClient(String fhirServerUrl) {
@@ -177,6 +180,8 @@ public class FhirDataProviderService {
         try {
             Bundle bundle = client.search()
                     .forResource("Patient")
+                    .elementsSubset("id")
+                    .count(patientBatchSize)
                     .returnBundle(Bundle.class)
                     .execute();
 
@@ -200,6 +205,7 @@ public class FhirDataProviderService {
             throw new FhirServerUnavailableException("Failed to fetch patient list: " + e.getMessage(), e);
         }
 
+        log.debug("Fetched {} patient IDs (batch size: {})", patientIds.size(), patientBatchSize);
         return patientIds;
     }
 
@@ -315,6 +321,8 @@ public class FhirDataProviderService {
         private final AtomicInteger counter;
         private final FhirContext fhirContext;
         private final String fhirServerUrl;
+        private final java.util.concurrent.ConcurrentHashMap<String, List<Object>> fallbackCache =
+                new java.util.concurrent.ConcurrentHashMap<>();
 
         public CountingRetrieveProvider(RetrieveProvider delegate, AtomicInteger counter, FhirContext fhirContext,
                 String fhirServerUrl) {
@@ -387,12 +395,19 @@ public class FhirDataProviderService {
          */
         private List<Object> fallbackSearch(String dataType, String patientId,
                 String codePath, Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
+            // Build cache key from search parameters
+            String codeFilter = buildCodeFilter(codes);
+            String cacheKey = dataType + "|" + patientId + "|" + codePath + "|" + codeFilter;
+            List<Object> cached = fallbackCache.get(cacheKey);
+            if (cached != null) {
+                log.debug("Fallback cache hit for {}", cacheKey);
+                counter.addAndGet(cached.size());
+                return cached;
+            }
+
             log.debug("Fallback search for {}?subject/patient={}, codePath={}, hasCodes={}",
                     dataType, patientId, codePath, codes != null);
             IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
-
-            // Build code filter string for FHIR search (e.g., "http://loinc.org|39156-5")
-            String codeFilter = buildCodeFilter(codes);
 
             // Determine which search parameter to try first
             String primaryParam = SUBJECT_BASED_RESOURCES.contains(dataType) ? "subject" : "patient";
@@ -404,6 +419,9 @@ public class FhirDataProviderService {
                 results = trySearch(fallbackClient, dataType, secondaryParam, patientId,
                         codePath, codeFilter);
             }
+
+            // Cache results (including empty) to avoid repeat queries
+            fallbackCache.put(cacheKey, results);
 
             if (!results.isEmpty()) {
                 log.debug("Fallback found {} {} resources for patient {}", results.size(), dataType, patientId);

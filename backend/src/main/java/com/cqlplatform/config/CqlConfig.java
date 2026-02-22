@@ -65,7 +65,7 @@ public class CqlConfig {
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(List.of(
-                buildCache("valueSets", 500, 2, TimeUnit.HOURS),
+                buildCache("valueSets", 2000, 2, TimeUnit.HOURS),
                 buildCache("codeValidation", 2000, 1, TimeUnit.HOURS),
                 buildCache("codeLookup", 1000, 2, TimeUnit.HOURS),
                 buildCache("cqlValidation", 500, 30, TimeUnit.MINUTES),
