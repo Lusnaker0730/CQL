@@ -27,6 +27,7 @@ import type { MeasureDefinition, DataRequirementInfo } from '../../types'
 import { measureApi } from '../../api'
 import { helpContent } from '../../constants/helpContent'
 import HelpTooltip from '../common/HelpTooltip'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface DataRequirementsTabProps {
   measure: MeasureDefinition
@@ -82,7 +83,7 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
 
       {isError && (
         <Alert severity="error">
-          {t('dataRequirements.extractionError', { error: (error as Error).message })}
+          {t('dataRequirements.extractionError', { error: extractApiError(error) })}
         </Alert>
       )}
 

@@ -52,6 +52,7 @@ import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
+import { extractApiError } from '../utils/errorUtils'
 import { useNotification } from '../hooks/useNotification'
 import TabPanel, { a11yProps } from '../components/common/TabPanel'
 
@@ -97,7 +98,7 @@ export default function EditorPage() {
       dispatch(setCqlContent(lib.cqlContent))
       setHistoryDialogOpen(false)
     }).catch((err) => {
-      showNotification('Failed to load library version: ' + (err as Error).message, 'error')
+      showNotification('Failed to load library version: ' + extractApiError(err), 'error')
     })
   }
 

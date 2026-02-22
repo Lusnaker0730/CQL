@@ -9,6 +9,7 @@ import './i18n'
 import App from './App'
 import { store } from './store'
 import { createAppTheme } from './theme'
+import { extractApiError } from './utils/errorUtils'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { LibraryHistoryProvider } from './contexts/LibraryHistoryContext'
@@ -21,6 +22,11 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000,
       retry: 1,
+    },
+    mutations: {
+      onError: (error) => {
+        console.error('[Mutation Error]', extractApiError(error), error)
+      },
     },
   },
 })

@@ -103,6 +103,15 @@
     "somethingWentWrong": "發生錯誤",
     "unexpectedError": "發生未預期的錯誤，請嘗試重新整理此區段。"
   },
+  "mutationErrors": {
+    "createFailed": "建立失敗：{{error}}",
+    "updateFailed": "更新失敗：{{error}}",
+    "deleteFailed": "刪除失敗：{{error}}",
+    "importFailed": "匯入失敗：{{error}}",
+    "exportFailed": "匯出失敗：{{error}}",
+    "operationFailed": "操作失敗：{{error}}",
+    "runFailed": "執行失敗：{{error}}"
+  },
   "dialogs": {
     "deleteConfirm": {
       "title": "刪除",

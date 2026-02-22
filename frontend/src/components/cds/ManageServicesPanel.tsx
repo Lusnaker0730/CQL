@@ -50,6 +50,7 @@ import {
 } from '../../hooks/useCdsHooks'
 import type { CdsServiceConfigRequest, CdsServiceConfigResponse } from '../../types'
 import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import { validateRequired, safeParseJson } from '../../utils/validation'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
@@ -147,7 +148,7 @@ export default function ManageServicesPanel() {
       }
       handleClose()
     } catch (error) {
-      showNotification(t('manage.saveFailed', { error: (error as Error).message }), 'error')
+      showNotification(t('manage.saveFailed', { error: extractApiError(error) }), 'error')
     }
   }
 
@@ -156,7 +157,7 @@ export default function ManageServicesPanel() {
       await deleteMutation.mutateAsync(id)
       setPendingDeleteId(null)
     } catch (error) {
-      showNotification(t('manage.deleteFailed', { error: (error as Error).message }), 'error')
+      showNotification(t('manage.deleteFailed', { error: extractApiError(error) }), 'error')
     }
   }
 
@@ -170,7 +171,7 @@ export default function ManageServicesPanel() {
       await rollbackMutation.mutateAsync({ serviceName, version })
       setVersionsDialogOpen(false)
     } catch (error) {
-      showNotification(t('manage.rollbackFailed', { error: (error as Error).message }), 'error')
+      showNotification(t('manage.rollbackFailed', { error: extractApiError(error) }), 'error')
     }
   }
 
@@ -206,7 +207,7 @@ export default function ManageServicesPanel() {
       })
       showNotification(t('manage.cqlSavedToService'), 'success')
     } catch (error) {
-      showNotification(t('manage.cqlSaveFailed', { error: (error as Error).message }), 'error')
+      showNotification(t('manage.cqlSaveFailed', { error: extractApiError(error) }), 'error')
     }
   }
 

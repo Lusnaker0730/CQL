@@ -43,6 +43,7 @@ import {
 } from '../../hooks/useCdsHooks'
 import type { CdsServiceDefinition, CdsResponse } from '../../types'
 import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import GradientButton from '../common/GradientButton'
 import { FHIR_SERVER_PRESETS } from '../../constants/fhirServers'
@@ -133,7 +134,7 @@ export default function InvokeServicePanel() {
       })
       setCdsResponse(response)
     } catch (error) {
-      showNotification(t('invoke.invokeFailed', { error: (error as Error).message }), 'error')
+      showNotification(t('invoke.invokeFailed', { error: extractApiError(error) }), 'error')
     }
   }
 
@@ -245,7 +246,7 @@ export default function InvokeServicePanel() {
       )}
 
       {invokeMutation.isError && (
-        <Alert severity="error">{t('invoke.invokeError', { error: (invokeMutation.error as Error).message })}</Alert>
+        <Alert severity="error">{t('invoke.invokeError', { error: extractApiError(invokeMutation.error) })}</Alert>
       )}
 
       {cards.length > 0 && (

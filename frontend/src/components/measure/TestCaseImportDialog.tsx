@@ -15,6 +15,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import GradientButton from '../common/GradientButton'
 import type { TestCase, BatchTestCaseImportResult } from '../../types'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface TestCaseImportDialogProps {
   open: boolean
@@ -113,7 +114,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
         setParsedCases(cases)
       }
     } catch (e) {
-      setParseError(t('importDialog.parseError', { error: (e as Error).message }))
+      setParseError(t('importDialog.parseError', { error: extractApiError(e) }))
     }
   }, [t])
 
@@ -276,7 +277,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
           {/* Error */}
           {importMutation.isError && (
             <Alert severity="error">
-              {t('importDialog.importError', { error: (importMutation.error as Error).message })}
+              {t('importDialog.importError', { error: extractApiError(importMutation.error) })}
             </Alert>
           )}
 

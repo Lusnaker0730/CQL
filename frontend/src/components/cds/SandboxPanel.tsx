@@ -26,6 +26,7 @@ import {
 import { useCdsServices, useSandboxInvoke } from '../../hooks/useCdsHooks'
 import type { CdsServiceDefinition, CdsCard, CdsResponse } from '../../types'
 import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   BundleBuilderProvider,
   useBundleBuilder,
@@ -175,7 +176,7 @@ function SandboxPanelInner() {
       })
       setSandboxResponse(response)
     } catch (error) {
-      showNotification(t('sandbox.invokeFailed', { error: (error as Error).message }), 'error')
+      showNotification(t('sandbox.invokeFailed', { error: extractApiError(error) }), 'error')
     }
   }
 
@@ -248,7 +249,7 @@ function SandboxPanelInner() {
       </GradientButton>
 
       {sandboxMutation.isError && (
-        <Alert severity="error">{t('sandbox.invokeError', { error: (sandboxMutation.error as Error).message })}</Alert>
+        <Alert severity="error">{t('sandbox.invokeError', { error: extractApiError(sandboxMutation.error) })}</Alert>
       )}
 
       {sandboxResponse && sandboxResponse.cards && sandboxResponse.cards.length > 0 && (

@@ -4,6 +4,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,6 +18,26 @@ import java.util.List;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResourceException(DuplicateResourceException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", ex.getMessage(), ex.getDetails());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", "A database constraint was violated");
+    }
 
     @ExceptionHandler(CqlTranslationException.class)
     public ResponseEntity<ErrorResponse> handleCqlTranslationException(CqlTranslationException ex) {

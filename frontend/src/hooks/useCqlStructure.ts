@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { cqlApi } from '../api'
+import { extractApiError } from '../utils/errorUtils'
 import type { RootState } from '../store'
 import type { TranslationMetadata } from '../types'
 
@@ -93,7 +94,7 @@ export function useCqlStructure() {
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError' || controller.signal.aborted) return
-      setParseError((err as Error).message)
+      setParseError(extractApiError(err))
     } finally {
       if (!controller.signal.aborted) setIsParsing(false)
     }

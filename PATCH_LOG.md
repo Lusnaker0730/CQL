@@ -26,6 +26,7 @@
 | 016 | 2026-02-21 | 安全性 | Okta SSO (OIDC) 整合 | Backend + Frontend (Auth, Admin) | [`7d48d6b`](../../commit/7d48d6b) |
 | 017 | 2026-02-22 | eQCM | 補完科別分類功能（篩選 + 指派） | Backend + Frontend (Measures) | [`b205335`](../../commit/b205335) |
 | 018 | 2026-02-22 | 文件 | API 參考文件 + OpenAPI 規格檔 | 專案根目錄（API.md, openapi.yaml） | [`b6681c0`](../../commit/b6681c0) |
+| 019 | 2026-02-22 | 跨模組 | 錯誤處理統一（Backend 例外層級 + Frontend 錯誤提取） | Backend (Controllers, Exceptions, Services) + Frontend (全模組) | [`TBD`](#) |
 
 ---
 
@@ -1439,5 +1440,98 @@ CQL Platform 後端有 17 個 REST Controller、222 個端點，涵蓋 CQL 編�
 
 - `npx yaml-lint openapi.yaml` — YAML 語法正確
 - endpoint 計數：`grep -c 'operationId:' openapi.yaml` → 222
+
+---
+
+## #019 — 錯誤處理統一（Backend 例外層級 + Frontend 錯誤提取）
+
+- **日期**: 2026-02-22
+- **範圍**: 跨模組 — 錯誤處理改善
+- **分類**: 健壯性 / UX 改善
+
+### 問題描述
+
+平台的錯誤處理碎片化：
+
+1. **Backend**：4 種不同的錯誤模式（`RuntimeException`、`ResponseStatusException`、`ResponseEntity.badRequest().build()`、手工 JSON 字串 `"{\"error\":\"...\"}"`），導致 API 回應格式不一致
+2. **Frontend**：30+ 個 mutation 缺乏 `onError` 處理，失敗時無使用者回饋（靜默失敗）
+3. **Resilience4j 降級**：部分 Circuit Breaker fallback 回傳空結果而非拋出錯誤，FHIR 伺服器離線時前端顯示空白而無錯誤提示
+4. **Frontend 錯誤擷取**：所有元件使用 `(err as Error).message`，無法正確解析 GlobalExceptionHandler 的結構化回應
+
+### 修改內容
+
+#### Phase 1：Backend 例外層級
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `exception/ResourceNotFoundException.java` — 404 Not Found |
+| 新增 | `exception/DuplicateResourceException.java` — 409 Conflict |
+| 新增 | `exception/ValidationException.java` — 400 Bad Request（含 details） |
+| 修改 | `exception/GlobalExceptionHandler.java` — 新增 4 個 `@ExceptionHandler` |
+| 修改 | `controller/AdminController.java` — 5 處例外替換 |
+| 修改 | `controller/AuthController.java` — 2 處例外替換 |
+| 修改 | `controller/MeasureController.java` — 3 處例外替換 |
+
+- `RuntimeException("User not found")` → `ResourceNotFoundException("User", id)`
+- `badRequest().build()` → `DuplicateResourceException` / `ValidationException`
+- `ResponseStatusException(NOT_FOUND, ...)` → `ResourceNotFoundException`
+- 新增 `DataIntegrityViolationException` → 409 handler
+
+#### Phase 2：Backend Controller 錯誤標準化
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `controller/FhirController.java` — ~15 處 inline 回應替換為 `throw` |
+| 修改 | `service/fhir/FhirDataProviderService.java` — 2 處 fallback 修復 |
+| 修改 | `service/fhir/FhirTerminologyService.java` — 3 處 fallback 修復 |
+
+- 所有 `badRequest().body("{\"error\":\"...\"}")` → `throw new IllegalArgumentException("...")`
+- 所有 `badRequest().body(Map.of("error", ...))` → `throw new IllegalArgumentException("...")`
+- 靜默降級 `return new Bundle()` / `return false` / `return new ArrayList<>()` → `throw new FhirServerUnavailableException(...)`
+
+#### Phase 3：Frontend 錯誤工具
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `utils/errorUtils.ts` — `extractApiError()` 函式 |
+| 修改 | `hooks/useInvalidatingMutation.ts` — 新增 `onError` 選項 |
+| 修改 | `main.tsx` — 全域 mutation `onError` 安全網 |
+
+`extractApiError` 依序嘗試：
+1. `AxiosError.response.data.message`（GlobalExceptionHandler 格式）
+2. `AxiosError.response.data.error`（舊版 Map 格式）
+3. `AxiosError.message`（網路錯誤）
+4. `Error.message`
+5. Fallback: `"An unknown error occurred"`
+
+#### Phase 4：Frontend Mutation 錯誤處理 + i18n
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `locales/en/common.json` — 新增 `mutationErrors` 區段（7 鍵） |
+| 修改 | `locales/zh-TW/common.json` — 對應中文翻譯 |
+| 修改 | `MeasureLibrary.tsx` — 5 個 mutation 加 `onError` |
+| 修改 | `TestCasesTab.tsx` — 3 個 mutation 加 `onError` |
+| 修改 | 13 個元件 — `(err as Error).message` → `extractApiError(err)` |
+
+受影響元件：EditorPage, MeasureEditor, MeasureLibrary, MeasurePanel, DataRequirementsTab, TestCasesTab, TestCaseImportDialog, ManageServicesPanel, SandboxPanel, InvokeServicePanel, ImportCqlDialog, ImplementationGuideBrowser, useCqlStructure
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 4（3 Backend exceptions + 1 Frontend util） |
+| 修改檔案 | 23 |
+| Backend 錯誤模式統一 | 4 種 → 1 種（GlobalExceptionHandler ErrorResponse） |
+| Frontend `(err as Error).message` 消除 | 25 處 → 0 處 |
+| 靜默 Resilience4j fallback 修復 | 5 處 |
+| 新增 i18n 鍵 | 14（7 en + 7 zh-TW） |
+
+### 驗證
+
+- `mvn compile -q` — 通過
+- `tsc --noEmit` — 通過
+- `grep "(err as Error).message" frontend/src/` — 0 結果
+- `grep "badRequest().body(\"{" backend/src/main/java/com/cqlplatform/controller/` — 0 結果
 
 ---

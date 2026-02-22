@@ -2,6 +2,7 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.config.OktaProperties;
 import com.cqlplatform.entity.UserEntity;
+import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.security.JwtTokenProvider;
@@ -59,7 +60,7 @@ public class AuthController {
         }
 
         var user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", request.getUsername()));
 
         String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().name());
 
@@ -108,7 +109,7 @@ public class AuthController {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
         var user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", username));
 
         Map<String, Object> response = new HashMap<>();
         response.put("username", user.getUsername());

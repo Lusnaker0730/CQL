@@ -82,7 +82,7 @@ public class FhirDataProviderService {
     @SuppressWarnings("unused")
     private Bundle searchResourcesFallback(String fhirServerUrl, String resourceType, String searchParams, Throwable t) {
         log.warn("Circuit breaker fallback for searchResources: {}", t.getMessage());
-        return new Bundle();
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "getResourceFallback")
@@ -263,7 +263,7 @@ public class FhirDataProviderService {
     private Bundle searchPatientsByDemographicsFallback(String fhirServerUrl,
                                                          String family, String given, String birthdate, String identifier, Throwable t) {
         log.warn("Circuit breaker fallback for searchPatientsByDemographics: {}", t.getMessage());
-        return new Bundle();
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     public int getAndResetRetrieveCount() {

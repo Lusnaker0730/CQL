@@ -43,6 +43,7 @@ import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
 import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface MeasurePanelProps {
   selectedMeasure?: MeasureDefinition | null
@@ -84,7 +85,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             dispatch(setCqlContent(full.cqlContent))
           }
         }).catch((err) => {
-          showNotification(t('panel.loadError', { error: (err as Error).message }), 'error')
+          showNotification(t('panel.loadError', { error: extractApiError(err) }), 'error')
         })
       }
     }
@@ -270,7 +271,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
 
         {evaluateMutation.isError && (
           <Alert severity="error">
-            {t('panel.evaluationFailed', { error: (evaluateMutation.error as Error).message })}
+            {t('panel.evaluationFailed', { error: extractApiError(evaluateMutation.error) })}
           </Alert>
         )}
 

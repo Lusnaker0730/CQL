@@ -33,6 +33,8 @@ import {
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
+import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
@@ -58,7 +60,9 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const { t } = useTranslation('measures')
+  const { t: tCommon } = useTranslation('common')
   const queryClient = useQueryClient()
+  const { showNotification } = useNotification()
   const [editing, setEditingRaw] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
@@ -102,6 +106,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.deleteFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const runOneMutation = useMutation({
@@ -113,6 +118,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         return [...filtered, result]
       })
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const runAllMutation = useMutation({
@@ -121,6 +127,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults(results)
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const coverageMutation = useMutation({

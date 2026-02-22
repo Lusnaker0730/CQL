@@ -48,6 +48,7 @@ import BatchEvaluationDialog from './BatchEvaluationDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import type { MeasureDefinition } from '../../types'
 import { getStoredUsername } from '../../utils/validation'
 import {
@@ -118,6 +119,8 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     [allMeasures, filterTab, currentUser]
   )
 
+  const { t: tCommon } = useTranslation('common')
+
   const createMutation = useMutation({
     mutationFn: (def: MeasureDefinition) => measureApi.createMeasure(def),
     onSuccess: () => {
@@ -125,11 +128,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setCreateOpen(false)
       setNewMeasure({ name: '', version: '1.0.0', title: '', description: '', status: DEFAULT_MEASURE_STATUS, scoringType: DEFAULT_SCORING_TYPE })
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.createFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => measureApi.deleteMeasure(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
+    onError: (err) => showNotification(tCommon('mutationErrors.deleteFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const importMutation = useMutation({
@@ -139,6 +144,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setImportOpen(false)
       setImportJson('')
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.importFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const importBundleMutation = useMutation({
@@ -148,6 +154,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setImportOpen(false)
       setImportJson('')
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.importFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const updateMutation = useMutation({
@@ -157,6 +164,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setEditOpen(false)
       setEditMeasure(null)
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.updateFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const handleEdit = async (id: number, e: React.MouseEvent) => {
@@ -166,7 +174,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       setEditMeasure(full)
       setEditOpen(true)
     } catch (err) {
-      showNotification(t('library.importDialog.loadError', { error: (err as Error).message }), 'error')
+      showNotification(t('library.importDialog.loadError', { error: extractApiError(err) }), 'error')
     }
   }
 
@@ -203,7 +211,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      showNotification(t('library.importDialog.exportError', { error: (err as Error).message }), 'error')
+      showNotification(t('library.importDialog.exportError', { error: extractApiError(err) }), 'error')
     }
   }
 
@@ -408,7 +416,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             <TextField label={t('library.createDialog.cqlContent')} size="small" fullWidth multiline rows={4}
               value={newMeasure.cqlContent || ''} onChange={(e) => setNewMeasure({ ...newMeasure, cqlContent: e.target.value })} />
             {createMutation.isError && (
-              <Alert severity="error">{(createMutation.error as Error).message}</Alert>
+              <Alert severity="error">{extractApiError(createMutation.error)}</Alert>
             )}
           </Stack>
         </DialogContent>
@@ -460,7 +468,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   value={editMeasure.cqlContent || ''} onChange={(e) => setEditMeasure({ ...editMeasure, cqlContent: e.target.value })}
                   InputProps={{ sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' } }} />
                 {updateMutation.isError && (
-                  <Alert severity="error">{(updateMutation.error as Error).message}</Alert>
+                  <Alert severity="error">{extractApiError(updateMutation.error)}</Alert>
                 )}
               </Stack>
             </DialogContent>
@@ -528,10 +536,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               : t('library.importDialog.measurePlaceholder')}
           />
           {importMutation.isError && (
-            <Alert severity="error" sx={{ mt: 1 }}>{(importMutation.error as Error).message}</Alert>
+            <Alert severity="error" sx={{ mt: 1 }}>{extractApiError(importMutation.error)}</Alert>
           )}
           {importBundleMutation.isError && (
-            <Alert severity="error" sx={{ mt: 1 }}>{(importBundleMutation.error as Error).message}</Alert>
+            <Alert severity="error" sx={{ mt: 1 }}>{extractApiError(importBundleMutation.error)}</Alert>
           )}
           {importBundleMutation.isSuccess && (
             <Alert severity="success" sx={{ mt: 1 }}>

@@ -137,14 +137,10 @@ public class FhirController {
     @Operation(summary = "Get Resource Metadata", description = "Get element metadata for a FHIR resource type")
     public ResponseEntity<ResourceElementMetadata> getResourceMetadata(@PathVariable String resourceType) {
         if (!InputValidator.isValidFhirResourceType(resourceType)) {
-            return ResponseEntity.badRequest().build();
+            throw new IllegalArgumentException("Invalid FHIR resource type: " + resourceType);
         }
-        try {
-            ResourceElementMetadata metadata = structureDefinitionService.getResourceMetadata(resourceType);
-            return ResponseEntity.ok(metadata);
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
+        ResourceElementMetadata metadata = structureDefinitionService.getResourceMetadata(resourceType);
+        return ResponseEntity.ok(metadata);
     }
 
     // ─── Cache Management ────────────────────────────────────────────
@@ -174,7 +170,7 @@ public class FhirController {
             @RequestParam(name = "_type", required = false) String typeFilter) {
 
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().build();
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         FhirBulkExportService.BulkExportKickOffResult result =
@@ -188,7 +184,7 @@ public class FhirController {
             @RequestParam String statusUrl) {
 
         if (!InputValidator.isValidUrl(statusUrl)) {
-            return ResponseEntity.badRequest().build();
+            throw new IllegalArgumentException("Invalid status URL");
         }
 
         FhirBulkExportService.BulkExportStatusResult result = bulkExportService.pollExportStatus(statusUrl);
@@ -207,7 +203,7 @@ public class FhirController {
             @RequestBody String bundleJson) {
 
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         Bundle bundle = (Bundle) fhirContext.newJsonParser().parseResource(bundleJson);
@@ -242,16 +238,16 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer) {
 
         if (!InputValidator.isValidNameParam(family)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid family name parameter"));
+            throw new IllegalArgumentException("Invalid family name parameter");
         }
         if (!InputValidator.isValidNameParam(given)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid given name parameter"));
+            throw new IllegalArgumentException("Invalid given name parameter");
         }
         if (!InputValidator.isValidDateParam(birthdate)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid birthdate parameter"));
+            throw new IllegalArgumentException("Invalid birthdate parameter");
         }
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid FHIR server URL"));
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         Bundle bundle = dataProviderService.searchPatientsByDemographics(fhirServer, family, given, birthdate, identifier);
@@ -284,7 +280,7 @@ public class FhirController {
     @Operation(summary = "Get VSAC ValueSet", description = "Fetch a ValueSet from VSAC by OID")
     public ResponseEntity<String> getVsacValueSet(@PathVariable String oid) {
         if (!InputValidator.isValidResourceId(oid)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid OID\"}");
+            throw new IllegalArgumentException("Invalid OID");
         }
 
         ValueSet valueSet = vsacService.getValueSetByOid(oid);
@@ -298,7 +294,7 @@ public class FhirController {
     @Operation(summary = "Expand VSAC ValueSet", description = "Expand a ValueSet from VSAC by OID")
     public ResponseEntity<String> expandVsacValueSet(@PathVariable String oid) {
         if (!InputValidator.isValidResourceId(oid)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid OID\"}");
+            throw new IllegalArgumentException("Invalid OID");
         }
 
         ValueSet expanded = vsacService.expandValueSetByOid(oid);
@@ -318,13 +314,13 @@ public class FhirController {
             @RequestParam(required = false) String params) {
 
         if (!InputValidator.isValidFhirResourceType(resourceType)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR resource type: " + resourceType + "\"}");
+            throw new IllegalArgumentException("Invalid FHIR resource type: " + resourceType);
         }
         if (!InputValidator.isValidSearchParams(params)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid search parameters\"}");
+            throw new IllegalArgumentException("Invalid search parameters");
         }
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         Bundle bundle = dataProviderService.searchResources(fhirServer, resourceType, params);
@@ -342,13 +338,13 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer) {
 
         if (!InputValidator.isValidFhirResourceType(resourceType)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR resource type\"}");
+            throw new IllegalArgumentException("Invalid FHIR resource type");
         }
         if (!InputValidator.isValidResourceId(id)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid resource ID\"}");
+            throw new IllegalArgumentException("Invalid resource ID");
         }
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         Resource resource = dataProviderService.getResource(fhirServer, resourceType, id);
@@ -366,7 +362,7 @@ public class FhirController {
             @RequestBody String resourceJson) {
 
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
@@ -386,7 +382,7 @@ public class FhirController {
             @RequestBody String resourceJson) {
 
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
@@ -406,7 +402,7 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer) {
 
         if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().build();
+            throw new IllegalArgumentException("Invalid FHIR server URL");
         }
 
         dataProviderService.deleteResource(fhirServer, resourceType, id);

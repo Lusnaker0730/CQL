@@ -4,6 +4,8 @@ import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureReportEntity;
 import com.cqlplatform.entity.MeasureScheduleEntity;
 import com.cqlplatform.exception.CqlExecutionException;
+import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
@@ -27,8 +29,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -70,7 +70,7 @@ public class MeasureController {
     /** Fetch a measure or throw 404. */
     private MeasureDefinition requireMeasure(Long id) {
         return definitionService.getById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Measure not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Measure", id));
     }
 
     /** Fetch a measure and verify the current user owns it (or is admin). */
@@ -83,7 +83,7 @@ public class MeasureController {
     /** Fetch a schedule by ID and verify ownership of its parent measure. */
     private MeasureScheduleEntity requireOwnedSchedule(Long scheduleId) {
         MeasureScheduleEntity schedule = scheduleService.getScheduleById(scheduleId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Schedule not found: " + scheduleId));
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule", scheduleId));
         requireOwnedMeasure(schedule.getMeasureDefinitionId());
         return schedule;
     }
@@ -92,7 +92,7 @@ public class MeasureController {
     private void verifyTestCaseBelongsToMeasure(Long measureId, Long testCaseId) {
         testCaseService.getById(testCaseId).ifPresent(tc -> {
             if (tc.getMeasureDefinitionId() != null && !tc.getMeasureDefinitionId().equals(measureId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                throw new ValidationException(
                         "Test case " + testCaseId + " does not belong to measure " + measureId);
             }
         });

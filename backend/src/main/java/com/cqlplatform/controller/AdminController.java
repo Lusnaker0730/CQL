@@ -1,6 +1,9 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.UserEntity;
+import com.cqlplatform.exception.DuplicateResourceException;
+import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
@@ -33,7 +36,7 @@ public class AdminController {
     @PostMapping("/users")
     public ResponseEntity<UserSummary> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            return ResponseEntity.badRequest().build();
+            throw new DuplicateResourceException("User", "username", request.getUsername());
         }
 
         UserEntity user = UserEntity.builder()
@@ -56,10 +59,10 @@ public class AdminController {
             @Valid @RequestBody RoleUpdateRequest request) {
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         if (user.getUsername().equals(currentUsername)) {
-            return ResponseEntity.badRequest().build();
+            throw new ValidationException("Cannot modify your own account");
         }
 
         user.setRole(UserEntity.Role.valueOf(request.getRole()));
@@ -73,10 +76,10 @@ public class AdminController {
             @Valid @RequestBody EnabledUpdateRequest request) {
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         if (user.getUsername().equals(currentUsername)) {
-            return ResponseEntity.badRequest().build();
+            throw new ValidationException("Cannot modify your own account");
         }
 
         user.setEnabled(request.getEnabled());
@@ -87,7 +90,7 @@ public class AdminController {
     @PostMapping("/users/{userId}/reset-password")
     public ResponseEntity<?> resetUserPassword(@PathVariable Long userId) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         if (user.getAuthProvider() == UserEntity.AuthProvider.OKTA) {
             return ResponseEntity.badRequest()

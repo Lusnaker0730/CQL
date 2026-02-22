@@ -130,14 +130,14 @@ public class FhirTerminologyService {
             return resultValue.booleanValue();
         } catch (Exception e) {
             log.error("Failed to validate code", e);
-            return false;
+            throw new FhirServerUnavailableException("Code validation failed: " + e.getMessage(), e);
         }
     }
 
     @SuppressWarnings("unused")
     private boolean validateCodeFallback(String system, String code, String valueSetUrl, Throwable t) {
         log.warn("Circuit breaker fallback for validateCode: {}", t.getMessage());
-        return false;
+        throw new FhirServerUnavailableException("Terminology server unavailable: " + t.getMessage(), t);
     }
 
     @Cacheable(value = "codeLookup", key = "#system + ':' + #code")
@@ -289,7 +289,7 @@ public class FhirTerminologyService {
     @SuppressWarnings("unused")
     private List<ValueSet> searchValueSetsFallback(String searchTerm, Throwable t) {
         log.warn("Circuit breaker fallback for searchValueSets: {}", t.getMessage());
-        return new ArrayList<>();
+        throw new FhirServerUnavailableException("Terminology server unavailable: " + t.getMessage(), t);
     }
 
     @Cacheable(value = "codeSearch", key = "#system + ':' + #text + ':' + #maxResults")

@@ -103,6 +103,15 @@
     "somethingWentWrong": "Something went wrong",
     "unexpectedError": "An unexpected error occurred. Try refreshing this section."
   },
+  "mutationErrors": {
+    "createFailed": "Failed to create: {{error}}",
+    "updateFailed": "Failed to update: {{error}}",
+    "deleteFailed": "Failed to delete: {{error}}",
+    "importFailed": "Failed to import: {{error}}",
+    "exportFailed": "Failed to export: {{error}}",
+    "operationFailed": "Operation failed: {{error}}",
+    "runFailed": "Failed to run: {{error}}"
+  },
   "dialogs": {
     "deleteConfirm": {
       "title": "Delete",
