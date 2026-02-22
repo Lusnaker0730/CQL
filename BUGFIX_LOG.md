@@ -8,9 +8,9 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 038 | 2026-02-23 | Critical | 資料庫連線池（後端） | HikariCP 連線池耗盡導致所有 API 逾時、無法登入 | 配置遺漏 | [`448c674`](../../commit/448c674) |
-| 037 | 2026-02-23 | High | 術語查詢（前端） | Autocomplete freeSolo 以顯示標籤覆蓋系統 URL 致術語查詢 503 | 邏輯錯誤 | [`448c674`](../../commit/448c674) |
-| 036 | 2026-02-23 | Medium | 指標庫表格（前端） | MeasureLibrary 虛擬捲動表頭與內容欄位錯位擠壓 | UX 設計缺陷 | [`448c674`](../../commit/448c674) |
+| 038 | 2026-02-23 | Critical | 資料庫連線池（後端） | HikariCP 連線池耗盡導致所有 API 逾時、無法登入 | 配置遺漏 | [`ccdf3f2`](../../commit/ccdf3f2) |
+| 037 | 2026-02-23 | High | 術語查詢（前端） | Autocomplete freeSolo 以顯示標籤覆蓋系統 URL 致術語查詢 503 | 邏輯錯誤 | [`ccdf3f2`](../../commit/ccdf3f2) |
+| 036 | 2026-02-23 | Medium | 指標庫表格（前端） | MeasureLibrary 虛擬捲動表頭與內容欄位錯位擠壓 | UX 設計缺陷 | [`ccdf3f2`](../../commit/ccdf3f2) |
 | 035 | 2026-02-22 | High | 品質指標儀表板（後端） | DashboardService 多處 NullPointerException 導致所有 Dashboard API 回傳 500 | 邏輯錯誤 | [`3f4c1c5`](../../commit/3f4c1c5) |
 | 034 | 2026-02-22 | Low | 品質指標儀表板（前端） | Recharts ResponsiveContainer 初始化時計算 width/height 為 -1 | 配置遺漏 | [`3f4c1c5`](../../commit/3f4c1c5) |
 | 033 | 2026-02-22 | Medium | CQL 編輯器（前端） | 工具列 Undo/Redo 按鈕無效 — Redux 歷史與 Monaco 原生 undo 脫節 | 架構缺陷 | [`dca6617`](../../commit/dca6617) |
@@ -70,7 +70,7 @@
 | **嚴重程度** | Critical |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `application.yml`, `application-docker.yml`, `application-dev.yml`, `CdsHooksService.java` |
-| **Commit** | [`448c674`](../../commit/448c674) |
+| **Commit** | [`ccdf3f2`](../../commit/ccdf3f2) |
 
 ### BUG 描述
 
@@ -104,7 +104,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 邏輯錯誤 |
 | **影響範圍** | `DrawerCodeLookupPanel.tsx`, `DrawerCodeSearchPanel.tsx` |
-| **Commit** | [`448c674`](../../commit/448c674) |
+| **Commit** | [`ccdf3f2`](../../commit/ccdf3f2) |
 
 ### BUG 描述
 
@@ -133,7 +133,7 @@
 | **嚴重程度** | Medium |
 | **根因類型** | UX 設計缺陷 |
 | **影響範圍** | `MeasureLibrary.tsx` |
-| **Commit** | [`448c674`](../../commit/448c674) |
+| **Commit** | [`ccdf3f2`](../../commit/ccdf3f2) |
 
 ### BUG 描述
 
