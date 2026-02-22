@@ -88,13 +88,13 @@ class AdminControllerTest {
 
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
-    void createUser_duplicateUsername_shouldReturn400() throws Exception {
+    void createUser_duplicateUsername_shouldReturn409() throws Exception {
         when(userRepository.existsByUsername("existing")).thenReturn(true);
 
         mockMvc.perform(post("/api/admin/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"existing\",\"password\":\"password123\",\"role\":\"USER\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
     }
 
     @Test
