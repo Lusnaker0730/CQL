@@ -25,6 +25,7 @@
 | 015 | 2026-02-21 | FHIR | P2-8: EHR/HIS 整合連接器 | Backend + Frontend (FHIR, Measures) | [`3dbf07a`](../../commit/3dbf07a) |
 | 016 | 2026-02-21 | 安全性 | Okta SSO (OIDC) 整合 | Backend + Frontend (Auth, Admin) | [`7d48d6b`](../../commit/7d48d6b) |
 | 017 | 2026-02-22 | eQCM | 補完科別分類功能（篩選 + 指派） | Backend + Frontend (Measures) | [`b205335`](../../commit/b205335) |
+| 018 | 2026-02-22 | 文件 | API 參考文件 + OpenAPI 規格檔 | 專案根目錄（API.md, openapi.yaml） | [`pending`](#018--api-參考文件--openapi-規格檔) |
 
 ---
 
@@ -1365,5 +1366,78 @@ MeasureLibrary 的 FHIR Bundle 匯入功能僅支援文字區域貼上 JSON，�
 - `npx tsc --noEmit` — 無型別錯誤
 - 無 DB 遷移（`department` 欄位已在 V26 建立）
 - 既有 `search(String)` 保持向下相容
+
+---
+
+## #018 — API 參考文件 + OpenAPI 規格檔
+
+- **日期**: 2026-02-22
+- **範圍**: 文件 — API 參考手冊
+- **分類**: 文件撰寫
+
+### 問題描述
+
+CQL Platform 後端有 17 個 REST Controller、222 個端點，涵蓋 CQL 編輯/執行、品質指標管理、FHIR 資源操作、CDS 決策支援、權限管理等完整功能，但缺乏統一的 API 參考文件。開發者和整合人員需要查閱原始碼才能了解端點用法。
+
+### 修改內容
+
+#### 新增 `API.md` — Markdown API 參考手冊（1,522 行）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `API.md` |
+
+- 繁體中文撰寫
+- 13 個章節：概述、認證、CQL 操作、品質指標、FHIR 資源、CDS 決策支援、CDS 撰寫工具、EHR 整合、管理功能、指標目錄、通知、使用者設定、附錄
+- 每個端點包含：HTTP 方法、路徑、說明、參數表格（名稱/位置/類型/必填/說明）、請求範例 JSON、回應範例 JSON
+- 涵蓋全部 222 個端點、17 個 Controller
+
+#### 新增 `openapi.yaml` — OpenAPI 3.0.3 規格檔（5,158 行）
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `openapi.yaml` |
+
+- 標準 OpenAPI 3.0.3 格式
+- 25 個 tags（依控制器分類）
+- JWT Bearer security scheme
+- 40+ component schemas（LoginRequest、AuthResponse、CqlLibrary、MeasureDefinition、TestCase、CdsRequest、CdsResponse 等）
+- 所有 `description` 欄位使用繁體中文
+- 可被 Swagger UI、Redoc、Postman 直接匯入使用
+
+### 涵蓋的 Controller（17 個，222 端點）
+
+| Controller | 端點數 |
+|------------|--------|
+| AuthController | 8 |
+| CqlController | 27 |
+| MeasureController | 65 |
+| FhirController | 29 |
+| CdsServiceConfigController | 13 |
+| CdsHooksController | 6 |
+| AuthoringController | 25 |
+| EhrIntegrationController | 10 |
+| AdminController | 5 |
+| AuditController | 6 |
+| DepartmentController | 5 |
+| IndicatorCatalogController | 5 |
+| NotificationController | 6 |
+| SettingsController | 2 |
+| UserApiKeyController | 3 |
+| UserLibraryPrefsController | 6 |
+| SmartConfigController | 1 |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 新增檔案 | 2（API.md + openapi.yaml） |
+| 總行數 | 6,680（1,522 + 5,158） |
+| 涵蓋端點 | 222 |
+
+### 驗證
+
+- `npx yaml-lint openapi.yaml` — YAML 語法正確
+- endpoint 計數：`grep -c 'operationId:' openapi.yaml` → 222
 
 ---
