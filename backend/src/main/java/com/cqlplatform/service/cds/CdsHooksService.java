@@ -203,6 +203,7 @@ public class CdsHooksService {
 
     // --- Discovery ---
 
+    @Transactional(readOnly = true)
     public List<CdsServiceDefinition> getServiceDefinitionsForUser(String username) {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
         List<CdsServiceConfigEntity> entities = repository.findByOwnerUsernameAndEnabledTrue(username);
@@ -222,6 +223,7 @@ public class CdsHooksService {
         return definitions;
     }
 
+    @Transactional(readOnly = true)
     public List<CdsServiceDefinition> getSharedServiceDefinitions() {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
 

@@ -38,7 +38,9 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
 
   const handleLookup = () => {
     if (!system || !code) return
-    lookupMutation.mutate({ system, code })
+    // Extract URL from display label "LABEL — URL" if selected from dropdown
+    const entry = ALL_CODE_SYSTEMS.find((cs) => system.includes(cs.url))
+    lookupMutation.mutate({ system: entry?.url || system, code })
   }
 
   const result = lookupMutation.data
@@ -62,10 +64,13 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
         }
         value={selectedEntry}
         inputValue={system}
-        onInputChange={(_, v) => setSystem(v)}
+        onInputChange={(_, v, reason) => {
+          if (reason === 'input' || reason === 'clear') setSystem(v)
+        }}
         onChange={(_, newVal) => {
           if (typeof newVal === 'string') setSystem(newVal)
           else if (newVal) setSystem((newVal as CodeSystemEntry).url)
+          else setSystem('')
         }}
         renderInput={(params) => (
           <TextField

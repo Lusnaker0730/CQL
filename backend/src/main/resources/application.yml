@@ -35,9 +35,18 @@ spring:
     username: ${DB_USERNAME:cqlplatform}
     password: ${DB_PASSWORD:cqlplatform}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000        # 5 minutes
+      max-lifetime: 600000        # 10 minutes
+      connection-timeout: 20000   # 20 seconds
+      leak-detection-threshold: 60000  # log warning if connection held > 60s
+      pool-name: CqlPlatformPool
 
   # JPA Configuration
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false

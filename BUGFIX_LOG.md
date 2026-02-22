@@ -8,6 +8,9 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 038 | 2026-02-23 | Critical | 資料庫連線池（後端） | HikariCP 連線池耗盡導致所有 API 逾時、無法登入 | 配置遺漏 | [`448c674`](../../commit/448c674) |
+| 037 | 2026-02-23 | High | 術語查詢（前端） | Autocomplete freeSolo 以顯示標籤覆蓋系統 URL 致術語查詢 503 | 邏輯錯誤 | [`448c674`](../../commit/448c674) |
+| 036 | 2026-02-23 | Medium | 指標庫表格（前端） | MeasureLibrary 虛擬捲動表頭與內容欄位錯位擠壓 | UX 設計缺陷 | [`448c674`](../../commit/448c674) |
 | 035 | 2026-02-22 | High | 品質指標儀表板（後端） | DashboardService 多處 NullPointerException 導致所有 Dashboard API 回傳 500 | 邏輯錯誤 | [`3f4c1c5`](../../commit/3f4c1c5) |
 | 034 | 2026-02-22 | Low | 品質指標儀表板（前端） | Recharts ResponsiveContainer 初始化時計算 width/height 為 -1 | 配置遺漏 | [`3f4c1c5`](../../commit/3f4c1c5) |
 | 033 | 2026-02-22 | Medium | CQL 編輯器（前端） | 工具列 Undo/Redo 按鈕無效 — Redux 歷史與 Monaco 原生 undo 脫節 | 架構缺陷 | [`dca6617`](../../commit/dca6617) |
@@ -55,6 +58,101 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #038 — HikariCP 連線池耗盡導致所有 API 逾時、無法登入
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | 資料庫連線池（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `application.yml`, `application-docker.yml`, `application-dev.yml`, `CdsHooksService.java` |
+| **Commit** | [`448c674`](../../commit/448c674) |
+
+### BUG 描述
+
+後端運行一段時間後，所有 API 請求逾時返回 `Connection is not available, request timed out after 30000ms`。使用者無法登入（admin/admin），此問題反覆出現需重啟後端才能暫時恢復。
+
+**根本原因（3 個配置問題）**：
+
+1. **連線池大小不足**：HikariCP 未配置，使用預設值 `maximum-pool-size=10`，在排程任務 (`@Scheduled(fixedRate=60000)`) + API 請求 + FHIR 呼叫並行下不足
+2. **OSIV 未關閉**：`spring.jpa.open-in-view` 預設為 `true`，HTTP 請求期間持有 DB 連線不釋放，長時間 FHIR 評估呼叫期間佔住連線
+3. **無洩漏偵測**：無 `leak-detection-threshold`，洩漏連線無法被發現
+
+### 修正方式
+
+1. 新增 HikariCP 配置：`maximum-pool-size: 20`、`minimum-idle: 5`、`idle-timeout: 300000`、`max-lifetime: 600000`、`connection-timeout: 20000`、`leak-detection-threshold: 60000`
+2. 關閉 OSIV：`spring.jpa.open-in-view: false`
+3. CDS 發現方法加上 `@Transactional(readOnly=true)` 防止 OSIV 關閉後的 lazy-loading 問題
+
+### 驗證
+
+- 565 個後端測試全數通過
+- Docker 重建後 backend 狀態 healthy，HikariCP 啟動日誌顯示 `CqlPlatformPool - Start completed`
+
+---
+
+## #037 — Autocomplete freeSolo 以顯示標籤覆蓋系統 URL 致術語查詢 503
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | 術語查詢（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `DrawerCodeLookupPanel.tsx`, `DrawerCodeSearchPanel.tsx` |
+| **Commit** | [`448c674`](../../commit/448c674) |
+
+### BUG 描述
+
+術語抽屜中選擇 LOINC 等代碼系統後查詢代碼，返回 HTTP 503 錯誤。
+
+**根本原因**：MUI Autocomplete `freeSolo` 模式下，當使用者從下拉選單選擇一個選項時，`onInputChange` 會被觸發 3 次：`'input'` → `'reset'`。`reason='reset'` 時將 `inputValue` 設為選項的顯示標籤（如 `"LOINC — http://loinc.org"`），覆蓋了先前 `onChange` 設定的純 URL 值 `"http://loinc.org"`。後端收到帶有 `—` 的非法 URL，FHIR 伺服器回傳 503。
+
+### 修正方式
+
+1. `onInputChange` 僅在 `reason === 'input' || reason === 'clear'` 時更新 state
+2. `handleLookup` 加入 fallback：`ALL_CODE_SYSTEMS.find(cs => system.includes(cs.url))?.url || system`
+
+### 驗證
+
+- Docker 重建後術語查詢正常返回代碼結果
+- 支援下拉選擇與手動輸入 URL 兩種方式
+
+---
+
+## #036 — MeasureLibrary 虛擬捲動表頭與內容欄位錯位擠壓
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | 指標庫表格（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | UX 設計缺陷 |
+| **影響範圍** | `MeasureLibrary.tsx` |
+| **Commit** | [`448c674`](../../commit/448c674) |
+
+### BUG 描述
+
+指標庫表格在較小螢幕上欄位完全擠壓在一起，表頭與資料列欄寬不一致。
+
+**根本原因**：`react-window` `FixedSizeList` 將每一列渲染為獨立 `<Table>`，與表頭 `<Table>` 分離。兩個 `<Table>` 各自使用 `auto` 佈局計算欄寬，導致寬度不同步。
+
+### 修正方式
+
+1. 設定 `tableLayout: 'fixed'` 強制固定佈局
+2. 欄位寬度改用百分比（`COL_W = { checkbox: '4%', name: '28%', ... }`）
+3. 外層包裹 `Box sx={{ overflowX: 'auto' }}`，設定 `minWidth: 860`
+4. 名稱欄加上 `overflow: hidden` 防止溢出
+5. 頂部工具列加上 `flexWrap: 'wrap'` 響應式排版
+
+### 驗證
+
+- 小螢幕表頭與資料列欄位對齊
+- 超長名稱自動截斷，水平捲動正常
 
 ---
 

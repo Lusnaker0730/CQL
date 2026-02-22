@@ -101,6 +101,7 @@ services:
       - hapi.fhir.allow_external_references=true
       - hapi.fhir.allow_multiple_delete=false
       - hapi.fhir.reuse_cached_search_results_millis=-1
+      - JAVA_TOOL_OPTIONS=-Xmx1536m
     volumes:
       - hapi-data:/data/hapi
     networks:
@@ -114,7 +115,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 2G
 
   prometheus:
     image: prom/prometheus:v2.51.0
