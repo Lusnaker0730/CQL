@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 033 | 2026-02-22 | Medium | CQL 編輯器（前端） | 工具列 Undo/Redo 按鈕無效 — Redux 歷史與 Monaco 原生 undo 脫節 | 架構缺陷 | [`pending`](#) |
 | 032 | 2026-02-21 | Medium | eCQM 資料需求（後端） | DataRequirements 未解析 ToConcept 包裝的 CodeRef 及 Case 包裝的日期屬性 | 資料處理錯誤 | [`b50d94a`](../../commit/b50d94a) |
 | 031 | 2026-02-21 | High | eCQM 種子資料（後端） | 種子 CQL 語法錯誤導致 DataRequirements 標籤頁空白 | 資料處理錯誤 | [`63a5781`](../../commit/63a5781) |
 | 030 | 2026-02-21 | High | API 客戶端（前端） | departmentApi/ehrApi/indicatorApi 使用原生 axios 無 JWT 攔截器致 401 | 配置遺漏 | [`63a5781`](../../commit/63a5781) |
@@ -52,6 +53,47 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #033 — 工具列 Undo/Redo 按鈕無效 — Redux 歷史與 Monaco 原生 undo 脫節
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-22 |
+| **功能分類** | CQL 編輯器（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `frontend/src/components/editor/CqlEditor.tsx`、`frontend/src/pages/EditorPage.tsx` |
+| **Commit** | [`pending`](#) |
+
+### BUG 描述
+
+CQL 編輯器工具列的 Undo（←）/ Redo（→）按鈕永遠處於 disabled 狀態，點擊無反應。
+
+**根本原因（雙重）**：
+
+1. **Redux 歷史堆疊與 Monaco 原生 undo 脫節**：工具列按鈕使用 Redux `past[]`/`future[]` 陣列控制 `disabled` 狀態並執行撤銷。但使用者在 Monaco 編輯器中打字時，`handleChange` 僅呼叫 `setCqlContent()`（不記錄歷史），`past[]` 永遠為空 → `canUndo = past.length > 0` 始終為 `false` → 按鈕永遠 disabled。
+
+2. **`setValue()` 清除 Monaco undo 堆疊**：外部載入內容（如切換 Library）時，`useEffect` 呼叫 `editorRef.current.setValue(cqlContent)` 同步 Redux 狀態至編輯器，但 Monaco 的 `setValue()` 會清除內建的 undo 堆疊，導致 Ctrl+Z 也無法回復到載入前的內容。
+
+### 修正方式
+
+- **`CqlEditor.tsx`**：
+  - 新增 `onEditorRef` prop，讓父元件取得 Monaco `IStandaloneCodeEditor` 實例
+  - 將外部內容同步從 `setValue()` 改為 `executeEdits('external', [...])`，保留 Monaco 的 undo 歷史堆疊
+- **`EditorPage.tsx`**：
+  - 工具列 Undo/Redo 按鈕改為直接觸發 Monaco 原生 `undo`/`redo` 指令（`editor.trigger('toolbar', 'undo/redo', null)`）
+  - 點擊後自動 `focus()` 回編輯器，確保後續鍵盤操作正常
+  - 移除對 Redux `past`/`future` 的依賴，移除 `disabled` 限制
+
+### 測試驗證
+
+- [x] `npx tsc --noEmit` 編譯通過
+- [ ] 在編輯器中打字後，點擊工具列 Undo 按鈕可撤銷
+- [ ] Ctrl+Z / Ctrl+Y 鍵盤快捷鍵正常運作
+- [ ] 透過 Builder 插入/刪除程式碼片段後，Undo 可回復
+- [ ] 載入 Library 後，Undo 可回復到載入前的內容
 
 ---
 

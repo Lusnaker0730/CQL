@@ -44,7 +44,7 @@ import CreateVersionDialog from '../components/editor/CreateVersionDialog'
 import VersionHistoryDialog from '../components/editor/VersionHistoryDialog'
 import VersionDiffDialog from '../components/editor/VersionDiffDialog'
 import type { RootState } from '../store'
-import { setCqlContent, setCqlContentWithHistory, undo, redo, setGoToLine } from '../store/editorSlice'
+import { setCqlContent, setCqlContentWithHistory, setGoToLine } from '../store/editorSlice'
 import { findElementLineRange } from '../utils/cqlElementLocator'
 import type { CqlElementType } from '../utils/cqlElementLocator'
 import { useTranslate, useCreateLibrary, useExportLibrary, useImportLibrary, useLibrariesMetadata, useLibrary } from '../hooks/useCql'
@@ -58,9 +58,8 @@ import TabPanel, { a11yProps } from '../components/common/TabPanel'
 export default function EditorPage() {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
-  const { cqlContent, isTranslating, errors, elmJson, cursorPosition, past, future } = useSelector((state: RootState) => state.editor)
-  const canUndo = past.length > 0
-  const canRedo = future.length > 0
+  const { cqlContent, isTranslating, errors, elmJson, cursorPosition } = useSelector((state: RootState) => state.editor)
+  const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
   const [rightPanelTab, setRightPanelTab] = useState(0)
   const [showBuilder, setShowBuilder] = useState(false)
   const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
@@ -290,14 +289,14 @@ export default function EditorPage() {
                 <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
                   <Tooltip title={t('toolbar.undo')}>
                     <span>
-                      <IconButton size="small" onClick={() => dispatch(undo())} disabled={!canUndo}>
+                      <IconButton size="small" onClick={() => { monacoEditorRef.current?.trigger('toolbar', 'undo', null); monacoEditorRef.current?.focus() }}>
                         <UndoIcon fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
                   <Tooltip title={t('toolbar.redo')}>
                     <span>
-                      <IconButton size="small" onClick={() => dispatch(redo())} disabled={!canRedo}>
+                      <IconButton size="small" onClick={() => { monacoEditorRef.current?.trigger('toolbar', 'redo', null); monacoEditorRef.current?.focus() }}>
                         <RedoIcon fontSize="small" />
                       </IconButton>
                     </span>
@@ -489,6 +488,7 @@ export default function EditorPage() {
                 onTranslate={handleTranslate}
                 terminologyIssues={terminologyResults.filter((r) => r.status !== 'valid')}
                 libraryMetadata={libraryMetadata}
+                onEditorRef={(editor) => { monacoEditorRef.current = editor }}
               />
             </Box>
           </Paper>

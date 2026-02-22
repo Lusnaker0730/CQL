@@ -17,6 +17,7 @@ interface CqlEditorProps {
   onExecute?: () => void
   terminologyIssues?: TerminologyValidationItem[]
   libraryMetadata?: LibraryMetadata[]
+  onEditorRef?: (editor: editor.IStandaloneCodeEditor) => void
 }
 
 export default function CqlEditor({
@@ -26,6 +27,7 @@ export default function CqlEditor({
   onExecute,
   terminologyIssues,
   libraryMetadata,
+  onEditorRef,
 }: CqlEditorProps) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings, goToLine } = useSelector((state: RootState) => state.editor)
@@ -66,6 +68,7 @@ export default function CqlEditor({
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
+    onEditorRef?.(editor)
 
     // Sanitize pasted content from ChatGPT/LLM outputs
     editor.onDidPaste(() => {
@@ -125,13 +128,21 @@ export default function CqlEditor({
   )
 
   // Sync content from Redux only when it changes externally (e.g., loading a library)
+  // Use executeEdits instead of setValue to preserve Monaco's undo stack
   useEffect(() => {
     if (!editorRef.current) return
     if (cqlContent !== lastExternalContent.current) {
       lastExternalContent.current = cqlContent
-      const currentValue = editorRef.current.getValue()
-      if (currentValue !== cqlContent) {
-        editorRef.current.setValue(cqlContent)
+      const model = editorRef.current.getModel()
+      if (model) {
+        const currentValue = model.getValue()
+        if (currentValue !== cqlContent) {
+          const fullRange = model.getFullModelRange()
+          editorRef.current.executeEdits('external', [{
+            range: fullRange,
+            text: cqlContent,
+          }])
+        }
       }
     }
   }, [cqlContent])
