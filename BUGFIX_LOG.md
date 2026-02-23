@@ -8,6 +8,10 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`cf63cac`](../../commit/cf63cac) |
+| 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`cf63cac`](../../commit/cf63cac) |
+| 040 | 2026-02-23 | High | Test Cases（後端） | TestCaseService 缺少 Measurement Period 參數致時間過濾失效 | 配置遺漏 | [`cf63cac`](../../commit/cf63cac) |
+| 039 | 2026-02-23 | Critical | Test Cases（後端） | TestCaseService 查詢 FHIR Server 而非使用記憶體內測試 Bundle | 架構缺陷 | [`cf63cac`](../../commit/cf63cac) |
 | 038 | 2026-02-23 | Critical | 資料庫連線池（後端） | HikariCP 連線池耗盡導致所有 API 逾時、無法登入 | 配置遺漏 | [`ccdf3f2`](../../commit/ccdf3f2) |
 | 037 | 2026-02-23 | High | 術語查詢（前端） | Autocomplete freeSolo 以顯示標籤覆蓋系統 URL 致術語查詢 503 | 邏輯錯誤 | [`ccdf3f2`](../../commit/ccdf3f2) |
 | 036 | 2026-02-23 | Medium | 指標庫表格（前端） | MeasureLibrary 虛擬捲動表頭與內容欄位錯位擠壓 | UX 設計缺陷 | [`ccdf3f2`](../../commit/ccdf3f2) |
@@ -58,6 +62,110 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #042 — ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | CQL Engine（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `ComparableR4FhirModelResolver.java` |
+| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+
+### BUG 描述
+
+測試案例中 `MR.authoredOn during "Measurement Period"` 時態比較靜默失敗，導致 Denominator 永遠為 false。透過診斷 CQL 表達式逐一隔離 WHERE 子句條件，確認 `authoredOn during` 是唯一失敗的條件。
+
+**根本原因**：`ComparableR4FhirModelResolver.resolvePath()` 在 Resource 層級將 FHIR `DateTimeType` 提前轉換為 CQL `DateTime`。後續 FHIRHelpers（CQL 翻譯器自動包含）的 `ToDateTime()` 函數嘗試對已轉換的 CQL DateTime 呼叫 `.value`，回傳 null，導致 `during` 等時態運算子靜默失敗。
+
+### 修正方式
+
+完全移除 `ComparableR4FhirModelResolver` 中的日期/時間轉換邏輯（`convertIfDateTimeType`、`toEngineDateTime` 方法及相關 imports）。該類別現僅處理 Encounter.class Java 保留字衝突。FHIRHelpers 已正確處理所有 FHIR→CQL 型別轉換。
+
+### 驗證
+
+- 測試案例 "65-year-old lady with DM" 執行結果：initial-population=true、denominator=true、numerator=false，全部符合預期
+
+---
+
+## #041 — Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | CQL Engine（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `ComparableR4FhirModelResolver.java` |
+| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+
+### BUG 描述
+
+CQL 中 `E.class ~ "AMB"` 存取 Encounter.class FHIR 元素時，Java 反射呼叫 `Object.getClass()` 而非 HAPI FHIR 的 `getClass_()`，回傳 Java Class 物件而非 FHIR Coding，導致 Encounter 類型過濾永遠失敗。
+
+### 修正方式
+
+在 `ComparableR4FhirModelResolver.resolvePath()` 加入特殊處理：當 `path="class"` 且 `target instanceof Encounter` 時，顯式呼叫 `encounter.getClass_()`。
+
+### 驗證
+
+- Outpatient Encounters 定義正確回傳符合條件的 Encounter 資源
+
+---
+
+## #040 — TestCaseService 缺少 Measurement Period 參數致時間過濾失效
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | Test Cases（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `TestCaseService.java` |
+| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+
+### BUG 描述
+
+測試案例 CQL 中所有引用 `"Measurement Period"` 的時態過濾（如 `during "Measurement Period"`、`overlaps "Measurement Period"`）均失敗，因為 CQL 引擎執行時未提供 Measurement Period 參數，該參數值為 null。
+
+### 修正方式
+
+新增 `buildMeasurementPeriodParams()` 方法，建立當年度（1/1 – 12/31）的 CQL `Interval<DateTime>` 參數，透過 `execRequest.setParameters()` 傳入 CQL 引擎。
+
+### 驗證
+
+- CQL 時態過濾表達式正確評估
+
+---
+
+## #039 — TestCaseService 查詢 FHIR Server 而非使用記憶體內測試 Bundle
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-23 |
+| **功能分類** | Test Cases（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `TestCaseService.java` |
+| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+
+### BUG 描述
+
+`TestCaseService.executeTestCase()` 和 `runWithCoverage()` 使用 `cqlExecutionService.execute()` 透過 REST 客戶端查詢外部 HAPI FHIR 伺服器，但測試案例的患者資料存在於 `patientBundleJson` 欄位中，不在 FHIR 伺服器上，導致所有 `[Resource]` retrieve 回傳空集合。
+
+### 修正方式
+
+1. 新增 `parseBundleResources()` 方法，使用 `FhirContext.forR4()` 解析 Bundle JSON 為 `List<Resource>`
+2. 建立 `PrefetchRetrieveProvider`（複用 CDS Hooks 模組的記憶體內資料提供者）
+3. 改用 `cqlExecutionService.executeWithProvider()` 以記憶體內資料執行 CQL
+
+### 驗證
+
+- CQL `[Condition]`、`[MedicationRequest]`、`[Encounter]` 等 retrieve 正確從測試 Bundle 取得資料
 
 ---
 

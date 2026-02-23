@@ -5,15 +5,21 @@ import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
 import com.cqlplatform.repository.TestCaseRepository;
+import com.cqlplatform.service.cds.PrefetchRetrieveProvider;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import ca.uhn.fhir.context.FhirContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
+import org.opencds.cqf.cql.engine.runtime.DateTime;
+import org.opencds.cqf.cql.engine.runtime.Interval;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,6 +35,7 @@ public class TestCaseService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
+    private static final FhirContext FHIR_CONTEXT = FhirContext.forR4();
 
     // ===== CRUD =====
 
@@ -197,12 +204,16 @@ public class TestCaseService {
         }
 
         try {
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
+            PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
+
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
-            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
             execRequest.setPatientId(patientId);
+            execRequest.setParameters(buildMeasurementPeriodParams(measure));
 
-            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+            CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
             List<CoverageResult.ExpressionCoverage> definitions = new ArrayList<>();
             List<CoverageResult.ExpressionCoverage> functions = new ArrayList<>();
@@ -254,14 +265,17 @@ public class TestCaseService {
         }
 
         try {
-            // Execute CQL with the test case's patient context
+            // Parse the test case bundle and create an in-memory data provider
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
+            PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
+
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
-
-            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
             execRequest.setPatientId(patientId);
+            execRequest.setParameters(buildMeasurementPeriodParams(measure));
 
-            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+            CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
             if (!execResponse.isSuccess()) {
                 return TestCaseRunResult.builder()
@@ -365,6 +379,35 @@ public class TestCaseService {
                     .build());
         }
         return comparisons;
+    }
+
+    private List<Resource> parseBundleResources(String bundleJson) {
+        List<Resource> resources = new ArrayList<>();
+        if (bundleJson == null || bundleJson.isBlank()) return resources;
+        try {
+            Bundle bundle = FHIR_CONTEXT.newJsonParser().parseResource(Bundle.class, bundleJson);
+            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                if (entry.hasResource()) {
+                    resources.add(entry.getResource());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse test case bundle: {}", e.getMessage());
+        }
+        return resources;
+    }
+
+    private Map<String, Object> buildMeasurementPeriodParams(MeasureDefinition measure) {
+        // Use current year as default measurement period (Jan 1 – Dec 31)
+        int year = Year.now().getValue();
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("Measurement Period",
+                new Interval(
+                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 1, 1), LocalTime.MIN, ZoneOffset.UTC)),
+                        true,
+                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 12, 31), LocalTime.MAX, ZoneOffset.UTC)),
+                        true));
+        return parameters;
     }
 
     private String extractPatientIdFromBundle(String bundleJson) {
