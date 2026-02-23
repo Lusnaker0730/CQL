@@ -2,6 +2,7 @@
 .env
 *.env
 !*.env.example
+scripts/secret-values.env
 
 # OS files
 .DS_Store
