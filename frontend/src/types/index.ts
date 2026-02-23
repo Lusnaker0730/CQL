@@ -343,6 +343,28 @@ export interface CdsSandboxRequest {
   testData?: Record<string, unknown>
 }
 
+export interface SandboxPresetRequest {
+  name: string
+  description?: string
+  serviceId?: string
+  patientId?: string
+  prefetchJson: string
+  shared?: boolean
+}
+
+export interface SandboxPresetResponse {
+  id: number
+  name: string
+  description?: string
+  ownerUsername: string
+  serviceId?: string
+  patientId?: string
+  prefetchJson: string
+  shared: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface MeasureEvaluationRequest {
   measureId: string
   measureCql?: string

@@ -134,7 +134,26 @@
       "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -p org/opencds/cqf/cql/engine/model/ModelResolver.class)",
       "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/fhir/searchparam/SearchParameterResolver.class)",
       "Bash(\"/c/Program Files/Java/jdk-23/bin/javap.exe\" -c -p org/opencds/cqf/cql/engine/execution/CqlEngine.class)",
-      "Bash(ENCRYPTION_KEY=\"YourDevEncryptionKey32BytesLong!\" JWT_SECRET=\"YourDevJwtSecretKey32BytesLong!!\" mvn spring-boot:run:*)"
+      "Bash(ENCRYPTION_KEY=\"YourDevEncryptionKey32BytesLong!\" JWT_SECRET=\"YourDevJwtSecretKey32BytesLong!!\" mvn spring-boot:run:*)",
+      "Bash(git rm:*)",
+      "Bash(npx vite build:*)",
+      "Bash(# Write CQL content to temp file inside container and translate TOKEN=\"\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTU5NjI0MSwiZXhwIjoxNzcxNjgyNjQxfQ.Qr4GPlcoGrPy08iGNpY0GTcMQ30ShwoX2Nigs2EtUFZRfFsrzA1FDjV-3wy9aQut5_JuNpANQW-jtwIJve3-4w\"\" # Create JSON payload python3 -c \"\" import json with open\\(''/d/CQL/backend/src/main/resources/cql/DM_HbA1c_GA_Rate.cql'', ''r''\\) as f: cql = f.read\\(\\) print\\(json.dumps\\({''cql'': cql}\\)\\) \"\" # Copy into container and translate docker cp /tmp/cql_payload.json docker-backend-1:/tmp/cql_payload.json docker exec docker-backend-1 wget -qO- --header=\"\"Content-Type: application/json\"\" --header=\"\"Authorization: Bearer $TOKEN\"\" --post-file=/tmp/cql_payload.json http://localhost:8080/api/cql/translate 2>&1)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTU5NjI0MSwiZXhwIjoxNzcxNjgyNjQxfQ.Qr4GPlcoGrPy08iGNpY0GTcMQ30ShwoX2Nigs2EtUFZRfFsrzA1FDjV-3wy9aQut5_JuNpANQW-jtwIJve3-4w\")",
+      "Bash(node:*)",
+      "Bash(MSYS_NO_PATHCONV=1 docker cp:*)",
+      "Bash(MSYS_NO_PATHCONV=1 docker exec:*)",
+      "Bash(for type in Condition Observation MedicationRequest)",
+      "Bash(do)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTYzMzQyOCwiZXhwIjoxNzcxNzE5ODI4fQ.H7DknXNCSHCbxrJxd0Z49eQBMfPPu1lWgs_fi57q6W1CBlbgzQclH0s7C0BusqpPEXHVzvYWvG8vMsexNtl_CA\")",
+      "Bash(npm i:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(/tmp/backend_services.txt:*)",
+      "Bash(/tmp/backend_tests.txt:*)",
+      "Bash(head:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTY4NDkzMiwiZXhwIjoxNzcxNzcxMzMyfQ.8DygMxI9WC5SjlT1pLajGX4XnN-cjQ0Bd1QLOxsLnY99rSHSp2xy-bJP87u8BkmzR-JAiYeUgQdWgGalxS7fMw\" && curl -v http://localhost:8888/api/measures -H \"Authorization: Bearer $TOKEN\" 2>&1)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTY4NDkzMiwiZXhwIjoxNzcxNzcxMzMyfQ.8DygMxI9WC5SjlT1pLajGX4XnN-cjQ0Bd1QLOxsLnY99rSHSp2xy-bJP87u8BkmzR-JAiYeUgQdWgGalxS7fMw\" && curl -s http://localhost:8888/api/measures/1/data-requirements -H \"Authorization: Bearer $TOKEN\" 2>&1)",
+      "Bash(cd /d/CQL && npx --yes yaml-lint openapi.yaml 2>&1 || python3 -c \"import yaml; yaml.safe_load\\(open\\('openapi.yaml'\\)\\); print\\('YAML syntax valid'\\)\" 2>&1 || python -c \"import yaml; yaml.safe_load\\(open\\('openapi.yaml'\\)\\); print\\('YAML syntax valid'\\)\" 2>&1)",
+      "Bash(cd:*)"
     ]
   }
 }

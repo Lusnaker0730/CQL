@@ -98,7 +98,30 @@
     "invokeError": "Sandbox invocation failed: {{error}}",
     "results": "Sandbox Results ({{count}} cards)",
     "suggestions": "Suggestions:",
-    "systemActions": "System Actions"
+    "systemActions": "System Actions",
+    "presets": {
+      "loadPreset": "Load Preset",
+      "savePreset": "Save Preset",
+      "resetDefault": "Reset to Default",
+      "myPresets": "My Presets",
+      "sharedPresets": "Shared Presets",
+      "noPresets": "No presets yet",
+      "saveDialogTitle": "Save Sandbox Preset",
+      "nameLabel": "Preset Name",
+      "namePlaceholder": "e.g., Diabetic Patient, Post-Surgery",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Briefly describe this test scenario...",
+      "sharedLabel": "Share with other users",
+      "saving": "Saving...",
+      "save": "Save",
+      "update": "Update",
+      "saveSuccess": "Preset saved successfully",
+      "saveFailed": "Failed to save preset: {{error}}",
+      "deleteSuccess": "Preset deleted",
+      "deleteFailed": "Failed to delete preset: {{error}}",
+      "loadedChip": "Preset: {{name}}",
+      "overwrite": "Overwrite"
+    }
   },
   "analytics": {
     "loadError": "Failed to load analytics",

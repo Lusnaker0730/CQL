@@ -98,7 +98,30 @@
     "invokeError": "沙盒調用失敗：{{error}}",
     "results": "沙盒結果（{{count}} 張卡片）",
     "suggestions": "建議：",
-    "systemActions": "系統動作"
+    "systemActions": "系統動作",
+    "presets": {
+      "loadPreset": "載入預設",
+      "savePreset": "儲存預設",
+      "resetDefault": "重設為預設",
+      "myPresets": "我的預設",
+      "sharedPresets": "共用預設",
+      "noPresets": "尚無預設",
+      "saveDialogTitle": "儲存沙盒預設",
+      "nameLabel": "預設名稱",
+      "namePlaceholder": "例如：糖尿病患者、術後",
+      "descriptionLabel": "說明",
+      "descriptionPlaceholder": "簡述此測試情境...",
+      "sharedLabel": "與其他使用者共用",
+      "saving": "儲存中...",
+      "save": "儲存",
+      "update": "更新",
+      "saveSuccess": "預設儲存成功",
+      "saveFailed": "儲存預設失敗：{{error}}",
+      "deleteSuccess": "預設已刪除",
+      "deleteFailed": "刪除預設失敗：{{error}}",
+      "loadedChip": "預設：{{name}}",
+      "overwrite": "覆蓋更新"
+    }
   },
   "analytics": {
     "loadError": "無法載入分析資料",
