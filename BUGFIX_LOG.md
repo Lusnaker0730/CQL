@@ -8,10 +8,10 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`cf63cac`](../../commit/cf63cac) |
-| 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`cf63cac`](../../commit/cf63cac) |
-| 040 | 2026-02-23 | High | Test Cases（後端） | TestCaseService 缺少 Measurement Period 參數致時間過濾失效 | 配置遺漏 | [`cf63cac`](../../commit/cf63cac) |
-| 039 | 2026-02-23 | Critical | Test Cases（後端） | TestCaseService 查詢 FHIR Server 而非使用記憶體內測試 Bundle | 架構缺陷 | [`cf63cac`](../../commit/cf63cac) |
+| 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`6534790`](../../commit/6534790) |
+| 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`6534790`](../../commit/6534790) |
+| 040 | 2026-02-23 | High | Test Cases（後端） | TestCaseService 缺少 Measurement Period 參數致時間過濾失效 | 配置遺漏 | [`6534790`](../../commit/6534790) |
+| 039 | 2026-02-23 | Critical | Test Cases（後端） | TestCaseService 查詢 FHIR Server 而非使用記憶體內測試 Bundle | 架構缺陷 | [`6534790`](../../commit/6534790) |
 | 038 | 2026-02-23 | Critical | 資料庫連線池（後端） | HikariCP 連線池耗盡導致所有 API 逾時、無法登入 | 配置遺漏 | [`ccdf3f2`](../../commit/ccdf3f2) |
 | 037 | 2026-02-23 | High | 術語查詢（前端） | Autocomplete freeSolo 以顯示標籤覆蓋系統 URL 致術語查詢 503 | 邏輯錯誤 | [`ccdf3f2`](../../commit/ccdf3f2) |
 | 036 | 2026-02-23 | Medium | 指標庫表格（前端） | MeasureLibrary 虛擬捲動表頭與內容欄位錯位擠壓 | UX 設計缺陷 | [`ccdf3f2`](../../commit/ccdf3f2) |
@@ -74,7 +74,7 @@
 | **嚴重程度** | Critical |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `ComparableR4FhirModelResolver.java` |
-| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+| **Commit** | [`6534790`](../../commit/6534790) |
 
 ### BUG 描述
 
@@ -101,7 +101,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 邏輯錯誤 |
 | **影響範圍** | `ComparableR4FhirModelResolver.java` |
-| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+| **Commit** | [`6534790`](../../commit/6534790) |
 
 ### BUG 描述
 
@@ -126,7 +126,7 @@ CQL 中 `E.class ~ "AMB"` 存取 Encounter.class FHIR 元素時，Java 反射呼
 | **嚴重程度** | High |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `TestCaseService.java` |
-| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+| **Commit** | [`6534790`](../../commit/6534790) |
 
 ### BUG 描述
 
@@ -151,7 +151,7 @@ CQL 中 `E.class ~ "AMB"` 存取 Encounter.class FHIR 元素時，Java 反射呼
 | **嚴重程度** | Critical |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `TestCaseService.java` |
-| **Commit** | [`cf63cac`](../../commit/cf63cac) |
+| **Commit** | [`6534790`](../../commit/6534790) |
 
 ### BUG 描述
 
