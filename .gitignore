@@ -17,6 +17,11 @@ Thumbs.db
 # Docker volumes and data
 docker/postgres-backup/
 
+# TW Core data tools (large)
+TWCOREDATA/
+
+# H2 runtime database
+backend/data/*.db
 
 bug1.png
 CQL1.png
