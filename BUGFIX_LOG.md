@@ -8,7 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`PENDING`](../../commit/PENDING) |
+| 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`5b09697`](../../commit/5b09697) |
 | 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`6534790`](../../commit/6534790) |
 | 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`6534790`](../../commit/6534790) |
 | 040 | 2026-02-23 | High | Test Cases（後端） | TestCaseService 缺少 Measurement Period 參數致時間過濾失效 | 配置遺漏 | [`6534790`](../../commit/6534790) |
@@ -75,7 +75,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `TestCaseEditor.tsx`, `TestCasesTab.tsx` |
-| **Commit** | [`PENDING`](../../commit/PENDING) |
+| **Commit** | [`5b09697`](../../commit/5b09697) |
 
 ### BUG 描述
 
