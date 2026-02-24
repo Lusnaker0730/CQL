@@ -200,7 +200,7 @@ public class FhirTerminologyService {
 
     private CodeLookupResult lookupCodeFromLocalIg(String system, String code) {
         try {
-            // Search in CodeSystems
+            // Search in CodeSystems (authoritative — have display names)
             CodeSystem cs = igService.getCodeSystemByUrl(system);
             if (cs != null && cs.hasConcept()) {
                 for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
@@ -208,7 +208,9 @@ public class FhirTerminologyService {
                     if (result != null) return result;
                 }
             }
-            // Also search in ValueSets that reference this system
+            // Also search in ValueSets that reference this system.
+            // Only return if the ValueSet entry has a non-empty display;
+            // otherwise fall through to the remote server for richer metadata.
             for (var vsSummary : igService.getValueSets(null)) {
                 ValueSet vs = igService.getValueSetByUrl(vsSummary.url());
                 if (vs != null && vs.hasCompose()) {
@@ -216,8 +218,12 @@ public class FhirTerminologyService {
                         if (system.equals(include.getSystem()) && include.hasConcept()) {
                             for (var conceptRef : include.getConcept()) {
                                 if (code.equals(conceptRef.getCode())) {
-                                    return new CodeLookupResult(system, code, vs.getName(),
-                                            conceptRef.getDisplay(), new ArrayList<>());
+                                    String display = conceptRef.getDisplay();
+                                    if (display != null && !display.isBlank()) {
+                                        return new CodeLookupResult(system, code, null,
+                                                display, new ArrayList<>());
+                                    }
+                                    // display is empty — skip, let remote server provide it
                                 }
                             }
                         }

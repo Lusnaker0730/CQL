@@ -75,17 +75,6 @@ export default function CqlBuilderPanel({
     ]
   }, [structure])
 
-  const handleAutoIncludeC3F = (snippet: string) => {
-    if (snippet.includes('C3F.') && !structure.includes.some((inc) => inc.includes('called C3F'))) {
-      const c3fInclude = `include CDS_Connect_Commons_for_FHIRv401 version '1.1.1' called C3F`
-      onInsertSnippet(c3fInclude)
-      // Small delay to avoid race with content update
-      setTimeout(() => onInsertSnippet(snippet), 50)
-    } else {
-      onInsertSnippet(snippet)
-    }
-  }
-
   // Wrap insert with duplicate name check
   const handleInsertWithCheck = useCallback((snippet: string) => {
     const name = extractSnippetName(snippet)
@@ -95,16 +84,6 @@ export default function CqlBuilderPanel({
     }
     onInsertSnippet(snippet)
   }, [extractSnippetName, getAllNames, onInsertSnippet])
-
-  // Same check but routes through C3F auto-include
-  const handleInsertWithCheckC3F = useCallback((snippet: string) => {
-    const name = extractSnippetName(snippet)
-    if (name && getAllNames().includes(name)) {
-      setDuplicateWarning({ name, snippet })
-      return
-    }
-    handleAutoIncludeC3F(snippet)
-  }, [extractSnippetName, getAllNames, handleAutoIncludeC3F])
 
   const sections = [
     {
@@ -185,7 +164,7 @@ export default function CqlBuilderPanel({
       content: (
         <DefinitionsSection
           expressions={structure.expressions}
-          onInsert={handleInsertWithCheckC3F}
+          onInsert={handleInsertWithCheck}
           valueSets={structure.valueSets}
           codes={structure.codes}
           parameters={structure.parameters}

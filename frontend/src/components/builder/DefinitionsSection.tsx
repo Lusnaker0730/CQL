@@ -17,6 +17,7 @@ import RetrieveBuilder from './RetrieveBuilder'
 import QueryBuilder from './QueryBuilder'
 import OperatorPanel from './OperatorPanel'
 import CdsCardBuilder from './CdsCardBuilder'
+import ConditionalBuilder from './ConditionalBuilder'
 
 interface DefinitionsSectionProps {
   expressions: { name: string; context?: string; resultType?: string }[]
@@ -36,6 +37,9 @@ const TEMPLATES = [
   { labelKey: 'encounterCheck' as const, template: 'exists [Encounter] E\n    where E.period during "Measurement Period"\n      and E.status = \'finished\'' },
   { labelKey: 'medicationCheck' as const, template: 'exists [MedicationRequest] M\n    where M.authoredOn during "Measurement Period"\n      and M.status = \'active\'' },
   { labelKey: 'observationValue' as const, template: '[Observation: "CodeName"] O\n    where O.effective in "Measurement Period"\n    sort by effective desc' },
+  { labelKey: 'ifElse' as const, template: 'if <condition> then\n  <result>\nelse\n  <default>' },
+  { labelKey: 'caseWhen' as const, template: 'case\n  when <condition1> then <result1>\n  when <condition2> then <result2>\n  else <default>\nend' },
+  { labelKey: 'nullCheck' as const, template: 'if <expression> is not null then\n  <expression>.value\nelse\n  null' },
 ]
 
 export default function DefinitionsSection({
@@ -50,7 +54,7 @@ export default function DefinitionsSection({
 }: DefinitionsSectionProps) {
   const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
-  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'cdscard'>('template')
+  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'cdscard' | 'conditional'>('template')
   const [name, setName] = useState('')
   const [context, setContext] = useState('Patient')
   const [templateIdx, setTemplateIdx] = useState(0)
@@ -151,6 +155,9 @@ export default function DefinitionsSection({
             <ToggleButton value="cdscard" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               {t('definitions.cdsCard')}
             </ToggleButton>
+            <ToggleButton value="conditional" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              {t('definitions.conditional')}
+            </ToggleButton>
           </ToggleButtonGroup>
 
           {mode === 'template' ? (
@@ -235,6 +242,16 @@ export default function DefinitionsSection({
           ) : mode === 'cdscard' ? (
             <CdsCardBuilder
               expressions={expressions.map((e) => e.name)}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          ) : mode === 'conditional' ? (
+            <ConditionalBuilder
+              expressions={expressions.map((e) => e.name)}
+              parameters={parameters}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()

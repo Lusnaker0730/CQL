@@ -77,6 +77,7 @@
     "query": "查詢",
     "operators": "運算子",
     "cdsCard": "CDS 卡片",
+    "conditional": "條件",
     "name": "定義名稱",
     "context": "上下文",
     "contextPatient": "病患",
@@ -88,7 +89,10 @@
       "conditionCheck": "病況檢查",
       "encounterCheck": "就醫檢查",
       "medicationCheck": "藥物檢查",
-      "observationValue": "檢驗值"
+      "observationValue": "檢驗值",
+      "ifElse": "If / Else",
+      "caseWhen": "Case / When",
+      "nullCheck": "Null 檢查"
     }
   },
   "functions": {
@@ -158,6 +162,23 @@
     "title": "偵測到重複名稱",
     "message": "名為「{{name}}」的元素已存在。插入重複項可能會導致 CQL 編譯錯誤。",
     "insertAnyway": "仍然插入"
+  },
+  "conditional": {
+    "label": "條件",
+    "style": "樣式",
+    "ifElse": "if / else",
+    "caseWhen": "case / when",
+    "condition": "條件",
+    "result": "結果",
+    "if": "if",
+    "elseIf": "else if",
+    "when": "when",
+    "then": "then",
+    "else": "else",
+    "addBranch": "新增分支",
+    "removeBranch": "移除分支",
+    "conditionPlaceholder": "例如 BMIValue < 18.5",
+    "resultPlaceholder": "例如 'Underweight'"
   },
   "cdsCard": {
     "nameHint": "以「Card」開頭的名稱會被偵測為 CDS 卡片",

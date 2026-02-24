@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`pending`](#045--代碼查詢本地-twcore-ig-回傳-valueset-名稱且缺少-display-name) |
+| 044 | 2026-02-24 | High | CQL Builder（前端） | Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析 | 架構缺陷 | [`pending`](#044--retrieve-builder-依賴不存在的-c3f-外部函式庫致-cql-無法解析) |
 | 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`5b09697`](../../commit/5b09697) |
 | 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`6534790`](../../commit/6534790) |
 | 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`6534790`](../../commit/6534790) |
@@ -63,6 +65,74 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #045 — 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-24 |
+| **功能分類** | 術語查詢（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 資料處理錯誤 |
+| **影響範圍** | `FhirTerminologyService.java` |
+| **Commit** | [`pending`] |
+
+### BUG 描述
+
+在術語查詢頁面的「代碼查詢」標籤中，輸入 LOINC code `29463-7`（Body weight）查詢後：
+- 「顯示名稱」欄位為空
+- 「名稱」欄位錯誤顯示 "TWVitalSigns"（這是 ValueSet 名稱，非代碼名稱）
+
+**根本原因**：`lookupCodeFromLocalIg()` 有兩個問題：
+
+1. **名稱欄位錯誤**：在 ValueSet 中找到代碼時，使用 `vs.getName()`（ValueSet 名稱 "TWVitalSigns"）作為回傳的 `name` 欄位，而非代碼本身的名稱。
+2. **空 display 不 fallthrough**：本地 TWCORE IG 的 ValueSet 內僅存放代碼參考（code），不一定有 `display` 屬性。當 `conceptRef.getDisplay()` 為空時仍立即回傳結果，不會繼續 fallthrough 到遠端術語伺服器（tx.fhir.org）取得完整的 display name 和 designations。
+
+### 修正方式
+
+1. ValueSet 查找時，若 `conceptRef.getDisplay()` 為空或 blank，跳過不回傳，讓流程繼續到遠端伺服器
+2. `name` 欄位改傳 `null`，不再使用 ValueSet 名稱作為代碼名稱
+
+### 驗證
+
+- 術語查詢 LOINC `29463-7`，顯示名稱正確顯示 "Body weight"，不再出現 "TWVitalSigns"
+
+---
+
+## #044 — Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-24 |
+| **功能分類** | CQL Builder（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `RetrieveBuilder.tsx`, `CqlBuilderPanel.tsx` |
+| **Commit** | [`pending`] |
+
+### BUG 描述
+
+在 CQL Builder 的 Retrieve 模式中，勾選「最近一次」（Most Recent）、「啟用/已確認」（Active/Confirmed）或「回溯期間」（Look Back）修飾器後，產生的 CQL 程式碼使用 `C3F.MostRecent(...)`、`C3F.ActiveCondition(...)` 等函式，並自動插入 `include CDS_Connect_Commons_for_FHIRv401 version '1.1.1' called C3F`。
+
+然而此函式庫在後端 repository 中不存在，CQL 翻譯器無法解析 `C3F` 識別符號，導致錯誤：「Could not resolve identifier C3F in the current library.」
+
+**根本原因**：RetrieveBuilder 的 `generateCql()` 假設環境中存在 CDS Connect Commons 外部函式庫，但實際部署環境無此函式庫。
+
+### 修正方式
+
+1. **`RetrieveBuilder.tsx`**：重寫 `generateCql()` 產生內嵌 CQL 查詢，不再依賴任何外部函式庫：
+   - `C3F.MostRecent(list)` → `Last(list sort by Coalesce(effective as dateTime, issued))`
+   - `C3F.ActiveCondition(list)` → `list C where C.clinicalStatus.coding.code contains 'active'`
+   - `C3F.LookBack(list, N units)` → `list O where O.effective >= Now() - N units`
+   - 新增 `getDateExpression()` 依資源類型回傳正確的日期欄位
+2. **`CqlBuilderPanel.tsx`**：移除已無用的 `handleAutoIncludeC3F` 和 `handleInsertWithCheckC3F`，definitions 改用 `handleInsertWithCheck`
+
+### 驗證
+
+- Retrieve Builder 勾選 Most Recent → CQL 預覽顯示 `Last([Observation: ...] O sort by ...)` 語法，翻譯無錯誤
+- 勾選 Active/Confirmed → 產生 `where C.clinicalStatus.coding.code contains 'active'`，翻譯無錯誤
 
 ---
 

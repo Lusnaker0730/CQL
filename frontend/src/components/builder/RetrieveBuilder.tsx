@@ -79,6 +79,29 @@ interface Modifiers {
   exists: boolean
 }
 
+/** Date/time expression used for look-back filtering per resource type */
+function getDateExpression(resourceType: string, alias: string): string {
+  switch (resourceType) {
+    case 'Observation':
+    case 'MedicationStatement':
+      return `${alias}.effective`
+    case 'Condition':
+    case 'AllergyIntolerance':
+      return `${alias}.onset`
+    case 'Procedure':
+      return `${alias}.performed`
+    case 'MedicationRequest':
+    case 'ServiceRequest':
+      return `${alias}.authoredOn`
+    case 'Encounter':
+      return `${alias}.period`
+    case 'Immunization':
+      return `${alias}.occurrence`
+    default:
+      return `${alias}.effective`
+  }
+}
+
 function generateCql(
   resourceType: string,
   terminology: string,
@@ -86,40 +109,54 @@ function generateCql(
   modifiers: Modifiers,
 ): string {
   const termName = extractName(terminology)
-  let expr = `[${resourceType}: "${termName}"]`
+  const alias = resourceType[0]
+  const needsQuery = modifiers.activeConfirmed
+    || (modifiers.lookBack && modifiers.lookBackValue)
+    || modifiers.mostRecent
 
-  // Build nested C3F wrappers: innermost first
-  // Order: activeConfirmed → lookBack → mostRecent → exists (outermost)
+  // Simple retrieve — no query needed
+  if (!needsQuery) {
+    const retrieve = `[${resourceType}: "${termName}"]`
+    if (modifiers.exists) return `define "${definitionName}":\n  exists ${retrieve}`
+    return `define "${definitionName}":\n  ${retrieve}`
+  }
+
+  // Build inline query: where clauses + optional sort
+  const whereClauses: string[] = []
+
   if (modifiers.activeConfirmed) {
     switch (resourceType) {
       case 'Condition':
-        expr = `C3F.ActiveCondition(${expr})`
-        break
       case 'AllergyIntolerance':
-        expr = `C3F.ActiveAllergyIntolerance(${expr})`
-        break
-      case 'MedicationRequest':
-      case 'MedicationStatement':
-        expr = `C3F.ActiveMedicationRequest(${expr})`
-        break
-      case 'ServiceRequest':
-        expr = `C3F.ActiveServiceRequest(${expr})`
+        whereClauses.push(`${alias}.clinicalStatus.coding.code contains 'active'`)
         break
       default:
-        expr = `C3F.Active(${expr})`
+        whereClauses.push(`${alias}.status = 'active'`)
     }
   }
 
   if (modifiers.lookBack && modifiers.lookBackValue) {
-    expr = `C3F.LookBack(${expr}, ${modifiers.lookBackValue} ${modifiers.lookBackUnit})`
+    const dateExpr = getDateExpression(resourceType, alias)
+    whereClauses.push(`${dateExpr} >= Now() - ${modifiers.lookBackValue} ${modifiers.lookBackUnit}`)
   }
 
+  const whereStr = whereClauses.length > 0
+    ? `\n    where ${whereClauses.join('\n      and ')}`
+    : ''
+  const sortStr = modifiers.mostRecent
+    ? `\n    sort by Coalesce(effective as dateTime, issued)`
+    : ''
+
+  const query = `[${resourceType}: "${termName}"] ${alias}${whereStr}${sortStr}`
+
+  let expr: string
   if (modifiers.mostRecent) {
-    expr = `C3F.MostRecent(${expr})`
-  }
-
-  if (modifiers.exists) {
-    expr = `exists(${expr})`
+    expr = `Last(\n    ${query}\n  )`
+    if (modifiers.exists) expr = `${expr} is not null`
+  } else if (modifiers.exists) {
+    expr = `exists (\n    ${query}\n  )`
+  } else {
+    expr = query
   }
 
   return `define "${definitionName}":\n  ${expr}`

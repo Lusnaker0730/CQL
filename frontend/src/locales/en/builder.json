@@ -77,6 +77,7 @@
     "query": "Query",
     "operators": "Operators",
     "cdsCard": "CDS Card",
+    "conditional": "Conditional",
     "name": "Definition Name",
     "context": "Context",
     "contextPatient": "Patient",
@@ -88,7 +89,10 @@
       "conditionCheck": "Condition Check",
       "encounterCheck": "Encounter Check",
       "medicationCheck": "Medication Check",
-      "observationValue": "Observation Value"
+      "observationValue": "Observation Value",
+      "ifElse": "If / Else",
+      "caseWhen": "Case / When",
+      "nullCheck": "Null Check"
     }
   },
   "functions": {
@@ -158,6 +162,23 @@
     "title": "Duplicate Name Detected",
     "message": "An element named \"{{name}}\" already exists. Inserting a duplicate may cause CQL compilation errors.",
     "insertAnyway": "Insert Anyway"
+  },
+  "conditional": {
+    "label": "Conditional",
+    "style": "Style",
+    "ifElse": "if / else",
+    "caseWhen": "case / when",
+    "condition": "Condition",
+    "result": "Result",
+    "if": "if",
+    "elseIf": "else if",
+    "when": "when",
+    "then": "then",
+    "else": "else",
+    "addBranch": "Add Branch",
+    "removeBranch": "Remove branch",
+    "conditionPlaceholder": "e.g. BMIValue < 18.5",
+    "resultPlaceholder": "e.g. 'Underweight'"
   },
   "cdsCard": {
     "nameHint": "Names starting with \"Card\" are detected as CDS Cards",

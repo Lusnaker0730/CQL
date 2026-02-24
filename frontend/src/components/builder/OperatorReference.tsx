@@ -29,6 +29,12 @@ interface OperatorEntry {
 }
 
 const OPERATORS: OperatorEntry[] = [
+  // Conditional
+  { name: 'if/then/else', category: 'Conditional', syntax: 'if cond then expr1 else expr2', description: 'Simple conditional expression', snippet: 'if  then\n  \nelse\n  ', example: "if BMI is not null then 'Has BMI' else 'No BMI'" },
+  { name: 'case/when', category: 'Conditional', syntax: 'case when cond then expr ... else expr end', description: 'Multi-branch conditional', snippet: 'case\n  when  then \n  else \nend', example: "case when A < 18.5 then 'Low' when A < 25 then 'Normal' else 'High' end" },
+  { name: 'Coalesce', category: 'Conditional', syntax: 'Coalesce(expr1, expr2, ...)', description: 'Returns first non-null argument', snippet: 'Coalesce(, )', example: 'Coalesce(O.value, 0)' },
+  { name: 'if is null', category: 'Conditional', syntax: 'if expr is null then default else expr', description: 'Null guard pattern', snippet: 'if  is null then\n  \nelse\n  ', example: 'if Height is null then null else Weight / (Height * Height)' },
+
   // Comparison
   { name: '=', category: 'Comparison', syntax: 'expr1 = expr2', description: 'Equality comparison', snippet: ' = ', example: 'A = B' },
   { name: '!=', category: 'Comparison', syntax: 'expr1 != expr2', description: 'Inequality comparison', snippet: ' != ', example: 'A != B' },
@@ -112,7 +118,7 @@ const OPERATORS: OperatorEntry[] = [
 ]
 
 const CATEGORIES = [
-  'Comparison', 'Logical', 'Temporal', 'Arithmetic', 'Type',
+  'Conditional', 'Comparison', 'Logical', 'Temporal', 'Arithmetic', 'Type',
   'Aggregate', 'Date/Age', 'String', 'List',
 ]
 
