@@ -15,6 +15,7 @@ import {
   ToggleButton,
 } from '@mui/material'
 import {
+  NoteAdd as NewIcon,
   Translate as TranslateIcon,
   Save as SaveIcon,
   FileDownload as ExportIcon,
@@ -138,6 +139,12 @@ export default function EditorPage() {
   const { data: libraryMetadata } = useLibrariesMetadata()
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
   const { data: currentLibrary } = useLibrary(lastSavedLibraryId)
+
+  const handleNewLibrary = useCallback(() => {
+    const template = `library NewLibrary version '1.0.0'\n\nusing FHIR version '4.0.1'\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\ncontext Patient\n\n`
+    dispatch(setCqlContent(template))
+    setLastSavedLibraryId(null)
+  }, [dispatch])
 
   const handleTranslate = useCallback(() => {
     translateMutation.mutate({ cql: cqlContent })
@@ -292,6 +299,11 @@ export default function EditorPage() {
                   {t('title')}
                 </Typography>
                 <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+                  <Tooltip title={t('toolbar.newLibrary')}>
+                    <IconButton size="small" onClick={handleNewLibrary}>
+                      <NewIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title={t('toolbar.undo')}>
                     <span>
                       <IconButton size="small" onClick={() => { monacoEditorRef.current?.trigger('toolbar', 'undo', null); monacoEditorRef.current?.focus() }}>

@@ -141,6 +141,14 @@ export function useLibrariesMetadata() {
   })
 }
 
+export function useRepositoryLibraries() {
+  return useQuery({
+    queryKey: ['repository-libraries'],
+    queryFn: () => cqlApi.getRepositoryLibraries(),
+    staleTime: Infinity,
+  })
+}
+
 export function useExportLibrary() {
   return useMutation({
     mutationFn: (id: string) => cqlApi.exportFhirLibrary(id),

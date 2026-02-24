@@ -17,7 +17,8 @@
     "removeFavorite": "Remove from favorites",
     "addFavorite": "Add to favorites",
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "newLibrary": "New CQL"
   },
   "tabs": {
     "elmErrors": "ELM / Errors",
