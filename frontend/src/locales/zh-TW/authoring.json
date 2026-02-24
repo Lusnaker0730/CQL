@@ -42,6 +42,17 @@
     "tabReviewCql": "檢視 CQL",
     "tabTesting": "測試",
     "tabSummary": "摘要",
+    "validation": {
+      "elementMissingName": "元素 #{{index}}：缺少元素名稱",
+      "elementModifierTypeMismatch": "「{{element}}」：修飾器「{{modifier}}」預期 {{expected}}，實際 {{actual}}",
+      "elementModifierMissingFields": "「{{element}}」：修飾器「{{modifier}}」缺少：{{fields}}",
+      "recommendationMissingText": "建議 #{{index}}：缺少文字",
+      "parameterMissingName": "參數 #{{index}}：缺少名稱",
+      "parameterMissingType": "「{{name}}」：缺少類型",
+      "subpopulationMissingName": "子族群 #{{index}}：缺少名稱",
+      "baseElementMissingName": "基礎元素 #{{index}}：缺少名稱",
+      "errorsFound": "發現 {{count}} 個問題："
+    },
     "unsavedTitle": "未儲存的變更",
     "unsavedMessage": "您有未儲存的變更。確定要離開嗎？您的變更將會遺失。",
     "discardChanges": "捨棄變更",

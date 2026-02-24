@@ -42,6 +42,17 @@
     "tabReviewCql": "Review CQL",
     "tabTesting": "Testing",
     "tabSummary": "Summary",
+    "validation": {
+      "elementMissingName": "Element #{{index}}: missing element name",
+      "elementModifierTypeMismatch": "\"{{element}}\": modifier \"{{modifier}}\" expects {{expected}}, got {{actual}}",
+      "elementModifierMissingFields": "\"{{element}}\": modifier \"{{modifier}}\" missing: {{fields}}",
+      "recommendationMissingText": "Recommendation #{{index}}: missing text",
+      "parameterMissingName": "Parameter #{{index}}: missing name",
+      "parameterMissingType": "\"{{name}}\": missing type",
+      "subpopulationMissingName": "Subpopulation #{{index}}: missing name",
+      "baseElementMissingName": "Base Element #{{index}}: missing name",
+      "errorsFound": "{{count}} issue(s) found:"
+    },
     "unsavedTitle": "Unsaved Changes",
     "unsavedMessage": "You have unsaved changes. Are you sure you want to leave? Your changes will be lost.",
     "discardChanges": "Discard Changes",
