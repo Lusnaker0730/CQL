@@ -27,6 +27,7 @@
 | 017 | 2026-02-22 | eQCM | 補完科別分類功能（篩選 + 指派） | Backend + Frontend (Measures) | [`b205335`](../../commit/b205335) |
 | 018 | 2026-02-22 | 文件 | API 參考文件 + OpenAPI 規格檔 | 專案根目錄（API.md, openapi.yaml） | [`b6681c0`](../../commit/b6681c0) |
 | 019 | 2026-02-22 | 跨模組 | 錯誤處理統一（Backend 例外層級 + Frontend 錯誤提取） | Backend (Controllers, Exceptions, Services) + Frontend (全模組) | [`645a775`](../../commit/645a775) |
+| 020 | 2026-02-24 | Authoring | 分頁驗證錯誤明細（Tooltip + Alert） | Frontend (Authoring, i18n) | [`4efb3c8`](../../commit/4efb3c8) |
 
 ---
 
@@ -1533,5 +1534,92 @@ CQL Platform 後端有 17 個 REST Controller、222 個端點，涵蓋 CQL 編�
 - `tsc --noEmit` — 通過
 - `grep "(err as Error).message" frontend/src/` — 0 結果
 - `grep "badRequest().body(\"{" backend/src/main/java/com/cqlplatform/controller/` — 0 結果
+
+---
+
+## #020 — 分頁驗證錯誤明細（Tooltip + Alert）
+
+- **日期**: 2026-02-24
+- **範圍**: Authoring — UX 改善
+- **分類**: UX 改善 / 可操作性
+
+### 問題描述
+
+ArtifactWorkspace 的 11 個分頁在元素有驗證錯誤時會顯示驚嘆號圖示，但使用者無法得知**哪些欄位**缺少或**在哪裡**修正。頂部的錯誤訊息（「CQL 產生失敗 / Request failed with status code 400」）過於籠統，缺乏可操作的指引。
+
+### 修改內容
+
+#### Step 1：增強 `computeTabStatuses` 回傳型別
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/components/authoring/ArtifactWorkspace.tsx` |
+
+- 新增 `TabStatusInfo` 介面：`{ status: TabStatus, errors: string[] }`
+- `computeTabStatuses` 回傳 `TabStatusInfo[]`（原為 `TabStatus[]`）
+- 錯誤字串格式：`"i18nKey||{jsonParams}"`，在渲染時延遲翻譯
+
+#### Step 2：收集具體錯誤訊息
+
+| 動作 | 函式 |
+|------|------|
+| 新增 | `getModifierMissingFields(mod)` — 從 ModifierCard 提取修飾器必填欄位驗證邏輯 |
+| 新增 | `collectTreeErrors(tree)` — 走訪元素樹收集具體錯誤 |
+
+**樹驗證（Inclusions / Exclusions）：**
+- 元素缺少名稱 → `"Element #N: missing element name"`
+- 修飾器類型不匹配 → `"「X」: modifier「Y」expects Z, got W"`
+- 修飾器缺少必填欄位 → `"「X」: modifier「Y」missing: value, unit"`（LookBack / ValueComparison / WithUnit / String / Qualifier / BeforeAfterInterval）
+
+**其他分頁：**
+- 建議缺少文字 → `"Recommendation #N: missing text"`
+- 參數缺少名稱 / 類型 → `"Parameter #N: missing name"` / `"「X」: missing type"`
+- 子族群缺少名稱 → `"Subpopulation #N: missing name"`
+- 基礎元素缺少名稱 → `"Base Element #N: missing name"`
+
+#### Step 3：分頁圖示 Tooltip
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `ArtifactWorkspace.tsx` — Tabs 區域 |
+
+- `ErrorIcon` 包裝於 `<Tooltip>`，hover 顯示錯誤條目的項目符號清單
+- 最多顯示 8 條錯誤，超出部分顯示 `…+N`
+
+#### Step 4：分頁內容頂部 Alert 橫幅
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `ArtifactWorkspace.tsx` — Tab content Box |
+
+- 當作用中分頁有錯誤時，在分頁內容區頂部渲染 `<Alert severity="warning">`
+- 列出所有驗證問題（無上限），使用者切換到問題分頁即可看到
+
+#### Step 5：i18n 鍵
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/locales/en/authoring.json` — 新增 `workspace.validation` 區段（9 鍵） |
+| 修改 | `frontend/src/locales/zh-TW/authoring.json` — 對應繁體中文翻譯（9 鍵） |
+
+新增鍵：`elementMissingName`、`elementModifierTypeMismatch`、`elementModifierMissingFields`、`recommendationMissingText`、`parameterMissingName`、`parameterMissingType`、`subpopulationMissingName`、`baseElementMissingName`、`errorsFound`
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 修改檔案 | 3 |
+| 新增介面 | 2（`TabStatusInfo`、`ModifierLike`） |
+| 新增函式 | 2（`getModifierMissingFields`、`collectTreeErrors`） |
+| 新增 i18n 鍵 | 18（9 en + 9 zh-TW） |
+| 新增 MUI 元件引用 | 2（`Tooltip`、`Alert`） |
+
+### 驗證
+
+- `tsc --noEmit` — 通過
+- `vite build` — 通過（AuthoringPage chunk 153→154 KB）
+- Hover 分頁錯誤圖示 → 顯示具體錯誤 Tooltip
+- 切換到錯誤分頁 → 顯示 Alert 橫幅列出所有問題
+- 修正缺少欄位 → 錯誤自動消失
 
 ---
