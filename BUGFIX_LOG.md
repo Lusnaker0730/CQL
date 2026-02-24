@@ -8,8 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`pending`](#045--代碼查詢本地-twcore-ig-回傳-valueset-名稱且缺少-display-name) |
-| 044 | 2026-02-24 | High | CQL Builder（前端） | Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析 | 架構缺陷 | [`pending`](#044--retrieve-builder-依賴不存在的-c3f-外部函式庫致-cql-無法解析) |
+| 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`d5e150d`](../../commit/d5e150d) |
+| 044 | 2026-02-24 | High | CQL Builder（前端） | Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析 | 架構缺陷 | [`d5e150d`](../../commit/d5e150d) |
 | 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`5b09697`](../../commit/5b09697) |
 | 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`6534790`](../../commit/6534790) |
 | 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`6534790`](../../commit/6534790) |
@@ -77,7 +77,7 @@
 | **嚴重程度** | Medium |
 | **根因類型** | 資料處理錯誤 |
 | **影響範圍** | `FhirTerminologyService.java` |
-| **Commit** | [`pending`] |
+| **Commit** | [`d5e150d`](../../commit/d5e150d) |
 
 ### BUG 描述
 
@@ -110,7 +110,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 架構缺陷 |
 | **影響範圍** | `RetrieveBuilder.tsx`, `CqlBuilderPanel.tsx` |
-| **Commit** | [`pending`] |
+| **Commit** | [`d5e150d`](../../commit/d5e150d) |
 
 ### BUG 描述
 
