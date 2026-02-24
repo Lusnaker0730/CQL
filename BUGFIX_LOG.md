@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`PENDING`](../../commit/PENDING) |
 | 042 | 2026-02-23 | Critical | CQL Engine（後端） | ComparableR4FhirModelResolver 日期轉換破壞 FHIRHelpers 時態運算子 | 架構缺陷 | [`6534790`](../../commit/6534790) |
 | 041 | 2026-02-23 | High | CQL Engine（後端） | Encounter.class Java 保留字衝突致 CQL 路徑解析錯誤 | 邏輯錯誤 | [`6534790`](../../commit/6534790) |
 | 040 | 2026-02-23 | High | Test Cases（後端） | TestCaseService 缺少 Measurement Period 參數致時間過濾失效 | 配置遺漏 | [`6534790`](../../commit/6534790) |
@@ -62,6 +63,39 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #043 — TestCaseEditor expectedPopulations 被 React Query refetch 競態重置
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-24 |
+| **功能分類** | Test Cases（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 架構缺陷 |
+| **影響範圍** | `TestCaseEditor.tsx`, `TestCasesTab.tsx` |
+| **Commit** | [`PENDING`](../../commit/PENDING) |
+
+### BUG 描述
+
+使用者在測試案例編輯器中修改 expectedPopulations（分母/分子的預期值），按儲存後變更未生效，數值恢復為修改前的狀態。多次嘗試修改皆無法持久化。
+
+**根本原因**：兩層 `useEffect` 競態導致編輯中的 state 被覆蓋：
+
+1. **`TestCasesTab.tsx`**：sessionStorage 恢復用的 `useEffect` 依賴 `[measure.id, isLoading, testCases]`，每次 React Query 重取 `testCases`（如背景 refetch、其他 mutation 的 `invalidateQueries`）都會重新執行，呼叫 `setEditingRaw(found)` 產生新的物件參考。
+2. **`TestCaseEditor.tsx`**：`useEffect` 依賴 `[testCase, dispatch]`，當 `testCase` prop 的物件參考改變時，無條件重置所有表單 state（`setExpectedPops(testCase.expectedPopulations || {})`），覆蓋使用者正在編輯的修改。
+
+使用者操作流程：修改 toggle → React Query 背景 refetch → `testCases` 更新 → TestCasesTab useEffect 設定新 `editing` 物件 → TestCaseEditor useEffect 重置 `expectedPops` 回伺服器舊值 → 使用者按儲存 → 存入的是被重置的舊值。
+
+### 修正方式
+
+1. **`TestCasesTab.tsx`**：加入 `restoredRef` 確保 sessionStorage 恢復邏輯僅在首次載入時執行一次，不因 `testCases` refetch 重複更新 `editing` state。
+2. **`TestCaseEditor.tsx`**：加入 `prevTestCaseIdRef` 追蹤 test case ID，`useEffect` 僅在切換到不同 test case 時才重置表單 state，同一 test case 的物件參考變化不會覆蓋使用者修改。
+
+### 驗證
+
+- 開啟測試案例編輯器，修改 expectedPopulations toggle，等待數秒（確保 React Query refetch 有機會觸發），按儲存後重新開啟，修改已正確持久化
 
 ---
 

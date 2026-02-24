@@ -87,9 +87,11 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     }
   }
 
-  // Restore editing state from sessionStorage on remount
+  // Restore editing state from sessionStorage on remount (once only)
+  const restoredRef = React.useRef(false)
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || restoredRef.current) return
+    restoredRef.current = true
     const savedId = loadEditingState(measure.id!)
     if (savedId === null) return
     if (savedId === 'new') {

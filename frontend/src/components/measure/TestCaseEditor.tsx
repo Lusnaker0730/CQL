@@ -154,14 +154,19 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     }
   }, [dispatch])
 
+  // Only reset editor state when switching to a DIFFERENT test case, not on
+  // same-test-case reference changes (e.g. React Query refetch).
+  const prevTestCaseIdRef = useRef(testCase?.id)
   useEffect(() => {
-    if (testCase) {
+    if (testCase && testCase.id !== prevTestCaseIdRef.current) {
+      prevTestCaseIdRef.current = testCase.id
       setTitle(testCase.title)
       setDescription(testCase.description || '')
       const json = testCase.patientBundleJson || DEFAULT_BUNDLE
       setBundleJson(json)
       setExpectedPops(testCase.expectedPopulations || {})
       setSeries(testCase.series || '')
+      setIsDirty(false)
       try {
         const entries = parseFromBundle(json)
         dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
