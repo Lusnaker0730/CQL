@@ -8,7 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 046 | 2026-02-25 | High | Monaco 編輯器（Docker） | Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效） | 配置遺漏 | |
+| 046 | 2026-02-25 | High | Monaco 編輯器（Docker） | Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效） | 配置遺漏 | [`ae9a0e3`](../../commit/ae9a0e3) |
 | 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`d5e150d`](../../commit/d5e150d) |
 | 044 | 2026-02-24 | High | CQL Builder（前端） | Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析 | 架構缺陷 | [`d5e150d`](../../commit/d5e150d) |
 | 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`5b09697`](../../commit/5b09697) |
@@ -78,7 +78,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 配置遺漏 |
 | **影響範圍** | `docker/nginx.conf`, `frontend/nginx.conf`, `CqlEditor.tsx` |
-| **Commit** | |
+| **Commit** | [`ae9a0e3`](../../commit/ae9a0e3) |
 
 ### BUG 描述
 
