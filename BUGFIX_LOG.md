@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 046 | 2026-02-25 | High | Monaco 編輯器（Docker） | Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效） | 配置遺漏 | |
 | 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`d5e150d`](../../commit/d5e150d) |
 | 044 | 2026-02-24 | High | CQL Builder（前端） | Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析 | 架構缺陷 | [`d5e150d`](../../commit/d5e150d) |
 | 043 | 2026-02-24 | High | Test Cases（前端） | TestCaseEditor expectedPopulations 被 React Query refetch 競態重置 | 架構缺陷 | [`5b09697`](../../commit/5b09697) |
@@ -65,6 +66,38 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #046 — Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效）
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-25 |
+| **功能分類** | Monaco 編輯器（Docker） |
+| **嚴重程度** | High |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `docker/nginx.conf`, `frontend/nginx.conf`, `CqlEditor.tsx` |
+| **Commit** | |
+
+### BUG 描述
+
+在 Docker 環境中使用 CQL 編輯器時，Ctrl+V 貼上操作完全無效，無法將剪貼簿內容貼入 Monaco Editor。本機開發環境無此問題。
+
+**根本原因**：兩個問題同時存在：
+
+1. **Permissions-Policy 限制剪貼簿存取**：nginx 安全標頭設定 `clipboard-read=(self), clipboard-write=(self)`，在 Docker 環境中瀏覽器對 `self` origin 的解析可能與容器內 nginx 的 port mapping 不一致（容器內 8080 vs 外部映射 port），導致 Clipboard API 被瀏覽器拒絕。
+2. **Fallback paste handler 與 Monaco 內建貼上衝突**：DOM 層級的 paste event listener 未檢查 Monaco 是否已處理貼上，直接呼叫 `editor.executeEdits()` 插入文字，可能與 Monaco 原生 paste 產生衝突。
+
+### 修正方式
+
+1. **移除 Permissions-Policy 的剪貼簿限制**：從 `docker/nginx.conf` 和 `frontend/nginx.conf` 移除 `clipboard-read=(self), clipboard-write=(self)`，讓剪貼簿操作回歸瀏覽器預設行為（同源允許）
+2. **改寫 fallback paste handler**：使用 `setTimeout(0)` 延遲檢查，比較貼上前後 model 內容；僅在 Monaco 內建貼上未生效時才手動介入處理
+
+### 驗證
+
+- Docker 環境中開啟 CQL 編輯器，Ctrl+V 可正常貼上文字
+- 貼上含有特殊字元的 LLM 輸出仍會被 sanitize（smart quotes、zero-width chars）
 
 ---
 

@@ -83,21 +83,30 @@ export default function CqlEditor({
       }
     })
 
-    // Fallback paste handler using Clipboard API for browsers that block execCommand('paste')
+    // Fallback paste handler for environments where Monaco's built-in paste fails
     const domNode = editor.getDomNode()
     if (domNode) {
       domNode.addEventListener('paste', (e: ClipboardEvent) => {
-        const clipboardData = e.clipboardData?.getData('text/plain')
-        if (clipboardData && editor.getModel()) {
-          const cleaned = sanitizePastedText(clipboardData)
-          const selections = editor.getSelections()
-          if (selections && selections.length > 0) {
-            editor.executeEdits('paste', selections.map(sel => ({
-              range: sel,
-              text: cleaned,
-            })))
+        // Only intervene if Monaco's built-in paste didn't handle it
+        // Check after a microtask to see if onDidPaste already fired
+        const modelBefore = editor.getModel()?.getValue()
+        setTimeout(() => {
+          const modelAfter = editor.getModel()?.getValue()
+          if (modelBefore === modelAfter) {
+            // Monaco's paste didn't work; apply manually
+            const clipboardData = e.clipboardData?.getData('text/plain')
+            if (clipboardData && editor.getModel()) {
+              const cleaned = sanitizePastedText(clipboardData)
+              const selections = editor.getSelections()
+              if (selections && selections.length > 0) {
+                editor.executeEdits('paste', selections.map(sel => ({
+                  range: sel,
+                  text: cleaned,
+                })))
+              }
+            }
           }
-        }
+        }, 0)
       })
     }
 
