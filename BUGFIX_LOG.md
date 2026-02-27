@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 049 | 2026-02-27 | High | CDS Hooks Sandbox（後端） | CDS 卡片僅顯示資源參考而非過敏藥物名稱 | 邏輯錯誤 | [`8b67eb6`](../../commit/8b67eb6) |
 | 048 | 2026-02-27 | High | 術語查詢（後端） | RxNorm 代碼搜尋無結果 — FHIR 術語伺服器未載入 UMLS 授權碼表 | 外部服務限制 | [`fe50e2a`](../../commit/fe50e2a) |
 | 047 | 2026-02-27 | High | Monaco 編輯器（前端） | Fallback paste handler 非同步讀取 clipboardData 導致貼上失效 | 邏輯錯誤 | [`be3c6ce`](../../commit/be3c6ce) |
 | 046 | 2026-02-25 | High | Monaco 編輯器（Docker） | Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效） | 配置遺漏 | [`ae9a0e3`](../../commit/ae9a0e3) |
@@ -69,6 +70,39 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #049 — CDS 卡片僅顯示資源參考而非過敏藥物名稱
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-27 |
+| **功能分類** | CDS Hooks Sandbox（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `backend/.../CdsResourceFormatter.java`, `backend/.../CdsValueFormatter.java` |
+| **Commit** | [`8b67eb6`](../../commit/8b67eb6) |
+
+### BUG 描述
+
+CDS Sandbox 測試過敏 CDS 服務時，卡片顯示 `AllergyIntolerance/allergyintolerance-46efbb69` 而非實際藥物名稱 "Aspi-Cor 81 MG Delayed Release Oral Tablet"。
+
+兩處根因：
+1. `CdsResourceFormatter.appendAllergyIntolerance()` 僅檢查 `code.text`，但**未 fallback** 至 `code.coding[0].display`（`appendCondition` 和 `appendObservation` 皆有此 fallback）。使用者透過 RxNorm 碼表填入 coding 但未填「文字」欄位時，藥名完全不顯示。
+2. `CdsValueFormatter.formatValue()` 對 List 中的 Resource 呼叫 `formatReference()` 僅回傳 `Type/id`，而非 `formatDetail()` 的完整臨床資訊。
+
+### 修正方式
+
+- `appendAllergyIntolerance()`：新增 `else if (hasCoding())` fallback 取 `getCodingFirstRep().getDisplay()`
+- `appendProcedure()`：同樣補上 coding fallback（相同缺陷）
+- `CdsValueFormatter.formatValue()`：Resource 項目改用 `formatDetail()` 取代 `formatReference()`
+
+### 驗證
+
+- CDS Sandbox 新增 AllergyIntolerance（僅填 coding，不填 text）→ 卡片正確顯示藥名
+- 同時填 text 與 coding → 優先顯示 text（行為不變）
+- Procedure 資源同理修正，卡片正確顯示處置名稱
 
 ---
 
