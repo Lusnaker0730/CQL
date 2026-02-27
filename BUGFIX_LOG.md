@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 048 | 2026-02-27 | High | 術語查詢（後端） | RxNorm 代碼搜尋無結果 — FHIR 術語伺服器未載入 UMLS 授權碼表 | 外部服務限制 | [`pending`](#) |
 | 047 | 2026-02-27 | High | Monaco 編輯器（前端） | Fallback paste handler 非同步讀取 clipboardData 導致貼上失效 | 邏輯錯誤 | [`be3c6ce`](../../commit/be3c6ce) |
 | 046 | 2026-02-25 | High | Monaco 編輯器（Docker） | Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效） | 配置遺漏 | [`ae9a0e3`](../../commit/ae9a0e3) |
 | 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`d5e150d`](../../commit/d5e150d) |
@@ -67,6 +68,40 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+| 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #048 — RxNorm 代碼搜尋無結果 — FHIR 術語伺服器未載入 UMLS 授權碼表
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-27 |
+| **功能分類** | 術語查詢（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 外部服務限制 |
+| **影響範圍** | `backend/src/main/java/com/cqlplatform/service/fhir/FhirTerminologyService.java` |
+| **Commit** | [`pending`](#) |
+
+### BUG 描述
+
+「術語查詢 > 代碼搜尋」使用 FHIR `$expand` 搜尋隱式 ValueSet，但 `tx.fhir.org` 和 `r4.ontoserver.csiro.au` 均未載入 RxNorm（需 UMLS 授權），因此搜尋 RxNorm 代碼時 `$expand` 回傳 "ValueSet not found"，使用者看到 0 筆結果。
+
+### 修正方式
+
+在 `searchCodes()` 中，當所有 FHIR 術語伺服器對 RxNorm 回傳空結果時，新增 NLM RxNav REST API 作為 fallback：
+
+- 偵測 `system == http://www.nlm.nih.gov/research/umls/rxnorm` 且遠端結果為空
+- 呼叫 `https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term={text}&maxEntries={count}`
+- 解析 JSON `approximateGroup.candidate[]`，以 `rxcui` 去重
+- 回傳 `List<CodeSearchResult>`，system 設為 RxNorm URL
+
+RxNav 為 NLM 提供的免費公開 API，無需驗證。
+
+### 驗證
+
+- 選擇 RxNorm 搜尋 "aspirin" → 回傳 aspirin (1191)、aspirin Oral Tablet 等結果
+- LOINC / SNOMED 搜尋仍正常運作（無迴歸）
 
 ---
 
