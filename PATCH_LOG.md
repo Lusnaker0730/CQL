@@ -28,6 +28,7 @@
 | 018 | 2026-02-22 | 文件 | API 參考文件 + OpenAPI 規格檔 | 專案根目錄（API.md, openapi.yaml） | [`b6681c0`](../../commit/b6681c0) |
 | 019 | 2026-02-22 | 跨模組 | 錯誤處理統一（Backend 例外層級 + Frontend 錯誤提取） | Backend (Controllers, Exceptions, Services) + Frontend (全模組) | [`645a775`](../../commit/645a775) |
 | 020 | 2026-02-24 | Authoring | 分頁驗證錯誤明細（Tooltip + Alert） | Frontend (Authoring, i18n) | [`4efb3c8`](../../commit/4efb3c8) |
+| 021 | 2026-02-27 | CDS | Hospital-Grade 改善：draftOrders + 預取解析 + 重大警示彈窗 | Backend + Frontend (CDS, i18n) | [`1b0a22a`](../../commit/1b0a22a) |
 
 ---
 
@@ -1621,5 +1622,74 @@ ArtifactWorkspace 的 11 個分頁在元素有驗證錯誤時會顯示驚嘆號�
 - Hover 分頁錯誤圖示 → 顯示具體錯誤 Tooltip
 - 切換到錯誤分頁 → 顯示 Alert 橫幅列出所有問題
 - 修正缺少欄位 → 錯誤自動消失
+
+---
+
+## #021 — Hospital-Grade 改善：draftOrders + 預取解析 + 重大警示彈窗
+
+- **日期**: 2026-02-27
+- **範圍**: CDS Hooks — 功能增強
+- **分類**: 功能增強 / 醫院級合規
+
+### 問題描述
+
+現有 CDS 實作在三個關鍵面向與醫院生產系統存在差距：
+1. **draftOrders 未處理**：order-select / order-sign hooks 的 `context.draftOrders` 從未被解析或合併至 prefetch provider，沙盒 UI 也無法輸入草稿醫令
+2. **重大警示無差異化**：所有卡片（info / warning / critical）呈現方式相同，醫院系統應以阻斷式彈窗處理 critical 卡片
+3. **預取範本未動態解析**：當 prefetch 資料缺失時，系統直接回退至 FHIR server URL，未依 CDS Hooks 規範動態解析預取範本
+
+### 修改內容
+
+#### Feature 1：draftOrders 處理（order-select / order-sign）
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/.../service/cds/CdsInvocationService.java` — 新增 `parseDraftOrders()` 方法，解析 context.draftOrders 為 FHIR Bundle 並合併資源至 prefetch provider |
+| 修改 | `backend/.../service/cds/PrefetchRetrieveProvider.java` — 新增 `addResources()` 方法 + ServiceRequest code 比對支援 |
+| 修改 | `backend/.../model/cds/CdsSandboxRequest.java` — 新增 `draftOrders` 欄位 |
+| 修改 | `backend/.../controller/CdsHooksController.java` — sandbox handler 注入 draftOrders 至 CdsRequest context |
+| 修改 | `frontend/src/types/index.ts` — `CdsSandboxRequest` 新增 `draftOrders` 欄位，`CdsCard` 新增 `overrideReasons` 欄位 |
+| 修改 | `frontend/src/components/cds/SandboxPanel.tsx` — 新增 Draft Orders JSON 編輯器分頁（僅 order-select / order-sign 可見） |
+
+#### Feature 2：重大警示阻斷式彈窗
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/components/cds/CriticalCardDialog.tsx` — MUI Dialog，`disableEscapeKeyDown` + 阻斷背景點擊，Accept / Override 按鈕，Override 支援預設原因選單或自由文字 |
+| 修改 | `frontend/src/components/cds/SandboxPanel.tsx` — 回應卡片分區（critical vs normal），critical 卡片以佇列依序顯示彈窗 |
+| 修改 | `frontend/src/components/cds/InvokeServicePanel.tsx` — 同上，live invocation 面板整合 critical card dialog |
+| 修改 | `backend/.../service/cds/CqlTupleCardStrategy.java` — 新增 `parseOverrideReasons()` 從 CQL Tuple 提取覆寫原因 |
+
+#### Feature 3：預取範本動態解析
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/.../service/cds/PrefetchResolver.java` — `@Component`，替換 `{{context.patientId}}` 等範本變數，透過 FhirClientFactory 從客戶端 FHIR server 取得資源，支援 Bearer Token 認證 |
+| 修改 | `backend/.../service/cds/CdsInvocationService.java` — 注入 PrefetchResolver，prefetch 缺失時嘗試動態解析範本，解析失敗才回退至 FHIR server URL |
+
+#### i18n
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/locales/en/cds.json` — 新增 `sandbox.tabDraftOrders`、`sandbox.draftOrdersDescription`、`critical.*`（7 鍵） |
+| 修改 | `frontend/src/locales/zh-TW/cds.json` — 對應繁體中文翻譯（9 鍵） |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 修改檔案 | 10 |
+| 新增檔案 | 2（`PrefetchResolver.java`、`CriticalCardDialog.tsx`） |
+| 新增方法 | 5（`parseDraftOrders`、`addResources`、`parseOverrideReasons`、`resolve`、`substituteTemplate`） |
+| 新增 i18n 鍵 | 18（9 en + 9 zh-TW） |
+| 新增行數 | +580 / -8 |
+
+### 驗證
+
+- `tsc --noEmit` — 通過（僅預存 react-i18next 型別宣告警告）
+- Sandbox → order-select hook → Draft Orders 分頁可見 → 輸入 MedicationRequest Bundle → CQL 可存取草稿藥物
+- CQL 回傳 `indicator: "critical"` → 阻斷式彈窗 → 必須 Accept / Override 才能繼續
+- 移除 prefetch 資料 → 設定 fhirServer URL → 服務自動透過範本取得 Patient → CQL 正常執行
+- 既有 patient-view hooks 不受影響（回歸正常）
 
 ---
