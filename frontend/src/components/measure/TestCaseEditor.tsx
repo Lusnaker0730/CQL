@@ -64,6 +64,35 @@ const DEFAULT_BUNDLE = `{
       "resource": {
         "resourceType": "Patient",
         "id": "test-patient-1",
+        "meta": {
+          "profile": [
+            "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Patient-twcore"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "official",
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "NNxxx",
+                  "display": "National Person Identifier"
+                }
+              ]
+            },
+            "system": "http://www.moi.gov.tw/",
+            "value": "A123456789"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "text": "Test Patient",
+            "family": "Patient",
+            "given": ["Test"]
+          }
+        ],
         "gender": "female",
         "birthDate": "1960-01-01"
       }
