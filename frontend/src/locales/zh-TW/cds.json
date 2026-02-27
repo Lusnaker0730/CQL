@@ -92,6 +92,8 @@
     "patientIdLabel": "病患 ID",
     "tabVisualBuilder": "視覺化建構器",
     "tabJsonPrefetch": "JSON（預取）",
+    "tabDraftOrders": "草稿醫令",
+    "draftOrdersDescription": "輸入包含草稿醫令的 FHIR Bundle（例如 MedicationRequest、ServiceRequest），用於 order-select/order-sign hooks。",
     "invoking": "調用中...",
     "invokeButton": "在沙盒中調用",
     "invokeFailed": "沙盒調用失敗：{{error}}",
@@ -122,6 +124,15 @@
       "loadedChip": "預設：{{name}}",
       "overwrite": "覆蓋更新"
     }
+  },
+  "critical": {
+    "alertTitle": "重大警示",
+    "acceptCard": "接受",
+    "overrideCard": "覆寫",
+    "overrideReason": "覆寫原因",
+    "selectReason": "選擇原因",
+    "overridePlaceholder": "輸入覆寫此警示的原因...",
+    "submitOverride": "提交覆寫"
   },
   "analytics": {
     "loadError": "無法載入分析資料",

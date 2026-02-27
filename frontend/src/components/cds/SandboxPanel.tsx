@@ -46,6 +46,7 @@ import {
   useDeleteSandboxPreset,
 } from '../../hooks/useCdsHooks'
 import type { CdsServiceDefinition, CdsCard, CdsResponse, SandboxPresetResponse } from '../../types'
+import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
 import {
@@ -118,6 +119,12 @@ function SandboxPanelInner() {
   const [testDataJson, setTestDataJson] = useState(draft?.testDataJson ?? defaultJson)
   const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
   const [dataTab, setDataTab] = useState(0)
+  const [draftOrdersJson, setDraftOrdersJson] = useState('{"resourceType":"Bundle","type":"collection","entry":[]}')
+
+  // Critical card queue state
+  const [criticalQueue, setCriticalQueue] = useState<CdsCard[]>([])
+  const [currentCritical, setCurrentCritical] = useState<CdsCard | null>(null)
+  const [normalCards, setNormalCards] = useState<CdsCard[]>([])
 
   // Preset UI state
   const [activePreset, setActivePreset] = useState<SandboxPresetResponse | null>(null)
@@ -150,6 +157,13 @@ function SandboxPanelInner() {
     () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
     [servicesData?.services]
   )
+
+  const selectedHook = useMemo(() => {
+    const svc = services.find((s) => s.id === selectedService)
+    return svc?.hook ?? ''
+  }, [services, selectedService])
+
+  const isOrderHook = selectedHook === 'order-select' || selectedHook === 'order-sign'
 
   // Initialize: convert initial prefetch to bundle entries and load into builder
   useEffect(() => {
@@ -335,6 +349,17 @@ function SandboxPanelInner() {
       }
 
       const testData = JSON.parse(testDataJson)
+
+      // Parse draftOrders for order-select/order-sign hooks
+      let draftOrders: unknown = undefined
+      if (isOrderHook && draftOrdersJson.trim()) {
+        try {
+          draftOrders = JSON.parse(draftOrdersJson)
+        } catch {
+          // Invalid JSON, skip draftOrders
+        }
+      }
+
       const response = await sandboxMutation.mutateAsync({
         serviceId: selectedService,
         request: {
@@ -343,11 +368,48 @@ function SandboxPanelInner() {
           hookInstance: generateId(),
           context: { patientId },
           testData,
+          ...(draftOrders ? { draftOrders } : {}),
         },
       })
       setSandboxResponse(response)
+
+      // Partition cards: critical vs normal
+      if (response.cards && response.cards.length > 0) {
+        const critical = response.cards.filter((c) => c.indicator === 'critical')
+        const normal = response.cards.filter((c) => c.indicator !== 'critical')
+        setNormalCards(normal)
+        if (critical.length > 0) {
+          setCurrentCritical(critical[0])
+          setCriticalQueue(critical.slice(1))
+        } else {
+          setCurrentCritical(null)
+          setCriticalQueue([])
+        }
+      } else {
+        setNormalCards([])
+        setCurrentCritical(null)
+        setCriticalQueue([])
+      }
     } catch (error) {
       showNotification(t('sandbox.invokeFailed', { error: extractApiError(error) }), 'error')
+    }
+  }
+
+  const handleAcceptCritical = () => {
+    if (criticalQueue.length > 0) {
+      setCurrentCritical(criticalQueue[0])
+      setCriticalQueue(criticalQueue.slice(1))
+    } else {
+      setCurrentCritical(null)
+    }
+  }
+
+  const handleOverrideCritical = (_reason: string) => {
+    if (criticalQueue.length > 0) {
+      setCurrentCritical(criticalQueue[0])
+      setCriticalQueue(criticalQueue.slice(1))
+    } else {
+      setCurrentCritical(null)
     }
   }
 
@@ -479,6 +541,9 @@ function SandboxPanelInner() {
         <Tabs value={dataTab} onChange={(_, v) => setDataTab(v)} sx={{ mb: 1 }}>
           <Tab icon={<BuilderIcon />} iconPosition="start" label={t('sandbox.tabVisualBuilder')} sx={{ textTransform: 'none', minHeight: 42 }} />
           <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabJsonPrefetch')} sx={{ textTransform: 'none', minHeight: 42 }} />
+          {isOrderHook && (
+            <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabDraftOrders')} sx={{ textTransform: 'none', minHeight: 42 }} />
+          )}
         </Tabs>
 
         {dataTab === 0 && (
@@ -503,6 +568,30 @@ function SandboxPanelInner() {
             />
           </Box>
         )}
+
+        {dataTab === 2 && isOrderHook && (
+          <Box>
+            <Alert severity="info" sx={{ mb: 1 }}>
+              {t('sandbox.draftOrdersDescription')}
+            </Alert>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+              <Editor
+                height="300px"
+                language="json"
+                theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+                value={draftOrdersJson}
+                onChange={(v) => setDraftOrdersJson(v || '')}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                }}
+              />
+            </Box>
+          </Box>
+        )}
       </Box>
 
       <GradientButton
@@ -522,13 +611,23 @@ function SandboxPanelInner() {
         <Alert severity="error">{t('sandbox.invokeError', { error: extractApiError(sandboxMutation.error) })}</Alert>
       )}
 
-      {sandboxResponse && sandboxResponse.cards && sandboxResponse.cards.length > 0 && (
+      {/* Critical Card Dialog */}
+      {currentCritical && (
+        <CriticalCardDialog
+          open={!!currentCritical}
+          card={currentCritical}
+          onAccept={handleAcceptCritical}
+          onOverride={handleOverrideCritical}
+        />
+      )}
+
+      {sandboxResponse && normalCards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
             {t('sandbox.results', { count: sandboxResponse.cards.length })}
           </Typography>
           <Stack spacing={2}>
-            {sandboxResponse.cards.map((card: CdsCard) => (
+            {normalCards.map((card: CdsCard) => (
               <Card
                 key={card.uuid}
                 variant="outlined"

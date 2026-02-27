@@ -41,7 +41,8 @@ import {
   useCdsServiceConfigs,
   useSubmitCdsFeedback,
 } from '../../hooks/useCdsHooks'
-import type { CdsServiceDefinition, CdsResponse } from '../../types'
+import type { CdsServiceDefinition, CdsCard, CdsResponse } from '../../types'
+import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
 import FhirServerUrlField from '../common/FhirServerUrlField'
@@ -99,11 +100,16 @@ export default function InvokeServicePanel() {
   const [overrideCardUuid, setOverrideCardUuid] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
 
+  // Critical card queue state
+  const [criticalQueue, setCriticalQueue] = useState<CdsCard[]>([])
+  const [currentCritical, setCurrentCritical] = useState<CdsCard | null>(null)
+  const [normalCards, setNormalCards] = useState<CdsCard[]>([])
+
   const services = useMemo(
     () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
     [servicesData?.services]
   )
-  const cards = useMemo(() => cdsResponse?.cards ?? [], [cdsResponse?.cards])
+  const allCards = useMemo(() => cdsResponse?.cards ?? [], [cdsResponse?.cards])
 
   useEffect(() => {
     if (selectedService && serviceConfigs) {
@@ -133,8 +139,44 @@ export default function InvokeServicePanel() {
         },
       })
       setCdsResponse(response)
+
+      // Partition cards: critical vs normal
+      if (response.cards && response.cards.length > 0) {
+        const critical = response.cards.filter((c: CdsCard) => c.indicator === 'critical')
+        const normal = response.cards.filter((c: CdsCard) => c.indicator !== 'critical')
+        setNormalCards(normal)
+        if (critical.length > 0) {
+          setCurrentCritical(critical[0])
+          setCriticalQueue(critical.slice(1))
+        } else {
+          setCurrentCritical(null)
+          setCriticalQueue([])
+        }
+      } else {
+        setNormalCards([])
+        setCurrentCritical(null)
+        setCriticalQueue([])
+      }
     } catch (error) {
       showNotification(t('invoke.invokeFailed', { error: extractApiError(error) }), 'error')
+    }
+  }
+
+  const handleAcceptCritical = () => {
+    if (criticalQueue.length > 0) {
+      setCurrentCritical(criticalQueue[0])
+      setCriticalQueue(criticalQueue.slice(1))
+    } else {
+      setCurrentCritical(null)
+    }
+  }
+
+  const handleOverrideCritical = (_reason: string) => {
+    if (criticalQueue.length > 0) {
+      setCurrentCritical(criticalQueue[0])
+      setCriticalQueue(criticalQueue.slice(1))
+    } else {
+      setCurrentCritical(null)
     }
   }
 
@@ -249,13 +291,23 @@ export default function InvokeServicePanel() {
         <Alert severity="error">{t('invoke.invokeError', { error: extractApiError(invokeMutation.error) })}</Alert>
       )}
 
-      {cards.length > 0 && (
+      {/* Critical Card Dialog */}
+      {currentCritical && (
+        <CriticalCardDialog
+          open={!!currentCritical}
+          card={currentCritical}
+          onAccept={handleAcceptCritical}
+          onOverride={handleOverrideCritical}
+        />
+      )}
+
+      {normalCards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
-            {t('invoke.responseCards', { count: cards.length })}
+            {t('invoke.responseCards', { count: allCards.length })}
           </Typography>
           <Stack spacing={2}>
-            {cards.map((card) => (
+            {normalCards.map((card) => (
               <Card
                 key={card.uuid}
                 variant="outlined"
@@ -386,7 +438,7 @@ export default function InvokeServicePanel() {
         </Alert>
       )}
 
-      {cards.length === 0 && !invokeMutation.isPending && selectedService && (
+      {allCards.length === 0 && !invokeMutation.isPending && selectedService && (
         <Typography variant="body2" color="text.secondary" textAlign="center">
           {t('invoke.noCards')}
         </Typography>

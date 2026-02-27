@@ -284,6 +284,7 @@ export interface CdsCard {
   }
   suggestions?: CdsSuggestion[]
   links?: CdsLink[]
+  overrideReasons?: { code?: { system?: string; code?: string; display?: string }; display?: string }[]
 }
 
 export interface CdsSuggestion {
@@ -341,6 +342,7 @@ export interface CdsSandboxRequest {
   hookInstance?: string
   context?: { userId?: string; patientId?: string; encounterId?: string }
   testData?: Record<string, unknown>
+  draftOrders?: unknown
 }
 
 export interface SandboxPresetRequest {

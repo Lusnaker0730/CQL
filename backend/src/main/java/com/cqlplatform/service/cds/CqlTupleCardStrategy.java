@@ -82,6 +82,7 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
                         String sourceLabel = CdsTupleAccessor.getString(value, "sourceLabel");
                         String selectionBehavior = CdsTupleAccessor.getString(value, "selectionBehavior");
                         List<CdsResponse.Suggestion> suggestions = parseSuggestions(value);
+                        List<CdsResponse.OverrideReason> overrideReasons = parseOverrideReasons(value);
 
                         if (summary != null) {
                             hasExplicitCards = true;
@@ -95,6 +96,7 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
                                             .build())
                                     .selectionBehavior(selectionBehavior)
                                     .suggestions(suggestions.isEmpty() ? null : suggestions)
+                                    .overrideReasons(overrideReasons.isEmpty() ? null : overrideReasons)
                                     .build());
                             continue;
                         }
@@ -256,6 +258,34 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
         }
 
         return actions;
+    }
+
+    private List<CdsResponse.OverrideReason> parseOverrideReasons(Object cardTuple) {
+        List<Object> reasonsRaw = CdsTupleAccessor.getList(cardTuple, "overrideReasons");
+        List<CdsResponse.OverrideReason> reasons = new ArrayList<>();
+
+        for (Object reasonObj : reasonsRaw) {
+            if (reasonObj != null && reasonObj.getClass().getSimpleName().contains("Tuple")) {
+                String code = CdsTupleAccessor.getString(reasonObj, "code");
+                String display = CdsTupleAccessor.getString(reasonObj, "display");
+                String system = CdsTupleAccessor.getString(reasonObj, "system");
+
+                reasons.add(CdsResponse.OverrideReason.builder()
+                        .code(code != null ? CdsResponse.Coding.builder()
+                                .system(system)
+                                .code(code)
+                                .display(display)
+                                .build() : null)
+                        .display(display)
+                        .build());
+            } else if (reasonObj instanceof String reasonStr) {
+                reasons.add(CdsResponse.OverrideReason.builder()
+                        .display(reasonStr)
+                        .build());
+            }
+        }
+
+        return reasons;
     }
 
     private List<CdsResponse.SystemAction> parseSystemActions(Object value) {

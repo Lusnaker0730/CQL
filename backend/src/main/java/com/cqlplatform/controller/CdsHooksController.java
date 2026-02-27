@@ -76,6 +76,10 @@ public class CdsHooksController {
             cdsRequest.setHookInstance(sandboxRequest.getHookInstance() != null
                     ? sandboxRequest.getHookInstance() : IdGenerator.uuid());
             cdsRequest.setContext(sandboxRequest.getContext());
+            // Inject draftOrders into context if provided (for order-select/order-sign hooks)
+            if (sandboxRequest.getDraftOrders() != null && cdsRequest.getContext() != null) {
+                cdsRequest.getContext().setDraftOrders(sandboxRequest.getDraftOrders());
+            }
             // Use testData as prefetch, no fhirServer -> forces PrefetchRetrieveProvider
             cdsRequest.setPrefetch(sandboxRequest.getTestData());
 

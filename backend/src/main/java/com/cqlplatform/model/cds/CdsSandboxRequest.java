@@ -27,4 +27,5 @@ public class CdsSandboxRequest {
     private String hookInstance;
     private CdsRequest.CdsContext context;
     private Map<String, Object> testData;
+    private Object draftOrders;
 }

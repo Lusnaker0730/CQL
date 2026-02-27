@@ -92,6 +92,8 @@
     "patientIdLabel": "Patient ID",
     "tabVisualBuilder": "Visual Builder",
     "tabJsonPrefetch": "JSON (Prefetch)",
+    "tabDraftOrders": "Draft Orders",
+    "draftOrdersDescription": "Enter a FHIR Bundle containing draft orders (e.g. MedicationRequest, ServiceRequest) for order-select/order-sign hooks.",
     "invoking": "Invoking...",
     "invokeButton": "Invoke in Sandbox",
     "invokeFailed": "Sandbox invocation failed: {{error}}",
@@ -122,6 +124,15 @@
       "loadedChip": "Preset: {{name}}",
       "overwrite": "Overwrite"
     }
+  },
+  "critical": {
+    "alertTitle": "Critical Alert",
+    "acceptCard": "Accept",
+    "overrideCard": "Override",
+    "overrideReason": "Override Reason",
+    "selectReason": "Select reason",
+    "overridePlaceholder": "Enter reason for overriding this alert...",
+    "submitOverride": "Submit Override"
   },
   "analytics": {
     "loadError": "Failed to load analytics",

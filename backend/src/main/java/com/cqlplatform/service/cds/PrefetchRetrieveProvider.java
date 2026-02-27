@@ -35,6 +35,19 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
     }
 
     /**
+     * Merge additional resources (e.g. from draftOrders or resolved prefetch templates)
+     * into the existing resource map.
+     */
+    public void addResources(List<Resource> newResources) {
+        for (Resource resource : newResources) {
+            resourcesByType
+                    .computeIfAbsent(resource.fhirType(), k -> new ArrayList<>())
+                    .add(resource);
+        }
+        log.info("Added {} resources to PrefetchRetrieveProvider", newResources.size());
+    }
+
+    /**
      * Set a TerminologyProvider for ValueSet expansion during retrieves.
      * Without this, ValueSet-based retrieves (e.g. [Condition: "Diabetes"]) will
      * return all resources of the matching type without code filtering.
@@ -104,6 +117,14 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
         } else if (resource instanceof MedicationRequest medReq) {
             if ("medication".equals(codePath) && medReq.hasMedicationCodeableConcept()) {
                 for (Coding coding : medReq.getMedicationCodeableConcept().getCoding()) {
+                    if (codes.contains(coding.getCode())) {
+                        return true;
+                    }
+                }
+            }
+        } else if (resource instanceof ServiceRequest svcReq) {
+            if ("code".equals(codePath) && svcReq.hasCode()) {
+                for (Coding coding : svcReq.getCode().getCoding()) {
                     if (codes.contains(coding.getCode())) {
                         return true;
                     }
