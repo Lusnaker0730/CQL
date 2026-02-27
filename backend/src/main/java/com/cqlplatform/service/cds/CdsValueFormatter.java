@@ -102,7 +102,7 @@ public class CdsValueFormatter {
             return ((PrimitiveType<?>) value).getValueAsString();
         }
         if (value instanceof Resource res) {
-            return resourceFormatter.formatReference(res);
+            return resourceFormatter.formatDetail(res);
         }
         return value.toString();
     }

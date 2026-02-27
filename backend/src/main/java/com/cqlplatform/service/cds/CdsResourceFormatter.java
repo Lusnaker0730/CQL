@@ -87,6 +87,8 @@ public class CdsResourceFormatter {
     private void appendProcedure(StringBuilder sb, Procedure proc) {
         if (proc.hasCode() && proc.getCode().hasText()) {
             sb.append("\nProcedure: ").append(proc.getCode().getText());
+        } else if (proc.hasCode() && proc.getCode().hasCoding()) {
+            sb.append("\nProcedure: ").append(proc.getCode().getCodingFirstRep().getDisplay());
         }
         if (proc.hasStatus()) {
             sb.append("\nStatus: ").append(proc.getStatus().toCode());
@@ -96,6 +98,8 @@ public class CdsResourceFormatter {
     private void appendAllergyIntolerance(StringBuilder sb, AllergyIntolerance allergy) {
         if (allergy.hasCode() && allergy.getCode().hasText()) {
             sb.append("\nAllergy: ").append(allergy.getCode().getText());
+        } else if (allergy.hasCode() && allergy.getCode().hasCoding()) {
+            sb.append("\nAllergy: ").append(allergy.getCode().getCodingFirstRep().getDisplay());
         }
         if (allergy.hasClinicalStatus()) {
             sb.append("\nStatus: ").append(allergy.getClinicalStatus().getCodingFirstRep().getCode());
