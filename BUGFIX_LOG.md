@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 050 | 2026-02-27 | Medium | CDS Hooks Sandbox（後端） | CDS 卡片 CodeableConcept 多 coding 只顯示第一個 | 邏輯錯誤 | [`aed0ecb`](../../commit/aed0ecb) |
 | 049 | 2026-02-27 | High | CDS Hooks Sandbox（後端） | CDS 卡片僅顯示資源參考而非過敏藥物名稱 | 邏輯錯誤 | [`8b67eb6`](../../commit/8b67eb6) |
 | 048 | 2026-02-27 | High | 術語查詢（後端） | RxNorm 代碼搜尋無結果 — FHIR 術語伺服器未載入 UMLS 授權碼表 | 外部服務限制 | [`fe50e2a`](../../commit/fe50e2a) |
 | 047 | 2026-02-27 | High | Monaco 編輯器（前端） | Fallback paste handler 非同步讀取 clipboardData 導致貼上失效 | 邏輯錯誤 | [`be3c6ce`](../../commit/be3c6ce) |
@@ -70,6 +71,37 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #050 — CDS 卡片 CodeableConcept 多 coding 只顯示第一個
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-27 |
+| **功能分類** | CDS Hooks Sandbox（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `backend/.../CdsResourceFormatter.java` |
+| **Commit** | [`aed0ecb`](../../commit/aed0ecb) |
+
+### BUG 描述
+
+CDS 卡片在 AllergyIntolerance（及其他資源）的 `code` 包含多個 coding 時，僅顯示第一個 coding 的 display。例如同時輸入 ZINC 和 MAGNESIUM 兩個過敏藥物，卡片只顯示 ZINC。
+
+根因：所有 `appendXxx()` 方法皆使用 `getCodingFirstRep()` 取第一筆 coding，忽略後續 coding。
+
+### 修正方式
+
+提取 `formatAllCodings()` helper 方法：
+- 有 `text` 時直接回傳 text
+- 無 `text` 時遍歷所有 `coding[]`，以逗號連接各 `display`（無 display 則 fallback 至 `code`）
+- 統一套用至 Observation、Condition、MedicationRequest、Procedure、AllergyIntolerance 五個 formatter
+
+### 驗證
+
+- AllergyIntolerance 填入兩個 coding（ZINC + MAGNESIUM）→ 卡片顯示 "Allergy: ZINC (AS ZINC OXIDE), MAGNESIUM (AS PHO...)"
+- 單一 coding 行為不變；有 text 時優先顯示 text
 
 ---
 
