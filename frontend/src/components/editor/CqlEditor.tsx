@@ -87,23 +87,23 @@ export default function CqlEditor({
     const domNode = editor.getDomNode()
     if (domNode) {
       domNode.addEventListener('paste', (e: ClipboardEvent) => {
-        // Only intervene if Monaco's built-in paste didn't handle it
+        // Read clipboard data synchronously — it's only available during the event handler
+        const clipText = e.clipboardData?.getData('text/plain')
+        if (!clipText) return
+
         // Check after a microtask to see if onDidPaste already fired
         const modelBefore = editor.getModel()?.getValue()
         setTimeout(() => {
           const modelAfter = editor.getModel()?.getValue()
-          if (modelBefore === modelAfter) {
+          if (modelBefore === modelAfter && editor.getModel()) {
             // Monaco's paste didn't work; apply manually
-            const clipboardData = e.clipboardData?.getData('text/plain')
-            if (clipboardData && editor.getModel()) {
-              const cleaned = sanitizePastedText(clipboardData)
-              const selections = editor.getSelections()
-              if (selections && selections.length > 0) {
-                editor.executeEdits('paste', selections.map(sel => ({
-                  range: sel,
-                  text: cleaned,
-                })))
-              }
+            const cleaned = sanitizePastedText(clipText)
+            const selections = editor.getSelections()
+            if (selections && selections.length > 0) {
+              editor.executeEdits('paste', selections.map(sel => ({
+                range: sel,
+                text: cleaned,
+              })))
             }
           }
         }, 0)

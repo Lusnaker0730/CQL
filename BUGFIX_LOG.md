@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 047 | 2026-02-27 | High | Monaco 編輯器（前端） | Fallback paste handler 非同步讀取 clipboardData 導致貼上失效 | 邏輯錯誤 | [`pending`](#047--fallback-paste-handler-非同步讀取-clipboarddata-導致貼上失效) |
 | 046 | 2026-02-25 | High | Monaco 編輯器（Docker） | Docker 環境下 Monaco Editor 無法貼上（Ctrl+V 無效） | 配置遺漏 | [`ae9a0e3`](../../commit/ae9a0e3) |
 | 045 | 2026-02-24 | Medium | 術語查詢（後端） | 代碼查詢本地 TWCORE IG 回傳 ValueSet 名稱且缺少 display name | 資料處理錯誤 | [`d5e150d`](../../commit/d5e150d) |
 | 044 | 2026-02-24 | High | CQL Builder（前端） | Retrieve Builder 依賴不存在的 C3F 外部函式庫致 CQL 無法解析 | 架構缺陷 | [`d5e150d`](../../commit/d5e150d) |
@@ -66,6 +67,60 @@
 | 併發/效能問題 | 記憶體、執行緒或效能相關 |
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
+
+---
+
+## #047 — Fallback paste handler 非同步讀取 clipboardData 導致貼上失效
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-02-27 |
+| **功能分類** | Monaco 編輯器（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `frontend/src/components/editor/CqlEditor.tsx` |
+| **Commit** | `pending` |
+
+### BUG 描述
+
+當 Monaco Editor 原生 Clipboard API 貼上失敗時（例如瀏覽器未授予剪貼簿權限、非 HTTPS 環境），fallback paste handler 無法正確介入，導致 Ctrl+V 完全無效。
+
+**根本原因**：`ClipboardEvent.clipboardData` 僅在 paste 事件處理函數的同步執行期間可存取。在 #046 修正中引入的 fallback handler 將 `e.clipboardData?.getData('text/plain')` 放在 `setTimeout` callback 中讀取，此時事件已結束，瀏覽器已銷毀 `clipboardData` 物件，永遠回傳 `null`。
+
+```javascript
+// BUG: clipboardData 在 setTimeout 中已不可用
+domNode.addEventListener('paste', (e) => {
+  const modelBefore = editor.getModel()?.getValue()
+  setTimeout(() => {
+    // e.clipboardData 已被瀏覽器回收 → null
+    const clipboardData = e.clipboardData?.getData('text/plain')
+  }, 0)
+})
+```
+
+### 修正方式
+
+將 `clipboardData.getData('text/plain')` 移至 paste 事件處理函數的同步區域，先暫存至區域變數 `clipText`，再於 `setTimeout` 中使用該變數進行 fallback 寫入：
+
+```javascript
+domNode.addEventListener('paste', (e) => {
+  // 同步讀取 — 事件處理期間才有效
+  const clipText = e.clipboardData?.getData('text/plain')
+  if (!clipText) return
+
+  const modelBefore = editor.getModel()?.getValue()
+  setTimeout(() => {
+    // 使用先前暫存的 clipText
+    if (modelBefore === modelAfter) { ... }
+  }, 0)
+})
+```
+
+### 驗證
+
+- 在 Monaco 原生貼上失效的環境中，Ctrl+V 可透過 fallback 正確貼入文字
+- 在 Monaco 原生貼上正常的環境中，fallback 不介入（`modelBefore !== modelAfter`）
+- 貼上含特殊字元的 LLM 輸出仍正確 sanitize
 
 ---
 
