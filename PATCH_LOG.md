@@ -29,7 +29,7 @@
 | 019 | 2026-02-22 | 跨模組 | 錯誤處理統一（Backend 例外層級 + Frontend 錯誤提取） | Backend (Controllers, Exceptions, Services) + Frontend (全模組) | [`645a775`](../../commit/645a775) |
 | 020 | 2026-02-24 | Authoring | 分頁驗證錯誤明細（Tooltip + Alert） | Frontend (Authoring, i18n) | [`4efb3c8`](../../commit/4efb3c8) |
 | 021 | 2026-02-27 | CDS | Hospital-Grade 改善：draftOrders + 預取解析 + 重大警示彈窗 | Backend + Frontend (CDS, i18n) | [`1b0a22a`](../../commit/1b0a22a) |
-| 022 | 2026-02-28 | Authoring | TWCORE IG 範本支援（19 預設範本 + TW 代碼系統 + 目錄擴充） | Backend + Frontend (Authoring) | [`pending`](../../commit/pending) |
+| 022 | 2026-02-28 | Authoring | TWCORE IG 範本支援（19 預設範本 + TW 代碼系統 + 目錄擴充） | Backend + Frontend (Authoring) | [`bf27974`](../../commit/bf27974) |
 
 ---
 
