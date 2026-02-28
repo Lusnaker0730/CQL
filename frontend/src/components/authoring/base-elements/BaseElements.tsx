@@ -16,10 +16,11 @@ interface BaseElementsProps {
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   onChange: (baseElements: BaseElement[]) => void
 }
 
-export default function BaseElements({ baseElements, templates, modifiers, dynamicEntries, onChange }: BaseElementsProps) {
+export default function BaseElements({ baseElements, templates, modifiers, dynamicEntries, twcoreMode, onChange }: BaseElementsProps) {
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
@@ -120,6 +121,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
                   templates={templates}
                   modifiers={modifiers}
                   dynamicEntries={dynamicEntries}
+                  twcoreMode={twcoreMode}
                   onUpdateGroup={(updated) => handleUpdateTree(be.uniqueId, updated.childInstances)}
                   onAddElement={(el) => handleUpdateTree(be.uniqueId, [...(be.childInstances || []), el])}
                   onRemoveElement={(uid) => handleUpdateTree(be.uniqueId, (be.childInstances || []).filter((c) => c.uniqueId !== uid))}

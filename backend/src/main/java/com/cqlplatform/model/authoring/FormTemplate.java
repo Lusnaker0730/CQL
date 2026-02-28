@@ -22,6 +22,7 @@ public class FormTemplate {
     private Boolean conjunction;
     private Boolean suppress;
     private Boolean cannotHaveModifiers;
+    private Boolean twcoreOnly;
     private List<String> suppressedModifiers;
     private Map<String, Object> validator;
     private List<Map<String, Object>> fields;

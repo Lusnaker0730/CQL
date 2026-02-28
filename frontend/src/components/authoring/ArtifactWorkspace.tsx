@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip, Tooltip, Alert } from '@mui/material'
-import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon } from '@mui/icons-material'
+import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip, Tooltip, Alert, FormControlLabel, Switch } from '@mui/material'
+import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon, Public as PublicIcon } from '@mui/icons-material'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { useArtifactHistory } from '../../hooks/useArtifactHistory'
 import ArtifactWorkspaceHeader from './ArtifactWorkspaceHeader'
@@ -187,6 +187,7 @@ export default function ArtifactWorkspace({
   const [tab, setTab] = useState(0)
   const [localArtifact, setLocalArtifact] = useState<Artifact>(artifact)
   const [isDirty, setIsDirty] = useState(false)
+  const [twcoreMode, setTwcoreMode] = useState(false)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
   const updateMutation = useUpdateArtifact()
 
@@ -519,13 +520,14 @@ export default function ArtifactWorkspace({
         onUpdate={updateLocal}
       />
 
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
-      >
+      <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', px: 2 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ flex: 1 }}
+        >
         {TAB_LABELS.map((label, i) => {
           const si = tabStatuses[i]
           const errorIcon = si.errors.length > 0 ? (
@@ -563,7 +565,26 @@ export default function ArtifactWorkspace({
             />
           )
         })}
-      </Tabs>
+        </Tabs>
+        <Tooltip title="啟用 TWCORE 台灣核心實作指引範本">
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={twcoreMode}
+                onChange={(e) => setTwcoreMode(e.target.checked)}
+              />
+            }
+            label={
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <PublicIcon fontSize="small" />
+                <Typography variant="caption" fontWeight={600} noWrap>TWCORE</Typography>
+              </Stack>
+            }
+            sx={{ ml: 1, mr: 1, flexShrink: 0 }}
+          />
+        </Tooltip>
+      </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
         {tabStatuses[tab].errors.length > 0 && (
@@ -586,6 +607,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onUpdateGroup={handleUpdateInclude}
             onAddElement={handleAddIncludeElement}
             onRemoveElement={handleRemoveIncludeElement}
@@ -599,6 +621,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onUpdateGroup={handleUpdateExclude}
             onAddElement={handleAddExcludeElement}
             onRemoveElement={handleRemoveExcludeElement}
@@ -611,6 +634,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onChange={(subpopulations) => updateLocal({ subpopulations })}
           />
         )}
@@ -620,6 +644,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onChange={(baseElements) => updateLocal({ baseElements })}
           />
         )}

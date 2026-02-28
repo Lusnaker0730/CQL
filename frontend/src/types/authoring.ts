@@ -331,6 +331,7 @@ export interface FormTemplate {
   name: string
   returnType: string
   suppress?: boolean
+  twcoreOnly?: boolean
   fields?: ElementField[]
   type?: string
   extends?: string

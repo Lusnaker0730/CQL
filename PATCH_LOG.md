@@ -29,6 +29,7 @@
 | 019 | 2026-02-22 | 跨模組 | 錯誤處理統一（Backend 例外層級 + Frontend 錯誤提取） | Backend (Controllers, Exceptions, Services) + Frontend (全模組) | [`645a775`](../../commit/645a775) |
 | 020 | 2026-02-24 | Authoring | 分頁驗證錯誤明細（Tooltip + Alert） | Frontend (Authoring, i18n) | [`4efb3c8`](../../commit/4efb3c8) |
 | 021 | 2026-02-27 | CDS | Hospital-Grade 改善：draftOrders + 預取解析 + 重大警示彈窗 | Backend + Frontend (CDS, i18n) | [`1b0a22a`](../../commit/1b0a22a) |
+| 022 | 2026-02-28 | Authoring | TWCORE IG 範本支援（19 預設範本 + TW 代碼系統 + 目錄擴充） | Backend + Frontend (Authoring) | [`pending`](../../commit/pending) |
 
 ---
 
@@ -1691,5 +1692,81 @@ ArtifactWorkspace 的 11 個分頁在元素有驗證錯誤時會顯示驚嘆號�
 - CQL 回傳 `indicator: "critical"` → 阻斷式彈窗 → 必須 Accept / Override 才能繼續
 - 移除 prefetch 資料 → 設定 fhirServer URL → 服務自動透過範本取得 Patient → CQL 正常執行
 - 既有 patient-view hooks 不受影響（回歸正常）
+
+---
+
+## #022 — TWCORE IG 範本支援（19 預設範本 + TW 代碼系統 + 目錄擴充）
+
+- **日期**: 2026-02-28
+- **範圍**: Authoring — 功能增強
+- **分類**: 功能增強 / 台灣核心實作指引（TWCORE IG）
+
+### 問題描述
+
+Authoring 規則編寫功能僅使用通用 FHIR R4 範本（每個資源類型一個）。使用者每次都必須手動從 TWCORE 目錄分頁挑選代碼。目標是新增 **TWCORE 專用預設範本**（如「BMI 觀測」、「糖尿病」），讓使用者可直接針對台灣核心 IG Profile 撰寫規則，減少操作步驟。
+
+### 修改內容
+
+#### 1. 新增 19 個 TWCORE 範本至 formTemplates.json
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/.../resources/data/formTemplates.json` — 新增 19 個 TWCORE 範本，分布於 Observations(9)、Conditions(7)、Medications(2)、AllergyIntolerances(1)，各自帶有 `twcoreOnly: true` 旗標及預設 LOINC/SNOMED 代碼 |
+
+**Observations (9)：** BMI 觀測、血壓觀測、體重觀測、身高觀測、體溫觀測、心率觀測、血糖觀測、糖化血色素觀測、檢驗結果(通用)
+**Conditions (7)：** 糖尿病、高血壓、心臟衰竭、慢性腎臟病、氣喘、慢性阻塞性肺病、病情(通用)
+**Medications (2)：** 藥品處方(TWCORE)、用藥紀錄(TWCORE)
+**AllergyIntolerances (1)：** 過敏(TWCORE)
+
+所有 TWCORE 範本重用與通用範本相同的 `template` 欄位（如 `GenericObservation`），CQL 生成流程無需任何修改。
+
+#### 2. Backend — 解析 twcoreOnly 旗標
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/.../model/authoring/FormTemplate.java` — 新增 `private Boolean twcoreOnly` 欄位 |
+| 修改 | `backend/.../service/authoring/TemplateService.java` — `parseTemplate()` 新增 `setTwcoreOnly()` |
+
+#### 3. Backend — 新增台灣代碼系統
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/.../model/authoring/AuthoringConstants.java` — `CODE_SYSTEM_NAMES` 從 `Map.of()` 改為 `Map.ofEntries()`，新增 ICD-10-CM-TW、ICD-10-PCS-TW、ATC、FDA-TW 四個台灣代碼系統 |
+
+#### 4. Frontend — TWCORE 模式切換與範本篩選
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `frontend/src/types/authoring.ts` — `FormTemplate` 介面新增 `twcoreOnly?: boolean` |
+| 修改 | `frontend/src/components/authoring/ArtifactWorkspace.tsx` — 新增 TWCORE 模式切換開關（工具列右側），`twcoreMode` state 傳遞至 ConjunctionGroup / Subpopulations / BaseElements |
+| 修改 | `frontend/src/components/authoring/element-select/ElementSelectDropdown.tsx` — 接受 `twcoreMode` prop，關閉時隱藏 `twcoreOnly` 範本，顯示 "TW" Chip 標記 |
+| 修改 | `frontend/src/components/authoring/element-select/ElementSelect.tsx` — 傳遞 `twcoreMode`，建立元素時複製 `codes` / `valueSets` 至欄位 |
+| 修改 | `frontend/src/components/authoring/builder/ConjunctionGroup.tsx` — 新增 `twcoreMode` prop 傳遞 |
+| 修改 | `frontend/src/components/authoring/subpopulations/Subpopulations.tsx` — 新增 `twcoreMode` prop 傳遞 |
+| 修改 | `frontend/src/components/authoring/base-elements/BaseElements.tsx` — 新增 `twcoreMode` prop 傳遞 |
+
+#### 5. 擴充 TWCORE 目錄
+
+| 動作 | 檔案 |
+|------|------|
+| 修改 | `backend/.../resources/data/twcoreCatalog.json` — 新增 LOINC 2345-7（血漿葡萄糖）與 4548-4（HbA1c）至血糖分類；新增 MedicationRequest ATC 值集（21 碼 / 4 類別）；新增 Procedure ICD-10-PCS-TW 值集（10 碼）；新增藥物過敏分類（7 碼） |
+
+### 影響統計
+
+| 類別 | 數量 |
+|------|------|
+| 修改檔案 | 12 |
+| 新增檔案 | 0 |
+| 新增範本 | 19（9 Observation + 7 Condition + 2 Medication + 1 AllergyIntolerance） |
+| 新增代碼系統 | 4（ICD-10-CM-TW、ICD-10-PCS-TW、ATC、FDA-TW） |
+| 新增行數 | +562 / -22 |
+
+### 驗證
+
+- JSON 格式驗證 — `formTemplates.json` 與 `twcoreCatalog.json` 均通過 Python json.load 驗證
+- `tsc --noEmit` — 通過，零錯誤
+- VS Code diagnostics — 所有修改檔案零警告
+- 設計驗證：TWCORE 範本使用與通用範本相同的 `template` 值，CQL 生成流程（`collectFromTree()` → `codesystem`/`code` 宣告）不受影響
+- TWCORE 模式關閉時，19 個新範本完全隱藏（回歸正常）
 
 ---

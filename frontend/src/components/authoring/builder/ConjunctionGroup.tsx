@@ -29,6 +29,7 @@ interface ConjunctionGroupProps {
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   searchFilter?: string
   onUpdateGroup: (updated: ConjunctionGroupType) => void
   onAddElement: (element: ElementInstance) => void
@@ -44,6 +45,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   templates,
   modifiers,
   dynamicEntries,
+  twcoreMode,
   searchFilter,
   onUpdateGroup,
   onAddElement,
@@ -307,6 +309,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       <ElementSelect
         templates={templates}
         dynamicEntries={dynamicEntries}
+        twcoreMode={twcoreMode}
         onSelect={handleAddElement}
       />
     </Box>

@@ -65,6 +65,7 @@ public class TemplateService {
         template.setConjunction((Boolean) raw.get("conjunction"));
         template.setSuppress((Boolean) raw.get("suppress"));
         template.setCannotHaveModifiers((Boolean) raw.get("cannotHaveModifiers"));
+        template.setTwcoreOnly((Boolean) raw.get("twcoreOnly"));
         template.setSuppressedModifiers((List<String>) raw.get("suppressedModifiers"));
         template.setValidator((Map<String, Object>) raw.get("validator"));
         template.setFields((List<Map<String, Object>>) raw.get("fields"));

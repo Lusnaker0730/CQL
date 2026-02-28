@@ -16,10 +16,11 @@ interface SubpopulationsProps {
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   onChange: (subpopulations: Subpopulation[]) => void
 }
 
-export default function Subpopulations({ subpopulations, templates, modifiers, dynamicEntries, onChange }: SubpopulationsProps) {
+export default function Subpopulations({ subpopulations, templates, modifiers, dynamicEntries, twcoreMode, onChange }: SubpopulationsProps) {
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
@@ -112,6 +113,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
                   templates={templates}
                   modifiers={modifiers}
                   dynamicEntries={dynamicEntries}
+                  twcoreMode={twcoreMode}
                   onUpdateGroup={(updated) => handleUpdateTree(sp.uniqueId, updated.childInstances)}
                   onAddElement={(el) => handleUpdateTree(sp.uniqueId, [...(sp.childInstances || []), el])}
                   onRemoveElement={(uid) => handleUpdateTree(sp.uniqueId, (sp.childInstances || []).filter((c) => c.uniqueId !== uid))}
