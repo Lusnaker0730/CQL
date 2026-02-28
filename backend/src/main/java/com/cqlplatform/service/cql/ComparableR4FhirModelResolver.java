@@ -5,16 +5,16 @@ import org.opencds.cqf.cql.engine.fhir.model.R4FhirModelResolver;
 /**
  * Extended R4FhirModelResolver that handles edge cases in FHIR path resolution.
  *
- * Fixes:
- * 1. Encounter.class — Java reserved word conflict. HAPI FHIR stores the FHIR
- *    Encounter.class element via getClass_(), but the default model resolver
- *    calls Object.getClass() instead. We override to use getClass_().
+ * Fix: Encounter.class — Java reserved word conflict. HAPI FHIR stores the FHIR
+ * Encounter.class element via getClass_(), but the default model resolver
+ * calls Object.getClass() instead. We override to use getClass_().
  *
- * Note: We do NOT convert FHIR date/time types to CQL engine types here.
- * FHIRHelpers (auto-included by the CQL translator) already handles all
- * FHIR→CQL type conversions via .value accessors. Converting early in
- * resolvePath breaks the FHIRHelpers.ToDateTime() chain, causing temporal
- * operators like "during" to fail silently.
+ * Important: We do NOT unwrap FHIR primitive types (DecimalType, StringType, etc.)
+ * to Java types here. FHIRHelpers (auto-included by the CQL translator) handles
+ * all FHIR→CQL type conversions via .value accessors (e.g. ToDecimal(decimal):
+ * value.value). Unwrapping early in resolvePath() breaks the FHIRHelpers chain
+ * because FHIRHelpers tries to call .value on the already-unwrapped Java type
+ * (e.g. java.lang.String), causing "Invalid path: value for type" errors.
  */
 public class ComparableR4FhirModelResolver extends R4FhirModelResolver {
 

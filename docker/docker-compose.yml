@@ -70,7 +70,7 @@ services:
       resources:
         limits:
           cpus: '2.0'
-          memory: 1G
+          memory: 1.5G
 
   frontend:
     build:
@@ -85,6 +85,12 @@ services:
       - backend
     networks:
       - cql-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -106,10 +112,7 @@ services:
     networks:
       - cql-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/fhir/metadata"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      disable: true
     deploy:
       resources:
         limits:
