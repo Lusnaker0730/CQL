@@ -67,11 +67,22 @@ public class ArtifactRequest {
 
     private Map<String, Object> strengthOfRecommendation;
     private Map<String, Object> qualityOfEvidence;
+    @Size(max = 50)
     private List<Map<String, Object>> context;
+
+    @Size(max = 50)
     private List<Map<String, Object>> topic;
+
+    @Size(max = 50)
     private List<Map<String, Object>> author;
+
+    @Size(max = 50)
     private List<Map<String, Object>> reviewer;
+
+    @Size(max = 50)
     private List<Map<String, Object>> endorser;
+
+    @Size(max = 100)
     private List<Map<String, Object>> relatedArtifact;
 
     // Expression Trees — exempt from XSS sanitization (JSON structure data)

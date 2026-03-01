@@ -550,7 +550,7 @@ public class MeasureController {
     @Operation(summary = "Batch Import Test Cases", description = "Import multiple test cases at once with optional date shifting")
     public ResponseEntity<BatchTestCaseImportResult> batchImportTestCases(
             @PathVariable Long measureId,
-            @RequestBody BatchTestCaseImportRequest request) {
+            @Valid @RequestBody BatchTestCaseImportRequest request) {
         requireOwnedMeasure(measureId);
         BatchTestCaseImportResult result = testCaseService.batchImport(
                 measureId, request.getTestCases(), request.getDateShiftDays());

@@ -12,6 +12,7 @@ import com.cqlplatform.service.authoring.CqlImportService;
 import com.cqlplatform.service.authoring.ExternalCqlLibraryService;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.QueryBuilderService;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.authoring.TemplateService;
 import com.cqlplatform.service.authoring.TwcoreCatalogService;
 import com.cqlplatform.service.cds.CdsHooksService;
@@ -28,8 +29,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -248,43 +247,11 @@ public class AuthoringController {
         @SuppressWarnings("unchecked")
         List<String> patientIds = (List<String>) request.getOrDefault("patientIds", List.of());
         String fhirServerUrl = (String) request.get("fhirServerUrl");
-        validateFhirServerUrl(fhirServerUrl);
+        InputValidator.requireValidUrl(fhirServerUrl);
         Map<String, Object> result = artifactTestingService.testArtifact(id, patientIds, fhirServerUrl);
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Reject FHIR server URLs that point to private/internal networks (SSRF prevention).
-     */
-    private static void validateFhirServerUrl(String url) {
-        if (url == null || url.isBlank()) return; // null falls back to configured default
-        try {
-            URI uri = URI.create(url);
-            String scheme = uri.getScheme();
-            if (scheme == null || (!scheme.equals("http") && !scheme.equals("https"))) {
-                throw new IllegalArgumentException("FHIR server URL must use http or https scheme");
-            }
-            String host = uri.getHost();
-            if (host == null) {
-                throw new IllegalArgumentException("FHIR server URL must include a hostname");
-            }
-            InetAddress addr = InetAddress.getByName(host);
-            if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()
-                    || addr.isSiteLocalAddress() || addr.isAnyLocalAddress()) {
-                // Allow Docker internal hostnames (e.g. hapi-fhir) which resolve to
-                // site-local addresses within the Docker network — they are expected.
-                boolean isDockerInternal = host.equals("hapi-fhir") || host.endsWith(".internal");
-                if (!isDockerInternal) {
-                    throw new IllegalArgumentException(
-                            "FHIR server URL must not point to a private/internal network address");
-                }
-            }
-        } catch (IllegalArgumentException e) {
-            throw e; // re-throw our own validation errors
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid FHIR server URL: " + e.getMessage());
-        }
-    }
 
     @PostMapping("/artifacts/{id}/deploy-cds")
     @Operation(summary = "Deploy as CDS Service", description = "Deploy artifact as a CDS Hooks service")

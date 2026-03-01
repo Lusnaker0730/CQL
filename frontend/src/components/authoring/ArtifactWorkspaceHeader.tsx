@@ -350,7 +350,7 @@ export default function ArtifactWorkspaceHeader({
               sx={{
                 ...codeBlockSx,
                 p: 2,
-                color: '#d4d4d4',
+                color: (theme) => theme.palette.mode === 'dark' ? '#d4d4d4' : '#1e1e1e',
                 maxHeight: '60vh',
                 overflow: 'auto',
               }}

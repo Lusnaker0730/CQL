@@ -6,6 +6,7 @@ import com.cqlplatform.model.request.CqlValidationRequest;
 import com.cqlplatform.model.request.LibrarySaveRequest;
 import com.cqlplatform.model.request.TransferOwnershipRequest;
 import com.cqlplatform.model.request.UsernameRequest;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
@@ -56,6 +57,7 @@ public class CqlController {
     @PostMapping("/execute")
     @Operation(summary = "Execute CQL", description = "Executes CQL against a FHIR server")
     public ResponseEntity<CqlExecutionResponse> execute(@Valid @RequestBody CqlExecutionRequest request) {
+        InputValidator.requireValidUrl(request.getFhirServerUrl());
         CqlExecutionResponse response = executionService.execute(request);
         return ResponseEntity.ok(response);
     }

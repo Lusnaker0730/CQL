@@ -19,7 +19,10 @@ public class CdsRequest {
     @Size(max = 200)
     private String hookInstance;
 
+    @Size(max = 500)
     private String fhirServer;
+
+    @Size(max = 2000)
     private String fhirAuthorization;
 
     @NotNull
@@ -30,8 +33,13 @@ public class CdsRequest {
 
     @Data
     public static class CdsContext {
+        @Size(max = 200)
         private String userId;
+
+        @Size(max = 128)
         private String patientId;
+
+        @Size(max = 128)
         private String encounterId;
 
         @JsonProperty("draftOrders")

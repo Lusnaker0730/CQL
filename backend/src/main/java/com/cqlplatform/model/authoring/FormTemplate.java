@@ -1,5 +1,6 @@
 package com.cqlplatform.model.authoring;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +18,9 @@ public class FormTemplate {
     private String name;
     private String type;
     private String returnType;
-    private String extendsTemplate;  // "extends" in JSON
+
+    @JsonProperty("extends")
+    private String extendsTemplate;
     private String template;
     private Boolean conjunction;
     private Boolean suppress;

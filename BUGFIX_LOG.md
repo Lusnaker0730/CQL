@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 057 | 2026-03-02 | High | 安全性（後端） | Model DTO 驗證強化 — @Size 防 DoS、SSRF URL 驗證、@Pattern 約束、死碼清除 | 安全漏洞 / 程式碼品質 | |
+| 056 | 2026-03-02 | Low | 規則撰寫（前端） | CQL 預覽對話框程式碼文字在淺色模式下幾乎不可見 | UX 設計缺陷 | |
 | 055 | 2026-03-01 | High | 安全性（後端） | Controller 輸入驗證強化 — require* helpers、Math.clamp、URI 安全、DigestUtils 抽取 | 安全漏洞 / 程式碼品質 | |
 | 054 | 2026-03-01 | Critical | 安全性（後端） | Entity 安全強化 — mass assignment 防護、密碼/金鑰洩漏、API key SHA-256 雜湊、憑證加密 | 安全漏洞 | |
 | 053 | 2026-03-01 | High | 認證系統（後端） | AuthController 安全強化 — SSO 錯誤訊息洩漏、JIT 競態條件、base URL header 信任 | 安全漏洞 | |
@@ -76,6 +78,87 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #057 — Model DTO 驗證強化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞 / 程式碼品質 |
+| **影響範圍** | ~35 個 model DTO 與 4 個 controller |
+
+### BUG 描述
+
+全面審計 78 個 Model DTO 後，發現多層安全與品質問題：
+
+1. **SSRF 風險**（CRITICAL）：`CdsRequest.fhirServer`、`CqlExecutionRequest.fhirServerUrl` 無 URL 驗證，攻擊者可探測內部網路。`AuthoringController` 有獨立的 29 行 `validateFhirServerUrl()` 與 `InputValidator.requireValidUrl()` 行為不一致（Docker hostname 判斷邏輯分歧）。
+2. **DoS — 無限字串**（HIGH）：CQL 內容（7 處）、FHIR JSON（4 處）、prefetch JSON 等大型文字欄位無 `@Size` 限制，攻擊者可傳入 GB 級 payload 造成 OOM。
+3. **Auth DTO 驗證缺失**（HIGH）：`RegisterRequest.email` 無 `@NotBlank`/`@Email`、`LoginRequest` 欄位無 `@Size`、`AdminCreateUserRequest` 密碼最小長度僅 6（其他處為 8）、`OktaCallbackRequest.code` 無長度限制。
+4. **CDS/Measure DTO 驗證缺失**（MEDIUM）：`CdsFeedbackRequest.outcome` 無 `@Pattern`、集合欄位無 `@Size` 上限、`BatchTestCaseImportRequest` 無 `@NotNull`/`@Valid`（且 controller 缺 `@Valid` 註解）。
+5. **死碼 / 品質問題**（LOW）：4 個 request DTO 含未使用的 `currentUser` 欄位、`FormTemplate.extendsTemplate` 缺 `@JsonProperty("extends")` 導致模板繼承靜默失敗、`ValidationReport.finalize()` 遮蔽 `Object.finalize()`。
+6. **正規表達式尾隨 `|`**（LOW）：3 處 `@Pattern` regex 以 `|` 結尾，允許空字串但 `@Pattern` 對 null 本就通過驗證，語意不清。
+
+### 修正方式
+
+1. **SSRF 防護**：
+   - `CdsRequest.fhirServer` 加 `@Size(max=500)`、`CqlExecutionRequest.fhirServerUrl` 加 `@Size(max=500)`
+   - `CdsHooksController`（2 處）、`CqlController`（1 處）加入 `InputValidator.requireValidUrl()` 呼叫
+   - `AuthoringController.validateFhirServerUrl()` 29 行重複方法刪除，改用 `InputValidator.requireValidUrl()`
+
+2. **@Size 補全 — CQL/JSON 欄位**：
+   - CQL 內容欄位統一加 `@Size(max=512_000)`（7 處）
+   - FHIR JSON/Bundle 欄位統一加 `@Size(max=2_097_152)`（4 處）
+   - 其他 string/list 欄位依語意加上適當 `@Size`
+
+3. **Auth DTO 驗證**：`RegisterRequest` 加 `@NotBlank @Email @Size @NoXss`、`LoginRequest` 加 `@Size`、`AdminCreateUserRequest` 密碼最小長度 6→8 + `@Email`、`OktaCallbackRequest`/`ForgotPasswordRequest`/`ResetPasswordRequest` 加 `@Size`
+
+4. **CDS/Measure DTO 驗證**：`CdsFeedbackRequest.outcome` 加 `@Pattern(regexp="accepted|overridden")`、所有集合加 `@Size` 上限、`CdsSandboxRequest.context` 加 `@Valid` 級聯驗證、`BatchTestCaseImportRequest` 加 `@NotNull @Valid @Size` + `MeasureController` 加 `@Valid`
+
+5. **品質修正**：
+   - 4 個 DTO 移除死碼 `currentUser` 欄位
+   - `FormTemplate` 加 `@JsonProperty("extends")`
+   - `ValidationReport.finalize()` 更名為 `complete()`（含 2 處呼叫端更新）
+   - `ApiKeyCreateRequest.name` 加 `@NotBlank`
+   - 3 處 `@Pattern` regex 移除尾隨 `|`
+
+### 驗證
+
+- IDE 診斷 0 errors、0 warnings（所有修改檔案）
+- 所有 `@Size` 限制在 DoS 防護（512KB CQL / 2MB JSON）與實際使用場景之間取得平衡
+- `@Valid` 級聯確保巢狀 DTO 的驗證也被觸發
+- `AuthoringController` SSRF 邏輯統一為 `InputValidator.requireValidUrl()`，消除行為分歧
+
+---
+
+## #056 — CQL 預覽對話框文字顏色修正
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 規則撰寫（前端） |
+| **嚴重程度** | Low |
+| **根因類型** | UX 設計缺陷 |
+| **影響範圍** | `frontend/src/components/authoring/ArtifactWorkspaceHeader.tsx` |
+
+### BUG 描述
+
+Authoring 功能的「產生的 CQL」預覽對話框中，程式碼文字使用硬編碼顏色 `#d4d4d4`（淺灰色），在深色模式的 `#1e1e1e` 背景下清晰可見，但在淺色模式的 `#f5f5f5` 背景下幾乎不可辨識（淺灰色文字在淺灰色背景上）。
+
+### 修正方式
+
+將 `ArtifactWorkspaceHeader.tsx` 第 353 行的 `color: '#d4d4d4'` 改為 theme-aware 條件式：
+```tsx
+color: (theme) => theme.palette.mode === 'dark' ? '#d4d4d4' : '#1e1e1e'
+```
+
+### 驗證
+
+- 深色模式：文字 `#d4d4d4` 在 `#1e1e1e` 背景上清晰可見
+- 淺色模式：文字 `#1e1e1e` 在 `#f5f5f5` 背景上清晰可見
 
 ---
 
