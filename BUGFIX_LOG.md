@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 052 | 2026-03-01 | Medium | 規則撰寫（前端） | CDS 人工製品表格欄位錯位 — react-window 獨立 Table 未共享欄寬 | UX 設計缺陷 | |
+| 051 | 2026-03-01 | High | Docker 基礎設施（後端） | 外部連線 CORS 被擋 + PNA header 未覆蓋動態 origin | 配置遺漏 / 邏輯錯誤 | |
 | 050 | 2026-02-27 | Medium | CDS Hooks Sandbox（後端） | CDS 卡片 CodeableConcept 多 coding 只顯示第一個 | 邏輯錯誤 | [`aed0ecb`](../../commit/aed0ecb) |
 | 049 | 2026-02-27 | High | CDS Hooks Sandbox（後端） | CDS 卡片僅顯示資源參考而非過敏藥物名稱 | 邏輯錯誤 | [`8b67eb6`](../../commit/8b67eb6) |
 | 048 | 2026-02-27 | High | 術語查詢（後端） | RxNorm 代碼搜尋無結果 — FHIR 術語伺服器未載入 UMLS 授權碼表 | 外部服務限制 | [`fe50e2a`](../../commit/fe50e2a) |
@@ -71,6 +73,67 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #052 — CDS 人工製品表格欄位錯位
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-01 |
+| **功能分類** | 規則撰寫（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | UX 設計缺陷 |
+| **影響範圍** | `frontend/src/components/authoring/ArtifactList.tsx` |
+
+### BUG 描述
+
+「規則撰寫」頁面的 CDS 人工製品列表表格，header 欄位（名稱 / 版本 / 狀態 / 更新時間 / 操作）與資料列欄位嚴重錯位。
+
+根因：使用 `react-window` 的 `FixedSizeList` 虛擬捲動，每一資料列是獨立的 `<Table>` 元素，與 header 的 `<Table>` 沒有共享欄寬，各自由瀏覽器自動計算寬度，導致不對齊。（與 BUG-036 MeasureLibrary 相同模式）
+
+### 修正方式
+
+- 定義 `COL_WIDTHS` 常數統一五欄的百分比寬度（40% / 12% / 12% / 20% / 16%）
+- Header table 和每列 body table 都套用 `tableLayout: 'fixed'` + 相同的 `width` 值
+- 名稱欄加上 `overflow: hidden; textOverflow: ellipsis` 防止過長名稱撐破版面
+
+### 驗證
+
+- 表格 header 與資料列的五欄完全對齊
+- 長名稱正確截斷顯示
+
+---
+
+## #051 — 外部連線 CORS 被擋 + PNA header 未覆蓋動態 origin
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-01 |
+| **功能分類** | Docker 基礎設施（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 配置遺漏 / 邏輯錯誤 |
+| **影響範圍** | `backend/.../WebConfig.java`, `application-docker.yml`, `docker-compose.yml`, `docker/.env` |
+
+### BUG 描述
+
+外部使用者透過 LAN IP 或 Cloudflare Tunnel 連線時，所有 API 請求因 CORS 被瀏覽器攔截。兩處根因：
+
+1. **配置遺漏**：Docker profile 下 CORS 只允許 `localhost:8888` / `127.0.0.1:8888`，沒有機制加入外部 IP 或域名。
+2. **邏輯錯誤**：`privateNetworkFilter` 的 `isAllowedOrigin()` 使用硬編碼的靜態清單，不含 `cors.allowed-origins` 設定的動態 origin，也不含 docker profile 的 `localhost:8888`。即使 CORS 正確，Private Network Access preflight 仍會失敗。
+
+### 修正方式
+
+- **WebConfig.java**：刪除硬編碼 `ALLOWED_ORIGINS` 靜態清單與 `isAllowedOrigin()` 靜態方法。新增 `getAllAllowedOrigins()` 實例方法作為唯一的 origin 來源，`corsFilter()` 和 `privateNetworkFilter()` 共用同一份邏輯。
+- **application-docker.yml**：新增 `cors.allowed-origins: ${CORS_ALLOWED_ORIGINS:}` 映射。
+- **docker-compose.yml**：backend environment 新增 `CORS_ALLOWED_ORIGINS` 傳遞。
+- **docker/.env** / **.env.example**：新增 `CORS_ALLOWED_ORIGINS` 佔位與說明。
+
+### 驗證
+
+- 設定 `CORS_ALLOWED_ORIGINS=http://192.168.1.100:8888` 後，外部瀏覽器可正常存取
+- CDS Hooks Sandbox 的 PNA preflight 正確回傳 `Access-Control-Allow-Private-Network: true`
+- 未設定時行為不變（僅允許 localhost）
 
 ---
 
