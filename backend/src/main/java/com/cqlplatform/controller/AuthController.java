@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -183,25 +184,33 @@ public class AuthController {
             // JIT Provisioning: find or create user
             UserEntity user = userRepository
                     .findByAuthProviderAndExternalId(UserEntity.AuthProvider.OKTA, userInfo.getSub())
-                    .orElseGet(() -> {
-                        // Derive username
-                        String username = deriveUsername(userInfo);
-                        UserEntity newUser = UserEntity.builder()
-                                .username(username)
-                                .authProvider(UserEntity.AuthProvider.OKTA)
-                                .externalId(userInfo.getSub())
-                                .role(UserEntity.Role.USER)
-                                .enabled(true)
-                                .build();
-                        if (userInfo.getEmail() != null) {
-                            newUser.setEmailWithHash(userInfo.getEmail());
-                        }
-                        if (userInfo.getName() != null) {
-                            newUser.setDisplayName(userInfo.getName());
-                        }
-                        log.info("JIT provisioning new Okta user: {}", username);
-                        return userRepository.save(newUser);
-                    });
+                    .orElse(null);
+
+            if (user == null) {
+                try {
+                    String username = deriveUsername(userInfo);
+                    UserEntity newUser = UserEntity.builder()
+                            .username(username)
+                            .authProvider(UserEntity.AuthProvider.OKTA)
+                            .externalId(userInfo.getSub())
+                            .role(UserEntity.Role.USER)
+                            .enabled(true)
+                            .build();
+                    if (userInfo.getEmail() != null) {
+                        newUser.setEmailWithHash(userInfo.getEmail());
+                    }
+                    if (userInfo.getName() != null) {
+                        newUser.setDisplayName(userInfo.getName());
+                    }
+                    log.info("JIT provisioning new Okta user: {}", username);
+                    user = userRepository.save(newUser);
+                } catch (DataIntegrityViolationException e) {
+                    // Concurrent JIT provisioning — retry lookup
+                    user = userRepository
+                            .findByAuthProviderAndExternalId(UserEntity.AuthProvider.OKTA, userInfo.getSub())
+                            .orElseThrow(() -> new RuntimeException("Failed to provision Okta user"));
+                }
+            }
 
             // Update display name / email if changed in Okta
             boolean updated = false;
@@ -236,7 +245,7 @@ public class AuthController {
         } catch (Exception e) {
             log.error("Okta SSO callback failed", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "SSO authentication failed: " + e.getMessage()));
+                    .body(Map.of("error", "SSO authentication failed"));
         }
     }
 
@@ -262,7 +271,8 @@ public class AuthController {
         if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
             return configuredBaseUrl;
         }
-        // Fallback to request headers (only safe behind trusted reverse proxy)
+        // Fallback to request headers — only safe behind trusted reverse proxy
+        log.warn("APP_BASE_URL not configured — deriving base URL from request headers (unsafe in production)");
         String scheme = request.getHeader("X-Forwarded-Proto");
         if (scheme == null) scheme = request.getScheme();
         String host = request.getHeader("X-Forwarded-Host");

@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 053 | 2026-03-01 | High | 認證系統（後端） | AuthController 安全強化 — SSO 錯誤訊息洩漏、JIT 競態條件、base URL header 信任 | 安全漏洞 | |
 | 052 | 2026-03-01 | Medium | 規則撰寫（前端） | CDS 人工製品表格欄位錯位 — react-window 獨立 Table 未共享欄寬 | UX 設計缺陷 | |
 | 051 | 2026-03-01 | High | Docker 基礎設施（後端） | 外部連線 CORS 被擋 + PNA header 未覆蓋動態 origin | 配置遺漏 / 邏輯錯誤 | |
 | 050 | 2026-02-27 | Medium | CDS Hooks Sandbox（後端） | CDS 卡片 CodeableConcept 多 coding 只顯示第一個 | 邏輯錯誤 | [`aed0ecb`](../../commit/aed0ecb) |
@@ -73,6 +74,38 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #053 — AuthController 安全強化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-01 |
+| **功能分類** | 認證系統（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞 |
+| **影響範圍** | `backend/.../controller/AuthController.java` |
+
+### BUG 描述
+
+AuthController 存在三項安全問題：
+
+1. **SSO 錯誤訊息洩漏**（HIGH）：Okta SSO callback 失敗時回傳 `e.getMessage()`，可能暴露內部主機名稱、Okta 配置細節或堆疊追蹤片段。
+2. **JIT provisioning 競態條件**（MEDIUM）：`deriveUsername()` 的 `existsByUsername` 檢查與 `save` 之間無同步，兩個並行的 Okta 登入請求可能通過相同的唯一性檢查，導致 DB unique constraint violation → 500 錯誤。
+3. **getBaseUrl 信任代理 header**（MEDIUM）：當 `APP_BASE_URL` 未設定時，密碼重設連結的 base URL 直接從 `X-Forwarded-Host` / `X-Forwarded-Proto` header 產生，攻擊者可偽造 header 將密碼重設連結導向惡意網域。
+
+### 修正方式
+
+1. **SSO 錯誤訊息**：移除 `e.getMessage()`，僅回傳通用的 `"SSO authentication failed"` 訊息。內部錯誤仍透過 `log.error()` 記錄。
+2. **JIT 競態條件**：將 Okta user 建立邏輯從 `orElseGet` lambda 改為明確的 `if (user == null)` 區塊，用 `try-catch(DataIntegrityViolationException)` 包裝，捕獲時重新查詢取得已建立的使用者。
+3. **getBaseUrl fallback**：新增 `log.warn()` 警告，讓運維人員在日誌中看到未配置 `APP_BASE_URL` 的風險提示。
+
+### 驗證
+
+- SSO 失敗回應不含任何內部細節
+- 並行 Okta JIT provisioning 不會產生 500 錯誤
+- 未設定 `APP_BASE_URL` 時日誌會出現警告訊息
 
 ---
 
