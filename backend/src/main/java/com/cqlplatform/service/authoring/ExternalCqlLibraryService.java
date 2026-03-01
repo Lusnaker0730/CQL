@@ -45,6 +45,10 @@ public class ExternalCqlLibraryService {
         return repository.findById(id).map(this::entityToMap);
     }
 
+    public Optional<Map<String, Object>> getByIdAndArtifactId(Long id, Long artifactId) {
+        return repository.findByIdAndArtifactId(id, artifactId).map(this::entityToMap);
+    }
+
     @Transactional
     public Map<String, Object> uploadLibrary(Long artifactId, MultipartFile file) throws IOException {
         String cqlContent = new String(file.getBytes());
@@ -183,6 +187,16 @@ public class ExternalCqlLibraryService {
     @Transactional
     public void deleteLibrary(Long id) {
         repository.deleteById(id);
+    }
+
+    /**
+     * Delete a library only if it belongs to the specified artifact (prevents IDOR).
+     */
+    @Transactional
+    public boolean deleteLibraryIfOwnedByArtifact(Long id, Long artifactId) {
+        return repository.findByIdAndArtifactId(id, artifactId)
+                .map(entity -> { repository.delete(entity); return true; })
+                .orElse(false);
     }
 
     private Map<String, Object> entityToMap(CdsExternalCqlLibraryEntity entity) {

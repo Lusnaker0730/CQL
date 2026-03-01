@@ -1,10 +1,8 @@
 package com.cqlplatform.controller;
 
-import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.*;
-import com.cqlplatform.model.authoring.TwcoreCatalogEntry;
 import com.cqlplatform.model.cds.CdsServiceConfigRequest;
 import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.authoring.ArtifactService;
@@ -18,6 +16,7 @@ import com.cqlplatform.service.authoring.TemplateService;
 import com.cqlplatform.service.authoring.TwcoreCatalogService;
 import com.cqlplatform.service.cds.CdsHooksService;
 import com.cqlplatform.service.cql.CqlLibraryService;
+import com.cqlplatform.validation.HookTypeValidator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,6 +28,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -177,7 +178,7 @@ public class AuthoringController {
             @PathVariable Long artifactId,
             @PathVariable Long libId) {
         verifyArtifactOwnership(artifactId);
-        return externalCqlLibraryService.getById(libId)
+        return externalCqlLibraryService.getByIdAndArtifactId(libId, artifactId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -195,7 +196,7 @@ public class AuthoringController {
             return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds 1MB limit"));
         }
         String filename = file.getOriginalFilename();
-        if (filename != null && !filename.toLowerCase().endsWith(".cql")) {
+        if (filename == null || !filename.toLowerCase().endsWith(".cql")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Only .cql files are accepted"));
         }
         // Validate CQL content is parseable text (not a binary masquerading as .cql)
@@ -217,6 +218,9 @@ public class AuthoringController {
         if (cqlContent == null || cqlContent.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "CQL content is required"));
         }
+        if (cqlContent.length() > 1_048_576) {
+            return ResponseEntity.badRequest().body(Map.of("error", "CQL content exceeds 1MB limit"));
+        }
         Map<String, Object> result = externalCqlLibraryService.uploadLibraryFromContent(id, cqlContent);
         return ResponseEntity.ok(result);
     }
@@ -227,7 +231,9 @@ public class AuthoringController {
             @PathVariable Long artifactId,
             @PathVariable Long libId) {
         verifyArtifactOwnership(artifactId);
-        externalCqlLibraryService.deleteLibrary(libId);
+        if (!externalCqlLibraryService.deleteLibraryIfOwnedByArtifact(libId, artifactId)) {
+            return ResponseEntity.notFound().build();
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -242,8 +248,42 @@ public class AuthoringController {
         @SuppressWarnings("unchecked")
         List<String> patientIds = (List<String>) request.getOrDefault("patientIds", List.of());
         String fhirServerUrl = (String) request.get("fhirServerUrl");
+        validateFhirServerUrl(fhirServerUrl);
         Map<String, Object> result = artifactTestingService.testArtifact(id, patientIds, fhirServerUrl);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Reject FHIR server URLs that point to private/internal networks (SSRF prevention).
+     */
+    private static void validateFhirServerUrl(String url) {
+        if (url == null || url.isBlank()) return; // null falls back to configured default
+        try {
+            URI uri = URI.create(url);
+            String scheme = uri.getScheme();
+            if (scheme == null || (!scheme.equals("http") && !scheme.equals("https"))) {
+                throw new IllegalArgumentException("FHIR server URL must use http or https scheme");
+            }
+            String host = uri.getHost();
+            if (host == null) {
+                throw new IllegalArgumentException("FHIR server URL must include a hostname");
+            }
+            InetAddress addr = InetAddress.getByName(host);
+            if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()
+                    || addr.isSiteLocalAddress() || addr.isAnyLocalAddress()) {
+                // Allow Docker internal hostnames (e.g. hapi-fhir) which resolve to
+                // site-local addresses within the Docker network — they are expected.
+                boolean isDockerInternal = host.equals("hapi-fhir") || host.endsWith(".internal");
+                if (!isDockerInternal) {
+                    throw new IllegalArgumentException(
+                            "FHIR server URL must not point to a private/internal network address");
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            throw e; // re-throw our own validation errors
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid FHIR server URL: " + e.getMessage());
+        }
     }
 
     @PostMapping("/artifacts/{id}/deploy-cds")
@@ -262,7 +302,11 @@ public class AuthoringController {
 
         String serviceId = request.getOrDefault("serviceId",
                 artifact.getName().replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase());
+        if (serviceId.length() > 100) {
+            throw new IllegalArgumentException("Service ID must not exceed 100 characters");
+        }
         String hook = request.getOrDefault("hook", "patient-view");
+        HookTypeValidator.validate(hook);
 
         CdsServiceConfigRequest configRequest = CdsServiceConfigRequest.builder()
                 .id(serviceId)
@@ -320,6 +364,9 @@ public class AuthoringController {
         String cqlContent = request.get("cql");
         if (cqlContent == null || cqlContent.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "CQL content is required"));
+        }
+        if (cqlContent.length() > 1_048_576) {
+            return ResponseEntity.badRequest().body(Map.of("error", "CQL content exceeds 1MB limit"));
         }
         Map<String, Object> result = cqlImportService.importCql(cqlContent);
         return ResponseEntity.ok(result);
