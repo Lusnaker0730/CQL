@@ -20,6 +20,7 @@ public final class InputValidator {
     );
 
     private static final Pattern SAFE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9._-]{1,128}$");
+    private static final Pattern CACHE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
     private static final Pattern SAFE_PARAMS_PATTERN = Pattern.compile("^[a-zA-Z0-9._:/?&=,| -]{0,2000}$");
     private static final Pattern DATE_PARAM_PATTERN = Pattern.compile("^\\d{4}(-\\d{2}(-\\d{2})?)?$");
     private static final Pattern NAME_PARAM_PATTERN = Pattern.compile("^[a-zA-Z' \\-]{1,100}$");
@@ -59,9 +60,49 @@ public final class InputValidator {
         }
     }
 
+    private static final Boolean IS_LOCAL_DEV = computeIsLocalDevelopment();
+
     private static boolean isLocalDevelopment() {
+        return IS_LOCAL_DEV;
+    }
+
+    private static boolean computeIsLocalDevelopment() {
         String profile = System.getProperty("spring.profiles.active", System.getenv().getOrDefault("SPRING_PROFILES_ACTIVE", ""));
         return profile.contains("dev") || profile.contains("docker");
+    }
+
+    public static void requireValidUrl(String url) {
+        if (!isValidUrl(url)) {
+            throw new IllegalArgumentException("Invalid FHIR server URL");
+        }
+    }
+
+    public static void requireValidFhirResourceType(String resourceType) {
+        if (!isValidFhirResourceType(resourceType)) {
+            throw new IllegalArgumentException("Invalid FHIR resource type");
+        }
+    }
+
+    public static void requireValidResourceId(String id) {
+        if (!isValidResourceId(id)) {
+            throw new IllegalArgumentException("Invalid resource ID");
+        }
+    }
+
+    public static void requireValidCacheName(String name) {
+        if (!isValidCacheName(name)) {
+            throw new IllegalArgumentException("Invalid cache name");
+        }
+    }
+
+    public static boolean isValidCacheName(String name) {
+        return name != null && CACHE_NAME_PATTERN.matcher(name).matches();
+    }
+
+    public static void requireValidSearchParams(String params) {
+        if (!isValidSearchParams(params)) {
+            throw new IllegalArgumentException("Invalid search parameters");
+        }
     }
 
     public static boolean isValidDateParam(String date) {

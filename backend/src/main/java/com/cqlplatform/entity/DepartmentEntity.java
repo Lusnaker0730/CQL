@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class DepartmentEntity {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -33,9 +35,11 @@ public class DepartmentEntity {
     @Builder.Default
     private Boolean active = true;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 

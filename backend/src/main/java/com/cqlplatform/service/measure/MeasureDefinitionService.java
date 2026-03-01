@@ -471,6 +471,16 @@ public class MeasureDefinitionService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> getAccessibleMeasures(String username) {
+        List<MeasureDefinition> owned = getMeasuresByOwner(username);
+        List<MeasureDefinition> shared = getSharedMeasures(username);
+        Map<Long, MeasureDefinition> merged = new LinkedHashMap<>();
+        owned.forEach(m -> merged.put(m.getId(), m));
+        shared.forEach(m -> merged.putIfAbsent(m.getId(), m));
+        return new ArrayList<>(merged.values());
+    }
+
     // ===== Workflow =====
 
     @Transactional

@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 055 | 2026-03-01 | High | 安全性（後端） | Controller 輸入驗證強化 — require* helpers、Math.clamp、URI 安全、DigestUtils 抽取 | 安全漏洞 / 程式碼品質 | |
+| 054 | 2026-03-01 | Critical | 安全性（後端） | Entity 安全強化 — mass assignment 防護、密碼/金鑰洩漏、API key SHA-256 雜湊、憑證加密 | 安全漏洞 | |
 | 053 | 2026-03-01 | High | 認證系統（後端） | AuthController 安全強化 — SSO 錯誤訊息洩漏、JIT 競態條件、base URL header 信任 | 安全漏洞 | |
 | 052 | 2026-03-01 | Medium | 規則撰寫（前端） | CDS 人工製品表格欄位錯位 — react-window 獨立 Table 未共享欄寬 | UX 設計缺陷 | |
 | 051 | 2026-03-01 | High | Docker 基礎設施（後端） | 外部連線 CORS 被擋 + PNA header 未覆蓋動態 origin | 配置遺漏 / 邏輯錯誤 | |
@@ -74,6 +76,88 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #055 — Controller 輸入驗證強化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-01 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞 / 程式碼品質 |
+| **影響範圍** | `backend/.../controller/FhirController.java`, `backend/.../controller/MeasureController.java`, `backend/.../security/InputValidator.java`, `backend/.../util/DigestUtils.java`, `backend/.../service/PasswordResetService.java` |
+
+### BUG 描述
+
+FhirController 與 MeasureController 存在多項輸入驗證與程式碼品質問題：
+
+1. **手動驗證散落各處**（HIGH）：9 處 `isValidUrl()` 檢查分散在 FhirController 中，每處都是 3 行 if-throw 樣板，容易遺漏且不一致。
+2. **URI.create() 未捕獲異常**（MEDIUM）：`URI.create(url)` 拋出 unchecked `IllegalArgumentException`，繞過 VSAC 錯誤處理邏輯。
+3. **DNS 查詢無快取**（MEDIUM）：`isValidUrl()` 中 `isLocalDevelopment()` 每次呼叫都重新檢查系統屬性，而該值在 JVM 生命週期中不變。
+4. **SHA-256 重複實作**：`UserEntity.computeEmailHash()`、`UserApiKeyService.hashApiKey()`、`PasswordResetService.sha256()` 三處各自實作相同的 SHA-256 邏輯。
+5. **分頁大小未設上限**（MEDIUM）：`MeasureController.listMeasures` 的 `size` 參數無上限，攻擊者可傳入極大值造成 OOM。
+
+### 修正方式
+
+1. **require* 一行呼叫**：在 `InputValidator` 新增 `requireValidUrl()`、`requireValidFhirResourceType()`、`requireValidResourceId()`、`requireValidCacheName()`、`requireValidSearchParams()` 五個 throwing helper，將 FhirController 中 ~60 行 if-throw 區塊替換為一行呼叫。
+2. **URI 安全**：`URI.create(url)` 改為 `new URI(url)` + `catch URISyntaxException`，確保格式異常走正確的錯誤處理路徑。
+3. **快取 isLocalDevelopment()**：將計算結果存入 `static final Boolean IS_LOCAL_DEV`，避免重複查詢系統屬性。
+4. **DigestUtils 抽取**：新建 `com.cqlplatform.util.DigestUtils.sha256Hex()`，使用 Java 21 `HexFormat`，替換三處重複實作。
+5. **Math.clamp (Java 21)**：FhirController 3 處、MeasureController 2 處 `Math.max(min, Math.min(val, max))` 改為 `Math.clamp(val, min, max)`。`listMeasures` 的 `size` 參數加上 `Math.clamp(size, 1, 200)` 上限。
+
+### 驗證
+
+- 所有 `require*` 呼叫在參數不合法時正確拋出 `IllegalArgumentException`
+- 畸形 URI 不再導致 uncaught exception
+- `listMeasures` size 參數被限制在 1–200
+- IDE 零診斷（0 errors, 0 warnings）
+
+---
+
+## #054 — Entity 安全強化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-01 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 安全漏洞 |
+| **影響範圍** | `backend/.../entity/UserEntity.java`, `backend/.../entity/UserApiKeyEntity.java`, `backend/.../entity/EhrConnectionEntity.java`, `backend/.../entity/DepartmentEntity.java`, `backend/.../entity/IndicatorCatalogEntity.java`, `backend/.../entity/MeasureDefinitionEntity.java`, `backend/.../entity/CqlLibraryEntity.java`, `backend/.../entity/MeasureScheduleEntity.java`, `backend/.../entity/MeasureThresholdEntity.java`, `backend/.../service/UserApiKeyService.java`, `backend/.../controller/UserApiKeyController.java`, `backend/.../resources/db/migration/V35__api_key_hashing.sql` |
+
+### BUG 描述
+
+全面審計 25 個 Entity 後，發現多項安全漏洞分佈在 9 個 Entity 中：
+
+1. **密碼洩漏**（CRITICAL）：`UserEntity.password` 無 `@JsonIgnore`，任何回傳 `UserEntity` 的 API 都會將 BCrypt hash 序列化至 JSON response。
+2. **API Key 明文儲存**（CRITICAL）：`UserApiKeyEntity.apiKey` 以明文存入資料庫，資料庫洩漏等同所有 API key 外洩。
+3. **EHR 憑證明文儲存**（CRITICAL）：`EhrConnectionEntity.credentials`（含 FHIR server 密碼/token）以明文存入資料庫。
+4. **Mass Assignment**（HIGH）：9 個 Entity 的伺服器控制欄位（`id`、`createdAt`、`updatedAt`、`ownerUsername`、`role`、`enabled` 等）未標記 `READ_ONLY`，攻擊者可透過 JSON request body 覆寫這些值。
+5. **validateApiKey 早期返回 bug**（HIGH）：legacy key 升級路徑的 `return` 跳過了 `lastUsedAt` 更新，且 managed entity 被修改 plaintext 後可能被 JPA dirty-checking 寫回 DB。
+
+### 修正方式
+
+1. **密碼保護**：`UserEntity.password` 加上 `@JsonIgnore`；`role`、`enabled` 加上 `@JsonProperty(READ_ONLY)`。
+2. **API Key SHA-256 雜湊**：
+   - `UserApiKeyService.generateApiKey()` 改為儲存 SHA-256 hash，新增 `keyPrefix` 欄位（前 8 字元）供顯示用。
+   - `validateApiKey()` 以 hash 查詢；fallback 明文查詢後自動升級為 hash（向後相容）。
+   - 用 `entityManager.detach(entity)` 防止 JPA dirty-checking 將暫時設定的明文 key 寫回 DB。
+   - 加入 15 分鐘 debounce 減少 `lastUsedAt` 的 DB 寫入。
+   - 重構為 single exit path，修復 legacy key 跳過 `lastUsedAt` 的 bug。
+   - Flyway `V35__api_key_hashing.sql`：新增 `key_prefix` 欄位，從現有明文 key 填充。
+3. **EHR 憑證加密**：`EhrConnectionEntity.credentials` 加上 `@Convert(converter = EncryptionConverter.class)` 以 AES-GCM 加密儲存，並標記 `@JsonProperty(WRITE_ONLY)` 防止 API 回傳。
+4. **Mass Assignment 防護**：9 個 Entity 的伺服器控制欄位加上 `@JsonProperty(access = READ_ONLY)`，使 Jackson 反序列化時忽略這些欄位。
+5. **UserApiKeyController**：移除 `maskKey()` 方法，改用 `keyPrefix + "..."` 顯示。
+
+### 驗證
+
+- `UserEntity` JSON 序列化不含 `password` 欄位
+- API key 存入 DB 為 64 字元 SHA-256 hex（非明文）
+- Legacy 明文 key 首次使用後自動升級為 hash
+- EHR 憑證在 DB 中為加密密文，API 回應不含 `credentials`
+- 所有 Entity 的 `id`/`createdAt`/`updatedAt` 無法透過 JSON request body 覆寫
+- IDE 零診斷（0 errors, 0 warnings）
 
 ---
 
