@@ -11,11 +11,5 @@ public interface CdsArtifactRepository extends JpaRepository<CdsArtifactEntity, 
 
     List<CdsArtifactEntity> findByOwnerUsername(String ownerUsername);
 
-    List<CdsArtifactEntity> findByStatus(String status);
-
-    List<CdsArtifactEntity> findByOwnerUsernameAndStatus(String ownerUsername, String status);
-
-    List<CdsArtifactEntity> findByNameContainingIgnoreCase(String name);
-
     boolean existsByNameAndVersionAndOwnerUsername(String name, String version, String ownerUsername);
 }

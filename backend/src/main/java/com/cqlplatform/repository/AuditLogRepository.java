@@ -16,12 +16,6 @@ import java.util.List;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long>, JpaSpecificationExecutor<AuditLogEntity> {
 
-    List<AuditLogEntity> findByUsernameOrderByCreatedAtDesc(String username);
-
-    List<AuditLogEntity> findByCreatedAtAfterOrderByCreatedAtDesc(LocalDateTime after);
-
-    List<AuditLogEntity> findByResourceTypeAndResourceIdOrderByCreatedAtDesc(String resourceType, String resourceId);
-
     long countByCreatedAtAfter(LocalDateTime after);
 
     @Query("SELECT COUNT(DISTINCT a.username) FROM AuditLogEntity a WHERE a.createdAt > :after")

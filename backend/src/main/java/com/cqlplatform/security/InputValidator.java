@@ -112,4 +112,13 @@ public final class InputValidator {
     public static boolean isValidNameParam(String name) {
         return name == null || NAME_PARAM_PATTERN.matcher(name).matches();
     }
+
+    /**
+     * Escape SQL LIKE wildcard characters (%, _) in user input to prevent
+     * LIKE wildcard injection when building JPQL LIKE patterns.
+     */
+    public static String escapeLikeWildcards(String input) {
+        if (input == null) return null;
+        return input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
 }

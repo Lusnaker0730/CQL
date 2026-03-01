@@ -5,6 +5,7 @@ import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.NotificationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
@@ -143,7 +144,7 @@ public class MeasureDefinitionService {
 
         List<MeasureDefinitionEntity> entities;
         if (hasSearch && hasDept) {
-            entities = repository.findByDepartmentAndSearchTerm(department, searchTerm);
+            entities = repository.findByDepartmentAndSearchTerm(department, InputValidator.escapeLikeWildcards(searchTerm));
         } else if (hasDept) {
             entities = repository.findByDepartment(department);
         } else if (hasSearch) {

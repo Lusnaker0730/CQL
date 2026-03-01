@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 058 | 2026-03-02 | Medium | 安全性（後端） | Repository 層簡化 — 18 個死碼方法移除、LIKE 萬用字元注入修復、共用工具提取 | 程式碼品質 / 安全漏洞 | |
 | 057 | 2026-03-02 | High | 安全性（後端） | Model DTO 驗證強化 — @Size 防 DoS、SSRF URL 驗證、@Pattern 約束、死碼清除 | 安全漏洞 / 程式碼品質 | |
 | 056 | 2026-03-02 | Low | 規則撰寫（前端） | CQL 預覽對話框程式碼文字在淺色模式下幾乎不可見 | UX 設計缺陷 | |
 | 055 | 2026-03-01 | High | 安全性（後端） | Controller 輸入驗證強化 — require* helpers、Math.clamp、URI 安全、DigestUtils 抽取 | 安全漏洞 / 程式碼品質 | |
@@ -78,6 +79,49 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #058 — Repository 層簡化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 程式碼品質 / 安全漏洞 |
+| **影響範圍** | 7 個 Repository、`AuditLogSpecification`、`InputValidator`、`MeasureDefinitionService` |
+
+### BUG 描述
+
+全面審計 25 個 Spring Data JPA Repository 後，發現三類問題：
+
+1. **死碼**（18 個未使用方法）：多個 Repository 宣告了從未被任何 Service 或 Controller 呼叫的查詢方法。部分為無分頁的 `List<>` 查詢（如 `AuditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc`），若被誤用可載入數百萬筆記錄導致 OOM。`UserRecentRepository.deleteOldestBeyondLimit` 使用非標準 JPQL `LIMIT` 子查詢，存在跨資料庫相容性風險。
+2. **LIKE 萬用字元注入**（MEDIUM）：`MeasureDefinitionRepository.findByDepartmentAndSearchTerm` 使用 `CONCAT('%', :search, '%')` 構建 LIKE 模式，使用者輸入 `%` 可匹配所有列、輸入 `_` 可匹配任意單字元。
+3. **工具重複**：`AuditLogSpecification.escapeLikeWildcards()` 為 private 方法，其他需要 LIKE 跳脫的程式碼無法共用。
+
+### 修正方式
+
+1. **死碼移除**：從 7 個 Repository 移除 18 個未使用方法：
+   - `AuditLogRepository`：3 個無分頁查詢（已被 Specification 方式取代）
+   - `CdsServiceConfigRepository`：5 個（已被 `WithPrefetch` 版本取代）
+   - `CdsArtifactRepository`：3 個
+   - `CqlLibraryRepository`：1 個（`findByAccessLevel`，已被 `findSharedWithUser` 取代）
+   - `MeasureDefinitionRepository`：2 個（`findByStatus`、`findByAccessLevel`）
+   - `NotificationRepository`：1 個（無限制版，已被 `findTop50` 取代）
+   - `CdsFeedbackRepository`：1 個（無排序版，已被排序版取代）
+   - `UserRecentRepository`：1 個（`deleteOldestBeyondLimit`，未使用且 JPQL 非標準）
+
+2. **LIKE 跳脫**：
+   - `InputValidator` 新增 `escapeLikeWildcards(String)` 公用方法
+   - `MeasureDefinitionService.search()` 在呼叫 `findByDepartmentAndSearchTerm` 前跳脫搜尋字串
+   - `AuditLogSpecification` 改用共用的 `InputValidator.escapeLikeWildcards()`
+
+### 驗證
+
+- IDE 診斷 0 errors、0 warnings（所有修改檔案）
+- 搜尋確認所有移除的方法在 Service、Controller、Test 中均無引用
+- LIKE 跳脫確保 `%`、`_` 字元被正確轉義為 `\%`、`\_`
 
 ---
 
