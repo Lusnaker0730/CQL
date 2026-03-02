@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 065 | 2026-03-03 | High | 安全性（後端） | CqlController IDOR 授權修復 + LIKE 萬用字元注入防護 | 安全漏洞（存取控制 / 注入） | [`57de58f`](../../commit/57de58f) |
 | 064 | 2026-03-02 | High | Monaco 編輯器（前端） | CqlEditor paste sanitization — Trojan Source bidi 防護、undo-safe executeEdits、Monaco 記憶體洩漏修復 | 安全漏洞 / 記憶體洩漏 | [`c84c8bd`](../../commit/c84c8bd) |
 | 063 | 2026-03-02 | Low | 前端效能（前端） | useCqlEditor useCallback 優化 — translate/validate/execute 穩定引用 | 效能 | |
 | 062 | 2026-03-02 | High | 安全性（後端） | FhirController 安全強化 — identifier 驗證、IG URL 驗證、RestTemplate 逾時、連線池耗盡防護 | 安全漏洞 / 配置遺漏 | |
@@ -85,6 +86,42 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #065 — CqlController IDOR 授權修復 + LIKE 萬用字元注入防護
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞（存取控制 / 注入） |
+| **影響範圍** | `CqlController.java`、`CqlLibraryService.java`、`MeasureDefinitionService.java` |
+
+### BUG 描述
+
+安全審查發現 2 項問題：
+
+1. **CqlController 缺少授權檢查（IDOR）**（HIGH）：`GET /api/cql/libraries/owner/{username}` 與 `GET /api/cql/libraries/shared/{username}` 允許任何已認證使用者查詢**任意其他使用者**的程式庫，未驗證請求者身份。對比 `MeasureController` 的相同端點已正確實作 `ownershipVerifier.isAdmin() || getCurrentUsername().equals(username)` 檢查。
+2. **LIKE 萬用字元注入**（MEDIUM）：`CqlLibraryService.getSharedLibraries()` 與 `MeasureDefinitionService.getSharedMeasures()` 直接將 `username` 串接至 LIKE 模式（`%"username"%`），未跳脫 `%` 和 `_` 萬用字元。攻擊者可傳送 `%` 作為使用者名稱，使 LIKE 模式變為 `%"%"%`，匹配所有已分享記錄。程式碼中已有 `InputValidator.escapeLikeWildcards()` 工具但未被使用。
+
+### 修正方式
+
+1. **CqlController 授權檢查**：
+   - `getLibrariesByOwner()` 與 `getSharedLibraries()` 加入 `ownershipVerifier` 檢查
+   - 非本人且非管理員時回傳 `403 FORBIDDEN`
+   - 與 `MeasureController` 保持一致的授權模式
+
+2. **LIKE 萬用字元跳脫**：
+   - `CqlLibraryService.getSharedLibraries()` 套用 `InputValidator.escapeLikeWildcards(username)`
+   - `MeasureDefinitionService.getSharedMeasures()` 同步套用
+
+### 驗證
+
+- 後端 `mvn compile` 零錯誤
+- 授權模式與 `MeasureController` 完全對齊
+- `escapeLikeWildcards` 會跳脫 `%` → `\%`、`_` → `\_`、`\` → `\\`
 
 ---
 
