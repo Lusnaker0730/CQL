@@ -8,6 +8,9 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 061 | 2026-03-02 | Medium | 前端效能（前端） | Measure 元件效能 — useMemo、O(n²) 修復、搜尋防抖、console.error 替換 | 效能 / 程式碼品質 | |
+| 060 | 2026-03-02 | Medium | 程式碼品質（前端） | Measure 元件重構 — scoreColors/downloadBlob/extractApiError 共用化 | 程式碼品質 | |
+| 059 | 2026-03-02 | Medium | 程式碼品質（前後端） | Service 層安全強化 + Builder 元件去重 — 憑證洩漏、6 共用抽取、250 行刪減 | 安全漏洞 / 程式碼品質 | |
 | 058 | 2026-03-02 | Medium | 安全性（後端） | Repository 層簡化 — 18 個死碼方法移除、LIKE 萬用字元注入修復、共用工具提取 | 程式碼品質 / 安全漏洞 | |
 | 057 | 2026-03-02 | High | 安全性（後端） | Model DTO 驗證強化 — @Size 防 DoS、SSRF URL 驗證、@Pattern 約束、死碼清除 | 安全漏洞 / 程式碼品質 | |
 | 056 | 2026-03-02 | Low | 規則撰寫（前端） | CQL 預覽對話框程式碼文字在淺色模式下幾乎不可見 | UX 設計缺陷 | |
@@ -79,6 +82,129 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #061 — Measure 元件效能最佳化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 前端效能（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 效能 / 程式碼品質 |
+| **影響範圍** | `MeasureComparison`、`DataRequirementsTab`、`TestCasesTab`、`MeasureValidationPanel`、`MeasureReportHistory`、`IndicatorCatalogDialog` |
+
+### BUG 描述
+
+三管齊下審計（reuse / quality / efficiency）Measure 元件目錄後，發現 6 項效能問題：
+
+1. **O(n²) `Math.max`**：`MeasureComparison` 的趨勢圖在 `.map()` 迴圈內反覆呼叫 `Math.max(...dataPoints)`，每次重繪 N 點需 O(N²) 比較。
+2. **缺少 `useMemo`**（3 處）：`DataRequirementsTab`、`TestCasesTab`、`MeasureValidationPanel` 的分組/計數邏輯在每次 render 都重建物件，即使資料未變。
+3. **無防抖搜尋**：`IndicatorCatalogDialog` 每次按鍵直接觸發 API 查詢（透過 React Query `queryKey` 變化），快速打字會產生大量無用請求。
+4. **靜默 `console.error`**：`MeasureReportHistory.handleExport` 的 catch 僅 `console.error`，使用者看不到匯出失敗訊息。
+
+### 修正方式
+
+1. **O(n²) → O(n)**：將 `Math.max(...)` 提升至 `.map()` 之外，僅計算一次。
+2. **`useMemo` 包裝**：
+   - `DataRequirementsTab`：`grouped`/`resourceTypeCount`/`valueSetCount` 以 `useMemo([requirements])` 包裝
+   - `TestCasesTab`：`passCount`/`failCount`/`totalCount` 以 `useMemo([testCases])` 包裝，改為單次迴圈
+   - `MeasureValidationPanel`：`groupedIssues` 以 `useMemo([report])` 包裝
+3. **300ms 防抖**：新增 `debouncedSearch` 狀態 + `useEffect` timer，React Query 改用 `debouncedSearch` 作為 queryKey。
+4. **`showNotification`**：引入 `useNotification` + `extractApiError`，替換 `console.error`。
+
+### 驗證
+
+- TypeScript 編譯 0 errors
+- 所有 useMemo 依賴陣列正確（`[requirements]`、`[testCases]`、`[report]`）
+- 防抖搜尋：打字停止 300ms 後才送出查詢
+
+---
+
+## #060 — Measure 元件共用化重構
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 程式碼品質（前端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 程式碼品質 |
+| **影響範圍** | 17 個 measure/dashboard 元件、3 個新共用模組 |
+
+### BUG 描述
+
+Measure 元件目錄 29 個檔案中發現三類重複：
+
+1. **`getScoreColor` 重複 7 處**：`EvaluationResultCard`、`BatchEvaluationDialog`、`MeasureReportHistory`、`MeasureComparison`、`MeasurePanel`、`MeasureDashboardPage`、`DepartmentDrilldownChart` 各自定義功能相同但回傳型別不一致的分數→顏色函式。
+2. **`downloadBlob` 重複 4 處**：`TestCasesTab`、`MeasureEditor`、`MeasureLibrary`、`MeasureReportHistory` 各自內聯 6 行 `URL.createObjectURL` / `a.click()` / `revokeObjectURL` 下載邏輯。
+3. **`(error as Error).message` 不安全轉型 10 處**：Axios 錯誤實際為 `AxiosError` 物件，直接轉型會漏掉後端回傳的 `response.data.message`，專案已有 `extractApiError` 工具函式卻未使用。
+
+### 修正方式
+
+1. **`scoreColors.ts`**：新增 `getScoreChipColor()`（MUI Chip color）、`getScoreThemeColor()`（theme path）、`getScoreHex()`（hex string），7 個檔案改用對應函式。
+2. **`download.ts`**：新增 `downloadBlob(blob, filename)`，4 個檔案刪除內聯實作。
+3. **`extractApiError` 統一**：10 個 catch block 改用 `extractApiError(err)`，8 個檔案補 import。
+
+### 驗證
+
+- TypeScript 編譯 0 errors
+- 7 個 score color 使用點行為一致（null → error、<50 → error、<80 → warning、≥80 → success）
+- downloadBlob 行為不變（createObjectURL → click → revokeObjectURL）
+
+---
+
+## #059 — Service 層安全強化 + Builder 元件去重
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 程式碼品質（前後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 安全漏洞 / 程式碼品質 |
+| **影響範圍** | 7 個後端 Service、10 個前端 Builder 元件、6 個新共用模組 |
+
+### BUG 描述
+
+**後端 Service 層**（7 項）：
+1. `FhirClientFactory`：暫存的 `FhirContext` 在 credential 變更後未清除，且 `hapiFhirContext()` 被多執行緒同時呼叫無鎖保護。
+2. `VsacService`：日誌中記錄 API key 值（`LOG.info("Using VSAC API key: {}")`）。
+3. `TestCaseService`：每次呼叫 `new FhirContext(FhirVersionEnum.R4)` 而非注入共用實例。
+4. `EmailService`：捕捉 `MessagingException` 後拋出 `RuntimeException(e.getMessage())`，丟失 stack trace。
+5. `EhrConnectionService`：方法級 `@Transactional` 標註在僅讀取操作上，不必要地持有資料庫連線。
+6. `PasswordResetService`：SMTP 寄信在 DB 交易內執行，失敗時回滾 token 但使用者已收到信。
+7. `CqlTranslationService`：每次呼叫建立新的 `LibraryManager` 與 `ModelManager`，初始化開銷大。
+
+**前端 Builder 元件**（5 項）：
+1. `RESOURCE_TYPES` 常數在 `QueryBuilder` 和 `RetrieveBuilder` 中重複定義。
+2. `extractName()`/`parseCodeName()` 名稱解析邏輯在 3 個元件中重複。
+3. `ConditionalBuilder` 接收 `expressions`/`parameters` props 但從未使用。
+4. 6 個元件各自實作 clipboard + notification 邏輯（`navigator.clipboard.writeText` + `showNotification`）。
+5. `CodesSection` 和 `ValueSetSection` 各含 ~80 行完全相同的 TW Core 瀏覽 UI。
+
+### 修正方式
+
+**後端**：
+1. `FhirClientFactory`：加入 `ReadWriteLock` + credential hash 變更偵測，credential 改變時自動清除快取。
+2. `VsacService`：移除 API key 日誌輸出。
+3. `TestCaseService`：改注入 Spring 管理的 `FhirContext` Bean。
+4. `EmailService`：改 `throw new RuntimeException("Failed to send email", e)` 保留原因鏈。
+5. `EhrConnectionService`：移除不必要的 `@Transactional`。
+6. `PasswordResetService`：使用 `@TransactionalEventListener(AFTER_COMMIT)` 確保 DB 成功後再寄信。
+7. `CqlTranslationService`：快取 `LibraryManager`，透過 `LibraryManagerFactory` 提供。
+
+**前端**：
+1. 新增 `fhirResources.ts`（`FHIR_RESOURCE_TYPES` 常數 + `FhirResourceType` 型別）。
+2. 新增 `cqlNames.ts`（`extractCqlName()` 函式）。
+3. 移除 `ConditionalBuilder` 未使用的 `expressions`/`parameters` props。
+4. 新增 `useCopyToClipboard` hook，6 個元件改用。
+5. 新增 `useFilteredTwcoreCatalog` hook + `TwcoreBrowser` 元件，刪減 ~160 行重複 JSX。
+
+### 驗證
+
+- TypeScript 編譯 0 errors
+- 所有 Builder 元件功能不變
+- Service 層注入與快取邏輯正確
 
 ---
 

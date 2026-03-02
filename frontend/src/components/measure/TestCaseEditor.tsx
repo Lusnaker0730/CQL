@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -326,7 +327,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
 
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(saveMutation.error as Error).message}
+          {extractApiError(saveMutation.error)}
         </Alert>
       )}
 

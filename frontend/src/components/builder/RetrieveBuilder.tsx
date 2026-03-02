@@ -13,8 +13,10 @@ import {
 } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
+import { FHIR_RESOURCE_TYPES, type FhirResourceType } from '../../constants/fhirResources'
+import { extractCqlName } from '../../utils/cqlNames'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface RetrieveBuilderProps {
   valueSets: string[]
@@ -23,20 +25,7 @@ interface RetrieveBuilderProps {
   onCancel: () => void
 }
 
-const RESOURCE_TYPES = [
-  'Observation',
-  'Condition',
-  'Procedure',
-  'MedicationRequest',
-  'MedicationStatement',
-  'Encounter',
-  'Immunization',
-  'AllergyIntolerance',
-  'Device',
-  'ServiceRequest',
-] as const
-
-type ResourceType = (typeof RESOURCE_TYPES)[number]
+type ResourceType = FhirResourceType
 
 // Which modifiers apply per resource type
 const MODIFIER_CONFIG: Record<string, { mostRecent?: boolean; activeConfirmed?: boolean; lookBack?: boolean; exists?: boolean }> = {
@@ -55,13 +44,8 @@ const MODIFIER_CONFIG: Record<string, { mostRecent?: boolean; activeConfirmed?: 
 /**
  * Parse a valueset/code name from the raw string (e.g. "Diabetes": 'http://...' → "Diabetes")
  */
-function extractName(raw: string): string {
-  const m = raw.match(/^"([^"]+)"/)
-  return m ? m[1] : raw
-}
-
 function generateDefinitionName(resourceType: string, terminology: string, modifiers: Modifiers): string {
-  const termName = extractName(terminology)
+  const termName = extractCqlName(terminology)
   const parts: string[] = []
   if (modifiers.activeConfirmed) parts.push('Active')
   if (modifiers.mostRecent) parts.push('Most Recent')
@@ -108,7 +92,7 @@ function generateCql(
   definitionName: string,
   modifiers: Modifiers,
 ): string {
-  const termName = extractName(terminology)
+  const termName = extractCqlName(terminology)
   const alias = resourceType[0]
   const needsQuery = modifiers.activeConfirmed
     || (modifiers.lookBack && modifiers.lookBackValue)
@@ -164,7 +148,7 @@ function generateCql(
 
 export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }: RetrieveBuilderProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
   const [resourceType, setResourceType] = useState<ResourceType>('Observation')
   const [terminology, setTerminology] = useState('')
   const [definitionName, setDefinitionName] = useState('')
@@ -180,8 +164,8 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
 
   // Combine valueSets and codes as terminology sources
   const terminologyOptions = useMemo(() => {
-    const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractName(vs)}`, type: 'valueset' as const }))
-    const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractName(c)}`, type: 'code' as const }))
+    const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractCqlName(vs)}`, type: 'valueset' as const }))
+    const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractCqlName(c)}`, type: 'code' as const }))
     return [...vsOptions, ...codeOptions]
   }, [valueSets, codes])
 
@@ -234,7 +218,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
         value={resourceType}
         onChange={(e) => handleResourceChange(e.target.value as ResourceType)}
       >
-        {RESOURCE_TYPES.map((rt) => (
+        {FHIR_RESOURCE_TYPES.map((rt) => (
           <MenuItem key={rt} value={rt}>{rt}</MenuItem>
         ))}
       </TextField>
@@ -365,14 +349,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
           <Tooltip title={t('common.copyToClipboard')}>
             <IconButton
               size="small"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(cqlPreview)
-                  showNotification(t('common.copiedToClipboard'), 'success', 2000)
-                } catch {
-                  showNotification(t('common.copyFailed'), 'error', 2000)
-                }
-              }}
+              onClick={() => copyToClipboard(cqlPreview)}
             >
               <CopyIcon fontSize="small" />
             </IconButton>

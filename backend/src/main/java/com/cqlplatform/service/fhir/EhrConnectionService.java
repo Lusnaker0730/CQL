@@ -68,9 +68,9 @@ public class EhrConnectionService {
         log.info("Soft-deleted EHR connection '{}' (id={})", existing.getName(), id);
     }
 
-    @Transactional
     public EhrConnectionEntity testConnection(Long id) {
-        EhrConnectionEntity connection = getById(id);
+        EhrConnectionEntity connection = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
         try {
             IGenericClient client = fhirClientFactory.createAuthenticatedClient(connection);
             CapabilityStatement capabilities = client.capabilities()

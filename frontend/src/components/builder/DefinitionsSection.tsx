@@ -250,8 +250,6 @@ export default function DefinitionsSection({
             />
           ) : mode === 'conditional' ? (
             <ConditionalBuilder
-              expressions={expressions.map((e) => e.name)}
-              parameters={parameters}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()

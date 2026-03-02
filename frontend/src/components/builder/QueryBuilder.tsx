@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { FHIR_RESOURCE_TYPES } from '../../constants/fhirResources'
+import { extractCqlName } from '../../utils/cqlNames'
 import {
   Stack,
   TextField,
@@ -20,7 +22,7 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import { fhirResourceProperties } from '../../utils/cqlSyntax'
 
 interface QueryBuilderProps {
@@ -38,28 +40,10 @@ interface WhereClause {
   conjunction: 'and' | 'or'
 }
 
-const RESOURCE_TYPES = [
-  'Observation',
-  'Condition',
-  'Procedure',
-  'MedicationRequest',
-  'MedicationStatement',
-  'Encounter',
-  'Immunization',
-  'AllergyIntolerance',
-  'Device',
-  'ServiceRequest',
-] as const
-
 const OPERATORS = [
   '=', '!=', '~', 'in', 'during', 'before', 'after',
   'contains', '>', '<', '>=', '<=', 'is not null', 'is null',
 ]
-
-function extractName(raw: string): string {
-  const m = raw.match(/^"([^"]+)"/)
-  return m ? m[1] : raw
-}
 
 let clauseIdCounter = 0
 function nextClauseId(): string {
@@ -72,7 +56,7 @@ function generateAlias(resourceType: string): string {
 
 function generateDefName(resourceType: string, terminology: string): string {
   if (!terminology) return resourceType + ' Query'
-  const termName = extractName(terminology)
+  const termName = extractCqlName(terminology)
   return `${termName} ${resourceType}s`
 }
 
@@ -88,7 +72,7 @@ function generateQueryCql(
   enableReturn: boolean,
   returnExpr: string,
 ): string {
-  const termPart = terminology ? `: "${extractName(terminology)}"` : ''
+  const termPart = terminology ? `: "${extractCqlName(terminology)}"` : ''
   let cql = `define "${definitionName}":\n  [${resourceType}${termPart}] ${alias}`
 
   const validClauses = whereClauses.filter((c) => c.field && c.operator)
@@ -116,7 +100,7 @@ function generateQueryCql(
 
 export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: QueryBuilderProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
   const [resourceType, setResourceType] = useState<string>('Observation')
   const [terminology, setTerminology] = useState('')
   const [alias, setAlias] = useState('O')
@@ -131,8 +115,8 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
   const [returnExpr, setReturnExpr] = useState('')
 
   const terminologyOptions = useMemo(() => {
-    const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractName(vs)}` }))
-    const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractName(c)}` }))
+    const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractCqlName(vs)}` }))
+    const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractCqlName(c)}` }))
     return [{ raw: '', label: '(No filter)' }, ...vsOptions, ...codeOptions]
   }, [valueSets, codes])
 
@@ -186,15 +170,6 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
     onInsert(cqlPreview)
   }
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(cqlPreview)
-      showNotification(t('common.copiedToClipboard'), 'success', 2000)
-    } catch {
-      showNotification(t('common.copyFailed'), 'error', 2000)
-    }
-  }
-
   return (
     <Stack spacing={1}>
       <TextField
@@ -204,7 +179,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
         value={resourceType}
         onChange={(e) => handleResourceChange(e.target.value)}
       >
-        {RESOURCE_TYPES.map((rt) => (
+        {FHIR_RESOURCE_TYPES.map((rt) => (
           <MenuItem key={rt} value={rt}>{rt}</MenuItem>
         ))}
       </TextField>
@@ -305,7 +280,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
                     <em>{t('query.selectOp')}</em>
                   </MenuItem>
                   {terminologyOptions.filter((o) => o.raw).map((opt) => (
-                    <MenuItem key={opt.raw} value={`"${extractName(opt.raw)}"`}>
+                    <MenuItem key={opt.raw} value={`"${extractCqlName(opt.raw)}"`}>
                       {opt.label}
                     </MenuItem>
                   ))}
@@ -391,7 +366,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           {t('common.insert')}
         </GradientButton>
         <Tooltip title={t('common.copyToClipboard')}>
-          <IconButton size="small" onClick={handleCopy} aria-label={t('common.copyToClipboard')}>
+          <IconButton size="small" onClick={() => copyToClipboard(cqlPreview)} aria-label={t('common.copyToClipboard')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>

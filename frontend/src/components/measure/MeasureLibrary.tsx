@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { downloadBlob } from '../../utils/download'
 import {
   Paper,
   Typography,
@@ -210,12 +211,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     try {
       const data = await measureApi.exportFhirMeasure(id)
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `measure-${id}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `measure-${id}.json`)
     } catch (err) {
       showNotification(t('library.importDialog.exportError', { error: extractApiError(err) }), 'error')
     }

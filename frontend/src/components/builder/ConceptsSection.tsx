@@ -11,6 +11,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
+import { extractCqlName } from '../../utils/cqlNames'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 
@@ -21,16 +22,6 @@ interface ConceptsSectionProps {
   onDelete?: (identifier: string) => void
   onGoTo?: (identifier: string) => void
   onEdit?: (identifier: string, newSnippet: string) => void
-}
-
-/**
- * Parse a code string to extract just the name.
- * Input: "HbA1c Code": '4548-4' from "LOINC" display 'Hemoglobin A1c'
- * Output: "HbA1c Code"
- */
-function parseCodeName(raw: string): string {
-  const m = raw.match(/^"([^"]+)"/)
-  return m ? m[1] : raw
 }
 
 export default function ConceptsSection({
@@ -50,7 +41,7 @@ export default function ConceptsSection({
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
-  const codeNames = codes.map(parseCodeName)
+  const codeNames = codes.map(extractCqlName)
 
   const handleToggleCode = (codeName: string) => {
     setSelectedCodes((prev) =>

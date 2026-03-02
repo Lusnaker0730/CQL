@@ -18,11 +18,9 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface ConditionalBuilderProps {
-  expressions: string[]
-  parameters: string[]
   onInsert: (cqlSnippet: string) => void
   onCancel: () => void
 }
@@ -40,7 +38,7 @@ function nextId(): string {
 
 export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBuilderProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
   const [name, setName] = useState('')
   const [style, setStyle] = useState<'if' | 'case'>('if')
   const [branches, setBranches] = useState<Branch[]>([
@@ -223,14 +221,7 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
           <Tooltip title={t('common.copyToClipboard')}>
             <IconButton
               size="small"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(cqlPreview)
-                  showNotification(t('common.copiedToClipboard'), 'success', 2000)
-                } catch {
-                  showNotification(t('common.copyFailed'), 'error', 2000)
-                }
-              }}
+              onClick={() => copyToClipboard(cqlPreview)}
             >
               <CopyIcon fontSize="small" />
             </IconButton>

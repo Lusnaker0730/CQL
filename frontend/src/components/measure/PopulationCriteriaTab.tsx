@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -537,7 +538,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(saveMutation.error as Error).message}
+          {extractApiError(saveMutation.error)}
         </Alert>
       )}
 

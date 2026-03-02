@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Paper,
@@ -209,7 +210,7 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
               value={newSchedule.fhirServerUrl}
               onChange={(e) => setNewSchedule({ ...newSchedule, fhirServerUrl: e.target.value })} />
             {createMutation.isError && (
-              <Alert severity="error">{(createMutation.error as Error).message}</Alert>
+              <Alert severity="error">{extractApiError(createMutation.error)}</Alert>
             )}
           </Stack>
         </DialogContent>

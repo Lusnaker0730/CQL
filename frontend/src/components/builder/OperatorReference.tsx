@@ -17,7 +17,7 @@ import {
   ContentCopy as CopyIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface OperatorEntry {
   name: string
@@ -130,7 +130,7 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
   const { t } = useTranslation('builder')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | false>(false)
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
 
   const filteredByCategory = useMemo(() => {
     const term = search.toLowerCase()
@@ -142,15 +142,6 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
     }
     return map
   }, [search])
-
-  const handleCopy = async (snippet: string) => {
-    try {
-      await navigator.clipboard.writeText(snippet.trim())
-      showNotification('Copied to clipboard', 'success', 2000)
-    } catch {
-      showNotification('Failed to copy', 'error', 2000)
-    }
-  }
 
   return (
     <Stack spacing={0.5}>
@@ -243,7 +234,7 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
                       <IconButton
                         className="op-copy"
                         size="small"
-                        onClick={(e) => { e.stopPropagation(); handleCopy(op.snippet) }}
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(op.snippet.trim()) }}
                         sx={{ opacity: 0, transition: 'opacity 0.15s', p: 0.25, mt: 0.25 }}
                       >
                         <CopyIcon sx={{ fontSize: 14 }} />

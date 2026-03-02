@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 
 import java.security.SecureRandom;
@@ -63,9 +65,20 @@ public class PasswordResetService {
                 .build();
         tokenRepository.save(tokenEntity);
 
-        // Send email with raw token
+        // Send email after transaction commits (avoid holding DB connection during SMTP I/O)
         String resetLink = baseUrl + "/reset-password?token=" + rawToken;
-        emailService.sendPasswordResetEmail(user.getEmail(), user.getUsername(), resetLink);
+        String userEmail = user.getEmail();
+        String username = user.getUsername();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    emailService.sendPasswordResetEmail(userEmail, username, resetLink);
+                } catch (Exception e) {
+                    log.warn("Failed to send password reset email for user: {}", username, e);
+                }
+            }
+        });
 
         log.info("Password reset token generated for user: {}", user.getUsername());
     }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -142,7 +143,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
 
       {updateMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(updateMutation.error as Error).message}
+          {extractApiError(updateMutation.error)}
         </Alert>
       )}
 

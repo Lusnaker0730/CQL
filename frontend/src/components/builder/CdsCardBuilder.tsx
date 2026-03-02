@@ -14,7 +14,7 @@ import {
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface CdsCardBuilderProps {
   expressions: string[]
@@ -44,7 +44,7 @@ function formatFieldValue(field: FieldState): string {
 
 export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsCardBuilderProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
   const [name, setName] = useState('Card')
   const [summary, setSummary] = useState<FieldState>({ value: '', mode: 'literal' })
   const [detail, setDetail] = useState<FieldState>({ value: '', mode: 'literal' })
@@ -237,14 +237,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           <Tooltip title={t('common.copyToClipboard')}>
             <IconButton
               size="small"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(cqlPreview)
-                  showNotification(t('common.copiedToClipboard'), 'success', 2000)
-                } catch {
-                  showNotification(t('common.copyFailed'), 'error', 2000)
-                }
-              }}
+              onClick={() => copyToClipboard(cqlPreview)}
             >
               <CopyIcon fontSize="small" />
             </IconButton>

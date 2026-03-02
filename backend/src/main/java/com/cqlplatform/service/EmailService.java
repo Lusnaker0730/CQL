@@ -33,7 +33,7 @@ public class EmailService {
             mailSender.send(message);
             log.info("Password reset email sent to user: {}", username);
         } catch (MessagingException e) {
-            log.error("Failed to send password reset email to user: {}", username, e);
+            throw new RuntimeException("Failed to send password reset email to user: " + username, e);
         }
     }
 

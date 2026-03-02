@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { getScoreChipColor } from '../utils/scoreColors'
 import {
   Paper,
   Typography,
@@ -34,13 +35,6 @@ import QualityReportPanel from '../components/dashboard/QualityReportPanel'
 const TEAL = '#0D7377'
 
 const STATUS_ORDER = ['active', 'draft', 'retired', 'in-review'] as const
-
-function getScoreColor(score: number | undefined): 'success' | 'warning' | 'error' {
-  if (score == null) return 'error'
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'error'
-}
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '--'
@@ -183,7 +177,7 @@ function RecentEvaluationsTable({
                     <Chip
                       label={formatScoreLabel(ev.score, t('dashboard.na'))}
                       size="small"
-                      color={getScoreColor(ev.score)}
+                      color={getScoreChipColor(ev.score)}
                       variant="outlined"
                       sx={{ fontWeight: 600, minWidth: 64 }}
                     />

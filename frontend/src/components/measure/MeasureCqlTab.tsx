@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import { Box, Stack, Button, CircularProgress, Alert, Chip } from '@mui/material'
 import { Translate as TranslateIcon, Save as SaveIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
@@ -152,7 +153,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
 
       {translateMutation.isError && (
         <Alert severity="error" sx={{ mx: 1, mt: 1 }}>
-          {t('cql.translationFailed', { error: (translateMutation.error as Error).message })}
+          {t('cql.translationFailed', { error: extractApiError(translateMutation.error) })}
         </Alert>
       )}
 

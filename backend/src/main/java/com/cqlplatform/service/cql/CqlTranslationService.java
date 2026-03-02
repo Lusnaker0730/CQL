@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.LibraryManager;
-import org.cqframework.cql.cql2elm.ModelManager;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.hl7.elm.r1.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,19 +115,7 @@ public class CqlTranslationService {
 
     public CompiledLibrary compile(String cql) {
         try {
-            ModelManager modelManager = new ModelManager();
-            LibraryManager libraryManager = new LibraryManager(modelManager);
-
-            // Register database provider first so user libraries take precedence
-            if (libraryRepository != null) {
-                libraryManager.getLibrarySourceLoader()
-                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
-            }
-
-            // Register Library Source Provider to load FHIRHelpers from classpath resources
-            libraryManager.getLibrarySourceLoader()
-                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
-
+            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
             CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
 
             if (translator.getExceptions().stream()

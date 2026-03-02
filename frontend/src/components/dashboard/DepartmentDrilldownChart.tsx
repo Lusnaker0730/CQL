@@ -1,4 +1,5 @@
 import { Box, Typography, Paper } from '@mui/material'
+import { getScoreHex } from '../../utils/scoreColors'
 import {
   BarChart,
   Bar,
@@ -14,12 +15,6 @@ import { useTranslation } from 'react-i18next'
 interface DepartmentDrilldownChartProps {
   data: Record<string, number>
   title?: string
-}
-
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#4CAF50'
-  if (score >= 60) return '#FF9800'
-  return '#D32F2F'
 }
 
 export default function DepartmentDrilldownChart({ data, title }: DepartmentDrilldownChartProps) {
@@ -44,7 +39,7 @@ export default function DepartmentDrilldownChart({ data, title }: DepartmentDril
             <Tooltip />
             <Bar dataKey="score" radius={[4, 4, 0, 0]}>
               {chartData.map((entry, i) => (
-                <Cell key={i} fill={getScoreColor(entry.score)} />
+                <Cell key={i} fill={getScoreHex(entry.score)} />
               ))}
             </Bar>
           </BarChart>

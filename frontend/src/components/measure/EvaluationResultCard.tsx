@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import type { MeasureEvaluationResult, PopulationResult, StratifierResult } from '../../types'
+import { getScoreChipColor, getScoreHex } from '../../utils/scoreColors'
 
 interface EvaluationResultCardProps {
   result: MeasureEvaluationResult
@@ -38,18 +39,6 @@ const POPULATION_LABEL_KEYS: Record<string, string> = {
   'measure-population': 'evaluationResult.populationLabels.measure-population',
   'measure-population-exclusion': 'evaluationResult.populationLabels.measure-population-exclusion',
   'measure-observation': 'evaluationResult.populationLabels.measure-observation',
-}
-
-function getScoreColor(score: number): 'success' | 'warning' | 'error' {
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'error'
-}
-
-function getScoreHex(score: number): string {
-  if (score >= 80) return '#2E7D32'
-  if (score >= 60) return '#ED6C02'
-  return '#D32F2F'
 }
 
 export default function EvaluationResultCard({ result }: EvaluationResultCardProps) {
@@ -109,7 +98,7 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                 <LinearProgress
                   variant="determinate"
                   value={Math.min(group.measureScore, 100)}
-                  color={getScoreColor(group.measureScore)}
+                  color={getScoreChipColor(group.measureScore)}
                   sx={{
                     height: 10,
                     borderRadius: 5,
