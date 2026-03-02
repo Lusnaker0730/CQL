@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 064 | 2026-03-02 | High | Monaco 編輯器（前端） | CqlEditor paste sanitization — Trojan Source bidi 防護、undo-safe executeEdits、Monaco 記憶體洩漏修復 | 安全漏洞 / 記憶體洩漏 | [`c84c8bd`](../../commit/c84c8bd) |
 | 063 | 2026-03-02 | Low | 前端效能（前端） | useCqlEditor useCallback 優化 — translate/validate/execute 穩定引用 | 效能 | |
 | 062 | 2026-03-02 | High | 安全性（後端） | FhirController 安全強化 — identifier 驗證、IG URL 驗證、RestTemplate 逾時、連線池耗盡防護 | 安全漏洞 / 配置遺漏 | |
 | 061 | 2026-03-02 | Medium | 前端效能（前端） | Measure 元件效能 — useMemo、O(n²) 修復、搜尋防抖、console.error 替換 | 效能 / 程式碼品質 | |
@@ -84,6 +85,47 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #064 — CqlEditor paste sanitization 強化 + Monaco 記憶體洩漏修復
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | Monaco 編輯器（前端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞 / 記憶體洩漏 |
+| **影響範圍** | `frontend/src/components/editor/CqlEditor.tsx` |
+
+### BUG 描述
+
+CqlEditor 審查發現 3 類問題：
+
+1. **不可見字元過濾不完整**（HIGH）：`sanitizePastedText` 僅過濾 4 個 zero-width 字元，遺漏 Bidi 控制字元（`\u202A–\u202E`、`\u2066–\u2069`、`\u061C`、`\u200E–\u200F`）、Soft Hyphen（`\u00AD`）、Line/Paragraph Separator（`\u2028–\u2029`）等。Bidi 字元可被用於 **Trojan Source 攻擊**，讓 CQL 程式碼的顯示與實際語義不同。
+2. **onDidPaste 使用 `model.setValue()` 破壞 undo stack**（MEDIUM）：每次貼上都會掃描整份文件並用 `setValue` 替換，導致 undo/redo 歷程完全重建。
+3. **Monaco 銷毀時記憶體洩漏**（MEDIUM）：DOM paste event listener 未在 unmount 時移除；`onDidPaste` 和 `onDidChangeCursorPosition` 的 `IDisposable` 未保存；`editorRef` / `monacoRef` 指向已銷毀的實例。
+
+### 修正方式
+
+1. **擴充 sanitizePastedText**：
+   - 用單一 character class `[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u061C\u00AD\u180E\uFEFF\uFFF9-\uFFFB]` 取代零散的 4 字元匹配
+   - 新增 `\u2028`/`\u2029` → `\n` 轉換（Line/Paragraph Separator）
+
+2. **onDidPaste 改為範圍 sanitize + executeEdits**：
+   - 使用 `IPasteEvent.range` 取得貼入範圍，只 sanitize 該範圍文字
+   - 改用 `executeEdits('paste-sanitize', ...)` 取代 `model.setValue()`，保留完整 undo/redo 歷程
+
+3. **新增 unmount 清理**：
+   - `disposablesRef` 儲存 `onDidPaste` 和 `onDidChangeCursorPosition` 的 `IDisposable`
+   - `pasteListenerRef` 追蹤 DOM paste event listener
+   - cleanup `useEffect`：unmount 時 dispose 所有訂閱、`removeEventListener`、清空 editor/monaco ref
+
+### 驗證
+
+- TypeScript 編譯零錯誤
+- 56 test files / 399 tests 全部通過
+- 新增覆蓋的不可見字元包含 Trojan Source 攻擊最常用的 bidi override 序列
 
 ---
 
