@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useInvalidatingMutation } from './useInvalidatingMutation'
 import { useDispatch, useSelector } from 'react-redux'
@@ -228,21 +229,21 @@ export function useCqlEditor() {
   const validateMutation = useValidate()
   const executeMutation = useExecute()
 
-  const translate = (cql: string) => {
+  const translate = useCallback((cql: string) => {
     translateMutation.mutate({ cql })
-  }
+  }, [translateMutation.mutate])
 
-  const validate = (cql: string) => {
+  const validate = useCallback((cql: string) => {
     validateMutation.mutate(cql)
-  }
+  }, [validateMutation.mutate])
 
-  const execute = (cql: string, patientId?: string, fhirServerUrl?: string) => {
+  const execute = useCallback((cql: string, patientId?: string, fhirServerUrl?: string) => {
     executeMutation.mutate({
       cql,
       patientId,
       fhirServerUrl,
     })
-  }
+  }, [executeMutation.mutate])
 
   return {
     ...editor,

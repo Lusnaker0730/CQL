@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 063 | 2026-03-02 | Low | 前端效能（前端） | useCqlEditor useCallback 優化 — translate/validate/execute 穩定引用 | 效能 | |
 | 062 | 2026-03-02 | High | 安全性（後端） | FhirController 安全強化 — identifier 驗證、IG URL 驗證、RestTemplate 逾時、連線池耗盡防護 | 安全漏洞 / 配置遺漏 | |
 | 061 | 2026-03-02 | Medium | 前端效能（前端） | Measure 元件效能 — useMemo、O(n²) 修復、搜尋防抖、console.error 替換 | 效能 / 程式碼品質 | |
 | 060 | 2026-03-02 | Medium | 程式碼品質（前端） | Measure 元件重構 — scoreColors/downloadBlob/extractApiError 共用化 | 程式碼品質 | |
@@ -83,6 +84,32 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #063 — useCqlEditor useCallback 優化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 前端效能（前端） |
+| **嚴重程度** | Low |
+| **根因類型** | 效能 |
+| **影響範圍** | `frontend/src/hooks/useCql.ts` |
+
+### BUG 描述
+
+`useCqlEditor()` hook 內的 `translate`、`validate`、`execute` 三個函式為裸 closure，每次 render 都重建新的函式引用。消費端 `EditorPage.tsx` 的 `handleTranslate` 雖有 `useCallback` 包裝，但依賴 `translateMutation` 物件（`useMutation` 每次 render 回傳新引用），導致 `useCallback` 被穿透，無法穩定引用。
+
+### 修正方式
+
+- `translate`、`validate`、`execute` 三個函式改用 `useCallback` 包裝
+- 依賴使用 `.mutate`（TanStack Query 內部以 `useCallback` 包裝，referentially stable）而非整個 mutation 物件，避免因 `isPending`/`data` 等狀態變化導致不必要的重建
+
+### 驗證
+
+- TypeScript 編譯通過
+- 消費端 `useCallback` 依賴鏈穩定：`handleTranslate` → `translate` → `translateMutation.mutate`
 
 ---
 
