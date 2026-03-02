@@ -36,6 +36,8 @@ export default function CqlEditor({
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
   const lastExternalContent = useRef(cqlContent)
   const librariesRef = useRef<LibraryInfo[]>([])
+  const disposablesRef = useRef<Array<{ dispose: () => void }>>([])
+  const pasteListenerRef = useRef<{ node: HTMLElement; handler: EventListener } | null>(null)
 
   // Keep libraries ref in sync
   useEffect(() => {
@@ -49,16 +51,18 @@ export default function CqlEditor({
     }
   }, [libraryMetadata])
 
-  // Clean smart quotes, zero-width chars, and non-breaking spaces from pasted text
+  // Clean invisible chars, bidi controls, smart quotes from pasted text (Trojan Source prevention)
   const sanitizePastedText = (text: string): string => {
     return text
-      .replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')    // zero-width chars
-      .replace(/\u00A0/g, ' ')                        // non-breaking space → space
-      .replace(/[\u2018\u2019\u201A]/g, "'")           // smart single quotes → '
-      .replace(/[\u201C\u201D\u201E]/g, '"')           // smart double quotes → "
-      .replace(/\u2013/g, '-')                         // en-dash → -
-      .replace(/\u2014/g, '--')                        // em-dash → --
-      .replace(/\u2026/g, '...')                       // ellipsis → ...
+      // Strip zero-width, bidi controls, soft hyphen, word joiner, and other invisible chars
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u061C\u00AD\u180E\uFEFF\uFFF9-\uFFFB]/g, '')
+      .replace(/[\u2028\u2029]/g, '\n')                // line/paragraph separator → newline
+      .replace(/\u00A0/g, ' ')                         // non-breaking space → space
+      .replace(/[\u2018\u2019\u201A]/g, "'")            // smart single quotes → '
+      .replace(/[\u201C\u201D\u201E]/g, '"')            // smart double quotes → "
+      .replace(/\u2013/g, '-')                          // en-dash → -
+      .replace(/\u2014/g, '--')                         // em-dash → --
+      .replace(/\u2026/g, '...')                        // ellipsis → ...
   }
 
   const handleEditorWillMount: BeforeMount = (monaco) => {
@@ -70,44 +74,45 @@ export default function CqlEditor({
     monacoRef.current = monaco
     onEditorRef?.(editor)
 
-    // Sanitize pasted content from ChatGPT/LLM outputs
-    editor.onDidPaste(() => {
+    // Sanitize only the pasted range, preserving undo stack
+    const pasteDisposable = editor.onDidPaste((e) => {
       const model = editor.getModel()
       if (!model) return
-      const content = model.getValue()
-      const cleaned = sanitizePastedText(content)
-      if (cleaned !== content) {
-        const selections = editor.getSelections()
-        model.setValue(cleaned)
-        if (selections) editor.setSelections(selections)
+      const pastedText = model.getValueInRange(e.range)
+      const cleaned = sanitizePastedText(pastedText)
+      if (cleaned !== pastedText) {
+        editor.executeEdits('paste-sanitize', [{
+          range: e.range,
+          text: cleaned,
+        }])
       }
     })
+    disposablesRef.current.push(pasteDisposable)
 
     // Fallback paste handler for environments where Monaco's built-in paste fails
     const domNode = editor.getDomNode()
     if (domNode) {
-      domNode.addEventListener('paste', (e: ClipboardEvent) => {
-        // Read clipboard data synchronously — it's only available during the event handler
-        const clipText = e.clipboardData?.getData('text/plain')
+      const pasteHandler: EventListener = (e) => {
+        const clipText = (e as ClipboardEvent).clipboardData?.getData('text/plain')
         if (!clipText) return
 
-        // Check after a microtask to see if onDidPaste already fired
         const modelBefore = editor.getModel()?.getValue()
         setTimeout(() => {
           const modelAfter = editor.getModel()?.getValue()
           if (modelBefore === modelAfter && editor.getModel()) {
-            // Monaco's paste didn't work; apply manually
             const cleaned = sanitizePastedText(clipText)
             const selections = editor.getSelections()
             if (selections && selections.length > 0) {
-              editor.executeEdits('paste', selections.map(sel => ({
+              editor.executeEdits('paste-fallback', selections.map(sel => ({
                 range: sel,
                 text: cleaned,
               })))
             }
           }
         }, 0)
-      })
+      }
+      domNode.addEventListener('paste', pasteHandler)
+      pasteListenerRef.current = { node: domNode, handler: pasteHandler }
     }
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
@@ -118,13 +123,29 @@ export default function CqlEditor({
       onExecute?.()
     })
 
-    editor.onDidChangeCursorPosition((e) => {
+    const cursorDisposable = editor.onDidChangeCursorPosition((e) => {
       dispatch(setCursorPosition({
         line: e.position.lineNumber,
         column: e.position.column,
       }))
     })
+    disposablesRef.current.push(cursorDisposable)
   }
+
+  // Cleanup Monaco subscriptions and DOM listeners on unmount
+  useEffect(() => {
+    return () => {
+      disposablesRef.current.forEach(d => d.dispose())
+      disposablesRef.current = []
+      if (pasteListenerRef.current) {
+        const { node, handler } = pasteListenerRef.current
+        node.removeEventListener('paste', handler)
+        pasteListenerRef.current = null
+      }
+      editorRef.current = null
+      monacoRef.current = null
+    }
+  }, [])
 
   const handleChange: OnChange = useCallback(
     (value) => {
