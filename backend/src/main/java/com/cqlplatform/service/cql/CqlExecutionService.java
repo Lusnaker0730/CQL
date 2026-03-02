@@ -17,6 +17,9 @@ import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
 import org.opencds.cqf.cql.engine.data.CompositeDataProvider;
+import org.opencds.cqf.cql.engine.debug.Location;
+import org.opencds.cqf.cql.engine.debug.SourceLocator;
+import org.opencds.cqf.cql.engine.exception.CqlException;
 import org.opencds.cqf.cql.engine.execution.CqlEngine;
 import org.opencds.cqf.cql.engine.execution.Environment;
 import org.opencds.cqf.cql.engine.execution.EvaluationResult;
@@ -233,19 +236,26 @@ public class CqlExecutionService {
                     } catch (Exception e) {
                         long exprTime = System.currentTimeMillis() - exprStart;
                         log.warn("Failed to evaluate expression in debug mode: {}", expressionName, e);
+                        // Try to extract runtime source locator from CqlException
+                        String runtimeLocator = extractRuntimeLocator(e);
+                        String errorLocator = runtimeLocator != null
+                                ? runtimeLocator : sourceLocators.get(expressionName);
+                        String errorDisplay = runtimeLocator != null
+                                ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                : "Error: " + e.getMessage();
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName)
                                 .value(null)
                                 .valueType("Error")
-                                .displayValue("Error: " + e.getMessage())
+                                .displayValue(errorDisplay)
                                 .build());
                         expressionTraces.add(ExpressionTrace.builder()
                                 .name(expressionName)
                                 .resultType("Error")
-                                .resultDisplay("Error: " + e.getMessage())
+                                .resultDisplay(errorDisplay)
                                 .evaluationTimeMs(exprTime)
                                 .order(traceOrder++)
-                                .sourceLocator(sourceLocators.get(expressionName))
+                                .sourceLocator(errorLocator)
                                 .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
                                 .build());
                     }
@@ -286,11 +296,15 @@ public class CqlExecutionService {
                                 .build());
                     } catch (Exception e) {
                         log.warn("Failed to get result for expression: {}", expressionName, e);
+                        String runtimeLocator = extractRuntimeLocator(e);
+                        String errorDisplay = runtimeLocator != null
+                                ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                : "Error: " + e.getMessage();
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName)
                                 .value(null)
                                 .valueType("Error")
-                                .displayValue("Error: " + e.getMessage())
+                                .displayValue(errorDisplay)
                                 .build());
                     }
                 }
@@ -411,6 +425,25 @@ public class CqlExecutionService {
                 collectExpressionRefNodes(child, refs);
             }
         }
+    }
+
+    /**
+     * Walk the exception cause chain looking for a CqlException with a SourceLocator.
+     * Returns a locator string like "5:1-5:42" or null if none found.
+     */
+    private String extractRuntimeLocator(Throwable e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current instanceof CqlException cqlEx) {
+                SourceLocator sl = cqlEx.getSourceLocator();
+                if (sl != null && sl.getSourceLocation() != null) {
+                    Location loc = sl.getSourceLocation();
+                    return loc.toLocator();
+                }
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private static class InMemoryLibrarySourceProvider implements LibrarySourceProvider {

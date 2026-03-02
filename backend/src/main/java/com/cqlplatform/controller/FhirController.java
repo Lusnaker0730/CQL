@@ -63,6 +63,7 @@ public class FhirController {
             return ResponseEntity.notFound().build();
         }
         String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        InputValidator.requireValidFhirCanonicalUrl(decodedUrl);
         StructureDefinition sd = igService.getProfileByUrl(decodedUrl);
         if (sd == null) {
             return ResponseEntity.notFound().build();
@@ -89,6 +90,7 @@ public class FhirController {
             return ResponseEntity.notFound().build();
         }
         String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        InputValidator.requireValidFhirCanonicalUrl(decodedUrl);
         ValueSet vs = igService.getValueSetByUrl(decodedUrl);
         if (vs == null) {
             return ResponseEntity.notFound().build();
@@ -115,6 +117,7 @@ public class FhirController {
             return ResponseEntity.notFound().build();
         }
         String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        InputValidator.requireValidFhirCanonicalUrl(decodedUrl);
         CodeSystem cs = igService.getCodeSystemByUrl(decodedUrl);
         if (cs == null) {
             return ResponseEntity.notFound().build();
@@ -239,6 +242,7 @@ public class FhirController {
         if (!InputValidator.isValidDateParam(birthdate)) {
             throw new IllegalArgumentException("Invalid birthdate parameter");
         }
+        InputValidator.requireValidIdentifierParam(identifier);
         InputValidator.requireValidUrl(fhirServer);
 
         Bundle bundle = dataProviderService.searchPatientsByDemographics(fhirServer, family, given, birthdate, identifier);

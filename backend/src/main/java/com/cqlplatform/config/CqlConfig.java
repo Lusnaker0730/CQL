@@ -21,18 +21,6 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class CqlConfig {
 
-    @Value("${cql.translation.enable-annotations:true}")
-    private boolean enableAnnotations;
-
-    @Value("${cql.translation.enable-locators:true}")
-    private boolean enableLocators;
-
-    @Value("${cql.translation.enable-result-types:true}")
-    private boolean enableResultTypes;
-
-    @Value("${cql.translation.validate-units:true}")
-    private boolean validateUnits;
-
     @Bean
     public FhirContext fhirContext(
             @Value("${fhir.client.pool-max-total:20}") int poolMaxTotal,

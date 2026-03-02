@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack,
   FormControl, InputLabel, Select, MenuItem, FormHelperText,
@@ -10,6 +10,7 @@ import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 import TwcoreCodePicker from './TwcoreCodePicker'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
 interface CodeFieldProps {
@@ -21,17 +22,24 @@ interface CodeFieldProps {
 export default function CodeField({ element, value, onChange }: CodeFieldProps) {
   const { t } = useTranslation('measures')
   const [inputValue, setInputValue] = useState(String(value || ''))
+  const [debouncedInput, setDebouncedInput] = useState(inputValue)
   const [twcoreOpen, setTwcoreOpen] = useState(false)
   const resourceType = useCurrentResourceType()
   const { openDrawer } = useTerminologyDrawer()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedInput(inputValue), SEARCH_DEBOUNCE_CODE_MS)
+    return () => clearTimeout(debounceRef.current)
+  }, [inputValue])
 
   const hasBinding = !!element.bindingValueSetUrl
   const isRequiredBinding = element.bindingStrength === 'required' && element.boundCodes.length > 0
 
   const { data: options = [] } = useQuery<CodeSearchResult[]>({
-    queryKey: ['code-search', element.bindingValueSetUrl, inputValue],
-    queryFn: () => fhirApi.searchCodes(element.bindingValueSetUrl || '', inputValue, 20),
-    enabled: hasBinding && !isRequiredBinding && inputValue.length >= 1,
+    queryKey: ['code-search', element.bindingValueSetUrl, debouncedInput],
+    queryFn: () => fhirApi.searchCodes(element.bindingValueSetUrl || '', debouncedInput, 20),
+    enabled: hasBinding && !isRequiredBinding && debouncedInput.length >= 1,
     staleTime: 30_000,
   })
 
@@ -62,7 +70,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
     </Tooltip>
   )
 
-  const twcorePicker = (
+  const twcorePicker = twcoreOpen ? (
     <TwcoreCodePicker
       open={twcoreOpen}
       onClose={() => setTwcoreOpen(false)}
@@ -72,7 +80,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
       }}
       resourceType={resourceType}
     />
-  )
+  ) : null
 
   // Required binding with known codes → fixed dropdown, no TWCORE button
   if (isRequiredBinding) {

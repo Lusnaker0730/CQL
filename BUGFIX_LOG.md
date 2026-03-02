@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 062 | 2026-03-02 | High | 安全性（後端） | FhirController 安全強化 — identifier 驗證、IG URL 驗證、RestTemplate 逾時、連線池耗盡防護 | 安全漏洞 / 配置遺漏 | |
 | 061 | 2026-03-02 | Medium | 前端效能（前端） | Measure 元件效能 — useMemo、O(n²) 修復、搜尋防抖、console.error 替換 | 效能 / 程式碼品質 | |
 | 060 | 2026-03-02 | Medium | 程式碼品質（前端） | Measure 元件重構 — scoreColors/downloadBlob/extractApiError 共用化 | 程式碼品質 | |
 | 059 | 2026-03-02 | Medium | 程式碼品質（前後端） | Service 層安全強化 + Builder 元件去重 — 憑證洩漏、6 共用抽取、250 行刪減 | 安全漏洞 / 程式碼品質 | |
@@ -82,6 +83,56 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #062 — FhirController 安全強化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-02 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞 / 配置遺漏 |
+| **影響範圍** | `InputValidator.java`、`FhirController.java`、`FhirTerminologyService.java`、`application.yml` |
+
+### BUG 描述
+
+FhirController 安全審計發現 4 項問題：
+
+1. **identifier 參數未驗證**（HIGH）：`/Patient/$search-by-demographics` 的 `identifier` 參數（格式 `system|value`，如 `http://hospital.org/mrn|12345`）直接傳入 Service 層，無輸入驗證，可能被注入惡意字元。
+2. **IG URL 路徑變數未驗證**（MEDIUM）：`getIgProfile`、`getIgValueSet`、`getIgCodeSystem` 三個端點的 `{url}` 路徑變數經 URL decode 後直接作為 Map 查詢鍵，未驗證為合法 URL 格式。
+3. **RestTemplate 無逾時**（MEDIUM）：`FhirTerminologyService` 的 `RestTemplate` 使用 `new RestTemplate()` 建立，無連線/讀取逾時設定，外部 API（如 RxNav）無回應時執行緒將永久阻塞。
+4. **FHIR 連線池耗盡風險**（MEDIUM）：HAPI FHIR 客戶端 socket timeout 30s × 預設 3 次重試 = 單一請求最差 90s，容易耗盡連線池。
+
+### 修正方式
+
+1. **identifier 驗證**：
+   - `InputValidator` 新增 `IDENTIFIER_PATTERN = ^[a-zA-Z0-9:./_|\\-]{1,500}$`，覆蓋 `system|value` 格式
+   - 新增 `isValidIdentifierParam()` + `requireValidIdentifierParam()`（null-safe）
+   - `FhirController.searchPatientsByDemographics()` 加入 `requireValidIdentifierParam(identifier)`
+
+2. **IG URL 驗證**：
+   - `InputValidator` 新增 `isValidFhirCanonicalUrl()` — 驗證 http/https scheme、合法 host、無嵌入憑證（不做 SSRF 私有 IP 檢查，因為僅用於 Map 查詢）
+   - 新增 `requireValidFhirCanonicalUrl()`
+   - 三個 IG 端點在 URLDecode 後加入 `requireValidFhirCanonicalUrl(decodedUrl)`
+
+3. **RestTemplate 逾時**：
+   - `new RestTemplate()` 改為 `createRestTemplate()` 靜態工廠
+   - 使用 `SimpleClientHttpRequestFactory`：5s 連線逾時、10s 讀取逾時
+
+4. **連線池耗盡防護**：
+   - `socket-timeout-ms`：30000 → 15000（15s）
+   - `fhirDataProvider` retry `maxAttempts`：3（預設） → 2
+   - 最差情境：15s × 2 = 30s（原本 30s × 3 = 90s）
+
+### 驗證
+
+- 所有新增驗證方法為 null-safe，既有測試不受影響
+- `isValidIdentifierParam(null)` → true（optional 參數）
+- `isValidFhirCanonicalUrl(null)` → true（defensive）
+- RestTemplate 逾時確保外部 API 無回應時不會永久阻塞
+- 重試預算從 90s 降至 30s，減少連線池壓力
 
 ---
 

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -22,7 +22,7 @@ import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
 import { ResourceTypeProvider } from '../../contexts/ResourceTypeContext'
 import ResourceFormHeader from './ResourceFormHeader'
-import ElementField from './ElementField'
+import ElementField, { getDefaultValue } from './ElementField'
 import type { ElementMetadata } from '../../types'
 
 interface ResourceFormProps {
@@ -104,35 +104,42 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
 
   const elements = metadata?.elements || []
   const requiredElements = elements.filter((el) => el.isRequired)
+
   // Build set of element names that have data (including choice type variants)
-  const filledOptionalNames = new Set<string>()
-  for (const key of Object.keys(activeEntry.resourceData)) {
-    if (key === 'id') continue
-    // Direct match: key equals an element name
-    const directEl = elements.find((e) => e.name === key)
-    if (directEl && !directEl.isRequired) {
-      filledOptionalNames.add(directEl.name)
-      continue
-    }
-    // Choice type variant: e.g., key "valueQuantity" matches element "value"
-    if (!directEl) {
-      const choiceEl = elements.find((e) =>
-        e.isChoiceType && e.choiceTypes?.some((ct) => {
-          const typedName = e.name + ct.charAt(0).toUpperCase() + ct.slice(1)
-          return typedName === key
-        })
-      )
-      if (choiceEl && !choiceEl.isRequired) {
-        filledOptionalNames.add(choiceEl.name)
+  const { visibleOptional, hiddenOptional } = useMemo(() => {
+    const dataKeys = Object.keys(activeEntry.resourceData)
+    // Pre-build a lookup map: choiceFieldName → element name
+    const choiceKeyMap = new Map<string, string>()
+    for (const el of elements) {
+      if (el.isChoiceType && el.choiceTypes) {
+        for (const ct of el.choiceTypes) {
+          choiceKeyMap.set(el.name + ct.charAt(0).toUpperCase() + ct.slice(1), el.name)
+        }
       }
     }
-  }
-  const visibleOptional = elements.filter(
-    (el) => !el.isRequired && filledOptionalNames.has(el.name)
-  )
-  const hiddenOptional = elements.filter(
-    (el) => !el.isRequired && !filledOptionalNames.has(el.name)
-  )
+
+    const filledNames = new Set<string>()
+    for (const key of dataKeys) {
+      if (key === 'id') continue
+      const directEl = elements.find((e) => e.name === key)
+      if (directEl && !directEl.isRequired) {
+        filledNames.add(directEl.name)
+        continue
+      }
+      if (!directEl) {
+        const elName = choiceKeyMap.get(key)
+        if (elName) {
+          const choiceEl = elements.find((e) => e.name === elName)
+          if (choiceEl && !choiceEl.isRequired) filledNames.add(elName)
+        }
+      }
+    }
+
+    return {
+      visibleOptional: elements.filter((el) => !el.isRequired && filledNames.has(el.name)),
+      hiddenOptional: elements.filter((el) => !el.isRequired && !filledNames.has(el.name)),
+    }
+  }, [elements, activeEntry.resourceData])
 
   const handleAddAttributes = () => {
     if (!activeEntry) return
@@ -140,7 +147,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     selectedAttrs.forEach((name) => {
       const el = elements.find((e) => e.name === name)
       if (el && !(name in newData)) {
-        newData[name] = el.isArray ? [] : (el.type === 'boolean' ? false : '')
+        newData[name] = el.isArray ? [] : getDefaultValue(el)
       }
     })
     dispatch({

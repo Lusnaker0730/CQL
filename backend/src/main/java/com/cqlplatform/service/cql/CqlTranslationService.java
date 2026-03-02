@@ -8,6 +8,7 @@ import com.cqlplatform.repository.CqlLibraryRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
+import org.cqframework.cql.cql2elm.CqlCompilerOptions;
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.LibraryManager;
@@ -46,7 +47,12 @@ public class CqlTranslationService {
         Timer.Sample sample = cqlTranslationTimer != null ? Timer.start() : null;
 
         try {
-            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
+            CqlCompilerOptions options = LibraryManagerFactory.buildOptions(
+                    request.isEnableLocators(),
+                    request.isEnableAnnotations(),
+                    request.isEnableResultTypes(),
+                    request.isValidateUnits());
+            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository, options);
 
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
             Library library = translator.toELM();
