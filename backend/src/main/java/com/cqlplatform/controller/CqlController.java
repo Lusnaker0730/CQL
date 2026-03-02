@@ -286,15 +286,21 @@ public class CqlController {
     }
 
     @GetMapping("/libraries/owner/{username}")
-    @Operation(summary = "Get Libraries by Owner", description = "Returns all libraries owned by a user")
+    @Operation(summary = "Get Libraries by Owner", description = "Returns all libraries owned by a user (own user or admin only)")
     public ResponseEntity<List<CqlLibrary>> getLibrariesByOwner(@PathVariable String username) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         List<CqlLibrary> libraries = libraryService.getLibrariesByOwner(username);
         return ResponseEntity.ok(libraries);
     }
 
     @GetMapping("/libraries/shared/{username}")
-    @Operation(summary = "Get Shared Libraries", description = "Returns libraries shared with a user or public")
+    @Operation(summary = "Get Shared Libraries", description = "Returns libraries shared with a user or public (own user or admin only)")
     public ResponseEntity<List<CqlLibrary>> getSharedLibraries(@PathVariable String username) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         List<CqlLibrary> libraries = libraryService.getSharedLibraries(username);
         return ResponseEntity.ok(libraries);
     }

@@ -467,7 +467,7 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findSharedWithUser("%\"" + username + "\"%").stream()
+        return repository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
