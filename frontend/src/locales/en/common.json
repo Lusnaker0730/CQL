@@ -88,7 +88,21 @@
     "vsacKeySave": "Update API Key",
     "vsacKeySaving": "Saving...",
     "vsacKeySaved": "VSAC API key updated successfully",
-    "vsacKeySaveFailed": "Failed to update VSAC API key"
+    "vsacKeySaveFailed": "Failed to update VSAC API key",
+    "aiFixSuggestion": "AI Fix Suggestion",
+    "aiStatus": "AI Status:",
+    "aiDisabled": "Disabled",
+    "aiUnavailable": "Unavailable",
+    "aiApiKeyStatus": "API Key:",
+    "aiKeyConfigured": "Configured",
+    "aiKeyNotConfigured": "Not Configured",
+    "aiApiKey": "Cloud AI API Key",
+    "aiApiKeyPlaceholder": "Enter your API key (OpenAI, DeepSeek, etc.)",
+    "aiApiKeyHelp": "Required for Cloud AI provider. Key is stored in server memory only.",
+    "aiKeySave": "Update API Key",
+    "aiKeySaving": "Saving...",
+    "aiKeySaved": "AI API key updated successfully",
+    "aiKeySaveFailed": "Failed to update AI API key"
   },
   "errors": {
     "applicationError": "Application Error",

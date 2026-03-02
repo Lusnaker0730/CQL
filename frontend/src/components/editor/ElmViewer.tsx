@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -16,25 +16,38 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
+  Button,
+  Collapse,
 } from '@mui/material'
 import {
   CheckCircle as ValidIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
+  AutoFixHigh as AiFixIcon,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import type { TerminologyValidationItem } from '../../types'
+import { useFixSuggestion } from '../../hooks/useCql'
 import TabPanel, { a11yProps } from '../common/TabPanel'
 
 interface ElmViewerProps {
   terminologyResults?: TerminologyValidationItem[]
   isTermValidating?: boolean
+  onApplyFix?: (suggestedCql: string) => void
+  aiEnabled?: boolean
 }
 
-export default function ElmViewer({ terminologyResults = [], isTermValidating = false }: ElmViewerProps) {
+export default function ElmViewer({ terminologyResults = [], isTermValidating = false, onApplyFix, aiEnabled = true }: ElmViewerProps) {
   const { t } = useTranslation('editor')
-  const { elmJson, errors, warnings } = useSelector((state: RootState) => state.editor)
+  const { elmJson, errors, warnings, cqlContent } = useSelector((state: RootState) => state.editor)
+  const fixMutation = useFixSuggestion()
+  const [activeSuggestion, setActiveSuggestion] = useState<{
+    index: number
+    explanation?: string
+    suggestedCql?: string
+    errorMessage?: string
+  } | null>(null)
   const [tabValue, setTabValue] = React.useState(0)
 
   const parsedElm = useMemo(() => {
@@ -250,10 +263,137 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                   borderRadius: '0 8px 8px 0',
                 }}
               >
-                <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
-                  {t('elm.lineCol', { line: error.startLine, column: error.startColumn })}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
+                      {t('elm.lineCol', { line: error.startLine, column: error.startColumn })}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
+                  </Box>
+                  {aiEnabled && <Button
+                    size="small"
+                    startIcon={
+                      fixMutation.isPending && activeSuggestion?.index === i
+                        ? <CircularProgress size={14} />
+                        : <AiFixIcon />
+                    }
+                    disabled={fixMutation.isPending}
+                    onClick={() => {
+                      setActiveSuggestion({ index: i })
+                      fixMutation.mutate(
+                        { cql: cqlContent, error },
+                        {
+                          onSuccess: (data) => {
+                            if (data.success) {
+                              setActiveSuggestion({
+                                index: i,
+                                explanation: data.explanation,
+                                suggestedCql: data.suggestedCql,
+                              })
+                            } else {
+                              setActiveSuggestion({
+                                index: i,
+                                errorMessage: data.errorMessage || t('elm.aiFixUnavailable'),
+                              })
+                            }
+                          },
+                          onError: () => {
+                            setActiveSuggestion({
+                              index: i,
+                              errorMessage: t('elm.aiFixUnavailable'),
+                            })
+                          },
+                        }
+                      )
+                    }}
+                    sx={{
+                      ml: 1,
+                      flexShrink: 0,
+                      textTransform: 'none',
+                      color: 'primary.main',
+                      borderColor: 'primary.main',
+                    }}
+                    variant="outlined"
+                  >
+                    {t('elm.aiFix')}
+                  </Button>}
+                </Stack>
+                <Collapse in={activeSuggestion?.index === i && (!!activeSuggestion?.explanation || !!activeSuggestion?.suggestedCql || !!activeSuggestion?.errorMessage)}>
+                  {activeSuggestion?.index === i && (
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                      {activeSuggestion.errorMessage ? (
+                        <>
+                          <Typography variant="body2" color="error.main" sx={{ mb: 1 }}>
+                            {activeSuggestion.errorMessage}
+                          </Typography>
+                          <Button size="small" onClick={() => setActiveSuggestion(null)}>
+                            {t('elm.dismiss')}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {activeSuggestion.explanation && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                {t('elm.aiExplanation')}
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {activeSuggestion.explanation}
+                              </Typography>
+                            </Box>
+                          )}
+                          {activeSuggestion.suggestedCql && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                {t('elm.suggestedFix')}
+                              </Typography>
+                              <Box
+                                component="pre"
+                                sx={{
+                                  mt: 0.5,
+                                  p: 1.5,
+                                  bgcolor: '#F8FAFB',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(13,115,119,0.15)',
+                                  overflow: 'auto',
+                                  fontSize: '0.75rem',
+                                  maxHeight: 200,
+                                  fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+                                  color: 'text.primary',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {activeSuggestion.suggestedCql}
+                              </Box>
+                            </Box>
+                          )}
+                          <Stack direction="row" spacing={1}>
+                            {activeSuggestion.suggestedCql && onApplyFix && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => {
+                                  onApplyFix(activeSuggestion.suggestedCql!)
+                                  setActiveSuggestion(null)
+                                }}
+                                sx={{
+                                  textTransform: 'none',
+                                  background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+                                }}
+                              >
+                                {t('elm.applyFix')}
+                              </Button>
+                            )}
+                            <Button size="small" onClick={() => setActiveSuggestion(null)} sx={{ textTransform: 'none' }}>
+                              {t('elm.dismiss')}
+                            </Button>
+                          </Stack>
+                        </>
+                      )}
+                    </Box>
+                  )}
+                </Collapse>
               </Paper>
             ))}
           </Stack>

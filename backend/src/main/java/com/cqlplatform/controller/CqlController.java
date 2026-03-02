@@ -8,6 +8,7 @@ import com.cqlplatform.model.request.TransferOwnershipRequest;
 import com.cqlplatform.model.request.UsernameRequest;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.security.OwnershipVerifier;
+import com.cqlplatform.service.ai.CqlFixService;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import com.cqlplatform.service.cql.CqlRepositoryService;
@@ -18,7 +19,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,6 +45,9 @@ public class CqlController {
     private final OwnershipVerifier ownershipVerifier;
     private final DependencyAnalysisService dependencyAnalysisService;
 
+    @Autowired(required = false)
+    private CqlFixService cqlFixService;
+
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
     public ResponseEntity<CqlTranslationResponse> translate(@Valid @RequestBody CqlTranslationRequest request) {
@@ -51,6 +59,47 @@ public class CqlController {
     @Operation(summary = "Validate CQL", description = "Validates CQL code syntax and semantics")
     public ResponseEntity<CqlTranslationResponse> validate(@Valid @RequestBody CqlValidationRequest request) {
         CqlTranslationResponse response = translationService.validate(request.getCql());
+        return ResponseEntity.ok(response);
+    }
+
+    // ===== AI Fix Suggestion =====
+
+    public record CqlErrorDto(
+            String severity,
+            String message,
+            Integer startLine,
+            Integer startColumn,
+            Integer endLine,
+            Integer endColumn,
+            String errorType
+    ) {}
+
+    public record FixSuggestionRequest(
+            @NotBlank @Size(max = 512_000) String cql,
+            @NotNull CqlErrorDto error
+    ) {}
+
+    @PostMapping("/fix-suggestion")
+    @Operation(summary = "AI Fix Suggestion", description = "Uses AI to suggest a fix for a CQL compilation error")
+    public ResponseEntity<CqlFixSuggestionResponse> fixSuggestion(
+            @Valid @RequestBody FixSuggestionRequest request) {
+        if (cqlFixService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(CqlFixSuggestionResponse.builder()
+                            .success(false)
+                            .errorMessage("AI suggestion service is not enabled")
+                            .build());
+        }
+        CqlTranslationResponse.CqlError error = CqlTranslationResponse.CqlError.builder()
+                .severity(request.error().severity())
+                .message(request.error().message())
+                .startLine(request.error().startLine())
+                .startColumn(request.error().startColumn())
+                .endLine(request.error().endLine())
+                .endColumn(request.error().endColumn())
+                .errorType(request.error().errorType())
+                .build();
+        CqlFixSuggestionResponse response = cqlFixService.suggestFix(request.cql(), error);
         return ResponseEntity.ok(response);
     }
 

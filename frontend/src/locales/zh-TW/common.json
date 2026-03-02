@@ -88,7 +88,21 @@
     "vsacKeySave": "更新 API Key",
     "vsacKeySaving": "儲存中...",
     "vsacKeySaved": "VSAC API Key 更新成功",
-    "vsacKeySaveFailed": "VSAC API Key 更新失敗"
+    "vsacKeySaveFailed": "VSAC API Key 更新失敗",
+    "aiFixSuggestion": "AI 修正建議",
+    "aiStatus": "AI 狀態：",
+    "aiDisabled": "已停用",
+    "aiUnavailable": "無法連線",
+    "aiApiKeyStatus": "API Key：",
+    "aiKeyConfigured": "已設定",
+    "aiKeyNotConfigured": "未設定",
+    "aiApiKey": "雲端 AI API Key",
+    "aiApiKeyPlaceholder": "輸入您的 API Key（OpenAI、DeepSeek 等）",
+    "aiApiKeyHelp": "使用雲端 AI 時必須提供。Key 僅存於伺服器記憶體中。",
+    "aiKeySave": "更新 API Key",
+    "aiKeySaving": "儲存中...",
+    "aiKeySaved": "AI API Key 更新成功",
+    "aiKeySaveFailed": "AI API Key 更新失敗"
   },
   "errors": {
     "applicationError": "應用程式錯誤",

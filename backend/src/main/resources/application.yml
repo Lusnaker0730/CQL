@@ -100,6 +100,21 @@ okta:
   client-secret: ${OKTA_CLIENT_SECRET:}
   issuer: ${OKTA_ISSUER:}
 
+# AI Fix Suggestion — multi-provider support
+ai:
+  provider: ${AI_PROVIDER:none}
+  ollama-url: ${OLLAMA_URL:http://localhost:11434}
+  ollama-model: ${OLLAMA_MODEL:qwen2.5-coder:7b}
+  ollama-timeout-seconds: ${OLLAMA_TIMEOUT:120}
+  cloud-api-url: ${AI_CLOUD_API_URL:https://api.openai.com/v1/chat/completions}
+  cloud-model: ${AI_CLOUD_MODEL:gpt-4o-mini}
+  cloud-api-key: ${AI_CLOUD_API_KEY:}
+  cloud-timeout-seconds: ${AI_CLOUD_TIMEOUT:60}
+
+# Legacy Ollama config — kept for backward compatibility
+ollama:
+  enabled: ${OLLAMA_ENABLED:false}
+
 # CQL Platform Configuration
 cql:
   translation:
@@ -226,6 +241,14 @@ resilience4j:
         baseConfig: default
         failureRateThreshold: 60
         waitDurationInOpenState: 120s
+      ollamaService:
+        baseConfig: default
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60s
+      cloudAiService:
+        baseConfig: default
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60s
 
   retry:
     configs:
@@ -253,3 +276,11 @@ resilience4j:
         baseConfig: default
         maxAttempts: 3
         waitDuration: 3s
+      ollamaService:
+        baseConfig: default
+        maxAttempts: 2
+        waitDuration: 2s
+      cloudAiService:
+        baseConfig: default
+        maxAttempts: 2
+        waitDuration: 2s

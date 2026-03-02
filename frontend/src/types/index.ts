@@ -106,6 +106,14 @@ export interface CqlError {
   errorType?: string
 }
 
+export interface CqlFixSuggestionResponse {
+  success: boolean
+  explanation?: string
+  suggestedCql?: string
+  errorMessage?: string
+  model?: string
+}
+
 export interface TranslationMetadata {
   libraryId?: string
   libraryVersion?: string

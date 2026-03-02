@@ -15,7 +15,7 @@ import {
   setExecutionErrors,
   setExecutionTimeMs,
 } from '../store/executionSlice'
-import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse } from '../types'
+import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse, CqlError } from '../types'
 import { setDebugTrace } from '../store/executionSlice'
 
 export function useTranslate() {
@@ -93,6 +93,13 @@ export function useExecute() {
       dispatch(setExecutionErrors([error.message]))
       dispatch(setDebugTrace(null))
     },
+  })
+}
+
+export function useFixSuggestion() {
+  return useMutation({
+    mutationFn: ({ cql, error }: { cql: string; error: CqlError }) =>
+      cqlApi.fixSuggestion(cql, error),
   })
 }
 

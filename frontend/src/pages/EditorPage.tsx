@@ -33,6 +33,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cqlApi } from '../api'
+import { settingsApi } from '../api/settingsApi'
 import CqlEditor from '../components/editor/CqlEditor'
 import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
@@ -139,6 +140,11 @@ export default function EditorPage() {
   const { data: libraryMetadata } = useLibrariesMetadata()
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
   const { data: currentLibrary } = useLibrary(lastSavedLibraryId)
+  const { data: aiStatus } = useQuery({
+    queryKey: ['ai-status'],
+    queryFn: () => settingsApi.getAiStatus(),
+    staleTime: 5 * 60 * 1000,
+  })
 
   const handleNewLibrary = useCallback(() => {
     const template = `library NewLibrary version '1.0.0'\n\nusing FHIR version '4.0.1'\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\ncontext Patient\n\n`
@@ -549,6 +555,10 @@ export default function EditorPage() {
                     <ElmViewer
                       terminologyResults={terminologyResults}
                       isTermValidating={isTermValidating}
+                      aiEnabled={aiStatus?.enabled ?? false}
+                      onApplyFix={(suggestedCql) => {
+                        dispatch(setCqlContentWithHistory(suggestedCql))
+                      }}
                     />
                   </TabPanel>
                   <TabPanel value={rightPanelTab} index={1} prefix="editor" sx={{ height: '100%' }}>

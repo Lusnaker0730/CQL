@@ -47,6 +47,18 @@ smart:
 app:
   base-url: ${APP_BASE_URL:}
 
+# AI Fix Suggestion — multi-provider support
+ai:
+  provider: ${AI_PROVIDER:none}
+  ollama-url: ${OLLAMA_URL:http://ollama:11434}
+  cloud-api-url: ${AI_CLOUD_API_URL:https://api.openai.com/v1/chat/completions}
+  cloud-model: ${AI_CLOUD_MODEL:gpt-4o-mini}
+  cloud-api-key: ${AI_CLOUD_API_KEY:}
+
+# Legacy Ollama config — kept for backward compatibility
+ollama:
+  enabled: ${OLLAMA_ENABLED:false}
+
 # Logging
 logging:
   level:
