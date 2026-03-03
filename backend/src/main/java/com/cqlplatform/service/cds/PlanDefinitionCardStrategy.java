@@ -11,6 +11,7 @@ import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.PlanDefinition.PlanDefinitionActionComponent;
 import org.hl7.fhir.r4.model.TriggerDefinition;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,11 @@ public class PlanDefinitionCardStrategy implements CardGenerationStrategy {
 
     private final FhirContext fhirContext;
     private final CdsValueFormatter valueFormatter;
+
+    /** HTML-escape a string to prevent XSS when rendered in CDS card output. */
+    private static String esc(String v) {
+        return v == null ? null : HtmlUtils.htmlEscape(v);
+    }
 
     @Override
     public CdsResponse buildResponse(CdsHooksService.CdsServiceConfig config,
@@ -71,7 +77,7 @@ public class PlanDefinitionCardStrategy implements CardGenerationStrategy {
 
             CdsResponse.Card card = CdsResponse.Card.builder()
                     .uuid(IdGenerator.uuid())
-                    .summary(action.hasTitle() ? action.getTitle() : config.getTitle())
+                    .summary(action.hasTitle() ? esc(action.getTitle()) : config.getTitle())
                     .detail(detail)
                     .indicator(indicator)
                     .source(CdsResponse.Source.builder()
@@ -157,7 +163,7 @@ public class PlanDefinitionCardStrategy implements CardGenerationStrategy {
         StringBuilder detail = new StringBuilder();
 
         if (action.hasDescription()) {
-            detail.append(action.getDescription());
+            detail.append(esc(action.getDescription()));
         }
 
         if (action.hasDynamicValue() && results != null) {

@@ -122,4 +122,68 @@ class CdsValueFormatterTest {
         obs.setId("obs-1");
         assertThat(formatter.formatValue(obs)).isEqualTo("Observation/obs-1");
     }
+
+    // --- XSS escape verification tests ---
+
+    @Test
+    void formatExpressionLine_string_shouldEscapeHtml() {
+        String result = formatter.formatExpressionLine("Name", "<script>alert(1)</script>");
+        assertThat(result).doesNotContain("<script>");
+        assertThat(result).contains("&lt;script&gt;");
+    }
+
+    @Test
+    void formatExpressionLine_string_shouldEscapeSvg() {
+        String result = formatter.formatExpressionLine("Name", "<svg onload=alert(1)>");
+        assertThat(result).doesNotContain("<svg");
+        assertThat(result).contains("&lt;svg");
+    }
+
+    @Test
+    void formatExpressionLine_codeableConcept_shouldEscapeHtml() {
+        CodeableConcept cc = new CodeableConcept().setText("<img src=x onerror=alert(1)>");
+        String result = formatter.formatExpressionLine("Dx", cc);
+        assertThat(result).doesNotContain("<img");
+        assertThat(result).contains("&lt;img");
+    }
+
+    @Test
+    void formatExpressionLine_coding_shouldEscapeHtml() {
+        Coding coding = new Coding().setDisplay("<b>bold</b>");
+        String result = formatter.formatExpressionLine("Code", coding);
+        assertThat(result).doesNotContain("<b>");
+        assertThat(result).contains("&lt;b&gt;");
+    }
+
+    @Test
+    void formatExpressionLine_quantity_shouldEscapeUnit() {
+        Quantity q = new Quantity().setValue(new BigDecimal("10")).setUnit("<script>xss</script>");
+        String result = formatter.formatExpressionLine("Dose", q);
+        assertThat(result).doesNotContain("<script>");
+        assertThat(result).contains("&lt;script&gt;");
+    }
+
+    @Test
+    void formatValue_string_shouldEscapeHtml() {
+        assertThat(formatter.formatValue("<script>alert(1)</script>"))
+                .doesNotContain("<script>")
+                .contains("&lt;script&gt;");
+    }
+
+    @Test
+    void formatValue_codeableConcept_shouldEscapeHtml() {
+        CodeableConcept cc = new CodeableConcept().setText("<div onclick=alert(1)>click</div>");
+        assertThat(formatter.formatValue(cc))
+                .doesNotContain("<div")
+                .contains("&lt;div");
+    }
+
+    @Test
+    void formatExpressionLine_list_shouldEscapeItems() {
+        List<String> items = List.of("<script>xss</script>", "safe");
+        String result = formatter.formatExpressionLine("Items", items);
+        assertThat(result).doesNotContain("<script>");
+        assertThat(result).contains("&lt;script&gt;");
+        assertThat(result).contains("safe");
+    }
 }

@@ -2,6 +2,7 @@ package com.cqlplatform.service.cds;
 
 import org.hl7.fhir.r4.model.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 import java.util.stream.Collectors;
 
@@ -11,15 +12,21 @@ import java.util.stream.Collectors;
 @Component
 public class CdsResourceFormatter {
 
+    /** HTML-escape a string to prevent XSS when rendered in CDS card output. */
+    private static String esc(String v) {
+        return v == null ? null : HtmlUtils.htmlEscape(v);
+    }
+
     /**
      * Format a FHIR Resource into a detailed markdown string.
      * Includes resource type, id, and type-specific clinical fields.
+     * All FHIR-derived values are HTML-escaped for safe rendering.
      */
     public String formatDetail(Resource resource) {
         StringBuilder sb = new StringBuilder();
         sb.append("**").append(resource.fhirType()).append("**");
         if (resource.hasIdElement()) {
-            sb.append(" (").append(resource.getIdElement().getIdPart()).append(")");
+            sb.append(" (").append(esc(resource.getIdElement().getIdPart())).append(")");
         }
 
         if (resource instanceof Observation obs) {
@@ -41,20 +48,20 @@ public class CdsResourceFormatter {
      * Format a FHIR Resource as a short reference: "Type/id".
      */
     public String formatReference(Resource resource) {
-        return resource.fhirType() + (resource.hasIdElement() ? "/" + resource.getIdElement().getIdPart() : "");
+        return resource.fhirType() + (resource.hasIdElement() ? "/" + esc(resource.getIdElement().getIdPart()) : "");
     }
 
     /**
      * Format all codings in a CodeableConcept as a comma-separated display string.
-     * Falls back to code if display is missing.
+     * Falls back to code if display is missing. All values are HTML-escaped.
      */
     private String formatAllCodings(CodeableConcept cc) {
         if (cc.hasText()) {
-            return cc.getText();
+            return esc(cc.getText());
         }
         if (cc.hasCoding()) {
             return cc.getCoding().stream()
-                    .map(c -> c.hasDisplay() ? c.getDisplay() : c.getCode())
+                    .map(c -> c.hasDisplay() ? esc(c.getDisplay()) : esc(c.getCode()))
                     .collect(Collectors.joining(", "));
         }
         return null;
@@ -69,12 +76,12 @@ public class CdsResourceFormatter {
         }
         if (obs.hasValue()) {
             if (obs.getValue() instanceof Quantity q) {
-                sb.append("\nValue: ").append(q.getValue()).append(" ").append(q.getUnit());
+                sb.append("\nValue: ").append(q.getValue()).append(" ").append(esc(q.getUnit()));
             } else if (obs.getValue() instanceof CodeableConcept cc) {
                 String display = formatAllCodings(cc);
-                sb.append("\nValue: ").append(display != null ? display : cc.toString());
+                sb.append("\nValue: ").append(display != null ? display : esc(cc.toString()));
             } else {
-                sb.append("\nValue: ").append(obs.getValue());
+                sb.append("\nValue: ").append(esc(obs.getValue().toString()));
             }
         }
         if (obs.hasEffectiveDateTimeType()) {
@@ -90,7 +97,7 @@ public class CdsResourceFormatter {
             }
         }
         if (cond.hasClinicalStatus()) {
-            sb.append("\nStatus: ").append(cond.getClinicalStatus().getCodingFirstRep().getCode());
+            sb.append("\nStatus: ").append(esc(cond.getClinicalStatus().getCodingFirstRep().getCode()));
         }
     }
 
@@ -126,7 +133,7 @@ public class CdsResourceFormatter {
             }
         }
         if (allergy.hasClinicalStatus()) {
-            sb.append("\nStatus: ").append(allergy.getClinicalStatus().getCodingFirstRep().getCode());
+            sb.append("\nStatus: ").append(esc(allergy.getClinicalStatus().getCodingFirstRep().getCode()));
         }
     }
 }

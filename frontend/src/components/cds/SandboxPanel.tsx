@@ -652,10 +652,11 @@ function SandboxPanelInner() {
                       variant="body2"
                       color="text.secondary"
                       sx={{ whiteSpace: 'pre-line' }}
-                      dangerouslySetInnerHTML={{
-                        __html: card.detail.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
-                      }}
-                    />
+                    >
+                      {card.detail.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+                        i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
+                      )}
+                    </Typography>
                   )}
                   {card.suggestions && card.suggestions.length > 0 && (
                     <Box mt={1}>

@@ -109,4 +109,77 @@ class CdsResourceFormatterTest {
         String result = formatter.formatReference(obs);
         assertThat(result).isEqualTo("Observation");
     }
+
+    // --- XSS escape verification tests ---
+
+    @Test
+    void formatDetail_shouldEscapeXssInCodeText() {
+        Observation obs = new Observation();
+        obs.setId("obs-xss");
+        obs.getCode().setText("<script>alert('xss')</script>");
+
+        String result = formatter.formatDetail(obs);
+
+        assertThat(result).doesNotContain("<script>");
+        assertThat(result).contains("&lt;script&gt;");
+    }
+
+    @Test
+    void formatDetail_shouldEscapeXssInCodingDisplay() {
+        Observation obs = new Observation();
+        obs.setId("obs-xss2");
+        obs.getCode().addCoding().setDisplay("<svg onload=alert(1)>");
+
+        String result = formatter.formatDetail(obs);
+
+        assertThat(result).doesNotContain("<svg");
+        assertThat(result).contains("&lt;svg");
+    }
+
+    @Test
+    void formatDetail_shouldEscapeXssInQuantityUnit() {
+        Observation obs = new Observation();
+        obs.setId("obs-xss3");
+        obs.getCode().setText("BP");
+        obs.setValue(new Quantity().setValue(new BigDecimal("120")).setUnit("<img src=x onerror=alert(1)>"));
+
+        String result = formatter.formatDetail(obs);
+
+        assertThat(result).doesNotContain("<img");
+        assertThat(result).contains("&lt;img");
+    }
+
+    @Test
+    void formatDetail_shouldEscapeXssInId() {
+        Observation obs = new Observation();
+        obs.setId("<script>alert(1)</script>");
+
+        String result = formatter.formatDetail(obs);
+
+        assertThat(result).doesNotContain("<script>");
+        assertThat(result).contains("&lt;script&gt;");
+    }
+
+    @Test
+    void formatReference_shouldEscapeXssInId() {
+        Observation obs = new Observation();
+        obs.setId("<img onerror=alert(1)>");
+
+        String result = formatter.formatReference(obs);
+
+        assertThat(result).doesNotContain("<img");
+        assertThat(result).contains("&lt;img");
+    }
+
+    @Test
+    void formatDetail_shouldEscapeXssInConditionStatus() {
+        Condition cond = new Condition();
+        cond.setId("cond-xss");
+        cond.getClinicalStatus().addCoding().setCode("<script>xss</script>");
+
+        String result = formatter.formatDetail(cond);
+
+        assertThat(result).doesNotContain("<script>");
+        assertThat(result).contains("&lt;script&gt;");
+    }
 }
