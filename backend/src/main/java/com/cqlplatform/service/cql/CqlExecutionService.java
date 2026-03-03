@@ -44,7 +44,7 @@ public class CqlExecutionService {
 
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
-    private final Executor cqlExecutionExecutor;
+    private final ExecutorService executorService;
     private final CqlLibraryRepository libraryRepository;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -65,11 +65,11 @@ public class CqlExecutionService {
     public CqlExecutionService(
             FhirDataProviderService dataProviderService,
             FhirTerminologyService terminologyService,
-            @Qualifier("cqlExecutionExecutor") Executor cqlExecutionExecutor,
+            @Qualifier("cqlExecutionExecutor") ExecutorService executorService,
             CqlLibraryRepository libraryRepository) {
         this.dataProviderService = dataProviderService;
         this.terminologyService = terminologyService;
-        this.cqlExecutionExecutor = cqlExecutionExecutor;
+        this.executorService = executorService;
         this.libraryRepository = libraryRepository;
     }
 
@@ -83,15 +83,23 @@ public class CqlExecutionService {
         Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
+        Future<CqlExecutionResponse> future;
         try {
-            CompletableFuture<CqlExecutionResponse> future = CompletableFuture.supplyAsync(
-                    () -> doExecute(request, prefetchProvider, startTime), cqlExecutionExecutor);
+            future = executorService.submit(
+                    () -> doExecute(request, prefetchProvider, startTime));
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("CQL execution pool exhausted — please retry later");
+        }
 
+        try {
             CqlExecutionResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             return response;
 
         } catch (TimeoutException e) {
+            future.cancel(true);
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             throw new CqlExecutionException("CQL execution timed out after " + timeoutSeconds + "s");
@@ -104,6 +112,7 @@ public class CqlExecutionService {
             }
             throw new CqlExecutionException("Execution failed: " + cause.getMessage(), cause);
         } catch (InterruptedException e) {
+            future.cancel(true);
             Thread.currentThread().interrupt();
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
@@ -172,6 +181,9 @@ public class CqlExecutionService {
                 tracingProvider = new TracingRetrieveProvider(retrieveProvider);
                 retrieveProvider = tracingProvider;
             }
+
+            // Outermost wrapper: check interrupt flag before every retrieve()
+            retrieveProvider = new InterruptAwareRetrieveProvider(retrieveProvider);
 
             CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
 

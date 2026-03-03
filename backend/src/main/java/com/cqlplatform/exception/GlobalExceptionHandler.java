@@ -49,7 +49,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CqlExecutionException.class)
     public ResponseEntity<ErrorResponse> handleCqlExecutionException(CqlExecutionException ex) {
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "CQL Execution Error", ex.getMessage());
+        String msg = ex.getMessage();
+        HttpStatus status;
+        if (msg != null && msg.contains("timed out")) {
+            status = HttpStatus.GATEWAY_TIMEOUT;
+        } else if (msg != null && msg.contains("pool exhausted")) {
+            status = HttpStatus.SERVICE_UNAVAILABLE;
+        } else {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        return buildResponse(status, "CQL Execution Error", msg);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
