@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 066 | 2026-03-03 | Critical | 安全性（後端） | CQL 執行逾時強化 — worker 中斷、AbortPolicy 防執行緒池耗盡、差異化 HTTP 狀態碼 | 安全漏洞（DoS / 資源耗盡） | [`d56c0a8`](../../commit/d56c0a8) |
 | 065 | 2026-03-03 | High | 安全性（後端） | CqlController IDOR 授權修復 + LIKE 萬用字元注入防護 | 安全漏洞（存取控制 / 注入） | [`57de58f`](../../commit/57de58f) |
 | 064 | 2026-03-02 | High | Monaco 編輯器（前端） | CqlEditor paste sanitization — Trojan Source bidi 防護、undo-safe executeEdits、Monaco 記憶體洩漏修復 | 安全漏洞 / 記憶體洩漏 | [`c84c8bd`](../../commit/c84c8bd) |
 | 063 | 2026-03-02 | Low | 前端效能（前端） | useCqlEditor useCallback 優化 — translate/validate/execute 穩定引用 | 效能 | |
@@ -86,6 +87,86 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #066 — CQL 執行逾時強化 — worker 中斷、AbortPolicy 防執行緒池耗盡、差異化 HTTP 狀態碼
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 安全漏洞（DoS / 資源耗盡） |
+| **影響範圍** | `AsyncConfig.java`、`CqlExecutionService.java`、`MetricsConfig.java`、`GlobalExceptionHandler.java`、新增 `InterruptAwareRetrieveProvider.java` |
+
+### BUG 描述
+
+CQL 執行逾時機制 `future.get(120, SECONDS)` 僅讓**呼叫端**停止等待，worker 執行緒繼續無限消耗 CPU。攻擊者可提交含無窮迴圈的複雜 CQL，耗盡 20 執行緒的執行緒池；之後 `CallerRunsPolicy` 會使 CQL 直接在 Tomcat HTTP 執行緒上執行，**凍結整個 API**。
+
+具體攻擊路徑：
+1. 提交 20+ 個耗時 CQL 請求 → 填滿執行緒池 + 佇列
+2. `CallerRunsPolicy` 使後續請求在 HTTP 執行緒上同步執行 → 所有 API 端點阻塞
+3. 即使 `future.get()` 逾時返回，worker 執行緒仍繼續執行 → 永久佔用資源
+
+### 根因分析
+
+1. **`CompletableFuture.supplyAsync()` 不支援取消**：`cancel()` 不會中斷底層執行緒
+2. **`CallerRunsPolicy`**：佇列滿時在呼叫者執行緒執行任務，本意防止拒絕，但在安全場景下成為 DoS 放大器
+3. **CQL Engine 不檢查中斷旗標**：即使設定中斷，引擎內部不會自行停止
+4. **HTTP 狀態碼無差異化**：逾時和池耗盡都回傳 `500`，無法區分
+
+### 修正方式
+
+1. **新增 `InterruptAwareRetrieveProvider.java`**：
+   - 裝飾器模式包裝 `RetrieveProvider`
+   - 每次 `retrieve()` 前檢查 `Thread.currentThread().isInterrupted()`
+   - 中斷時拋出 `CqlExecutionException`，讓 worker 執行緒乾淨退出
+
+2. **`AsyncConfig.java` — 執行器類型 + 拒絕策略**：
+   - `ThreadPoolTaskExecutor` → 原生 `ThreadPoolExecutor`（回傳 `ExecutorService`）
+   - `CallerRunsPolicy` → `AbortPolicy`（佇列滿時拋 `RejectedExecutionException` → 503）
+   - 加入 `allowCoreThreadTimeOut(true)` 回收閒置執行緒
+
+3. **`CqlExecutionService.java` — 4 項變更**：
+   - `Executor` → `ExecutorService`
+   - `CompletableFuture.supplyAsync()` → `executorService.submit()`（真正可取消的 `Future`）
+   - `TimeoutException` catch 加入 `future.cancel(true)` 設定中斷旗標
+   - 外層包裝 `InterruptAwareRetrieveProvider` 作為最外層 retrieve 裝飾器
+   - 捕獲 `RejectedExecutionException` → 拋出含 "pool exhausted" 訊息的例外
+
+4. **`MetricsConfig.java` — 3 個 Gauge bean 適配**：
+   - 參數型別 `ThreadPoolTaskExecutor` → `ExecutorService`
+   - Lambda 內轉型為 `ThreadPoolExecutor` 存取 queue/active/poolSize
+
+5. **`GlobalExceptionHandler.java` — 差異化 HTTP 狀態碼**：
+   - 訊息含 "timed out" → `504 GATEWAY_TIMEOUT`
+   - 訊息含 "pool exhausted" → `503 SERVICE_UNAVAILABLE`
+   - 其他 → `500 INTERNAL_SERVER_ERROR`
+
+### 修正後執行流程
+
+```
+HTTP 請求 → CqlExecutionService.executeWithProvider()
+  → executorService.submit(doExecute)        ← 真正的 Future
+  → future.get(120s)
+     ├─ 成功 → 回傳結果
+     ├─ TimeoutException → future.cancel(true) → 設定中斷旗標
+     │    └─ 下一次 retrieve() 在 InterruptAwareRetrieveProvider
+     │         → 檢查 Thread.isInterrupted() → 拋出 CqlExecutionException
+     │              → worker 執行緒乾淨退出
+     └─ RejectedExecutionException → 503 Service Unavailable
+```
+
+### 已知限制
+
+不含 FHIR retrieve 的純運算 CQL（臨床 CQL 中極少見）無法被中斷，因為沒有 `retrieve()` 檢查點。執行緒最終會透過 `allowCoreThreadTimeOut` 回收。
+
+### 驗證
+
+- `mvn compile` 零錯誤（266 source + 66 test 檔案）
+- Docker 映像建置成功（`mvn package -DskipTests`）
+- 所有型別匹配一致：`AsyncConfig` → `ExecutorService` → `CqlExecutionService` / `MetricsConfig`
 
 ---
 
