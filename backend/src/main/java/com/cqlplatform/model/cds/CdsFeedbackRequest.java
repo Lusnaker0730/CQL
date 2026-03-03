@@ -1,5 +1,6 @@
 package com.cqlplatform.model.cds;
 
+import com.cqlplatform.security.NoXss;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -32,6 +33,7 @@ public class CdsFeedbackRequest {
     public static class FeedbackItem {
         @NotBlank
         @Size(max = 200)
+        @NoXss
         private String card;
 
         @NotBlank
@@ -39,10 +41,14 @@ public class CdsFeedbackRequest {
         private String outcome;
 
         @Size(max = 50)
+        @Valid
         private List<AcceptedSuggestion> acceptedSuggestions;
+
+        @Valid
         private OverrideReason overrideReason;
 
         @Size(max = 50)
+        @NoXss
         private String outcomeTimestamp;
     }
 
@@ -52,6 +58,7 @@ public class CdsFeedbackRequest {
     @AllArgsConstructor
     public static class AcceptedSuggestion {
         @Size(max = 200)
+        @NoXss
         private String id;
     }
 
@@ -61,9 +68,11 @@ public class CdsFeedbackRequest {
     @AllArgsConstructor
     public static class OverrideReason {
         @Size(max = 200)
+        @NoXss
         private String code;
 
         @Size(max = 500)
+        @NoXss
         private String display;
     }
 }
