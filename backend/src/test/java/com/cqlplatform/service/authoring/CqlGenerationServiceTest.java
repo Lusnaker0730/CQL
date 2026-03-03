@@ -1,7 +1,10 @@
 package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.entity.CdsArtifactEntity;
+import com.cqlplatform.exception.CqlGenerationException;
+import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.CqlTranslationResponse;
+import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.repository.CdsArtifactRepository;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import org.junit.jupiter.api.Test;
@@ -10,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -47,7 +51,7 @@ class CqlGenerationServiceTest {
         when(artifactRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.generateCql(999L))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("not found");
     }
 
@@ -56,7 +60,7 @@ class CqlGenerationServiceTest {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
-                .thenReturn("library Test version '1.0'");
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         String cql = service.generateCql(1L);
 
@@ -68,7 +72,7 @@ class CqlGenerationServiceTest {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("DSTU2")))
-                .thenReturn("library Test version '1.0'");
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         service.generateCql(1L, "DSTU2");
 
@@ -81,7 +85,7 @@ class CqlGenerationServiceTest {
         entity.setFhirVersion("R4");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
-                .thenReturn("library Test version '1.0'");
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         service.generateCql(1L, null);
 
@@ -93,7 +97,7 @@ class CqlGenerationServiceTest {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
-                .thenReturn("library Test version '1.0'");
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         CqlTranslationResponse mockResponse = CqlTranslationResponse.builder()
                 .success(true)
@@ -111,7 +115,7 @@ class CqlGenerationServiceTest {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
-                .thenReturn("library Test version '1.0'");
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         CqlTranslationResponse mockResponse = CqlTranslationResponse.builder()
                 .success(false)
@@ -122,5 +126,47 @@ class CqlGenerationServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.isSuccess()).isFalse();
+    }
+
+    @Test
+    void generateCql_builderThrowsClassCast_shouldWrapInCqlGenerationException() {
+        CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
+        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
+                .thenThrow(new ClassCastException("Cannot cast String to Map"));
+
+        assertThatThrownBy(() -> service.generateCql(1L))
+                .isInstanceOf(CqlGenerationException.class)
+                .hasMessageContaining("Failed to generate CQL")
+                .hasCauseInstanceOf(ClassCastException.class);
+    }
+
+    @Test
+    void generateCql_builderThrowsNPE_shouldWrapInCqlGenerationException() {
+        CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
+        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
+                .thenThrow(new NullPointerException("some null"));
+
+        assertThatThrownBy(() -> service.generateCql(1L))
+                .isInstanceOf(CqlGenerationException.class)
+                .hasMessageContaining("Failed to generate CQL")
+                .hasCauseInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void generateCqlWithWarnings_shouldReturnWarnings() {
+        CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
+        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        List<String> warnings = List.of("Unknown element type 'Foo' for element 'Bar'; defaulting to 'true'");
+        when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", warnings));
+
+        CqlBuildResult result = service.generateCqlWithWarnings(1L, null);
+
+        assertThat(result.cql()).contains("library Test");
+        assertThat(result.hasWarnings()).isTrue();
+        assertThat(result.warnings()).hasSize(1);
+        assertThat(result.warnings().get(0)).contains("Unknown element type");
     }
 }

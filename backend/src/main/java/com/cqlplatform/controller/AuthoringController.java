@@ -4,6 +4,8 @@ import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.*;
 import com.cqlplatform.model.cds.CdsServiceConfigRequest;
+import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.authoring.ArtifactService;
 import com.cqlplatform.service.authoring.ArtifactTestingService;
@@ -55,7 +57,7 @@ public class AuthoringController {
 
     private void verifyArtifactOwnership(Long artifactId) {
         ArtifactResponse artifact = artifactService.getById(artifactId)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + artifactId));
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", artifactId));
         ownershipVerifier.verifyOwnership(artifact.getOwnerUsername());
     }
 
@@ -138,12 +140,17 @@ public class AuthoringController {
 
     @PostMapping("/artifacts/{id}/cql")
     @Operation(summary = "Generate CQL", description = "Generate CQL from artifact expression trees")
-    public ResponseEntity<Map<String, String>> generateCql(
+    public ResponseEntity<Map<String, Object>> generateCql(
             @PathVariable Long id,
             @RequestParam(required = false) String fhirVersion) {
         verifyArtifactOwnership(id);
-        String cql = cqlGenerationService.generateCql(id, fhirVersion);
-        return ResponseEntity.ok(Map.of("cql", cql));
+        CqlBuildResult result = cqlGenerationService.generateCqlWithWarnings(id, fhirVersion);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("cql", result.cql());
+        if (result.hasWarnings()) {
+            body.put("warnings", result.warnings());
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/artifacts/{id}/elm")
@@ -265,7 +272,7 @@ public class AuthoringController {
 
         // Get artifact for metadata
         ArtifactResponse artifact = artifactService.getById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", id));
 
         String serviceId = request.getOrDefault("serviceId",
                 artifact.getName().replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase());
@@ -302,7 +309,7 @@ public class AuthoringController {
         verifyArtifactOwnership(id);
         String cql = cqlGenerationService.generateCql(id);
         ArtifactResponse artifact = artifactService.getById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", id));
 
         CqlLibrary library = cqlLibraryService.saveLibrary(cql, artifact.getDescription());
 

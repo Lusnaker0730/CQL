@@ -1,6 +1,7 @@
 package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.model.authoring.AuthoringConstants;
+import com.cqlplatform.model.authoring.CqlBuildResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -17,14 +18,29 @@ public class CqlArtifactBuilder {
     private static final String FHIR_HELPERS = "FHIRHelpers";
     private static final String C3F_LIBRARY = "CDSConnectCommonsForFHIRv401";
 
-    /** Stored per-build for cross-reference lookups */
-    private List<Map<String, Object>> currentBaseElements;
-
     private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
 
+    /**
+     * Per-build context holding base elements for cross-reference lookups
+     * and a warnings collector. Created fresh for each buildCql() invocation
+     * to ensure thread safety.
+     */
+    static class BuildContext {
+        final List<Map<String, Object>> baseElements;
+        final List<String> warnings = new ArrayList<>();
+
+        BuildContext(List<Map<String, Object>> baseElements) {
+            this.baseElements = baseElements;
+        }
+
+        void warn(String message) {
+            warnings.add(message);
+        }
+    }
+
     @SuppressWarnings("unchecked")
-    public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
+    public CqlBuildResult buildCql(String name, String version, Map<String, Object> expTreeInclude,
             Map<String, Object> expTreeExclude,
             List<Map<String, Object>> subpopulations,
             List<Map<String, Object>> baseElements,
@@ -36,7 +52,7 @@ public class CqlArtifactBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    public String buildCql(String name, String version, Map<String, Object> expTreeInclude,
+    public CqlBuildResult buildCql(String name, String version, Map<String, Object> expTreeInclude,
             Map<String, Object> expTreeExclude,
             List<Map<String, Object>> subpopulations,
             List<Map<String, Object>> baseElements,
@@ -45,7 +61,7 @@ public class CqlArtifactBuilder {
             List<Map<String, Object>> recommendations,
             String fhirVersion) {
 
-        this.currentBaseElements = baseElements;
+        BuildContext ctx = new BuildContext(baseElements);
 
         String resolvedFhirVersion = FHIR_VERSION_MAP.getOrDefault(fhirVersion, AuthoringConstants.DEFAULT_FHIR_VERSION);
         String resolvedHelpersVersion = FHIR_HELPERS_VERSION_MAP.getOrDefault(fhirVersion, AuthoringConstants.DEFAULT_FHIR_VERSION);
@@ -139,17 +155,17 @@ public class CqlArtifactBuilder {
         if (baseElements != null) {
             for (Map<String, Object> be : baseElements) {
                 String beName = getStr(be, "name", "BaseElement");
-                String beExpr = buildExpression(be);
+                String beExpr = buildExpression(be, ctx);
                 cql.append(String.format("define \"%s\":%n  %s%n%n", beName, beExpr));
             }
         }
 
         // Inclusion (MeetsInclusionCriteria)
-        String inclusionExpr = buildConjunctionExpression(expTreeInclude);
+        String inclusionExpr = buildConjunctionExpression(expTreeInclude, ctx);
         cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_MEETS_INCLUSION, inclusionExpr));
 
         // Exclusion (MeetsExclusionCriteria)
-        String exclusionExpr = buildConjunctionExpression(expTreeExclude);
+        String exclusionExpr = buildConjunctionExpression(expTreeExclude, ctx);
         cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_MEETS_EXCLUSION, exclusionExpr));
 
         // InPopulation
@@ -163,7 +179,7 @@ public class CqlArtifactBuilder {
                 if (Boolean.TRUE.equals(special))
                     continue;
                 String spName = getStr(sp, "subpopulationName", "Subpopulation");
-                String spExpr = buildConjunctionExpression(sp);
+                String spExpr = buildConjunctionExpression(sp, ctx);
                 cql.append(String.format("define \"%s\":%n  %s%n%n", spName, spExpr));
             }
         }
@@ -195,11 +211,11 @@ public class CqlArtifactBuilder {
             }
         }
 
-        return cql.toString();
+        return new CqlBuildResult(cql.toString(), List.copyOf(ctx.warnings));
     }
 
     @SuppressWarnings("unchecked")
-    private String buildConjunctionExpression(Map<String, Object> group) {
+    private String buildConjunctionExpression(Map<String, Object> group, BuildContext ctx) {
         if (group == null) {
             log.debug("buildConjunctionExpression: group is null");
             return "null";
@@ -220,9 +236,9 @@ public class CqlArtifactBuilder {
         for (Map<String, Object> child : children) {
             Boolean conjunction = (Boolean) child.get("conjunction");
             if (Boolean.TRUE.equals(conjunction)) {
-                childExprs.add("(" + buildConjunctionExpression(child) + ")");
+                childExprs.add("(" + buildConjunctionExpression(child, ctx) + ")");
             } else {
-                childExprs.add(buildExpression(child));
+                childExprs.add(buildExpression(child, ctx));
             }
         }
 
@@ -230,7 +246,7 @@ public class CqlArtifactBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private String buildExpression(Map<String, Object> element) {
+    private String buildExpression(Map<String, Object> element, BuildContext ctx) {
         String type = getStr(element, "type", "");
         String name = getStr(element, "name", "Unknown");
 
@@ -250,7 +266,7 @@ public class CqlArtifactBuilder {
             case "baseElementRef": {
                 String refId = getFieldValue(fields, "reference_id", "");
                 // Look up the base element name from the reference_id
-                String refName = findBaseElementName(refId);
+                String refName = findBaseElementName(refId, ctx);
                 expr = String.format("\"%s\"", refName != null ? refName : elementName);
                 break;
             }
@@ -275,6 +291,7 @@ public class CqlArtifactBuilder {
                 if (type.startsWith("Generic")) {
                     expr = buildGenericResourceExpression(type, fields);
                 } else {
+                    ctx.warn(String.format("Unknown element type '%s' for element '%s'; defaulting to 'true'", type, elementName));
                     expr = "true /* " + elementName + " */";
                 }
         }
@@ -283,7 +300,7 @@ public class CqlArtifactBuilder {
         List<Map<String, Object>> modifiers = (List<Map<String, Object>>) element.get("modifiers");
         if (modifiers != null) {
             for (Map<String, Object> mod : modifiers) {
-                expr = applyModifier(expr, mod);
+                expr = applyModifier(expr, mod, ctx);
             }
         }
 
@@ -410,7 +427,7 @@ public class CqlArtifactBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private String applyModifier(String expr, Map<String, Object> modifier) {
+    private String applyModifier(String expr, Map<String, Object> modifier, BuildContext ctx) {
         String cqlLibFunc = getStr(modifier, "cqlLibraryFunction", null);
         String cqlTemplate = getStr(modifier, "cqlTemplate", "");
         String modId = getStr(modifier, "id", "");
@@ -606,6 +623,7 @@ public class CqlArtifactBuilder {
             return String.format("%s(%s)", cqlLibFunc, expr);
         }
 
+        ctx.warn(String.format("Unknown modifier template '%s' (id='%s'); modifier skipped", cqlTemplate, modId));
         log.warn("Unknown modifier template '{}' (id='{}')", cqlTemplate, modId);
         return expr;
     }
@@ -765,10 +783,10 @@ public class CqlArtifactBuilder {
         return sb.toString();
     }
 
-    private String findBaseElementName(String uniqueId) {
-        if (currentBaseElements == null || uniqueId == null)
+    private String findBaseElementName(String uniqueId, BuildContext ctx) {
+        if (ctx.baseElements == null || uniqueId == null)
             return null;
-        for (Map<String, Object> be : currentBaseElements) {
+        for (Map<String, Object> be : ctx.baseElements) {
             if (uniqueId.equals(be.get("uniqueId"))) {
                 return getStr(be, "name", null);
             }

@@ -47,6 +47,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "CQL Translation Error", ex.getMessage(), details);
     }
 
+    @ExceptionHandler(CqlGenerationException.class)
+    public ResponseEntity<ErrorResponse> handleCqlGenerationException(CqlGenerationException ex) {
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "CQL Generation Error", ex.getMessage(), ex.getDetails());
+    }
+
     @ExceptionHandler(CqlExecutionException.class)
     public ResponseEntity<ErrorResponse> handleCqlExecutionException(CqlExecutionException ex) {
         String msg = ex.getMessage();

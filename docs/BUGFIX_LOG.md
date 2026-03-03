@@ -8,6 +8,11 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 073 | 2026-03-03 | Low | CDS Authoring（後端） | verifyArtifactOwnership 使用 IllegalArgumentException(400) 而非 ResourceNotFoundException(404) | 邏輯錯誤 | |
+| 072 | 2026-03-03 | Medium | CDS Authoring（後端） | CdsArtifactEntity 反序列化失敗被靜默吞掉，無 log | 配置遺漏 | |
+| 071 | 2026-03-03 | High | CDS Authoring（後端） | CQL 產生器靜默降級 — 未知 element type 或 modifier 被忽略，使用者無感知 | 邏輯錯誤 | |
+| 070 | 2026-03-03 | High | CDS Authoring（後端） | CqlGenerationService.generateCql() 無 try-catch — 畸形 JSON 導致 generic 500 | 邏輯錯誤 | |
+| 069 | 2026-03-03 | Critical | CDS Authoring（後端） | CqlArtifactBuilder Singleton 可變 instance field — 並行請求互相覆蓋 | 併發/效能問題 | |
 | 068 | 2026-03-03 | High | 安全性（後端） | AuditFilter PHI 稽核修復 — FHIR 三層路徑解析、顯式 phiAccess 旗標、查詢參數擷取 | 安全漏洞（稽核遺漏） | [`ec1a21c`](../../commit/ec1a21c) |
 | 067 | 2026-03-03 | High | 安全性（後端） | CDS Feedback 儲存型 XSS 修復 — @NoXss 驗證 + HtmlUtils.htmlEscape 雙層防護 | 安全漏洞（XSS） | [`e12e64b`](../../commit/e12e64b) |
 | 066 | 2026-03-03 | Critical | 安全性（後端） | CQL 執行逾時強化 — worker 中斷、AbortPolicy 防執行緒池耗盡、差異化 HTTP 狀態碼 | 安全漏洞（DoS / 資源耗盡） | [`d56c0a8`](../../commit/d56c0a8) |
@@ -89,6 +94,178 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #069 — CqlArtifactBuilder Singleton 可變 instance field — 並行請求互相覆蓋
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 併發/效能問題 |
+| **影響範圍** | `CqlArtifactBuilder.java`、`CqlBuildResult.java`（新增）、`CqlArtifactBuilderTest.java`（新增） |
+
+### BUG 描述
+
+`CqlArtifactBuilder` 是 Spring `@Component`（Singleton），但持有可變 instance field `currentBaseElements`，在 `buildCql()` 入口處被賦值。當多個請求並行呼叫時，後到的請求會覆蓋前一個請求的 `currentBaseElements`，導致 `findBaseElementName()` 查找到錯誤的 base element，產出語義錯誤的 CQL。
+
+### 根因分析
+
+- `private List<Map<String, Object>> currentBaseElements` 是 instance field，Singleton bean 共享同一個實例
+- `buildCql()` 開頭直接 `this.currentBaseElements = baseElements`，無同步保護
+- `findBaseElementName()` 讀取 `this.currentBaseElements` 時可能已被另一執行緒覆蓋
+
+### 修正方式
+
+1. **移除 instance field** `currentBaseElements`
+2. **新增 `static class BuildContext`**：包含 `baseElements` 和 `warnings` 收集器
+3. 在 `buildCql()` 中建立本地 `BuildContext`，作為參數傳遞給 4 個 private 方法：`buildConjunctionExpression`、`buildExpression`、`applyModifier`、`findBaseElementName`
+4. **回傳型別改為 `CqlBuildResult` record**（`String cql` + `List<String> warnings`）
+
+### 測試驗證
+
+- `CqlArtifactBuilderTest.currentBaseElements_instanceField_shouldNotExist` — 反射斷言確認 instance field 已移除
+- `CqlArtifactBuilderTest.buildCql_emptyTree_shouldProduceValidLibraryHeader` — 空 tree 產出合法 CQL
+- Docker build 零錯誤，既有測試全部通過
+
+---
+
+## #070 — CqlGenerationService.generateCql() 無 try-catch — 畸形 JSON 導致 generic 500
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `CqlGenerationService.java`、`CqlGenerationException.java`（新增）、`GlobalExceptionHandler.java`、`CqlGenerationServiceTest.java` |
+
+### BUG 描述
+
+`CqlGenerationService.generateCql()` 直接呼叫 `cqlBuilder.buildCql()` 無任何 try-catch。當使用者儲存的 artifact 含有畸形 expression tree JSON 時，builder 內部的 `ClassCastException` 或 `NullPointerException` 直接穿透至 Spring 的 generic exception handler，回傳 500 Internal Server Error，沒有任何有用的錯誤訊息。
+
+### 根因分析
+
+- `buildCql()` 內部大量 unchecked cast（`(List<Map<String, Object>>)` 等），畸形資料會觸發 `ClassCastException`
+- 缺少欄位時觸發 `NullPointerException`
+- Service 層未包裝這些非預期異常
+
+### 修正方式
+
+1. **新增 `CqlGenerationException`**：攜帶 `List<String> details`，遵循 `CqlTranslationException` 模式
+2. **抽出 `doBuildCql()` 方法**：try-catch 包裝 `buildCql()` 呼叫，非 `CqlGenerationException` 一律包裝成 `CqlGenerationException`
+3. **`GlobalExceptionHandler` 新增 handler**：`CqlGenerationException` → 422 UNPROCESSABLE_ENTITY
+
+### 測試驗證
+
+- `generateCql_builderThrowsClassCast_shouldWrapInCqlGenerationException`
+- `generateCql_builderThrowsNPE_shouldWrapInCqlGenerationException`
+
+---
+
+## #071 — CQL 產生器靜默降級 — 未知 element type 或 modifier 被忽略，使用者無感知
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `CqlArtifactBuilder.java`、`CqlBuildResult.java`（新增）、`CqlGenerationService.java`、`AuthoringController.java`、`AuthoringControllerTest.java` |
+
+### BUG 描述
+
+CQL 產生器在遇到不認識的 element type 或 modifier template 時：
+1. 未知 element type → 靜默替換為 `true /* elementName */`
+2. 未知 modifier template → 靜默忽略（原樣回傳表達式）
+
+使用者完全不知道產出的 CQL 包含 placeholder，可能部署語義不正確的 CDS 規則。
+
+### 根因分析
+
+- `buildExpression()` 的 default case 直接回傳 `true` placeholder
+- `applyModifier()` 的 default 路徑僅有 `log.warn` 但未通知呼叫者
+- 回傳型別為 `String`，無法攜帶結構性警告
+
+### 修正方式
+
+1. **`CqlBuildResult` record** 攜帶 `List<String> warnings`
+2. **`BuildContext.warn()`** 在兩處 fallback 收集警告：
+   - 未知 element type → `"Unknown element type '...' for element '...'; defaulting to 'true'"`
+   - 未知 modifier template → `"Unknown modifier template '...' (id='...'); modifier skipped"`
+3. **`CqlGenerationService.generateCqlWithWarnings()`** 回傳 `CqlBuildResult`
+4. **`AuthoringController.generateCql()` 端點** 回傳 `{ cql, warnings? }`，僅有 warnings 時才包含
+
+### 測試驗證
+
+- `CqlArtifactBuilderTest.buildCql_unknownElementType_shouldProduceWarning`
+- `generateCqlWithWarnings_shouldReturnWarnings`
+- `generateCql_withWarnings_shouldIncludeWarningsInResponse`
+
+---
+
+## #072 — CdsArtifactEntity 反序列化失敗被靜默吞掉，無 log
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | Medium |
+| **根因類型** | 配置遺漏 |
+| **影響範圍** | `CdsArtifactEntity.java` |
+
+### BUG 描述
+
+`CdsArtifactEntity` 的 4 個序列化/反序列化方法（`serializeList`、`deserializeList`、`serializeMap`、`deserializeMap`）在 `JsonProcessingException` 時直接回傳預設值（空 list 或 null），無任何日誌輸出。當資料庫中存在損壞的 JSON 時，entity 靜默載入空資料，下游行為異常但無法從 log 追溯根因。
+
+### 根因分析
+
+- catch block 中直接 `return` 預設值，未呼叫任何 logging
+- Entity 類別原本缺少 `@Slf4j` 註解
+
+### 修正方式
+
+1. 加 `@Slf4j` 註解
+2. 4 個 catch block 加 `log.warn("Failed to (de)serialize ... for entity id={}: {}", id, e.getMessage())`
+
+### 測試驗證
+
+- 既有測試通過，確認正常路徑不受影響
+
+---
+
+## #073 — verifyArtifactOwnership 使用 IllegalArgumentException(400) 而非 ResourceNotFoundException(404)
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | Low |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `AuthoringController.java`、`CqlGenerationService.java` |
+
+### BUG 描述
+
+`verifyArtifactOwnership()`、`deployCdsService()`、`saveAsLibrary()` 以及 `CqlGenerationService.generateCql()` 中，artifact 不存在時拋出 `IllegalArgumentException("Artifact not found: " + id)`。`GlobalExceptionHandler` 將 `IllegalArgumentException` 映射為 400 Bad Request，但語義應為 404 Not Found。
+
+### 根因分析
+
+- 開發時直接使用 `IllegalArgumentException` 作為通用拋出異常
+- 已有 `ResourceNotFoundException` 但未被使用
+
+### 修正方式
+
+- 4 處 `IllegalArgumentException("Artifact not found")` → `ResourceNotFoundException("Artifact", id)`
+  - `AuthoringController.verifyArtifactOwnership()`
+  - `AuthoringController.deployCdsService()`
+  - `AuthoringController.saveAsLibrary()`
+  - `CqlGenerationService.doBuildCql()`
+
+### 測試驗證
+
+- `CqlGenerationServiceTest.generateCql_notFound_shouldThrow` 更新為期望 `ResourceNotFoundException`
 
 ---
 
