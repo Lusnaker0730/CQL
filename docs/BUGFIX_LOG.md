@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 078 | 2026-03-04 | Critical | 安全性（前後端） | CDS Card XSS 3 層防護 — 前端安全渲染 + 後端 HTML 跳脫 + 反序列化器強化 | 安全漏洞（XSS） | [`d7fc37f`](../../commit/d7fc37f) |
 | 077 | 2026-03-04 | Critical | 安全性（後端） | 停用使用者 API Key 未失效 — 認證繞過漏洞 + 雙重防護修復 | 安全漏洞（認證繞過） | [`51af336`](../../commit/51af336) |
 | 076 | 2026-03-04 | High | 安全性（後端） | AuditFilter $export 未標記 PHI 存取 + 欄位溢位導致稽核寫入失敗 | 安全漏洞（稽核遺漏） | |
 | 075 | 2026-03-03 | Low | CDS Authoring（後端） | CqlArtifactBuilder 測試補強 — LookBack / AgeRange / 空排除 / 括號驗證 + Windows 換行修復 | 測試遺漏 | |
@@ -98,6 +99,55 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #078 — CDS Card XSS 3 層防護 — 前端安全渲染 + 後端 HTML 跳脫 + 反序列化器強化
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | 安全性（前後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 安全漏洞（XSS） |
+| **影響範圍** | `SandboxPanel.tsx`、`CdsValueFormatter.java`、`CdsResourceFormatter.java`、`CqlTupleCardStrategy.java`、`PlanDefinitionCardStrategy.java`、`XssStringDeserializer.java`、`NoXssValidator.java` |
+| **Commit** | [`d7fc37f`](../../commit/d7fc37f) |
+
+### BUG 描述
+
+CDS card 內容（summary、detail、source label）將未經消毒的 FHIR/CQL 資料直接傳遞至前端，`SandboxPanel.tsx` 透過 `dangerouslySetInnerHTML` 渲染 `card.detail`，造成儲存型 XSS 漏洞。此外，`XssStringDeserializer` 使用的 regex 黑名單可被 `<svg>`、`<math>`、未閉合 `<script`、`data:text/html` 等向量繞過。
+
+**攻擊路徑**：
+1. 攻擊者在 FHIR Resource 欄位（如 Observation.code.text、Condition 狀態碼）中注入 `<svg onload=alert(document.cookie)>`
+2. CQL 執行引擎讀取該資源，CDS card 格式化器將惡意內容原封不動寫入 card detail
+3. 前端 `dangerouslySetInnerHTML` 直接渲染為 HTML，觸發 XSS
+4. `XssStringDeserializer` 的 `<script>(.*?)</script>` 模式無法攔截 `<svg>`、`<math>`、未閉合 `<script src=evil>`
+
+### 修正方式
+
+**3 層防禦（Defense-in-depth）**：
+
+1. **Layer 1 — 前端安全渲染（Critical）**
+   - 移除 `dangerouslySetInnerHTML`，改用 `text.split(/\*\*(.+?)\*\*/g)` 將 markdown bold 拆分為交替的純文字與 `<strong>` React 元素
+   - React 自動跳脫所有文字內容，從根本杜絕 XSS
+
+2. **Layer 2 — 後端 HTML 跳脫（Defense-in-depth）**
+   - `CdsValueFormatter`：新增 `esc()` 工具方法（`HtmlUtils.htmlEscape`），對 String、CodeableConcept、Coding、Quantity unit、PrimitiveType 等所有 FHIR/CQL 衍生值進行跳脫
+   - `CdsResourceFormatter`：對 `formatDetail()`、`formatReference()`、`formatAllCodings()` 中所有 FHIR 欄位值（display、text、code、unit、id）進行跳脫
+   - `CqlTupleCardStrategy`：對 Tuple 衍生的 `summary`、`detail`、`sourceLabel` 及 `errorMessage` 進行跳脫
+   - `PlanDefinitionCardStrategy`：對 `action.getTitle()` 及 `action.getDescription()` 進行跳脫
+
+3. **Layer 3 — 反序列化器模式強化**
+   - `XssStringDeserializer` + `NoXssValidator`：新增 `<svg>`、`<math>`、`<object>`、`<embed>`、`<base>`、`<form>` 標籤攔截
+   - 將 `<script>(.*?)</script>` 改為 `<script[^>]*>` + `</script>` 以攔截未閉合/帶屬性的 script 標籤
+   - 新增 `data:text/html` 及 `vbscript:` URI 向量攔截
+
+### 測試驗證
+
+- `CdsValueFormatterTest`：新增 8 個 XSS 跳脫驗證測試（String、SVG、CodeableConcept、Coding、Quantity unit、list items）
+- `CdsResourceFormatterTest`：新增 6 個 XSS 跳脫驗證測試（code text、coding display、quantity unit、resource ID、reference ID、condition status）
+- `XssStringDeserializerTest`：新建 17 個測試覆蓋所有新增模式（svg、math、object、embed、base、form、data:text/html、vbscript、未閉合 script 等）
+- 前端：`SandboxPanel` 以 React 元素安全渲染 bold 文字，無 `dangerouslySetInnerHTML`
 
 ---
 
