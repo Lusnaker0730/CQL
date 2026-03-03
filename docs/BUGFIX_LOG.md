@@ -8,8 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 068 | 2026-03-03 | High | 安全性（後端） | AuditFilter PHI 稽核修復 — FHIR 三層路徑解析、顯式 phiAccess 旗標、查詢參數擷取 | 安全漏洞（稽核遺漏） | |
-| 067 | 2026-03-03 | High | 安全性（後端） | CDS Feedback 儲存型 XSS 修復 — @NoXss 驗證 + HtmlUtils.htmlEscape 雙層防護 | 安全漏洞（XSS） | |
+| 068 | 2026-03-03 | High | 安全性（後端） | AuditFilter PHI 稽核修復 — FHIR 三層路徑解析、顯式 phiAccess 旗標、查詢參數擷取 | 安全漏洞（稽核遺漏） | [`ec1a21c`](../../commit/ec1a21c) |
+| 067 | 2026-03-03 | High | 安全性（後端） | CDS Feedback 儲存型 XSS 修復 — @NoXss 驗證 + HtmlUtils.htmlEscape 雙層防護 | 安全漏洞（XSS） | [`e12e64b`](../../commit/e12e64b) |
 | 066 | 2026-03-03 | Critical | 安全性（後端） | CQL 執行逾時強化 — worker 中斷、AbortPolicy 防執行緒池耗盡、差異化 HTTP 狀態碼 | 安全漏洞（DoS / 資源耗盡） | [`d56c0a8`](../../commit/d56c0a8) |
 | 065 | 2026-03-03 | High | 安全性（後端） | CqlController IDOR 授權修復 + LIKE 萬用字元注入防護 | 安全漏洞（存取控制 / 注入） | [`57de58f`](../../commit/57de58f) |
 | 064 | 2026-03-02 | High | Monaco 編輯器（前端） | CqlEditor paste sanitization — Trojan Source bidi 防護、undo-safe executeEdits、Monaco 記憶體洩漏修復 | 安全漏洞 / 記憶體洩漏 | [`c84c8bd`](../../commit/c84c8bd) |
