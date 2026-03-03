@@ -3,6 +3,7 @@ package com.cqlplatform.controller;
 import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.UserApiKeyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,6 +38,9 @@ class AdminControllerErrorTest {
 
     @MockBean
     private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private UserApiKeyService userApiKeyService;
 
     private UserEntity createUser(Long id, String username) {
         return UserEntity.builder()

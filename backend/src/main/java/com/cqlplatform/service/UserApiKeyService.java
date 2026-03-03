@@ -1,7 +1,9 @@
 package com.cqlplatform.service;
 
 import com.cqlplatform.entity.UserApiKeyEntity;
+import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserApiKeyRepository;
+import com.cqlplatform.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.Optional;
 public class UserApiKeyService {
 
     private final UserApiKeyRepository repository;
+    private final UserRepository userRepository;
     private final EntityManager entityManager;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int LAST_USED_UPDATE_MINUTES = 15;
@@ -71,6 +74,14 @@ public class UserApiKeyService {
 
         if (entity.isPresent()) {
             UserApiKeyEntity key = entity.get();
+
+            // Defense-in-depth: reject key if owning user is disabled
+            Optional<UserEntity> user = userRepository.findByUsername(key.getUsername());
+            if (user.isEmpty() || !Boolean.TRUE.equals(user.get().getEnabled())) {
+                log.warn("API key rejected: user '{}' is disabled or deleted", key.getUsername());
+                return Optional.empty();
+            }
+
             // Debounce lastUsedAt writes to reduce DB churn on hot auth path
             if (key.getLastUsedAt() == null ||
                     key.getLastUsedAt().plusMinutes(LAST_USED_UPDATE_MINUTES).isBefore(LocalDateTime.now())) {
@@ -98,6 +109,18 @@ public class UserApiKeyService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Deactivates all active API keys for the given user (called when admin disables a user).
+     */
+    @Transactional
+    public int deactivateAllKeys(String username) {
+        int count = repository.deactivateAllByUsername(username);
+        if (count > 0) {
+            log.info("Deactivated {} API key(s) for disabled user '{}'", count, username);
+        }
+        return count;
     }
 
     private String generateSecureKey() {

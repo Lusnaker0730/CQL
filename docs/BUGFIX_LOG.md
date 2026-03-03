@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 077 | 2026-03-04 | Critical | 安全性（後端） | 停用使用者 API Key 未失效 — 認證繞過漏洞 + 雙重防護修復 | 安全漏洞（認證繞過） | |
 | 076 | 2026-03-04 | High | 安全性（後端） | AuditFilter $export 未標記 PHI 存取 + 欄位溢位導致稽核寫入失敗 | 安全漏洞（稽核遺漏） | |
 | 075 | 2026-03-03 | Low | CDS Authoring（後端） | CqlArtifactBuilder 測試補強 — LookBack / AgeRange / 空排除 / 括號驗證 + Windows 換行修復 | 測試遺漏 | |
 | 074 | 2026-03-03 | Low | CDS Authoring（後端） | CQL 產生器 AgeRange / ValueComparison 複合條件缺少括號 — OR 群組內可讀性差 | 邏輯錯誤 | |
@@ -97,6 +98,53 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #077 — 停用使用者 API Key 未失效 — 認證繞過漏洞 + 雙重防護修復
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | Critical |
+| **根因類型** | 安全漏洞（認證繞過） |
+| **影響範圍** | `AdminController.java`、`UserApiKeyService.java`、`UserApiKeyRepository.java`、`JwtAuthenticationFilter.java` |
+
+### BUG 描述
+
+當 Admin 透過 `PUT /api/admin/users/{id}/enabled` 停用使用者時，該使用者先前建立的所有 API Key 仍然有效，可繼續存取 `/cds-services/u/` 等受保護端點。
+
+**攻擊路徑**：
+1. 使用者 A 產生 API Key（`POST /api/user/api-keys`）
+2. Admin 停用使用者 A（`PUT /api/admin/users/{id}/enabled { "enabled": false }`）
+3. 使用者 A 仍可使用 API Key 透過 `Authorization: Bearer cql_...` 存取 CDS 服務
+4. `JwtAuthenticationFilter` 將 API Key 驗證委派給 `UserApiKeyService.validateApiKey()`，該方法只檢查 `key.active = true`，**完全不檢查 `user.enabled`**
+
+### 根因分析
+
+- `AdminController.updateUserEnabled()` 只設定 `user.enabled = false`，不觸碰 `user_api_keys` 表
+- `UserApiKeyService.validateApiKey()` 透過 `findByApiKeyAndActiveTrue()` 只檢查 key 本身的 `active` 欄位，無 JOIN 查詢使用者狀態
+- `UserApiKeyEntity` 以 `username` 字串關聯，無 JPA `@ManyToOne` 外鍵約束
+
+### 修正方式
+
+**雙重防護（A + B）**：
+
+1. **Fix A — 驗證時檢查使用者狀態（防禦縱深）**
+   - `UserApiKeyService.validateApiKey()` 在確認 key 有效後，額外查詢 `UserRepository.findByUsername()` 檢查 `user.enabled`
+   - 若使用者已停用或已刪除，回傳 `Optional.empty()` 拒絕認證
+
+2. **Fix B — 停用時立即失效所有 Keys**
+   - `UserApiKeyRepository` 新增 `deactivateAllByUsername()` JPQL 批次更新
+   - `UserApiKeyService` 新增 `deactivateAllKeys(username)` 方法
+   - `AdminController.updateUserEnabled(false)` 時呼叫 `deactivateAllKeys()` 立即停用所有 API Keys
+
+### 測試驗證
+
+- `UserApiKeyServiceTest`: 新增 4 個測試（enabled user 通過、disabled user 拒絕、deleted user 拒絕、批次停用）+ 更新 1 個既有測試
+- `AdminControllerTest`: 新增 2 個測試（disable 觸發 key 停用驗證、enable 不觸發驗證）
+- 全部 28 個相關測試通過（12 + 11 + 5）
 
 ---
 

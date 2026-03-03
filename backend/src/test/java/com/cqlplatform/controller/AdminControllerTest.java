@@ -3,6 +3,7 @@ package com.cqlplatform.controller;
 import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.UserApiKeyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -38,6 +39,9 @@ class AdminControllerTest {
 
     @MockBean
     private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private UserApiKeyService userApiKeyService;
 
     private UserEntity createUser(Long id, String username, UserEntity.Role role) {
         return UserEntity.builder()
@@ -135,6 +139,37 @@ class AdminControllerTest {
                         .content("{\"enabled\":false}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enabled").value(false));
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateUserEnabled_disable_shouldDeactivateApiKeys() throws Exception {
+        UserEntity user = createUser(2L, "otheruser", UserEntity.Role.USER);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(put("/api/admin/users/2/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isOk());
+
+        verify(userApiKeyService).deactivateAllKeys("otheruser");
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateUserEnabled_enable_shouldNotDeactivateApiKeys() throws Exception {
+        UserEntity user = createUser(2L, "otheruser", UserEntity.Role.USER);
+        user.setEnabled(false);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(put("/api/admin/users/2/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+
+        verify(userApiKeyService, never()).deactivateAllKeys(any());
     }
 
     @Test

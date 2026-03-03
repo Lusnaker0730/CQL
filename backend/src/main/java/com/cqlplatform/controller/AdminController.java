@@ -7,6 +7,7 @@ import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.UserApiKeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ public class AdminController {
     private final UserRepository userRepository;
     private final PasswordResetService passwordResetService;
     private final PasswordEncoder passwordEncoder;
+    private final UserApiKeyService userApiKeyService;
 
     @GetMapping("/users")
     public ResponseEntity<List<UserSummary>> listUsers() {
@@ -84,6 +86,12 @@ public class AdminController {
 
         user.setEnabled(request.getEnabled());
         UserEntity saved = userRepository.save(user);
+
+        // When disabling a user, immediately deactivate all their API keys
+        if (Boolean.FALSE.equals(request.getEnabled())) {
+            userApiKeyService.deactivateAllKeys(user.getUsername());
+        }
+
         return ResponseEntity.ok(toUserSummary(saved));
     }
 
