@@ -189,6 +189,7 @@ export interface DependencyAnalysisResult {
   dependencies: DependencyInfo[]
   conflicts: VersionConflict[]
   mismatches: VersionMismatch[]
+  circularDependencies?: CircularDependency[]
   hasIssues: boolean
 }
 
@@ -214,6 +215,12 @@ export interface VersionMismatch {
   declaredVersion: string
   availableVersion: string
   requestedBy: string
+}
+
+export interface CircularDependency {
+  libraryName: string
+  version?: string
+  cycle: string[]
 }
 
 export interface CdsServiceDefinition {
