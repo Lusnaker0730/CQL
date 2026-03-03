@@ -3,6 +3,7 @@ package com.cqlplatform.config;
 import com.cqlplatform.security.AuditFilter;
 import com.cqlplatform.security.JwtAuthenticationFilter;
 import com.cqlplatform.security.RateLimitFilter;
+import com.cqlplatform.security.UserRateLimitFilter;
 import com.cqlplatform.security.XssFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +33,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuditFilter auditFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final UserRateLimitFilter userRateLimitFilter;
     private final XssFilter xssFilter;
 
     @Value("${spring.h2.console.enabled:false}")
@@ -62,7 +64,8 @@ public class SecurityConfig {
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(xssFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(auditFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(userRateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(auditFilter, UserRateLimitFilter.class);
 
         return http.build();
     }
@@ -76,6 +79,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/okta/config").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/okta/callback").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 // SMART on FHIR configuration
                 .requestMatchers("/.well-known/smart-configuration").permitAll()
                 // CDS Hooks sandbox requires authentication

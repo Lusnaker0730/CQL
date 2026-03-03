@@ -26,6 +26,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import type { RootState } from '../../store'
 import { logout } from '../../store/authSlice'
+import { authApi } from '../../api/authApi'
 import { usePreferences } from '../../hooks/usePreferences'
 import PreferencesDialog from '../common/PreferencesDialog'
 import HelpDrawer from '../common/HelpDrawer'
@@ -59,6 +60,7 @@ export default function Header() {
     : baseNavItems
 
   const handleLogout = () => {
+    authApi.logout().catch(() => {})
     dispatch(logout())
     navigate('/login')
   }

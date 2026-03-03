@@ -1,7 +1,12 @@
 package com.cqlplatform.security;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -10,10 +15,12 @@ class JwtTokenProviderTest {
     private JwtTokenProvider jwtTokenProvider;
     private static final String SECRET = "TestSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!TestExtra";
     private static final long EXPIRATION_MS = 3600000; // 1 hour
+    private static final long REFRESH_EXPIRATION_MS = 604800000L;
+    private static final long ABSOLUTE_SESSION_MS = 2592000000L;
 
     @BeforeEach
     void setUp() {
-        jwtTokenProvider = new JwtTokenProvider(SECRET, EXPIRATION_MS);
+        jwtTokenProvider = new JwtTokenProvider(SECRET, EXPIRATION_MS, REFRESH_EXPIRATION_MS, ABSOLUTE_SESSION_MS);
     }
 
     @Test
@@ -42,7 +49,7 @@ class JwtTokenProviderTest {
 
     @Test
     void validateToken_shouldReturnFalseForExpiredToken() {
-        JwtTokenProvider shortLived = new JwtTokenProvider(SECRET, -1000);
+        JwtTokenProvider shortLived = new JwtTokenProvider(SECRET, -1000, REFRESH_EXPIRATION_MS, ABSOLUTE_SESSION_MS);
         String token = shortLived.generateToken("testuser", "USER");
         assertThat(shortLived.validateToken(token)).isFalse();
     }
@@ -70,9 +77,32 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    void generateToken_shouldContainIssuerAndAudience() {
+        String token = jwtTokenProvider.generateToken("testuser", "USER");
+        SecretKey k = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+        var claims = Jwts.parser().verifyWith(k).build().parseSignedClaims(token).getPayload();
+        assertThat(claims.getIssuer()).isEqualTo("cql-platform");
+        assertThat(claims.getAudience()).contains("cql-platform");
+    }
+
+    @Test
+    void validateToken_shouldRejectTokenWithWrongIssuer() {
+        // Build a token with a different issuer using the same key
+        SecretKey k = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+        String badToken = Jwts.builder()
+                .issuer("other-service")
+                .audience().add("cql-platform").and()
+                .subject("testuser")
+                .signWith(k)
+                .compact();
+        assertThat(jwtTokenProvider.validateToken(badToken)).isFalse();
+    }
+
+    @Test
     void differentSecrets_shouldNotValidateCrossTokens() {
         JwtTokenProvider other = new JwtTokenProvider(
-                "AnotherSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!Extra", EXPIRATION_MS);
+                "AnotherSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!Extra",
+                EXPIRATION_MS, REFRESH_EXPIRATION_MS, ABSOLUTE_SESSION_MS);
         String token = jwtTokenProvider.generateToken("testuser", "USER");
         assertThat(other.validateToken(token)).isFalse();
     }

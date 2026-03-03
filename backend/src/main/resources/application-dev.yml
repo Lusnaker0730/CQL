@@ -49,3 +49,6 @@ spring:
       path: /h2-console
       settings:
         web-allow-others: false
+
+refresh-token:
+  cookie-secure: false   # dev runs on HTTP

@@ -41,6 +41,11 @@ export interface ChangePasswordRequest {
   newPassword: string
 }
 
+export interface RefreshResponse {
+  token: string
+  expiresIn: number
+}
+
 export interface AdminResetPasswordResponse {
   temporaryPassword: string
   username: string

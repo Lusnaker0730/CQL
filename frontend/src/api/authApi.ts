@@ -2,6 +2,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   AuthResponse,
+  RefreshResponse,
   User,
   ForgotPasswordRequest,
   ResetPasswordRequest,
@@ -50,5 +51,14 @@ export const authApi = {
   oktaCallback: async (request: OktaCallbackRequest): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/okta/callback', request)
     return response.data
+  },
+
+  refresh: async (): Promise<RefreshResponse> => {
+    const response = await api.post<RefreshResponse>('/auth/refresh')
+    return response.data
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout')
   },
 }

@@ -12,12 +12,19 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
+    private static final String ISSUER = "cql-platform";
+    private static final String AUDIENCE = "cql-platform";
+
     private final SecretKey key;
-    private final long expirationMs;
+    private final long accessExpirationMs;
+    private final long refreshExpirationMs;
+    private final long absoluteSessionMs;
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration-ms}") long expirationMs) {
+            @Value("${jwt.access-expiration-ms:${jwt.expiration-ms:900000}}") long accessExpirationMs,
+            @Value("${jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs,
+            @Value("${jwt.absolute-session-ms:2592000000}") long absoluteSessionMs) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(
                     "JWT_SECRET environment variable is required. "
@@ -28,7 +35,9 @@ public class JwtTokenProvider {
                     "JWT_SECRET must be at least 32 characters (256 bits) for HMAC-SHA security.");
         }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationMs = expirationMs;
+        this.accessExpirationMs = accessExpirationMs;
+        this.refreshExpirationMs = refreshExpirationMs;
+        this.absoluteSessionMs = absoluteSessionMs;
     }
 
     public String generateToken(String username, String role) {
@@ -37,9 +46,11 @@ public class JwtTokenProvider {
 
     public String generateToken(String username, String role, String department) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + expirationMs);
+        Date expiry = new Date(now.getTime() + accessExpirationMs);
 
         var builder = Jwts.builder()
+                .issuer(ISSUER)
+                .audience().add(AUDIENCE).and()
                 .subject(username)
                 .claim("role", role)
                 .issuedAt(now)
@@ -74,11 +85,25 @@ public class JwtTokenProvider {
     }
 
     public long getExpirationMs() {
-        return expirationMs;
+        return accessExpirationMs;
+    }
+
+    public long getAccessExpirationMs() {
+        return accessExpirationMs;
+    }
+
+    public long getRefreshExpirationMs() {
+        return refreshExpirationMs;
+    }
+
+    public long getAbsoluteSessionMs() {
+        return absoluteSessionMs;
     }
 
     private Jws<Claims> getClaims(String token) {
         return Jwts.parser()
+                .requireIssuer(ISSUER)
+                .requireAudience(AUDIENCE)
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token);
