@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 076 | 2026-03-04 | High | 安全性（後端） | AuditFilter $export 未標記 PHI 存取 + 欄位溢位導致稽核寫入失敗 | 安全漏洞（稽核遺漏） | |
 | 075 | 2026-03-03 | Low | CDS Authoring（後端） | CqlArtifactBuilder 測試補強 — LookBack / AgeRange / 空排除 / 括號驗證 + Windows 換行修復 | 測試遺漏 | |
 | 074 | 2026-03-03 | Low | CDS Authoring（後端） | CQL 產生器 AgeRange / ValueComparison 複合條件缺少括號 — OR 群組內可讀性差 | 邏輯錯誤 | |
 | 073 | 2026-03-03 | Low | CDS Authoring（後端） | verifyArtifactOwnership 使用 IllegalArgumentException(400) 而非 ResourceNotFoundException(404) | 邏輯錯誤 | |
@@ -96,6 +97,42 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #076 — AuditFilter $export 未標記 PHI 存取 + 欄位溢位導致稽核寫入失敗
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞（稽核遺漏） |
+| **影響範圍** | `AuditFilter.java` |
+
+### BUG 描述
+
+兩個獨立的稽核缺陷：
+
+1. **`$export` Bulk Data 未標記為 PHI 存取**：`FHIR_RESOURCE_PATTERN` regex `\w+` 不匹配 `$` 字元，導致 `/api/fhir/$export` 的 `resourceType` 錯誤解析為 `fhir`，`phiAccess = false`，匯出範圍（`_type`、`_since`）未記錄。Bulk Data Export 是最高風險 PHI 操作，卻完全不在 PHI 稽核報表中。
+
+2. **`path`/`resourceId`/`ipAddress` 未截斷**：當 URI > 500 字元、resource ID > 100 字元、或偽造 `X-Forwarded-For` > 45 字元時，JPA 寫入觸發 `DataTruncation` 異常，被 catch 吞掉後整筆稽核記錄遺失。
+
+### 根因分析
+
+- `\w+` 只匹配 `[a-zA-Z0-9_]`，`$export` 的 `$` 不在範圍內
+- 無針對 `$export` 路徑的特殊處理
+- `path`、`resourceId`、`ipAddress` 直接傳入 entity builder，未呼叫 `truncate()`
+
+### 修正方式
+
+1. **新增 `$export` 偵測**：`path.contains("/fhir/$export")` → `phiAccess=true`、`resourceType="BulkExport"`、`action="EXPORT"`、記錄完整 `queryParameters`
+2. **欄位截斷對齊 DB schema**：`path` → `truncate(500)`、`resourceId` → `truncate(100)`、`ipAddress` → `truncate(45)`
+
+### 測試驗證
+
+- 既有 16 個稽核相關測試全部通過
+- `$export` 的稽核記錄現在包含：`phiAccess=true`、`resourceType=BulkExport`、`action=EXPORT`、`queryParameters=fhirServer=...&exportType=system&_type=Patient,Observation`
 
 ---
 

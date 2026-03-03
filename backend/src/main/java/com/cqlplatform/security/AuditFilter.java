@@ -95,15 +95,24 @@ public class AuditFilter extends OncePerRequestFilter {
                 queryParameters = truncate(request.getQueryString(), 2000);
             }
 
+            // Bulk Data Export — highest-risk PHI operation
+            if (path.contains("/fhir/$export")) {
+                phiAccess = true;
+                resourceType = "BulkExport";
+                resourceId = null;
+                action = "EXPORT";
+                queryParameters = truncate(request.getQueryString(), 2000);
+            }
+
             AuditLogEntity auditLog = AuditLogEntity.builder()
                     .username(username)
                     .method(request.getMethod())
-                    .path(path)
+                    .path(truncate(path, 500))
                     .resourceType(resourceType)
-                    .resourceId(resourceId)
+                    .resourceId(truncate(resourceId, 100))
                     .action(action)
                     .statusCode(response.getStatus())
-                    .ipAddress(getClientIp(request))
+                    .ipAddress(truncate(getClientIp(request), 45))
                     .userAgent(truncate(request.getHeader("User-Agent"), 500))
                     .responseTimeMs(duration)
                     .phiAccess(phiAccess)
