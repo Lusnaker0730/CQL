@@ -27,7 +27,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long>,
     @Query("SELECT a.username, COUNT(a) as cnt, MAX(a.createdAt) FROM AuditLogEntity a WHERE a.createdAt > :after GROUP BY a.username ORDER BY cnt DESC")
     List<Object[]> findTopUsers(@Param("after") LocalDateTime after, Pageable pageable);
 
-    @Query("SELECT COUNT(a) FROM AuditLogEntity a WHERE a.createdAt > :after AND (LOWER(a.path) LIKE '%patient%' OR LOWER(a.resourceType) LIKE '%fhir%')")
+    @Query("SELECT COUNT(a) FROM AuditLogEntity a WHERE a.createdAt > :after AND a.phiAccess = true")
     long countPhiAccess(@Param("after") LocalDateTime after);
 
     @Query("SELECT COUNT(a) FROM AuditLogEntity a WHERE a.createdAt > :after AND a.statusCode = 401 AND LOWER(a.path) LIKE '%login%'")
@@ -36,7 +36,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long>,
     @Query("SELECT CAST(a.createdAt AS java.time.LocalDate), COUNT(a) FROM AuditLogEntity a WHERE a.createdAt > :after GROUP BY CAST(a.createdAt AS java.time.LocalDate) ORDER BY CAST(a.createdAt AS java.time.LocalDate)")
     List<Object[]> countDailyActivity(@Param("after") LocalDateTime after);
 
-    @Query("SELECT a FROM AuditLogEntity a WHERE a.createdAt > :after AND (LOWER(a.path) LIKE '%patient%' OR LOWER(a.resourceType) LIKE '%fhir%') ORDER BY a.createdAt DESC")
+    @Query("SELECT a FROM AuditLogEntity a WHERE a.createdAt > :after AND a.phiAccess = true ORDER BY a.createdAt DESC")
     Page<AuditLogEntity> findPhiAccess(@Param("after") LocalDateTime after, Pageable pageable);
 
     @Query("SELECT a FROM AuditLogEntity a WHERE a.createdAt > :after AND LOWER(a.path) LIKE '%auth%' ORDER BY a.createdAt DESC")

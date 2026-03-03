@@ -996,6 +996,8 @@ export interface AuditLogEntry {
   ipAddress?: string
   userAgent?: string
   responseTimeMs?: number
+  phiAccess: boolean
+  queryParameters?: string
   createdAt: string
 }
 

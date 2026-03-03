@@ -47,6 +47,12 @@ public class AuditLogEntity {
     @Column(name = "response_time_ms")
     private Long responseTimeMs;
 
+    @Column(name = "phi_access", nullable = false)
+    private boolean phiAccess;
+
+    @Column(name = "query_parameters", length = 2000)
+    private String queryParameters;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
