@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 074 | 2026-03-03 | Low | CDS Authoring（後端） | CQL 產生器 AgeRange / ValueComparison 複合條件缺少括號 — OR 群組內可讀性差 | 邏輯錯誤 | |
 | 073 | 2026-03-03 | Low | CDS Authoring（後端） | verifyArtifactOwnership 使用 IllegalArgumentException(400) 而非 ResourceNotFoundException(404) | 邏輯錯誤 | |
 | 072 | 2026-03-03 | Medium | CDS Authoring（後端） | CdsArtifactEntity 反序列化失敗被靜默吞掉，無 log | 配置遺漏 | |
 | 071 | 2026-03-03 | High | CDS Authoring（後端） | CQL 產生器靜默降級 — 未知 element type 或 modifier 被忽略，使用者無感知 | 邏輯錯誤 | |
@@ -94,6 +95,48 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #074 — CQL 產生器 AgeRange / ValueComparison 複合條件缺少括號
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | Low |
+| **根因類型** | 邏輯錯誤 |
+| **影響範圍** | `CqlArtifactBuilder.java` |
+
+### BUG 描述
+
+`buildAgeRangeExpression()` 和 `ValueComparisonNumber` / `ValueComparisonObservation` modifier 在同時具有上下限條件時，使用 `String.join(" and ", conditions)` 串接，未加括號。當此複合表達式作為 OR 群組的子節點時，生成的 CQL 可讀性差：
+
+```cql
+// 修正前
+AgeInYears() >= 18 and AgeInYears() <= 65 or SomeCondition
+
+// 修正後
+(AgeInYears() >= 18 and AgeInYears() <= 65) or SomeCondition
+```
+
+CQL 運算子優先級 `and` > `or`，因此語義上兩者等價，**不影響正確性**，但缺少括號會降低可讀性且容易在人工審查時產生疑慮。
+
+### 根因分析
+
+- `buildAgeRangeExpression()` 直接 `String.join(" and ", conditions)` 回傳
+- `ValueComparisonNumber` / `ValueComparisonObservation` 同理
+- `buildConjunctionExpression()` 只對 `conjunction=true` 的子節點加括號，葉節點不處理
+
+### 修正方式
+
+1. **`buildAgeRangeExpression()`**：當 `conditions.size() > 1` 時以 `()` 包裹
+2. **`ValueComparisonNumber` / `ValueComparisonObservation`**：同上處理
+
+### 測試驗證
+
+- 既有 `CqlArtifactBuilderTest` 通過，確認正常路徑不受影響
+- 單一條件不加括號，雙條件加括號
 
 ---
 

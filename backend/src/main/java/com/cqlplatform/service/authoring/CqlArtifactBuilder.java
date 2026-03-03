@@ -331,7 +331,9 @@ public class CqlArtifactBuilder {
             conditions.add(String.format("%s <= %s", ageFunction, maxAge));
         }
 
-        return conditions.isEmpty() ? "true" : String.join(" and ", conditions);
+        if (conditions.isEmpty()) return "true";
+        String joined = String.join(" and ", conditions);
+        return conditions.size() > 1 ? "(" + joined + ")" : joined;
     }
 
     private String mapUnitToAgeFunction(String unit) {
@@ -477,7 +479,8 @@ public class CqlArtifactBuilder {
                         conditions.add(String.format("(%s) %s %s", expr, maxOp, valExpr));
                     }
                     if (!conditions.isEmpty()) {
-                        return String.join(" and ", conditions);
+                        String joined = String.join(" and ", conditions);
+                        return conditions.size() > 1 ? "(" + joined + ")" : joined;
                     }
                 }
                 return expr;
