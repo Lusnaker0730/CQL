@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 075 | 2026-03-03 | Low | CDS Authoring（後端） | CqlArtifactBuilder 測試補強 — LookBack / AgeRange / 空排除 / 括號驗證 + Windows 換行修復 | 測試遺漏 | |
 | 074 | 2026-03-03 | Low | CDS Authoring（後端） | CQL 產生器 AgeRange / ValueComparison 複合條件缺少括號 — OR 群組內可讀性差 | 邏輯錯誤 | |
 | 073 | 2026-03-03 | Low | CDS Authoring（後端） | verifyArtifactOwnership 使用 IllegalArgumentException(400) 而非 ResourceNotFoundException(404) | 邏輯錯誤 | |
 | 072 | 2026-03-03 | Medium | CDS Authoring（後端） | CdsArtifactEntity 反序列化失敗被靜默吞掉，無 log | 配置遺漏 | |
@@ -95,6 +96,41 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #075 — CqlArtifactBuilder 測試補強 — LookBack / AgeRange / 空排除 / 括號驗證 + Windows 換行修復
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-03 |
+| **功能分類** | CDS Authoring（後端） |
+| **嚴重程度** | Low |
+| **根因類型** | 測試遺漏 |
+| **影響範圍** | `CqlArtifactBuilderTest.java` |
+
+### BUG 描述
+
+`CqlArtifactBuilderTest` 僅有 4 個測試，缺少對以下場景的覆蓋：
+
+1. **LookBack 修飾符**：未驗證 `C3F.ObservationLookBack(expr, N unit)` 輸出格式
+2. **LookBack 空值降級**：未驗證 value 為空時的 fallback 行為
+3. **AgeRange 單邊界**：未驗證只設下限時不會產生 null reference
+4. **AgeRange 雙邊界括號**：未驗證 #074 修正的括號行為
+5. **空排除樹 Windows 相容性**：`buildCql_emptyExclusion_shouldProduceFalseNotNull` 使用 `\n` 比對，但 `String.format("%n")` 在 Windows 產生 `\r\n`，導致 CI/本地測試失敗
+
+### 修正方式
+
+1. 新增 4 個測試：
+   - `buildCql_lookBackModifier_shouldGenerateC3FLookBackWith6Months`
+   - `buildCql_lookBackModifier_emptyValue_shouldOmitQuantity`
+   - `buildCql_ageRangeOnlyMin_shouldNotProduceNullReference`
+   - `buildCql_ageRangeBothBounds_shouldWrapInParentheses`
+2. 修復 `buildCql_emptyExclusion_shouldProduceFalseNotNull`：`contains("\n")` → `containsPattern("\\R")` 以相容所有平台換行符
+
+### 測試驗證
+
+- 全部 8 個測試通過（Windows + Maven Surefire）
 
 ---
 
