@@ -1,6 +1,7 @@
 package com.cqlplatform.service.cql;
 
 import com.cqlplatform.exception.CqlExecutionException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.CqlExecutionResponse.DebugTrace;
@@ -107,6 +108,10 @@ public class CqlExecutionService {
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             Throwable cause = e.getCause();
+            if (cause instanceof CallNotPermittedException) {
+                throw new CqlExecutionException(
+                        "FHIR server circuit breaker is open — server temporarily unavailable");
+            }
             if (cause instanceof CqlExecutionException) {
                 throw (CqlExecutionException) cause;
             }
@@ -274,50 +279,103 @@ public class CqlExecutionService {
                 }
             } else {
                 // Normal mode: evaluate all expressions at once
-                EvaluationResult evaluationResult;
-                if (request.getPatientId() != null) {
-                    String patientId = request.getPatientId();
-                    if (!patientId.startsWith("Patient/")) {
-                        patientId = "Patient/" + patientId;
+                EvaluationResult evaluationResult = null;
+                boolean batchFailed = false;
+
+                try {
+                    if (request.getPatientId() != null) {
+                        String patientId = request.getPatientId();
+                        if (!patientId.startsWith("Patient/")) {
+                            patientId = "Patient/" + patientId;
+                        }
+                        evaluationResult = engine.evaluate(
+                                elmLibrary.getIdentifier(),
+                                expressions,
+                                org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
+                                request.getParameters(),
+                                null);
+                    } else {
+                        evaluationResult = engine.evaluate(
+                                elmLibrary.getIdentifier(),
+                                expressions,
+                                null,
+                                request.getParameters(),
+                                null);
                     }
-                    evaluationResult = engine.evaluate(
-                            elmLibrary.getIdentifier(),
-                            expressions,
-                            org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
-                            request.getParameters(),
-                            null);
-                } else {
-                    evaluationResult = engine.evaluate(
-                            elmLibrary.getIdentifier(),
-                            expressions,
-                            null,
-                            request.getParameters(),
-                            null);
+                } catch (Exception batchEx) {
+                    // Batch evaluation failed (e.g. ambiguous overload in FHIRHelpers).
+                    // Fall back to per-expression evaluation so only the failing
+                    // expression(s) return errors while the rest succeed.
+                    log.warn("Batch CQL evaluation failed, falling back to per-expression evaluation: {}",
+                            batchEx.getMessage());
+                    batchFailed = true;
                 }
 
-                for (String expressionName : expressions) {
-                    try {
-                        org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
-                                .get(expressionName);
-                        Object value = exprResult != null ? exprResult.value() : null;
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(value)
-                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
-                                .displayValue(formatDisplayValue(value))
-                                .build());
-                    } catch (Exception e) {
-                        log.warn("Failed to get result for expression: {}", expressionName, e);
-                        String runtimeLocator = extractRuntimeLocator(e);
-                        String errorDisplay = runtimeLocator != null
-                                ? "Error at " + runtimeLocator + ": " + e.getMessage()
-                                : "Error: " + e.getMessage();
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(null)
-                                .valueType("Error")
-                                .displayValue(errorDisplay)
-                                .build());
+                if (batchFailed) {
+                    for (String expressionName : expressions) {
+                        try {
+                            EvaluationResult singleResult;
+                            Set<String> singleExpr = Set.of(expressionName);
+                            if (request.getPatientId() != null) {
+                                String pid = request.getPatientId();
+                                if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
+                                singleResult = engine.evaluate(
+                                        elmLibrary.getIdentifier(), singleExpr,
+                                        org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), pid),
+                                        request.getParameters(), null);
+                            } else {
+                                singleResult = engine.evaluate(
+                                        elmLibrary.getIdentifier(), singleExpr,
+                                        null, request.getParameters(), null);
+                            }
+                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                                    singleResult.expressionResults.get(expressionName);
+                            Object value = exprResult != null ? exprResult.value() : null;
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(value)
+                                    .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                    .displayValue(formatDisplayValue(value))
+                                    .build());
+                        } catch (Exception e) {
+                            log.warn("Expression evaluation failed: {}", expressionName, e);
+                            String runtimeLocator = extractRuntimeLocator(e);
+                            String errorDisplay = runtimeLocator != null
+                                    ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                    : "Error: " + e.getMessage();
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(null)
+                                    .valueType("Error")
+                                    .displayValue(errorDisplay)
+                                    .build());
+                        }
+                    }
+                } else {
+                    for (String expressionName : expressions) {
+                        try {
+                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
+                                    .get(expressionName);
+                            Object value = exprResult != null ? exprResult.value() : null;
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(value)
+                                    .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                    .displayValue(formatDisplayValue(value))
+                                    .build());
+                        } catch (Exception e) {
+                            log.warn("Failed to get result for expression: {}", expressionName, e);
+                            String runtimeLocator = extractRuntimeLocator(e);
+                            String errorDisplay = runtimeLocator != null
+                                    ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                    : "Error: " + e.getMessage();
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(null)
+                                    .valueType("Error")
+                                    .displayValue(errorDisplay)
+                                    .build());
+                        }
                     }
                 }
             }
