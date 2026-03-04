@@ -8,7 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
-| 079 | 2026-03-04 | High | 安全性（後端） | Rate Limiting 分層強化 — 端點分級 IP 限流 + 使用者限流 + 大型 Payload 加權 | 安全漏洞（DoS / 資源耗盡） | |
+| 079 | 2026-03-04 | High | 安全性（後端） | Rate Limiting 分層強化 — 端點分級 IP 限流 + 使用者限流 + 大型 Payload 加權 | 安全漏洞（DoS / 資源耗盡） | [`6b72fec`](../../commit/6b72fec) |
 | 078 | 2026-03-04 | Critical | 安全性（前後端） | CDS Card XSS 3 層防護 — 前端安全渲染 + 後端 HTML 跳脫 + 反序列化器強化 | 安全漏洞（XSS） | [`d7fc37f`](../../commit/d7fc37f) |
 | 077 | 2026-03-04 | Critical | 安全性（後端） | 停用使用者 API Key 未失效 — 認證繞過漏洞 + 雙重防護修復 | 安全漏洞（認證繞過） | [`51af336`](../../commit/51af336) |
 | 076 | 2026-03-04 | High | 安全性（後端） | AuditFilter $export 未標記 PHI 存取 + 欄位溢位導致稽核寫入失敗 | 安全漏洞（稽核遺漏） | |
@@ -112,7 +112,7 @@
 | **嚴重程度** | High |
 | **根因類型** | 安全漏洞（DoS / 資源耗盡） |
 | **影響範圍** | `RateLimitFilter.java`、`UserRateLimitFilter.java`、`RateLimitProperties.java`、`SecurityConfig.java`、`application.yml` |
-| **Commit** | |
+| **Commit** | [`6b72fec`](../../commit/6b72fec) |
 
 ### BUG 描述
 
