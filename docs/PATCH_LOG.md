@@ -31,6 +31,7 @@
 | 021 | 2026-02-27 | CDS | Hospital-Grade 改善：draftOrders + 預取解析 + 重大警示彈窗 | Backend + Frontend (CDS, i18n) | [`1b0a22a`](../../commit/1b0a22a) |
 | 022 | 2026-02-28 | Authoring | TWCORE IG 範本支援（19 預設範本 + TW 代碼系統 + 目錄擴充） | Backend + Frontend (Authoring) | [`bf27974`](../../commit/bf27974) |
 | 023 | 2026-03-04 | 安全性 | JWT Refresh Token 滑動視窗過期 — 雙令牌架構 + 令牌輪換 + 重用偵測 | Backend + Frontend (Auth) | [`256f5d1`](../../commit/256f5d1) |
+| 024 | 2026-03-04 | eCQM | eCQM 視覺化 CQL 產生引擎 — 全端實作 + Publish 至 MeasureDefinition | Backend + Frontend (eCQM, Authoring) | |
 
 ---
 
@@ -1930,5 +1931,194 @@ Authoring 規則編寫功能僅使用通用 FHIR R4 範本（每個資源類型�
 - JwtTokenProviderTest — 全數通過
 - Frontend TypeScript 型別檢查通過（零新增錯誤）
 - 多分頁測試：2 個分頁同時 access token 過期，僅觸發 1 次 refresh（請求佇列機制）
+
+---
+
+## #024 — eCQM 視覺化 CQL 產生引擎 — 全端實作 + Publish 至 MeasureDefinition
+
+- **日期**: 2026-03-04
+- **範圍**: eCQM — 全新視覺化 eCQM Authoring 模組
+- **分類**: 新功能 / 跨模組整合
+- **參考依據**: CMS 2026 eCQM Logic and Implementation Guidance Version 9.0
+
+### 問題描述
+
+平台既有 CDS Authoring Tool 可視覺化建構 expression tree 並產生 CDS 結構 CQL（Inclusion/Exclusion/Recommendation），Measure 模組可評估 eCQM，但 eCQM 的 CQL 需手寫。兩個系統之間缺乏橋接，無法從視覺化工具直接產出符合 eCQM 規範的 CQL（IP/Denom/Numer/SDE/Stratifier）並發布至 MeasureDefinition 評估管線。
+
+**目標**：建立獨立的 eCQM Authoring 模組，複用 CDS expression tree 引擎，產生 eCQM 結構的 CQL，並透過「發布」功能橋接至 MeasureDefinition 評估管線。
+
+### 設計決策
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| CQL 引擎共用 | 抽取 `ExpressionCqlEngine` 共用類別 | CDS 和 eCQM 共用 expression → CQL 轉換邏輯，避免重複 |
+| 資料模型 | 獨立 `ecqm_artifact` 表 | 與 CDS artifact 解耦，scoring type / population basis 等欄位為 eCQM 專有 |
+| Population 結構 | ConjunctionGroup JSON（同 CDS） | 完全複用前端 ConjunctionGroup 元件 |
+| Scoring Types | proportion / ratio / continuous-variable / cohort | 完整實作 CMS v9.0 §2 四種 scoring type |
+| Ratio 雙 IP | `initialPopulationDenom` + `initialPopulationNumer` | CMS 允許 ratio 分子和分母有不同 Initial Population |
+| Episode-based | `populationBasis` 欄位 | Patient-based (Boolean) 或 Encounter/Procedure 等 FHIR resource type |
+| 前端複用 | 直接複用 ConjunctionGroup + ArtifactElement 元件 | 零修改既有元件，只包裝 eCQM 專用 tabs |
+| 發布管線 | eCQM → MeasureDefinition → 既有評估管線 | 不新建評估引擎，複用現有 measure 評估流程 |
+
+### 修改內容
+
+#### Phase 1：共用 CQL 引擎抽取
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/.../service/authoring/ExpressionCqlEngine.java` |
+| 修改 | `backend/.../service/authoring/CqlArtifactBuilder.java` — 委派至 ExpressionCqlEngine |
+
+- 從 `CqlArtifactBuilder`（1056 行）抽取 expression → CQL 通用邏輯為獨立類別
+- 搬移方法：`BuildContext`、`buildConjunctionExpression()`、`buildExpression()`、`applyModifier()`、`buildGenericResourceExpression()`、`collectDeclarations()`、emit helpers 等
+- CDS `CqlArtifactBuilder` 改為注入 `ExpressionCqlEngine` 並委派
+- **零行為變更** — 所有既有 CDS CQL 產生測試通過
+
+#### Phase 2：EcqmArtifactEntity + Repository + Migration
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/.../entity/EcqmArtifactEntity.java` |
+| 新增 | `backend/.../repository/EcqmArtifactRepository.java` |
+| 新增 | `backend/.../resources/db/migration/V39__ecqm_artifacts.sql` |
+
+- JPA 實體含 `scoringType`、`populationBasis`、`improvementNotation` 等 eCQM 專有欄位
+- JSON 欄位（`populationGroups`、`supplementalData`、`stratifiers`、`baseElements`、`parameters`）使用 `@Transient` 反序列化 + `@PrePersist`/`@PreUpdate` 序列化
+- 外鍵關聯 `measure_definition(id) ON DELETE SET NULL`
+
+#### Phase 3：EcqmCqlBuilder
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/.../service/ecqm/EcqmCqlBuilder.java` |
+| 新增 | `backend/.../model/ecqm/EcqmConstants.java` |
+
+核心 CQL 產生邏輯：
+- `buildEcqmCql()` — 主入口，接收 artifact 資料產出完整 CQL
+- `emitPopulationDefine()` — 從 population tree 產生 define（Boolean / List return type）
+- `emitDualInitialPopulations()` — Ratio 雙 IP 情境（`"Initial Population 1"` / `"Initial Population 2"`）
+- `emitObservationFunction()` — Continuous Variable 的 measure observation function
+- `emitSupplementalDataDefines()` — 標準 SDE defines（Ethnicity/Race/Sex/Payer）+ 自訂 expression tree
+- `emitGroupStratifiers()` — per-group stratifier defines（ratio 雙 IP 時跳過並警告）
+- `validateScoringPopulations()` — 依 scoring type 驗證必填 population
+- 多 group 名稱後綴支援避免 define 名稱衝突
+
+**Scoring Type → 必填 Population 對照（CMS v9.0 §2）：**
+
+| Scoring | 必填 | 選填 |
+|---------|------|------|
+| proportion | IP, Denom, Numer | Denom Excl, Denom Except, Numer Excl |
+| ratio | IP, Denom, Numer | Denom Excl, Numer Excl |
+| continuous-variable | IP, Measure Pop, Measure Obs | Measure Pop Excl |
+| cohort | IP | — |
+
+#### Phase 4：Service 層 + Controller + DTOs
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/.../service/ecqm/EcqmArtifactService.java` — CRUD（list, get, create, update, delete, duplicate） |
+| 新增 | `backend/.../service/ecqm/EcqmCqlGenerationService.java` — 載入 entity → 調用 EcqmCqlBuilder → CQL/ELM/validate |
+| 新增 | `backend/.../service/ecqm/EcqmPublishService.java` — 產生 CQL + 建立/更新 MeasureDefinition（GroupDefinition mapping） |
+| 新增 | `backend/.../service/ecqm/EcqmExpressionTreeValidator.java` — XSS 過濾（14 patterns）、template/modifier ID 驗證 |
+| 新增 | `backend/.../controller/EcqmController.java` — REST API |
+| 新增 | `backend/.../model/ecqm/EcqmArtifactRequest.java` |
+| 新增 | `backend/.../model/ecqm/EcqmArtifactResponse.java` |
+| 新增 | `backend/.../model/ecqm/EcqmArtifactSummary.java` |
+| 新增 | `backend/.../model/ecqm/PublishResult.java` |
+
+**API 端點（`/api/ecqm`）：**
+
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/artifacts` | GET | 列出使用者的 eCQM artifacts |
+| `/artifacts/{id}` | GET/PUT/DELETE | 單一 artifact CRUD |
+| `/artifacts` | POST | 建立 artifact |
+| `/artifacts/{id}/duplicate` | POST | 複製 artifact |
+| `/artifacts/{id}/cql` | POST | 產生 CQL |
+| `/artifacts/{id}/elm` | POST | 產生 CQL + 翻譯為 ELM |
+| `/artifacts/{id}/validate` | POST | 驗證 CQL |
+| `/artifacts/{id}/publish` | POST | 發布至 MeasureDefinition |
+| `/templates` | GET | 取得元素模板 |
+| `/modifiers` | GET | 取得修飾器 |
+| `/scoring-types` | GET | 取得 scoring type 設定 |
+
+#### Phase 5：Frontend — 全新 eCQM 工作區
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `frontend/src/pages/EcqmPage.tsx` — 主頁面（列表 + 工作區切換） |
+| 新增 | `frontend/src/api/ecqmApi.ts` — API client |
+| 新增 | `frontend/src/types/ecqm.ts` — TypeScript 型別定義 |
+| 新增 | `frontend/src/hooks/useEcqm.ts` — React Query hooks |
+| 新增 | `frontend/src/constants/ecqmConstants.ts` — Scoring types、population types、SDE 模板 |
+| 修改 | `frontend/src/App.tsx` — 加入 `/ecqm` lazy route |
+| 修改 | `frontend/src/api/index.ts` — 加入 ecqmApi export |
+| 修改 | `frontend/src/components/layout/Header.tsx` — 加入 eCQM 導航項目 |
+
+**eCQM Workspace（8 tabs）：**
+
+| Tab | 元件 | 複用 |
+|-----|------|------|
+| Summary | `EcqmSummaryTab.tsx` | 新建 |
+| Population Groups | `EcqmPopulationGroupsTab.tsx` + `EcqmPopulationGroupEditor.tsx` + `EcqmPopulationTreeEditor.tsx` | 新建，包裝 ConjunctionGroup |
+| Base Elements | placeholder | 複用 CDS 元件模型 |
+| Parameters | placeholder | 複用 CDS 元件模型 |
+| Supplemental Data | `EcqmSdeTab.tsx` | 新建 |
+| Stratifiers | `EcqmStratifiersTab.tsx` | 新建 |
+| External CQL | placeholder | 複用 CDS 元件模型 |
+| Review CQL | `EcqmCqlPreviewTab.tsx` | 新建 |
+
+其餘新建元件：
+- `EcqmArtifactList.tsx` — artifact 列表
+- `EcqmArtifactModal.tsx` — 建立 modal（scoring type + population basis 選擇）
+- `EcqmArtifactWorkspace.tsx` — 主工作區（debounced auto-save + useRef 穩定回調）
+- `EcqmArtifactWorkspaceHeader.tsx` — 標題列（名稱 / 版本 / 狀態 / 發布按鈕）
+- `EcqmObservationEditor.tsx` — Continuous Variable observation 編輯（criteria tree + aggregateMethod 下拉）
+
+#### Phase 6：Backend 測試
+
+| 動作 | 檔案 |
+|------|------|
+| 新增 | `backend/.../service/authoring/ExpressionCqlEngineTest.java` — 21 tests |
+| 新增 | `backend/.../service/ecqm/EcqmCqlBuilderTest.java` — 18 tests |
+| 新增 | `backend/.../service/ecqm/EcqmPublishServiceTest.java` — 4 tests |
+| 新增 | `backend/.../controller/EcqmControllerTest.java` — 13 tests（@SpringBootTest + MockMvc） |
+
+#### Phase 7：Code Review 修正
+
+三重平行代碼審查（Reuse / Quality / Efficiency）後修正：
+
+| 嚴重度 | 修正 |
+|--------|------|
+| HIGH | `validateCql()` 與 `generateAndTranslate()` 完全重複 → 改為委派 |
+| HIGH | Entity `baseElementsList` 反序列化 bug（檢查 transient 欄位而非 JSON 欄位）→ 修正 |
+| HIGH | XSS validator 僅 3 patterns 弱於 `NoXssValidator` 的 14 patterns → 對齊 |
+| HIGH | `save` callback 依賴 `artifact` object ref 導致 debounce 重置 → `useRef` 穩定化 |
+| MEDIUM | 手動 `refetchArtifact()` / `refetchList()` 與 React Query invalidation 重複 → 移除 |
+| MEDIUM | `DEFAULT_CONJUNCTION_GROUP` spread 可能被意外 mutate → `Object.freeze()` + factory function |
+| MEDIUM | 冗餘 `entity.serializeAll()` 呼叫（JPA `@PreUpdate` 已處理）→ 移除 |
+| MEDIUM | `emitPopulationDefine()` 未使用的 `isEpisodeBased` / `populationBasis` 參數 → 清除 |
+| LOW | SDE tab 使用 array index 作為 React key → 改用 SDE name |
+| LOW | 死碼 `useGenerateEcqmElm` hook → 移除 |
+
+### 影響範圍
+
+| 項目 | 數量 |
+|------|------|
+| 新增後端檔案 | 14 |
+| 修改後端檔案 | 3 |
+| 新增後端測試 | 4（56 tests） |
+| 新增前端檔案 | 17 |
+| 修改前端檔案 | 3 |
+
+### 驗證
+
+- Backend 全部 64 新 tests 通過（21 ExpressionCqlEngine + 18 EcqmCqlBuilder + 4 EcqmPublish + 13 EcqmController + 8 CDS 迴歸）
+- Frontend TypeScript 編譯通過（`npx tsc --noEmit`，零錯誤）
+- CDS Authoring 迴歸測試通過（CqlArtifactBuilderTest 8/8）
+- 四種 scoring type CQL 產出驗證（proportion / ratio / continuous-variable / cohort）
+- Ratio 雙 IP 產生 `"Initial Population 1"` / `"Initial Population 2"`
+- Continuous Variable 產生 function（非 define）含 aggregateMethod 註解
+- Publish → MeasureDefinition 建立成功，GroupDefinition 正確映射
 
 ---

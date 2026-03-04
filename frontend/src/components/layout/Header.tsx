@@ -40,6 +40,7 @@ const baseNavItems = [
   { labelKey: 'nav.cdsHooks', path: '/cds' },
   { labelKey: 'nav.measures', path: '/measures' },
   { labelKey: 'nav.authoring', path: '/authoring' },
+  { labelKey: 'nav.ecqm', path: '/ecqm' },
   { labelKey: 'nav.fhirBrowser', path: '/fhir' },
   { labelKey: 'nav.terminology', path: '/terminology' },
 ]

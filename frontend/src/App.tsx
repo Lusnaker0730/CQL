@@ -24,6 +24,7 @@ const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const AuditDashboardPage = lazy(() => import('./pages/AuditDashboardPage'))
 const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
+const EcqmPage = lazy(() => import('./pages/EcqmPage'))
 const OktaCallbackPage = lazy(() => import('./pages/OktaCallbackPage'))
 
 export default function App() {
@@ -114,6 +115,14 @@ export default function App() {
                         element={
                           <ErrorBoundary fallbackTitle={t('errors.cdsAuthoringError')}>
                             <AuthoringPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/ecqm"
+                        element={
+                          <ErrorBoundary fallbackTitle="eCQM Builder Error">
+                            <EcqmPage />
                           </ErrorBoundary>
                         }
                       />

@@ -10,7 +10,8 @@ import static org.assertj.core.api.Assertions.*;
 
 class CqlArtifactBuilderTest {
 
-    private final CqlArtifactBuilder builder = new CqlArtifactBuilder();
+    private final ExpressionCqlEngine engine = new ExpressionCqlEngine();
+    private final CqlArtifactBuilder builder = new CqlArtifactBuilder(engine);
 
     private Map<String, Object> emptyTree() {
         Map<String, Object> tree = new LinkedHashMap<>();
