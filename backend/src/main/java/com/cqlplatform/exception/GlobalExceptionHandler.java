@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -91,6 +92,12 @@ public class GlobalExceptionHandler {
                 ? ex.getMessage()
                 : "You do not have permission to perform this action.";
         return buildResponse(HttpStatus.FORBIDDEN, "Access Denied", message);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockException(ObjectOptimisticLockingFailureException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict",
+                "This record was modified by another session. Please reload and try again.");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

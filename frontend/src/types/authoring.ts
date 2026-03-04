@@ -55,6 +55,7 @@ export interface Artifact {
   ownerUsername: string
   createdAt: string
   updatedAt: string
+  lockVersion: number
 }
 
 export interface ArtifactRequest {
@@ -88,6 +89,7 @@ export interface ArtifactRequest {
   baseElements?: BaseElement[]
   parameters?: Parameter[]
   errorStatement?: ErrorStatement
+  lockVersion?: number
 }
 
 // Expression tree types

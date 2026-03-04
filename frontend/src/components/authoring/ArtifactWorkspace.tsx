@@ -15,7 +15,7 @@ import ExternalCql from './external-cql/ExternalCql'
 import CqlPreviewPanel from './cql-preview/CqlPreviewPanel'
 import ArtifactTester from './testing/ArtifactTester'
 import ArtifactSummaryView from './summary/ArtifactSummaryView'
-import { useUpdateArtifact } from '../../hooks/useAuthoring'
+import { useUpdateArtifact, useArtifact } from '../../hooks/useAuthoring'
 import { useTemplates } from '../../hooks/useTemplates'
 import { useModifiers } from '../../hooks/useModifiers'
 import { useExternalCqlList } from '../../hooks/useExternalCql'
@@ -189,7 +189,9 @@ export default function ArtifactWorkspace({
   const [isDirty, setIsDirty] = useState(false)
   const [twcoreMode, setTwcoreMode] = useState(false)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
+  const [showConflictDialog, setShowConflictDialog] = useState(false)
   const updateMutation = useUpdateArtifact()
+  const { refetch: refetchArtifact } = useArtifact(artifact.id)
 
   // Browser beforeunload guard
   useUnsavedChangesGuard(isDirty)
@@ -239,6 +241,7 @@ export default function ArtifactWorkspace({
     reviewer: localArtifact.reviewer,
     endorser: localArtifact.endorser,
     relatedArtifact: localArtifact.relatedArtifact,
+    lockVersion: localArtifact.lockVersion,
   }), [localArtifact])
 
   const handleSave = useCallback(
@@ -250,6 +253,11 @@ export default function ArtifactWorkspace({
             setLocalArtifact(updated)
             setIsDirty(false)
             onArtifactUpdate(updated)
+          },
+          onError: (error) => {
+            if ((error as { response?: { status?: number } })?.response?.status === 409) {
+              setShowConflictDialog(true)
+            }
           },
         }
       )
@@ -777,6 +785,37 @@ export default function ArtifactWorkspace({
             onClick={() => { setShowBackConfirm(false); onBack() }}
           >
             {t('workspace.discardChanges')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Optimistic lock conflict dialog */}
+      <Dialog open={showConflictDialog} onClose={() => setShowConflictDialog(false)}>
+        <DialogTitle>{t('workspace.conflict.title')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('workspace.conflict.message')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConflictDialog(false)}>
+            {t('workspace.conflict.keepEditing')}
+          </Button>
+          <Button
+            color="primary"
+            variant="contained"
+            onClick={() => {
+              setShowConflictDialog(false)
+              refetchArtifact().then(({ data }) => {
+                if (data) {
+                  setLocalArtifact(data)
+                  setIsDirty(false)
+                  onArtifactUpdate(data)
+                }
+              })
+            }}
+          >
+            {t('workspace.conflict.reload')}
           </Button>
         </DialogActions>
       </Dialog>

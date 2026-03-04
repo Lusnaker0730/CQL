@@ -144,6 +144,10 @@ public class CdsArtifactEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    private Long lockVersion;
+
     // Transient fields for deserialized JSON
     @Transient
     @Builder.Default

@@ -107,4 +107,6 @@ public class ArtifactRequest {
 
     @JsonDeserialize(using = JsonDeserializer.None.class)
     private Map<String, Object> errorStatement;
+
+    private Long lockVersion;
 }

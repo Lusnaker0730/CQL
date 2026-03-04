@@ -3,7 +3,8 @@
     "title": "CDS Authoring Tool",
     "subtitle": "Build clinical decision support rules visually and generate CQL automatically.",
     "deleteTitle": "Delete Artifact",
-    "deleteConfirm": "Are you sure you want to delete this artifact? This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete this artifact? This action cannot be undone.",
+    "deleteError": "Failed to delete artifact. Please try again later."
   },
   "list": {
     "title": "CDS Artifacts",
@@ -56,7 +57,13 @@
     "unsavedTitle": "Unsaved Changes",
     "unsavedMessage": "You have unsaved changes. Are you sure you want to leave? Your changes will be lost.",
     "discardChanges": "Discard Changes",
-    "shortcutsTitle": "Keyboard Shortcuts"
+    "shortcutsTitle": "Keyboard Shortcuts",
+    "conflict": {
+      "title": "Save Conflict",
+      "message": "This artifact was modified in another tab or session. You can reload the latest version (your unsaved changes will be lost) or keep editing your current version.",
+      "reload": "Reload",
+      "keepEditing": "Keep Editing"
+    }
   },
   "header": {
     "backToList": "Back to artifact list",
@@ -288,7 +295,9 @@
     "colCodeSystem": "Code System",
     "colDisplayHeader": "Display",
     "validationSuccess": "Validation Successful!",
-    "selectButton": "SELECT"
+    "selectButton": "SELECT",
+    "quickSelect": "Quick Select",
+    "orManual": "OR ENTER MANUALLY"
   },
   "subpopulations": {
     "title": "Subpopulations",
