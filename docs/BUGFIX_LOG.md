@@ -8,6 +8,8 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 082 | 2026-03-04 | High | CDS Authoring（前後端） | 元素模板繼承未解析 + React Hooks 順序違規 — 缺少元素名稱 + CDS Hooks 頁面崩潰 | 邏輯錯誤 / 框架違規 | [`8e8d4c8`](../../commit/8e8d4c8) |
+| 081 | 2026-03-04 | High | CQL 執行引擎（後端） | CQL 批次執行崩潰 + FHIR Token 搜尋管道符號轉義 — FHIRHelpers 歧義 + 查詢回傳 0 筆 | 邏輯錯誤 / API 誤用 | [`649ac67`](../../commit/649ac67) |
 | 080 | 2026-03-04 | High | CDS Authoring（前後端） | 多分頁同時編輯 Artifact 導致靜默資料覆蓋 — JPA @Version 樂觀鎖 + 前端衝突對話框 | 併發/效能問題 | [`9b46017`](../../commit/9b46017) |
 | 079 | 2026-03-04 | High | 安全性（後端） | Rate Limiting 分層強化 — 端點分級 IP 限流 + 使用者限流 + 大型 Payload 加權 | 安全漏洞（DoS / 資源耗盡） | [`6b72fec`](../../commit/6b72fec) |
 | 078 | 2026-03-04 | Critical | 安全性（前後端） | CDS Card XSS 3 層防護 — 前端安全渲染 + 後端 HTML 跳脫 + 反序列化器強化 | 安全漏洞（XSS） | [`d7fc37f`](../../commit/d7fc37f) |
@@ -101,6 +103,84 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #082 — 元素模板繼承未解析 + React Hooks 順序違規 — 缺少元素名稱 + CDS Hooks 頁面崩潰
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | CDS Authoring（前後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 / 框架違規 |
+| **影響範圍** | 所有使用 `extends` 繼承的元素模板（如 Encounter）缺少 `element_name` 欄位；CDS Hooks 頁面因 React Hooks 規則違反而崩潰 |
+| **Commit** | [`8e8d4c8`](../../commit/8e8d4c8) |
+
+### 問題描述
+
+1. **模板繼承未解析**：`TemplateService` 讀取 `formTemplates.json` 時解析了 `"extends": "Base"` 欄位，但從未實際將 Base 模板的欄位（`element_name`、`comment`）合併到子模板中。導致 Encounter 等元素僅有自身欄位（如 `encounter`），使用者看到「缺少元素名稱」驗證錯誤但找不到輸入框。
+
+2. **React Hooks 順序違規**：`ResourceForm.tsx` 中 `useMemo` 放在條件式 early return 之後，違反 React Hooks 必須在每次渲染以相同順序呼叫的規則。當 `activeEntry` 或 `isLoading` 狀態改變時觸發 React error #310「Rendered more hooks than during the previous render」，導致 CDS Hooks 頁面 ErrorBoundary 崩潰。
+
+### 根因分析
+
+1. `TemplateService.parseTemplate()` 正確讀取 `extends` 欄位至 `FormTemplate.extendsTemplate`，但 `init()` 方法中從未呼叫任何繼承解析邏輯。
+
+2. `ResourceForm.tsx` 中 `useMemo`（計算 `visibleOptional`/`hiddenOptional`）位於 `if (!activeEntry) return ...` 和 `if (isLoading) return ...` 之後。當元件從有 `activeEntry` 狀態切換至無 `activeEntry` 狀態時，Hooks 數量改變。
+
+### 修正方式
+
+1. **TemplateService**：新增 `resolveInheritance()` 方法，在載入分類後、建立 `knownElementTypes` 前呼叫。建立 `id → FormTemplate` lookup map，遍歷所有模板，將 parent 欄位前置合併到 child 中（跳過已存在的欄位避免重複）。
+
+2. **ResourceForm**：將 `useMemo` 移到所有 early return 之前，內部加入 `if (!activeEntry)` null guard 回傳空陣列。
+
+### 修改檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `backend/.../authoring/TemplateService.java` | 新增 `resolveInheritance()` 方法，`init()` 中呼叫 |
+| `frontend/.../testcase-builder/ResourceForm.tsx` | `useMemo` 移至 early return 前，加 null guard |
+
+---
+
+## #081 — CQL 批次執行崩潰 + FHIR Token 搜尋管道符號轉義 — FHIRHelpers 歧義 + 查詢回傳 0 筆
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | CQL 執行引擎（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 邏輯錯誤 / API 誤用 |
+| **影響範圍** | 所有 CQL 執行（CDS Hooks 調用、手動執行）；當 FHIRHelpers 遇到 null 值時整個執行失敗；FHIR fallback 搜尋永遠回傳 0 筆結果 |
+| **Commit** | [`649ac67`](../../commit/649ac67) |
+
+### 問題描述
+
+1. **CQL 批次執行崩潰**：CQL 引擎的 `FunctionRefEvaluator` 在 `null` 值傳入 `FHIRHelpers.ToString()` 時無法判斷應呼叫哪個多載版本（`ToString(FHIR.string)`、`ToString(FHIR.code)` 等），拋出 `CqlException: Ambiguous call to operator 'ToString(null)'`。在正常模式下，`engine.evaluate()` 一次評估所有表達式，任一表達式失敗會導致整個執行崩潰。
+
+2. **FHIR Token 搜尋管道符號轉義**：`FhirDataProviderService` 的 fallback 搜尋使用 `TokenClientParam.exactly().code("http://loinc.org|29463-7")`，HAPI FHIR client 將 `|` 視為 token 搜尋的保留字元並轉義為 `\|`，實際發出的查詢為 `code=http://loinc.org\|29463-7`，FHIR server 找不到 system `http://loinc.org\` 因此回傳 0 筆結果。
+
+### 根因分析
+
+1. `CqlExecutionService.doExecute()` 的 debug 模式逐一評估表達式並以 try-catch 捕捉錯誤，但 normal 模式批次呼叫 `engine.evaluate()` 後用外層 catch 直接拋出 `CqlExecutionException`，沒有 per-expression 容錯。
+
+2. `buildCodeFilter()` 組合出 `system|code` 字串，`trySearch()` 將整串傳入 `.exactly().code()`。HAPI FHIR 的 `.code()` 方法設計為僅接受 code 值（非 system|code），因此自動轉義 `|`。正確做法是使用 `.systemAndCode(system, code)` 分開傳入。
+
+### 修正方式
+
+1. **CqlExecutionService**：normal 模式下，先嘗試批次 `engine.evaluate()`；若失敗，改以 per-expression 逐一評估（與 debug 模式相同策略），僅將失敗的表達式標記為 Error，其餘正常回傳。
+
+2. **FhirDataProviderService**：重構 `buildCodeFilter()` → `collectCodes()` 回傳 Code 物件列表；`trySearch()` 使用 `.systemAndCode(system, code)` 正確建構 FHIR token 搜尋參數。多碼時用 `whereMap()` 避免 HAPI 轉義。
+
+### 修改檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `backend/.../cql/CqlExecutionService.java` | 批次失敗 → per-expression 回退邏輯 + circuit breaker 處理 |
+| `backend/.../fhir/FhirDataProviderService.java` | `collectCodes()` + `systemAndCode()` 修復 + circuit breaker 包裝 |
+| `backend/.../cql/CircuitBreakerRetrieveProvider.java` | 新增 FHIR retrieve circuit breaker 包裝器 |
+| `backend/.../fhir/FhirDataProviderServiceTest.java` | 更新測試適配新建構參數 |
 
 ---
 
