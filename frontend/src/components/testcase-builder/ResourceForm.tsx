@@ -84,29 +84,13 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     [activeEntry, dispatch, onDirty]
   )
 
-  if (!activeEntry) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          {t('testCaseBuilder.selectResource')}
-        </Typography>
-      </Box>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <CardListSkeleton count={4} />
-      </Box>
-    )
-  }
-
   const elements = metadata?.elements || []
   const requiredElements = elements.filter((el) => el.isRequired)
 
   // Build set of element names that have data (including choice type variants)
+  // NOTE: useMemo MUST be called before any early returns to satisfy Rules of Hooks
   const { visibleOptional, hiddenOptional } = useMemo(() => {
+    if (!activeEntry) return { visibleOptional: [] as ElementMetadata[], hiddenOptional: [] as ElementMetadata[] }
     const dataKeys = Object.keys(activeEntry.resourceData)
     // Pre-build a lookup map: choiceFieldName → element name
     const choiceKeyMap = new Map<string, string>()
@@ -139,7 +123,25 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
       visibleOptional: elements.filter((el) => !el.isRequired && filledNames.has(el.name)),
       hiddenOptional: elements.filter((el) => !el.isRequired && !filledNames.has(el.name)),
     }
-  }, [elements, activeEntry.resourceData])
+  }, [elements, activeEntry?.resourceData])
+
+  if (!activeEntry) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          {t('testCaseBuilder.selectResource')}
+        </Typography>
+      </Box>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <CardListSkeleton count={4} />
+      </Box>
+    )
+  }
 
   const handleAddAttributes = () => {
     if (!activeEntry) return
