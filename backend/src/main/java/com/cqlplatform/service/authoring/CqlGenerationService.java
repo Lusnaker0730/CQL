@@ -41,10 +41,8 @@ public class CqlGenerationService {
         CdsArtifactEntity entity = artifactRepository.findById(artifactId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artifact", artifactId));
 
-        String version = fhirVersion != null ? fhirVersion : entity.getFhirVersion();
-        if (version == null || version.isEmpty()) {
-            version = "R4";
-        }
+        // Authoring currently supports R4 only — ignore fhirVersion override
+        String version = "R4";
 
         log.debug("expTreeInclude raw JSON: {}", entity.getExpTreeInclude());
         log.debug("expTreeIncludeMap keys: {}", entity.getExpTreeIncludeMap() != null ? entity.getExpTreeIncludeMap().keySet() : "null");

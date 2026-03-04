@@ -8,6 +8,7 @@
     "cdsHooks": "CDS Hooks",
     "measures": "Measures",
     "authoring": "Authoring",
+    "ecqm": "eCQM",
     "fhirBrowser": "FHIR Browser",
     "terminology": "Terminology",
     "users": "Users",

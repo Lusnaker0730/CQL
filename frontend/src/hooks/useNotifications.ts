@@ -51,34 +51,45 @@ export function useNotifications() {
     if (!token) return
 
     const baseUrl = import.meta.env.VITE_API_URL || '/api'
-    // EventSource doesn't support custom headers, so pass JWT as query parameter
-    const url = `${baseUrl}/notifications/subscribe?token=${encodeURIComponent(token)}`
 
-    try {
-      const es = new EventSource(url)
-      eventSourceRef.current = es
+    // Obtain a short-lived, single-use ticket to avoid exposing the
+    // long-lived JWT in a query parameter (leaks into logs/history)
+    fetch(`${baseUrl}/auth/sse-ticket`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('ticket request failed'))))
+      .then(({ ticket }: { ticket: string }) => {
+        const url = `${baseUrl}/notifications/subscribe?ticket=${encodeURIComponent(ticket)}`
+        const es = new EventSource(url)
+        eventSourceRef.current = es
 
-      es.addEventListener('notification', () => {
-        queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY })
-        queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY })
-      })
+        es.addEventListener('notification', () => {
+          queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY })
+          queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY })
+        })
 
-      es.addEventListener('unread-count', (event) => {
-        const count = parseInt(event.data, 10)
-        if (!isNaN(count)) {
-          queryClient.setQueryData(UNREAD_COUNT_KEY, count)
+        es.addEventListener('unread-count', (event) => {
+          const count = parseInt(event.data, 10)
+          if (!isNaN(count)) {
+            queryClient.setQueryData(UNREAD_COUNT_KEY, count)
+          }
+        })
+
+        es.onerror = () => {
+          es.close()
+          eventSourceRef.current = null
+          // Retry after 30s
+          setTimeout(connectSSE, 30_000)
         }
       })
-
-      es.onerror = () => {
-        es.close()
-        eventSourceRef.current = null
-        // Retry after 30s
+      .catch(() => {
+        // Ticket request failed or SSE not available — rely on polling
         setTimeout(connectSSE, 30_000)
-      }
-    } catch {
-      // SSE not available, rely on polling
-    }
+      })
   }, [queryClient])
 
   useEffect(() => {

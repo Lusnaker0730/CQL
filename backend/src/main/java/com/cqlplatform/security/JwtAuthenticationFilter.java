@@ -22,6 +22,7 @@ import java.util.Optional;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final SseTicketService sseTicketService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private UserApiKeyService userApiKeyService;
@@ -34,10 +35,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         String requestPath = request.getRequestURI();
 
-        // For SSE endpoints, fall back to query parameter token since EventSource
-        // API does not support custom headers
-        if (header == null && request.getParameter("token") != null) {
-            header = "Bearer " + request.getParameter("token");
+        // For SSE endpoints, redeem a one-time ticket instead of exposing
+        // the long-lived JWT in a query parameter (which leaks into logs)
+        if (header == null && request.getParameter("ticket") != null) {
+            var principal = sseTicketService.redeem(request.getParameter("ticket"));
+            if (principal.isPresent()) {
+                var p = principal.get();
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + p.role()));
+                var authentication = new UsernamePasswordAuthenticationToken(
+                        p.username(), null, authorities);
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                filterChain.doFilter(request, response);
+                return;
+            }
         }
 
         if (header != null && header.startsWith("Bearer ")) {

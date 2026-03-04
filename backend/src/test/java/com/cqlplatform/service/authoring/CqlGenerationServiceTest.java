@@ -68,21 +68,21 @@ class CqlGenerationServiceTest {
     }
 
     @Test
-    void generateCql_withExplicitFhirVersion_shouldUseIt() {
+    void generateCql_explicitFhirVersion_shouldAlwaysUseR4() {
+        // Authoring locked to R4 — even if caller passes a different version, R4 is used
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("DSTU2")))
+        when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         service.generateCql(1L, "DSTU2");
 
-        verify(cqlBuilder).buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("DSTU2"));
+        verify(cqlBuilder).buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4"));
     }
 
     @Test
-    void generateCql_nullFhirVersion_shouldDefaultToEntityVersion() {
+    void generateCql_nullFhirVersion_shouldUseR4() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        entity.setFhirVersion("R4");
         when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));

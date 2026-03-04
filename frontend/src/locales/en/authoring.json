@@ -90,7 +90,10 @@
     "regenerating": "Regenerating...",
     "regenerate": "Regenerate",
     "noCqlGenerated": "No CQL generated.",
-    "download": "Download"
+    "download": "Download",
+    "exportZip": "Export ZIP",
+    "exportZipFailed": "ZIP export failed",
+    "exporting": "Exporting..."
   },
   "cpg": {
     "title": "CPG on FHIR Metadata",
@@ -467,7 +470,9 @@
     "validationErrors": "Validation found {{count}} error",
     "validationErrors_other": "Validation found {{count}} errors",
     "validationReview": "Review the errors below. Line numbers indicate where the issue occurs in the generated CQL.",
-    "emptyState": "Click \"Generate CQL\" to preview the generated CQL code from your artifact."
+    "emptyState": "Click \"Generate CQL\" to preview the generated CQL code from your artifact.",
+    "format": "Format",
+    "formatFailed": "Formatting failed"
   },
   "testing": {
     "title": "Test Artifact",

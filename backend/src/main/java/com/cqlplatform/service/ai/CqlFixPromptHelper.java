@@ -31,6 +31,39 @@ public final class CqlFixPromptHelper {
             - exists(expr) — not exist(expr)
             - Property names are case-sensitive: O.status not O.Status
 
+            FHIR TYPE SYSTEM — CRITICAL:
+            FHIRHelpers provides IMPLICIT conversions (auto-applied, do NOT call them explicitly):
+            - FHIR.string    → System.String
+            - FHIR.Coding    → System.Code
+            - FHIR.dateTime  → System.DateTime
+            - FHIR.Period    → Interval<System.DateTime>
+            - FHIR.Quantity   → System.Quantity
+            FHIRHelpers does NOT have: GetCode(), GetCodes(), ToCoding(), ToCodeList(),
+            or any function that converts CodeableConcept to Code. Never invent functions.
+
+            Matching FHIR.CodeableConcept with codes — use ONLY these patterns:
+            1. Single code comparison with ~ (equivalent):
+               P.code ~ "MyCodeDef"
+            2. ValueSet membership:
+               P.code in "MyValueSetName"
+            3. Inline code list — drill into .coding:
+               exists (P.code.coding C where C ~ "Code1" or C ~ "Code2")
+               OR: exists (P.code.coding C where C in { "Code1", "Code2" })
+            4. Plain string code matching:
+               exists (P.code.coding C where C.code = '12345')
+            NEVER use: P.code in { "Code1", "Code2" }  ← WRONG (CodeableConcept ≠ Code)
+            NEVER use: FHIRHelpers.GetCode(P.code)      ← DOES NOT EXIST
+            NEVER use: FHIRHelpers.ToConcept(P.code)     ← Not needed, conversion is implicit
+
+            Common CQL type error patterns and correct fixes:
+            - "Could not resolve call to operator In with signature (FHIR.CodeableConcept, list<System.Code>)"
+              → Replace "X.code in {codes}" with "exists (X.code.coding C where C in {codes})"
+            - "Could not resolve call to operator In with signature (FHIR.code, list<System.Code>)"
+              → The FHIR.code (lowercase) auto-converts to System.String, not System.Code.
+                 Use: X.status = 'active'  OR  X.status in { 'active', 'completed' }
+            - "Could not resolve property X for type FHIR.Resource"
+              → Check spelling and case-sensitivity of property names.
+
             If the error is caused by wrong declaration order (e.g. context before codesystem), \
             fix it by moving the misplaced line to the correct position.
 

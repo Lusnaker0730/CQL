@@ -2,13 +2,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement } from 'react'
-import { useGenerateArtifactCql, useGenerateArtifactElm, useValidateArtifactCql } from '../useArtifactCql'
+import { useGenerateArtifactCql, useGenerateArtifactElm, useValidateArtifactCql, useExportArtifactZip, useFormatCql } from '../useArtifactCql'
 
 vi.mock('../../api', () => ({
   authoringApi: {
     generateCql: vi.fn(),
     generateElm: vi.fn(),
     validateArtifactCql: vi.fn(),
+    exportZip: vi.fn(),
+    formatCql: vi.fn(),
   },
 }))
 
@@ -26,15 +28,15 @@ function createWrapper() {
 }
 
 describe('useGenerateArtifactCql', () => {
-  it('should call generateCql with id and fhirVersion', async () => {
+  it('should call generateCql with id', async () => {
     vi.mocked(authoringApi.generateCql).mockResolvedValue({ cql: 'library Test' })
     const { wrapper } = createWrapper()
 
     const { result } = renderHook(() => useGenerateArtifactCql(), { wrapper })
-    result.current.mutate({ id: 1, fhirVersion: 'R4' })
+    result.current.mutate(1)
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(authoringApi.generateCql).toHaveBeenCalledWith(1, 'R4')
+    expect(authoringApi.generateCql).toHaveBeenCalledWith(1)
   })
 
   it('should handle error', async () => {
@@ -42,20 +44,9 @@ describe('useGenerateArtifactCql', () => {
     const { wrapper } = createWrapper()
 
     const { result } = renderHook(() => useGenerateArtifactCql(), { wrapper })
-    result.current.mutate({ id: 1 })
+    result.current.mutate(1)
 
     await waitFor(() => expect(result.current.isError).toBe(true))
-  })
-
-  it('should work without fhirVersion', async () => {
-    vi.mocked(authoringApi.generateCql).mockResolvedValue({ cql: 'library Test' })
-    const { wrapper } = createWrapper()
-
-    const { result } = renderHook(() => useGenerateArtifactCql(), { wrapper })
-    result.current.mutate({ id: 5 })
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(authoringApi.generateCql).toHaveBeenCalledWith(5, undefined)
   })
 })
 
@@ -100,6 +91,52 @@ describe('useValidateArtifactCql', () => {
 
     const { result } = renderHook(() => useValidateArtifactCql(), { wrapper })
     result.current.mutate(1)
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+})
+
+describe('useExportArtifactZip', () => {
+  it('should call exportZip with id', async () => {
+    vi.mocked(authoringApi.exportZip).mockResolvedValue(new Blob(['zip']))
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useExportArtifactZip(), { wrapper })
+    result.current.mutate(5)
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(authoringApi.exportZip).toHaveBeenCalledWith(5)
+  })
+
+  it('should handle error', async () => {
+    vi.mocked(authoringApi.exportZip).mockRejectedValue(new Error('fail'))
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useExportArtifactZip(), { wrapper })
+    result.current.mutate(1)
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+})
+
+describe('useFormatCql', () => {
+  it('should call formatCql with cql string', async () => {
+    vi.mocked(authoringApi.formatCql).mockResolvedValue({ cql: 'formatted' })
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useFormatCql(), { wrapper })
+    result.current.mutate('library Test')
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(authoringApi.formatCql).toHaveBeenCalledWith('library Test')
+  })
+
+  it('should handle error', async () => {
+    vi.mocked(authoringApi.formatCql).mockRejectedValue(new Error('fail'))
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useFormatCql(), { wrapper })
+    result.current.mutate('bad cql')
 
     await waitFor(() => expect(result.current.isError).toBe(true))
   })

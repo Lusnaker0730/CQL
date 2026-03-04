@@ -30,10 +30,9 @@ export const SPECIAL_SUBPOPS = [
 
 // --- FHIR version options (must match backend AuthoringConstants.FHIR_VERSION_MAP) ---
 
+// Authoring currently supports R4 only
 export const FHIR_VERSION_OPTIONS = [
   { key: 'R4', label: 'R4 (4.0.1)' },
-  { key: 'STU3', label: 'STU3 (3.0.2)' },
-  { key: 'DSTU2', label: 'DSTU2 (1.0.2)' },
 ] as const
 
 // --- Default artifact values ---

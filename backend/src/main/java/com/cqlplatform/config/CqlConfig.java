@@ -23,16 +23,18 @@ public class CqlConfig {
 
     @Bean
     public FhirContext fhirContext(
-            @Value("${fhir.client.pool-max-total:20}") int poolMaxTotal,
-            @Value("${fhir.client.pool-default-per-route:10}") int poolDefaultPerRoute,
+            @Value("${fhir.client.pool-max-total:50}") int poolMaxTotal,
+            @Value("${fhir.client.pool-default-per-route:30}") int poolDefaultPerRoute,
             @Value("${fhir.client.connect-timeout-ms:5000}") int connectTimeout,
-            @Value("${fhir.client.socket-timeout-ms:30000}") int socketTimeout) {
+            @Value("${fhir.client.socket-timeout-ms:15000}") int socketTimeout,
+            @Value("${fhir.client.connection-request-timeout-ms:5000}") int connectionRequestTimeout) {
         FhirContext ctx = FhirContext.forR4();
         ApacheRestfulClientFactory clientFactory = new ApacheRestfulClientFactory(ctx);
         clientFactory.setPoolMaxTotal(poolMaxTotal);
         clientFactory.setPoolMaxPerRoute(poolDefaultPerRoute);
         clientFactory.setConnectTimeout(connectTimeout);
         clientFactory.setSocketTimeout(socketTimeout);
+        clientFactory.setConnectionRequestTimeout(connectionRequestTimeout);
         ctx.setRestfulClientFactory(clientFactory);
         return ctx;
     }

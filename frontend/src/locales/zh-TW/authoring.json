@@ -90,7 +90,10 @@
     "regenerating": "重新產生中...",
     "regenerate": "重新產生",
     "noCqlGenerated": "尚未產生 CQL。",
-    "download": "下載"
+    "download": "下載",
+    "exportZip": "匯出 ZIP",
+    "exportZipFailed": "ZIP 匯出失敗",
+    "exporting": "匯出中..."
   },
   "cpg": {
     "title": "CPG on FHIR 中繼資料",
@@ -467,7 +470,9 @@
     "validationErrors": "驗證發現 {{count}} 個錯誤",
     "validationErrors_other": "驗證發現 {{count}} 個錯誤",
     "validationReview": "請檢視以下錯誤。行號表示問題在產生的 CQL 中的位置。",
-    "emptyState": "點擊「產生 CQL」以預覽從您的人工製品產生的 CQL 程式碼。"
+    "emptyState": "點擊「產生 CQL」以預覽從您的人工製品產生的 CQL 程式碼。",
+    "format": "格式化",
+    "formatFailed": "格式化失敗"
   },
   "testing": {
     "title": "測試人工製品",
