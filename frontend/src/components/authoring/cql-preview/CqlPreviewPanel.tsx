@@ -43,7 +43,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
 
   const handleGenerate = async () => {
     await saveFirst()
-    generateMutation.mutate({ id: artifactId }, {
+    generateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setCql(data.cql)
         setValidation(null)
@@ -58,7 +58,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       onSuccess: (data) => {
         setValidation(data)
         if (!cql) {
-          generateMutation.mutate({ id: artifactId }, {
+          generateMutation.mutate(artifactId, {
             onSuccess: (genData) => setCql(genData.cql),
           })
         }

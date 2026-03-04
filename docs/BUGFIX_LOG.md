@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 079 | 2026-03-04 | High | 安全性（後端） | Rate Limiting 分層強化 — 端點分級 IP 限流 + 使用者限流 + 大型 Payload 加權 | 安全漏洞（DoS / 資源耗盡） | |
 | 078 | 2026-03-04 | Critical | 安全性（前後端） | CDS Card XSS 3 層防護 — 前端安全渲染 + 後端 HTML 跳脫 + 反序列化器強化 | 安全漏洞（XSS） | [`d7fc37f`](../../commit/d7fc37f) |
 | 077 | 2026-03-04 | Critical | 安全性（後端） | 停用使用者 API Key 未失效 — 認證繞過漏洞 + 雙重防護修復 | 安全漏洞（認證繞過） | [`51af336`](../../commit/51af336) |
 | 076 | 2026-03-04 | High | 安全性（後端） | AuditFilter $export 未標記 PHI 存取 + 欄位溢位導致稽核寫入失敗 | 安全漏洞（稽核遺漏） | |
@@ -99,6 +100,59 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #079 — Rate Limiting 分層強化 — 端點分級 IP 限流 + 使用者限流 + 大型 Payload 加權
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | 安全性（後端） |
+| **嚴重程度** | High |
+| **根因類型** | 安全漏洞（DoS / 資源耗盡） |
+| **影響範圍** | `RateLimitFilter.java`、`UserRateLimitFilter.java`、`RateLimitProperties.java`、`SecurityConfig.java`、`application.yml` |
+| **Commit** | |
+
+### BUG 描述
+
+`POST /api/cql/translate` 與 `/api/cql/execute` 為 CPU 密集型端點，但僅受全域 60 RPM/IP 速率限制保護，所有端點共用同一配額。攻擊者可利用以下方式進行 DoS：
+
+1. **配額佔用**：連續發送 60 個 translate 請求即耗盡全部配額，合法的輕量 API 呼叫（如 library 列表）同樣被阻擋
+2. **多 IP 繞過**：IP 限流無法防禦分散式攻擊，認證後的使用者無獨立限額
+3. **大型 Payload 放大**：200KB+ 的 CQL 翻譯請求與 1KB 請求消耗相同配額，但 CPU 成本差距數十倍
+4. **Token refill 時間漂移**：`refill()` 方法在 `tokensToAdd == 0` 時仍更新 `lastRefillTime`，導致 token 補充速率逐漸偏移
+
+### 修正方式
+
+**雙層分級限流架構**：
+
+1. **Layer 1 — IP 分級限流（RateLimitFilter 重寫）**
+   - 5 級端點分類：TRANSLATE(20 RPM)、EXECUTE(10 RPM)、FIX_SUGGESTION(5 RPM)、LIBRARY_READ(120 RPM)、DEFAULT(60 RPM)
+   - Bucket key 改為 `IP:tier`，各級獨立計數互不干擾
+   - Payload 加權：TRANSLATE 端點依 Content-Length 消耗 1-5 tokens（>10KB=2, >50KB=3, >200KB=5）
+   - 修復 token refill 時間漂移：僅按實際補充量推進 `lastRefillTime`
+   - 429 回應加入 `Retry-After` header
+   - Micrometer `rate_limit_exceeded` 計數器（tag: tier, layer=ip）
+
+2. **Layer 2 — 使用者限流（UserRateLimitFilter 新增）**
+   - 位於 JwtAuthenticationFilter 之後，使用 `authentication.getName()` 為 bucket key
+   - 獨立 RPM 配額：TRANSLATE(15)、EXECUTE(8)、FIX_SUGGESTION(3)、DEFAULT(40)
+   - 未認證/匿名請求自動放行（已由 IP 層保護）
+   - `X-UserRateLimit-Limit` / `X-UserRateLimit-Remaining` / `Retry-After` headers
+   - Micrometer 計數器（tag: layer=user）
+
+3. **外部化配置（RateLimitProperties）**
+   - 所有 RPM 值透過 `@ConfigurationProperties(prefix = "rate-limit")` 管理
+   - 支援環境變數覆蓋（如 `RATE_LIMIT_TRANSLATE_RPM`）
+
+**Filter chain 順序**：RateLimitFilter → XssFilter → JwtAuthenticationFilter → UserRateLimitFilter → AuditFilter
+
+### 測試驗證
+
+- `RateLimitFilterTest`（13 tests）：分級限額驗證（translate/execute/default/library-read）、Payload 加權消耗、Bucket 隔離、Retry-After header、停用/OPTIONS 跳過、metrics 計數
+- `UserRateLimitFilterTest`（7 tests）：未認證跳過、匿名使用者跳過、per-user translate 限額、使用者隔離、header 驗證、停用跳過、metrics 計數
+- 全部 20 個測試通過
 
 ---
 
