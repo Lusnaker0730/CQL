@@ -8,6 +8,7 @@
 
 | # | 日期 | 嚴重程度 | 分類 | 標題 | 根因類型 | Commit |
 |---|------|----------|------|------|----------|--------|
+| 080 | 2026-03-04 | High | CDS Authoring（前後端） | 多分頁同時編輯 Artifact 導致靜默資料覆蓋 — JPA @Version 樂觀鎖 + 前端衝突對話框 | 併發/效能問題 | [`9b46017`](../../commit/9b46017) |
 | 079 | 2026-03-04 | High | 安全性（後端） | Rate Limiting 分層強化 — 端點分級 IP 限流 + 使用者限流 + 大型 Payload 加權 | 安全漏洞（DoS / 資源耗盡） | [`6b72fec`](../../commit/6b72fec) |
 | 078 | 2026-03-04 | Critical | 安全性（前後端） | CDS Card XSS 3 層防護 — 前端安全渲染 + 後端 HTML 跳脫 + 反序列化器強化 | 安全漏洞（XSS） | [`d7fc37f`](../../commit/d7fc37f) |
 | 077 | 2026-03-04 | Critical | 安全性（後端） | 停用使用者 API Key 未失效 — 認證繞過漏洞 + 雙重防護修復 | 安全漏洞（認證繞過） | [`51af336`](../../commit/51af336) |
@@ -100,6 +101,49 @@
 | 架構缺陷 | 元件間整合或資料流路徑設計不當 |
 | i18n 遺漏 | 國際化翻譯未覆蓋或未正確套用 |
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
+
+---
+
+## #080 — 多分頁同時編輯 Artifact 導致靜默資料覆蓋 — JPA @Version 樂觀鎖 + 前端衝突對話框
+
+| 欄位 | 內容 |
+|------|------|
+| **日期** | 2026-03-04 |
+| **功能分類** | CDS Authoring（前後端） |
+| **嚴重程度** | High |
+| **根因類型** | 併發/效能問題 |
+| **影響範圍** | `CdsArtifactEntity.java`、`ArtifactRequest.java`、`ArtifactResponse.java`、`ArtifactService.java`、`GlobalExceptionHandler.java`、`ArtifactWorkspace.tsx`、`authoring.ts`、`en/authoring.json`、`zh-TW/authoring.json`、`V38__cds_artifact_lock_version.sql` |
+| **Commit** | [`9b46017`](../../commit/9b46017) |
+
+### BUG 描述
+
+同一帳號在多個瀏覽器分頁同時編輯同一個 CDS Artifact 時，`ArtifactService.update()` 執行盲目覆寫（last-write-wins），無任何衝突偵測機制。當 Tab A 與 Tab B 各自修改後依序儲存，Tab B 的儲存會靜默覆蓋 Tab A 的變更，使用者完全無感知資料遺失。
+
+**重現步驟**：
+1. 在分頁 A 開啟 Artifact，修改納入條件
+2. 在分頁 B 開啟相同 Artifact，修改建議文字
+3. 分頁 A 儲存成功
+4. 分頁 B 儲存成功 — 分頁 A 的修改被靜默覆蓋
+
+### 修正方式
+
+**JPA @Version 樂觀鎖 + 前端衝突對話框**：
+
+1. **DB Migration（V38）**：新增 `lock_version BIGINT NOT NULL DEFAULT 0` 欄位
+2. **Entity（CdsArtifactEntity）**：加入 `@Version @Column("lock_version") Long lockVersion`，Hibernate 自動在 UPDATE 語句加入 `WHERE lock_version = ?` 條件
+3. **DTO 傳遞**：`ArtifactRequest` 與 `ArtifactResponse` 新增 `lockVersion` 欄位，前後端完整 round-trip
+4. **Service（ArtifactService.update）**：將 client 傳入的 `lockVersion` 設定至 entity，若版本過舊則 UPDATE 命中 0 行 → `ObjectOptimisticLockingFailureException`
+5. **Exception Handler**：新增 `ObjectOptimisticLockingFailureException` → HTTP 409 Conflict 回應
+6. **前端（ArtifactWorkspace）**：`handleSave` 攔截 409 → 顯示衝突對話框，提供「重新載入」（refetch 最新版本）與「繼續編輯」（關閉對話框保留本地修改）兩個選項
+7. **i18n**：新增 `workspace.conflict.*` 翻譯鍵（英文 + 繁體中文）
+
+### 測試驗證
+
+- 單分頁正常儲存：`lockVersion` 透明 round-trip，行為不變
+- 多分頁衝突：Tab A 儲存後 Tab B 儲存 → Tab B 收到 409 → 顯示衝突對話框
+- 「重新載入」按鈕：重新取得最新資料，`lockVersion` 更新
+- 「繼續編輯」按鈕：關閉對話框，使用者可手動合併後重試儲存
+- TypeScript 編譯通過（`npx tsc --noEmit`）
 
 ---
 
