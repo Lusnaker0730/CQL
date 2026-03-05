@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | |
+| BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | [`52fd78c`](../../commit/52fd78c) |
 | PAT-026 | ✨ patch | 2026-03-05 | 安全性 | CQL 注入修復 + XSS 修復 — escapeCqlString 補齊 + dangerouslySetInnerHTML escapeValue | Backend (Authoring) + Frontend (全模組) | [`f1fe52e`](../../commit/f1fe52e) |
 | PAT-025 | ✨ patch | 2026-03-05 | 重構 | FreeMarker 模板引擎遷移 — CQL 產生器從字串拼接重構為模板架構 + 表達式樹 conjunction 前端重構 | Backend (Authoring, eCQM) + Frontend (Authoring) | [`f1fe52e`](../../commit/f1fe52e) |
 | PAT-024 | ✨ patch | 2026-03-04 | eCQM | eCQM 視覺化 CQL 產生引擎 — 全端實作 + Publish 至 MeasureDefinition | Backend + Frontend (eCQM, Authoring) | [`e356957`](../../commit/e356957) |
