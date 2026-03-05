@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-032 | ✨ patch | 2026-03-06 | eCQM（全端） | eCQM 外部 CQL 程式庫支援 — 全端上傳/解析/管理 + 可複用 ExternalCqlView 元件 | Backend + Frontend (eCQM) | [`b88bd32`](../../commit/b88bd32) |
 | PAT-031 | ✨ patch | 2026-03-06 | eCQM（前端） | eCQM 基礎元素 + 參數分頁功能啟用 — 複用 CDS Authoring 元件（BaseElements + Parameters） | Frontend (eCQM) | [`8c50113`](../../commit/8c50113) |
 | PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | [`11c0f84`](../../commit/11c0f84) |
 | PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | [`326e5fb`](../../commit/326e5fb) |
