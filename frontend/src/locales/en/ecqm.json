@@ -28,6 +28,13 @@
       "reviewCql": "Review CQL"
     },
     "saveFailed": "Save failed",
+    "saving": "Saving...",
+    "saved": "All changes saved",
+    "unsavedChanges": "Unsaved changes",
+    "unsavedTitle": "Unsaved Changes",
+    "unsavedMessage": "You have unsaved changes. Are you sure you want to leave without saving?",
+    "discardChanges": "Discard",
+    "saveAndLeave": "Save & Leave",
     "publishSuccess": "Published successfully",
     "publishFailed": "Publish failed",
     "baseElementsPlaceholder": "Base Elements tab shares the same ConjunctionGroup-based builder as CDS authoring. Configure reusable expressions referenced by multiple populations.",
@@ -36,6 +43,7 @@
   },
   "header": {
     "backToList": "Back to list",
+    "save": "Save",
     "publishing": "Publishing...",
     "publish": "Publish",
     "basedSuffix": "{{basis}}-based"

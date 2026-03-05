@@ -28,6 +28,13 @@
       "reviewCql": "檢視 CQL"
     },
     "saveFailed": "儲存失敗",
+    "saving": "儲存中...",
+    "saved": "所有變更已儲存",
+    "unsavedChanges": "有未儲存的變更",
+    "unsavedTitle": "未儲存的變更",
+    "unsavedMessage": "您有未儲存的變更。確定要離開嗎？",
+    "discardChanges": "捨棄",
+    "saveAndLeave": "儲存並離開",
     "publishSuccess": "發佈成功",
     "publishFailed": "發佈失敗",
     "baseElementsPlaceholder": "基礎元素分頁共用 CDS 撰寫的 ConjunctionGroup 建構器。可設定多個族群共用的可重複使用表達式。",
@@ -36,6 +43,7 @@
   },
   "header": {
     "backToList": "返回列表",
+    "save": "儲存",
     "publishing": "發佈中...",
     "publish": "發佈",
     "basedSuffix": "以 {{basis}} 為基準"
