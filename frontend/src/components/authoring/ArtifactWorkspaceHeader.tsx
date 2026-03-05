@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material'
 import { useDeployCdsService, useSaveAsLibrary } from '../../hooks/useArtifactTesting'
 import { useGenerateArtifactCql, useExportArtifactZip } from '../../hooks/useArtifactCql'
+import { extractApiError, extractApiErrorDetails } from '../../utils/errorUtils'
 import CpgMetadataEditor from './CpgMetadataEditor'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
 import { CDS_HOOK_TYPES, getHookDescription } from '../../constants/cdsHooks'
@@ -49,6 +50,8 @@ export default function ArtifactWorkspaceHeader({
   const [cpgDialogOpen, setCpgDialogOpen] = useState(false)
 
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveErrorDetails, setSaveErrorDetails] = useState<string[]>([])
 
   const deployMutation = useDeployCdsService()
   const saveLibMutation = useSaveAsLibrary()
@@ -58,8 +61,13 @@ export default function ArtifactWorkspaceHeader({
   const saveFirst = async () => {
     if (isDirty && onSaveBeforeGenerate) {
       setSaving(true)
+      setSaveError(null)
       try {
         await onSaveBeforeGenerate()
+      } catch (err) {
+        setSaveError(extractApiError(err))
+        setSaveErrorDetails(extractApiErrorDetails(err) || [])
+        throw err
       } finally {
         setSaving(false)
       }
@@ -102,7 +110,7 @@ export default function ArtifactWorkspaceHeader({
   }
 
   const handleDeploy = async () => {
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     const serviceId = artifact.name.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase()
     deployMutation.mutate(
       { id: artifact.id, serviceId, hook: deployHook },
@@ -117,14 +125,16 @@ export default function ArtifactWorkspaceHeader({
 
   const handleSaveAsLibrary = async () => {
     setAnchorEl(null)
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     saveLibMutation.mutate(artifact.id, {
       onSuccess: (data) => setSaveLibResult(data.message),
     })
   }
 
   const handleViewCql = async () => {
-    await saveFirst()
+    try {
+      await saveFirst()
+    } catch { return }
     generateCqlMutation.mutate(artifact.id, {
       onSuccess: (data) => {
         setViewCqlContent(data.cql)
@@ -137,14 +147,14 @@ export default function ArtifactWorkspaceHeader({
 
   const handleExportZip = async () => {
     setAnchorEl(null)
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     exportZipMutation.mutate(artifact.id, {
       onSuccess: (blob) => downloadBlob(blob, `${safeName}.zip`),
     })
   }
 
   const handleDownloadCql = async () => {
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     generateCqlMutation.mutate(artifact.id, {
       onSuccess: (data) => {
         downloadBlob(new Blob([data.cql], { type: 'text/plain' }), `${safeName}.cql`)
@@ -282,6 +292,17 @@ export default function ArtifactWorkspaceHeader({
         </Stack>
       </Box>
 
+      {saveError && (
+        <Alert severity="error" onClose={() => { setSaveError(null); setSaveErrorDetails([]) }} sx={{ mx: 2, mt: 1 }}>
+          <Typography variant="subtitle2">{t('header.saveFailed')}</Typography>
+          <Typography variant="body2">{saveError}</Typography>
+          {saveErrorDetails.map((detail, i) => (
+            <Typography key={i} variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+              • {detail}
+            </Typography>
+          ))}
+        </Alert>
+      )}
       {deployResult && (
         <Alert severity="success" onClose={() => setDeployResult(null)} sx={{ mx: 2, mt: 1 }}>
           {deployResult}

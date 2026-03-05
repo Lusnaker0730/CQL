@@ -227,6 +227,12 @@ public class ExpressionCqlEngine {
             return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", List.of()));
 
         for (Map<String, Object> field : fields) {
+            // Skip metadata fields (element_name, comment) — they don't carry resource data
+            String fieldId = getStr(field, "id", "");
+            if ("element_name".equals(fieldId) || "comment".equals(fieldId)) {
+                continue;
+            }
+
             List<Map<String, Object>> vsRefs = (List<Map<String, Object>>) field.get("valueSets");
             List<Map<String, Object>> codeRefs = (List<Map<String, Object>>) field.get("codes");
 

@@ -79,6 +79,7 @@
     "hookTypeLabel": "Hook 類型",
     "deploying": "部署中...",
     "deploy": "部署",
+    "saveFailed": "儲存失敗",
     "deployFailed": "部署失敗",
     "deployHint": "請確保您的人工製品具有有效的納入條件和至少一項建議後再部署。",
     "saveLibFailed": "儲存為函式庫失敗",

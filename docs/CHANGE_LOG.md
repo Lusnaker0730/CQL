@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | |
 | PAT-026 | ✨ patch | 2026-03-05 | 安全性 | CQL 注入修復 + XSS 修復 — escapeCqlString 補齊 + dangerouslySetInnerHTML escapeValue | Backend (Authoring) + Frontend (全模組) | [`f1fe52e`](../../commit/f1fe52e) |
 | PAT-025 | ✨ patch | 2026-03-05 | 重構 | FreeMarker 模板引擎遷移 — CQL 產生器從字串拼接重構為模板架構 + 表達式樹 conjunction 前端重構 | Backend (Authoring, eCQM) + Frontend (Authoring) | [`f1fe52e`](../../commit/f1fe52e) |
 | PAT-024 | ✨ patch | 2026-03-04 | eCQM | eCQM 視覺化 CQL 產生引擎 — 全端實作 + Publish 至 MeasureDefinition | Backend + Frontend (eCQM, Authoring) | [`e356957`](../../commit/e356957) |
@@ -139,6 +140,22 @@
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
 | 安全漏洞 | 認證、授權、注入、XSS 等安全缺陷 |
 | 測試遺漏 | 測試案例不足或驗證不完整 |
+
+---
+
+## 詳細記錄 — 🐛 Bugfix（BUG-083+）
+
+## BUG-083 — CQL Retrieve 使用 element_name 而非 code display + save 驗證錯誤未顯示
+
+- **日期**: 2026-03-05
+- **範圍**: CDS Authoring（前後端）
+- **根因**: `ExpressionCqlEngine.buildGenericResourceExpression()` 迴圈遍歷所有 fields 時，`element_name` field 排第一且有非空字串 value，觸發 `value instanceof String` fallback 提前 return，永遠走不到帶有 codes/valueSets 的 observation field。同時前端 `saveFirst()` 失敗時錯誤被吞掉，使用者看不到驗證錯誤訊息。
+- **修復**:
+  - Backend: `buildGenericResourceExpression` 迴圈中跳過 `element_name` 和 `comment` metadata fields
+  - Frontend: `ArtifactWorkspaceHeader` 和 `CqlPreviewPanel` 的 `saveFirst()` 加入 catch，用 `extractApiError` + `extractApiErrorDetails` 顯示錯誤 Alert
+  - 新增 `extractApiErrorDetails()` 提取後端 `ValidationException.details` 陣列
+  - 修正 3 個測試的資料結構（valueSets 從 element_name field 移到正確的 observation field）
+- **影響**: `[Observation: "LDL>130"]` → `[Observation: "LDL from lipid profile"]`（正確使用 code display）
 
 ---
 

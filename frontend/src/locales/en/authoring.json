@@ -79,6 +79,7 @@
     "hookTypeLabel": "Hook Type",
     "deploying": "Deploying...",
     "deploy": "Deploy",
+    "saveFailed": "Save Failed",
     "deployFailed": "Deploy Failed",
     "deployHint": "Ensure your artifact has valid inclusion criteria and at least one recommendation before deploying.",
     "saveLibFailed": "Save as Library Failed",

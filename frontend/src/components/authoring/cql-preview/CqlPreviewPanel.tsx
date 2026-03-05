@@ -9,6 +9,7 @@ import { usePreferences } from '../../../hooks/usePreferences'
 import { registerCqlLanguage } from '../../../utils/cqlSyntax'
 import type { CqlTranslationResponse } from '../../../types'
 import { codeBlockSx } from '../../../constants/authoringConstants'
+import { extractApiError, extractApiErrorDetails } from '../../../utils/errorUtils'
 
 interface CqlPreviewPanelProps {
   artifactId: number
@@ -21,6 +22,8 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   const [cql, setCql] = useState<string | null>(null)
   const [validation, setValidation] = useState<CqlTranslationResponse | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveErrorDetails, setSaveErrorDetails] = useState<string[]>([])
   const [cqlIsStale, setCqlIsStale] = useState(false)
   const [colorizedHtml, setColorizedHtml] = useState<string>('')
 
@@ -64,8 +67,13 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   const saveFirst = async () => {
     if (isDirty && onSaveBeforeGenerate) {
       setSaving(true)
+      setSaveError(null)
       try {
         await onSaveBeforeGenerate()
+      } catch (err) {
+        setSaveError(extractApiError(err))
+        setSaveErrorDetails(extractApiErrorDetails(err) || [])
+        throw err
       } finally {
         setSaving(false)
       }
@@ -73,7 +81,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   }
 
   const handleGenerate = async () => {
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     generateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setCql(data.cql)
@@ -84,7 +92,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   }
 
   const handleValidate = async () => {
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     validateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setValidation(data)
@@ -138,6 +146,18 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
         </GradientButton>
         {(isLoading || formatMutation.isPending) && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
       </Stack>
+
+      {saveError && (
+        <Alert severity="error" onClose={() => { setSaveError(null); setSaveErrorDetails([]) }} sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">{t('header.saveFailed')}</Typography>
+          <Typography variant="body2">{saveError}</Typography>
+          {saveErrorDetails.map((detail, i) => (
+            <Typography key={i} variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+              • {detail}
+            </Typography>
+          ))}
+        </Alert>
+      )}
 
       {generateMutation.isError && (
         <Alert severity="error" onClose={() => generateMutation.reset()} sx={{ mb: 2 }}>

@@ -97,7 +97,8 @@ class CqlArtifactBuilderTest {
         child.put("name", "LDL Cholesterol");
         child.put("returnType", "list_of_observations");
         child.put("fields", List.of(
-                Map.of("id", "element_name", "value", "LDL Cholesterol",
+                Map.of("id", "element_name", "value", "LDL Cholesterol"),
+                Map.of("id", "observation", "type", "observation_vsac",
                         "valueSets", List.of(Map.of("name", "LDL Cholesterol")))
         ));
         child.put("modifiers", List.of(lookBackModifier));
@@ -133,7 +134,8 @@ class CqlArtifactBuilderTest {
         child.put("type", "GenericObservation_vsac");
         child.put("name", "BP");
         child.put("fields", List.of(
-                Map.of("id", "element_name", "value", "BP",
+                Map.of("id", "element_name", "value", "BP"),
+                Map.of("id", "observation", "type", "observation_vsac",
                         "valueSets", List.of(Map.of("name", "Blood Pressure")))
         ));
         child.put("modifiers", List.of(lookBackModifier));
