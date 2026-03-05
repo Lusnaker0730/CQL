@@ -20,6 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -178,6 +179,20 @@ public class EcqmController {
     public ResponseEntity<Map<String, Object>> uploadExternalCql(
             @PathVariable Long id, @RequestParam("file") MultipartFile file) throws Exception {
         verifyOwnership(id);
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
+        }
+        if (file.getSize() > 1_048_576) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds 1MB limit"));
+        }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".cql")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Only .cql files are accepted"));
+        }
+        String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+        if (!content.contains("library ") && !content.contains("define ") && !content.contains("using ")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File does not appear to contain valid CQL content"));
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(externalCqlService.uploadLibrary(id, file));
     }
 

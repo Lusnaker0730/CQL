@@ -1,7 +1,6 @@
 import { useEcqmExternalCqlList, useUploadEcqmExternalCql, useDeleteEcqmExternalCql } from '../../hooks/useEcqm'
 import { ExternalCqlView } from '../authoring/external-cql/ExternalCql'
 import type { ExternalCqlLibrary } from '../../types/authoring'
-import type { UseMutationResult } from '@tanstack/react-query'
 
 interface Props {
   artifactId: number
@@ -18,8 +17,8 @@ export default function EcqmExternalCql({ artifactId, onApplyToArtifact }: Props
       libraries={libraries}
       isLoading={isLoading}
       error={error}
-      uploadMutation={uploadMutation as UseMutationResult<ExternalCqlLibrary, Error, File>}
-      deleteMutation={deleteMutation as UseMutationResult<unknown, Error, number>}
+      uploadMutation={uploadMutation}
+      deleteMutation={deleteMutation}
       onApplyToArtifact={onApplyToArtifact}
     />
   )

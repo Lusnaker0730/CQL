@@ -325,8 +325,8 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
       libraries={libraries}
       isLoading={isLoading}
       error={error}
-      uploadMutation={uploadMutation as UseMutationResult<ExternalCqlLibrary, Error, File>}
-      deleteMutation={deleteMutation as UseMutationResult<unknown, Error, number>}
+      uploadMutation={uploadMutation}
+      deleteMutation={deleteMutation}
       onApplyToArtifact={onApplyToArtifact}
     />
   )

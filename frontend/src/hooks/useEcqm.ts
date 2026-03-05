@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ecqmApi } from '../api'
 import type { EcqmArtifactRequest } from '../types/ecqm'
+import type { ExternalCqlLibrary } from '../types/authoring'
 
 const ECQM_KEY = ['ecqm', 'artifacts'] as const
 
@@ -106,7 +107,7 @@ export function useEcqmExternalCqlList(artifactId: number) {
 
 export function useUploadEcqmExternalCql(artifactId: number) {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<ExternalCqlLibrary, Error, File>({
     mutationFn: (file: File) => ecqmApi.uploadExternalCql(artifactId, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ecqm-external-cql', artifactId] })
@@ -116,7 +117,7 @@ export function useUploadEcqmExternalCql(artifactId: number) {
 
 export function useDeleteEcqmExternalCql(artifactId: number) {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<unknown, Error, number>({
     mutationFn: (libId: number) => ecqmApi.deleteExternalCql(artifactId, libId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ecqm-external-cql', artifactId] })
