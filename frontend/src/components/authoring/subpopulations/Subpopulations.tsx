@@ -131,7 +131,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
         <DialogTitle>{t('subpopulations.deleteTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('subpopulations.deleteConfirm', { name: pendingDeleteName }) }}
+            dangerouslySetInnerHTML={{ __html: t('subpopulations.deleteConfirm', { name: pendingDeleteName, interpolation: { escapeValue: true } }) }}
           />
         </DialogContent>
         <DialogActions>

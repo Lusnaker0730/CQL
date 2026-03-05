@@ -242,7 +242,7 @@ export default function ManageServicesPanel() {
             </Button>
           }
         >
-          <span dangerouslySetInnerHTML={{ __html: t('manage.editingAlert', { name: services?.find((s) => s.id === activeServiceId)?.title }) }} />
+          <span dangerouslySetInnerHTML={{ __html: t('manage.editingAlert', { name: services?.find((s) => s.id === activeServiceId)?.title, interpolation: { escapeValue: true } }) }} />
         </Alert>
       )}
 

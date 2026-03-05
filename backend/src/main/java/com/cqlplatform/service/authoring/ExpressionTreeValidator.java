@@ -4,10 +4,12 @@ import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.authoring.ArtifactRequest;
 import com.cqlplatform.model.authoring.AuthoringConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ExpressionTreeValidator {
@@ -33,6 +35,7 @@ public class ExpressionTreeValidator {
         validateDefineNames(request, errors);
 
         if (!errors.isEmpty()) {
+            log.warn("Expression tree validation errors: {}", errors);
             throw new ValidationException("Invalid expression tree elements", errors);
         }
     }

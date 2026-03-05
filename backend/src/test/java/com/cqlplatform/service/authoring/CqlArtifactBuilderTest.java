@@ -10,8 +10,15 @@ import static org.assertj.core.api.Assertions.*;
 
 class CqlArtifactBuilderTest {
 
-    private final ExpressionCqlEngine engine = new ExpressionCqlEngine();
-    private final CqlArtifactBuilder builder = new CqlArtifactBuilder(engine);
+    private final CqlTemplateEngine templateEngine;
+    private final ExpressionCqlEngine engine;
+    private final CqlArtifactBuilder builder;
+
+    CqlArtifactBuilderTest() {
+        templateEngine = new CqlTemplateEngine();
+        engine = new ExpressionCqlEngine(templateEngine);
+        builder = new CqlArtifactBuilder(engine, templateEngine);
+    }
 
     private Map<String, Object> emptyTree() {
         Map<String, Object> tree = new LinkedHashMap<>();
@@ -197,6 +204,68 @@ class CqlArtifactBuilderTest {
 
         // Both bounds → should be parenthesized
         assertThat(result.cql()).contains("(AgeInYears() >= 18 and AgeInYears() <= 65)");
+    }
+
+    @Test
+    void buildCql_withSimpleRecommendation_shouldProduceDefine() {
+        Map<String, Object> rec = new LinkedHashMap<>();
+        rec.put("text", "Consider aspirin therapy");
+
+        CqlBuildResult result = builder.buildCql(
+                "RecTest", "1.0.0",
+                emptyTree(), emptyTree(),
+                List.of(), List.of(), List.of(),
+                null, List.of(rec), "R4"
+        );
+
+        assertThat(result.cql()).contains("define \"Recommendation\":");
+        assertThat(result.cql()).contains("'Consider aspirin therapy'");
+        assertThat(result.cql()).contains("else null");
+    }
+
+    @Test
+    void buildCql_withCdsCardRecommendation_shouldProduceTuple() {
+        Map<String, Object> rec = new LinkedHashMap<>();
+        rec.put("text", "Start statin");
+        rec.put("detail", "Patient meets criteria");
+        rec.put("indicator", "warning");
+        rec.put("cdsCardMode", true);
+
+        CqlBuildResult result = builder.buildCql(
+                "CardTest", "1.0.0",
+                emptyTree(), emptyTree(),
+                List.of(), List.of(), List.of(),
+                null, List.of(rec), "R4"
+        );
+
+        assertThat(result.cql()).contains("Tuple {");
+        assertThat(result.cql()).contains("summary: 'Start statin'");
+        assertThat(result.cql()).contains("detail: 'Patient meets criteria'");
+        assertThat(result.cql()).contains("indicator: 'warning'");
+    }
+
+    @Test
+    void buildCql_withErrorStatement_shouldProduceIfThenElse() {
+        Map<String, Object> errorStmt = new LinkedHashMap<>();
+        List<Map<String, Object>> clauses = new ArrayList<>();
+        Map<String, Object> clause1 = new LinkedHashMap<>();
+        clause1.put("ifCondition", Map.of("value", "doesnt_meet_inclusion"));
+        clause1.put("thenClause", "Patient does not meet inclusion criteria");
+        clauses.add(clause1);
+        errorStmt.put("ifThenClauses", clauses);
+        errorStmt.put("elseClause", "No errors");
+
+        CqlBuildResult result = builder.buildCql(
+                "ErrorTest", "1.0.0",
+                emptyTree(), emptyTree(),
+                List.of(), List.of(), List.of(),
+                errorStmt, List.of(), "R4"
+        );
+
+        assertThat(result.cql()).contains("define \"Errors\":");
+        assertThat(result.cql()).contains("if not \"MeetsInclusionCriteria\"");
+        assertThat(result.cql()).contains("then 'Patient does not meet inclusion criteria'");
+        assertThat(result.cql()).contains("else 'No errors'");
     }
 
     @Test

@@ -21,6 +21,9 @@ import java.util.stream.Collectors;
 public class ModifierService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    /** Legacy modifier IDs that may still exist in saved artifacts. */
+    private static final Set<String> LEGACY_MODIFIER_IDS = Set.of(
+            "ConvertToMgPerdL_Qty");
     private List<ModifierDefinition> modifiers = new ArrayList<>();
     private Set<String> knownModifierIds = new HashSet<>();
 
@@ -45,7 +48,7 @@ public class ModifierService {
     }
 
     public boolean isValidModifierId(String id) {
-        return knownModifierIds.contains(id);
+        return knownModifierIds.contains(id) || LEGACY_MODIFIER_IDS.contains(id);
     }
 
     public List<ModifierDefinition> getAllModifiers() {

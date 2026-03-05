@@ -30,6 +30,7 @@ export default function ElementSelect({ templates, dynamicEntries, twcoreMode, o
         name: f.name,
         value: f.value ?? undefined,
         static: f.static,
+        select: f.select,
         codes: f.codes,
         valueSets: f.valueSets,
       })),

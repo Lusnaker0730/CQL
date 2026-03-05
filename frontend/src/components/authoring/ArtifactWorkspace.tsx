@@ -27,6 +27,52 @@ import {
 } from '../../constants/authoringConstants'
 import { generateId } from '../../utils/validation'
 
+/**
+ * Sync reference element names with current base elements / parameters.
+ * Walks an expression tree and patches element_name fields for references.
+ */
+function syncReferenceNames(
+  children: ElementInstance[],
+  beMap: Map<string, string>,
+  paramMap: Map<string, string>,
+): ElementInstance[] {
+  return children.map((el) => {
+    // Recurse into conjunction sub-groups
+    if (el.conjunction && el.childInstances) {
+      const synced = syncReferenceNames(el.childInstances, beMap, paramMap)
+      return synced !== el.childInstances ? { ...el, childInstances: synced } : el
+    }
+    // Patch reference names
+    if (el.type === 'baseElementRef' || el.type === 'parameterRef') {
+      const refId = el.fields?.find((f) => f.id === 'reference_id')?.value as string | undefined
+      if (!refId) return el
+      const map = el.type === 'baseElementRef' ? beMap : paramMap
+      const currentName = map.get(refId)
+      if (!currentName) return el
+      const nameField = el.fields?.find((f) => f.id === 'element_name')
+      if (nameField && nameField.value === currentName && el.name === currentName) return el
+      return {
+        ...el,
+        name: currentName,
+        fields: (el.fields || []).map((f) =>
+          f.id === 'element_name' ? { ...f, value: currentName } : f
+        ),
+      }
+    }
+    return el
+  })
+}
+
+function syncTreeRefs(
+  tree: ConjunctionGroupType | undefined,
+  beMap: Map<string, string>,
+  paramMap: Map<string, string>,
+): ConjunctionGroupType | undefined {
+  if (!tree?.childInstances?.length) return tree
+  const synced = syncReferenceNames(tree.childInstances, beMap, paramMap)
+  return synced !== tree.childInstances ? { ...tree, childInstances: synced } : tree
+}
+
 interface ArtifactWorkspaceProps {
   artifact: Artifact
   onBack: () => void
@@ -209,7 +255,21 @@ export default function ArtifactWorkspace({
   const updateLocal = useCallback((updates: Partial<Artifact>) => {
     setLocalArtifact((prev) => {
       pushState(prev)
-      return { ...prev, ...updates }
+      const next = { ...prev, ...updates }
+
+      // If base elements or parameters changed, sync reference names in expression trees
+      if (updates.baseElements || updates.parameters) {
+        const beMap = new Map<string, string>()
+        for (const be of (next.baseElements || [])) beMap.set(be.uniqueId, be.name)
+        const paramMap = new Map<string, string>()
+        for (const p of (next.parameters || [])) if (p.name) paramMap.set(p.uniqueId, p.name)
+
+        const syncedInclude = syncTreeRefs(next.expTreeInclude, beMap, paramMap)
+        const syncedExclude = syncTreeRefs(next.expTreeExclude, beMap, paramMap)
+        if (syncedInclude !== next.expTreeInclude) next.expTreeInclude = syncedInclude!
+        if (syncedExclude !== next.expTreeExclude) next.expTreeExclude = syncedExclude!
+      }
+      return next
     })
     setIsDirty(true)
   }, [pushState])
@@ -443,7 +503,7 @@ export default function ArtifactWorkspace({
   const dynamicEntries = useMemo((): DynamicEntry[] => {
     const entries: DynamicEntry[] = []
 
-    // Base Elements
+    // Base Elements — use the stored returnType (already computed by BaseElements component)
     for (const be of (localArtifact.baseElements || [])) {
       entries.push({
         id: `be-${be.uniqueId}`,

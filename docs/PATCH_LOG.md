@@ -32,6 +32,8 @@
 | 022 | 2026-02-28 | Authoring | TWCORE IG 範本支援（19 預設範本 + TW 代碼系統 + 目錄擴充） | Backend + Frontend (Authoring) | [`bf27974`](../../commit/bf27974) |
 | 023 | 2026-03-04 | 安全性 | JWT Refresh Token 滑動視窗過期 — 雙令牌架構 + 令牌輪換 + 重用偵測 | Backend + Frontend (Auth) | [`256f5d1`](../../commit/256f5d1) |
 | 024 | 2026-03-04 | eCQM | eCQM 視覺化 CQL 產生引擎 — 全端實作 + Publish 至 MeasureDefinition | Backend + Frontend (eCQM, Authoring) | [`e356957`](../../commit/e356957) |
+| 025 | 2026-03-05 | 重構 | FreeMarker 模板引擎遷移 — CQL 產生器從字串拼接重構為模板架構 + 表達式樹 conjunction 前端重構 | Backend (Authoring, eCQM) + Frontend (Authoring) | [`pending`](../../commit/pending) |
+| 026 | 2026-03-05 | 安全性 | CQL 注入修復 + XSS 修復 — escapeCqlString 補齊 + dangerouslySetInnerHTML escapeValue | Backend (Authoring) + Frontend (全模組) | [`pending`](../../commit/pending) |
 
 ---
 
@@ -2120,5 +2122,136 @@ Authoring 規則編寫功能僅使用通用 FHIR R4 範本（每個資源類型�
 - Ratio 雙 IP 產生 `"Initial Population 1"` / `"Initial Population 2"`
 - Continuous Variable 產生 function（非 define）含 aggregateMethod 註解
 - Publish → MeasureDefinition 建立成功，GroupDefinition 正確映射
+
+---
+
+## #025 — FreeMarker 模板引擎遷移 + Conjunction 前端重構
+
+- **日期**: 2026-03-05
+- **範圍**: 重構
+- **分類**: 架構改善 / 可維護性
+
+### 問題描述
+
+CQL 產生器（`CqlArtifactBuilder`、`ExpressionCqlEngine`、`EcqmCqlBuilder`）原先使用大量 `String.format()` 和 `StringBuilder` 拼接 CQL 程式碼，switch-case 內嵌多行字串不易維護。前端 conjunction tree 元件也有重複的 conjunction kind 解析邏輯和顏色映射。
+
+### 實作方案
+
+#### Phase 1：FreeMarker 依賴 + 模板引擎
+
+- `pom.xml` 加入 `spring-boot-starter-freemarker`
+- 新增 `CqlTemplateEngine.java` — 封裝 FreeMarker Configuration，從 `classpath:templates/cql/` 載入模板
+
+#### Phase 2：30 個 FreeMarker 模板
+
+| 目錄 | 模板 | 數量 |
+|------|------|------|
+| `/` | `artifact.ftl`、`ecqm-artifact.ftl` | 2 |
+| `modifiers/` | CheckExistence、BooleanNot、Count、AllTrue、AnyTrue、BooleanComparison、ConvertUnits、WithUnit、LookBackModifier、EqualsString、StartsWithString、EndsWithString、BeforeTime、AfterTime、ContainsValue、IsTrue、IsNotTrue、IsFalse、IsNotFalse | 19 |
+| `elements/` | AgeRange、Gender、GenericResource | 3 |
+| `fragments/` | cds-card、error-statement | 2 |
+| `parameters/` | defaults | 1 |
+| `ecqm/` | standard-sde | 1 |
+
+#### Phase 3：Java Context Builder 重構
+
+- `CqlArtifactBuilder.buildCql()` → 組裝 data model Map → `templateEngine.render("artifact.ftl", dataModel)`
+- `EcqmCqlBuilder.buildEcqmCql()` → 組裝 data model Map → `templateEngine.render("ecqm-artifact.ftl", dataModel)`
+- `ExpressionCqlEngine.applyModifier()` → 每個 modifier 呼叫 `renderModifier("XxxModifier.ftl", model)`
+- 刪除死碼 `emitStandardSde()`
+
+#### Phase 4：前端 Conjunction 共用化
+
+- 新增 `conjunctionTreeUtils.ts` — 匯出 `resolveKind()`、`CONJ_CYCLE`、`nextConjunction()`、`conjColor()`、`changeConnectorAt()`、`addSubGroup()`、`simplifyTree()`
+- `ConjunctionGroup.tsx` 和 `ConjunctionConnector.tsx` 改為從共用模組匯入，移除重複定義
+- `EcqmArtifactWorkspace.tsx` — `localArtifact` 包 `useMemo` 避免不必要的子元件重繪
+- `handleConnectorChange` 改用已計算的 `filteredChildren` memo
+
+#### Phase 5：Code Review 修正
+
+三重平行代碼審查（Reuse / Quality / Efficiency）後修正：
+
+| 嚴重度 | 修正 |
+|--------|------|
+| HIGH | 死碼 `emitStandardSde()` 留在 `EcqmCqlBuilder` → 刪除 |
+| MEDIUM | `resolveKind` 在 `ConjunctionGroup.tsx` 手寫 ternary chain → 改用 `conjunctionTreeUtils.resolveKind()` |
+| MEDIUM | `CONJ_CYCLE` + `nextConjunction` + `conjColor` 在兩個元件重複 → 提取至共用模組 |
+| MEDIUM | `localArtifact` 每次 render 建立新物件 → `useMemo` |
+| LOW | `handleConnectorChange` 重複過濾 → 使用已有的 `filteredChildren` |
+
+### 影響範圍
+
+| 項目 | 數量 |
+|------|------|
+| 新增後端檔案 | 1（CqlTemplateEngine） + 30 模板 |
+| 修改後端檔案 | 6（CqlArtifactBuilder、ExpressionCqlEngine、EcqmCqlBuilder、ModifierService、TemplateService、ExpressionTreeValidator） |
+| 新增後端測試 | 33 snapshot tests |
+| 新增前端檔案 | 3（ConjunctionConnector、conjunctionTreeUtils、modifierUtils） |
+| 修改前端檔案 | 12 |
+
+### 驗證
+
+- Backend 全部 80 tests 通過（51 ExpressionCqlEngine + 11 CqlArtifactBuilder + 18 EcqmCqlBuilder）
+- Frontend TypeScript 編譯通過（`npx tsc --noEmit`，零錯誤）
+- CQL 產出與重構前完全一致（snapshot 比對）
+
+---
+
+## #026 — CQL 注入修復 + 儲存型 XSS 修復
+
+- **日期**: 2026-03-05
+- **範圍**: 安全性
+- **分類**: 注入防護 / XSS 防護
+
+### 問題描述
+
+安全審查發現三類漏洞：
+
+1. **CQL 注入**（MEDIUM）：多個 modifier 和 element 的使用者輸入值被直接嵌入 CQL 單引號字串字面值內，未呼叫 `escapeCqlString()`。攻擊者可透過包含單引號的值（如 `test' or true --`）注入任意 CQL 邏輯。
+2. **CQL 注入**（MEDIUM）：Error Statement 的 `thenClause` / `elseClause` 同樣未逸出。
+3. **儲存型 XSS**（MEDIUM）：多個 React 元件使用 `dangerouslySetInnerHTML` + i18next 插值，但全域 i18n 設定 `escapeValue: false`，導致使用者控制的名稱（如 base element name）可注入 HTML/JavaScript。
+
+### 修復方案
+
+#### Fix 1：CQL 字串逸出補齊
+
+在 `ExpressionCqlEngine.applyModifier()` 中，所有嵌入 CQL `'...'` 字串字面值的使用者輸入均加上 `escapeCqlString()`：
+
+| Modifier / Element | 欄位 | 檔案位置 |
+|--------------------|------|----------|
+| EqualsString | `value` | ExpressionCqlEngine.java |
+| StartsWithString | `value` | ExpressionCqlEngine.java |
+| EndsWithString | `value` | ExpressionCqlEngine.java |
+| ConvertUnits | `unit` | ExpressionCqlEngine.java |
+| WithUnit | `unit` | ExpressionCqlEngine.java |
+| LookBackModifier | `unit` | ExpressionCqlEngine.java |
+| ContainsQuantity | `unit` | ExpressionCqlEngine.java |
+| ValueComparisonNumber/Observation | `unit` | ExpressionCqlEngine.java |
+| Gender | `gender` | ExpressionCqlEngine.java |
+
+#### Fix 2：Error Statement 逸出
+
+在 `CqlArtifactBuilder.buildErrorStatement()` 中，`thenClause` 和 `elseClause` 加上 `engine.escapeCqlString()`。
+
+#### Fix 3：XSS — 選擇性啟用 HTML 逸出
+
+在所有使用 `dangerouslySetInnerHTML` + `t()` 且插值包含使用者控制值的位置，加上 `interpolation: { escapeValue: true }`：
+
+| 元件 | 插值變數 |
+|------|----------|
+| `BaseElements.tsx` | `name` |
+| `Parameters.tsx` | `name` |
+| `Subpopulations.tsx` | `name` |
+| `AdminUsersPage.tsx` | `username` |
+| `ManageServicesPanel.tsx` | `name` |
+| `ArtifactElementBody.tsx` | `input`, `output` |
+| `PopulationCriteriaTab.tsx` | `scoringType` |
+
+### 驗證
+
+- Backend 全部 80 tests 通過
+- Frontend TypeScript 編譯通過
+- `escapeCqlString()` 已處理 `\` → `\\` 和 `'` → `\'` 兩種逸出
+- i18next `interpolation.escapeValue: true` 會將 `<`、`>`、`&`、`"` 轉為 HTML entities
 
 ---

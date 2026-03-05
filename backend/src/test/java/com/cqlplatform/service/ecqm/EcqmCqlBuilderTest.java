@@ -2,6 +2,7 @@ package com.cqlplatform.service.ecqm;
 
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.model.ecqm.EcqmConstants;
+import com.cqlplatform.service.authoring.CqlTemplateEngine;
 import com.cqlplatform.service.authoring.ExpressionCqlEngine;
 import org.junit.jupiter.api.Test;
 
@@ -11,8 +12,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EcqmCqlBuilderTest {
 
-    private final ExpressionCqlEngine engine = new ExpressionCqlEngine();
-    private final EcqmCqlBuilder builder = new EcqmCqlBuilder(engine);
+    private final CqlTemplateEngine templateEngine;
+    private final ExpressionCqlEngine engine;
+    private final EcqmCqlBuilder builder;
+
+    EcqmCqlBuilderTest() {
+        templateEngine = new CqlTemplateEngine();
+        engine = new ExpressionCqlEngine(templateEngine);
+        builder = new EcqmCqlBuilder(engine, templateEngine);
+    }
 
     // ===== Helpers =====
 

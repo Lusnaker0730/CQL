@@ -3,6 +3,7 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.model.ecqm.EcqmConstants;
+import com.cqlplatform.service.authoring.CqlTemplateEngine;
 import com.cqlplatform.service.authoring.ExpressionCqlEngine;
 import com.cqlplatform.service.authoring.ExpressionCqlEngine.BuildContext;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class EcqmCqlBuilder {
     private static final String FHIR_HELPERS = "FHIRHelpers";
 
     private final ExpressionCqlEngine engine;
+    private final CqlTemplateEngine templateEngine;
 
     /**
      * Build eCQM CQL from population groups and related data.
@@ -39,19 +41,11 @@ public class EcqmCqlBuilder {
             List<Map<String, Object>> stratifiers,
             String fhirVersion) {
 
-        BuildContext ctx = new BuildContext(baseElements);
+        BuildContext ctx = new BuildContext(baseElements, parameters);
 
         String resolvedFhirVersion = engine.resolveFhirVersion(fhirVersion != null ? fhirVersion : "R4");
         String resolvedHelpersVersion = engine.resolveHelpersVersion(fhirVersion != null ? fhirVersion : "R4");
         boolean isEpisodeBased = populationBasis != null && !"boolean".equalsIgnoreCase(populationBasis);
-
-        StringBuilder cql = new StringBuilder();
-        Set<String> valueSets = new LinkedHashSet<>();
-        Set<String> codeSystems = new LinkedHashSet<>();
-        Set<String> codes = new LinkedHashSet<>();
-        Set<String> includes = new LinkedHashSet<>();
-
-        includes.add(String.format("include %s version '%s' called FHIRHelpers", FHIR_HELPERS, resolvedHelpersVersion));
 
         // Validate scoring type
         List<String> validationErrors = validateScoringPopulations(scoringType, populationGroups);
@@ -59,56 +53,63 @@ public class EcqmCqlBuilder {
             ctx.warn(err);
         }
 
-        // Collect declarations from all trees
+        // ── Collect declarations ──────────────────────────────────────────
+        Set<String> valueSets = new LinkedHashSet<>();
+        Set<String> codeSystems = new LinkedHashSet<>();
+        Set<String> codes = new LinkedHashSet<>();
+        Set<String> includes = new LinkedHashSet<>();
+
+        includes.add(String.format("include %s version '%s' called FHIRHelpers", FHIR_HELPERS, resolvedHelpersVersion));
+
         collectAllDeclarations(populationGroups, baseElements, supplementalData, stratifiers,
                 valueSets, codeSystems, codes, includes);
 
-        // ── Library header ────────────────────────────────────────────────
+        // ── Build data model ─────────────────────────────────────────────
+        Map<String, Object> dataModel = new HashMap<>();
         String safeName = name.replaceAll("[^a-zA-Z0-9_]", "_");
-        cql.append(String.format("library %s version '%s'%n", safeName,
-                version != null ? version : AuthoringConstants.DEFAULT_VERSION));
-        cql.append("\n");
-        cql.append(String.format("using FHIR version '%s'%n%n", resolvedFhirVersion));
+        dataModel.put("safeName", safeName);
+        dataModel.put("version", version != null ? version : AuthoringConstants.DEFAULT_VERSION);
+        dataModel.put("fhirVersion", resolvedFhirVersion);
+        dataModel.put("includes", includes);
+        dataModel.put("valueSets", valueSets);
 
-        engine.emitIncludes(cql, includes);
-        engine.emitValueSets(cql, valueSets);
-        engine.emitCodeSystems(cql, codeSystems);
-        engine.emitCodes(cql, codes);
+        List<Map<String, String>> codeSystemEntries = new ArrayList<>();
+        for (String cs : codeSystems) {
+            codeSystemEntries.add(Map.of("name", engine.getCodeSystemDisplayName(cs), "id", cs));
+        }
+        dataModel.put("codeSystemEntries", codeSystemEntries);
+        dataModel.put("codes", codes);
 
-        // ── Measurement Period parameter ──────────────────────────────────
-        cql.append("parameter \"Measurement Period\" Interval<DateTime>\n");
-        cql.append("  default Interval[@2025-01-01T00:00:00.0, @2025-12-31T23:59:59.999]\n\n");
-
-        // ── User parameters ───────────────────────────────────────────────
+        // Parameters
+        List<Map<String, String>> paramModels = new ArrayList<>();
         if (parameters != null) {
             for (Map<String, Object> param : parameters) {
                 String pName = engine.getStr(param, "name", "Param");
                 String pType = engine.getStr(param, "type", "boolean");
                 String cqlType = engine.mapParameterType(pType);
-                Object pDefault = param.get("value");
-                String formattedDefault = engine.formatParameterDefault(pType, pDefault);
-                if (formattedDefault != null) {
-                    cql.append(String.format("parameter \"%s\" %s default %s%n", pName, cqlType, formattedDefault));
-                } else {
-                    cql.append(String.format("parameter \"%s\" %s%n", pName, cqlType));
-                }
+                String formattedDefault = engine.formatParameterDefault(pType, param.get("value"));
+                Map<String, String> pm = new HashMap<>();
+                pm.put("name", pName);
+                pm.put("cqlType", cqlType);
+                pm.put("formattedDefault", formattedDefault != null ? formattedDefault : "");
+                paramModels.add(pm);
             }
-            cql.append("\n");
         }
+        dataModel.put("params", paramModels);
 
-        // ── Context ───────────────────────────────────────────────────────
-        cql.append("context Patient\n\n");
-
-        // ── Base Elements ─────────────────────────────────────────────────
+        // Base Elements
+        List<Map<String, String>> baseElementModels = new ArrayList<>();
         if (baseElements != null) {
             for (Map<String, Object> be : baseElements) {
                 String beName = engine.getStr(be, "name", "BaseElement");
                 String beExpr = engine.buildExpression(be, ctx);
-                cql.append(String.format("define \"%s\":%n  %s%n%n", beName, beExpr));
+                baseElementModels.add(Map.of("name", beName, "expression", beExpr));
             }
         }
+        dataModel.put("baseElements", baseElementModels);
 
-        // ── Population Groups ─────────────────────────────────────────────
+        // Population Groups — pre-render each group's CQL block
+        List<String> groupBlocks = new ArrayList<>();
         boolean multiGroup = populationGroups != null && populationGroups.size() > 1;
 
         if (populationGroups != null) {
@@ -122,100 +123,117 @@ public class EcqmCqlBuilder {
                     continue;
                 }
 
-                // Check for dual IP (ratio only)
+                StringBuilder block = new StringBuilder();
+
+                // Dual IP (ratio only)
                 Map<String, Object> ipDenom = (Map<String, Object>) group.get("initialPopulationDenom");
                 Map<String, Object> ipNumer = (Map<String, Object>) group.get("initialPopulationNumer");
                 boolean dualIp = EcqmConstants.SCORING_RATIO.equals(scoringType)
                         && ipDenom != null && ipNumer != null;
 
                 if (dualIp) {
-                    emitDualInitialPopulations(cql, ipDenom, ipNumer, suffix, ctx);
+                    appendPopulationDefine(block, EcqmConstants.INITIAL_POPULATION_1 + suffix, ipDenom, ctx);
+                    appendPopulationDefine(block, EcqmConstants.INITIAL_POPULATION_2 + suffix, ipNumer, ctx);
                 }
 
-                // Emit population defines in canonical order
+                // Population defines in canonical order
                 for (String popKey : EcqmConstants.ALL_POPULATION_KEYS) {
-                    // Skip IP if dual IP mode
                     if (dualIp && "initial-population".equals(popKey)) continue;
-
                     Object popTree = populations.get(popKey);
                     if (popTree == null) continue;
-
                     String defineName = EcqmConstants.POPULATION_KEY_TO_DEFINE.get(popKey);
                     if (defineName == null) continue;
-
-                    emitPopulationDefine(cql, defineName + suffix, (Map<String, Object>) popTree, ctx);
+                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
                 }
 
                 // Observations (continuous variable)
                 List<Map<String, Object>> observations = (List<Map<String, Object>>) group.get("observations");
                 if (observations != null) {
                     for (Map<String, Object> obs : observations) {
-                        emitObservationFunction(cql, obs, suffix, ctx, isEpisodeBased, populationBasis);
+                        appendObservationFunction(block, obs, suffix, ctx, isEpisodeBased, populationBasis);
                     }
                 }
 
                 // Group-level stratifiers
                 List<Map<String, Object>> groupStratifiers = (List<Map<String, Object>>) group.get("stratifiers");
-                if (groupStratifiers != null) {
-                    emitGroupStratifiers(cql, groupStratifiers, suffix, ctx, dualIp);
+                if (groupStratifiers != null && !groupStratifiers.isEmpty()) {
+                    if (dualIp) {
+                        ctx.warn("Stratifiers are not allowed when using dual Initial Populations (ratio). Skipping.");
+                    } else {
+                        for (Map<String, Object> strat : groupStratifiers) {
+                            appendStratifier(block, strat, suffix, ctx);
+                        }
+                    }
+                }
+
+                if (block.length() > 0) {
+                    groupBlocks.add(block.toString());
                 }
             }
         }
+        dataModel.put("groupBlocks", groupBlocks);
 
-        // ── Top-level stratifiers ─────────────────────────────────────────
-        if (stratifiers != null && !stratifiers.isEmpty()) {
+        // Top-level stratifiers
+        List<Map<String, String>> topStratModels = new ArrayList<>();
+        if (stratifiers != null) {
             for (Map<String, Object> strat : stratifiers) {
                 String stratId = engine.getStr(strat, "stratifierId", "strat");
                 String desc = engine.getStr(strat, "description", "");
                 Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
                 if (criteria != null) {
                     String stratExpr = engine.buildConjunctionExpression(criteria, ctx);
-                    if (!desc.isEmpty()) {
-                        cql.append(String.format("// %s%n", engine.escapeCqlString(desc)));
-                    }
-                    cql.append(String.format("define \"Stratifier %s\":%n  %s%n%n", stratId, stratExpr));
+                    Map<String, String> sm = new HashMap<>();
+                    sm.put("id", stratId);
+                    sm.put("description", desc);
+                    sm.put("expression", stratExpr);
+                    topStratModels.add(sm);
                 }
             }
         }
+        dataModel.put("topStratifiers", topStratModels);
 
-        // ── Supplemental Data Elements ────────────────────────────────────
-        emitSupplementalDataDefines(cql, supplementalData, valueSets);
+        // Supplemental Data Elements
+        List<String> supplementalDefines = new ArrayList<>();
+        if (supplementalData != null) {
+            for (Map<String, Object> sde : supplementalData) {
+                String sdeName = engine.getStr(sde, "name", null);
+                if (sdeName == null) continue;
+                String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
+                if (oid != null) {
+                    valueSets.add(oid);
+                    supplementalDefines.add(buildStandardSde(sdeName, oid));
+                } else {
+                    Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
+                    if (criteria != null) {
+                        String expr = engine.buildConjunctionExpression(criteria, ctx);
+                        if (!"null".equals(expr)) {
+                            supplementalDefines.add(String.format("define \"%s\":\n  %s\n", sdeName, expr));
+                        }
+                    }
+                }
+            }
+        }
+        dataModel.put("supplementalDefines", supplementalDefines);
 
-        return new CqlBuildResult(cql.toString(), List.copyOf(ctx.warnings));
+        // ── Render ───────────────────────────────────────────────────────
+        String cql = templateEngine.render("ecqm-artifact.ftl", dataModel);
+        return new CqlBuildResult(cql, List.copyOf(ctx.warnings));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────
 
-    private void emitPopulationDefine(StringBuilder cql, String defineName,
+    private void appendPopulationDefine(StringBuilder block, String defineName,
             Map<String, Object> tree, BuildContext ctx) {
         String expr = engine.buildConjunctionExpression(tree, ctx);
-        if ("null".equals(expr)) {
-            return; // empty tree → skip
-        }
-        cql.append(String.format("define \"%s\":%n  %s%n%n", defineName, expr));
-    }
-
-    private void emitDualInitialPopulations(StringBuilder cql,
-            Map<String, Object> ipDenom, Map<String, Object> ipNumer,
-            String suffix, BuildContext ctx) {
-        String denomExpr = engine.buildConjunctionExpression(ipDenom, ctx);
-        String numerExpr = engine.buildConjunctionExpression(ipNumer, ctx);
-
-        if (!"null".equals(denomExpr)) {
-            cql.append(String.format("define \"%s%s\":%n  %s%n%n",
-                    EcqmConstants.INITIAL_POPULATION_1, suffix, denomExpr));
-        }
-        if (!"null".equals(numerExpr)) {
-            cql.append(String.format("define \"%s%s\":%n  %s%n%n",
-                    EcqmConstants.INITIAL_POPULATION_2, suffix, numerExpr));
+        if (!"null".equals(expr)) {
+            block.append(String.format("define \"%s\":\n  %s\n\n", defineName, expr));
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void emitObservationFunction(StringBuilder cql, Map<String, Object> obs,
+    private void appendObservationFunction(StringBuilder block, Map<String, Object> obs,
             String suffix, BuildContext ctx,
             boolean isEpisodeBased, String populationBasis) {
-        String obsId = engine.getStr(obs, "observationId", "obs");
         String aggregateMethod = engine.getStr(obs, "aggregateMethod", "Count");
         Map<String, Object> criteria = (Map<String, Object>) obs.get("criteria");
 
@@ -223,36 +241,19 @@ public class EcqmCqlBuilder {
         String paramType = isEpisodeBased ? populationBasis : "Patient";
         String paramName = isEpisodeBased ? populationBasis : "Patient";
 
-        cql.append(String.format("// Aggregate Method: %s%n", engine.escapeCqlString(aggregateMethod)));
-        cql.append(String.format("define function \"%s\"(%s \"%s\"):%n", funcName, paramName, paramType));
+        block.append(String.format("// Aggregate Method: %s\n", engine.escapeCqlString(aggregateMethod)));
+        block.append(String.format("define function \"%s\"(%s \"%s\"):\n", funcName, paramName, paramType));
 
         if (criteria != null) {
             String expr = engine.buildConjunctionExpression(criteria, ctx);
-            if (!"null".equals(expr)) {
-                cql.append(String.format("  %s%n%n", expr));
-            } else {
-                cql.append("  1\n\n");
-            }
+            block.append(!"null".equals(expr) ? String.format("  %s\n\n", expr) : "  1\n\n");
         } else {
-            cql.append("  1\n\n");
-        }
-    }
-
-    private void emitGroupStratifiers(StringBuilder cql,
-            List<Map<String, Object>> groupStratifiers, String suffix,
-            BuildContext ctx, boolean dualIp) {
-        if (dualIp) {
-            ctx.warn("Stratifiers are not allowed when using dual Initial Populations (ratio). Skipping.");
-            return;
-        }
-
-        for (Map<String, Object> strat : groupStratifiers) {
-            emitStratifier(cql, strat, suffix, ctx);
+            block.append("  1\n\n");
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void emitStratifier(StringBuilder cql, Map<String, Object> strat,
+    private void appendStratifier(StringBuilder block, Map<String, Object> strat,
             String suffix, BuildContext ctx) {
         String stratId = engine.getStr(strat, "stratifierId", "strat");
         String desc = engine.getStr(strat, "description", "");
@@ -261,63 +262,23 @@ public class EcqmCqlBuilder {
             String expr = engine.buildConjunctionExpression(criteria, ctx);
             if (!"null".equals(expr)) {
                 if (!desc.isEmpty()) {
-                    cql.append(String.format("// %s%n", engine.escapeCqlString(desc)));
+                    block.append(String.format("// %s\n", engine.escapeCqlString(desc)));
                 }
-                cql.append(String.format("define \"Stratifier %s%s\":%n  %s%n%n", stratId, suffix, expr));
+                block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", stratId, suffix, expr));
             }
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void emitSupplementalDataDefines(StringBuilder cql,
-            List<Map<String, Object>> supplementalData, Set<String> valueSets) {
-        if (supplementalData == null || supplementalData.isEmpty()) return;
+    private String buildStandardSde(String sdeName, String oid) {
+        String sdeType;
+        if (EcqmConstants.SDE_ETHNICITY.equals(sdeName)) sdeType = "ethnicity";
+        else if (EcqmConstants.SDE_RACE.equals(sdeName)) sdeType = "race";
+        else if (EcqmConstants.SDE_SEX.equals(sdeName)) sdeType = "sex";
+        else if (EcqmConstants.SDE_PAYER.equals(sdeName)) sdeType = "payer";
+        else sdeType = "unknown";
 
-        for (Map<String, Object> sde : supplementalData) {
-            String sdeName = engine.getStr(sde, "name", null);
-            if (sdeName == null) continue;
-
-            // Check if this is a standard SDE
-            String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
-            if (oid != null) {
-                // Standard SDE — emit FHIR-based retrieval
-                emitStandardSde(cql, sdeName, oid, valueSets);
-            } else {
-                // Custom SDE with expression tree
-                Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
-                if (criteria != null) {
-                    BuildContext sdeCtx = new BuildContext(null);
-                    String expr = engine.buildConjunctionExpression(criteria, sdeCtx);
-                    if (!"null".equals(expr)) {
-                        cql.append(String.format("define \"%s\":%n  %s%n%n", sdeName, expr));
-                    }
-                }
-            }
-        }
-    }
-
-    private void emitStandardSde(StringBuilder cql, String sdeName, String oid, Set<String> valueSets) {
-        valueSets.add(oid);
-        switch (sdeName) {
-            case EcqmConstants.SDE_ETHNICITY:
-                cql.append(String.format("define \"%s\":%n", sdeName));
-                cql.append("  SDE.\"SDE Ethnicity\"\n\n");
-                break;
-            case EcqmConstants.SDE_RACE:
-                cql.append(String.format("define \"%s\":%n", sdeName));
-                cql.append("  SDE.\"SDE Race\"\n\n");
-                break;
-            case EcqmConstants.SDE_SEX:
-                cql.append(String.format("define \"%s\":%n", sdeName));
-                cql.append("  Patient.gender\n\n");
-                break;
-            case EcqmConstants.SDE_PAYER:
-                cql.append(String.format("define \"%s\":%n", sdeName));
-                cql.append(String.format("  [Coverage: \"%s\"]%n%n", oid));
-                break;
-            default:
-                cql.append(String.format("define \"%s\":%n  null%n%n", sdeName));
-        }
+        return templateEngine.render("ecqm/standard-sde.ftl",
+                Map.of("sdeName", sdeName, "sdeType", sdeType, "oid", oid));
     }
 
     @SuppressWarnings("unchecked")

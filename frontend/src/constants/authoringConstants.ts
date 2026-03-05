@@ -82,6 +82,10 @@ export const ELEMENT_REF_BACKGROUNDS: Record<string, string> = {
 export const CONJUNCTION_COLOR_AND = '#0D7377'
 /** Color for OR conjunction borders/chips (orange accent) */
 export const CONJUNCTION_COLOR_OR = '#E67E22'
+/** Color for UNION conjunction borders/chips (purple) */
+export const CONJUNCTION_COLOR_UNION = '#7B1FA2'
+/** Color for INTERSECT conjunction borders/chips (blue) */
+export const CONJUNCTION_COLOR_INTERSECT = '#1565C0'
 
 // --- Code block styling ---
 

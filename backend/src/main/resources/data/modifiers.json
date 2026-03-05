@@ -497,12 +497,13 @@
     "cqlLibraryFunction": "C3F.InProgressEncounter"
   },
   {
-    "id": "ConvertToMgPerdL_Qty",
-    "name": "Convert to mg/dL",
+    "id": "ConvertUnits",
+    "name": "Convert Units",
     "inputTypes": ["system_quantity"],
     "returnType": "system_quantity",
-    "cqlTemplate": "BaseModifier",
-    "cqlLibraryFunction": "Convert.to_mg_per_dL"
+    "values": { "unit": null },
+    "validator": { "type": "require", "fields": ["unit"] },
+    "cqlTemplate": "ConvertUnits"
   },
   {
     "id": "IsTrue",

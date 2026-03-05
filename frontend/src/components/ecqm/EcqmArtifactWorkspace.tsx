@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Box, Tab, Tabs, Snackbar, Alert } from '@mui/material'
 import type { EcqmArtifact, EcqmArtifactRequest, PopulationGroup, SupplementalDataElement, StratifierElement } from '../../types/ecqm'
 import { useUpdateEcqmArtifact, usePublishEcqm, useEcqmTemplates, useEcqmModifiers } from '../../hooks/useEcqm'
@@ -18,10 +18,25 @@ interface Props {
 export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpdate }: Props) {
   const [tab, setTab] = useState(0)
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+  // Local optimistic state — mirrors server artifact but updates immediately on user edits
+  const [localOverrides, setLocalOverrides] = useState<Partial<EcqmArtifactRequest>>({})
+  const localArtifact = useMemo<EcqmArtifact>(
+    () => ({ ...artifact, ...localOverrides }) as EcqmArtifact,
+    [artifact, localOverrides]
+  )
   const updateMutation = useUpdateEcqmArtifact()
   const publishMutation = usePublishEcqm()
   const { data: templates = [] } = useEcqmTemplates()
   const { data: modifiers = [] } = useEcqmModifiers()
+
+  // Clear local overrides when server artifact changes (refetch completed)
+  const lastArtifactIdRef = useRef(artifact.updatedAt)
+  useEffect(() => {
+    if (artifact.updatedAt !== lastArtifactIdRef.current) {
+      lastArtifactIdRef.current = artifact.updatedAt
+      setLocalOverrides({})
+    }
+  }, [artifact.updatedAt])
 
   // Use refs to avoid unstable callback dependencies on artifact/onArtifactUpdate
   const artifactRef = useRef(artifact)
@@ -48,6 +63,8 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   }, [updateMutation])
 
   const debouncedSave = useCallback((updates: Partial<EcqmArtifactRequest>) => {
+    // Apply optimistic update immediately so UI reflects the change
+    setLocalOverrides(prev => ({ ...prev, ...updates }))
     pendingRef.current = { ...(pendingRef.current || {}), ...updates }
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
@@ -103,11 +120,11 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
 
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {tab === 0 && (
-          <EcqmSummaryTab artifact={artifact} onChange={debouncedSave} />
+          <EcqmSummaryTab artifact={localArtifact} onChange={debouncedSave} />
         )}
         {tab === 1 && (
           <EcqmPopulationGroupsTab
-            artifact={artifact}
+            artifact={localArtifact}
             templates={templates}
             modifiers={modifiers}
             onUpdateGroups={(groups: PopulationGroup[]) => debouncedSave({ populationGroups: groups })}
@@ -131,8 +148,8 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         )}
         {tab === 4 && (
           <EcqmSdeTab
-            supplementalData={artifact.supplementalData || []}
-            supplementalDataGuidance={artifact.supplementalDataGuidance}
+            supplementalData={localArtifact.supplementalData || []}
+            supplementalDataGuidance={localArtifact.supplementalDataGuidance}
             templates={templates}
             modifiers={modifiers}
             onChange={(sde: SupplementalDataElement[]) => debouncedSave({ supplementalData: sde })}
@@ -141,7 +158,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         )}
         {tab === 5 && (
           <EcqmStratifiersTab
-            stratifiers={artifact.stratifiers || []}
+            stratifiers={localArtifact.stratifiers || []}
             templates={templates}
             modifiers={modifiers}
             onChange={(s: StratifierElement[]) => debouncedSave({ stratifiers: s })}

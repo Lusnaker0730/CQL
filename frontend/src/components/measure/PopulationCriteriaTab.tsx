@@ -558,7 +558,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             </Button>
           }
         >
-          <span dangerouslySetInnerHTML={{ __html: t('populationCriteria.scoringChanged', { scoringType: measure.scoringType }) }} />
+          <span dangerouslySetInnerHTML={{ __html: t('populationCriteria.scoringChanged', { scoringType: measure.scoringType, interpolation: { escapeValue: true } }) }} />
         </Alert>
       )}
 

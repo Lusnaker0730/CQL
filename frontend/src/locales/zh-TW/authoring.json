@@ -141,7 +141,12 @@
     "inclusionHint": "定義此人工製品適用的對象。新增人口統計、病況、觀察值或其他條件。",
     "exclusionHint": "定義應排除的對象。符合這些條件的病患將被移出族群。",
     "genericHint": "點擊下方「新增元素」開始建立此群組的邏輯。",
-    "noFilterMatch": "沒有元素符合「{{filter}}」"
+    "noFilterMatch": "沒有元素符合「{{filter}}」",
+    "addSubGroup": "新增子群組",
+    "clickToChangeAnd": "點擊切換為 且",
+    "clickToChangeOr": "點擊切換為 或",
+    "clickToChangeUnion": "點擊切換為 聯集",
+    "clickToChangeIntersect": "點擊切換為 交集"
   },
   "element": {
     "collapse": "摺疊元素",
@@ -206,7 +211,9 @@
   },
   "conjunctionType": {
     "and": "且",
-    "or": "或"
+    "or": "或",
+    "union": "聯集",
+    "intersect": "交集"
   },
   "customModifier": {
     "title": "建立自訂修飾器",

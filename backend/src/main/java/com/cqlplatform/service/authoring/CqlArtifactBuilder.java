@@ -21,6 +21,7 @@ public class CqlArtifactBuilder {
     private static final String C3F_LIBRARY = "CDSConnectCommonsForFHIRv401";
 
     private final ExpressionCqlEngine engine;
+    private final CqlTemplateEngine templateEngine;
 
     public CqlBuildResult buildCql(String name, String version, Map<String, Object> expTreeInclude,
             Map<String, Object> expTreeExclude,
@@ -42,12 +43,12 @@ public class CqlArtifactBuilder {
             List<Map<String, Object>> recommendations,
             String fhirVersion) {
 
-        ExpressionCqlEngine.BuildContext ctx = new ExpressionCqlEngine.BuildContext(baseElements);
+        ExpressionCqlEngine.BuildContext ctx = new ExpressionCqlEngine.BuildContext(baseElements, parameters);
 
         String resolvedFhirVersion = engine.resolveFhirVersion(fhirVersion);
         String resolvedHelpersVersion = engine.resolveHelpersVersion(fhirVersion);
 
-        StringBuilder cql = new StringBuilder();
+        // ── Collect declarations ──────────────────────────────────────────
         Set<String> valueSets = new LinkedHashSet<>();
         Set<String> codeSystems = new LinkedHashSet<>();
         Set<String> codes = new LinkedHashSet<>();
@@ -56,7 +57,6 @@ public class CqlArtifactBuilder {
         includes.add(String.format("include %s version '%s' called FHIRHelpers", FHIR_HELPERS, resolvedHelpersVersion));
         includes.add(String.format("include %s version '2.1.0' called C3F", C3F_LIBRARY));
 
-        // Collect value sets, codes, and external library includes from trees
         engine.collectDeclarations(expTreeInclude, valueSets, codeSystems, codes, includes);
         engine.collectDeclarations(expTreeExclude, valueSets, codeSystems, codes, includes);
         if (baseElements != null) {
@@ -70,108 +70,110 @@ public class CqlArtifactBuilder {
             }
         }
 
-        // Library header
+        // ── Build data model ─────────────────────────────────────────────
+        Map<String, Object> dataModel = new HashMap<>();
         String safeName = name.replaceAll("[^a-zA-Z0-9_]", "_");
-        cql.append(String.format("library %s version '%s'%n", safeName, version != null ? version : AuthoringConstants.DEFAULT_VERSION));
-        cql.append("\n");
-        cql.append(String.format("using FHIR version '%s'%n%n", resolvedFhirVersion));
+        dataModel.put("safeName", safeName);
+        dataModel.put("version", version != null ? version : AuthoringConstants.DEFAULT_VERSION);
+        dataModel.put("fhirVersion", resolvedFhirVersion);
+        dataModel.put("includes", includes);
+        dataModel.put("valueSets", valueSets);
 
-        // Includes
-        engine.emitIncludes(cql, includes);
-
-        // Value Sets
-        engine.emitValueSets(cql, valueSets);
-
-        // Code Systems
-        engine.emitCodeSystems(cql, codeSystems);
-
-        // Codes
-        engine.emitCodes(cql, codes);
+        // Code systems: convert URL → {name, id}
+        List<Map<String, String>> codeSystemEntries = new ArrayList<>();
+        for (String cs : codeSystems) {
+            codeSystemEntries.add(Map.of("name", engine.getCodeSystemDisplayName(cs), "id", cs));
+        }
+        dataModel.put("codeSystemEntries", codeSystemEntries);
+        dataModel.put("codes", codes);
 
         // Parameters
+        List<Map<String, String>> paramModels = new ArrayList<>();
         if (parameters != null) {
             for (Map<String, Object> param : parameters) {
                 String pName = engine.getStr(param, "name", "Param");
                 String pType = engine.getStr(param, "type", "boolean");
                 String cqlType = engine.mapParameterType(pType);
-                Object pDefault = param.get("value");
-                String formattedDefault = engine.formatParameterDefault(pType, pDefault);
-                if (formattedDefault != null) {
-                    cql.append(String.format("parameter \"%s\" %s default %s%n", pName, cqlType, formattedDefault));
-                } else {
-                    cql.append(String.format("parameter \"%s\" %s%n", pName, cqlType));
-                }
+                String formattedDefault = engine.formatParameterDefault(pType, param.get("value"));
+                Map<String, String> pm = new HashMap<>();
+                pm.put("name", pName);
+                pm.put("cqlType", cqlType);
+                pm.put("formattedDefault", formattedDefault != null ? formattedDefault : "");
+                paramModels.add(pm);
             }
-            cql.append("\n");
         }
-
-        // Context
-        cql.append("context Patient\n\n");
+        dataModel.put("params", paramModels);
 
         // Base Elements
+        List<Map<String, String>> baseElementModels = new ArrayList<>();
         if (baseElements != null) {
             for (Map<String, Object> be : baseElements) {
                 String beName = engine.getStr(be, "name", "BaseElement");
-                String beExpr = engine.buildExpression(be, ctx);
-                cql.append(String.format("define \"%s\":%n  %s%n%n", beName, beExpr));
+                String beExpr;
+                if (Boolean.TRUE.equals(be.get("conjunction"))) {
+                    beExpr = engine.buildConjunctionExpression(be, ctx);
+                } else {
+                    beExpr = engine.buildExpression(be, ctx);
+                }
+                baseElementModels.add(Map.of("name", beName, "expression", beExpr));
             }
         }
+        dataModel.put("baseElements", baseElementModels);
 
-        // Inclusion (MeetsInclusionCriteria)
+        // Inclusion / Exclusion
         String inclusionExpr = engine.buildConjunctionExpression(expTreeInclude, ctx);
-        cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_MEETS_INCLUSION, inclusionExpr));
-
-        // Exclusion (MeetsExclusionCriteria)
         String exclusionExpr = engine.buildConjunctionExpression(expTreeExclude, ctx);
         if ("null".equals(exclusionExpr)) {
             exclusionExpr = "false";
         }
-        cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_MEETS_EXCLUSION, exclusionExpr));
-
-        // InPopulation
-        cql.append(String.format("define \"%s\":%n  \"%s\" and not \"%s\"%n%n",
-                AuthoringConstants.DEF_IN_POPULATION, AuthoringConstants.DEF_MEETS_INCLUSION, AuthoringConstants.DEF_MEETS_EXCLUSION));
+        dataModel.put("inclusionExpr", inclusionExpr);
+        dataModel.put("exclusionExpr", exclusionExpr);
+        dataModel.put("defMeetsInclusion", AuthoringConstants.DEF_MEETS_INCLUSION);
+        dataModel.put("defMeetsExclusion", AuthoringConstants.DEF_MEETS_EXCLUSION);
+        dataModel.put("defInPopulation", AuthoringConstants.DEF_IN_POPULATION);
 
         // Subpopulations
+        List<Map<String, String>> subpopModels = new ArrayList<>();
         if (subpopulations != null) {
             for (Map<String, Object> sp : subpopulations) {
-                Boolean special = (Boolean) sp.get("special");
-                if (Boolean.TRUE.equals(special))
-                    continue;
+                if (Boolean.TRUE.equals(sp.get("special"))) continue;
                 String spName = engine.getStr(sp, "subpopulationName", "Subpopulation");
                 String spExpr = engine.buildConjunctionExpression(sp, ctx);
-                cql.append(String.format("define \"%s\":%n  %s%n%n", spName, spExpr));
+                subpopModels.add(Map.of("name", spName, "expression", spExpr));
             }
         }
+        dataModel.put("subpopulations", subpopModels);
 
         // Recommendations
+        List<Map<String, String>> recModels = new ArrayList<>();
         if (recommendations != null && !recommendations.isEmpty()) {
             for (int i = 0; i < recommendations.size(); i++) {
                 Map<String, Object> rec = recommendations.get(i);
-                String defName = recommendations.size() == 1 ? AuthoringConstants.DEF_RECOMMENDATION : AuthoringConstants.DEF_RECOMMENDATION + " " + (i + 1);
+                String defName = recommendations.size() == 1
+                        ? AuthoringConstants.DEF_RECOMMENDATION
+                        : AuthoringConstants.DEF_RECOMMENDATION + " " + (i + 1);
                 String condition = buildRecommendationCondition(rec);
-                boolean isCdsCard = Boolean.TRUE.equals(rec.get("cdsCardMode"));
-
-                cql.append(String.format("define \"%s\":%n  if %s then ", defName, condition));
-                if (isCdsCard) {
-                    cql.append(buildCdsCardTuple(rec));
+                String value;
+                if (Boolean.TRUE.equals(rec.get("cdsCardMode"))) {
+                    value = buildCdsCardTuple(rec);
                 } else {
                     String recText = engine.getStr(rec, "text", "Consider action");
-                    cql.append(String.format("'%s'", engine.escapeCqlString(recText)));
+                    value = String.format("'%s'", engine.escapeCqlString(recText));
                 }
-                cql.append("\n  else null\n\n");
+                recModels.add(Map.of("defName", defName, "condition", condition, "value", value));
             }
         }
+        dataModel.put("recommendations", recModels);
 
         // Error statement
-        if (errorStatement != null && !errorStatement.isEmpty()) {
-            String errExpr = buildErrorStatement(errorStatement);
-            if (errExpr != null) {
-                cql.append(String.format("define \"%s\":%n  %s%n%n", AuthoringConstants.DEF_ERRORS, errExpr));
-            }
-        }
+        String errorExpr = (errorStatement != null && !errorStatement.isEmpty())
+                ? buildErrorStatement(errorStatement) : null;
+        dataModel.put("errorExpr", errorExpr != null ? errorExpr : "");
+        dataModel.put("defErrors", AuthoringConstants.DEF_ERRORS);
 
-        return new CqlBuildResult(cql.toString(), List.copyOf(ctx.warnings));
+        // ── Render ───────────────────────────────────────────────────────
+        String cql = templateEngine.render("artifact.ftl", dataModel);
+        return new CqlBuildResult(cql, List.copyOf(ctx.warnings));
     }
 
     // ── CDS-specific methods (not shared with eCQM) ─────────────────────
@@ -202,103 +204,70 @@ public class CqlArtifactBuilder {
 
     @SuppressWarnings("unchecked")
     private String buildCdsCardTuple(Map<String, Object> rec) {
-        String summary = engine.getStr(rec, "text", "Consider action");
+        String summary = engine.escapeCqlString(engine.getStr(rec, "text", "Consider action"));
         String detail = engine.getStr(rec, "detail", null);
-        String indicator = engine.getStr(rec, "indicator", "info");
+        String indicator = engine.escapeCqlString(engine.getStr(rec, "indicator", "info"));
         String sourceLabel = engine.getStr(rec, "sourceLabel", null);
         String selectionBehavior = engine.getStr(rec, "selectionBehavior", null);
         List<Map<String, Object>> suggestions = (List<Map<String, Object>>) rec.get("suggestions");
 
-        StringBuilder sb = new StringBuilder("Tuple {\n");
-        sb.append(String.format("    summary: '%s'", engine.escapeCqlString(summary)));
-        if (detail != null && !detail.isEmpty()) {
-            sb.append(String.format(",\n    detail: '%s'", engine.escapeCqlString(detail)));
-        }
-        sb.append(String.format(",\n    indicator: '%s'", engine.escapeCqlString(indicator)));
-        if (sourceLabel != null && !sourceLabel.isEmpty()) {
-            sb.append(String.format(",\n    sourceLabel: '%s'", engine.escapeCqlString(sourceLabel)));
-        }
-        if (selectionBehavior != null && !selectionBehavior.isEmpty()) {
-            sb.append(String.format(",\n    selectionBehavior: '%s'", engine.escapeCqlString(selectionBehavior)));
-        }
+        Map<String, Object> model = new HashMap<>();
+        model.put("summary", summary);
+        model.put("detail", detail != null && !detail.isEmpty() ? engine.escapeCqlString(detail) : "");
+        model.put("indicator", indicator);
+        model.put("sourceLabel", sourceLabel != null && !sourceLabel.isEmpty() ? engine.escapeCqlString(sourceLabel) : "");
+        model.put("selectionBehavior", selectionBehavior != null && !selectionBehavior.isEmpty() ? engine.escapeCqlString(selectionBehavior) : "");
+
         if (suggestions != null && !suggestions.isEmpty()) {
-            sb.append(",\n    suggestions: {\n");
-            for (int i = 0; i < suggestions.size(); i++) {
-                if (i > 0) sb.append(",\n");
-                sb.append("      ").append(buildSuggestionTuple(suggestions.get(i)));
+            List<Map<String, Object>> sugModels = new ArrayList<>();
+            for (Map<String, Object> sug : suggestions) {
+                Map<String, Object> sugModel = new HashMap<>();
+                sugModel.put("label", engine.escapeCqlString(engine.getStr(sug, "label", "")));
+                sugModel.put("isRecommended", Boolean.TRUE.equals(sug.get("isRecommended")));
+                List<Map<String, Object>> actions = (List<Map<String, Object>>) sug.get("actions");
+                if (actions != null && !actions.isEmpty()) {
+                    List<Map<String, Object>> actModels = new ArrayList<>();
+                    for (Map<String, Object> act : actions) {
+                        Map<String, Object> actModel = new HashMap<>();
+                        actModel.put("type", engine.escapeCqlString(engine.getStr(act, "type", "create")));
+                        String desc = engine.getStr(act, "description", "");
+                        actModel.put("description", !desc.isEmpty() ? engine.escapeCqlString(desc) : "");
+                        actModels.add(actModel);
+                    }
+                    sugModel.put("actions", actModels);
+                } else {
+                    sugModel.put("actions", List.of());
+                }
+                sugModels.add(sugModel);
             }
-            sb.append("\n    }");
+            model.put("suggestions", sugModels);
+        } else {
+            model.put("suggestions", List.of());
         }
-        sb.append("\n  }");
-        return sb.toString();
-    }
 
-    @SuppressWarnings("unchecked")
-    private String buildSuggestionTuple(Map<String, Object> sug) {
-        String label = engine.getStr(sug, "label", "");
-        Boolean isRecommended = (Boolean) sug.get("isRecommended");
-        List<Map<String, Object>> actions = (List<Map<String, Object>>) sug.get("actions");
-
-        StringBuilder sb = new StringBuilder("Tuple { ");
-        sb.append(String.format("label: '%s'", engine.escapeCqlString(label)));
-        if (Boolean.TRUE.equals(isRecommended)) {
-            sb.append(", isRecommended: true");
-        }
-        if (actions != null && !actions.isEmpty()) {
-            sb.append(", actions: {\n");
-            for (int i = 0; i < actions.size(); i++) {
-                if (i > 0) sb.append(",\n");
-                sb.append("        ").append(buildActionTuple(actions.get(i)));
-            }
-            sb.append("\n      }");
-        }
-        sb.append(" }");
-        return sb.toString();
-    }
-
-    private String buildActionTuple(Map<String, Object> action) {
-        String type = engine.getStr(action, "type", "create");
-        String description = engine.getStr(action, "description", "");
-        StringBuilder sb = new StringBuilder("Tuple { ");
-        sb.append(String.format("type: '%s'", engine.escapeCqlString(type)));
-        if (!description.isEmpty()) {
-            sb.append(String.format(", description: '%s'", engine.escapeCqlString(description)));
-        }
-        sb.append(" }");
-        return sb.toString();
+        return templateEngine.render("fragments/cds-card.ftl", model);
     }
 
     @SuppressWarnings("unchecked")
     private String buildErrorStatement(Map<String, Object> errorStatement) {
-        List<Map<String, Object>> clauses = (List<Map<String, Object>>) errorStatement.get("ifThenClauses");
+        List<Map<String, Object>> rawClauses = (List<Map<String, Object>>) errorStatement.get("ifThenClauses");
         String elseClause = engine.getStr(errorStatement, "elseClause", null);
 
-        if (clauses == null || clauses.isEmpty())
+        if (rawClauses == null || rawClauses.isEmpty())
             return null;
 
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < clauses.size(); i++) {
-            Map<String, Object> clause = clauses.get(i);
+        List<Map<String, Object>> clauseModels = new ArrayList<>();
+        for (Map<String, Object> clause : rawClauses) {
             Map<String, Object> condition = (Map<String, Object>) clause.get("ifCondition");
-            String thenClause = engine.getStr(clause, "thenClause", "null");
+            String thenClause = engine.escapeCqlString(engine.getStr(clause, "thenClause", "null"));
             String condValue = condition != null ? engine.getStr(condition, "value", "true") : "true";
-
-            String cqlCondition = mapErrorConditionToCql(condValue);
-
-            if (i == 0) {
-                sb.append(String.format("if %s then '%s'", cqlCondition, thenClause));
-            } else {
-                sb.append(String.format("\n  else if %s then '%s'", cqlCondition, thenClause));
-            }
+            clauseModels.add(Map.of("condition", mapErrorConditionToCql(condValue), "thenClause", thenClause));
         }
 
-        if (elseClause != null && !elseClause.isEmpty()) {
-            sb.append(String.format("\n  else '%s'", elseClause));
-        } else {
-            sb.append("\n  else null");
-        }
-
-        return sb.toString();
+        Map<String, Object> model = new HashMap<>();
+        model.put("clauses", clauseModels);
+        model.put("elseClause", elseClause != null && !elseClause.isEmpty() ? engine.escapeCqlString(elseClause) : "");
+        return templateEngine.render("fragments/error-statement.ftl", model);
     }
 
     private String mapErrorConditionToCql(String condValue) {

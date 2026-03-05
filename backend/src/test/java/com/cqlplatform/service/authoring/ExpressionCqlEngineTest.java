@@ -9,7 +9,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ExpressionCqlEngineTest {
 
-    private final ExpressionCqlEngine engine = new ExpressionCqlEngine();
+    private final CqlTemplateEngine templateEngine;
+    private final ExpressionCqlEngine engine;
+
+    ExpressionCqlEngineTest() {
+        templateEngine = new CqlTemplateEngine();
+        engine = new ExpressionCqlEngine(templateEngine);
+    }
 
     // ===== Helpers =====
 
@@ -27,7 +33,7 @@ class ExpressionCqlEngineTest {
 
     @Test
     void buildContext_shouldTrackWarnings() {
-        BuildContext ctx = new BuildContext(null);
+        BuildContext ctx = new BuildContext(null, null);
         ctx.warn("test warning");
         assertThat(ctx.warnings).hasSize(1);
         assertThat(ctx.warnings.get(0)).isEqualTo("test warning");
@@ -36,7 +42,7 @@ class ExpressionCqlEngineTest {
     @Test
     void buildContext_shouldAcceptBaseElements() {
         List<Map<String, Object>> baseElements = List.of(Map.of("name", "MyElement"));
-        BuildContext ctx = new BuildContext(baseElements);
+        BuildContext ctx = new BuildContext(baseElements, null);
         assertThat(ctx.baseElements).hasSize(1);
     }
 
@@ -44,7 +50,7 @@ class ExpressionCqlEngineTest {
 
     @Test
     void buildConjunctionExpression_emptyTree_shouldReturnNull() {
-        BuildContext ctx = new BuildContext(null);
+        BuildContext ctx = new BuildContext(null, null);
         String result = engine.buildConjunctionExpression(emptyTree(), ctx);
         assertThat(result).isEqualTo("null");
     }
@@ -68,7 +74,7 @@ class ExpressionCqlEngineTest {
 
         ((List<Object>) tree.get("childInstances")).add(child1);
 
-        BuildContext ctx = new BuildContext(null);
+        BuildContext ctx = new BuildContext(null, null);
         String result = engine.buildConjunctionExpression(tree, ctx);
         assertThat(result).isNotEqualTo("null");
     }
@@ -206,5 +212,285 @@ class ExpressionCqlEngineTest {
         assertThat(cs).isEmpty();
         assertThat(codes).isEmpty();
         assertThat(includes).isEmpty();
+    }
+
+    // ===== applyModifier — template-based snapshot tests =====
+
+    private Map<String, Object> modifier(String cqlTemplate) {
+        return modifier(cqlTemplate, null, null);
+    }
+
+    private Map<String, Object> modifier(String cqlTemplate, String cqlLibFunc, Map<String, Object> values) {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("id", cqlTemplate);
+        mod.put("cqlTemplate", cqlTemplate);
+        if (cqlLibFunc != null) mod.put("cqlLibraryFunction", cqlLibFunc);
+        if (values != null) mod.put("values", values);
+        return mod;
+    }
+
+    @Test
+    void applyModifier_checkExistence() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("[Condition]", modifier("CheckExistence"), ctx))
+                .isEqualTo("exists([Condition])");
+    }
+
+    @Test
+    void applyModifier_booleanExists() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("[Observation]", modifier("BooleanExists"), ctx))
+                .isEqualTo("exists([Observation])");
+    }
+
+    @Test
+    void applyModifier_booleanNot() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("true", modifier("BooleanNot"), ctx))
+                .isEqualTo("not (true)");
+    }
+
+    @Test
+    void applyModifier_count() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("[Condition]", modifier("Count"), ctx))
+                .isEqualTo("Count([Condition])");
+    }
+
+    @Test
+    void applyModifier_allTrue() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr", modifier("AllTrue"), ctx))
+                .isEqualTo("AllTrue(expr)");
+    }
+
+    @Test
+    void applyModifier_anyTrue() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr", modifier("AnyTrue"), ctx))
+                .isEqualTo("AnyTrue(expr)");
+    }
+
+    @Test
+    void applyModifier_booleanComparison() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("[Obs]",
+                modifier("BooleanComparison", null, Map.of("value", "is not null")), ctx))
+                .isEqualTo("([Obs]) is not null");
+    }
+
+    @Test
+    void applyModifier_convertUnits() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("val",
+                modifier("ConvertUnits", null, Map.of("unit", "mg/dL")), ctx))
+                .isEqualTo("convert (val) to 'mg/dL'");
+    }
+
+    @Test
+    void applyModifier_withUnit() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("[Obs]",
+                modifier("WithUnit", "C3F.QuantityValue", Map.of("unit", "mm[Hg]")), ctx))
+                .isEqualTo("C3F.QuantityValue([Obs], 'mm[Hg]')");
+    }
+
+    @Test
+    void applyModifier_lookBackModifier() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("[Condition]",
+                modifier("LookBackModifier", "C3F.ObservationLookBack", Map.of("value", "3", "unit", "years")), ctx))
+                .isEqualTo("C3F.ObservationLookBack([Condition], 3 years)");
+    }
+
+    @Test
+    void applyModifier_equalsString() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("Patient.name",
+                modifier("EqualsString", null, Map.of("value", "John")), ctx))
+                .isEqualTo("(Patient.name) = 'John'");
+    }
+
+    @Test
+    void applyModifier_startsWithString() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("Patient.name",
+                modifier("StartsWithString", null, Map.of("value", "Jo")), ctx))
+                .isEqualTo("StartsWith(Patient.name, 'Jo')");
+    }
+
+    @Test
+    void applyModifier_endsWithString() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("Patient.name",
+                modifier("EndsWithString", null, Map.of("value", "hn")), ctx))
+                .isEqualTo("EndsWith(Patient.name, 'hn')");
+    }
+
+    @Test
+    void applyModifier_beforeTimePrecise() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("Obs.effective",
+                modifier("BeforeTimePrecise", null, Map.of("value", "2024-01-01T00:00:00")), ctx))
+                .isEqualTo("(Obs.effective) before @2024-01-01T00:00:00");
+    }
+
+    @Test
+    void applyModifier_afterDateTimePrecise() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("Obs.effective",
+                modifier("AfterDateTimePrecise", null, Map.of("value", "2024-06-15")), ctx))
+                .isEqualTo("(Obs.effective) after @2024-06-15");
+    }
+
+    @Test
+    void applyModifier_containsInteger() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("myList",
+                modifier("ContainsInteger", null, Map.of("value", "42")), ctx))
+                .isEqualTo("(myList) contains 42");
+    }
+
+    @Test
+    void applyModifier_containsQuantity_withUnit() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("myList",
+                modifier("ContainsQuantity", null, Map.of("value", "120", "unit", "mm[Hg]")), ctx))
+                .isEqualTo("(myList) contains 120 'mm[Hg]'");
+    }
+
+    @Test
+    void applyModifier_containsQuantity_noUnit() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> vals = new LinkedHashMap<>();
+        vals.put("value", "120");
+        vals.put("unit", "");
+        assertThat(engine.applyModifier("myList",
+                modifier("ContainsQuantity", null, vals), ctx))
+                .isEqualTo("(myList) contains 120");
+    }
+
+    @Test
+    void applyModifier_isTrue() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr", modifier("IsTrue"), ctx))
+                .isEqualTo("(expr) is true");
+    }
+
+    @Test
+    void applyModifier_isNotTrue() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr", modifier("IsNotTrue"), ctx))
+                .isEqualTo("(expr) is not true");
+    }
+
+    @Test
+    void applyModifier_isFalse() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr", modifier("IsFalse"), ctx))
+                .isEqualTo("(expr) is false");
+    }
+
+    @Test
+    void applyModifier_isNotFalse() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr", modifier("IsNotFalse"), ctx))
+                .isEqualTo("(expr) is not false");
+    }
+
+    @Test
+    void applyModifier_beforeInterval() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr",
+                modifier("BeforeInterval", null, Map.of("value", "\"Measurement Period\"")), ctx))
+                .isEqualTo("(expr) before \"Measurement Period\"");
+    }
+
+    @Test
+    void applyModifier_afterInterval() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.applyModifier("expr",
+                modifier("AfterInterval", null, Map.of("value", "\"Measurement Period\"")), ctx))
+                .isEqualTo("(expr) after \"Measurement Period\"");
+    }
+
+    @Test
+    void applyModifier_qualifier_valueSet() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> vals = new LinkedHashMap<>();
+        vals.put("qualifier", "value set");
+        vals.put("valueSet", "Diabetes");
+        assertThat(engine.applyModifier("[Condition]",
+                modifier("Qualifier", null, vals), ctx))
+                .isEqualTo("[Condition] Q where Q.code in \"Diabetes\"");
+    }
+
+    @Test
+    void applyModifier_qualifier_code() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> vals = new LinkedHashMap<>();
+        vals.put("qualifier", "code");
+        vals.put("code", "E11.65");
+        assertThat(engine.applyModifier("[Condition]",
+                modifier("Qualifier", null, vals), ctx))
+                .isEqualTo("[Condition] Q where Q.code ~ \"E11.65\"");
+    }
+
+    @Test
+    void applyModifier_baseModifier_fallback() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("id", "Verified");
+        mod.put("cqlTemplate", "");
+        mod.put("cqlLibraryFunction", "C3F.Verified");
+        assertThat(engine.applyModifier("[Condition]", mod, ctx))
+                .isEqualTo("C3F.Verified([Condition])");
+    }
+
+    // ===== buildExpression — element type tests =====
+
+    @Test
+    void buildExpression_ageRange_bothBounds() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> element = new LinkedHashMap<>();
+        element.put("type", "AgeRange");
+        element.put("name", "Age");
+        element.put("fields", List.of(
+                Map.of("id", "min_age", "value", "18"),
+                Map.of("id", "max_age", "value", "65"),
+                Map.of("id", "unit_of_time", "value", "year")
+        ));
+        String result = engine.buildExpression(element, ctx);
+        assertThat(result).isEqualTo("(AgeInYears() >= 18 and AgeInYears() <= 65)");
+    }
+
+    @Test
+    void buildExpression_gender() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> element = new LinkedHashMap<>();
+        element.put("type", "Gender");
+        element.put("name", "Gender");
+        element.put("fields", List.of(Map.of("id", "gender", "value", "Female")));
+        String result = engine.buildExpression(element, ctx);
+        assertThat(result).isEqualTo("Patient.gender = 'female'");
+    }
+
+    @Test
+    void buildExpression_genericObservation() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> element = new LinkedHashMap<>();
+        element.put("type", "GenericObservation_vsac");
+        element.put("name", "BP");
+        element.put("returnType", "list_of_observations");
+        Map<String, Object> field = new LinkedHashMap<>();
+        field.put("id", "element_name");
+        field.put("value", "BP");
+        field.put("valueSets", List.of(Map.of("name", "Blood Pressure")));
+        element.put("fields", List.of(field));
+        Map<String, Object> existsMod = modifier("CheckExistence");
+        existsMod.put("returnType", "boolean");
+        element.put("modifiers", List.of(existsMod));
+        String result = engine.buildExpression(element, ctx);
+        assertThat(result).isEqualTo("exists([Observation: \"Blood Pressure\"])");
     }
 }

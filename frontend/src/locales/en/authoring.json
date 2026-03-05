@@ -141,7 +141,12 @@
     "inclusionHint": "Define who this artifact applies to. Add demographics, conditions, observations, or other criteria.",
     "exclusionHint": "Define who should be excluded. Patients matching these criteria will be removed from the population.",
     "genericHint": "Click \"Add Element\" below to start building logic for this group.",
-    "noFilterMatch": "No elements match \"{{filter}}\""
+    "noFilterMatch": "No elements match \"{{filter}}\"",
+    "addSubGroup": "Add Sub-Group",
+    "clickToChangeAnd": "Click to change to AND",
+    "clickToChangeOr": "Click to change to OR",
+    "clickToChangeUnion": "Click to change to UNION",
+    "clickToChangeIntersect": "Click to change to INTERSECT"
   },
   "element": {
     "collapse": "Collapse element",
@@ -206,7 +211,9 @@
   },
   "conjunctionType": {
     "and": "And",
-    "or": "Or"
+    "or": "Or",
+    "union": "Union",
+    "intersect": "Intersect"
   },
   "customModifier": {
     "title": "Build Custom Modifier",

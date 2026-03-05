@@ -23,7 +23,8 @@ public class TemplateService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Set<String> BUILTIN_REFERENCE_TYPES = Set.of(
-            "baseElementRef", "parameterRef", "externalCqlRef");
+            "baseElement", "baseElementRef", "parameterRef", "externalCqlRef",
+            "And", "Or", "Union", "Intersect");
 
     private List<FormTemplateCategory> categories = new ArrayList<>();
     private Set<String> knownElementTypes = new HashSet<>();

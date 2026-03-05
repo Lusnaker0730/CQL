@@ -401,7 +401,7 @@ export default function AdminUsersPage() {
               <Alert severity="info" sx={{ mb: 2 }}>
                 {resetResult.message}
               </Alert>
-              <Typography variant="body2" sx={{ mb: 1 }} dangerouslySetInnerHTML={{ __html: t('users.resetDialog.userLabel', { username: resetResult.username }) }} />
+              <Typography variant="body2" sx={{ mb: 1 }} dangerouslySetInnerHTML={{ __html: t('users.resetDialog.userLabel', { username: resetResult.username, interpolation: { escapeValue: true } }) }} />
               <Typography variant="body2" sx={{ mb: 1 }}>
                 {t('users.resetDialog.temporaryPasswordLabel')}
               </Typography>

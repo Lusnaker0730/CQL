@@ -93,6 +93,8 @@ export interface ArtifactRequest {
 }
 
 // Expression tree types
+export type ConjunctionKind = 'And' | 'Or' | 'Union' | 'Intersect'
+
 export interface ConjunctionGroup {
   id: string
   name: string
@@ -100,6 +102,35 @@ export interface ConjunctionGroup {
   returnType: string
   childInstances: ElementInstance[]
   path?: string
+}
+
+/** Convert an ElementInstance (conjunction node) to ConjunctionGroup for recursive rendering */
+export function elementToConjunctionGroup(el: ElementInstance): ConjunctionGroup {
+  return {
+    id: el.type || el.name,
+    name: el.name,
+    conjunction: true,
+    returnType: el.returnType,
+    childInstances: el.childInstances || [],
+  }
+}
+
+/** Create a new conjunction ElementInstance to wrap children */
+export function createConjunctionElement(
+  conjType: ConjunctionKind,
+  children: ElementInstance[],
+  uniqueId: string,
+): ElementInstance {
+  return {
+    uniqueId,
+    type: conjType,
+    name: conjType,
+    conjunction: true,
+    returnType: 'boolean',
+    fields: [],
+    modifiers: [],
+    childInstances: children,
+  }
 }
 
 export interface ElementInstance {

@@ -14,6 +14,7 @@ import ModifierCard from './ModifierCard'
 import GradientButton from '../../common/GradientButton'
 import CustomModifierBuilder from './CustomModifierBuilder'
 import type { ElementInstance, ElementField, Modifier, ModifierDefinition } from '../../../types/authoring'
+import { getEffectiveReturnType as getEffectiveRT } from '../../../utils/modifierUtils'
 
 const DEMOGRAPHIC_SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
   'demographics/units_of_time': [
@@ -294,7 +295,7 @@ function SelectModifiersDialog({
           <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" gutterBottom>{selectedMod.name}</Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom
-              dangerouslySetInnerHTML={{ __html: t('elementBody.modAccepts', { input: selectedMod.inputTypes.map(formatReturnType).join(', '), output: formatReturnType(selectedMod.returnType) }) }}
+              dangerouslySetInnerHTML={{ __html: t('elementBody.modAccepts', { input: selectedMod.inputTypes.map(formatReturnType).join(', '), output: formatReturnType(selectedMod.returnType), interpolation: { escapeValue: true } }) }}
             />
             {selectedMod.cqlLibraryFunction && (
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', mt: 1, color: 'primary.main' }}>
@@ -450,10 +451,7 @@ function FieldRenderer({
 // ----- Helpers -----
 
 function getEffectiveReturnType(element: ElementInstance): string {
-  if (element.modifiers && element.modifiers.length > 0) {
-    return element.modifiers[element.modifiers.length - 1].returnType
-  }
-  return element.returnType
+  return getEffectiveRT(element.returnType, element.modifiers)
 }
 
 function formatReturnType(returnType: string): string {

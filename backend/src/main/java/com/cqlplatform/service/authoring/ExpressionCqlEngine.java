@@ -1,6 +1,7 @@
 package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.model.authoring.AuthoringConstants;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +13,10 @@ import java.util.*;
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class ExpressionCqlEngine {
+
+    private final CqlTemplateEngine templateEngine;
 
     private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
@@ -25,21 +29,34 @@ public class ExpressionCqlEngine {
     public static class BuildContext {
         public final List<Map<String, Object>> baseElements;
         public final Map<String, String> baseElementNameIndex;
+        public final Map<String, String> parameterNameIndex;
         public final List<String> warnings = new ArrayList<>();
 
-        public BuildContext(List<Map<String, Object>> baseElements) {
+        public BuildContext(List<Map<String, Object>> baseElements, List<Map<String, Object>> parameters) {
             this.baseElements = baseElements;
-            Map<String, String> idx = new HashMap<>();
+            Map<String, String> beIdx = new HashMap<>();
             if (baseElements != null) {
                 for (Map<String, Object> be : baseElements) {
                     Object uid = be.get("uniqueId");
                     Object name = be.get("name");
                     if (uid != null && name != null) {
-                        idx.put(uid.toString(), name.toString());
+                        beIdx.put(uid.toString(), name.toString());
                     }
                 }
             }
-            this.baseElementNameIndex = idx;
+            this.baseElementNameIndex = beIdx;
+
+            Map<String, String> pIdx = new HashMap<>();
+            if (parameters != null) {
+                for (Map<String, Object> p : parameters) {
+                    Object uid = p.get("uniqueId");
+                    Object name = p.get("name");
+                    if (uid != null && name != null) {
+                        pIdx.put(uid.toString(), name.toString());
+                    }
+                }
+            }
+            this.parameterNameIndex = pIdx;
         }
 
         public void warn(String message) {
@@ -49,6 +66,11 @@ public class ExpressionCqlEngine {
         public String findBaseElementName(String uniqueId) {
             if (uniqueId == null) return null;
             return baseElementNameIndex.get(uniqueId);
+        }
+
+        public String findParameterName(String uniqueId) {
+            if (uniqueId == null) return null;
+            return parameterNameIndex.get(uniqueId);
         }
     }
 
@@ -70,7 +92,13 @@ public class ExpressionCqlEngine {
         log.debug("buildConjunctionExpression: processing {} children", children.size());
 
         String conjId = getStr(group, "id", "And");
-        String operator = "Or".equals(conjId) ? " or " : " and ";
+        String operator;
+        switch (conjId) {
+            case "Or":        operator = " or "; break;
+            case "Union":     operator = " union "; break;
+            case "Intersect": operator = " intersect "; break;
+            default:          operator = " and "; break;
+        }
 
         List<String> childExprs = new ArrayList<>();
         for (Map<String, Object> child : children) {
@@ -108,8 +136,9 @@ public class ExpressionCqlEngine {
                 break;
             }
             case "parameterRef": {
-                String paramName = elementName;
-                expr = String.format("\"%s\"", paramName);
+                String refId = getFieldValue(fields, "reference_id", "");
+                String resolvedName = ctx.findParameterName(refId);
+                expr = String.format("\"%s\"", resolvedName != null ? resolvedName : elementName);
                 break;
             }
             case "externalCqlRef": {
@@ -151,20 +180,13 @@ public class ExpressionCqlEngine {
         String minAge = getFieldValue(fields, "min_age", null);
         String maxAge = getFieldValue(fields, "max_age", null);
         String unit = getFieldValue(fields, "unit_of_time", "year");
-
         String ageFunction = mapUnitToAgeFunction(unit);
 
-        List<String> conditions = new ArrayList<>();
-        if (minAge != null && !minAge.isEmpty()) {
-            conditions.add(String.format("%s >= %s", ageFunction, minAge));
-        }
-        if (maxAge != null && !maxAge.isEmpty()) {
-            conditions.add(String.format("%s <= %s", ageFunction, maxAge));
-        }
-
-        if (conditions.isEmpty()) return "true";
-        String joined = String.join(" and ", conditions);
-        return conditions.size() > 1 ? "(" + joined + ")" : joined;
+        Map<String, Object> model = new HashMap<>();
+        model.put("ageFunction", ageFunction);
+        model.put("minAge", minAge != null && !minAge.isEmpty() ? minAge : "");
+        model.put("maxAge", maxAge != null && !maxAge.isEmpty() ? maxAge : "");
+        return templateEngine.render("elements/AgeRange.ftl", model);
     }
 
     public String mapUnitToAgeFunction(String unit) {
@@ -193,9 +215,8 @@ public class ExpressionCqlEngine {
 
     public String buildGenderExpression(List<Map<String, Object>> fields) {
         String gender = getFieldValue(fields, "gender", null);
-        if (gender == null || gender.isEmpty())
-            return "true";
-        return String.format("Patient.gender = '%s'", gender.toLowerCase());
+        String normalizedGender = (gender != null && !gender.isEmpty()) ? gender.toLowerCase() : "";
+        return templateEngine.render("elements/Gender.ftl", Map.of("gender", escapeCqlString(normalizedGender)));
     }
 
     @SuppressWarnings("unchecked")
@@ -203,7 +224,7 @@ public class ExpressionCqlEngine {
         String resourceType = type.replace("Generic", "").replace("_vsac", "");
 
         if (fields == null)
-            return String.format("[%s]", resourceType);
+            return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", List.of()));
 
         for (Map<String, Object> field : fields) {
             List<Map<String, Object>> vsRefs = (List<Map<String, Object>>) field.get("valueSets");
@@ -225,17 +246,13 @@ public class ExpressionCqlEngine {
                     String codeVal = getStr(code, "code", null);
                     String display = getStr(code, "display", codeVal);
                     if (codeVal != null) {
-                        queryParts
-                                .add(String.format("[%s: \"%s\"]", resourceType, display != null ? display : codeVal));
+                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, display != null ? display : codeVal));
                     }
                 }
             }
 
             if (!queryParts.isEmpty()) {
-                if (queryParts.size() == 1) {
-                    return queryParts.get(0);
-                }
-                return String.join(" union\n  ", queryParts);
+                return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", queryParts));
             }
 
             Object value = field.get("value");
@@ -243,14 +260,16 @@ public class ExpressionCqlEngine {
                 Map<String, Object> vsVal = (Map<String, Object>) value;
                 String vsName = (String) vsVal.get("name");
                 if (vsName != null) {
-                    return String.format("[%s: \"%s\"]", resourceType, vsName);
+                    queryParts.add(String.format("[%s: \"%s\"]", resourceType, vsName));
+                    return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", queryParts));
                 }
             } else if (value instanceof String && !((String) value).isEmpty()) {
-                return String.format("[%s: \"%s\"]", resourceType, value);
+                queryParts.add(String.format("[%s: \"%s\"]", resourceType, value));
+                return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", queryParts));
             }
         }
 
-        return String.format("[%s]", resourceType);
+        return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", List.of()));
     }
 
     // ── Modifier application ─────────────────────────────────────────────
@@ -265,19 +284,19 @@ public class ExpressionCqlEngine {
         switch (cqlTemplate) {
             case "CheckExistence":
             case "BooleanExists":
-                return String.format("exists(%s)", expr);
+                return renderModifier("CheckExistence.ftl", Map.of("expression", expr));
             case "BooleanNot":
-                return String.format("not (%s)", expr);
+                return renderModifier("BooleanNot.ftl", Map.of("expression", expr));
             case "Count":
-                return String.format("Count(%s)", expr);
+                return renderModifier("Count.ftl", Map.of("expression", expr));
             case "AllTrue":
-                return String.format("AllTrue(%s)", expr);
+                return renderModifier("AllTrue.ftl", Map.of("expression", expr));
             case "AnyTrue":
-                return String.format("AnyTrue(%s)", expr);
+                return renderModifier("AnyTrue.ftl", Map.of("expression", expr));
             case "BooleanComparison": {
                 if (values != null) {
                     String comp = getStr(values, "value", "is not null");
-                    return String.format("(%s) %s", expr, comp);
+                    return renderModifier("BooleanComparison.ftl", Map.of("expression", expr, "value", comp));
                 }
                 return expr;
             }
@@ -293,13 +312,13 @@ public class ExpressionCqlEngine {
                     List<String> conditions = new ArrayList<>();
                     if (minOp != null && minVal != null && !minVal.isEmpty()) {
                         String valExpr = unit != null && !unit.isEmpty()
-                                ? String.format("%s '%s'", minVal, unit)
+                                ? String.format("%s '%s'", minVal, escapeCqlString(unit))
                                 : minVal;
                         conditions.add(String.format("(%s) %s %s", expr, minOp, valExpr));
                     }
                     if (maxOp != null && maxVal != null && !maxVal.isEmpty()) {
                         String valExpr = unit != null && !unit.isEmpty()
-                                ? String.format("%s '%s'", maxVal, unit)
+                                ? String.format("%s '%s'", maxVal, escapeCqlString(unit))
                                 : maxVal;
                         conditions.add(String.format("(%s) %s %s", expr, maxOp, valExpr));
                     }
@@ -310,15 +329,26 @@ public class ExpressionCqlEngine {
                 }
                 return expr;
             }
+            case "ConvertUnits": {
+                if (values != null) {
+                    String unit = getStr(values, "unit", "");
+                    if (!unit.isEmpty()) {
+                        return renderModifier("ConvertUnits.ftl", Map.of("expression", expr, "unit", escapeCqlString(unit)));
+                    }
+                }
+                return expr;
+            }
             case "WithUnit": {
                 if (cqlLibFunc != null && values != null) {
                     String unit = getStr(values, "unit", "");
                     if (!unit.isEmpty()) {
-                        return String.format("%s(%s, '%s')", cqlLibFunc, expr, unit);
+                        return renderModifier("WithUnit.ftl", Map.of(
+                                "expression", expr, "cqlLibraryFunction", cqlLibFunc, "unit", escapeCqlString(unit)));
                     }
                 }
                 if (cqlLibFunc != null)
-                    return String.format("%s(%s)", cqlLibFunc, expr);
+                    return renderModifier("WithUnit.ftl", Map.of(
+                            "expression", expr, "cqlLibraryFunction", cqlLibFunc, "unit", ""));
                 return expr;
             }
             case "LookBackModifier": {
@@ -326,31 +356,33 @@ public class ExpressionCqlEngine {
                     String val = getStr(values, "value", "");
                     String unit = getStr(values, "unit", "years");
                     if (!val.isEmpty()) {
-                        return String.format("%s(%s, %s %s)", cqlLibFunc, expr, val, unit);
+                        return renderModifier("LookBackModifier.ftl", Map.of(
+                                "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", val, "unit", escapeCqlString(unit)));
                     }
                 }
                 if (cqlLibFunc != null)
-                    return String.format("%s(%s)", cqlLibFunc, expr);
+                    return renderModifier("LookBackModifier.ftl", Map.of(
+                            "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", "", "unit", ""));
                 return expr;
             }
             case "EqualsString": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("(%s) = '%s'", expr, val);
+                    return renderModifier("EqualsString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
                 }
                 return expr;
             }
             case "StartsWithString": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("StartsWith(%s, '%s')", expr, val);
+                    return renderModifier("StartsWithString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
                 }
                 return expr;
             }
             case "EndsWithString": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("EndsWith(%s, '%s')", expr, val);
+                    return renderModifier("EndsWithString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
                 }
                 return expr;
             }
@@ -358,7 +390,7 @@ public class ExpressionCqlEngine {
             case "BeforeDateTimePrecise": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("(%s) before %s", expr, formatDateTimeValue(val));
+                    return renderModifier("BeforeTime.ftl", Map.of("expression", expr, "value", formatDateTimeValue(val)));
                 }
                 return expr;
             }
@@ -366,7 +398,7 @@ public class ExpressionCqlEngine {
             case "AfterDateTimePrecise": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("(%s) after %s", expr, formatDateTimeValue(val));
+                    return renderModifier("AfterTime.ftl", Map.of("expression", expr, "value", formatDateTimeValue(val)));
                 }
                 return expr;
             }
@@ -374,7 +406,7 @@ public class ExpressionCqlEngine {
             case "ContainsDecimal": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("(%s) contains %s", expr, val);
+                    return renderModifier("ContainsValue.ftl", Map.of("expression", expr, "value", val, "unit", ""));
                 }
                 return expr;
             }
@@ -382,33 +414,31 @@ public class ExpressionCqlEngine {
                 if (values != null) {
                     String val = getStr(values, "value", "");
                     String unit = getStr(values, "unit", "");
-                    if (!unit.isEmpty()) {
-                        return String.format("(%s) contains %s '%s'", expr, val, unit);
-                    }
-                    return String.format("(%s) contains %s", expr, val);
+                    return renderModifier("ContainsValue.ftl", Map.of("expression", expr, "value", val, "unit", escapeCqlString(unit)));
                 }
                 return expr;
             }
             case "ContainsDateTime": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
-                    return String.format("(%s) contains %s", expr, formatDateTimeValue(val));
+                    return renderModifier("ContainsValue.ftl", Map.of(
+                            "expression", expr, "value", formatDateTimeValue(val), "unit", ""));
                 }
                 return expr;
             }
             case "IsTrue":
-                return String.format("(%s) is true", expr);
+                return renderModifier("IsTrue.ftl", Map.of("expression", expr));
             case "IsNotTrue":
-                return String.format("(%s) is not true", expr);
+                return renderModifier("IsNotTrue.ftl", Map.of("expression", expr));
             case "IsFalse":
-                return String.format("(%s) is false", expr);
+                return renderModifier("IsFalse.ftl", Map.of("expression", expr));
             case "IsNotFalse":
-                return String.format("(%s) is not false", expr);
+                return renderModifier("IsNotFalse.ftl", Map.of("expression", expr));
             case "BeforeInterval": {
                 if (values != null) {
                     String val = getStr(values, "value", "");
                     if (!val.isEmpty()) {
-                        return String.format("(%s) before %s", expr, val);
+                        return renderModifier("BeforeTime.ftl", Map.of("expression", expr, "value", val));
                     }
                 }
                 return expr;
@@ -417,7 +447,7 @@ public class ExpressionCqlEngine {
                 if (values != null) {
                     String val = getStr(values, "value", "");
                     if (!val.isEmpty()) {
-                        return String.format("(%s) after %s", expr, val);
+                        return renderModifier("AfterTime.ftl", Map.of("expression", expr, "value", val));
                     }
                 }
                 return expr;
@@ -427,11 +457,12 @@ public class ExpressionCqlEngine {
                     String qualifier = getStr(values, "qualifier", "value set");
                     String valueSet = getStr(values, "valueSet", null);
                     String code = getStr(values, "code", null);
-                    if ("value set".equals(qualifier) && valueSet != null && !valueSet.isEmpty()) {
-                        return String.format("%s Q where Q.code in \"%s\"", expr, valueSet);
-                    } else if ("code".equals(qualifier) && code != null && !code.isEmpty()) {
-                        return String.format("%s Q where Q.code ~ \"%s\"", expr, code);
-                    }
+                    Map<String, Object> model = new HashMap<>();
+                    model.put("expression", expr);
+                    model.put("qualifier", qualifier);
+                    model.put("valueSet", valueSet != null ? valueSet : "");
+                    model.put("code", code != null ? code : "");
+                    return renderModifier("Qualifier.ftl", model);
                 }
                 return expr;
             }
@@ -444,12 +475,20 @@ public class ExpressionCqlEngine {
         }
 
         if (cqlLibFunc != null) {
-            return String.format("%s(%s)", cqlLibFunc, expr);
+            return renderModifier("BaseModifier.ftl", Map.of("expression", expr, "cqlLibraryFunction", cqlLibFunc));
         }
 
         ctx.warn(String.format("Unknown modifier template '%s' (id='%s'); modifier skipped", cqlTemplate, modId));
         log.warn("Unknown modifier template '{}' (id='{}')", cqlTemplate, modId);
         return expr;
+    }
+
+    private String renderModifier(String templateFile, Map<String, Object> model) {
+        return templateEngine.render("modifiers/" + templateFile, model);
+    }
+
+    private String renderElement(String templateFile, Map<String, Object> model) {
+        return templateEngine.render("elements/" + templateFile, model);
     }
 
     // ── Declaration collection ───────────────────────────────────────────
@@ -602,38 +641,56 @@ public class ExpressionCqlEngine {
         if (type == null)
             return value.toString();
 
-        switch (type.toLowerCase()) {
+        Map<String, Object> model = new HashMap<>();
+        String normalizedType = type.toLowerCase();
+
+        switch (normalizedType) {
             case "boolean":
-                return value.toString().toLowerCase();
+                model.put("type", "boolean");
+                model.put("value", value.toString().toLowerCase());
+                break;
             case "integer":
             case "decimal":
-                return value.toString();
+                model.put("type", normalizedType);
+                model.put("value", value.toString());
+                break;
             case "string":
-                return String.format("'%s'", value.toString().replace("'", "\\'"));
-            case "datetime":
+                model.put("type", "string");
+                model.put("value", value.toString().replace("'", "\\'"));
+                break;
+            case "datetime": {
                 String dtVal = value.toString();
-                if (!dtVal.startsWith("@"))
-                    dtVal = "@" + dtVal;
-                if (!dtVal.contains("T"))
-                    dtVal += "T00:00:00";
-                return dtVal;
-            case "time":
+                if (!dtVal.startsWith("@")) dtVal = "@" + dtVal;
+                if (!dtVal.contains("T")) dtVal += "T00:00:00";
+                model.put("type", "datetime");
+                model.put("value", dtVal);
+                break;
+            }
+            case "time": {
                 String tVal = value.toString();
                 if (!tVal.startsWith("@T")) {
                     tVal = tVal.startsWith("@") ? tVal.replace("@", "@T") : "@T" + tVal;
                 }
-                return tVal;
+                model.put("type", "time");
+                model.put("value", tVal);
+                break;
+            }
             case "code":
                 if (value instanceof Map) {
                     Map<String, Object> codeMap = (Map<String, Object>) value;
                     String code = getStr(codeMap, "code", "");
                     String system = getStr(codeMap, "system", "");
                     if (!code.isEmpty() && !system.isEmpty()) {
-                        String csName = getCodeSystemDisplayName(system);
-                        return String.format("Code '%s' from \"%s\"", code, csName);
+                        model.put("type", "code");
+                        model.put("code", code);
+                        model.put("csName", getCodeSystemDisplayName(system));
+                    } else {
+                        return null;
                     }
+                } else {
+                    return null;
                 }
-                return null;
+                break;
             case "concept":
                 if (value instanceof Map) {
                     Map<String, Object> conceptMap = (Map<String, Object>) value;
@@ -641,43 +698,64 @@ public class ExpressionCqlEngine {
                     String system = getStr(conceptMap, "system", "");
                     String display = getStr(conceptMap, "display", "");
                     if (!code.isEmpty() && !system.isEmpty()) {
-                        String csName = getCodeSystemDisplayName(system);
-                        String displayPart = !display.isEmpty() ? String.format(" display '%s'", display) : "";
-                        return String.format("Concept { Code '%s' from \"%s\" }%s", code, csName, displayPart);
+                        model.put("type", "concept");
+                        model.put("code", code);
+                        model.put("csName", getCodeSystemDisplayName(system));
+                        model.put("display", display);
+                    } else {
+                        return null;
                     }
+                } else {
+                    return null;
                 }
-                return null;
+                break;
             case "quantity":
                 if (value instanceof Map) {
                     Map<String, Object> qtyMap = (Map<String, Object>) value;
                     String qtyValue = getStr(qtyMap, "value", "");
                     String unit = getStr(qtyMap, "unit", "");
                     if (!qtyValue.isEmpty()) {
-                        return !unit.isEmpty() ? String.format("%s '%s'", qtyValue, unit) : qtyValue;
+                        model.put("type", "quantity");
+                        model.put("qtyValue", qtyValue);
+                        model.put("unit", unit);
+                    } else {
+                        return null;
                     }
+                } else {
+                    return null;
                 }
-                return null;
+                break;
             case "interval<integer>":
                 if (value instanceof Map) {
                     Map<String, Object> ivl = (Map<String, Object>) value;
-                    String low = getStr(ivl, "low", "null");
-                    String high = getStr(ivl, "high", "null");
-                    return String.format("Interval[%s, %s]", low, high);
+                    model.put("type", "interval_integer");
+                    model.put("low", getStr(ivl, "low", "null"));
+                    model.put("high", getStr(ivl, "high", "null"));
+                } else {
+                    model.put("type", "default");
+                    model.put("value", value.toString());
                 }
-                return value.toString();
+                break;
             case "interval<datetime>":
                 if (value instanceof Map) {
                     Map<String, Object> ivl = (Map<String, Object>) value;
                     String low = getStr(ivl, "low", "");
                     String high = getStr(ivl, "high", "");
-                    String fmtLow = !low.isEmpty() ? formatDateTimeValue(low) : "null";
-                    String fmtHigh = !high.isEmpty() ? formatDateTimeValue(high) : "null";
-                    return String.format("Interval[%s, %s]", fmtLow, fmtHigh);
+                    model.put("type", "interval_datetime");
+                    model.put("low", !low.isEmpty() ? formatDateTimeValue(low) : "null");
+                    model.put("high", !high.isEmpty() ? formatDateTimeValue(high) : "null");
+                } else {
+                    model.put("type", "default");
+                    model.put("value", value.toString());
                 }
-                return value.toString();
+                break;
             default:
-                return value.toString();
+                model.put("type", "default");
+                model.put("value", value.toString());
+                break;
         }
+
+        return templateEngine.render("parameters/defaults.ftl", model).strip();
     }
 
     // ── Utility methods ──────────────────────────────────────────────────

@@ -294,7 +294,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
         <DialogTitle>{t('parameters.deleteTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('parameters.deleteConfirm', { name: pendingDeleteName }) }}
+            dangerouslySetInnerHTML={{ __html: t('parameters.deleteConfirm', { name: pendingDeleteName, interpolation: { escapeValue: true } }) }}
           />
         </DialogContent>
         <DialogActions>

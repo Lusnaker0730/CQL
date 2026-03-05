@@ -10,6 +10,19 @@ import ConjunctionGroup from '../builder/ConjunctionGroup'
 import type { BaseElement, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 import { generateId } from '../../../utils/validation'
+import { getEffectiveReturnType } from '../../../utils/modifierUtils'
+
+/** Compute the effective return type for a base element from its child elements. */
+function computeBaseReturnType(children: ElementInstance[]): string {
+  if (children.length === 0) return 'boolean'
+  // If single non-conjunction child, use its effective return type (last valid modifier)
+  if (children.length === 1 && !children[0].conjunction) {
+    const child = children[0]
+    return getEffectiveReturnType(child.returnType, child.modifiers)
+  }
+  // Multiple children or conjunction → boolean (combined logic)
+  return 'boolean'
+}
 
 interface BaseElementsProps {
   baseElements: BaseElement[]
@@ -60,7 +73,9 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
     (uniqueId: string, childInstances: ElementInstance[]) => {
       onChange(
         baseElements.map((be) =>
-          be.uniqueId === uniqueId ? { ...be, childInstances } : be
+          be.uniqueId === uniqueId
+            ? { ...be, childInstances, returnType: computeBaseReturnType(childInstances) }
+            : be
         )
       )
     },
@@ -139,7 +154,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         <DialogTitle>{t('baseElements.deleteTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('baseElements.deleteConfirm', { name: pendingDeleteName }) }}
+            dangerouslySetInnerHTML={{ __html: t('baseElements.deleteConfirm', { name: pendingDeleteName, interpolation: { escapeValue: true } }) }}
           />
         </DialogContent>
         <DialogActions>
