@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | |
+| PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | [`11c0f84`](../../commit/11c0f84) |
 | PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | [`326e5fb`](../../commit/326e5fb) |
 | PAT-028 | ✨ patch | 2026-03-05 | eCQM（前端） | eCQM 工作區存檔功能 — Save 按鈕 + Ctrl+S + 狀態指示器 + 未儲存變更防護 | Frontend (eCQM) | [`7019613`](../../commit/7019613) |
 | PAT-027 | 🌐 i18n | 2026-03-05 | eCQM（前端） | eCQM 撰寫全模組 i18n 繁體中文翻譯 — 12 元件 + ecqm namespace + 懶載入 | Frontend (eCQM) | [`0fe60a8`](../../commit/0fe60a8) |
