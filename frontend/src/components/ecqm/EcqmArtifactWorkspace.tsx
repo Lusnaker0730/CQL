@@ -13,6 +13,9 @@ import EcqmPopulationGroupsTab from './EcqmPopulationGroupsTab'
 import EcqmSdeTab from './EcqmSdeTab'
 import EcqmStratifiersTab from './EcqmStratifiersTab'
 import EcqmCqlPreviewTab from './EcqmCqlPreviewTab'
+import BaseElements from '../authoring/base-elements/BaseElements'
+import Parameters from '../authoring/parameters/Parameters'
+import type { BaseElement, Parameter } from '../../types/authoring'
 
 interface Props {
   artifact: EcqmArtifact
@@ -204,16 +207,20 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         )}
         {tab === 2 && (
           <Box sx={{ p: 3 }}>
-            <Box sx={{ color: 'text.secondary' }}>
-              {t('workspace.baseElementsPlaceholder')}
-            </Box>
+            <BaseElements
+              baseElements={localArtifact.baseElements || []}
+              templates={templates}
+              modifiers={modifiers}
+              onChange={(baseElements: BaseElement[]) => debouncedSave({ baseElements })}
+            />
           </Box>
         )}
         {tab === 3 && (
           <Box sx={{ p: 3 }}>
-            <Box sx={{ color: 'text.secondary' }}>
-              {t('workspace.parametersPlaceholder')}
-            </Box>
+            <Parameters
+              parameters={localArtifact.parameters || []}
+              onChange={(parameters: Parameter[]) => debouncedSave({ parameters })}
+            />
           </Box>
         )}
         {tab === 4 && (

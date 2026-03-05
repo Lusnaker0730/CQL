@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-031 | ✨ patch | 2026-03-06 | eCQM（前端） | eCQM 基礎元素 + 參數分頁功能啟用 — 複用 CDS Authoring 元件（BaseElements + Parameters） | Frontend (eCQM) | |
 | PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | [`11c0f84`](../../commit/11c0f84) |
 | PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | [`326e5fb`](../../commit/326e5fb) |
 | PAT-028 | ✨ patch | 2026-03-05 | eCQM（前端） | eCQM 工作區存檔功能 — Save 按鈕 + Ctrl+S + 狀態指示器 + 未儲存變更防護 | Frontend (eCQM) | [`7019613`](../../commit/7019613) |
@@ -148,6 +149,27 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-031 — eCQM 基礎元素 + 參數分頁功能啟用
+
+- **日期**: 2026-03-06
+- **範圍**: eCQM（前端）
+- **類型**: ✨ patch
+
+### 修復內容
+
+eCQM 撰寫的「基礎元素」和「參數」分頁原為靜態佔位文字，無法新增或編輯。
+直接複用 CDS Authoring 已完成的 `BaseElements` 和 `Parameters` 元件，連接至 eCQM 狀態管理。
+
+- **基礎元素**：新增/刪除/重新命名、ConjunctionGroup 樹狀編輯器、元素模板選擇、修飾詞鏈、回傳類型自動計算
+- **參數**：新增/刪除、11 種參數型別（boolean/integer/decimal/string/datetime/time/code/concept/quantity/interval）、UCUM 單位欄位、備註
+- **i18n**：英文及繁中翻譯已存在於 `authoring` namespace，無需新增
+- **後端**：`EcqmCqlBuilder` 已支援 baseElements 和 parameters 的 CQL 產生
+
+### 變更檔案
+- `frontend/.../ecqm/EcqmArtifactWorkspace.tsx` — 匯入 BaseElements + Parameters 元件取代佔位文字
+
+---
 
 ## PAT-030 — 後端配置風險修復
 
