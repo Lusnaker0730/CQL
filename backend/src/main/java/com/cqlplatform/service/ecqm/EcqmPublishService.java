@@ -2,7 +2,9 @@ package com.cqlplatform.service.ecqm;
 
 import com.cqlplatform.entity.EcqmArtifactEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
+import com.cqlplatform.exception.CqlGenerationException;
 import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.model.ecqm.EcqmConstants;
 import com.cqlplatform.model.ecqm.PublishResult;
@@ -24,6 +26,7 @@ public class EcqmPublishService {
     private final EcqmArtifactRepository ecqmRepository;
     private final MeasureDefinitionRepository measureRepository;
     private final EcqmCqlBuilder ecqmCqlBuilder;
+    private final EcqmCqlGenerationService cqlGenerationService;
 
     @SuppressWarnings("unchecked")
     @Transactional
@@ -33,6 +36,19 @@ public class EcqmPublishService {
 
         if (!ecqm.getOwnerUsername().equals(currentUser)) {
             throw new IllegalArgumentException("Only the owner can publish this artifact");
+        }
+
+        // Validate CQL via translation before publishing (risk 2.2: reject broken CQL)
+        CqlTranslationResponse validation = cqlGenerationService.validateCql(artifactId);
+        if (!validation.isSuccess()) {
+            List<String> errorMessages = validation.getErrors() != null
+                    ? validation.getErrors().stream()
+                        .map(e -> String.format("Line %d:%d — %s", e.getStartLine(), e.getStartColumn(), e.getMessage()))
+                        .toList()
+                    : List.of("CQL translation failed");
+            throw new CqlGenerationException(
+                    "Cannot publish: CQL validation failed with " + errorMessages.size()
+                    + " error(s):\n" + String.join("\n", errorMessages));
         }
 
         // Generate CQL

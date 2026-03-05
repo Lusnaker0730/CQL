@@ -2,7 +2,9 @@ package com.cqlplatform.service.ecqm;
 
 import com.cqlplatform.entity.EcqmArtifactEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
+import com.cqlplatform.exception.CqlGenerationException;
 import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.model.ecqm.PublishResult;
 import com.cqlplatform.repository.EcqmArtifactRepository;
@@ -32,6 +34,9 @@ class EcqmPublishServiceTest {
     @Mock
     private EcqmCqlBuilder ecqmCqlBuilder;
 
+    @Mock
+    private EcqmCqlGenerationService cqlGenerationService;
+
     @InjectMocks
     private EcqmPublishService publishService;
 
@@ -59,12 +64,20 @@ class EcqmPublishServiceTest {
 
     // ===== publish — success =====
 
+    private CqlTranslationResponse successfulValidation() {
+        return CqlTranslationResponse.builder()
+                .success(true)
+                .errors(List.of())
+                .build();
+    }
+
     @Test
     void publish_newMeasure_shouldCreateMeasureDefinition() {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
         entity.setPublishedMeasureId(null);
 
         when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
                 anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
@@ -95,6 +108,7 @@ class EcqmPublishServiceTest {
                 .id(50L).name("OldName").build();
 
         when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(measureRepository.findById(50L)).thenReturn(Optional.of(existingMeasure));
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
                 anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
@@ -106,6 +120,29 @@ class EcqmPublishServiceTest {
 
         assertThat(result.getMeasureDefinitionId()).isEqualTo(50L);
         verify(measureRepository).save(argThat(m -> "MyMeasure".equals(m.getName())));
+    }
+
+    // ===== publish — CQL validation failure =====
+
+    @Test
+    void publish_withCqlErrors_shouldThrow() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+
+        CqlTranslationResponse failedResp = CqlTranslationResponse.builder()
+                .success(false)
+                .errors(List.of(
+                        CqlTranslationResponse.CqlError.builder()
+                                .severity("error").message("Could not resolve type").startLine(5).startColumn(1).build()
+                ))
+                .build();
+        when(cqlGenerationService.validateCql(1L)).thenReturn(failedResp);
+
+        assertThatThrownBy(() -> publishService.publish(1L, "testuser"))
+                .isInstanceOf(CqlGenerationException.class)
+                .hasMessageContaining("CQL validation failed");
+
+        verify(measureRepository, never()).save(any());
     }
 
     // ===== publish — authorization =====

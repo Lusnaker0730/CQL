@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | |
 | PAT-028 | ✨ patch | 2026-03-05 | eCQM（前端） | eCQM 工作區存檔功能 — Save 按鈕 + Ctrl+S + 狀態指示器 + 未儲存變更防護 | Frontend (eCQM) | [`7019613`](../../commit/7019613) |
 | PAT-027 | 🌐 i18n | 2026-03-05 | eCQM（前端） | eCQM 撰寫全模組 i18n 繁體中文翻譯 — 12 元件 + ecqm namespace + 懶載入 | Frontend (eCQM) | [`0fe60a8`](../../commit/0fe60a8) |
 | BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | [`52fd78c`](../../commit/52fd78c) |
@@ -146,6 +147,40 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-029 — eCQM 風險修復（XSS + 結構驗證 + 發佈前 CQL 驗證）
+
+- **日期**: 2026-03-05
+- **範圍**: eCQM（後端）
+- **類型**: 🔒 security
+- **風險評估**: 根據 `ecqm_risk_assessment_plan.md` 的 3 項風險修復
+
+### 修復內容
+
+1. **Risk 1.1 — XSS 偵測方式改進** (`EcqmExpressionTreeValidator`)
+   - 移除可被繞過的 regex XSS 偵測（`XSS_PATTERNS`）
+   - 改用 Spring `HtmlUtils.htmlEscape()` 比對法：若字串 HTML 跳脫後不同，即含有 HTML 標記
+   - 額外檢查 `javascript:` / `vbscript:` / `data:text/html` URI scheme
+   - 不可被編碼混淆或 HTML5 新標籤繞過
+
+2. **Risk 2.1 — 結構驗證** (`EcqmExpressionTreeValidator`)
+   - 驗證元素類型 (`type`) 對照 `TemplateService.isValidElementType()`
+   - 驗證修飾詞 ID (`modifiers[].id`) 對照 `ModifierService.isValidModifierId()`
+   - 驗證 define name 唯一性（base elements + parameters 不可重複）
+   - 檢查是否與保留的 eCQM population define name 衝突
+   - 深度限制 `MAX_DEPTH=50`、節點數限制 `MAX_NODES=10,000`
+
+3. **Risk 2.2 — 發佈前 CQL 驗證** (`EcqmPublishService`)
+   - `publish()` 方法在建立 MeasureDefinition 前先呼叫 `cqlGenerationService.validateCql()`
+   - CQL-to-ELM 翻譯失敗時拋出 `CqlGenerationException`，附帶逐行錯誤訊息
+   - 新增測試 `publish_withCqlErrors_shouldThrow`
+
+### 變更檔案
+- `backend/.../ecqm/EcqmExpressionTreeValidator.java` — 完全重寫
+- `backend/.../ecqm/EcqmPublishService.java` — 加入 CQL 驗證閘門
+- `backend/.../ecqm/EcqmPublishServiceTest.java` — 新增驗證失敗測試 + mock 修正
+
+---
 
 ## PAT-028 — eCQM 工作區存檔功能
 
