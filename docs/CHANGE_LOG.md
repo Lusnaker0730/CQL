@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-028 | ✨ patch | 2026-03-05 | eCQM（前端） | eCQM 工作區存檔功能 — Save 按鈕 + Ctrl+S + 狀態指示器 + 未儲存變更防護 | Frontend (eCQM) | [`7019613`](../../commit/7019613) |
 | PAT-027 | 🌐 i18n | 2026-03-05 | eCQM（前端） | eCQM 撰寫全模組 i18n 繁體中文翻譯 — 12 元件 + ecqm namespace + 懶載入 | Frontend (eCQM) | [`0fe60a8`](../../commit/0fe60a8) |
 | BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | [`52fd78c`](../../commit/52fd78c) |
 | PAT-026 | ✨ patch | 2026-03-05 | 安全性 | CQL 注入修復 + XSS 修復 — escapeCqlString 補齊 + dangerouslySetInnerHTML escapeValue | Backend (Authoring) + Frontend (全模組) | [`f1fe52e`](../../commit/f1fe52e) |
@@ -145,6 +146,18 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-028 — eCQM 工作區存檔功能
+
+- **日期**: 2026-03-05
+- **範圍**: eCQM（前端）
+- **內容**: eCQM 撰寫工作區原先僅有隱藏的 1500ms auto-save（無 UI 回饋），使用者無法得知變更是否已儲存。
+- **修復**:
+  - `EcqmArtifactWorkspaceHeader` — 新增 Save 按鈕（Ctrl+S tooltip）+ 存檔狀態指示器（儲存中… / 已儲存 / 有未儲存的變更 / 儲存失敗）
+  - `EcqmArtifactWorkspace` — 新增 `SaveStatus` 狀態機（idle → dirty → saving → saved/error）、Ctrl+S 鍵盤快捷鍵、`useUnsavedChangesGuard` 瀏覽器離開防護、返回列表前確認對話框（捨棄 / 儲存並離開）、發佈前自動 flush 未儲存變更
+  - i18n 新增 6 個翻譯 key（en + zh-TW）
+
+---
 
 ## PAT-027 — eCQM 撰寫全模組 i18n 繁體中文翻譯
 
