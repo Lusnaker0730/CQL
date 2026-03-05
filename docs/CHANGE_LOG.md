@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-027 | 🌐 i18n | 2026-03-05 | eCQM（前端） | eCQM 撰寫全模組 i18n 繁體中文翻譯 — 12 元件 + ecqm namespace + 懶載入 | Frontend (eCQM) | |
 | BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | [`52fd78c`](../../commit/52fd78c) |
 | PAT-026 | ✨ patch | 2026-03-05 | 安全性 | CQL 注入修復 + XSS 修復 — escapeCqlString 補齊 + dangerouslySetInnerHTML escapeValue | Backend (Authoring) + Frontend (全模組) | [`f1fe52e`](../../commit/f1fe52e) |
 | PAT-025 | ✨ patch | 2026-03-05 | 重構 | FreeMarker 模板引擎遷移 — CQL 產生器從字串拼接重構為模板架構 + 表達式樹 conjunction 前端重構 | Backend (Authoring, eCQM) + Frontend (Authoring) | [`f1fe52e`](../../commit/f1fe52e) |
@@ -140,6 +141,25 @@
 | 外部服務限制 | 第三方服務不支援所需功能或資料 |
 | 安全漏洞 | 認證、授權、注入、XSS 等安全缺陷 |
 | 測試遺漏 | 測試案例不足或驗證不完整 |
+
+---
+
+## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-027 — eCQM 撰寫全模組 i18n 繁體中文翻譯
+
+- **日期**: 2026-03-05
+- **範圍**: eCQM（前端）
+- **內容**: 為 eCQM 撰寫模組全部 12 個元件加入 i18next 國際化支援，新增 `ecqm` namespace 並建立英文 / 繁體中文翻譯 JSON。
+- **修改清單**:
+  - 新增 `frontend/src/locales/en/ecqm.json`（英文翻譯 ~120 strings）
+  - 新增 `frontend/src/locales/zh-TW/ecqm.json`（繁體中文翻譯，領域術語保留英文附中文括號）
+  - `frontend/src/i18n.ts` — 註冊 ecqm namespace
+  - 12 元件加入 `useTranslation('ecqm')` 並替換所有硬編碼字串：
+    `EcqmArtifactList`, `EcqmArtifactModal`, `EcqmArtifactWorkspace`, `EcqmArtifactWorkspaceHeader`,
+    `EcqmSummaryTab`, `EcqmPopulationGroupsTab`, `EcqmPopulationGroupEditor`, `EcqmObservationEditor`,
+    `EcqmSdeTab`, `EcqmStratifiersTab`, `EcqmCqlPreviewTab`（`EcqmPopulationTreeEditor` 無硬編碼字串，跳過）
+- **翻譯策略**: 領域專有名詞採「英文原文（中文）」格式（如 `Proportion（比例）`、`Initial Population`），一般 UI 文字全中文化
 
 ---
 

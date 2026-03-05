@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Accordion, AccordionDetails, AccordionSummary, Box, Button,
   IconButton, Stack, Typography,
@@ -39,6 +40,7 @@ function createEmptyGroup(): PopulationGroup {
 }
 
 export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers, onUpdateGroups }: Props) {
+  const { t } = useTranslation('ecqm')
   const groups = artifact.populationGroups || []
 
   const addGroup = useCallback(() => {
@@ -60,13 +62,13 @@ export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h6">Population Groups</Typography>
-        <Button startIcon={<AddIcon />} onClick={addGroup}>Add Group</Button>
+        <Typography variant="h6">{t('populationGroups.title')}</Typography>
+        <Button startIcon={<AddIcon />} onClick={addGroup}>{t('populationGroups.addGroup')}</Button>
       </Stack>
 
       {groups.length === 0 && (
         <Typography color="text.secondary" sx={{ mb: 2 }}>
-          No population groups defined. Add a group to start building your eCQM.
+          {t('populationGroups.emptyState')}
         </Typography>
       )}
 
@@ -75,7 +77,7 @@ export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1 }}>
               <Typography fontWeight={600}>
-                Group {idx + 1}{group.description ? `: ${group.description}` : ''}
+                {t('populationGroups.groupLabel', { number: idx + 1 })}{group.description ? `: ${group.description}` : ''}
               </Typography>
             </Stack>
             {groups.length > 1 && (

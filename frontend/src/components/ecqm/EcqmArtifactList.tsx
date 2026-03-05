@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Card, CardContent, CardActions, Typography,
   Chip, IconButton, Stack, Tooltip, Dialog, DialogTitle,
@@ -28,6 +29,7 @@ const scoringColors: Record<string, 'primary' | 'secondary' | 'warning' | 'info'
 }
 
 export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDuplicate, onDelete }: Props) {
+  const { t } = useTranslation('ecqm')
   const [deleteId, setDeleteId] = useState<number | null>(null)
 
   return (
@@ -35,15 +37,15 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
           <ScienceIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          eCQM Artifacts
+          {t('list.title')}
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
-          New eCQM
+          {t('list.newEcqm')}
         </Button>
       </Stack>
 
       {artifacts.length === 0 && (
-        <Alert severity="info">No eCQM artifacts yet. Click "New eCQM" to create one.</Alert>
+        <Alert severity="info">{t('list.emptyState')}</Alert>
       )}
 
       <Stack spacing={2}>
@@ -68,18 +70,18 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
                   <Chip label={`v${a.version}`} size="small" variant="outlined" />
                   <Chip label={a.status} size="small" variant="outlined" />
                   {a.publishedMeasureId && (
-                    <Chip label="Published" size="small" color="success" />
+                    <Chip label={t('list.published')} size="small" color="success" />
                   )}
                 </Stack>
               </Stack>
             </CardContent>
             <CardActions sx={{ justifyContent: 'flex-end' }}>
-              <Tooltip title="Duplicate">
+              <Tooltip title={t('list.duplicate')}>
                 <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate(a.id) }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Delete">
+              <Tooltip title={t('list.delete')}>
                 <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeleteId(a.id) }}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
@@ -90,14 +92,14 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
       </Stack>
 
       <Dialog open={deleteId !== null} onClose={() => setDeleteId(null)}>
-        <DialogTitle>Delete eCQM Artifact</DialogTitle>
+        <DialogTitle>{t('list.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText>Are you sure? This action cannot be undone.</DialogContentText>
+          <DialogContentText>{t('list.deleteConfirm')}</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteId(null)}>{t('common:actions.cancel')}</Button>
           <Button color="error" variant="contained" onClick={() => { if (deleteId) onDelete(deleteId); setDeleteId(null) }}>
-            Delete
+            {t('list.delete')}
           </Button>
         </DialogActions>
       </Dialog>

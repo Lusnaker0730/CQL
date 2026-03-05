@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
 import {
   Code as CodeIcon,
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
+  const { t } = useTranslation('ecqm')
   const [cql, setCql] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const generateCql = useGenerateEcqmCql()
@@ -45,19 +47,19 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
           variant="contained" startIcon={<CodeIcon />}
           onClick={handleGenerate} disabled={generateCql.isPending}
         >
-          {generateCql.isPending ? 'Generating...' : 'Generate CQL'}
+          {generateCql.isPending ? t('cqlPreview.generating') : t('cqlPreview.generate')}
         </Button>
         <Button
           variant="outlined" startIcon={<ValidateIcon />}
           onClick={handleValidate} disabled={validateCql.isPending}
         >
-          {validateCql.isPending ? 'Validating...' : 'Validate'}
+          {validateCql.isPending ? t('cqlPreview.validating') : t('cqlPreview.validate')}
         </Button>
         <Button
           variant="contained" color="success" startIcon={<PublishIcon />}
           onClick={handlePublish} disabled={publish.isPending}
         >
-          {publish.isPending ? 'Publishing...' : 'Publish to Measure'}
+          {publish.isPending ? t('cqlPreview.publishing') : t('cqlPreview.publishToMeasure')}
         </Button>
       </Stack>
 
@@ -65,29 +67,29 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
 
       {generateCql.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {generateCql.error instanceof Error ? generateCql.error.message : 'CQL generation failed'}
+          {generateCql.error instanceof Error ? generateCql.error.message : t('cqlPreview.genFailed')}
         </Alert>
       )}
 
       {validateCql.isSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>CQL validation passed</Alert>
+        <Alert severity="success" sx={{ mb: 2 }}>{t('cqlPreview.validPassed')}</Alert>
       )}
       {validateCql.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>CQL validation failed</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{t('cqlPreview.validFailed')}</Alert>
       )}
 
       {publish.isSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Published to MeasureDefinition (ID: {publish.data.measureDefinitionId})
+          {t('cqlPreview.publishedSuccess', { id: publish.data.measureDefinitionId })}
         </Alert>
       )}
       {publish.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>Publish failed</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{t('cqlPreview.publishFailed')}</Alert>
       )}
 
       {warnings.length > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">Warnings:</Typography>
+          <Typography variant="subtitle2">{t('cqlPreview.warnings')}</Typography>
           <ul style={{ margin: 0 }}>
             {warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, MenuItem, Stack,
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function EcqmArtifactModal({ open, onClose, onSubmit }: Props) {
+  const { t } = useTranslation('ecqm')
   const [name, setName] = useState('')
   const [scoringType, setScoringType] = useState('proportion')
   const [populationBasis, setPopulationBasis] = useState('boolean')
@@ -28,38 +30,38 @@ export default function EcqmArtifactModal({ open, onClose, onSubmit }: Props) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Create eCQM Artifact</DialogTitle>
+      <DialogTitle>{t('modal.createTitle')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Name" required fullWidth autoFocus
+            label={t('modal.name')} required fullWidth autoFocus
             value={name} onChange={(e) => setName(e.target.value)}
           />
           <TextField
-            label="Scoring Type" select fullWidth
+            label={t('modal.scoringType')} select fullWidth
             value={scoringType} onChange={(e) => setScoringType(e.target.value)}
           >
             {SCORING_TYPES.map((st) => (
-              <MenuItem key={st.id} value={st.id}>{st.label}</MenuItem>
+              <MenuItem key={st.id} value={st.id}>{t(`scoring.${st.id === 'continuous-variable' ? 'continuousVariable' : st.id}`)}</MenuItem>
             ))}
           </TextField>
           <TextField
-            label="Population Basis" select fullWidth
+            label={t('modal.populationBasis')} select fullWidth
             value={populationBasis} onChange={(e) => setPopulationBasis(e.target.value)}
           >
             {POPULATION_BASIS_OPTIONS.map((pb) => (
-              <MenuItem key={pb.id} value={pb.id}>{pb.label}</MenuItem>
+              <MenuItem key={pb.id} value={pb.id}>{t(`populationBasisOptions.${pb.id}`)}</MenuItem>
             ))}
           </TextField>
           <TextField
-            label="Description" fullWidth multiline rows={2}
+            label={t('modal.description')} fullWidth multiline rows={2}
             value={description} onChange={(e) => setDescription(e.target.value)}
           />
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={!name.trim()}>Create</Button>
+        <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={!name.trim()}>{t('common:actions.create')}</Button>
       </DialogActions>
     </Dialog>
   )

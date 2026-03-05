@@ -1,0 +1,146 @@
+{
+  "list": {
+    "title": "eCQM Artifacts",
+    "newEcqm": "New eCQM",
+    "emptyState": "No eCQM artifacts yet. Click \"New eCQM\" to create one.",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "deleteTitle": "Delete eCQM Artifact",
+    "deleteConfirm": "Are you sure? This action cannot be undone.",
+    "published": "Published"
+  },
+  "modal": {
+    "createTitle": "Create eCQM Artifact",
+    "name": "Name",
+    "scoringType": "Scoring Type",
+    "populationBasis": "Population Basis",
+    "description": "Description"
+  },
+  "workspace": {
+    "tabs": {
+      "summary": "Summary",
+      "populationGroups": "Population Groups",
+      "baseElements": "Base Elements",
+      "parameters": "Parameters",
+      "sde": "Supplemental Data",
+      "stratifiers": "Stratifiers",
+      "externalCql": "External CQL",
+      "reviewCql": "Review CQL"
+    },
+    "saveFailed": "Save failed",
+    "publishSuccess": "Published successfully",
+    "publishFailed": "Publish failed",
+    "baseElementsPlaceholder": "Base Elements tab shares the same ConjunctionGroup-based builder as CDS authoring. Configure reusable expressions referenced by multiple populations.",
+    "parametersPlaceholder": "Parameters tab for user-defined CQL parameters (reuses CDS Parameters component model).",
+    "externalCqlPlaceholder": "External CQL tab — upload additional CQL libraries (reuses CDS External CQL component)."
+  },
+  "header": {
+    "backToList": "Back to list",
+    "publishing": "Publishing...",
+    "publish": "Publish",
+    "basedSuffix": "{{basis}}-based"
+  },
+  "summary": {
+    "title": "Measure Summary",
+    "name": "Name",
+    "version": "Version",
+    "status": "Status",
+    "statusDraft": "Draft",
+    "statusActive": "Active",
+    "statusRetired": "Retired",
+    "scoringType": "Scoring Type",
+    "populationBasis": "Population Basis",
+    "improvementNotation": "Improvement Notation",
+    "description": "Description",
+    "identification": "Identification",
+    "cmsMeasureId": "CMS Measure ID",
+    "nqfNumber": "NQF Number",
+    "measureSet": "Measure Set",
+    "metadata": "Metadata",
+    "url": "URL",
+    "publisher": "Publisher",
+    "steward": "Steward",
+    "purpose": "Purpose",
+    "rationale": "Rationale",
+    "clinicalGuidance": "Clinical Guidance",
+    "copyright": "Copyright",
+    "disclaimer": "Disclaimer"
+  },
+  "populationGroups": {
+    "title": "Population Groups",
+    "addGroup": "Add Group",
+    "emptyState": "No population groups defined. Add a group to start building your eCQM.",
+    "groupLabel": "Group {{number}}",
+    "useSeparateIp": "Use separate Initial Populations for Denominator and Numerator",
+    "ip1Label": "Initial Population 1 (Denominator)",
+    "ip2Label": "Initial Population 2 (Numerator)",
+    "observations": "Observations",
+    "addObservation": "Add Observation"
+  },
+  "observation": {
+    "title": "Measure Observation",
+    "aggregateMethod": "Aggregate Method",
+    "populationRef": "Population Reference",
+    "populationRefPlaceholder": "measure-population",
+    "criteria": "Observation Criteria"
+  },
+  "sde": {
+    "title": "Supplemental Data Elements",
+    "guidance": "SDE Guidance",
+    "standardSdes": "Standard SDEs",
+    "customSdes": "Custom SDEs",
+    "addCustom": "Add Custom",
+    "sdeName": "SDE Name",
+    "sdeCriteria": "SDE Criteria",
+    "defaultName": "Custom SDE {{number}}"
+  },
+  "stratifiers": {
+    "title": "Stratifiers",
+    "addStratifier": "Add Stratifier",
+    "emptyState": "No stratifiers defined.",
+    "label": "Stratifier {{number}}",
+    "description": "Description",
+    "criteria": "Stratifier Criteria"
+  },
+  "cqlPreview": {
+    "generate": "Generate CQL",
+    "generating": "Generating...",
+    "validate": "Validate",
+    "validating": "Validating...",
+    "publishToMeasure": "Publish to Measure",
+    "publishing": "Publishing...",
+    "genFailed": "CQL generation failed",
+    "validPassed": "CQL validation passed",
+    "validFailed": "CQL validation failed",
+    "publishedSuccess": "Published to MeasureDefinition (ID: {{id}})",
+    "publishFailed": "Publish failed",
+    "warnings": "Warnings:"
+  },
+  "scoring": {
+    "proportion": "Proportion",
+    "ratio": "Ratio",
+    "continuousVariable": "Continuous Variable",
+    "cohort": "Cohort"
+  },
+  "populationBasisOptions": {
+    "boolean": "Patient-based (Boolean)",
+    "Encounter": "Encounter-based",
+    "Procedure": "Procedure-based",
+    "MedicationRequest": "MedicationRequest-based",
+    "Observation": "Observation-based"
+  },
+  "improvementOptions": {
+    "increase": "Increase (higher is better)",
+    "decrease": "Decrease (lower is better)"
+  },
+  "populationLabels": {
+    "initial-population": "Initial Population",
+    "denominator": "Denominator",
+    "denominator-exclusion": "Denominator Exclusion",
+    "denominator-exception": "Denominator Exception",
+    "numerator": "Numerator",
+    "numerator-exclusion": "Numerator Exclusion",
+    "measure-population": "Measure Population",
+    "measure-population-exclusion": "Measure Population Exclusion"
+  }
+}

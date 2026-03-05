@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Tab, Tabs, Snackbar, Alert } from '@mui/material'
 import type { EcqmArtifact, EcqmArtifactRequest, PopulationGroup, SupplementalDataElement, StratifierElement } from '../../types/ecqm'
 import { useUpdateEcqmArtifact, usePublishEcqm, useEcqmTemplates, useEcqmModifiers } from '../../hooks/useEcqm'
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpdate }: Props) {
+  const { t } = useTranslation('ecqm')
   const [tab, setTab] = useState(0)
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
   // Local optimistic state — mirrors server artifact but updates immediately on user edits
@@ -57,7 +59,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
       { id: a.id, request },
       {
         onSuccess: () => { onArtifactUpdateRef.current() },
-        onError: () => { setSnack({ message: 'Save failed', severity: 'error' }) },
+        onError: () => { setSnack({ message: t('workspace.saveFailed'), severity: 'error' }) },
       }
     )
   }, [updateMutation])
@@ -89,10 +91,10 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   const handlePublish = () => {
     publishMutation.mutate(artifact.id, {
       onSuccess: () => {
-        setSnack({ message: 'Published successfully', severity: 'success' })
+        setSnack({ message: t('workspace.publishSuccess'), severity: 'success' })
         onArtifactUpdate()
       },
-      onError: () => { setSnack({ message: 'Publish failed', severity: 'error' }) },
+      onError: () => { setSnack({ message: t('workspace.publishFailed'), severity: 'error' }) },
     })
   }
 
@@ -107,14 +109,14 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
-          <Tab label="Summary" />
-          <Tab label="Population Groups" />
-          <Tab label="Base Elements" />
-          <Tab label="Parameters" />
-          <Tab label="Supplemental Data" />
-          <Tab label="Stratifiers" />
-          <Tab label="External CQL" />
-          <Tab label="Review CQL" />
+          <Tab label={t('workspace.tabs.summary')} />
+          <Tab label={t('workspace.tabs.populationGroups')} />
+          <Tab label={t('workspace.tabs.baseElements')} />
+          <Tab label={t('workspace.tabs.parameters')} />
+          <Tab label={t('workspace.tabs.sde')} />
+          <Tab label={t('workspace.tabs.stratifiers')} />
+          <Tab label={t('workspace.tabs.externalCql')} />
+          <Tab label={t('workspace.tabs.reviewCql')} />
         </Tabs>
       </Box>
 
@@ -134,15 +136,14 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
           <Box sx={{ p: 3 }}>
             {/* Base Elements — reuses CDS components via the shared expression tree model */}
             <Box sx={{ color: 'text.secondary' }}>
-              Base Elements tab shares the same ConjunctionGroup-based builder as CDS authoring.
-              Configure reusable expressions referenced by multiple populations.
+              {t('workspace.baseElementsPlaceholder')}
             </Box>
           </Box>
         )}
         {tab === 3 && (
           <Box sx={{ p: 3 }}>
             <Box sx={{ color: 'text.secondary' }}>
-              Parameters tab for user-defined CQL parameters (reuses CDS Parameters component model).
+              {t('workspace.parametersPlaceholder')}
             </Box>
           </Box>
         )}
@@ -166,7 +167,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         )}
         {tab === 6 && (
           <Box sx={{ p: 3, color: 'text.secondary' }}>
-            External CQL tab — upload additional CQL libraries (reuses CDS External CQL component).
+            {t('workspace.externalCqlPlaceholder')}
           </Box>
         )}
         {tab === 7 && (

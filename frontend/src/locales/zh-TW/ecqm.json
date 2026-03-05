@@ -1,0 +1,146 @@
+{
+  "list": {
+    "title": "eCQM 品質指標",
+    "newEcqm": "新增 eCQM",
+    "emptyState": "尚無 eCQM 品質指標。點擊「新增 eCQM」以建立。",
+    "duplicate": "複製",
+    "delete": "刪除",
+    "deleteTitle": "刪除 eCQM 品質指標",
+    "deleteConfirm": "確定要刪除嗎？此操作無法復原。",
+    "published": "已發佈"
+  },
+  "modal": {
+    "createTitle": "建立 eCQM 品質指標",
+    "name": "名稱",
+    "scoringType": "計分類型",
+    "populationBasis": "族群基準",
+    "description": "描述"
+  },
+  "workspace": {
+    "tabs": {
+      "summary": "摘要",
+      "populationGroups": "族群群組",
+      "baseElements": "基礎元素",
+      "parameters": "參數",
+      "sde": "補充資料",
+      "stratifiers": "分層器",
+      "externalCql": "外部 CQL",
+      "reviewCql": "檢視 CQL"
+    },
+    "saveFailed": "儲存失敗",
+    "publishSuccess": "發佈成功",
+    "publishFailed": "發佈失敗",
+    "baseElementsPlaceholder": "基礎元素分頁共用 CDS 撰寫的 ConjunctionGroup 建構器。可設定多個族群共用的可重複使用表達式。",
+    "parametersPlaceholder": "參數分頁用於使用者自定義的 CQL 參數（共用 CDS 參數元件模型）。",
+    "externalCqlPlaceholder": "外部 CQL 分頁 — 上傳額外的 CQL 函式庫（共用 CDS 外部 CQL 元件）。"
+  },
+  "header": {
+    "backToList": "返回列表",
+    "publishing": "發佈中...",
+    "publish": "發佈",
+    "basedSuffix": "以 {{basis}} 為基準"
+  },
+  "summary": {
+    "title": "品質指標摘要",
+    "name": "名稱",
+    "version": "版本",
+    "status": "狀態",
+    "statusDraft": "草稿",
+    "statusActive": "啟用",
+    "statusRetired": "停用",
+    "scoringType": "計分類型",
+    "populationBasis": "族群基準",
+    "improvementNotation": "改善方向",
+    "description": "描述",
+    "identification": "識別資訊",
+    "cmsMeasureId": "CMS 指標 ID",
+    "nqfNumber": "NQF 編號",
+    "measureSet": "指標集",
+    "metadata": "後設資料",
+    "url": "URL",
+    "publisher": "發佈者",
+    "steward": "管理者",
+    "purpose": "目的",
+    "rationale": "理由",
+    "clinicalGuidance": "臨床指引",
+    "copyright": "版權",
+    "disclaimer": "免責聲明"
+  },
+  "populationGroups": {
+    "title": "族群群組",
+    "addGroup": "新增群組",
+    "emptyState": "尚未定義族群群組。新增群組以開始建構您的 eCQM。",
+    "groupLabel": "群組 {{number}}",
+    "useSeparateIp": "分別設定分母與分子的初始族群",
+    "ip1Label": "初始族群 1（分母）",
+    "ip2Label": "初始族群 2（分子）",
+    "observations": "觀測",
+    "addObservation": "新增觀測"
+  },
+  "observation": {
+    "title": "品質指標觀測",
+    "aggregateMethod": "聚合方法",
+    "populationRef": "族群參考",
+    "populationRefPlaceholder": "measure-population",
+    "criteria": "觀測條件"
+  },
+  "sde": {
+    "title": "補充資料元素",
+    "guidance": "SDE 指引",
+    "standardSdes": "標準 SDE",
+    "customSdes": "自訂 SDE",
+    "addCustom": "新增自訂",
+    "sdeName": "SDE 名稱",
+    "sdeCriteria": "SDE 條件",
+    "defaultName": "自訂 SDE {{number}}"
+  },
+  "stratifiers": {
+    "title": "分層器",
+    "addStratifier": "新增分層器",
+    "emptyState": "尚未定義分層器。",
+    "label": "分層器 {{number}}",
+    "description": "描述",
+    "criteria": "分層條件"
+  },
+  "cqlPreview": {
+    "generate": "產生 CQL",
+    "generating": "產生中...",
+    "validate": "驗證",
+    "validating": "驗證中...",
+    "publishToMeasure": "發佈至品質指標",
+    "publishing": "發佈中...",
+    "genFailed": "CQL 產生失敗",
+    "validPassed": "CQL 驗證通過",
+    "validFailed": "CQL 驗證失敗",
+    "publishedSuccess": "已發佈至 MeasureDefinition（ID: {{id}}）",
+    "publishFailed": "發佈失敗",
+    "warnings": "警告："
+  },
+  "scoring": {
+    "proportion": "Proportion（比例）",
+    "ratio": "Ratio（比率）",
+    "continuousVariable": "Continuous Variable（連續變數）",
+    "cohort": "Cohort（世代）"
+  },
+  "populationBasisOptions": {
+    "boolean": "以病人為基準 (Boolean)",
+    "Encounter": "以就醫紀錄為基準",
+    "Procedure": "以處置為基準",
+    "MedicationRequest": "以用藥請求為基準",
+    "Observation": "以觀測為基準"
+  },
+  "improvementOptions": {
+    "increase": "增加（越高越好）",
+    "decrease": "減少（越低越好）"
+  },
+  "populationLabels": {
+    "initial-population": "初始族群 (Initial Population)",
+    "denominator": "分母 (Denominator)",
+    "denominator-exclusion": "分母排除 (Denominator Exclusion)",
+    "denominator-exception": "分母例外 (Denominator Exception)",
+    "numerator": "分子 (Numerator)",
+    "numerator-exclusion": "分子排除 (Numerator Exclusion)",
+    "measure-population": "測量族群 (Measure Population)",
+    "measure-population-exclusion": "測量族群排除 (Measure Population Exclusion)"
+  }
+}

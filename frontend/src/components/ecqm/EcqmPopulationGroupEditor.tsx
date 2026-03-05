@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Button,
   FormControlLabel, Stack, Switch, Typography,
@@ -7,7 +8,7 @@ import { Add as AddIcon } from '@mui/icons-material'
 import type { PopulationGroup, ObservationEntry } from '../../types/ecqm'
 import type { ConjunctionGroup as ConjunctionGroupType, FormTemplateCategory, ModifierDefinition } from '../../types/authoring'
 import { SCORING_POPULATIONS, REQUIRED_POPULATIONS, createEmptyConjunctionGroup } from '../../constants/ecqmConstants'
-import { POPULATION_LABELS, type PopulationKey } from '../../types/ecqm'
+import type { PopulationKey } from '../../types/ecqm'
 import EcqmPopulationTreeEditor from './EcqmPopulationTreeEditor'
 import EcqmObservationEditor from './EcqmObservationEditor'
 
@@ -26,6 +27,7 @@ function newId() {
 export default function EcqmPopulationGroupEditor({
   group, scoringType, templates, modifiers, onChange,
 }: Props) {
+  const { t } = useTranslation('ecqm')
   const relevantPops = SCORING_POPULATIONS[scoringType] || []
   const requiredPops = REQUIRED_POPULATIONS[scoringType] || []
   const isRatio = scoringType === 'ratio'
@@ -87,7 +89,7 @@ export default function EcqmPopulationGroupEditor({
         <Box sx={{ mb: 2 }}>
           <FormControlLabel
             control={<Switch checked={dualIp} onChange={(e) => toggleDualIp(e.target.checked)} />}
-            label="Use separate Initial Populations for Denominator and Numerator"
+            label={t('populationGroups.useSeparateIp')}
           />
         </Box>
       )}
@@ -96,7 +98,7 @@ export default function EcqmPopulationGroupEditor({
       {dualIp && (
         <>
           <EcqmPopulationTreeEditor
-            label="Initial Population 1 (Denominator)"
+            label={t('populationGroups.ip1Label')}
             required
             tree={group.initialPopulationDenom || (createEmptyConjunctionGroup() as ConjunctionGroupType)}
             templates={templates}
@@ -104,7 +106,7 @@ export default function EcqmPopulationGroupEditor({
             onUpdateTree={(tree) => onChange({ ...group, initialPopulationDenom: tree })}
           />
           <EcqmPopulationTreeEditor
-            label="Initial Population 2 (Numerator)"
+            label={t('populationGroups.ip2Label')}
             required
             tree={group.initialPopulationNumer || (createEmptyConjunctionGroup() as ConjunctionGroupType)}
             templates={templates}
@@ -120,7 +122,7 @@ export default function EcqmPopulationGroupEditor({
         .map((key) => (
           <EcqmPopulationTreeEditor
             key={key}
-            label={POPULATION_LABELS[key]}
+            label={t(`populationLabels.${key}`)}
             required={requiredPops.includes(key)}
             tree={(group.populations[key] as ConjunctionGroupType) || (createEmptyConjunctionGroup() as ConjunctionGroupType)}
             templates={templates}
@@ -133,9 +135,9 @@ export default function EcqmPopulationGroupEditor({
       {isCv && (
         <Box sx={{ mt: 2 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="subtitle1" fontWeight={600}>Observations</Typography>
+            <Typography variant="subtitle1" fontWeight={600}>{t('populationGroups.observations')}</Typography>
             <Button size="small" startIcon={<AddIcon />} onClick={addObservation}>
-              Add Observation
+              {t('populationGroups.addObservation')}
             </Button>
           </Stack>
           {(group.observations || []).map((obs, idx) => (

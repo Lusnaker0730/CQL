@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Checkbox, FormControlLabel, IconButton, Paper,
   Stack, TextField, Typography,
@@ -21,6 +22,7 @@ interface Props {
 export default function EcqmSdeTab({
   supplementalData, supplementalDataGuidance, templates, modifiers, onChange, onGuidanceChange,
 }: Props) {
+  const { t } = useTranslation('ecqm')
   const sdeNames = new Set(supplementalData.map((s) => s.name))
 
   const toggleStandard = useCallback((name: string, checked: boolean) => {
@@ -33,7 +35,7 @@ export default function EcqmSdeTab({
 
   const addCustom = useCallback(() => {
     onChange([...supplementalData, {
-      name: `Custom SDE ${supplementalData.length + 1}`,
+      name: t('sde.defaultName', { number: supplementalData.length + 1 }),
       criteria: createEmptyConjunctionGroup() as ConjunctionGroupType,
     }])
   }, [supplementalData, onChange])
@@ -52,15 +54,15 @@ export default function EcqmSdeTab({
 
   return (
     <Box sx={{ p: 3, maxWidth: 900 }}>
-      <Typography variant="h6" gutterBottom>Supplemental Data Elements</Typography>
+      <Typography variant="h6" gutterBottom>{t('sde.title')}</Typography>
 
       <TextField
-        label="SDE Guidance" fullWidth multiline rows={2} sx={{ mb: 3 }}
+        label={t('sde.guidance')} fullWidth multiline rows={2} sx={{ mb: 3 }}
         value={supplementalDataGuidance || ''}
         onChange={(e) => onGuidanceChange(e.target.value)}
       />
 
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>Standard SDEs</Typography>
+      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>{t('sde.standardSdes')}</Typography>
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         <Stack spacing={0.5}>
           {STANDARD_SDE.map((sde) => (
@@ -79,8 +81,8 @@ export default function EcqmSdeTab({
       </Paper>
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle1" fontWeight={600}>Custom SDEs</Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={addCustom}>Add Custom</Button>
+        <Typography variant="subtitle1" fontWeight={600}>{t('sde.customSdes')}</Typography>
+        <Button size="small" startIcon={<AddIcon />} onClick={addCustom}>{t('sde.addCustom')}</Button>
       </Stack>
 
       {supplementalData
@@ -90,7 +92,7 @@ export default function EcqmSdeTab({
           <Paper key={sde.name} variant="outlined" sx={{ p: 2, mb: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
               <TextField
-                label="SDE Name" size="small" sx={{ flex: 1, mr: 1 }}
+                label={t('sde.sdeName')} size="small" sx={{ flex: 1, mr: 1 }}
                 value={sde.name}
                 onChange={(e) => updateCustom(idx, { ...sde, name: e.target.value })}
               />
@@ -100,7 +102,7 @@ export default function EcqmSdeTab({
             </Stack>
             {sde.criteria && (
               <EcqmPopulationTreeEditor
-                label="SDE Criteria"
+                label={t('sde.sdeCriteria')}
                 tree={sde.criteria}
                 templates={templates}
                 modifiers={modifiers}
