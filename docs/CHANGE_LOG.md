@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | |
+| PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | [`326e5fb`](../../commit/326e5fb) |
 | PAT-028 | ✨ patch | 2026-03-05 | eCQM（前端） | eCQM 工作區存檔功能 — Save 按鈕 + Ctrl+S + 狀態指示器 + 未儲存變更防護 | Frontend (eCQM) | [`7019613`](../../commit/7019613) |
 | PAT-027 | 🌐 i18n | 2026-03-05 | eCQM（前端） | eCQM 撰寫全模組 i18n 繁體中文翻譯 — 12 元件 + ecqm namespace + 懶載入 | Frontend (eCQM) | [`0fe60a8`](../../commit/0fe60a8) |
 | BUG-083 | 🐛 bugfix | 2026-03-05 | CDS Authoring（前後端） | CQL Retrieve 使用 element_name 而非 code display — buildGenericResourceExpression 迴圈提前 return + save 驗證錯誤未顯示 | 邏輯錯誤 / UX | [`52fd78c`](../../commit/52fd78c) |
