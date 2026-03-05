@@ -15,6 +15,7 @@ import EcqmStratifiersTab from './EcqmStratifiersTab'
 import EcqmCqlPreviewTab from './EcqmCqlPreviewTab'
 import BaseElements from '../authoring/base-elements/BaseElements'
 import Parameters from '../authoring/parameters/Parameters'
+import EcqmExternalCql from './EcqmExternalCql'
 import type { BaseElement, Parameter } from '../../types/authoring'
 
 interface Props {
@@ -242,8 +243,8 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
           />
         )}
         {tab === 6 && (
-          <Box sx={{ p: 3, color: 'text.secondary' }}>
-            {t('workspace.externalCqlPlaceholder')}
+          <Box sx={{ p: 3 }}>
+            <EcqmExternalCql artifactId={artifact.id} />
           </Box>
         )}
         {tab === 7 && (

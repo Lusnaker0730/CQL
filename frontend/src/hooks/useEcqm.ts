@@ -94,3 +94,32 @@ export function useEcqmScoringTypes() {
     staleTime: 60_000,
   })
 }
+
+// ===== External CQL Libraries =====
+
+export function useEcqmExternalCqlList(artifactId: number) {
+  return useQuery({
+    queryKey: ['ecqm-external-cql', artifactId],
+    queryFn: () => ecqmApi.listExternalCql(artifactId),
+  })
+}
+
+export function useUploadEcqmExternalCql(artifactId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => ecqmApi.uploadExternalCql(artifactId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ecqm-external-cql', artifactId] })
+    },
+  })
+}
+
+export function useDeleteEcqmExternalCql(artifactId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (libId: number) => ecqmApi.deleteExternalCql(artifactId, libId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ecqm-external-cql', artifactId] })
+    },
+  })
+}

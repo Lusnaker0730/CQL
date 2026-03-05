@@ -6,7 +6,7 @@ import type {
   PublishResult,
   ScoringTypesResponse,
 } from '../types/ecqm'
-import type { FormTemplateCategory, ModifierDefinition } from '../types/authoring'
+import type { FormTemplateCategory, ModifierDefinition, ExternalCqlLibrary } from '../types/authoring'
 
 const BASE = '/ecqm'
 
@@ -53,4 +53,22 @@ export const ecqmApi = {
 
   getScoringTypes: () =>
     api.get<ScoringTypesResponse>(`${BASE}/scoring-types`).then((r) => r.data),
+
+  // External CQL Libraries
+  listExternalCql: (artifactId: number) =>
+    api.get<ExternalCqlLibrary[]>(`${BASE}/artifacts/${artifactId}/external-cql`).then((r) => r.data),
+
+  getExternalCql: (artifactId: number, libId: number) =>
+    api.get<ExternalCqlLibrary>(`${BASE}/artifacts/${artifactId}/external-cql/${libId}`).then((r) => r.data),
+
+  uploadExternalCql: (artifactId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post<ExternalCqlLibrary>(`${BASE}/artifacts/${artifactId}/external-cql/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
+
+  deleteExternalCql: (artifactId: number, libId: number) =>
+    api.delete(`${BASE}/artifacts/${artifactId}/external-cql/${libId}`).then((r) => r.data),
 }

@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +36,7 @@ public class EcqmController {
     private final EcqmExpressionTreeValidator validator;
     private final TemplateService templateService;
     private final ModifierService modifierService;
+    private final EcqmExternalCqlLibraryService externalCqlService;
     private final OwnershipVerifier ownershipVerifier;
 
     private void verifyOwnership(Long artifactId) {
@@ -151,6 +153,58 @@ public class EcqmController {
         }
         return ResponseEntity.ok(modifierService.getAllModifiers());
     }
+
+    // ===== External CQL Libraries =====
+
+    @GetMapping("/artifacts/{id}/external-cql")
+    @Operation(summary = "List external CQL libraries for eCQM artifact")
+    public ResponseEntity<List<Map<String, Object>>> listExternalCql(@PathVariable Long id) {
+        verifyOwnership(id);
+        return ResponseEntity.ok(externalCqlService.listByArtifact(id));
+    }
+
+    @GetMapping("/artifacts/{artifactId}/external-cql/{libId}")
+    @Operation(summary = "Get external CQL library")
+    public ResponseEntity<Map<String, Object>> getExternalCql(
+            @PathVariable Long artifactId, @PathVariable Long libId) {
+        verifyOwnership(artifactId);
+        return externalCqlService.getByIdAndArtifactId(libId, artifactId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/artifacts/{id}/external-cql/upload")
+    @Operation(summary = "Upload external CQL library (.cql file)")
+    public ResponseEntity<Map<String, Object>> uploadExternalCql(
+            @PathVariable Long id, @RequestParam("file") MultipartFile file) throws Exception {
+        verifyOwnership(id);
+        return ResponseEntity.status(HttpStatus.CREATED).body(externalCqlService.uploadLibrary(id, file));
+    }
+
+    @PostMapping("/artifacts/{id}/external-cql/content")
+    @Operation(summary = "Upload external CQL from raw content")
+    public ResponseEntity<Map<String, Object>> uploadExternalCqlContent(
+            @PathVariable Long id, @RequestBody Map<String, String> body) {
+        verifyOwnership(id);
+        String cqlContent = body.get("cqlContent");
+        if (cqlContent == null || cqlContent.isBlank()) {
+            throw new IllegalArgumentException("cqlContent is required");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(externalCqlService.uploadLibraryFromContent(id, cqlContent));
+    }
+
+    @DeleteMapping("/artifacts/{artifactId}/external-cql/{libId}")
+    @Operation(summary = "Delete external CQL library")
+    public ResponseEntity<Void> deleteExternalCql(
+            @PathVariable Long artifactId, @PathVariable Long libId) {
+        verifyOwnership(artifactId);
+        if (externalCqlService.deleteLibraryIfOwnedByArtifact(libId, artifactId)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    // ===== Scoring Types =====
 
     @GetMapping("/scoring-types")
     @Operation(summary = "Get Scoring Types", description = "Get scoring type configurations with required populations")
