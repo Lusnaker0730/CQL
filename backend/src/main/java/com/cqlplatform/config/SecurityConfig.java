@@ -39,6 +39,9 @@ public class SecurityConfig {
     @Value("${spring.h2.console.enabled:false}")
     private boolean h2ConsoleEnabled;
 
+    @Value("${management.prometheus.public:false}")
+    private boolean prometheusPublic;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         String frameAncestors = h2ConsoleEnabled ? "'self'" : "'none'";
@@ -91,8 +94,15 @@ public class SecurityConfig {
                 .requestMatchers("/cds-services/**").permitAll()
                 // User API key management
                 .requestMatchers("/api/user/api-keys/**").authenticated()
-                // Actuator health & prometheus
-                .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll();
+                // Actuator: health is always public
+                .requestMatchers("/actuator/health").permitAll();
+
+        // Prometheus: public only when management.prometheus.public=true (docker/internal network)
+        if (prometheusPublic) {
+            auth.requestMatchers("/actuator/prometheus").permitAll();
+        } else {
+            auth.requestMatchers("/actuator/prometheus").authenticated();
+        }
 
         // Swagger/OpenAPI: public in dev, authenticated in production
         if (h2ConsoleEnabled) {

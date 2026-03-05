@@ -50,9 +50,13 @@ public class WebConfig implements WebMvcConfigurer {
         if (extraAllowedOrigins != null && !extraAllowedOrigins.isBlank()) {
             for (String o : extraAllowedOrigins.split(",")) {
                 String trimmed = o.trim();
-                if (!trimmed.isEmpty()) {
-                    origins.add(trimmed);
+                if (trimmed.isEmpty()) continue;
+                // Reject bare wildcards and patterns — only exact origins allowed
+                if ("*".equals(trimmed) || trimmed.contains("*")) {
+                    throw new IllegalArgumentException(
+                            "Wildcard CORS origins are not allowed. Use exact origin URLs (e.g. https://example.com). Got: " + trimmed);
                 }
+                origins.add(trimmed);
             }
         }
         return origins;

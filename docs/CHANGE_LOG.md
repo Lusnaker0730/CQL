@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | |
 | PAT-029 | 🔒 security | 2026-03-05 | eCQM（後端） | eCQM 風險修復 — XSS 偵測改用 HtmlUtils + 結構驗證（元素/修飾詞/名稱唯一性）+ 發佈前 CQL 驗證 | Backend (eCQM) | [`326e5fb`](../../commit/326e5fb) |
 | PAT-028 | ✨ patch | 2026-03-05 | eCQM（前端） | eCQM 工作區存檔功能 — Save 按鈕 + Ctrl+S + 狀態指示器 + 未儲存變更防護 | Frontend (eCQM) | [`7019613`](../../commit/7019613) |
 | PAT-027 | 🌐 i18n | 2026-03-05 | eCQM（前端） | eCQM 撰寫全模組 i18n 繁體中文翻譯 — 12 元件 + ecqm namespace + 懶載入 | Frontend (eCQM) | [`0fe60a8`](../../commit/0fe60a8) |
@@ -147,6 +148,44 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-030 — 後端配置風險修復
+
+- **日期**: 2026-03-05
+- **範圍**: 後端配置
+- **類型**: 🔒 security
+- **風險評估**: 根據 `config_risk_assessment_plan.md` 的 4 項風險修復
+
+### 修復內容
+
+1. **Risk 2.1 — CQL 執行緒池 AbortPolicy (HIGH)** (`AsyncConfig.java`)
+   - `AbortPolicy` 在佇列滿載時拋出 `RejectedExecutionException` → 未處理 500 錯誤
+   - 改用 `CallerRunsPolicy`：佇列滿載時由呼叫端執行緒執行，自然形成反壓（backpressure）
+   - 不會遺失任務，也不會產生未處理例外
+
+2. **Risk 1.1 — CORS 萬用字元拒絕 (MEDIUM)** (`WebConfig.java`)
+   - `cors.allowed-origins` 環境變數可被設為 `*` 或含萬用字元的 pattern
+   - 新增驗證：若 origin 含 `*` 則啟動時直接拋出 `IllegalArgumentException`
+   - 僅接受精確 origin URL（例如 `https://example.com`）
+
+3. **Risk 1.2 — Prometheus 端點認證 (MEDIUM)** (`SecurityConfig.java`)
+   - `/actuator/prometheus` 原為 `permitAll()` — 可被未認證使用者存取業務指標
+   - 改為由 `management.prometheus.public` 屬性控制（預設 `false` = 需認證）
+   - Docker profile (`application-docker.yml`) 設為 `true` 允許 Prometheus 容器抓取
+
+4. **Risk 3.1 — 移除 XssStringDeserializer (MEDIUM)** (`CqlConfig.java`)
+   - 全域 Jackson `XssStringDeserializer` 使用 regex 靜默刪除字串內容
+   - 問題：(a) regex 可被繞過 (b) 會損壞合法臨床數據（含 `eval`、角括號的 CQL/FHIR 資料）
+   - XSS 防護已由其他層處理：React 自動跳脫、`@NoXss` 欄位驗證、表達式樹驗證器、`XssFilter`
+
+### 變更檔案
+- `backend/.../config/AsyncConfig.java` — `AbortPolicy` → `CallerRunsPolicy`
+- `backend/.../config/WebConfig.java` — CORS 萬用字元拒絕
+- `backend/.../config/SecurityConfig.java` — Prometheus 端點條件認證
+- `backend/.../config/CqlConfig.java` — 移除 `XssStringDeserializer`
+- `backend/.../resources/application-docker.yml` — 新增 `management.prometheus.public: true`
+
+---
 
 ## PAT-029 — eCQM 風險修復（XSS + 結構驗證 + 發佈前 CQL 驗證）
 

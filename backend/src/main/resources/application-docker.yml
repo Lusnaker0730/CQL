@@ -59,6 +59,11 @@ ai:
 ollama:
   enabled: ${OLLAMA_ENABLED:false}
 
+# Prometheus: allow unauthenticated scraping on docker network
+management:
+  prometheus:
+    public: true
+
 # Logging
 logging:
   level:

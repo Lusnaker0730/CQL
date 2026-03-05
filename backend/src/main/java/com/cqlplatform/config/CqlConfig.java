@@ -2,10 +2,8 @@ package com.cqlplatform.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.apache.ApacheRestfulClientFactory;
-import com.cqlplatform.security.XssStringDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
@@ -39,14 +37,25 @@ public class CqlConfig {
         return ctx;
     }
 
+    /**
+     * ObjectMapper without blanket XSS string deserializer.
+     * <p>
+     * The previous {@code XssStringDeserializer} silently stripped regex-matched patterns
+     * from ALL JSON string fields, which: (a) was bypassable via encoding tricks, and
+     * (b) corrupted legitimate clinical data containing patterns like "eval" or angle brackets.
+     * <p>
+     * XSS prevention is now handled by:
+     * <ul>
+     *   <li>React auto-escaping on the frontend (primary defense)</li>
+     *   <li>{@code @NoXss} field-level validation on DTOs</li>
+     *   <li>{@code ExpressionTreeValidator} / {@code EcqmExpressionTreeValidator} for tree data</li>
+     *   <li>{@code XssFilter} for query params and headers (HTML-encodes, doesn't strip)</li>
+     * </ul>
+     */
     @Bean
     public ObjectMapper objectMapper() {
-        SimpleModule xssModule = new SimpleModule("XssProtection");
-        xssModule.addDeserializer(String.class, new XssStringDeserializer());
-
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
-        mapper.registerModule(xssModule);
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }
