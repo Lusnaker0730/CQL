@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| PAT-035 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 修飾器連續新增 + Element Name UX 改善 + Numeric Value 修飾器 | Backend + Frontend (Authoring) |  |
+| PAT-035 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 修飾器連續新增 + Element Name UX 改善 + Numeric Value 修飾器 | Backend + Frontend (Authoring) | [`c77e6f6`](../../commit/c77e6f6) |
 | PAT-034 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 基礎元素四則運算 — 支援元素間 +−×÷ 計算（如 BMI = 體重÷身高²） | Backend + Frontend (Authoring) | [`080aec0`](../../commit/080aec0) |
 | BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | [`f782273`](../../commit/f782273) |
 | PAT-033 | ✨ patch | 2026-03-06 | CQL Builder（前端） | CQL Builder 面板增強 — 型別標籤、修飾鏈、依賴圖、基礎元素、驗證面板 + 程式碼品質/安全修復 | Frontend (Builder) | [`f782273`](../../commit/f782273) |
