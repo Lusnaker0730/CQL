@@ -396,6 +396,16 @@
     "nameRequired": "名稱為必填",
     "duplicateName": "基礎元素名稱重複"
   },
+  "arithmetic": {
+    "logicElement": "邏輯元素",
+    "arithmeticElement": "四則運算元素",
+    "leftOperand": "左運算元",
+    "rightOperand": "右運算元",
+    "operator": "運算符",
+    "selectElement": "選擇元素...",
+    "namePlaceholder": "計算值名稱",
+    "cqlPreview": "CQL 預覽："
+  },
   "parameters": {
     "title": "參數",
     "add": "新增參數",

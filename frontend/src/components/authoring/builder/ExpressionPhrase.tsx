@@ -43,6 +43,8 @@ function buildPhrase(element: ElementInstance, t: TFunction) {
       return buildAgeRangePhrase(element, t)
     case 'Gender':
       return buildGenderPhrase(element, t)
+    case 'arithmeticExpression':
+      return buildArithmeticPhrase(element)
     default:
       if (element.type?.startsWith('Generic')) {
         return buildGenericResourcePhrase(element, t)
@@ -145,6 +147,18 @@ function buildGenericResourcePhrase(element: ElementInstance, t: TFunction) {
   )
 }
 
+function buildArithmeticPhrase(element: ElementInstance) {
+  const operator = getFieldValue(element, 'operator') || '+'
+  const opSymbols: Record<string, string> = { '+': '+', '-': '−', '*': '×', '/': '÷' }
+
+  return (
+    <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Chip label={element.name} size="small" sx={{ bgcolor: 'secondary.main', color: 'white', fontWeight: 600, height: 26 }} />
+      <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>{opSymbols[operator] || operator}</span>
+    </Typography>
+  )
+}
+
 function buildDefaultPhrase(element: ElementInstance) {
   const nameField = element.fields?.find((f) => f.id === 'element_name')
   const displayName = (nameField?.value as string) || element.name
@@ -197,6 +211,10 @@ function phraseToString(element: ElementInstance, t: TFunction): string {
     case 'Gender': {
       const g = getFieldValue(element, 'gender')
       return g ? `${stripHtml(t('expression.genderIs'))}${g}` : t('expression.genderNotSet')
+    }
+    case 'arithmeticExpression': {
+      const op = getFieldValue(element, 'operator') || '+'
+      return `${element.name} (${op})`
     }
     default: {
       const rt = element.type?.startsWith('Generic')

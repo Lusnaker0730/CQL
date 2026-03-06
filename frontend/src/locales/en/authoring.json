@@ -396,6 +396,16 @@
     "nameRequired": "Name is required",
     "duplicateName": "Duplicate base element name"
   },
+  "arithmetic": {
+    "logicElement": "Logic Element",
+    "arithmeticElement": "Arithmetic Element",
+    "leftOperand": "Left Operand",
+    "rightOperand": "Right Operand",
+    "operator": "Operator",
+    "selectElement": "Select element...",
+    "namePlaceholder": "Calculated Value Name",
+    "cqlPreview": "CQL Preview:"
+  },
   "parameters": {
     "title": "Parameters",
     "add": "Add Parameter",

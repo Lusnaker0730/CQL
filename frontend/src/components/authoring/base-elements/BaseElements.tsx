@@ -2,11 +2,12 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent, Chip,
-  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Menu, MenuItem, ListItemIcon, ListItemText,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon, Calculate as CalculateIcon, AccountTree as TreeIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
+import ArithmeticElement from './ArithmeticElement'
 import type { BaseElement, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 import { generateId } from '../../../utils/validation'
@@ -40,6 +41,8 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
     ? baseElements.find((be) => be.uniqueId === pendingDeleteId)?.name || 'this base element'
     : ''
 
+  const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null)
+
   const handleAdd = () => {
     onChange([
       ...baseElements,
@@ -52,6 +55,27 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         conjunction: true,
       },
     ])
+    setAddMenuAnchor(null)
+  }
+
+  const handleAddArithmetic = () => {
+    onChange([
+      ...baseElements,
+      {
+        uniqueId: generateId(),
+        name: 'Calculated Value ' + (baseElements.filter((be) => be.type === 'arithmeticExpression').length + 1),
+        type: 'arithmeticExpression',
+        returnType: 'system_quantity',
+        fields: [
+          { id: 'left_operand_id', type: 'string', name: 'Left Operand', value: '' },
+          { id: 'operator', type: 'string', name: 'Operator', value: '+' },
+          { id: 'right_operand_id', type: 'string', name: 'Right Operand', value: '' },
+        ],
+        childInstances: [],
+        conjunction: false,
+      },
+    ])
+    setAddMenuAnchor(null)
   }
 
   const handleRemove = (uniqueId: string) => {
@@ -86,9 +110,19 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">{t('baseElements.title')}</Typography>
-        <GradientButton startIcon={<AddIcon />} onClick={handleAdd}>
+        <GradientButton startIcon={<AddIcon />} onClick={(e) => setAddMenuAnchor(e.currentTarget)}>
           {t('baseElements.add')}
         </GradientButton>
+        <Menu anchorEl={addMenuAnchor} open={!!addMenuAnchor} onClose={() => setAddMenuAnchor(null)}>
+          <MenuItem onClick={handleAdd}>
+            <ListItemIcon><TreeIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('arithmetic.logicElement')}</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleAddArithmetic}>
+            <ListItemIcon><CalculateIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('arithmetic.arithmeticElement')}</ListItemText>
+          </MenuItem>
+        </Menu>
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -103,50 +137,64 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         </Box>
       ) : (
         <Stack spacing={2}>
-          {baseElements.map((be) => (
-            <Card key={be.uniqueId} variant="outlined">
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                  <TextField
-                    value={be.name}
-                    onChange={(e) => handleNameChange(be.uniqueId, e.target.value)}
-                    size="small"
-                    variant="standard"
-                    sx={{ '& .MuiInput-input': { fontWeight: 600 } }}
-                    error={!!getNameError(be)}
-                    helperText={getNameError(be)}
+          {baseElements.map((be) =>
+            be.type === 'arithmeticExpression' ? (
+              <ArithmeticElement
+                key={be.uniqueId}
+                element={be}
+                availableOperands={baseElements
+                  .filter((b) => b.uniqueId !== be.uniqueId)
+                  .map((b) => ({ uniqueId: b.uniqueId, name: b.name, returnType: b.returnType }))}
+                onUpdate={(updates) =>
+                  onChange(baseElements.map((b) => (b.uniqueId === be.uniqueId ? { ...b, ...updates } : b)))
+                }
+                onDelete={() => setPendingDeleteId(be.uniqueId)}
+              />
+            ) : (
+              <Card key={be.uniqueId} variant="outlined">
+                <CardContent>
+                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                    <TextField
+                      value={be.name}
+                      onChange={(e) => handleNameChange(be.uniqueId, e.target.value)}
+                      size="small"
+                      variant="standard"
+                      sx={{ '& .MuiInput-input': { fontWeight: 600 } }}
+                      error={!!getNameError(be)}
+                      helperText={getNameError(be)}
+                    />
+                    <Chip label={be.returnType} size="small" variant="outlined" />
+                    <Box sx={{ flex: 1 }} />
+                    <Tooltip title={t('baseElements.removeTooltip')}>
+                      <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)} aria-label={t('baseElements.removeTooltip')}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                  <ConjunctionGroup
+                    group={{
+                      id: 'And',
+                      name: 'And',
+                      conjunction: true,
+                      returnType: be.returnType,
+                      childInstances: be.childInstances || [],
+                    }}
+                    treeName={be.name}
+                    templates={templates}
+                    modifiers={modifiers}
+                    dynamicEntries={dynamicEntries}
+                    twcoreMode={twcoreMode}
+                    onUpdateGroup={(updated) => handleUpdateTree(be.uniqueId, updated.childInstances)}
+                    onAddElement={(el) => handleUpdateTree(be.uniqueId, [...(be.childInstances || []), el])}
+                    onRemoveElement={(uid) => handleUpdateTree(be.uniqueId, (be.childInstances || []).filter((c) => c.uniqueId !== uid))}
+                    onUpdateElement={(uid, updates) =>
+                      handleUpdateTree(be.uniqueId, (be.childInstances || []).map((c) => (c.uniqueId === uid ? { ...c, ...updates } : c)))
+                    }
                   />
-                  <Chip label={be.returnType} size="small" variant="outlined" />
-                  <Box sx={{ flex: 1 }} />
-                  <Tooltip title={t('baseElements.removeTooltip')}>
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(be.uniqueId)} aria-label={t('baseElements.removeTooltip')}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-                <ConjunctionGroup
-                  group={{
-                    id: 'And',
-                    name: 'And',
-                    conjunction: true,
-                    returnType: be.returnType,
-                    childInstances: be.childInstances || [],
-                  }}
-                  treeName={be.name}
-                  templates={templates}
-                  modifiers={modifiers}
-                  dynamicEntries={dynamicEntries}
-                  twcoreMode={twcoreMode}
-                  onUpdateGroup={(updated) => handleUpdateTree(be.uniqueId, updated.childInstances)}
-                  onAddElement={(el) => handleUpdateTree(be.uniqueId, [...(be.childInstances || []), el])}
-                  onRemoveElement={(uid) => handleUpdateTree(be.uniqueId, (be.childInstances || []).filter((c) => c.uniqueId !== uid))}
-                  onUpdateElement={(uid, updates) =>
-                    handleUpdateTree(be.uniqueId, (be.childInstances || []).map((c) => (c.uniqueId === uid ? { ...c, ...updates } : c)))
-                  }
-                />
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          )}
         </Stack>
       )}
 

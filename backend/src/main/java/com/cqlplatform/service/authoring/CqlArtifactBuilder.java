@@ -104,10 +104,19 @@ public class CqlArtifactBuilder {
         }
         dataModel.put("params", paramModels);
 
-        // Base Elements
+        // Base Elements — emit non-arithmetic first, then arithmetic (which may reference other base elements)
         List<Map<String, String>> baseElementModels = new ArrayList<>();
         if (baseElements != null) {
+            List<Map<String, Object>> nonArithmetic = new ArrayList<>();
+            List<Map<String, Object>> arithmetic = new ArrayList<>();
             for (Map<String, Object> be : baseElements) {
+                if ("arithmeticExpression".equals(engine.getStr(be, "type", ""))) {
+                    arithmetic.add(be);
+                } else {
+                    nonArithmetic.add(be);
+                }
+            }
+            for (Map<String, Object> be : nonArithmetic) {
                 String beName = engine.getStr(be, "name", "BaseElement");
                 String beExpr;
                 if (Boolean.TRUE.equals(be.get("conjunction"))) {
@@ -115,6 +124,11 @@ public class CqlArtifactBuilder {
                 } else {
                     beExpr = engine.buildExpression(be, ctx);
                 }
+                baseElementModels.add(Map.of("name", beName, "expression", beExpr));
+            }
+            for (Map<String, Object> be : arithmetic) {
+                String beName = engine.getStr(be, "name", "BaseElement");
+                String beExpr = engine.buildExpression(be, ctx);
                 baseElementModels.add(Map.of("name", beName, "expression", beExpr));
             }
         }

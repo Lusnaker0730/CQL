@@ -152,6 +152,25 @@ public class ExpressionCqlEngine {
                 }
                 break;
             }
+            case "arithmeticExpression": {
+                String leftId = getFieldValue(fields, "left_operand_id", "");
+                String rightId = getFieldValue(fields, "right_operand_id", "");
+                String operator = getFieldValue(fields, "operator", "+");
+                // Validate operator to prevent injection
+                if (!"+".equals(operator) && !"-".equals(operator)
+                        && !"*".equals(operator) && !"/".equals(operator)) {
+                    operator = "+";
+                }
+                String leftName = ctx.findBaseElementName(leftId);
+                String rightName = ctx.findBaseElementName(rightId);
+                if (leftName != null && rightName != null) {
+                    expr = String.format("\"%s\" %s \"%s\"", leftName, operator, rightName);
+                } else {
+                    ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
+                    expr = "null /* unresolved arithmetic operands */";
+                }
+                break;
+            }
             default:
                 if (type.startsWith("Generic")) {
                     expr = buildGenericResourceExpression(type, fields);
