@@ -404,7 +404,10 @@
     "operator": "Operator",
     "selectElement": "Select element...",
     "namePlaceholder": "Calculated Value Name",
-    "cqlPreview": "CQL Preview:"
+    "cqlPreview": "CQL Preview:",
+    "literalValue": "Value",
+    "modeElement": "Element",
+    "modeLiteral": "Literal"
   },
   "parameters": {
     "title": "Parameters",

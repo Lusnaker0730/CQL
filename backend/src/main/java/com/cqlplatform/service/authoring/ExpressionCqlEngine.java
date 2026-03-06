@@ -153,18 +153,16 @@ public class ExpressionCqlEngine {
                 break;
             }
             case "arithmeticExpression": {
-                String leftId = getFieldValue(fields, "left_operand_id", "");
-                String rightId = getFieldValue(fields, "right_operand_id", "");
                 String operator = getFieldValue(fields, "operator", "+");
                 // Validate operator to prevent injection
                 if (!"+".equals(operator) && !"-".equals(operator)
                         && !"*".equals(operator) && !"/".equals(operator)) {
                     operator = "+";
                 }
-                String leftName = ctx.findBaseElementName(leftId);
-                String rightName = ctx.findBaseElementName(rightId);
-                if (leftName != null && rightName != null) {
-                    expr = String.format("\"%s\" %s \"%s\"", leftName, operator, rightName);
+                String leftCql = resolveArithmeticOperand(fields, "left", ctx);
+                String rightCql = resolveArithmeticOperand(fields, "right", ctx);
+                if (leftCql != null && rightCql != null) {
+                    expr = String.format("%s %s %s", leftCql, operator, rightCql);
                 } else {
                     ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
                     expr = "null /* unresolved arithmetic operands */";
@@ -193,6 +191,28 @@ public class ExpressionCqlEngine {
         }
 
         return expr;
+    }
+
+    /**
+     * Resolve one side (left or right) of an arithmetic expression.
+     * Supports element references and literal numeric values.
+     */
+    private String resolveArithmeticOperand(List<Map<String, Object>> fields, String side, BuildContext ctx) {
+        String mode = getFieldValue(fields, side + "_mode", "element");
+        if ("literal".equals(mode)) {
+            String literal = getFieldValue(fields, side + "_literal", "");
+            if (literal == null || literal.isEmpty()) return null;
+            // Validate: only allow numeric literals (digits, dots, minus, spaces, quotes for units)
+            if (!literal.matches("[\\d.\\-]+(?:\\s*'[^']*')?")) {
+                return null;
+            }
+            return literal;
+        }
+        // Element reference mode
+        String refId = getFieldValue(fields, side + "_operand_id", "");
+        if (refId == null || refId.isEmpty()) return null;
+        String refName = ctx.findBaseElementName(refId);
+        return refName != null ? String.format("\"%s\"", refName) : null;
     }
 
     public String buildAgeRangeExpression(List<Map<String, Object>> fields) {

@@ -67,9 +67,13 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         type: 'arithmeticExpression',
         returnType: 'system_quantity',
         fields: [
+          { id: 'left_mode', type: 'string', name: 'Left Mode', value: 'element' },
           { id: 'left_operand_id', type: 'string', name: 'Left Operand', value: '' },
+          { id: 'left_literal', type: 'string', name: 'Left Literal', value: '' },
           { id: 'operator', type: 'string', name: 'Operator', value: '+' },
+          { id: 'right_mode', type: 'string', name: 'Right Mode', value: 'element' },
           { id: 'right_operand_id', type: 'string', name: 'Right Operand', value: '' },
+          { id: 'right_literal', type: 'string', name: 'Right Literal', value: '' },
         ],
         childInstances: [],
         conjunction: false,

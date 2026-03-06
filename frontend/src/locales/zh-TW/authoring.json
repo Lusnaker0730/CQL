@@ -404,7 +404,10 @@
     "operator": "運算符",
     "selectElement": "選擇元素...",
     "namePlaceholder": "計算值名稱",
-    "cqlPreview": "CQL 預覽："
+    "cqlPreview": "CQL 預覽：",
+    "literalValue": "數值",
+    "modeElement": "元素",
+    "modeLiteral": "常數"
   },
   "parameters": {
     "title": "參數",
