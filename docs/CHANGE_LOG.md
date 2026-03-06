@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-034 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 基礎元素四則運算 — 支援元素間 +−×÷ 計算（如 BMI = 體重÷身高²） | Backend + Frontend (Authoring) | [`080aec0`](../../commit/080aec0) |
 | BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | [`f782273`](../../commit/f782273) |
 | PAT-033 | ✨ patch | 2026-03-06 | CQL Builder（前端） | CQL Builder 面板增強 — 型別標籤、修飾鏈、依賴圖、基礎元素、驗證面板 + 程式碼品質/安全修復 | Frontend (Builder) | [`f782273`](../../commit/f782273) |
 | PAT-032 | ✨ patch | 2026-03-06 | eCQM（全端） | eCQM 外部 CQL 程式庫支援 — 全端上傳/解析/管理 + 可複用 ExternalCqlView 元件 | Backend + Frontend (eCQM) | [`b88bd32`](../../commit/b88bd32) |
@@ -152,6 +153,37 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-034 — 基礎元素四則運算
+
+- **日期**: 2026-03-06
+- **範圍**: CDS Authoring（全端）
+- **類型**: ✨ patch
+
+### 修復內容
+
+CDS Authoring Tool 的 Base Elements 面板新增「四則運算元素」，支援在兩個基礎元素之間進行 +、−、×、÷ 運算，產生計算型 CQL 定義。
+
+**前端**
+- 新增 `ArithmeticElement` 元件：兩個下拉選單（左/右運算元）+ 運算符選擇 + CQL 即時預覽
+- `BaseElements` 面板新增下拉選單：「邏輯元素」（原有）和「四則運算元素」（新增）
+- `ExpressionPhrase` 新增算術元素的自然語言描述
+
+**後端**
+- `ExpressionCqlEngine.buildExpression()` 新增 `arithmeticExpression` case，解析左/右運算元 ID 並產生 CQL
+- `CqlArtifactBuilder` 調整 base element 發射順序：非算術元素先輸出，算術元素後輸出（避免 CQL 引用順序問題）
+- 運算符白名單驗證（僅允許 +−×÷），防止注入
+
+### 變更檔案
+- `frontend/.../base-elements/ArithmeticElement.tsx` — 新增：四則運算元素 UI
+- `frontend/.../base-elements/BaseElements.tsx` — 新增下拉選單 + 算術元素渲染
+- `frontend/.../builder/ExpressionPhrase.tsx` — 新增算術表達式描述
+- `frontend/src/locales/en/authoring.json` — 新增 arithmetic.* 鍵值
+- `frontend/src/locales/zh-TW/authoring.json` — 新增繁中翻譯
+- `backend/.../authoring/ExpressionCqlEngine.java` — 新增 arithmeticExpression case
+- `backend/.../authoring/CqlArtifactBuilder.java` — base element 拓撲排序
+
+---
 
 ## PAT-033 — CQL Builder 面板增強
 
