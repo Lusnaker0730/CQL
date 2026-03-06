@@ -9,8 +9,8 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | |
-| PAT-033 | ✨ patch | 2026-03-06 | CQL Builder（前端） | CQL Builder 面板增強 — 型別標籤、修飾鏈、依賴圖、基礎元素、驗證面板 + 程式碼品質/安全修復 | Frontend (Builder) | |
+| BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | [`f782273`](../../commit/f782273) |
+| PAT-033 | ✨ patch | 2026-03-06 | CQL Builder（前端） | CQL Builder 面板增強 — 型別標籤、修飾鏈、依賴圖、基礎元素、驗證面板 + 程式碼品質/安全修復 | Frontend (Builder) | [`f782273`](../../commit/f782273) |
 | PAT-032 | ✨ patch | 2026-03-06 | eCQM（全端） | eCQM 外部 CQL 程式庫支援 — 全端上傳/解析/管理 + 可複用 ExternalCqlView 元件 | Backend + Frontend (eCQM) | [`b88bd32`](../../commit/b88bd32) |
 | PAT-031 | ✨ patch | 2026-03-06 | eCQM（前端） | eCQM 基礎元素 + 參數分頁功能啟用 — 複用 CDS Authoring 元件（BaseElements + Parameters） | Frontend (eCQM) | [`8c50113`](../../commit/8c50113) |
 | PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | [`11c0f84`](../../commit/11c0f84) |
