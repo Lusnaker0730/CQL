@@ -64,6 +64,7 @@ export const RETURN_TYPE_COLORS: Record<string, string> = {
   integer: '#9C27B0',
   decimal: '#9C27B0',
   system_quantity: '#9C27B0', // purple – numeric types
+  system_decimal: '#9C27B0',
   string: '#795548',          // brown – string
 }
 

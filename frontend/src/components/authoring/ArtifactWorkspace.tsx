@@ -133,12 +133,8 @@ function getModifierMissingFields(mod: ModifierLike): string[] {
 function collectTreeErrors(tree: ConjunctionGroupType | undefined): string[] {
   if (!tree?.childInstances?.length) return []
   const errors: string[] = []
-  tree.childInstances.forEach((el, idx) => {
-    const name = el.fields?.find((f) => f.id === 'element_name')?.value as string | undefined
-    if (!name) {
-      errors.push(`workspace.validation.elementMissingName||${JSON.stringify({ index: idx + 1 })}`)
-      return
-    }
+  tree.childInstances.forEach((el) => {
+    const name = (el.fields?.find((f) => f.id === 'element_name')?.value as string | undefined) || el.name
     if (el.modifiers?.length) {
       let cur = el.returnType
       for (const mod of el.modifiers) {

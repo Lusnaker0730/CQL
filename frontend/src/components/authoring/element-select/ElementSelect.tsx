@@ -28,7 +28,7 @@ export default function ElementSelect({ templates, dynamicEntries, twcoreMode, o
         id: f.id,
         type: f.type,
         name: f.name,
-        value: f.value ?? undefined,
+        value: f.id === 'element_name' && !f.value ? template.name : (f.value ?? undefined),
         static: f.static,
         select: f.select,
         codes: f.codes,

@@ -24,6 +24,7 @@ const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
 interface ArtifactElementProps {
   element: ElementInstance
   modifiers: ModifierDefinition[]
+  hideElementName?: boolean
   onUpdate: (updates: Partial<ElementInstance>) => void
   onRemove: () => void
   onIndent?: () => void
@@ -33,6 +34,7 @@ interface ArtifactElementProps {
 const ArtifactElement = memo(function ArtifactElement({
   element,
   modifiers,
+  hideElementName,
   onUpdate,
   onRemove,
   onIndent,
@@ -161,6 +163,7 @@ const ArtifactElement = memo(function ArtifactElement({
           <ArtifactElementBody
             element={element}
             modifiers={modifiers}
+            hideElementName={hideElementName}
             onUpdate={onUpdate}
           />
         </CardContent>

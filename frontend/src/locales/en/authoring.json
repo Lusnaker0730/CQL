@@ -167,6 +167,7 @@
     "selectModifiersTitle": "Select Modifiers",
     "withModifiers": "WITH MODIFIERS",
     "filterModifiers": "Filter modifiers...",
+    "noMoreModifiers": "No more applicable modifiers for the current return type.",
     "selectModifierLabel": "Select modifier...",
     "modAccepts": "Accepts <strong>{{input}}</strong> and returns <strong>{{output}}</strong>.",
     "modCqlLabel": "CQL: {{fn}}(expression)",

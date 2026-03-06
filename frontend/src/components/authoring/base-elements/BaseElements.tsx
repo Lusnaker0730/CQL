@@ -188,6 +188,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
                     modifiers={modifiers}
                     dynamicEntries={dynamicEntries}
                     twcoreMode={twcoreMode}
+                    hideElementName
                     onUpdateGroup={(updated) => handleUpdateTree(be.uniqueId, updated.childInstances)}
                     onAddElement={(el) => handleUpdateTree(be.uniqueId, [...(be.childInstances || []), el])}
                     onRemoveElement={(uid) => handleUpdateTree(be.uniqueId, (be.childInstances || []).filter((c) => c.uniqueId !== uid))}

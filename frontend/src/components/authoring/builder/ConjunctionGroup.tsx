@@ -31,6 +31,7 @@ interface ConjunctionGroupProps {
   modifiers: ModifierDefinition[]
   dynamicEntries?: DynamicEntry[]
   twcoreMode?: boolean
+  hideElementName?: boolean
   searchFilter?: string
   onUpdateGroup: (updated: ConjunctionGroupType) => void
   onAddElement: (element: ElementInstance) => void
@@ -47,6 +48,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   modifiers,
   dynamicEntries,
   twcoreMode,
+  hideElementName,
   searchFilter,
   onUpdateGroup,
   onAddElement,
@@ -256,6 +258,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                   templates={templates}
                   modifiers={modifiers}
                   dynamicEntries={dynamicEntries}
+                  hideElementName={hideElementName}
                   searchFilter={activeFilter}
                   onUpdateGroup={(updated) =>
                     onUpdateElement(child.uniqueId, {
@@ -284,6 +287,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                 <ArtifactElement
                   element={child}
                   modifiers={modifiers}
+                  hideElementName={hideElementName}
                   onUpdate={(updates) => onUpdateElement(child.uniqueId, updates)}
                   onRemove={() => onRemoveElement(child.uniqueId)}
                   onIndent={() => handleIndent(child.uniqueId)}

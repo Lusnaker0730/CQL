@@ -316,7 +316,7 @@
   {
     "id": "ValueComparisonNumber",
     "name": "Value Comparison",
-    "inputTypes": ["integer", "decimal", "system_quantity"],
+    "inputTypes": ["integer", "decimal", "system_quantity", "system_decimal"],
     "returnType": "boolean",
     "values": { "minOperator": null, "minValue": "", "maxOperator": null, "maxValue": "", "unit": "" },
     "validator": { "type": "require", "fields": ["minOperator", "minValue"] },
@@ -341,7 +341,7 @@
   {
     "id": "BooleanComparison",
     "name": "Is (Not) Null?",
-    "inputTypes": ["boolean", "integer", "decimal", "string", "datetime", "time", "observation", "condition", "procedure", "system_quantity", "system_code", "system_concept"],
+    "inputTypes": ["boolean", "integer", "decimal", "system_decimal", "string", "datetime", "time", "observation", "condition", "procedure", "system_quantity", "system_code", "system_concept"],
     "returnType": "boolean",
     "values": { "value": null },
     "cqlTemplate": "BooleanComparison"
@@ -504,6 +504,13 @@
     "values": { "unit": null },
     "validator": { "type": "require", "fields": ["unit"] },
     "cqlTemplate": "ConvertUnits"
+  },
+  {
+    "id": "NumericValue",
+    "name": "Numeric Value",
+    "inputTypes": ["system_quantity"],
+    "returnType": "system_decimal",
+    "cqlTemplate": "NumericValue"
   },
   {
     "id": "IsTrue",

@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-035 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 修飾器連續新增 + Element Name UX 改善 + Numeric Value 修飾器 | Backend + Frontend (Authoring) |  |
 | PAT-034 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 基礎元素四則運算 — 支援元素間 +−×÷ 計算（如 BMI = 體重÷身高²） | Backend + Frontend (Authoring) | [`080aec0`](../../commit/080aec0) |
 | BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | [`f782273`](../../commit/f782273) |
 | PAT-033 | ✨ patch | 2026-03-06 | CQL Builder（前端） | CQL Builder 面板增強 — 型別標籤、修飾鏈、依賴圖、基礎元素、驗證面板 + 程式碼品質/安全修復 | Frontend (Builder) | [`f782273`](../../commit/f782273) |
@@ -153,6 +154,39 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-035 — 修飾器連續新增 + Element Name UX + Numeric Value 修飾器
+
+- **日期**: 2026-03-06
+- **範圍**: CDS Authoring（全端）
+
+### 變更內容
+
+1. **修飾器連續新增**：選擇修飾器 dialog 不再每次新增後關閉，改為保持開啟，顯示已加入的修飾器鏈（Chip + 箭頭），可繼續選擇下一個或移除已加入的。
+2. **Base Elements 隱藏子元素 Element Name**：Base Elements 內的子元素不再顯示多餘的 Element Name 欄位，避免兩個名稱造成混淆。
+3. **Element Name 自動帶入預設值**：新增元素時 `element_name` 自動填入模板名稱（如 Age Range、Gender），不再留空。
+4. **驗證邏輯修正**：移除「缺少元素名稱」強制驗證，改為 fallback 到 `element.name`，與 helper text「選填」一致。
+5. **Numeric Value 修飾器**：新增修飾器，從 `System.Quantity`（如 `119 'kg'`）提取純數值（`119`），避免算術運算後單位不匹配導致比較失敗。
+6. **arithmeticExpression 類型白名單**：後端 `TemplateService.BUILTIN_REFERENCE_TYPES` 加入 `arithmeticExpression`，修復儲存時「unknown element type」錯誤。
+
+### 檔案變更
+
+| 檔案 | 說明 |
+|------|------|
+| `backend/.../TemplateService.java` | BUILTIN_REFERENCE_TYPES 加入 arithmeticExpression |
+| `backend/.../data/modifiers.json` | 新增 NumericValue 修飾器 + system_decimal 加入 ValueComparison/BooleanComparison inputTypes |
+| `backend/.../templates/cql/modifiers/NumericValue.ftl` | 新 FreeMarker 模板：`(expression).value` |
+| `frontend/.../ArtifactElementBody.tsx` | 修飾器 dialog 改為連續新增模式 + hideElementName prop |
+| `frontend/.../ArtifactElement.tsx` | 透傳 hideElementName |
+| `frontend/.../ConjunctionGroup.tsx` | 透傳 hideElementName |
+| `frontend/.../BaseElements.tsx` | 設定 hideElementName |
+| `frontend/.../ElementSelect.tsx` | element_name 自動帶入模板名稱 |
+| `frontend/.../ArtifactWorkspace.tsx` | 移除強制 element_name 驗證 |
+| `frontend/.../authoringConstants.ts` | system_decimal 顏色映射 |
+| `frontend/.../locales/en/authoring.json` | 新增 noMoreModifiers key |
+| `frontend/.../locales/zh-TW/authoring.json` | 新增 noMoreModifiers 中文翻譯 |
+
+---
 
 ## PAT-034 — 基礎元素四則運算
 

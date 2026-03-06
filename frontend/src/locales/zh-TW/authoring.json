@@ -167,6 +167,7 @@
     "selectModifiersTitle": "選擇修飾器",
     "withModifiers": "使用修飾器",
     "filterModifiers": "篩選修飾器...",
+    "noMoreModifiers": "目前回傳類型沒有更多可用的修飾器。",
     "selectModifierLabel": "選擇修飾器...",
     "modAccepts": "接受 <strong>{{input}}</strong> 並回傳 <strong>{{output}}</strong>。",
     "modCqlLabel": "CQL：{{fn}}(expression)",
