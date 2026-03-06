@@ -9,7 +9,10 @@
     "concepts": "概念",
     "parameters": "參數",
     "definitions": "定義",
-    "functions": "函式"
+    "functions": "函式",
+    "baseElements": "基礎元素",
+    "expressionTree": "運算式樹",
+    "validation": "驗證"
   },
   "common": {
     "noItemsFound": "未找到{{type}}",
@@ -179,6 +182,70 @@
     "removeBranch": "移除分支",
     "conditionPlaceholder": "例如 BMIValue < 18.5",
     "resultPlaceholder": "例如 'Underweight'"
+  },
+  "validation": {
+    "noIssues": "未發現問題",
+    "errors": "個錯誤",
+    "warnings": "個警告",
+    "hints": "個提示"
+  },
+  "modifierChain": {
+    "title": "修飾器鏈",
+    "addModifier": "新增修飾器",
+    "removeModifier": "移除",
+    "valueComparison": "值比較",
+    "booleanCheck": "布林檢查",
+    "stringMatch": "字串比對",
+    "qualifier": "限定器",
+    "unitConversion": "單位轉換",
+    "lookBack": "回溯",
+    "mostRecent": "最近一筆",
+    "exists": "存在",
+    "count": "計數",
+    "first": "第一筆",
+    "activeOnly": "僅啟用",
+    "confirmedOnly": "僅已確認",
+    "completedOnly": "僅已完成",
+    "min": "最小值",
+    "max": "最大值",
+    "operator": "運算子",
+    "value": "值",
+    "unit": "單位",
+    "matchType": "比對類型",
+    "valueSet": "值集",
+    "code": "代碼",
+    "equals": "等於",
+    "startsWith": "開頭為",
+    "endsWith": "結尾為",
+    "contains": "包含",
+    "isNull": "為 Null",
+    "isNotNull": "不為 Null",
+    "isTrue": "為 True",
+    "isFalse": "為 False"
+  },
+  "elementSelect": {
+    "definitions": "定義",
+    "parameters": "參數",
+    "functions": "函式",
+    "builtIn": "內建",
+    "searchPlaceholder": "搜尋元素..."
+  },
+  "baseElements": {
+    "title": "基礎元素",
+    "markAsBase": "釘選為基礎元素",
+    "unmarkBase": "取消釘選",
+    "usedBy": "被 {{count}} 個定義引用",
+    "notUsed": "未被引用",
+    "noBaseElements": "尚未釘選基礎元素。可釘選常重複使用的定義。"
+  },
+  "expressionTree": {
+    "title": "運算式樹",
+    "noData": "解析 CQL 以顯示運算式樹",
+    "and": "AND",
+    "or": "OR",
+    "not": "NOT",
+    "references": "引用",
+    "dependsOn": "依賴於"
   },
   "cdsCard": {
     "nameHint": "以「Card」開頭的名稱會被偵測為 CDS 卡片",

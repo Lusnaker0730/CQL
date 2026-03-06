@@ -29,8 +29,12 @@ import ConceptsSection from './ConceptsSection'
 import ParametersSection from './ParametersSection'
 import DefinitionsSection from './DefinitionsSection'
 import FunctionsSection from './FunctionsSection'
+import ValidationPanel from './ValidationPanel'
+import BaseElementsPanel from './BaseElementsPanel'
+import ExpressionTreeView from './ExpressionTreeView'
 
 import type { CqlElementType } from '../../utils/cqlElementLocator'
+import { extractCqlName } from '../../utils/cqlNames'
 
 interface CqlBuilderPanelProps {
   onInsertSnippet: (snippet: string) => void
@@ -65,13 +69,12 @@ export default function CqlBuilderPanel({
 
   // Collect all known names from the current structure
   const getAllNames = useCallback((): string[] => {
-    const extract = (raw: string) => { const m = raw.match(/^"([^"]+)"/); return m?.[1] ?? '' }
     return [
       ...structure.expressions.map((e) => e.name),
       ...structure.functions.map((f) => f.name),
-      ...structure.parameters.map(extract),
-      ...structure.valueSets.map(extract),
-      ...structure.codes.map(extract),
+      ...structure.parameters.map(extractCqlName),
+      ...structure.valueSets.map(extractCqlName),
+      ...structure.codes.map(extractCqlName),
     ]
   }, [structure])
 
@@ -188,6 +191,36 @@ export default function CqlBuilderPanel({
         />
       ),
     },
+    {
+      id: 'baseElements',
+      label: t('sections.baseElements'),
+      count: 0,
+      content: (
+        <BaseElementsPanel
+          structure={structure}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+        />
+      ),
+    },
+    {
+      id: 'expressionTree',
+      label: t('sections.expressionTree'),
+      count: 0,
+      content: (
+        <ExpressionTreeView
+          structure={structure}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+        />
+      ),
+    },
+    {
+      id: 'validation',
+      label: t('sections.validation'),
+      count: 0,
+      content: (
+        <ValidationPanel structure={structure} parseError={parseError} />
+      ),
+    },
   ]
 
   return (
@@ -236,6 +269,7 @@ export default function CqlBuilderPanel({
             onChange={handleAccordion(section.id)}
             disableGutters
             elevation={0}
+            TransitionProps={{ unmountOnExit: true }}
             sx={{
               '&:before': { display: 'none' },
               border: '1px solid',

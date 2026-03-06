@@ -9,6 +9,8 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | |
+| PAT-033 | ✨ patch | 2026-03-06 | CQL Builder（前端） | CQL Builder 面板增強 — 型別標籤、修飾鏈、依賴圖、基礎元素、驗證面板 + 程式碼品質/安全修復 | Frontend (Builder) | |
 | PAT-032 | ✨ patch | 2026-03-06 | eCQM（全端） | eCQM 外部 CQL 程式庫支援 — 全端上傳/解析/管理 + 可複用 ExternalCqlView 元件 | Backend + Frontend (eCQM) | [`b88bd32`](../../commit/b88bd32) |
 | PAT-031 | ✨ patch | 2026-03-06 | eCQM（前端） | eCQM 基礎元素 + 參數分頁功能啟用 — 複用 CDS Authoring 元件（BaseElements + Parameters） | Frontend (eCQM) | [`8c50113`](../../commit/8c50113) |
 | PAT-030 | 🔒 security | 2026-03-05 | 後端配置 | 配置風險修復 — CallerRunsPolicy + CORS 萬用字元拒絕 + Prometheus 認證 + 移除 XSS 反序列化器 | Backend (Config) | [`11c0f84`](../../commit/11c0f84) |
@@ -150,6 +152,95 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-033 — CQL Builder 面板增強
+
+- **日期**: 2026-03-06
+- **範圍**: CQL Builder（前端）
+- **類型**: ✨ patch
+
+### 修復內容
+
+CQL Builder 右側面板從被動結構瀏覽器升級為主動輔助撰寫工具，借鑑 Authoring Tool 的功能設計。
+
+**Phase 1 — 型別系統 + 驗證面板**
+- `TypeChip` 元件：15+ CQL/FHIR 型別對應顏色標籤（Boolean=藍、Quantity=橙、List/Interval 巢狀解析）
+- `ValidationPanel` 靜態分析：缺少 InPopulation/MeetsInclusionCriteria 模式偵測、System.Any 警告、混合 context 提示
+- `ElementListItem` 整合 TypeChip 顯示回傳型別
+
+**Phase 2 — 修飾鏈建構器 + 元素選擇器**
+- `ModifierChainBuilder`：15 種修飾器跨 5 類（filter/aggregate/compare/string/unit），含 singleton 限制
+- `ElementSelectField`：分組下拉選單（Definitions/Parameters/Functions/Built-in）+ 搜尋 + TypeChip
+- `RetrieveBuilder` 重寫：舊 checkbox 修飾器替換為 ModifierChainBuilder
+
+**Phase 3 — 依賴圖 + 基礎元素**
+- `ExpressionTreeView`：regex 掃描 CQL define 區塊建立依賴圖，深度限制 4 層，點擊導航
+- `BaseElementsPanel`：釘選/取消釘選定義為基礎元素（localStorage 持久化），自動建議引用 ≥2 次的定義
+- `DefinitionsSection` 範本改為依據實際 CQL 中的 valueSets/codes 動態產生
+
+**程式碼品質修復（/simplify）**
+- 4 處 `extractCqlName` 重複改為使用 `utils/cqlNames.ts` 共用工具
+- CQL define 區塊解析 regex 提取為 `parseCqlDefineBlocks()` + `findQuotedReferences()` 共用函式
+- Accordion 加入 `unmountOnExit` 避免折疊面板仍執行昂貴計算
+- 移除死碼（`void _valueSets`、`void totalUnused`、未使用的 `allFuncNames`）
+- `context` 狀態修復：Population context 現在正確寫入產生的 CQL
+- `ModifierDef` 新增 `singleton` 欄位取代硬編碼字串陣列
+- `CATEGORY_COLORS` 型別從 `Record<string>` 改為 `Record<ModifierCategory>`
+
+**安全修復（security-review）**
+- `applyModifierChain()` 新增 `cqlEscapeString()` 防止使用者輸入含單引號時產生 CQL 注入
+
+### 變更檔案
+- `frontend/.../builder/TypeChip.tsx` — 新增：型別顏色標籤元件
+- `frontend/.../builder/ValidationPanel.tsx` — 新增：靜態分析面板
+- `frontend/.../builder/ModifierChainBuilder.tsx` — 新增：修飾鏈 UI + CQL 產生
+- `frontend/.../builder/ElementSelectField.tsx` — 新增：分組搜尋下拉選單
+- `frontend/.../builder/ExpressionTreeView.tsx` — 新增：依賴圖視覺化
+- `frontend/.../builder/BaseElementsPanel.tsx` — 新增：基礎元素釘選面板
+- `frontend/.../builder/CqlBuilderPanel.tsx` — 新增 3 個 Accordion 區段 + unmountOnExit
+- `frontend/.../builder/DefinitionsSection.tsx` — 動態範本 + context 修復
+- `frontend/.../builder/RetrieveBuilder.tsx` — 整合 ModifierChainBuilder
+- `frontend/.../builder/ExpressionBuilder.tsx` — 整合 ElementSelectField
+- `frontend/.../builder/OperatorPanel.tsx` — 移除未使用 valueSets prop
+- `frontend/.../builder/ElementListItem.tsx` — 整合 TypeChip
+- `frontend/src/utils/cqlNames.ts` — 新增 parseCqlDefineBlocks + findQuotedReferences
+- `frontend/src/locales/en/builder.json` — 新增 i18n 鍵值
+- `frontend/src/locales/zh-TW/builder.json` — 新增 i18n 繁中翻譯
+
+---
+
+## BUG-084 — CDS 卡片中文亂碼修復（`&#39;` 雙重跳脫）
+
+- **日期**: 2026-03-06
+- **範圍**: CDS Hooks（後端）
+- **類型**: 🐛 bugfix
+
+### 問題描述
+
+CDS Hooks 推薦卡片顯示 `&#39;` 等 HTML entity 亂碼，而非正確的單引號或中文字元。
+
+### 根本原因
+
+後端 `CdsValueFormatter`、`CdsResourceFormatter`、`CqlTupleCardStrategy`、`PlanDefinitionCardStrategy` 四個類別使用 `HtmlUtils.htmlEscape()` 對輸出進行 HTML 跳脫。但前端 React JSX 自動跳脫文字內容，導致雙重編碼：
+- 後端：`'` → `&#39;`
+- React：`&#39;` → 原樣顯示為 `&#39;`（而非 `'`）
+
+### 修復內容
+
+- 移除 4 個 Java 類別中的 `esc()` 方法及所有 `HtmlUtils.htmlEscape()` 呼叫
+- CDS card 值以原始內容回傳，由 React 在渲染時自動處理跳脫
+- `CdsHooksService.escapeHtml()` 保留不動 — 該方法用於清理使用者回饋資料寫入資料庫，屬於正確用途
+- 測試更新：移除 14 個 XSS 跳脫斷言，替換為 3 個原始內容保留測試 + 中文文字測試
+
+### 變更檔案
+- `backend/.../cds/CdsValueFormatter.java` — 移除 `esc()` 方法及 `HtmlUtils` 匯入
+- `backend/.../cds/CdsResourceFormatter.java` — 移除 `esc()` 方法及 `HtmlUtils` 匯入
+- `backend/.../cds/CqlTupleCardStrategy.java` — 移除 `esc()` 呼叫
+- `backend/.../cds/PlanDefinitionCardStrategy.java` — 移除 `esc()` 呼叫
+- `backend/.../cds/CdsValueFormatterTest.java` — 測試更新
+- `backend/.../cds/CdsResourceFormatterTest.java` — 測試更新
+
+---
 
 ## PAT-031 — eCQM 基礎元素 + 參數分頁功能啟用
 

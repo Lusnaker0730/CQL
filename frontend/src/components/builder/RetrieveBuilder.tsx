@@ -4,9 +4,6 @@ import {
   Stack,
   TextField,
   MenuItem,
-  Typography,
-  FormControlLabel,
-  Checkbox,
   Button,
   IconButton,
   Tooltip,
@@ -17,6 +14,7 @@ import { FHIR_RESOURCE_TYPES, type FhirResourceType } from '../../constants/fhir
 import { extractCqlName } from '../../utils/cqlNames'
 import CqlPreviewBox from './CqlPreviewBox'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
+import ModifierChainBuilder, { applyModifierChain, type ChainModifier } from './ModifierChainBuilder'
 
 interface RetrieveBuilderProps {
   valueSets: string[]
@@ -27,122 +25,26 @@ interface RetrieveBuilderProps {
 
 type ResourceType = FhirResourceType
 
-// Which modifiers apply per resource type
-const MODIFIER_CONFIG: Record<string, { mostRecent?: boolean; activeConfirmed?: boolean; lookBack?: boolean; exists?: boolean }> = {
-  Observation: { mostRecent: true, lookBack: true, exists: true },
-  Condition: { activeConfirmed: true, lookBack: true, exists: true },
-  Procedure: { lookBack: true, exists: true },
-  MedicationRequest: { activeConfirmed: true, lookBack: true, exists: true },
-  MedicationStatement: { activeConfirmed: true, lookBack: true, exists: true },
-  Encounter: { lookBack: true, exists: true },
-  Immunization: { lookBack: true, exists: true },
-  AllergyIntolerance: { activeConfirmed: true, lookBack: true, exists: true },
-  Device: { lookBack: true, exists: true },
-  ServiceRequest: { activeConfirmed: true, lookBack: true, exists: true },
-}
-
-/**
- * Parse a valueset/code name from the raw string (e.g. "Diabetes": 'http://...' → "Diabetes")
- */
-function generateDefinitionName(resourceType: string, terminology: string, modifiers: Modifiers): string {
+function generateDefinitionName(resourceType: string, terminology: string): string {
   const termName = extractCqlName(terminology)
-  const parts: string[] = []
-  if (modifiers.activeConfirmed) parts.push('Active')
-  if (modifiers.mostRecent) parts.push('Most Recent')
-  parts.push(termName)
-  parts.push(resourceType === 'Observation' ? 'Observations' : `${resourceType}s`)
-  return parts.join(' ')
-}
-
-interface Modifiers {
-  mostRecent: boolean
-  activeConfirmed: boolean
-  lookBack: boolean
-  lookBackValue: string
-  lookBackUnit: string
-  exists: boolean
-}
-
-/** Date/time expression used for look-back filtering per resource type */
-function getDateExpression(resourceType: string, alias: string): string {
-  switch (resourceType) {
-    case 'Observation':
-    case 'MedicationStatement':
-      return `${alias}.effective`
-    case 'Condition':
-    case 'AllergyIntolerance':
-      return `${alias}.onset`
-    case 'Procedure':
-      return `${alias}.performed`
-    case 'MedicationRequest':
-    case 'ServiceRequest':
-      return `${alias}.authoredOn`
-    case 'Encounter':
-      return `${alias}.period`
-    case 'Immunization':
-      return `${alias}.occurrence`
-    default:
-      return `${alias}.effective`
-  }
+  return `${termName} ${resourceType === 'Observation' ? 'Observations' : `${resourceType}s`}`
 }
 
 function generateCql(
   resourceType: string,
   terminology: string,
   definitionName: string,
-  modifiers: Modifiers,
+  chainModifiers: ChainModifier[],
 ): string {
   const termName = extractCqlName(terminology)
   const alias = resourceType[0]
-  const needsQuery = modifiers.activeConfirmed
-    || (modifiers.lookBack && modifiers.lookBackValue)
-    || modifiers.mostRecent
+  const baseRetrieve = `[${resourceType}: "${termName}"]`
 
-  // Simple retrieve — no query needed
-  if (!needsQuery) {
-    const retrieve = `[${resourceType}: "${termName}"]`
-    if (modifiers.exists) return `define "${definitionName}":\n  exists ${retrieve}`
-    return `define "${definitionName}":\n  ${retrieve}`
+  if (chainModifiers.length === 0) {
+    return `define "${definitionName}":\n  ${baseRetrieve}`
   }
 
-  // Build inline query: where clauses + optional sort
-  const whereClauses: string[] = []
-
-  if (modifiers.activeConfirmed) {
-    switch (resourceType) {
-      case 'Condition':
-      case 'AllergyIntolerance':
-        whereClauses.push(`${alias}.clinicalStatus.coding.code contains 'active'`)
-        break
-      default:
-        whereClauses.push(`${alias}.status = 'active'`)
-    }
-  }
-
-  if (modifiers.lookBack && modifiers.lookBackValue) {
-    const dateExpr = getDateExpression(resourceType, alias)
-    whereClauses.push(`${dateExpr} >= Now() - ${modifiers.lookBackValue} ${modifiers.lookBackUnit}`)
-  }
-
-  const whereStr = whereClauses.length > 0
-    ? `\n    where ${whereClauses.join('\n      and ')}`
-    : ''
-  const sortStr = modifiers.mostRecent
-    ? `\n    sort by Coalesce(effective as dateTime, issued)`
-    : ''
-
-  const query = `[${resourceType}: "${termName}"] ${alias}${whereStr}${sortStr}`
-
-  let expr: string
-  if (modifiers.mostRecent) {
-    expr = `Last(\n    ${query}\n  )`
-    if (modifiers.exists) expr = `${expr} is not null`
-  } else if (modifiers.exists) {
-    expr = `exists (\n    ${query}\n  )`
-  } else {
-    expr = query
-  }
-
+  const expr = applyModifierChain(baseRetrieve, alias, resourceType, chainModifiers)
   return `define "${definitionName}":\n  ${expr}`
 }
 
@@ -153,55 +55,32 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
   const [terminology, setTerminology] = useState('')
   const [definitionName, setDefinitionName] = useState('')
   const [nameEdited, setNameEdited] = useState(false)
-  const [modifiers, setModifiers] = useState<Modifiers>({
-    mostRecent: false,
-    activeConfirmed: false,
-    lookBack: false,
-    lookBackValue: '',
-    lookBackUnit: 'years',
-    exists: true,
-  })
+  const [chainModifiers, setChainModifiers] = useState<ChainModifier[]>([])
 
-  // Combine valueSets and codes as terminology sources
   const terminologyOptions = useMemo(() => {
     const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractCqlName(vs)}`, type: 'valueset' as const }))
     const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractCqlName(c)}`, type: 'code' as const }))
     return [...vsOptions, ...codeOptions]
   }, [valueSets, codes])
 
-  const config = MODIFIER_CONFIG[resourceType] || {}
-
   const handleResourceChange = (rt: ResourceType) => {
     setResourceType(rt)
-    // Reset modifiers that don't apply
-    setModifiers((prev) => ({
-      ...prev,
-      mostRecent: config.mostRecent ? prev.mostRecent : false,
-      activeConfirmed: config.activeConfirmed ? prev.activeConfirmed : false,
-    }))
+    // Reset modifiers that don't apply to the new resource type
+    setChainModifiers([])
     if (!nameEdited && terminology) {
-      setDefinitionName(generateDefinitionName(rt, terminology, modifiers))
+      setDefinitionName(generateDefinitionName(rt, terminology))
     }
   }
 
   const handleTerminologyChange = (raw: string) => {
     setTerminology(raw)
     if (!nameEdited) {
-      setDefinitionName(generateDefinitionName(resourceType, raw, modifiers))
+      setDefinitionName(generateDefinitionName(resourceType, raw))
     }
   }
 
-  const handleModifierChange = (key: keyof Modifiers, value: boolean | string) => {
-    const updated = { ...modifiers, [key]: value }
-    setModifiers(updated)
-    if (!nameEdited && terminology) {
-      setDefinitionName(generateDefinitionName(resourceType, terminology, updated as Modifiers))
-    }
-  }
-
-  // Live CQL preview
   const cqlPreview = terminology
-    ? generateCql(resourceType, terminology, definitionName || 'Untitled', modifiers)
+    ? generateCql(resourceType, terminology, definitionName || 'Untitled', chainModifiers)
     : ''
 
   const handleInsert = () => {
@@ -252,89 +131,13 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
         }}
       />
 
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
-        {t('retrieve.modifiers')}
-      </Typography>
-
-      <Stack spacing={0} sx={{ pl: 0.5 }}>
-        {config.mostRecent && (
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={modifiers.mostRecent}
-                onChange={(e) => handleModifierChange('mostRecent', e.target.checked)}
-              />
-            }
-            label={<Typography variant="body2">{t('retrieve.mostRecent')}</Typography>}
-          />
-        )}
-
-        {config.activeConfirmed && (
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={modifiers.activeConfirmed}
-                onChange={(e) => handleModifierChange('activeConfirmed', e.target.checked)}
-              />
-            }
-            label={<Typography variant="body2">{t('retrieve.activeConfirmed')}</Typography>}
-          />
-        )}
-
-        {config.lookBack && (
-          <>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={modifiers.lookBack}
-                  onChange={(e) => handleModifierChange('lookBack', e.target.checked)}
-                />
-              }
-              label={<Typography variant="body2">{t('retrieve.lookBackPeriod')}</Typography>}
-            />
-            {modifiers.lookBack && (
-              <Stack direction="row" spacing={1} sx={{ pl: 3, pb: 0.5 }}>
-                <TextField
-                  size="small"
-                  label={t('retrieve.value')}
-                  value={modifiers.lookBackValue}
-                  onChange={(e) => handleModifierChange('lookBackValue', e.target.value)}
-                  sx={{ width: 80 }}
-                />
-                <TextField
-                  select
-                  size="small"
-                  label={t('retrieve.unit')}
-                  value={modifiers.lookBackUnit}
-                  onChange={(e) => handleModifierChange('lookBackUnit', e.target.value)}
-                  sx={{ width: 100 }}
-                >
-                  <MenuItem value="years">{t('retrieve.years')}</MenuItem>
-                  <MenuItem value="months">{t('retrieve.months')}</MenuItem>
-                  <MenuItem value="weeks">{t('retrieve.weeks')}</MenuItem>
-                  <MenuItem value="days">{t('retrieve.days')}</MenuItem>
-                </TextField>
-              </Stack>
-            )}
-          </>
-        )}
-
-        {config.exists && (
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={modifiers.exists}
-                onChange={(e) => handleModifierChange('exists', e.target.checked)}
-              />
-            }
-            label={<Typography variant="body2">{t('retrieve.existsBoolean')}</Typography>}
-          />
-        )}
-      </Stack>
+      <ModifierChainBuilder
+        modifiers={chainModifiers}
+        onChange={setChainModifiers}
+        resourceType={resourceType}
+        valueSets={valueSets}
+        codes={codes}
+      />
 
       <CqlPreviewBox code={cqlPreview} />
 

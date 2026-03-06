@@ -3,11 +3,12 @@ package com.cqlplatform.service.cds;
 import lombok.RequiredArgsConstructor;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.HtmlUtils;
 
 /**
  * Formats CQL expression results (various types) into display strings
  * suitable for CDS card detail text.
+ * Note: No HTML escaping is needed here — the frontend (React) auto-escapes
+ * text content in JSX, so additional escaping causes literal entities like &#39;
  */
 @Component
 @RequiredArgsConstructor
@@ -15,15 +16,10 @@ public class CdsValueFormatter {
 
     private final CdsResourceFormatter resourceFormatter;
 
-    /** HTML-escape a string to prevent XSS when rendered in CDS card output. */
-    private static String esc(String v) {
-        return v == null ? null : HtmlUtils.htmlEscape(v);
-    }
-
     /**
      * Format a single CQL expression result as a markdown line for the consolidated card.
      * Returns null for values that should be skipped (e.g., false booleans).
-     * All FHIR/CQL-derived values are HTML-escaped for safe rendering.
+     * Values are returned as-is; the frontend handles escaping.
      */
     public String formatExpressionLine(String exprName, Object value) {
         if (value instanceof Boolean) {
@@ -33,7 +29,7 @@ public class CdsValueFormatter {
             return null; // Skip false booleans
         }
         if (value instanceof String) {
-            return "**" + exprName + "**: " + esc((String) value);
+            return "**" + exprName + "**: " + (String) value;
         }
         if (value instanceof Number) {
             return "**" + exprName + "**: " + value;
@@ -42,17 +38,17 @@ public class CdsValueFormatter {
             return "**" + exprName + "**: " + value;
         }
         if (value instanceof Quantity q) {
-            String display = q.getValue() + (q.getUnit() != null ? " " + esc(q.getUnit()) : "");
+            String display = q.getValue() + (q.getUnit() != null ? " " + q.getUnit() : "");
             return "**" + exprName + "**: " + display;
         }
         if (value instanceof CodeableConcept cc) {
-            String display = cc.hasText() ? esc(cc.getText())
-                    : (cc.hasCoding() ? esc(cc.getCodingFirstRep().getDisplay()) : esc(cc.toString()));
+            String display = cc.hasText() ? cc.getText()
+                    : (cc.hasCoding() ? cc.getCodingFirstRep().getDisplay() : cc.toString());
             return "**" + exprName + "**: " + display;
         }
         if (value instanceof Coding coding) {
-            String display = coding.hasDisplay() ? esc(coding.getDisplay())
-                    : esc(coding.getSystem()) + "|" + esc(coding.getCode());
+            String display = coding.hasDisplay() ? coding.getDisplay()
+                    : coding.getSystem() + "|" + coding.getCode();
             return "**" + exprName + "**: " + display;
         }
         if (value instanceof Period p) {
@@ -76,23 +72,23 @@ public class CdsValueFormatter {
             return count > 0 ? sb.toString() : null;
         }
         if (value.getClass().getSimpleName().contains("Interval")) {
-            return "**" + exprName + "**: " + esc(value.toString());
+            return "**" + exprName + "**: " + value.toString();
         }
         if (value instanceof PrimitiveType) {
-            return "**" + exprName + "**: " + esc(((PrimitiveType<?>) value).getValueAsString());
+            return "**" + exprName + "**: " + ((PrimitiveType<?>) value).getValueAsString();
         }
-        return "**" + exprName + "**: " + esc(value.toString());
+        return "**" + exprName + "**: " + value.toString();
     }
 
     /**
      * Format a single value for display (used in list items, tuple field values, etc.).
-     * All FHIR/CQL-derived values are HTML-escaped for safe rendering.
+     * Values are returned as-is; the frontend handles escaping.
      */
     public String formatValue(Object value) {
         if (value == null)
             return "null";
         if (value instanceof String) {
-            return esc((String) value);
+            return (String) value;
         }
         if (value instanceof Number || value instanceof Boolean) {
             return value.toString();
@@ -100,21 +96,21 @@ public class CdsValueFormatter {
         if (value instanceof java.time.temporal.Temporal)
             return value.toString();
         if (value instanceof Quantity q) {
-            return q.getValue() + (q.getUnit() != null ? " " + esc(q.getUnit()) : "");
+            return q.getValue() + (q.getUnit() != null ? " " + q.getUnit() : "");
         }
         if (value instanceof CodeableConcept cc) {
-            return cc.hasText() ? esc(cc.getText())
-                    : (cc.hasCoding() ? esc(cc.getCodingFirstRep().getDisplay()) : esc(cc.toString()));
+            return cc.hasText() ? cc.getText()
+                    : (cc.hasCoding() ? cc.getCodingFirstRep().getDisplay() : cc.toString());
         }
         if (value instanceof Coding c) {
-            return c.hasDisplay() ? esc(c.getDisplay()) : esc(c.getSystem()) + "|" + esc(c.getCode());
+            return c.hasDisplay() ? c.getDisplay() : c.getSystem() + "|" + c.getCode();
         }
         if (value instanceof PrimitiveType) {
-            return esc(((PrimitiveType<?>) value).getValueAsString());
+            return ((PrimitiveType<?>) value).getValueAsString();
         }
         if (value instanceof Resource res) {
             return resourceFormatter.formatDetail(res);
         }
-        return esc(value.toString());
+        return value.toString();
     }
 }

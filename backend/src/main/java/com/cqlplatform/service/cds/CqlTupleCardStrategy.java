@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.HtmlUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,11 +30,6 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
 
     private final CdsValueFormatter valueFormatter;
     private final ObjectMapper objectMapper;
-
-    /** HTML-escape a string to prevent XSS when rendered in CDS card output. */
-    private static String esc(String v) {
-        return v == null ? null : HtmlUtils.htmlEscape(v);
-    }
 
     @Override
     public CdsResponse buildResponse(CdsHooksService.CdsServiceConfig config,
@@ -82,10 +76,10 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
                 // Tuple with CDS card fields → separate card
                 if (CdsTupleAccessor.isTuple(value)) {
                     try {
-                        String summary = esc(CdsTupleAccessor.getString(value, "summary"));
-                        String detail = esc(CdsTupleAccessor.getString(value, "detail"));
+                        String summary = CdsTupleAccessor.getString(value, "summary");
+                        String detail = CdsTupleAccessor.getString(value, "detail");
                         String indicator = CdsTupleAccessor.getString(value, "indicator");
-                        String sourceLabel = esc(CdsTupleAccessor.getString(value, "sourceLabel"));
+                        String sourceLabel = CdsTupleAccessor.getString(value, "sourceLabel");
                         String selectionBehavior = CdsTupleAccessor.getString(value, "selectionBehavior");
                         List<CdsResponse.Suggestion> suggestions = parseSuggestions(value);
                         List<CdsResponse.OverrideReason> overrideReasons = parseOverrideReasons(value);
@@ -204,7 +198,7 @@ public class CqlTupleCardStrategy implements CardGenerationStrategy {
         return CdsResponse.Card.builder()
                 .uuid(IdGenerator.uuid())
                 .summary(CdsConstants.ERROR_SUMMARY)
-                .detail(CdsConstants.ERROR_DETAIL_PREFIX + esc(errorMessage))
+                .detail(CdsConstants.ERROR_DETAIL_PREFIX + errorMessage)
                 .indicator(CdsConstants.INDICATOR_WARNING)
                 .source(CdsResponse.Source.builder()
                         .label(CdsConstants.SOURCE_LABEL)
