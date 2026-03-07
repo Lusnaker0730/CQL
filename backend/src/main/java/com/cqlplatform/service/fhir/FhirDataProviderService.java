@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -42,6 +43,55 @@ public class FhirDataProviderService {
 
     public IGenericClient createClient(String fhirServerUrl) {
         return fhirClientFactory.createClient(fhirServerUrl);
+    }
+
+    /**
+     * Batch-fetch all resources of the given types for a patient in a single FHIR Batch request.
+     * Returns the combined list of resources for use with PrefetchRetrieveProvider.
+     */
+    public List<Resource> batchFetchPatientResources(String fhirServerUrl, String patientId, Set<String> resourceTypes) {
+        Bundle batch = new Bundle();
+        batch.setType(Bundle.BundleType.BATCH);
+
+        // Direct read for Patient
+        batch.addEntry()
+                .getRequest()
+                .setMethod(Bundle.HTTPVerb.GET)
+                .setUrl("Patient/" + patientId);
+
+        // Search for each clinical resource type (request up to 500 per type to avoid pagination truncation)
+        for (String resourceType : resourceTypes) {
+            if ("Patient".equals(resourceType)) continue;
+            String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
+            batch.addEntry()
+                    .getRequest()
+                    .setMethod(Bundle.HTTPVerb.GET)
+                    .setUrl(resourceType + "?" + searchParam + "=Patient/" + patientId + "&_count=500");
+        }
+
+        log.debug("Batch prefetch: {} entries for patient {}", batch.getEntry().size(), patientId);
+        Bundle response = executeTransaction(fhirServerUrl, batch);
+
+        List<Resource> resources = new ArrayList<>();
+        if (response.hasEntry()) {
+            for (Bundle.BundleEntryComponent entry : response.getEntry()) {
+                Resource resource = entry.getResource();
+                if (resource instanceof Bundle resultBundle) {
+                    if (resultBundle.hasEntry()) {
+                        for (Bundle.BundleEntryComponent resultEntry : resultBundle.getEntry()) {
+                            if (resultEntry.getResource() != null) {
+                                resources.add(resultEntry.getResource());
+                            }
+                        }
+                    }
+                } else if (resource != null) {
+                    resources.add(resource);
+                }
+            }
+        }
+
+        log.info("Batch prefetch result: {} resources for {} types", resources.size(), resourceTypes.size());
+        return resources;
     }
 
     public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider) {

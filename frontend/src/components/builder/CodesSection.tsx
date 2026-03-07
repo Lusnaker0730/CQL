@@ -15,14 +15,25 @@ import {
   List,
   ToggleButtonGroup,
   ToggleButton,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
 } from '@mui/material'
-import { Add as AddIcon, Search as SearchIcon, LocalLibrary as BrowseIcon } from '@mui/icons-material'
+import {
+  Add as AddIcon,
+  Search as SearchIcon,
+  LocalLibrary as BrowseIcon,
+  ExpandMore as ExpandMoreIcon,
+  MedicalServices as FhirIcon,
+} from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 import TwcoreBrowser from './TwcoreBrowser'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
-import { ALL_CODE_SYSTEMS, findCodeSystemByUrl, findCodeSystemByLabel } from '../../constants/codeSystems'
+import { ALL_CODE_SYSTEMS, CODE_SYSTEM_GROUPS, findCodeSystemByUrl, findCodeSystemByLabel } from '../../constants/codeSystems'
+import type { PredefinedCodeSystem } from '../../constants/codeSystems'
 import type { TwcoreCatalogEntry } from '../../types/authoring'
 
 interface CodesSectionProps {
@@ -43,7 +54,7 @@ function parseCode(raw: string): { name: string; code: string; system: string; d
   return null
 }
 
-type BrowseMode = 'manual' | 'twcore'
+type BrowseMode = 'manual' | 'fhir-codes' | 'twcore'
 
 export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit }: CodesSectionProps) {
   const { t } = useTranslation('builder')
@@ -158,6 +169,13 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
   }
 
+  const handleFhirCodeClick = (sys: PredefinedCodeSystem, code: { code: string; display: string; displayZh: string }) => {
+    const csSnippet = `codesystem "${sys.alias}": '${sys.url}'`
+    const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
+    const codeSnippet = `code "${displayLabel}": '${code.code}' from "${sys.alias}" display '${code.display}'`
+    setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
+  }
+
   return (
     <Stack spacing={0.5}>
       {codes.length > 0 ? (
@@ -191,15 +209,19 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
             <ToggleButtonGroup
               value={browseMode}
               exclusive
-              onChange={(_, val) => { if (val) setBrowseMode(val) }}
+              onChange={(_, val) => { if (val) { setBrowseMode(val); setPreviewSnippet('') } }}
               size="small"
               fullWidth
             >
-              <ToggleButton value="manual" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
+              <ToggleButton value="manual" sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
                 <SearchIcon sx={{ fontSize: 16, mr: 0.5 }} />
                 {t('codes.manualSearch')}
               </ToggleButton>
-              <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
+              <ToggleButton value="fhir-codes" sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+                <FhirIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                {t('codes.fhirCodes')}
+              </ToggleButton>
+              <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
                 <BrowseIcon sx={{ fontSize: 16, mr: 0.5 }} />
                 {t('codes.browseTwcore')}
               </ToggleButton>
@@ -307,6 +329,51 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                 </Alert>
               )}
             </>
+          )}
+
+          {browseMode === 'fhir-codes' && !editingItem && (
+            <Paper variant="outlined" sx={{ maxHeight: 360, overflow: 'auto' }}>
+              {CODE_SYSTEM_GROUPS.map((group) => (
+                <Accordion key={group.label} disableGutters elevation={0} sx={{ '&:before': { display: 'none' } }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 36, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                      {group.label}
+                      <Typography component="span" sx={{ ml: 0.5, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        ({group.labelZh})
+                      </Typography>
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0 }}>
+                    {group.systems.map((sys) => (
+                      <Accordion key={sys.url} disableGutters elevation={0} sx={{ ml: 1, '&:before': { display: 'none' } }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />} sx={{ minHeight: 32, '& .MuiAccordionSummary-content': { my: 0.25 } }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                            {sys.label}
+                            <Typography component="span" sx={{ ml: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>
+                              ({sys.labelZh})
+                            </Typography>
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ pt: 0, pb: 0.5, pl: 1 }}>
+                          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                            {sys.codes.map((c) => (
+                              <Chip
+                                key={c.code}
+                                label={`${c.code} — ${c.display} (${c.displayZh})`}
+                                size="small"
+                                variant="outlined"
+                                onClick={() => handleFhirCodeClick(sys, c)}
+                                sx={{ fontSize: '0.75rem', cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                              />
+                            ))}
+                          </Stack>
+                        </AccordionDetails>
+                      </Accordion>
+                    ))}
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </Paper>
           )}
 
           {browseMode === 'twcore' && !editingItem && (

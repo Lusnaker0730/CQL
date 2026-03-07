@@ -11,6 +11,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -36,6 +41,18 @@ class PasswordResetServiceTest {
     @InjectMocks
     private PasswordResetService service;
 
+    @BeforeEach
+    void setUp() {
+        TransactionSynchronizationManager.initSynchronization();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
     // ===== requestPasswordReset =====
 
     @Test
@@ -52,6 +69,10 @@ class PasswordResetServiceTest {
         when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.requestPasswordReset("test@example.com", "http://localhost:3000");
+
+        // Simulate transaction commit to trigger afterCommit callbacks
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
 
         verify(tokenRepository).deleteByUserId(1L);
         verify(tokenRepository).save(any(PasswordResetTokenEntity.class));

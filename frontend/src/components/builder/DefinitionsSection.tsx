@@ -16,7 +16,8 @@ import SnippetPreview from './SnippetPreview'
 import RetrieveBuilder from './RetrieveBuilder'
 import QueryBuilder from './QueryBuilder'
 import OperatorPanel from './OperatorPanel'
-import CdsCardBuilder from './CdsCardBuilder'
+import RecommendationBuilder from './RecommendationBuilder'
+import ElementRefBuilder from './ElementRefBuilder'
 import ConditionalBuilder from './ConditionalBuilder'
 import { extractCqlName } from '../../utils/cqlNames'
 
@@ -62,7 +63,7 @@ export default function DefinitionsSection({
 }: DefinitionsSectionProps) {
   const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
-  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'cdscard' | 'conditional'>('template')
+  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'recommendation' | 'conditional' | 'elementRef'>('template')
   const [name, setName] = useState('')
   const [context, setContext] = useState('Patient')
   const [templateIdx, setTemplateIdx] = useState(0)
@@ -166,11 +167,14 @@ export default function DefinitionsSection({
             <ToggleButton value="operator" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               {t('definitions.operators')}
             </ToggleButton>
-            <ToggleButton value="cdscard" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              {t('definitions.cdsCard')}
+            <ToggleButton value="recommendation" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              {t('definitions.recommendation')}
             </ToggleButton>
             <ToggleButton value="conditional" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               {t('definitions.conditional')}
+            </ToggleButton>
+            <ToggleButton value="elementRef" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              {t('definitions.elementRef')}
             </ToggleButton>
           </ToggleButtonGroup>
 
@@ -253,9 +257,19 @@ export default function DefinitionsSection({
               }}
               onCancel={resetForm}
             />
-          ) : mode === 'cdscard' ? (
-            <CdsCardBuilder
+          ) : mode === 'recommendation' ? (
+            <RecommendationBuilder
               expressions={expressions.map((e) => e.name)}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          ) : mode === 'elementRef' ? (
+            <ElementRefBuilder
+              expressions={expressions}
+              parameters={parameters}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()

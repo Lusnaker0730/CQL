@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-036 | ✨ patch | 2026-03-07 | CQL Builder（全端） | FHIR 代碼瀏覽器 + 測試修復 + TWCOREDATA Dockerfile 修復 | Backend (Tests) + Frontend (Builder) + TWCOREDATA | |
 | PAT-035 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 修飾器連續新增 + Element Name UX 改善 + Numeric Value 修飾器 | Backend + Frontend (Authoring) | [`c77e6f6`](../../commit/c77e6f6) |
 | PAT-034 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 基礎元素四則運算 — 支援元素間 +−×÷ 計算（如 BMI = 體重÷身高²） | Backend + Frontend (Authoring) | [`080aec0`](../../commit/080aec0) |
 | BUG-084 | 🐛 bugfix | 2026-03-06 | CDS Hooks（後端） | CDS 卡片中文亂碼修復 — 移除雙重 HTML 跳脫（`&#39;` 問題） | Backend (CDS) | [`f782273`](../../commit/f782273) |
@@ -154,6 +155,33 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-036 — FHIR 代碼瀏覽器 + 測試修復 + TWCOREDATA Dockerfile 修復
+
+- **日期**: 2026-03-07
+- **範圍**: CQL Builder（全端）+ 測試 + TWCOREDATA
+
+### 變更內容
+
+1. **FHIR 代碼瀏覽器**：Codes 區新增第三個 tab「FHIR 代碼」，以分組手風琴瀏覽標準 FHIR 管理用 CodeSystem（AllergyIntolerance / Condition / MedicationRequest），點選 Chip 直接生成 codesystem + code 預覽插入。
+2. **CodeSystem 分組資料結構**：`codeSystems.ts` 新增 `CODE_SYSTEM_GROUPS` 型別與資料，包含 AllergyIntolerance（Clinical Status / Verification Status / Category / Type / Criticality）、Condition（Clinical Status / Verification Status）、MedicationRequest（Status）共 3 群組 8 子系統。
+3. **Auth/Password 測試修復**：`AuthIntegrationTest`（3 tests）和 `AuthControllerTest`（1 test）因 `RegisterRequest` 新增 `@NotBlank email` 欄位而失敗，補上缺少的 email 欄位。`PasswordResetServiceTest`（1 test）因 `requestPasswordReset` 使用 `TransactionSynchronizationManager.registerSynchronization()` 但單元測試無交易環境而失敗，補上 `initSynchronization/clearSynchronization` 生命週期及手動觸發 `afterCommit` 回呼。
+4. **TWCOREDATA Dockerfile 修復**：COPY 指令遺漏 `models.py`，導致容器啟動時 `No module named 'models'` 錯誤。
+
+### 檔案變更
+
+| 檔案 | 說明 |
+|------|------|
+| `frontend/.../CodesSection.tsx` | 新增 `fhir-codes` tab + Accordion 分組瀏覽器 + handleFhirCodeClick |
+| `frontend/.../constants/codeSystems.ts` | 新增 `CodeSystemGroup` / `PredefinedCodeSystem` 型別 + `CODE_SYSTEM_GROUPS` 資料；Condition/Allergy 小型 CS 從 `COMMON_CODE_SYSTEMS` 移至 groups |
+| `frontend/.../locales/en/builder.json` | 新增 `codes.fhirCodes` key |
+| `frontend/.../locales/zh-TW/builder.json` | 新增 `codes.fhirCodes` 中文翻譯 |
+| `backend/.../controller/AuthControllerTest.java` | register_existingUser 補 email 欄位 |
+| `backend/.../integration/AuthIntegrationTest.java` | 3 個 register 測試補 email 欄位 |
+| `backend/.../service/PasswordResetServiceTest.java` | 補 TransactionSynchronization 生命週期 + afterCommit 觸發 |
+| `TWCOREDATA/Dockerfile` | COPY 指令補上 `models.py` |
+
+---
 
 ## PAT-035 — 修飾器連續新增 + Element Name UX + Numeric Value 修飾器
 

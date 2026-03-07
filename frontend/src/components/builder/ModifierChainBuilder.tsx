@@ -29,6 +29,7 @@ export type ModifierType =
   | 'activeOnly'
   | 'confirmedOnly'
   | 'completedOnly'
+  | 'verified'
   | 'lookBack'
   | 'mostRecent'
   | 'first'
@@ -40,7 +41,11 @@ export type ModifierType =
   | 'startsWithString'
   | 'endsWithString'
   | 'qualifier'
-  | 'withUnit'
+  | 'filterUnit'
+  | 'convertUnit'
+  | 'quantityValue'
+  | 'conceptValue'
+  | 'numericValue'
 
 type ModifierCategory = 'filter' | 'aggregate' | 'compare' | 'string' | 'unit'
 
@@ -70,6 +75,11 @@ const MODIFIER_DEFS: ModifierDef[] = [
   {
     type: 'completedOnly', labelKey: 'completedOnly', category: 'filter', singleton: true,
     resourceTypes: ['Procedure', 'Encounter'],
+    fields: [],
+  },
+  {
+    type: 'verified', labelKey: 'verified', category: 'filter', singleton: true,
+    resourceTypes: ['Observation'],
     fields: [],
   },
   {
@@ -168,8 +178,27 @@ const MODIFIER_DEFS: ModifierDef[] = [
   },
   // Unit
   {
-    type: 'withUnit', labelKey: 'unitConversion', category: 'unit',
+    type: 'filterUnit', labelKey: 'filterUnit', category: 'unit',
     fields: [{ key: 'unit', labelKey: 'unit', type: 'text' }],
+  },
+  {
+    type: 'convertUnit', labelKey: 'convertUnit', category: 'unit',
+    fields: [{ key: 'unit', labelKey: 'unit', type: 'text' }],
+  },
+  // Value extraction
+  {
+    type: 'quantityValue', labelKey: 'quantityValue', category: 'aggregate', singleton: true,
+    resourceTypes: ['Observation'],
+    fields: [],
+  },
+  {
+    type: 'conceptValue', labelKey: 'conceptValue', category: 'aggregate', singleton: true,
+    resourceTypes: ['Observation'],
+    fields: [],
+  },
+  {
+    type: 'numericValue', labelKey: 'numericValue', category: 'aggregate', singleton: true,
+    fields: [],
   },
 ]
 
@@ -407,6 +436,9 @@ export function applyModifierChain(
       case 'completedOnly':
         whereClauses.push(`${alias}.status = 'completed'`)
         break
+      case 'verified':
+        whereClauses.push(`(${alias}.status = 'final' or ${alias}.status = 'amended' or ${alias}.status = 'corrected')`)
+        break
       case 'lookBack':
         if (mod.values.value) {
           const dateExpr = getDateExprForResource(resourceType, alias)
@@ -448,12 +480,15 @@ export function applyModifierChain(
       case 'endsWithString':
         if (mod.values.value) whereClauses.push(`EndsWith(${alias}.value, '${cqlEscapeString(mod.values.value)}')`)
         break
-      case 'withUnit':
+      case 'filterUnit':
         if (mod.values.unit) whereClauses.push(`${alias}.value.unit = '${cqlEscapeString(mod.values.unit)}'`)
+        break
+      case 'convertUnit':
+        // handled as post-wrapper below
         break
       case 'mostRecent':
         wrapLast = true
-        sortClause = `\n    sort by Coalesce(effective as dateTime, issued)`
+        sortClause = `\n    sort by FHIRHelpers.ToDateTime(effective as FHIR.dateTime)`
         break
       case 'first':
         wrapFirst = true
@@ -463,6 +498,11 @@ export function applyModifierChain(
         break
       case 'count':
         wrapCount = true
+        break
+      case 'quantityValue':
+      case 'conceptValue':
+      case 'numericValue':
+        // handled as post-wrappers below
         break
     }
   }
@@ -492,6 +532,19 @@ export function applyModifierChain(
     }
   } else if (wrapCount) {
     expr = needsQuery ? `Count(\n    ${expr}\n  )` : `Count(${expr})`
+  }
+
+  // Value extraction & conversion wrappers (applied after aggregation)
+  for (const mod of modifiers) {
+    if (mod.type === 'quantityValue') {
+      expr = `FHIRHelpers.ToQuantity((${expr}).value as FHIR.Quantity)`
+    } else if (mod.type === 'conceptValue') {
+      expr = `FHIRHelpers.ToConcept((${expr}).value as FHIR.CodeableConcept)`
+    } else if (mod.type === 'convertUnit') {
+      if (mod.values.unit) expr = `convert (${expr}) to '${cqlEscapeString(mod.values.unit)}'`
+    } else if (mod.type === 'numericValue') {
+      expr = `FHIRHelpers.ToDecimal(((${expr}).value as FHIR.Quantity).value)`
+    }
   }
 
   return expr

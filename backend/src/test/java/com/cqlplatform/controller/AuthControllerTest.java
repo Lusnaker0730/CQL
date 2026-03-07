@@ -117,7 +117,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"existing\",\"password\":\"password123\"}"))
+                        .content("{\"username\":\"existing\",\"password\":\"password123\",\"email\":\"existing@test.com\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Username already exists"));
     }

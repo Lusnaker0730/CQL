@@ -24,6 +24,7 @@ interface ExpressionRow {
   operand: string
   operator: string
   value: string
+  unit: string
   conjunction: 'and' | 'or'
 }
 
@@ -66,7 +67,7 @@ export default function ExpressionBuilder({
   const { t } = useTranslation('builder')
   const [name, setName] = useState('')
   const [rows, setRows] = useState<ExpressionRow[]>([
-    { id: nextId(), operand: '', operator: '', value: '', conjunction: 'and' },
+    { id: nextId(), operand: '', operator: '', value: '', unit: '', conjunction: 'and' },
   ])
   const [wrapping, setWrapping] = useState('')
   const [previewSnippet, setPreviewSnippet] = useState('')
@@ -82,7 +83,7 @@ export default function ExpressionBuilder({
   }, [])
 
   const addRow = () => {
-    setRows((prev) => [...prev, { id: nextId(), operand: '', operator: '', value: '', conjunction: 'and' }])
+    setRows((prev) => [...prev, { id: nextId(), operand: '', operator: '', value: '', unit: '', conjunction: 'and' }])
     setPreviewSnippet('')
   }
 
@@ -106,7 +107,8 @@ export default function ExpressionBuilder({
       if (UNARY_OPS.includes(row.operator)) {
         line += `${row.operand} ${row.operator}`
       } else if (row.operator && row.value) {
-        line += `${row.operand} ${row.operator} ${row.value}`
+        const val = row.unit ? `${row.value} '${row.unit}'` : row.value
+        line += `${row.operand} ${row.operator} ${val}`
       } else {
         line += row.operand
       }
@@ -214,14 +216,26 @@ export default function ExpressionBuilder({
               </TextField>
 
               {row.operator && !UNARY_OPS.includes(row.operator) && (
-                <TextField
-                  size="small"
-                  label="Value"
-                  value={row.value}
-                  onChange={(e) => updateRow(row.id, 'value', e.target.value)}
-                  sx={{ flex: 1, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
-                  placeholder={t('expression.valuePlaceholder')}
-                />
+                <>
+                  <TextField
+                    size="small"
+                    label="Value"
+                    value={row.value}
+                    onChange={(e) => updateRow(row.id, 'value', e.target.value)}
+                    sx={{ flex: 1, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
+                    placeholder={t('expression.valuePlaceholder')}
+                  />
+                  {COMPARISON_OPS.includes(row.operator) && (
+                    <TextField
+                      size="small"
+                      label={t('expression.unit')}
+                      value={row.unit}
+                      onChange={(e) => updateRow(row.id, 'unit', e.target.value)}
+                      sx={{ width: 100, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
+                      placeholder="kg/m2"
+                    />
+                  )}
+                </>
               )}
 
               {rows.length > 1 && (

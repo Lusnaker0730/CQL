@@ -43,6 +43,9 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 public class CqlExecutionService {
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper ELM_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
     private final ExecutorService executorService;
@@ -138,6 +141,7 @@ public class CqlExecutionService {
             // Extract source locators and dependencies for debug mode
             Map<String, String> sourceLocators = new HashMap<>();
             Map<String, List<String>> expressionDependencies = new HashMap<>();
+            String elmJson = null;
             if (request.isDebugMode()) {
                 if (elmLibrary.getStatements() != null && elmLibrary.getStatements().getDef() != null) {
                     for (org.hl7.elm.r1.ExpressionDef def : elmLibrary.getStatements().getDef()) {
@@ -146,8 +150,8 @@ public class CqlExecutionService {
                         }
                     }
                 }
-                String elmJsonStr = translator.toJson();
-                expressionDependencies = extractExpressionDependencies(elmJsonStr);
+                elmJson = translator.toJson();
+                expressionDependencies = extractExpressionDependencies(elmJson);
             }
 
             // Register the source of the translated library so the engine can find it
@@ -166,7 +170,7 @@ public class CqlExecutionService {
             // Setup terminology provider
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
 
-            // Setup data provider - use prefetch if available, otherwise REST
+            // Setup data provider - use prefetch if available, auto-prefetch for patient context, otherwise REST
             ComparableR4FhirModelResolver modelResolver = new ComparableR4FhirModelResolver();
             RetrieveProvider retrieveProvider;
             if (prefetchProvider != null) {
@@ -176,6 +180,12 @@ public class CqlExecutionService {
                     pfp.setTerminologyProvider(terminologyProvider);
                 }
                 retrieveProvider = prefetchProvider;
+            } else if (request.getPatientId() != null) {
+                // Auto-prefetch: batch-fetch all needed resource types in one FHIR request
+                retrieveProvider = tryAutoPrefetch(request, fhirServerUrl, terminologyProvider, translator, elmJson);
+                if (retrieveProvider == null) {
+                    retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
+                }
             } else {
                 retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
             }
@@ -236,7 +246,7 @@ public class CqlExecutionService {
 
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName)
-                                .value(value)
+                                .value(toSerializable(value))
                                 .valueType(valueType)
                                 .displayValue(formatDisplayValue(value))
                                 .build());
@@ -333,7 +343,7 @@ public class CqlExecutionService {
                             Object value = exprResult != null ? exprResult.value() : null;
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
-                                    .value(value)
+                                    .value(toSerializable(value))
                                     .valueType(value != null ? value.getClass().getSimpleName() : "null")
                                     .displayValue(formatDisplayValue(value))
                                     .build());
@@ -359,7 +369,7 @@ public class CqlExecutionService {
                             Object value = exprResult != null ? exprResult.value() : null;
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
-                                    .value(value)
+                                    .value(toSerializable(value))
                                     .valueType(value != null ? value.getClass().getSimpleName() : "null")
                                     .displayValue(formatDisplayValue(value))
                                     .build());
@@ -429,6 +439,36 @@ public class CqlExecutionService {
         return expressions;
     }
 
+    /**
+     * Convert CQL engine result objects to JSON-safe types.
+     * Raw CQL objects (Tuple, Code, etc.) contain internal engine state that
+     * Jackson cannot serialize, so we convert them to primitives/Maps/Lists.
+     */
+    private Object toSerializable(Object value) {
+        if (value == null) return null;
+        if (value instanceof Boolean || value instanceof Number || value instanceof String) return value;
+        if (value instanceof java.time.ZonedDateTime) return value.toString();
+        if (value instanceof java.time.LocalDate) return value.toString();
+        if (value instanceof java.time.LocalDateTime) return value.toString();
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Quantity q) {
+            return q.getValue() + (q.getUnit() != null ? " '" + q.getUnit() + "'" : "");
+        }
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Tuple t) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            for (String key : t.getElements().keySet()) {
+                map.put(key, toSerializable(t.getElements().get(key)));
+            }
+            return map;
+        }
+        if (value instanceof Iterable<?> iter) {
+            List<Object> list = new ArrayList<>();
+            iter.forEach(item -> list.add(toSerializable(item)));
+            return list;
+        }
+        // Fallback: use display string
+        return formatDisplayValue(value);
+    }
+
     private String formatDisplayValue(Object value) {
         if (value == null) {
             return "null";
@@ -458,7 +498,7 @@ public class CqlExecutionService {
         Map<String, List<String>> result = new HashMap<>();
         if (elmJson == null) return result;
         try {
-            com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(elmJson);
+            com.fasterxml.jackson.databind.JsonNode root = ELM_MAPPER.readTree(elmJson);
             com.fasterxml.jackson.databind.JsonNode statements = root.path("library").path("statements").path("def");
             if (statements.isArray()) {
                 for (com.fasterxml.jackson.databind.JsonNode def : statements) {
@@ -514,6 +554,83 @@ public class CqlExecutionService {
             current = current.getCause();
         }
         return null;
+    }
+
+    /**
+     * Attempt to auto-prefetch all needed FHIR resources for the patient in a single batch request.
+     * Parses ELM to find Retrieve data types, then batch-fetches them.
+     * Returns null if prefetch fails (caller should fall back to REST provider).
+     */
+    private RetrieveProvider tryAutoPrefetch(CqlExecutionRequest request, String fhirServerUrl,
+            TerminologyProvider terminologyProvider, CqlTranslator translator, String elmJson) {
+        try {
+            if (elmJson == null) {
+                elmJson = translator.toJson();
+            }
+            Set<String> retrieveTypes = extractRetrieveTypes(elmJson);
+            retrieveTypes.add("Patient");
+
+            String patientId = request.getPatientId();
+            if (patientId.startsWith("Patient/")) {
+                patientId = patientId.substring("Patient/".length());
+            }
+            com.cqlplatform.security.InputValidator.requireValidResourceId(patientId);
+
+            log.debug("Auto-prefetch: batch-fetching resource types {} for patient {}", retrieveTypes, patientId);
+            long prefetchStart = System.currentTimeMillis();
+            java.util.List<org.hl7.fhir.r4.model.Resource> resources =
+                    dataProviderService.batchFetchPatientResources(fhirServerUrl, patientId, retrieveTypes);
+            long prefetchTime = System.currentTimeMillis() - prefetchStart;
+            log.info("Auto-prefetch: {} resources fetched in {}ms", resources.size(), prefetchTime);
+
+            com.cqlplatform.service.cds.PrefetchRetrieveProvider provider =
+                    new com.cqlplatform.service.cds.PrefetchRetrieveProvider(resources, patientId);
+            provider.setTerminologyProvider(terminologyProvider);
+            return provider;
+        } catch (Exception e) {
+            log.warn("Auto-prefetch failed, falling back to REST provider: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract FHIR resource types from ELM Retrieve nodes.
+     * E.g. finds "Observation", "Condition" from Retrieve dataType="{http://hl7.org/fhir}Observation".
+     */
+    private Set<String> extractRetrieveTypes(String elmJson) {
+        Set<String> types = new HashSet<>();
+        if (elmJson == null) return types;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root =
+                    ELM_MAPPER.readTree(elmJson);
+            collectRetrieveTypeNodes(root, types);
+        } catch (Exception e) {
+            log.warn("Failed to extract retrieve types from ELM: {}", e.getMessage());
+        }
+        return types;
+    }
+
+    private void collectRetrieveTypeNodes(com.fasterxml.jackson.databind.JsonNode node, Set<String> types) {
+        if (node == null) return;
+        if (node.isObject()) {
+            if ("Retrieve".equals(node.path("type").asText(""))) {
+                String dataType = node.path("dataType").asText("");
+                int braceIdx = dataType.lastIndexOf('}');
+                if (braceIdx >= 0) {
+                    String type = dataType.substring(braceIdx + 1);
+                    if (com.cqlplatform.security.InputValidator.isValidFhirResourceType(type)) {
+                        types.add(type);
+                    }
+                }
+            }
+            for (java.util.Iterator<com.fasterxml.jackson.databind.JsonNode> it = node.elements(); it.hasNext(); ) {
+                collectRetrieveTypeNodes(it.next(), types);
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode child : node) {
+                collectRetrieveTypeNodes(child, types);
+            }
+        }
     }
 
     private static class InMemoryLibrarySourceProvider implements LibrarySourceProvider {
