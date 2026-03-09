@@ -69,8 +69,10 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
 
   const save = useCallback((updates: Partial<EcqmArtifactRequest>) => {
     const a = artifactRef.current
-    const { id, publishedMeasureId, ownerUsername, createdAt, updatedAt, fhirVersion, ...base } = a
-    const request: EcqmArtifactRequest = { ...base, ...updates }
+    // Send only changed fields — the backend handles partial updates via null checks.
+    // Sending the full artifact as base causes race conditions: if the server artifact
+    // hasn't been refetched yet, stale field values overwrite recently saved changes.
+    const request: EcqmArtifactRequest = { name: a.name, ...updates }
 
     setSaveStatus('saving')
     updateMutation.mutate(
@@ -103,12 +105,15 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
     }, 1500)
   }, [save])
 
-  // Immediate save (flush pending + save now)
+  // Immediate save (flush pending + save now, or force re-save if nothing pending)
   const flushSave = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     if (pendingRef.current) {
       save(pendingRef.current)
       pendingRef.current = null
+    } else {
+      // Force re-save even when no pending changes (user clicked Save manually)
+      save({})
     }
   }, [save])
 
@@ -160,8 +165,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
     if (timerRef.current) clearTimeout(timerRef.current)
     if (pendingRef.current) {
       const a = artifactRef.current
-      const { id, publishedMeasureId, ownerUsername, createdAt, updatedAt, fhirVersion, ...base } = a
-      const request: EcqmArtifactRequest = { ...base, ...pendingRef.current }
+      const request: EcqmArtifactRequest = { name: a.name, ...pendingRef.current }
       pendingRef.current = null
       updateMutation.mutate(
         { id: a.id, request },

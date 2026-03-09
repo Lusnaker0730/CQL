@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-039 | ✨ patch | 2026-03-09 | eCQM + CDS Authoring（全端） | eCQM 儲存修復（JPA @Transient + 部分更新）+ 參數動態預設值輸入 | Backend (eCQM) + Frontend (Authoring) | [`pending`](../../commit/pending) |
 | PAT-038 | ✨ patch | 2026-03-09 | CQL Builder + eCQM（全端） | includes concept 運算子 + 參數 Interval 修復 + eCQM 驗證器修復 + code/display 修飾器 | Backend (eCQM) + Frontend (Builder) | [`9e82843`](../../commit/9e82843) |
 | PAT-037 | ✨ patch | 2026-03-08 | CQL Builder（前端） | Query Builder 擴充 — with/without 關聯查詢 + let 區域變數 + distinct 去重 + where 值自動引號 | Frontend (Builder) | [`15c1877`](../../commit/15c1877) |
 | PAT-036 | ✨ patch | 2026-03-07 | CQL Builder（全端） | FHIR 代碼瀏覽器 + 測試修復 + TWCOREDATA Dockerfile 修復 | Backend (Tests) + Frontend (Builder) + TWCOREDATA | [`a2eade1`](../../commit/a2eade1) |
@@ -157,6 +158,42 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-039 — eCQM 儲存修復 + 參數動態預設值輸入
+
+- **日期**: 2026-03-09
+- **範圍**: eCQM（全端）+ CDS Authoring（前端）
+
+### 變更內容
+
+1. **eCQM Population Groups 儲存失敗修復（後端）**
+   - **根因**: JPA `@Transient` list 欄位不觸發 Hibernate dirty checking → `@PreUpdate` 不執行 → `serializeAll()` 未將 list 序列化為 JSON column
+   - **修復**: `EcqmArtifactService.update()` 中在 `repository.save()` 前明確呼叫 `entity.serializeAll()`
+   - **附帶修復**: 所有欄位加 null guard 支援部分更新，避免 race condition 覆蓋
+
+2. **eCQM 前端部分更新（前端）**
+   - `save()` 改為只送變更欄位（不再以 stale `artifactRef.current` 為基底）
+   - Save 按鈕改為僅在 `saving` 時停用（原先 `idle`/`saved` 也被停用）
+   - `flushSave()` 無 pending 時仍強制送出 `save({})`
+
+3. **參數動態預設值輸入（前端）**
+   - `datetime` → 日期時間選擇器（`type="datetime-local"`）
+   - `time` → 時間選擇器（`type="time"`）
+   - `interval<integer>` → 下限/上限數字輸入
+   - `interval<datetime>` → 開始/結束日期時間選擇器
+   - `code` → 新增搜尋按鈕，開啟 `ChooseCodeDialog` 代碼檢索
+
+### 影響檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `backend/.../EcqmArtifactService.java` | serializeAll() 明確呼叫 + null guard 部分更新 |
+| `frontend/.../EcqmArtifactWorkspace.tsx` | 部分更新 save + flushSave 強制送出 |
+| `frontend/.../EcqmArtifactWorkspaceHeader.tsx` | Save 按鈕停用條件修正 |
+| `frontend/.../parameters/Parameters.tsx` | 動態預設值輸入（5 種新型別 UI） |
+| `frontend/src/locales/{en,zh-TW}/authoring.json` | 新增 5 個 i18n key |
+
+---
 
 ## PAT-036 — FHIR 代碼瀏覽器 + 測試修復 + TWCOREDATA Dockerfile 修復
 

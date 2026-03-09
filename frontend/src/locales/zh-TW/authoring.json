@@ -453,7 +453,12 @@
     "typeIntervalInt": "Interval<Integer>",
     "typeIntervalIntHint": "整數範圍（例如：18-65）",
     "typeIntervalDt": "Interval<DateTime>",
-    "typeIntervalDtHint": "日期範圍（例如：報告期間）"
+    "typeIntervalDtHint": "日期範圍（例如：報告期間）",
+    "searchCode": "搜尋代碼",
+    "intervalLow": "下限",
+    "intervalHigh": "上限",
+    "intervalStart": "開始",
+    "intervalEnd": "結束"
   },
   "externalCql": {
     "title": "外部 CQL 函式庫",

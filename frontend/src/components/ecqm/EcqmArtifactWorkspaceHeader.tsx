@@ -89,7 +89,7 @@ export default function EcqmArtifactWorkspaceHeader({
               variant="outlined"
               startIcon={saveStatus === 'saving' ? <CircularProgress size={14} /> : <SaveIcon />}
               onClick={onSave}
-              disabled={saveStatus === 'idle' || saveStatus === 'saved' || saveStatus === 'saving'}
+              disabled={saveStatus === 'saving'}
             >
               {t('header.save')}
             </Button>

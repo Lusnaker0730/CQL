@@ -50,31 +50,41 @@ public class EcqmArtifactService {
                 .orElseThrow(() -> new IllegalArgumentException("eCQM artifact not found: " + id));
         checkOwner(entity, currentUser);
 
-        entity.setName(request.getName());
+        // All fields use null guards to support partial updates — the frontend sends
+        // only changed fields to avoid race conditions where stale data overwrites
+        // recently saved changes (e.g. population groups lost after a summary field edit).
+        if (request.getName() != null) entity.setName(request.getName());
         if (request.getVersion() != null) entity.setVersion(request.getVersion());
-        entity.setDescription(request.getDescription());
+        if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
         if (request.getScoringType() != null) entity.setScoringType(request.getScoringType());
         if (request.getPopulationBasis() != null) entity.setPopulationBasis(request.getPopulationBasis());
         if (request.getImprovementNotation() != null) entity.setImprovementNotation(request.getImprovementNotation());
-        entity.setMeasureSet(request.getMeasureSet());
-        entity.setCmsMeasureId(request.getCmsMeasureId());
-        entity.setNqfNumber(request.getNqfNumber());
-        entity.setUrl(request.getUrl());
-        entity.setPublisher(request.getPublisher());
-        entity.setPurpose(request.getPurpose());
-        entity.setCopyright(request.getCopyright());
-        entity.setRationale(request.getRationale());
-        entity.setClinicalGuidance(request.getClinicalGuidance());
-        entity.setSteward(request.getSteward());
-        entity.setDisclaimer(request.getDisclaimer());
-        entity.setSupplementalDataGuidance(request.getSupplementalDataGuidance());
+        if (request.getMeasureSet() != null) entity.setMeasureSet(request.getMeasureSet());
+        if (request.getCmsMeasureId() != null) entity.setCmsMeasureId(request.getCmsMeasureId());
+        if (request.getNqfNumber() != null) entity.setNqfNumber(request.getNqfNumber());
+        if (request.getUrl() != null) entity.setUrl(request.getUrl());
+        if (request.getPublisher() != null) entity.setPublisher(request.getPublisher());
+        if (request.getPurpose() != null) entity.setPurpose(request.getPurpose());
+        if (request.getCopyright() != null) entity.setCopyright(request.getCopyright());
+        if (request.getRationale() != null) entity.setRationale(request.getRationale());
+        if (request.getClinicalGuidance() != null) entity.setClinicalGuidance(request.getClinicalGuidance());
+        if (request.getSteward() != null) entity.setSteward(request.getSteward());
+        if (request.getDisclaimer() != null) entity.setDisclaimer(request.getDisclaimer());
+        if (request.getSupplementalDataGuidance() != null) entity.setSupplementalDataGuidance(request.getSupplementalDataGuidance());
 
         if (request.getPopulationGroups() != null) entity.setPopulationGroupsList(request.getPopulationGroups());
         if (request.getSupplementalData() != null) entity.setSupplementalDataList(request.getSupplementalData());
         if (request.getStratifiers() != null) entity.setStratifiersList(request.getStratifiers());
         if (request.getBaseElements() != null) entity.setBaseElementsList(request.getBaseElements());
         if (request.getParameters() != null) entity.setParametersList(request.getParameters());
+
+        // Explicitly serialize transient list fields → JSON columns before save.
+        // The @Transient lists are invisible to Hibernate's dirty checking, so if only
+        // list fields changed (and no persistent column changed), @PreUpdate won't fire
+        // and the JSON columns won't be updated. Calling serializeAll() ensures the
+        // JSON columns always reflect the latest list data.
+        entity.serializeAll();
 
         entity = repository.save(entity);
         log.info("Updated eCQM artifact: {} (id={})", entity.getName(), entity.getId());

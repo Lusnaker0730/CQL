@@ -453,7 +453,12 @@
     "typeIntervalInt": "Interval<Integer>",
     "typeIntervalIntHint": "Range of integers (e.g., 18-65)",
     "typeIntervalDt": "Interval<DateTime>",
-    "typeIntervalDtHint": "Date range (e.g., reporting period)"
+    "typeIntervalDtHint": "Date range (e.g., reporting period)",
+    "searchCode": "Search code",
+    "intervalLow": "Low",
+    "intervalHigh": "High",
+    "intervalStart": "Start",
+    "intervalEnd": "End"
   },
   "externalCql": {
     "title": "External CQL Libraries",
