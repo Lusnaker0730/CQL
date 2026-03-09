@@ -17,6 +17,7 @@ import BaseElements from '../authoring/base-elements/BaseElements'
 import Parameters from '../authoring/parameters/Parameters'
 import EcqmExternalCql from './EcqmExternalCql'
 import type { BaseElement, Parameter } from '../../types/authoring'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface Props {
   artifact: EcqmArtifact
@@ -79,9 +80,10 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
           setSaveStatus('saved')
           onArtifactUpdateRef.current()
         },
-        onError: () => {
+        onError: (error) => {
           setSaveStatus('error')
-          setSnack({ message: t('workspace.saveFailed'), severity: 'error' })
+          const msg = extractApiError(error)
+          setSnack({ message: msg || t('workspace.saveFailed'), severity: 'error' })
         },
       }
     )

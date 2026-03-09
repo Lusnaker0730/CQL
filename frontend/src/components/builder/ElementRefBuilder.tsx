@@ -52,6 +52,10 @@ const MODIFIER_PRESETS: ModifierPreset[] = [
   { labelKey: 'obsQuantity', template: 'FHIRHelpers.ToQuantity($ref.value as FHIR.Quantity)',                   nameSuffix: ' Quantity', color: '#E65100' },
   { labelKey: 'obsConcept',  template: 'FHIRHelpers.ToConcept($ref.value as FHIR.CodeableConcept)',            nameSuffix: ' Concept',  color: '#00695C' },
   { labelKey: 'obsRecent',   template: 'Last($ref O sort by FHIRHelpers.ToDateTime(effective as FHIR.dateTime))', nameSuffix: ' Recent', color: '#0D7377' },
+  // Code extraction
+  { labelKey: 'codeText',    template: '$ref.code.text',                                                          nameSuffix: ' CodeText',  color: '#37474F' },
+  { labelKey: 'codeValue',   template: 'FHIRHelpers.ToConcept($ref.code)',                                        nameSuffix: ' Code',      color: '#455A64' },
+  { labelKey: 'display',     template: '$ref.code.coding[0].display',                                             nameSuffix: ' Display',   color: '#546E7A' },
 ]
 
 export default function ElementRefBuilder({

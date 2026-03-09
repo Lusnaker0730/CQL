@@ -73,7 +73,11 @@
     "name": "參數名稱",
     "type": "類型",
     "defaultValue": "預設值（選填）",
-    "defaultPlaceholder": "例如 true、42、@2024-01-01"
+    "defaultPlaceholder": "例如 true、42、@2024-01-01",
+    "intervalStart": "起始",
+    "intervalEnd": "結束",
+    "intervalStartPlaceholder": "例如 0",
+    "intervalEndPlaceholder": "例如 100"
   },
   "definitions": {
     "template": "範本",
@@ -240,6 +244,9 @@
     "quantityValue": "數量值",
     "conceptValue": "概念值",
     "numericValue": "數值",
+    "codeText": "代碼文字",
+    "codeValue": "代碼（概念）",
+    "displayValue": "顯示名稱",
     "filterUnit": "篩選單位",
     "convertUnit": "單位轉換"
   },
@@ -352,7 +359,10 @@
       "obsNumeric": "Obs → 數值",
       "obsQuantity": "Obs → 數量",
       "obsConcept": "Obs → 概念",
-      "obsRecent": "Obs → 最近一筆"
+      "obsRecent": "Obs → 最近一筆",
+      "codeText": "代碼文字",
+      "codeValue": "代碼（概念）",
+      "display": "顯示名稱"
     }
   }
 }

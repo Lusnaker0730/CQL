@@ -46,6 +46,9 @@ export type ModifierType =
   | 'quantityValue'
   | 'conceptValue'
   | 'numericValue'
+  | 'codeText'
+  | 'codeValue'
+  | 'displayValue'
 
 type ModifierCategory = 'filter' | 'aggregate' | 'compare' | 'string' | 'unit'
 
@@ -198,6 +201,18 @@ const MODIFIER_DEFS: ModifierDef[] = [
   },
   {
     type: 'numericValue', labelKey: 'numericValue', category: 'aggregate', singleton: true,
+    fields: [],
+  },
+  {
+    type: 'codeText', labelKey: 'codeText', category: 'aggregate', singleton: true,
+    fields: [],
+  },
+  {
+    type: 'codeValue', labelKey: 'codeValue', category: 'aggregate', singleton: true,
+    fields: [],
+  },
+  {
+    type: 'displayValue', labelKey: 'displayValue', category: 'aggregate', singleton: true,
     fields: [],
   },
 ]
@@ -502,6 +517,9 @@ export function applyModifierChain(
       case 'quantityValue':
       case 'conceptValue':
       case 'numericValue':
+      case 'codeText':
+      case 'codeValue':
+      case 'displayValue':
         // handled as post-wrappers below
         break
     }
@@ -544,6 +562,12 @@ export function applyModifierChain(
       if (mod.values.unit) expr = `convert (${expr}) to '${cqlEscapeString(mod.values.unit)}'`
     } else if (mod.type === 'numericValue') {
       expr = `FHIRHelpers.ToDecimal(((${expr}).value as FHIR.Quantity).value)`
+    } else if (mod.type === 'codeText') {
+      expr = `(${expr}).code.text`
+    } else if (mod.type === 'codeValue') {
+      expr = `FHIRHelpers.ToConcept((${expr}).code)`
+    } else if (mod.type === 'displayValue') {
+      expr = `(${expr}).code.coding[0].display`
     }
   }
 

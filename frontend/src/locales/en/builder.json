@@ -73,7 +73,11 @@
     "name": "Parameter Name",
     "type": "Type",
     "defaultValue": "Default Value (optional)",
-    "defaultPlaceholder": "e.g. true, 42, @2024-01-01"
+    "defaultPlaceholder": "e.g. true, 42, @2024-01-01",
+    "intervalStart": "Start",
+    "intervalEnd": "End",
+    "intervalStartPlaceholder": "e.g. 0",
+    "intervalEndPlaceholder": "e.g. 100"
   },
   "definitions": {
     "template": "Template",
@@ -240,6 +244,9 @@
     "quantityValue": "Quantity Value",
     "conceptValue": "Concept Value",
     "numericValue": "Numeric Value",
+    "codeText": "Code Text",
+    "codeValue": "Code (Concept)",
+    "displayValue": "Display",
     "filterUnit": "Filter by Unit",
     "convertUnit": "Convert Unit"
   },
@@ -352,7 +359,10 @@
       "obsNumeric": "Obs → Decimal",
       "obsQuantity": "Obs → Quantity",
       "obsConcept": "Obs → Concept",
-      "obsRecent": "Obs → Most Recent"
+      "obsRecent": "Obs → Most Recent",
+      "codeText": "Code Text",
+      "codeValue": "Code (Concept)",
+      "display": "Display"
     }
   }
 }

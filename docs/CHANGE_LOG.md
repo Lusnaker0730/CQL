@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-038 | ✨ patch | 2026-03-09 | CQL Builder + eCQM（全端） | includes concept 運算子 + 參數 Interval 修復 + eCQM 驗證器修復 + code/display 修飾器 | Backend (eCQM) + Frontend (Builder) | |
 | PAT-037 | ✨ patch | 2026-03-08 | CQL Builder（前端） | Query Builder 擴充 — with/without 關聯查詢 + let 區域變數 + distinct 去重 + where 值自動引號 | Frontend (Builder) | [`15c1877`](../../commit/15c1877) |
 | PAT-036 | ✨ patch | 2026-03-07 | CQL Builder（全端） | FHIR 代碼瀏覽器 + 測試修復 + TWCOREDATA Dockerfile 修復 | Backend (Tests) + Frontend (Builder) + TWCOREDATA | [`a2eade1`](../../commit/a2eade1) |
 | PAT-035 | ✨ patch | 2026-03-06 | CDS Authoring（全端） | 修飾器連續新增 + Element Name UX 改善 + Numeric Value 修飾器 | Backend + Frontend (Authoring) | [`c77e6f6`](../../commit/c77e6f6) |

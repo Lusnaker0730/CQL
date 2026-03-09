@@ -56,7 +56,7 @@ interface LetBinding {
 }
 
 const OPERATORS = [
-  '=', '!=', '~', 'in', 'during', 'before', 'after',
+  '=', '!=', '~', 'in', 'includes concept', 'during', 'before', 'after',
   'contains', '>', '<', '>=', '<=', 'is not null', 'is null',
 ]
 
@@ -113,11 +113,17 @@ function generateQueryCql(
   if (validClauses.length > 0) {
     validClauses.forEach((clause, idx) => {
       const prefix = idx === 0 ? '\n    where ' : `\n      ${clause.conjunction} `
-      let condition = `${alias}.${clause.field} ${clause.operator}`
-      if (clause.operator !== 'is null' && clause.operator !== 'is not null') {
-        const raw = clause.value?.trim() || ''
-        const isLiteral = CQL_LITERAL_RE.test(raw)
-        condition += ` ${raw ? (isLiteral ? raw : `'${raw}'`) : "'...'"}`
+      let condition: string
+      if (clause.operator === 'includes concept') {
+        const val = clause.value?.trim() || '"..."'
+        condition = `exists (${alias}.${clause.field} C where C ~ ${val})`
+      } else {
+        condition = `${alias}.${clause.field} ${clause.operator}`
+        if (clause.operator !== 'is null' && clause.operator !== 'is not null') {
+          const raw = clause.value?.trim() || ''
+          const isLiteral = CQL_LITERAL_RE.test(raw)
+          condition += ` ${raw ? (isLiteral ? raw : `'${raw}'`) : "'...'"}`
+        }
       }
       cql += `${prefix}${condition}`
     })
@@ -446,7 +452,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
               ))}
             </TextField>
             {clause.operator !== 'is null' && clause.operator !== 'is not null' && (
-              clause.operator === 'in' ? (
+              clause.operator === 'in' || clause.operator === 'includes concept' ? (
                 <TextField
                   select
                   size="small"

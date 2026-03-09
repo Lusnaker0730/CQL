@@ -85,7 +85,10 @@ public class EcqmExpressionTreeValidator {
         }
 
         // Check all string values for HTML content (XSS)
+        // Skip "fields" — these are form field definitions (type: string/number/textarea/valueset),
+        // not expression tree nodes. Recursing into them causes false "unknown element type" errors.
         for (Map.Entry<String, Object> entry : node.entrySet()) {
+            if ("fields".equals(entry.getKey())) continue;
             if (entry.getValue() instanceof String strVal) {
                 checkHtmlContent(path + "." + entry.getKey(), strVal, errors);
             } else if (entry.getValue() instanceof Map) {
