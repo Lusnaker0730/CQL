@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-086 | 🐛 bugfix | 2026-03-12 | 後端（Auth） | 註冊 email 欄位改為選填 — 移除 @NotBlank 驗證 | Backend (Auth) | [`7dd2349`](../../commit/7dd2349) |
 | BUG-085 | 🐛 bugfix | 2026-03-12 | 前端（全模組） | Dark mode 硬編碼色彩修正 — 13 檔案 + Monaco 貼上修復 | Frontend (Editor, FHIR, Measures, Builder, Authoring) | [`8379115`](../../commit/8379115) |
 | PAT-039 | ✨ patch | 2026-03-09 | eCQM + CDS Authoring（全端） | eCQM 儲存修復（JPA @Transient + 部分更新）+ 參數動態預設值輸入 | Backend (eCQM) + Frontend (Authoring) | [`662f5af`](../../commit/662f5af) |
 | PAT-038 | ✨ patch | 2026-03-09 | CQL Builder + eCQM（全端） | includes concept 運算子 + 參數 Interval 修復 + eCQM 驗證器修復 + code/display 修飾器 | Backend (eCQM) + Frontend (Builder) | [`9e82843`](../../commit/9e82843) |
