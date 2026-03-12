@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-087 | 🔒 security | 2026-03-12 | 安全性（全端） | 滲透測試修復 — Mass Assignment / SSRF / XSS / 授權 / Rate Limiting / 密碼洩漏 / XFF 欺騙 | 4 CRITICAL + 10 HIGH | [`5de093c`](../../commit/5de093c) |
 | PAT-040 | ✨ patch | 2026-03-12 | 法規自動化（全端） | TFDA 法規文件自動化工作流 — Issue/PR Templates + 產生腳本 + CI 整合 + 40 個法規 Issues | GitHub Templates + Python Scripts + CI | [`3405f5d`](../../commit/3405f5d) |
 | BUG-086 | 🐛 bugfix | 2026-03-12 | 後端（Auth） | 註冊 email 欄位改為選填 — 移除 @NotBlank 驗證 | Backend (Auth) | [`7dd2349`](../../commit/7dd2349) |
 | BUG-085 | 🐛 bugfix | 2026-03-12 | 前端（全模組） | Dark mode 硬編碼色彩修正 — 13 檔案 + Monaco 貼上修復 | Frontend (Editor, FHIR, Measures, Builder, Authoring) | [`8379115`](../../commit/8379115) |
@@ -161,6 +162,71 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## BUG-087 — 滲透測試安全修復
+
+- **日期**: 2026-03-12
+- **範圍**: 安全性（全端 — 後端 22 檔 + 前端 10 檔）
+
+### 變更內容
+
+**CRITICAL 修復（4 項）：**
+
+1. **C2: EHR Mass Assignment** — 新建 `EhrConnectionRequest` DTO 取代直接接收 Entity，加 `@Valid` + `@NotBlank` / `@Size` 驗證
+2. **C3: Department/Indicator 缺少授權** — `DepartmentController` + `IndicatorCatalogController` 加 `@PreAuthorize("hasRole('ADMIN')")` + Entity 加驗證註解
+3. **C5: dangerouslySetInnerHTML XSS** — 安裝 DOMPurify 清洗 Monaco colorized 輸出（2 檔），9 個 `dangerouslySetInnerHTML` 替換為 `Trans` 元件
+4. **@EnableMethodSecurity** — `SecurityConfig` 啟用方法級安全，讓 `@PreAuthorize` 生效
+
+**HIGH 修復（10 項）：**
+
+5. **H1: SSRF 儲存型 URL** — EHR 建立/更新時呼叫 `InputValidator.requireValidUrl()` 驗證 FHIR URL
+6. **H2: Null URL 繞過** — `InputValidator.isValidUrl(null)` 改回傳 `false`（原為 `true`）
+7. **H3: Measure 所有權繞過** — `MeasureController` 新增 `requireReadableMeasure()` 套用於 10 個讀取/匯出端點
+8. **H4: EHR 端點無授權** — 建立/更新/刪除 EHR 連線加 `@PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")`
+9. **H5-H7: Rate Limiting 缺口** — 新增 AUTH（10 rpm）+ CDS_INVOKE（10 rpm）限流層級
+10. **H8: 暫時密碼 API 洩漏** — `adminResetPassword` 改為透過 Email 寄送暫時密碼，API 回應不含密碼
+11. **H9: XFF 標頭欺騙** — `AuditFilter.getClientIp()` 僅信任來自私有地址的 X-Forwarded-For
+12. **H10: CSRF 配置** — 於 SecurityConfig 加註 CSRF disabled 原因說明（Stateless JWT 架構）
+
+### 檔案變更
+
+| 檔案 | 說明 |
+|------|------|
+| `model/ehr/EhrConnectionRequest.java` | 新建 DTO |
+| `controller/EhrIntegrationController.java` | DTO + @PreAuthorize + URL 驗證 |
+| `service/fhir/EhrConnectionService.java` | 接收 DTO |
+| `config/SecurityConfig.java` | @EnableMethodSecurity + CSRF 說明 |
+| `controller/DepartmentController.java` | @PreAuthorize + @Valid |
+| `controller/IndicatorCatalogController.java` | @PreAuthorize + @Valid + @Size(max=500) |
+| `entity/DepartmentEntity.java` | @NotBlank / @Size |
+| `entity/IndicatorCatalogEntity.java` | @NotBlank / @Size |
+| `security/InputValidator.java` | null/blank → false |
+| `controller/FhirController.java` | 7 處 null guard |
+| `controller/CdsHooksController.java` | 2 處 null guard |
+| `controller/CqlController.java` | 1 處 null guard |
+| `controller/MeasureController.java` | requireReadableMeasure + 5 處 null guard |
+| `controller/AuthoringController.java` | 1 處 null guard |
+| `controller/AdminController.java` | Cache-Control: no-store |
+| `security/RateLimitFilter.java` | AUTH + CDS_INVOKE tiers |
+| `config/RateLimitProperties.java` | authRpm + cdsInvokeRpm |
+| `service/PasswordResetService.java` | void return + email 寄送 |
+| `service/EmailService.java` | sendTemporaryPasswordEmail() |
+| `model/auth/AdminResetPasswordResponse.java` | 移除 temporaryPassword |
+| `security/AuditFilter.java` | 私有地址判定 XFF 信任 |
+| `service/measure/IndicatorCatalogService.java` | delete() 方法 |
+| `frontend/package.json` | +dompurify +@types/dompurify |
+| `components/builder/CqlPreviewBox.tsx` | DOMPurify.sanitize |
+| `components/authoring/cql-preview/CqlPreviewPanel.tsx` | DOMPurify.sanitize |
+| `components/authoring/builder/ExpressionPhrase.tsx` | Trans 元件 |
+| `pages/AdminUsersPage.tsx` | Trans 元件 |
+| `components/cds/ManageServicesPanel.tsx` | Trans 元件 |
+| `components/authoring/subpopulations/Subpopulations.tsx` | Trans 元件 |
+| `components/authoring/base-elements/BaseElements.tsx` | Trans 元件 |
+| `components/authoring/parameters/Parameters.tsx` | Trans 元件 |
+| `components/authoring/builder/ArtifactElementBody.tsx` | Trans 元件 |
+| `components/measure/PopulationCriteriaTab.tsx` | Trans 元件 |
+
+---
 
 ## PAT-040 — TFDA 法規文件自動化工作流
 
