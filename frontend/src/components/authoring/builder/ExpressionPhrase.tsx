@@ -1,5 +1,5 @@
 import { Box, Typography, Chip } from '@mui/material'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { ElementInstance } from '../../../types/authoring'
 
@@ -60,7 +60,7 @@ function buildAgeRangePhrase(element: ElementInstance, t: TFunction) {
   const unitLabel = unit.endsWith('s') ? unit : unit + 's'
 
   const parts: React.ReactNode[] = []
-  parts.push(<span key="prefix" dangerouslySetInnerHTML={{ __html: t('expression.ageIs') }} />)
+  parts.push(<Trans key="prefix" i18nKey="expression.ageIs" ns="authoring" />)
 
   if (minAge && maxAge) {
     parts.push(<span key="between">{t('expression.between')}</span>)
@@ -94,7 +94,7 @@ function buildGenderPhrase(element: ElementInstance, t: TFunction) {
 
   return (
     <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <span dangerouslySetInnerHTML={{ __html: t('expression.genderIs') }} />
+      <Trans i18nKey="expression.genderIs" ns="authoring" />
       {gender ? <ValueChip label={gender} /> : <Box component="span" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>{t('expression.notSet')}</Box>}
     </Typography>
   )

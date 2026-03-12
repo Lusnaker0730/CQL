@@ -106,7 +106,9 @@ public class CqlController {
     @PostMapping("/execute")
     @Operation(summary = "Execute CQL", description = "Executes CQL against a FHIR server")
     public ResponseEntity<CqlExecutionResponse> execute(@Valid @RequestBody CqlExecutionRequest request) {
-        InputValidator.requireValidUrl(request.getFhirServerUrl());
+        if (request.getFhirServerUrl() != null) {
+            InputValidator.requireValidUrl(request.getFhirServerUrl());
+        }
         CqlExecutionResponse response = executionService.execute(request);
         return ResponseEntity.ok(response);
     }

@@ -129,9 +129,11 @@ public class PasswordResetService {
 
     /**
      * Admin resets a user's password, generating a temporary one.
+     * The temporary password is sent to the user's registered email address and is
+     * never returned in the API response to prevent plaintext exposure.
      */
     @Transactional
-    public String adminResetPassword(Long userId) {
+    public void adminResetPassword(Long userId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -145,7 +147,26 @@ public class PasswordResetService {
         userRepository.save(user);
 
         log.info("Admin reset password for user: {}", user.getUsername());
-        return temporaryPassword;
+
+        // Deliver the temporary password via email after the transaction commits so that
+        // the plaintext credential is never returned through the API (H8 fix).
+        String userEmail = user.getEmail();
+        String username = user.getUsername();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (userEmail != null && !userEmail.isBlank()) {
+                    try {
+                        emailService.sendTemporaryPasswordEmail(userEmail, username, temporaryPassword);
+                    } catch (Exception e) {
+                        log.warn("Failed to send temporary password email for user: {}", username, e);
+                    }
+                } else {
+                    log.warn("Admin reset password for user {} who has no registered email; " +
+                             "temporary password could not be delivered.", username);
+                }
+            }
+        });
     }
 
     /**

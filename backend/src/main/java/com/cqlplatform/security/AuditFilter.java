@@ -147,12 +147,46 @@ public class AuditFilter extends OncePerRequestFilter {
         };
     }
 
+    /**
+     * Resolve the real client IP address.
+     *
+     * <p>Security (H9): X-Forwarded-For is only trusted when the direct TCP peer
+     * ({@code remoteAddr}) is a private / loopback address — i.e. a trusted reverse
+     * proxy running on the same host or internal network.  If the request arrives
+     * directly from a public IP we use {@code remoteAddr} as-is, preventing an
+     * attacker from spoofing their IP by injecting an arbitrary XFF header.
+     *
+     * <p>When XFF is trusted we take the <em>last</em> non-private IP in the list,
+     * which is the entry appended by our own reverse proxy and therefore the most
+     * reliable indication of the real client address.
+     */
     private String getClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            return xff.split(",")[0].trim();
+        String remoteAddr = request.getRemoteAddr();
+        // Only trust X-Forwarded-For from private network (reverse proxy)
+        if (isPrivateAddress(remoteAddr)) {
+            String xff = request.getHeader("X-Forwarded-For");
+            if (xff != null && !xff.isBlank()) {
+                // Take the LAST non-private IP (rightmost entry added by trusted proxy)
+                String[] ips = xff.split(",");
+                for (int i = ips.length - 1; i >= 0; i--) {
+                    String ip = ips[i].trim();
+                    if (!ip.isEmpty() && !isPrivateAddress(ip)) {
+                        return ip;
+                    }
+                }
+                return ips[0].trim(); // all private, use first
+            }
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
+    }
+
+    private boolean isPrivateAddress(String ip) {
+        try {
+            java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
+            return addr.isLoopbackAddress() || addr.isSiteLocalAddress() || addr.isLinkLocalAddress();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private String truncate(String value, int maxLength) {

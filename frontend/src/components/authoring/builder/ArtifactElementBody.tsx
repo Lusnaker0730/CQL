@@ -7,7 +7,7 @@ import {
   Build as ModifierIcon, Close as CloseIcon, Check as CheckIcon, Handyman as BuildIcon,
   ArrowForward as ArrowIcon, ChevronLeft as BackIcon,
 } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import StringField from '../fields/StringField'
 import NumberField from '../fields/NumberField'
 import TextAreaField from '../fields/TextAreaField'
@@ -345,9 +345,14 @@ function SelectModifiersDialog({
         {selectedMod && (
           <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" gutterBottom>{selectedMod.name}</Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom
-              dangerouslySetInnerHTML={{ __html: t('elementBody.modAccepts', { input: selectedMod.inputTypes.map(formatReturnType).join(', '), output: formatReturnType(selectedMod.returnType), interpolation: { escapeValue: true } }) }}
-            />
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Trans
+                i18nKey="elementBody.modAccepts"
+                ns="authoring"
+                values={{ input: selectedMod.inputTypes.map(formatReturnType).join(', '), output: formatReturnType(selectedMod.returnType) }}
+                components={{ strong: <strong /> }}
+              />
+            </Typography>
             {selectedMod.cqlLibraryFunction && (
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', mt: 1, color: 'primary.main' }}>
                 {t('elementBody.modCqlLabel', { fn: selectedMod.cqlLibraryFunction })}

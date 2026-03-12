@@ -186,14 +186,19 @@ class AdminControllerTest {
 
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
-    void resetUserPassword_shouldReturnTempPassword() throws Exception {
+    void resetUserPassword_shouldReturnSuccessWithoutPassword() throws Exception {
         UserEntity user = createUser(2L, "otheruser", UserEntity.Role.USER);
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
-        when(passwordResetService.adminResetPassword(2L)).thenReturn("TempPass123!");
+        // adminResetPassword is now void; the temp password is emailed, not returned in the response
+        doNothing().when(passwordResetService).adminResetPassword(2L);
 
         mockMvc.perform(post("/api/admin/users/2/reset-password"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.temporaryPassword").value("TempPass123!"))
-                .andExpect(jsonPath("$.username").value("otheruser"));
+                // Security (H8): temporary password must NOT appear in the response body
+                .andExpect(jsonPath("$.temporaryPassword").doesNotExist())
+                .andExpect(jsonPath("$.username").value("otheruser"))
+                .andExpect(jsonPath("$.message").exists())
+                // Response must carry Cache-Control: no-store to prevent credential caching
+                .andExpect(header().string("Cache-Control", "no-store"));
     }
 }

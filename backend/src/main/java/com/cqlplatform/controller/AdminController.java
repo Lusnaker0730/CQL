@@ -10,6 +10,7 @@ import com.cqlplatform.service.PasswordResetService;
 import com.cqlplatform.service.UserApiKeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -105,13 +106,18 @@ public class AdminController {
                     .body(java.util.Map.of("error", "Cannot reset password for SSO users"));
         }
 
-        String temporaryPassword = passwordResetService.adminResetPassword(userId);
+        // Security (H8): adminResetPassword no longer returns the plaintext password.
+        // The temporary password is delivered to the user via email only.
+        passwordResetService.adminResetPassword(userId);
 
-        return ResponseEntity.ok(AdminResetPasswordResponse.builder()
-                .temporaryPassword(temporaryPassword)
-                .username(user.getUsername())
-                .message("Temporary password generated. User will be required to change it on next login.")
-                .build());
+        return ResponseEntity.ok()
+                // Prevent any intermediate proxy or browser from caching this response.
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(AdminResetPasswordResponse.builder()
+                        .username(user.getUsername())
+                        .message("Temporary password has been sent to the user's registered email address. " +
+                                 "User will be required to change it on next login.")
+                        .build());
     }
 
     private UserSummary toUserSummary(UserEntity user) {

@@ -41,6 +41,8 @@ class RateLimitFilterTest {
         props.setExecuteRpm(10);
         props.setFixSuggestionRpm(5);
         props.setLibraryReadRpm(120);
+        props.setAuthRpm(10);
+        props.setCdsInvokeRpm(10);
         props.setPayloadTier2(10_240);
         props.setPayloadTier3(51_200);
         props.setPayloadTier4(204_800);
@@ -245,6 +247,67 @@ class RateLimitFilterTest {
 
         when(request.getRequestURI()).thenReturn("/api/artifacts");
         assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.DEFAULT);
+
+        // AUTH tier
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/api/auth/login");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.AUTH);
+
+        when(request.getRequestURI()).thenReturn("/api/auth/register");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.AUTH);
+
+        when(request.getRequestURI()).thenReturn("/api/auth/forgot-password");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.AUTH);
+
+        // CDS_INVOKE tier — POST only
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/cds-services/my-service");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.CDS_INVOKE);
+
+        // CDS discovery (GET) should NOT be CDS_INVOKE
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestURI()).thenReturn("/cds-services/");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.DEFAULT);
+    }
+
+    @Test
+    void shouldApplyAuthTierLimit() throws Exception {
+        props.setAuthRpm(3);
+        filter = new RateLimitFilter(props, meterRegistry);
+
+        when(request.getRemoteAddr()).thenReturn("10.0.1.1");
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/api/auth/login");
+        StringWriter sw = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+
+        for (int i = 0; i < 3; i++) {
+            filter.doFilterInternal(request, response, filterChain);
+        }
+        verify(filterChain, times(3)).doFilter(request, response);
+
+        filter.doFilterInternal(request, response, filterChain);
+        verify(response, atLeastOnce()).setStatus(429);
+    }
+
+    @Test
+    void shouldApplyCdsInvokeTierLimit() throws Exception {
+        props.setCdsInvokeRpm(2);
+        filter = new RateLimitFilter(props, meterRegistry);
+
+        when(request.getRemoteAddr()).thenReturn("10.0.1.2");
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/cds-services/my-hook");
+        StringWriter sw = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+
+        for (int i = 0; i < 2; i++) {
+            filter.doFilterInternal(request, response, filterChain);
+        }
+        verify(filterChain, times(2)).doFilter(request, response);
+
+        filter.doFilterInternal(request, response, filterChain);
+        verify(response, atLeastOnce()).setStatus(429);
     }
 
     @Test

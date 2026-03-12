@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { setCqlContent } from '../../store/editorSlice'
 import type { RootState } from '../../store'
 
@@ -242,7 +242,7 @@ export default function ManageServicesPanel() {
             </Button>
           }
         >
-          <span dangerouslySetInnerHTML={{ __html: t('manage.editingAlert', { name: services?.find((s) => s.id === activeServiceId)?.title, interpolation: { escapeValue: true } }) }} />
+          <Trans i18nKey="manage.editingAlert" ns="cds" values={{ name: services?.find((s) => s.id === activeServiceId)?.title }} components={{ strong: <strong /> }} />
         </Alert>
       )}
 

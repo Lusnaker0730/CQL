@@ -217,10 +217,11 @@ class PasswordResetServiceTest {
     // ===== adminResetPassword =====
 
     @Test
-    void adminResetPassword_shouldReturnTempPassword() {
+    void adminResetPassword_shouldResetPasswordAndScheduleEmail() {
         UserEntity user = UserEntity.builder()
                 .id(1L)
                 .username("testuser")
+                .email("testuser@example.com")
                 .password("old")
                 .build();
 
@@ -228,11 +229,15 @@ class PasswordResetServiceTest {
         when(passwordEncoder.encode(any())).thenReturn("encodedTemp");
         when(userRepository.save(any())).thenReturn(user);
 
-        String tempPass = service.adminResetPassword(1L);
+        // Security (H8): adminResetPassword is now void — password delivered via email only
+        service.adminResetPassword(1L);
 
-        assertThat(tempPass).isNotNull().isNotEmpty();
         assertThat(user.getForcePasswordChange()).isTrue();
-        verify(passwordEncoder).encode(tempPass);
+        verify(passwordEncoder).encode(any()); // password was encoded before storing
+        // Trigger afterCommit to verify the email is sent
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
+        verify(emailService).sendTemporaryPasswordEmail(eq("testuser@example.com"), eq("testuser"), any());
     }
 
     @Test

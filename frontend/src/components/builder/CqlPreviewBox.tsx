@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import DOMPurify from 'dompurify'
 import { Box } from '@mui/material'
 import { useMonaco } from '@monaco-editor/react'
 import { usePreferences } from '../../hooks/usePreferences'
@@ -52,7 +53,7 @@ export default function CqlPreviewBox({ code, maxHeight = 120 }: CqlPreviewBoxPr
       }}
     >
       {colorizedHtml ? (
-        <div dangerouslySetInnerHTML={{ __html: colorizedHtml }} />
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(colorizedHtml) }} />
       ) : (
         code
       )}

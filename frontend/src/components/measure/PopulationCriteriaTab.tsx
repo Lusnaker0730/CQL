@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
@@ -558,7 +558,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             </Button>
           }
         >
-          <span dangerouslySetInnerHTML={{ __html: t('populationCriteria.scoringChanged', { scoringType: measure.scoringType, interpolation: { escapeValue: true } }) }} />
+          <Trans i18nKey="populationCriteria.scoringChanged" ns="measures" values={{ scoringType: measure.scoringType }} components={{ strong: <strong /> }} />
         </Alert>
       )}
 

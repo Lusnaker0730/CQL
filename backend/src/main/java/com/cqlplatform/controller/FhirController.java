@@ -200,7 +200,9 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer,
             @RequestBody String bundleJson) {
 
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         Bundle bundle = (Bundle) fhirContext.newJsonParser().parseResource(bundleJson);
         Bundle result = dataProviderService.executeTransaction(fhirServer, bundle);
@@ -243,7 +245,9 @@ public class FhirController {
             throw new IllegalArgumentException("Invalid birthdate parameter");
         }
         InputValidator.requireValidIdentifierParam(identifier);
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         Bundle bundle = dataProviderService.searchPatientsByDemographics(fhirServer, family, given, birthdate, identifier);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
@@ -308,7 +312,9 @@ public class FhirController {
             throw new IllegalArgumentException("Invalid FHIR resource type: " + resourceType);
         }
         InputValidator.requireValidSearchParams(params);
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         Bundle bundle = dataProviderService.searchResources(fhirServer, resourceType, params);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
@@ -326,7 +332,9 @@ public class FhirController {
 
         InputValidator.requireValidFhirResourceType(resourceType);
         InputValidator.requireValidResourceId(id);
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         Resource resource = dataProviderService.getResource(fhirServer, resourceType, id);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
@@ -343,7 +351,9 @@ public class FhirController {
             @RequestBody String resourceJson) {
 
         InputValidator.requireValidFhirResourceType(resourceType);
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
         Resource created = dataProviderService.createResource(fhirServer, resource);
@@ -363,7 +373,9 @@ public class FhirController {
 
         InputValidator.requireValidFhirResourceType(resourceType);
         InputValidator.requireValidResourceId(id);
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
         resource.setId(id);
@@ -383,7 +395,9 @@ public class FhirController {
 
         InputValidator.requireValidFhirResourceType(resourceType);
         InputValidator.requireValidResourceId(id);
-        InputValidator.requireValidUrl(fhirServer);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
+        }
 
         dataProviderService.deleteResource(fhirServer, resourceType, id);
         return ResponseEntity.noContent().build();

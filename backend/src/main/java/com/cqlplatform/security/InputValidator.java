@@ -39,7 +39,7 @@ public final class InputValidator {
     }
 
     public static boolean isValidUrl(String url) {
-        if (url == null) return true;
+        if (url == null || url.isBlank()) return false;
         if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
         try {
             java.net.URI uri = new java.net.URI(url);
@@ -69,7 +69,7 @@ public final class InputValidator {
 
     private static boolean computeIsLocalDevelopment() {
         String profile = System.getProperty("spring.profiles.active", System.getenv().getOrDefault("SPRING_PROFILES_ACTIVE", ""));
-        return profile.contains("dev") || profile.contains("docker");
+        return profile.contains("dev") || profile.contains("docker") || profile.contains("test");
     }
 
     public static void requireValidUrl(String url) {

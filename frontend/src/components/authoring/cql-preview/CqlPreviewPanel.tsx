@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import DOMPurify from 'dompurify'
 import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
 import { WarningAmber as StaleIcon } from '@mui/icons-material'
@@ -227,7 +228,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
           }}
         >
           {colorizedHtml ? (
-            <div dangerouslySetInnerHTML={{ __html: colorizedHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(colorizedHtml) }} />
           ) : (
             cql
           )}

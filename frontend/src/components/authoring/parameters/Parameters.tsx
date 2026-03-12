@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
   MenuItem, Select, FormControl, InputLabel,
@@ -386,9 +386,9 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('parameters.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('parameters.deleteConfirm', { name: pendingDeleteName, interpolation: { escapeValue: true } }) }}
-          />
+          <DialogContentText>
+            <Trans i18nKey="parameters.deleteConfirm" ns="authoring" values={{ name: pendingDeleteName }} components={{ strong: <strong /> }} />
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>

@@ -33,7 +33,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     public enum RateTier {
-        TRANSLATE, EXECUTE, FIX_SUGGESTION, LIBRARY_READ, DEFAULT
+        TRANSLATE, EXECUTE, FIX_SUGGESTION, LIBRARY_READ, AUTH, CDS_INVOKE, DEFAULT
     }
 
     @Override
@@ -89,6 +89,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     static RateTier resolveTier(HttpServletRequest request) {
         String path = request.getRequestURI();
         String method = request.getMethod();
+        if (path != null) {
+            if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")
+                    || path.startsWith("/api/auth/forgot-password")) {
+                return RateTier.AUTH;
+            }
+            if (path.startsWith("/cds-services/") && "POST".equalsIgnoreCase(method)) {
+                return RateTier.CDS_INVOKE;
+            }
+        }
         if ("POST".equalsIgnoreCase(method)) {
             if ("/api/cql/translate".equals(path)) return RateTier.TRANSLATE;
             if ("/api/cql/execute".equals(path)) return RateTier.EXECUTE;
@@ -106,6 +115,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             case EXECUTE -> props.getExecuteRpm();
             case FIX_SUGGESTION -> props.getFixSuggestionRpm();
             case LIBRARY_READ -> props.getLibraryReadRpm();
+            case AUTH -> props.getAuthRpm();
+            case CDS_INVOKE -> props.getCdsInvokeRpm();
             case DEFAULT -> props.getRequestsPerMinute();
         };
     }

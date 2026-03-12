@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent, Chip,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Menu, MenuItem, ListItemIcon, ListItemText,
@@ -206,9 +206,9 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('baseElements.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('baseElements.deleteConfirm', { name: pendingDeleteName, interpolation: { escapeValue: true } }) }}
-          />
+          <DialogContentText>
+            <Trans i18nKey="baseElements.deleteConfirm" ns="authoring" values={{ name: pendingDeleteName }} components={{ strong: <strong /> }} />
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>

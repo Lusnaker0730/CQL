@@ -40,7 +40,9 @@ public class CdsHooksController {
     public ResponseEntity<?> invokeService(
             @PathVariable String serviceId,
             @Valid @RequestBody CdsRequest request) {
-        InputValidator.requireValidUrl(request.getFhirServer());
+        if (request.getFhirServer() != null) {
+            InputValidator.requireValidUrl(request.getFhirServer());
+        }
         log.info("CDS invoke: serviceId={}, hook={}, fhirServer={}, prefetchKeys={}, patientId={}",
                 serviceId, request.getHook(), request.getFhirServer(),
                 request.getPrefetch() != null ? request.getPrefetch().keySet() : "null",
@@ -120,7 +122,9 @@ public class CdsHooksController {
             return ResponseEntity.status(403).build();
         }
 
-        InputValidator.requireValidUrl(request.getFhirServer());
+        if (request.getFhirServer() != null) {
+            InputValidator.requireValidUrl(request.getFhirServer());
+        }
         log.info("Per-user CDS invoke: user={}, serviceId={}", username, serviceId);
         try {
             CdsResponse response = cdsHooksService.invokeService(serviceId, request);

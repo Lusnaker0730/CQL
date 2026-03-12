@@ -81,6 +81,22 @@ public class MeasureController {
         return m;
     }
 
+    /**
+     * Fetch a measure and verify the current user can READ it.
+     * Access is allowed when the user owns the measure, the measure is public/shared,
+     * or the user is an admin.
+     */
+    private MeasureDefinition requireReadableMeasure(Long id) {
+        MeasureDefinition m = requireMeasure(id);
+        String accessLevel = m.getAccessLevel();
+        if ("public".equalsIgnoreCase(accessLevel) || "shared".equalsIgnoreCase(accessLevel)) {
+            return m;
+        }
+        // private (or unset) — fall back to ownership check
+        ownershipVerifier.verifyOwnership(m.getOwnerUsername());
+        return m;
+    }
+
     /** Fetch a schedule by ID and verify ownership of its parent measure. */
     private MeasureScheduleEntity requireOwnedSchedule(Long scheduleId) {
         MeasureScheduleEntity schedule = scheduleService.getScheduleById(scheduleId)
@@ -123,9 +139,8 @@ public class MeasureController {
     @GetMapping("/{id}")
     @Operation(summary = "Get Measure", description = "Get a measure definition by ID")
     public ResponseEntity<MeasureDefinition> getMeasure(@PathVariable Long id) {
-        return definitionService.getById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        MeasureDefinition m = requireReadableMeasure(id);
+        return ResponseEntity.ok(m);
     }
 
     @PostMapping
@@ -176,6 +191,7 @@ public class MeasureController {
     public ResponseEntity<byte[]> exportBundle(
             @PathVariable Long id,
             @RequestParam(defaultValue = "json") String format) {
+        requireReadableMeasure(id);
         if ("xml".equalsIgnoreCase(format)) {
             String xml = bundleService.exportAsBundleXml(id);
             return ResponseEntity.ok()
@@ -199,6 +215,7 @@ public class MeasureController {
     @GetMapping("/{id}/export/cql")
     @Operation(summary = "Export CQL Only", description = "Exports the CQL content of a measure")
     public ResponseEntity<byte[]> exportCql(@PathVariable Long id) {
+        requireReadableMeasure(id);
         String cql = bundleService.exportCqlOnly(id);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + ".cql")
@@ -209,6 +226,7 @@ public class MeasureController {
     @GetMapping("/{id}/export/elm")
     @Operation(summary = "Export ELM Only", description = "Exports the ELM JSON translation of a measure's CQL")
     public ResponseEntity<byte[]> exportElm(@PathVariable Long id) {
+        requireReadableMeasure(id);
         String elm = bundleService.exportElmOnly(id);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-elm.json")
@@ -227,6 +245,7 @@ public class MeasureController {
     @GetMapping("/{id}/export/hqmf")
     @Operation(summary = "Export HQMF", description = "Exports a measure as HQMF R2.1 XML for CMS submission")
     public ResponseEntity<byte[]> exportHqmf(@PathVariable Long id) {
+        requireReadableMeasure(id);
         String hqmf = hqmfExportService.exportHqmf(id);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-hqmf.xml")
@@ -237,7 +256,7 @@ public class MeasureController {
     @GetMapping("/{id}/export/human-readable")
     @Operation(summary = "Export Human Readable", description = "Generates a human-readable HTML narrative document for the measure")
     public ResponseEntity<byte[]> exportHumanReadable(@PathVariable Long id) {
-        MeasureDefinition measure = requireMeasure(id);
+        MeasureDefinition measure = requireReadableMeasure(id);
         String html = humanReadableService.generateHtml(measure);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-narrative.html")
@@ -250,6 +269,7 @@ public class MeasureController {
     @GetMapping("/{id}/cql-expressions")
     @Operation(summary = "Get CQL Expressions", description = "Parse a measure's CQL and return available expression names for population mapping")
     public ResponseEntity<List<CqlTranslationResponse.ExpressionInfo>> getCqlExpressions(@PathVariable Long id) {
+        requireReadableMeasure(id);
         return definitionService.getById(id)
                 .map(def -> {
                     if (def.getCqlContent() == null || def.getCqlContent().isBlank()) {
@@ -271,6 +291,7 @@ public class MeasureController {
     @GetMapping("/{id}/data-requirements")
     @Operation(summary = "Get Data Requirements", description = "Extract FHIR DataRequirement resources from a measure's CQL/ELM")
     public ResponseEntity<List<DataRequirementInfo>> getDataRequirements(@PathVariable Long id) {
+        requireReadableMeasure(id);
         return definitionService.getById(id)
                 .map(def -> {
                     if (def.getCqlContent() == null || def.getCqlContent().isBlank()) {
@@ -303,7 +324,9 @@ public class MeasureController {
         if (request == null) {
             request = new MeasureEvaluationRequest();
         }
-        InputValidator.requireValidUrl(request.getFhirServerUrl());
+        if (request.getFhirServerUrl() != null) {
+            InputValidator.requireValidUrl(request.getFhirServerUrl());
+        }
         request.setMeasureId(measureId);
 
         if (subject != null) {
@@ -345,7 +368,9 @@ public class MeasureController {
     @Operation(summary = "Evaluate Custom Measure", description = "Evaluates a custom measure with provided CQL")
     public ResponseEntity<MeasureEvaluationResult> evaluateCustomMeasure(
             @Valid @RequestBody MeasureEvaluationRequest request) {
-        InputValidator.requireValidUrl(request.getFhirServerUrl());
+        if (request.getFhirServerUrl() != null) {
+            InputValidator.requireValidUrl(request.getFhirServerUrl());
+        }
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
         return ResponseEntity.ok(result);
     }
@@ -436,7 +461,9 @@ public class MeasureController {
             @PathVariable Long measureId,
             @Valid @RequestBody MeasureScheduleEntity schedule) {
         requireOwnedMeasure(measureId);
-        InputValidator.requireValidUrl(schedule.getFhirServerUrl());
+        if (schedule.getFhirServerUrl() != null) {
+            InputValidator.requireValidUrl(schedule.getFhirServerUrl());
+        }
         schedule.setMeasureDefinitionId(measureId);
         MeasureScheduleEntity created = scheduleService.createSchedule(schedule);
         return ResponseEntity.ok(created);
@@ -448,7 +475,9 @@ public class MeasureController {
             @PathVariable Long scheduleId,
             @Valid @RequestBody MeasureScheduleEntity schedule) {
         requireOwnedSchedule(scheduleId);
-        InputValidator.requireValidUrl(schedule.getFhirServerUrl());
+        if (schedule.getFhirServerUrl() != null) {
+            InputValidator.requireValidUrl(schedule.getFhirServerUrl());
+        }
         MeasureScheduleEntity updated = scheduleService.updateSchedule(scheduleId, schedule);
         return ResponseEntity.ok(updated);
     }
@@ -735,6 +764,7 @@ public class MeasureController {
     @PostMapping("/{id}/validate")
     @Operation(summary = "Validate Measure", description = "Runs full validation on a measure (CQL, populations, metadata, test cases, QI-Core)")
     public ResponseEntity<ValidationReport> validateMeasure(@PathVariable Long id) {
+        requireReadableMeasure(id);
         ValidationReport report = validationService.validateFull(id);
         return ResponseEntity.ok(report);
     }
@@ -742,6 +772,7 @@ public class MeasureController {
     @PostMapping("/{id}/validate/quick")
     @Operation(summary = "Quick Validate Measure", description = "Runs lightweight validation (CQL + populations only)")
     public ResponseEntity<ValidationReport> quickValidateMeasure(@PathVariable Long id) {
+        requireReadableMeasure(id);
         ValidationReport report = validationService.validateQuick(id);
         return ResponseEntity.ok(report);
     }
@@ -813,7 +844,9 @@ public class MeasureController {
     @Operation(summary = "Batch Evaluate", description = "Evaluates multiple measures and returns per-measure results")
     public ResponseEntity<BatchEvaluationService.BatchResult> batchEvaluate(
             @Valid @RequestBody BatchEvaluationService.BatchEvaluationRequest request) {
-        InputValidator.requireValidUrl(request.fhirServerUrl());
+        if (request.fhirServerUrl() != null) {
+            InputValidator.requireValidUrl(request.fhirServerUrl());
+        }
         return ResponseEntity.ok(batchEvaluationService.evaluateBatch(request));
     }
 

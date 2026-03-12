@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
@@ -27,6 +28,7 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -47,6 +49,17 @@ public class SecurityConfig {
         String frameAncestors = h2ConsoleEnabled ? "'self'" : "'none'";
 
         http
+                // CSRF is intentionally disabled (H10 rationale):
+                // This is a stateless JWT API — every mutating request must carry a
+                // short-lived Bearer token in the Authorization header, which a
+                // cross-site form or script cannot access due to the Same-Origin Policy.
+                // The refresh-token cookie is protected against CSRF by:
+                //   • HttpOnly=true   (JavaScript cannot read it)
+                //   • SameSite=Strict (browser will not send it on cross-site requests)
+                //   • Secure=true     (HTTPS only in production, controlled by refresh-token.cookie-secure)
+                //   • Path=/api/auth  (scoped to the auth endpoint only)
+                // Therefore a traditional CSRF synchronizer token would provide no
+                // additional protection and would complicate API clients unnecessarily.
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> {

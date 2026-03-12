@@ -259,7 +259,9 @@ public class AuthoringController {
         @SuppressWarnings("unchecked")
         List<String> patientIds = (List<String>) request.getOrDefault("patientIds", List.of());
         String fhirServerUrl = (String) request.get("fhirServerUrl");
-        InputValidator.requireValidUrl(fhirServerUrl);
+        if (fhirServerUrl != null) {
+            InputValidator.requireValidUrl(fhirServerUrl);
+        }
         Map<String, Object> result = artifactTestingService.testArtifact(id, patientIds, fhirServerUrl);
         return ResponseEntity.ok(result);
     }
