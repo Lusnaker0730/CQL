@@ -166,9 +166,10 @@ export default function TerminologyTab() {
               <Box
                 sx={{
                   p: 2,
-                  bgcolor: '#F8FAFB',
+                  bgcolor: 'action.hover',
                   borderRadius: '8px',
-                  border: '1px solid rgba(13,115,119,0.1)',
+                  border: '1px solid',
+                  borderColor: 'divider',
                 }}
               >
                 <Typography variant="body2"><strong>{t('terminology.displayLabel')}</strong> {lookupData.display || '-'}</Typography>

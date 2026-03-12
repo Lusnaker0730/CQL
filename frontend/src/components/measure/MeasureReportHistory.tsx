@@ -132,9 +132,10 @@ export default function MeasureReportHistory() {
                         {report.evaluationResult && (
                           <Box component="pre" sx={{
                             p: 2,
-                            bgcolor: '#F8FAFB',
+                            bgcolor: 'action.hover',
                             borderRadius: '8px',
-                            border: '1px solid rgba(13,115,119,0.1)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             fontSize: '0.7rem',
                             overflow: 'auto',
                             maxHeight: 300,
@@ -146,9 +147,10 @@ export default function MeasureReportHistory() {
                         {!report.evaluationResult && report.resultJson && (
                           <Box component="pre" sx={{
                             p: 2,
-                            bgcolor: '#F8FAFB',
+                            bgcolor: 'action.hover',
                             borderRadius: '8px',
-                            border: '1px solid rgba(13,115,119,0.1)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             fontSize: '0.7rem',
                             overflow: 'auto',
                             maxHeight: 300,

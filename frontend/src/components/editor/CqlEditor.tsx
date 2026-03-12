@@ -37,7 +37,6 @@ export default function CqlEditor({
   const lastExternalContent = useRef(cqlContent)
   const librariesRef = useRef<LibraryInfo[]>([])
   const disposablesRef = useRef<Array<{ dispose: () => void }>>([])
-  const pasteListenerRef = useRef<{ node: HTMLElement; handler: EventListener } | null>(null)
 
   // Keep libraries ref in sync
   useEffect(() => {
@@ -89,31 +88,24 @@ export default function CqlEditor({
     })
     disposablesRef.current.push(pasteDisposable)
 
-    // Fallback paste handler for environments where Monaco's built-in paste fails
-    const domNode = editor.getDomNode()
-    if (domNode) {
-      const pasteHandler: EventListener = (e) => {
-        const clipText = (e as ClipboardEvent).clipboardData?.getData('text/plain')
-        if (!clipText) return
-
-        const modelBefore = editor.getModel()?.getValue()
-        setTimeout(() => {
-          const modelAfter = editor.getModel()?.getValue()
-          if (modelBefore === modelAfter && editor.getModel()) {
-            const cleaned = sanitizePastedText(clipText)
-            const selections = editor.getSelections()
-            if (selections && selections.length > 0) {
-              editor.executeEdits('paste-fallback', selections.map(sel => ({
-                range: sel,
-                text: cleaned,
-              })))
-            }
-          }
-        }, 0)
+    // Override Ctrl+V to use Clipboard API directly (Monaco's built-in paste
+    // relies on the hidden textarea receiving the event, which can fail in
+    // certain browser / CSP configurations).
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, async () => {
+      try {
+        const text = await navigator.clipboard.readText()
+        const cleaned = sanitizePastedText(text)
+        const selections = editor.getSelections()
+        if (selections && selections.length > 0) {
+          editor.executeEdits('clipboard-paste', selections.map(sel => ({
+            range: sel,
+            text: cleaned,
+          })))
+        }
+      } catch {
+        // Clipboard API unavailable — no-op, user can try native context menu
       }
-      domNode.addEventListener('paste', pasteHandler)
-      pasteListenerRef.current = { node: domNode, handler: pasteHandler }
-    }
+    })
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       onTranslate?.()
@@ -137,11 +129,6 @@ export default function CqlEditor({
     return () => {
       disposablesRef.current.forEach(d => d.dispose())
       disposablesRef.current = []
-      if (pasteListenerRef.current) {
-        const { node, handler } = pasteListenerRef.current
-        node.removeEventListener('paste', handler)
-        pasteListenerRef.current = null
-      }
       editorRef.current = null
       monacoRef.current = null
     }
@@ -287,6 +274,7 @@ export default function CqlEditor({
           bracketPairColorization: { enabled: true },
           formatOnPaste: false,
           formatOnType: true,
+          contextmenu: false,
         }}
       />
     </Box>

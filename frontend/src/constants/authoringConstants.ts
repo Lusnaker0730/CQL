@@ -72,9 +72,9 @@ export const RETURN_TYPE_COLOR_DEFAULT = '#757575'
 
 /** Background tints for special element reference types */
 export const ELEMENT_REF_BACKGROUNDS: Record<string, string> = {
-  baseElementRef: '#E3F2FD',
-  parameterRef: '#F3E5F5',
-  externalCqlRef: '#E8F5E9',
+  baseElementRef: 'rgba(33,150,243,0.08)',
+  parameterRef: 'rgba(156,39,176,0.08)',
+  externalCqlRef: 'rgba(76,175,80,0.08)',
 }
 
 // --- Conjunction (And/Or) colors ---

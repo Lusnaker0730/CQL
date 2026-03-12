@@ -436,9 +436,10 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                       component="pre"
                       sx={{
                         p: 2,
-                        bgcolor: '#F8FAFB',
+                        bgcolor: 'action.hover',
                         borderRadius: '8px',
-                        border: '1px solid rgba(13,115,119,0.1)',
+                        border: '1px solid',
+                        borderColor: 'divider',
                         fontSize: '0.75rem',
                         overflow: 'auto',
                         fontFamily: '"Consolas", monospace',

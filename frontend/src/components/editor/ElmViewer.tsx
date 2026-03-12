@@ -352,9 +352,10 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                                 sx={{
                                   mt: 0.5,
                                   p: 1.5,
-                                  bgcolor: '#F8FAFB',
+                                  bgcolor: 'action.hover',
                                   borderRadius: '6px',
-                                  border: '1px solid rgba(13,115,119,0.15)',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
                                   overflow: 'auto',
                                   fontSize: '0.75rem',
                                   maxHeight: 200,
@@ -435,9 +436,10 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             component="pre"
             sx={{
               p: 2,
-              bgcolor: '#F8FAFB',
+              bgcolor: 'action.hover',
               borderRadius: '8px',
-              border: '1px solid rgba(13,115,119,0.1)',
+              border: '1px solid',
+              borderColor: 'divider',
               overflow: 'auto',
               fontSize: '0.75rem',
               maxHeight: 400,
