@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-040 | ✨ patch | 2026-03-12 | 法規自動化（全端） | TFDA 法規文件自動化工作流 — Issue/PR Templates + 產生腳本 + CI 整合 + 40 個法規 Issues | GitHub Templates + Python Scripts + CI | [`3405f5d`](../../commit/3405f5d) |
 | BUG-086 | 🐛 bugfix | 2026-03-12 | 後端（Auth） | 註冊 email 欄位改為選填 — 移除 @NotBlank 驗證 | Backend (Auth) | [`7dd2349`](../../commit/7dd2349) |
 | BUG-085 | 🐛 bugfix | 2026-03-12 | 前端（全模組） | Dark mode 硬編碼色彩修正 — 13 檔案 + Monaco 貼上修復 | Frontend (Editor, FHIR, Measures, Builder, Authoring) | [`8379115`](../../commit/8379115) |
 | PAT-039 | ✨ patch | 2026-03-09 | eCQM + CDS Authoring（全端） | eCQM 儲存修復（JPA @Transient + 部分更新）+ 參數動態預設值輸入 | Backend (eCQM) + Frontend (Authoring) | [`662f5af`](../../commit/662f5af) |
@@ -160,6 +161,58 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-040 — TFDA 法規文件自動化工作流
+
+- **日期**: 2026-03-12
+- **範圍**: 法規自動化（GitHub Templates + Python Scripts + CI）
+
+### 變更內容
+
+1. **GitHub Issue Templates（4 個 YAML 表單）**
+   - `software_requirement.yml` — [需求] 軟體需求（需求描述、臨床情境、驗收條件、風險等級 dropdown、安全性等級 dropdown）
+   - `design_specification.yml` — [設計] 軟體設計規格（設計方案、架構影響、關聯需求、安全考量）
+   - `risk_analysis.yml` — [風險] 風險分析（危害情境、嚴重度/發生機率 5 級 dropdown、控制措施、殘餘風險）
+   - `verification_record.yml` — [驗證] 軟體驗證紀錄（測試目的、步驟、預期/實際結果、測試結論 dropdown）
+   - `config.yml` — 禁用空白 Issue
+
+2. **PR Template**（`.github/pull_request_template.md`）
+   - 中文欄位：變更說明、變更類型、關聯 Issue、測試紀錄、風險評估、安全性確認、設計審查備註、IEC/ISO 追溯表
+
+3. **Labels 設定腳本**（`.github/setup-labels.sh`）
+   - 8 個中英對照標籤：IEC62304:需求/設計/驗證、ISO14971:風險、變更管制、安全性等級-A/B/C
+
+4. **法規文件產生腳本**（`regulatory_docs/scripts/`）
+   - `generate_regulatory_docs.py` — GitHub API 擷取 Issues/PRs/tags → 解析 YAML 表單 body → 建構追溯矩陣 → Jinja2 渲染 6 份法規文件
+   - `generate_test_report.py` — 解析 Surefire XML + Vitest JSON → 中文 Markdown + HTML 測試報告
+   - 6 個 Jinja2 模板（含 TFDA 標準表頭）：SRS、SDS、風險報告、驗證報告、追溯矩陣、變更管制紀錄
+
+5. **CI 整合**
+   - `ci.yml` — 上傳 Surefire XML + Vitest JSON artifact
+   - `regulatory-docs.yml` — 手動觸發或 release 時自動產出法規文件包
+
+6. **CLAUDE.md 更新**
+   - 新增「TFDA 法規文件工作流（必須遵守）」區段，定義觸發時機、Issue 建立規則、追溯連結規範
+
+7. **測試 Issues 建立**
+   - 40 個法規 Issues（11 需求 + 9 設計 + 9 風險 + 11 驗證），涵蓋 8 大功能群組
+   - 追溯矩陣：9/11 需求完整追溯（需求↔設計↔驗證↔風險），2 項低風險僅需求+驗證
+
+### 檔案變更
+
+| 檔案 | 說明 |
+|------|------|
+| `.github/ISSUE_TEMPLATE/*.yml` | 4 個 YAML 表單 + config |
+| `.github/pull_request_template.md` | 中文 PR 模板 |
+| `.github/setup-labels.sh` | 8 個法規標籤建立腳本 |
+| `.github/workflows/ci.yml` | 新增 Surefire/Vitest artifact 上傳 |
+| `.github/workflows/regulatory-docs.yml` | 法規文件產生 workflow |
+| `regulatory_docs/scripts/*.py` | 2 個 Python 產生腳本 |
+| `regulatory_docs/templates/*.md` | 6 個 Jinja2 中文模板 |
+| `regulatory_docs/README.md` | 使用說明 |
+| `CLAUDE.md` | 新增 TFDA 法規工作流指引 |
+
+---
 
 ## PAT-039 — eCQM 儲存修復 + 參數動態預設值輸入
 
