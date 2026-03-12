@@ -135,6 +135,73 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 | Flyway 遷移 | `backend/src/main/resources/db/migration/` |
 | Docker | `docker/docker-compose.yml` |
 
+## TFDA 法規文件工作流（必須遵守）
+
+本專案受 TFDA 法規管理，開發過程中的需求、設計、風險、驗證紀錄直接用中文寫在 GitHub Issues/PRs，最後自動彙整成 IEC 62304 / ISO 14971 格式的法規文件。
+
+### 觸發時機與對應動作
+
+| 開發情境 | 你必須做的事 |
+|---------|------------|
+| 新增功能或使用者需求 | 用 `gh issue create` 建立 **[需求]** Issue（模板：`software_requirement.yml`），填寫需求描述、臨床情境、驗收條件、風險等級、安全性等級 |
+| 設計技術方案 | 用 `gh issue create` 建立 **[設計]** Issue（模板：`design_specification.yml`），填寫設計方案、架構影響、安全考量，**必須在「關聯需求」填入對應的需求 Issue 編號** |
+| 識別到潛在風險 | 用 `gh issue create` 建立 **[風險]** Issue（模板：`risk_analysis.yml`），填寫危害情境、嚴重度、發生機率、控制措施、殘餘風險，**必須在「關聯項目」填入對應的需求/設計 Issue 編號** |
+| 完成測試驗證 | 用 `gh issue create` 建立 **[驗證]** Issue（模板：`verification_record.yml`），填寫測試目的、步驟、預期結果，**必須在「關聯需求」填入對應的需求 Issue 編號** |
+| 安全性等級 B/C 的功能 | **必須同時建立**需求 + 設計 + 風險 + 驗證四個 Issue，確保追溯完整 |
+
+### Issue 建立規則
+
+1. **標題前綴**：`[需求]`、`[設計]`、`[風險]`、`[驗證]` — 必須使用
+2. **Labels**：自動套用（`IEC62304:需求`、`IEC62304:設計`、`ISO14971:風險`、`IEC62304:驗證`）
+3. **追溯連結**：設計/風險/驗證 Issue 中**必須用 `#編號` 引用對應的需求 Issue**，這是追溯矩陣自動建構的依據
+4. **內容語言**：中文（直接匯出為 TFDA 文件，不需翻譯）
+5. **安全性等級標籤**：需求 Issue 需額外加上 `安全性等級-A`、`安全性等級-B` 或 `安全性等級-C`
+
+### Issue Body 格式（YAML 表單解析用）
+
+腳本透過 `### 標題` + 換行後的內容來解析欄位，建立 Issue 時使用以下格式：
+
+```
+### 需求描述
+
+（內容）
+
+### 臨床情境
+
+（內容）
+```
+
+使用 `gh issue create` 搭配 `--body` 參數時，須遵守此 `### heading\n\nvalue` 格式。
+
+### PR 法規追溯
+
+PR 描述自動載入中文模板（`.github/pull_request_template.md`），**必須填寫**：
+- 變更說明、關聯 Issue、測試紀錄、風險評估、IEC 62304 / ISO 14971 追溯表
+
+### 法規文件產生
+
+```bash
+# 產出 6 份 TFDA 法規文件（需要 GITHUB_TOKEN）
+GITHUB_TOKEN=$(gh auth token) python regulatory_docs/scripts/generate_regulatory_docs.py \
+    --repo Lusnaker0730/CQL --version 1.0.0
+
+# 產出測試報告（需先執行後端測試）
+python regulatory_docs/scripts/generate_test_report.py \
+    --backend-reports backend/target/surefire-reports \
+    --output regulatory_docs/output --version 1.0.0
+```
+
+產出文件放在 `regulatory_docs/output/`：SRS、SDS、風險報告、驗證報告、追溯矩陣、變更管制紀錄。
+
+### 法規文件目錄
+
+```
+regulatory_docs/
+├── scripts/          — generate_regulatory_docs.py, generate_test_report.py
+├── templates/        — 6 個 Jinja2 中文模板（含 TFDA 表頭）
+└── output/           — 產出檔案
+```
+
 ## 注意事項
 
 - FHIR resource properties 定義在 `frontend/src/utils/cqlSyntax.ts` 的 `fhirResourceProperties`

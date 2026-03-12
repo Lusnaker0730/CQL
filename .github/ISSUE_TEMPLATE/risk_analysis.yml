@@ -1,0 +1,85 @@
+name: "[風險] 風險分析"
+description: "記錄風險分析，符合 ISO 14971 要求"
+title: "[風險] "
+labels: ["ISO14971:風險"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 風險分析紀錄
+        請填寫以下欄位，此內容將自動彙整至 TFDA 風險管理報告。
+
+  - type: textarea
+    id: hazard_situation
+    attributes:
+      label: 危害情境
+      description: 描述可能導致危害的情境與危害事件
+      placeholder: "例：CQL 執行引擎回傳錯誤的病患篩選結果，導致臨床決策依據不正確"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 嚴重度
+      description: 危害事件造成的傷害嚴重程度
+      options:
+        - 1 - 可忽略 (Negligible)
+        - 2 - 輕微 (Minor)
+        - 3 - 嚴重 (Serious)
+        - 4 - 危急 (Critical)
+        - 5 - 災難性 (Catastrophic)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: probability
+    attributes:
+      label: 發生機率
+      description: 危害事件發生的可能性
+      options:
+        - 1 - 極不可能 (Incredible)
+        - 2 - 很少發生 (Remote)
+        - 3 - 偶爾發生 (Occasional)
+        - 4 - 可能發生 (Probable)
+        - 5 - 經常發生 (Frequent)
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk_control
+    attributes:
+      label: 風險控制措施
+      description: 針對此風險的控制措施（設計、防護、警告）
+      placeholder: |
+        - 設計控制：增加輸入驗證
+        - 防護措施：加入結果比對機制
+        - 使用者警告：顯示計算結果僅供參考
+    validations:
+      required: true
+
+  - type: textarea
+    id: residual_risk
+    attributes:
+      label: 殘餘風險
+      description: 實施控制措施後的殘餘風險評估
+      placeholder: "例：經過輸入驗證與結果比對後，殘餘風險降至可接受範圍（嚴重度 3 x 機率 1 = 3）"
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_issues
+    attributes:
+      label: 關聯項目
+      description: 相關的需求、設計、驗證 Issue 編號
+      placeholder: "例：需求 #10、設計 #12"
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 備註
+      description: 其他補充說明
+    validations:
+      required: false

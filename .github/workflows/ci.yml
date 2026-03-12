@@ -28,6 +28,14 @@ jobs:
         working-directory: backend
         run: mvn verify -B -Dspring.profiles.active=test
 
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/TEST-*.xml
+          retention-days: 30
+
   frontend-lint:
     name: Frontend Lint & Type Check
     runs-on: ubuntu-latest
@@ -73,6 +81,18 @@ jobs:
       - name: Run tests with coverage
         working-directory: frontend
         run: npm run test:coverage
+
+      - name: Run tests with JSON reporter
+        working-directory: frontend
+        run: npx vitest run --reporter=json --outputFile=test-results.json
+
+      - name: Upload Vitest results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-results
+          path: frontend/test-results.json
+          retention-days: 30
 
   docker-build:
     name: Docker Build
