@@ -94,6 +94,43 @@ jobs:
           path: frontend/test-results.json
           retention-days: 30
 
+  migration-test:
+    name: PostgreSQL Migration Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: cqlplatform_test
+          POSTGRES_USER: cqltest
+          POSTGRES_PASSWORD: cqltest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Flyway migrations + JPA validate
+        working-directory: backend
+        env:
+          CI_PG_TEST: 'true'
+        run: |
+          mvn test -B \
+            -Dspring.profiles.active=ci-pg \
+            -Dtest=com.cqlplatform.CqlPlatformApplicationTest \
+            -DfailIfNoTests=false
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
