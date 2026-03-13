@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-050 | 🔒 security | 2026-03-13 | 後端（Auth/JWT） | JWT 即時撤銷 — token_version + Caffeine 快取 (30s TTL)，登出/停用/角色變更/密碼重設觸發 bump，撤銷窗口從 15 分鐘縮至 ~30 秒 | 醫療稽核必備：無 Redis 依賴 | [`16fa19c`](../../commit/16fa19c) |
 | PAT-049 | ✨ patch | 2026-03-13 | 前端（表單驗證） | 前後端欄位約束對齊 — fieldConstraints.ts 共用常數 + 6 表單元件 maxLength 對齊後端 @Size + 長文字欄位字數計數 + StringField/TextAreaField maxLength prop | 防止前端超長輸入導致 400 | [`726085f`](../../commit/726085f) |
 | PAT-048 | ✨ patch | 2026-03-13 | 法規自動化（CI/CD） | 法規文件完整性防護 — Issue 快照 + SHA-256 清單 + 每週排程備份 | 防 Issue 竄改破壞 TFDA 文件 | [`356430c`](../../commit/356430c) |
 | BUG-090 | 🔒 security | 2026-03-13 | 後端（CQL Engine） | CQL 執行資源耗盡防護 — Translation timeout + Retrieve 結果上限 + 回應集合截斷 + Prefetch 資源上限 + Patient 分頁上限 + Fallback cache 有界 | 防 DoS / OOM | [`9fe7b27`](../../commit/9fe7b27) |
