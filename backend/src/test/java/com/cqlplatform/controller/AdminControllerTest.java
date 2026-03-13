@@ -3,6 +3,8 @@ package com.cqlplatform.controller;
 import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.RefreshTokenService;
+import com.cqlplatform.service.TokenVersionService;
 import com.cqlplatform.service.UserApiKeyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,12 @@ class AdminControllerTest {
 
     @MockBean
     private UserApiKeyService userApiKeyService;
+
+    @MockBean
+    private TokenVersionService tokenVersionService;
+
+    @MockBean
+    private RefreshTokenService refreshTokenService;
 
     private UserEntity createUser(Long id, String username, UserEntity.Role role) {
         return UserEntity.builder()

@@ -13,6 +13,7 @@ import com.cqlplatform.service.OktaUserInfo;
 import com.cqlplatform.service.PasswordResetService;
 import com.cqlplatform.service.RefreshTokenService;
 import com.cqlplatform.service.RefreshTokenService.TokenPair;
+import com.cqlplatform.service.TokenVersionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -47,6 +48,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenCookieUtil cookieUtil;
     private final SseTicketService sseTicketService;
+    private final TokenVersionService tokenVersionService;
 
     @Autowired(required = false)
     private OktaOidcService oktaOidcService;
@@ -148,6 +150,12 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        // Bump token version to immediately invalidate all outstanding access tokens
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            tokenVersionService.bumpVersion(auth.getName());
+        }
+
         String rawToken = cookieUtil.extractRefreshToken(request);
         if (rawToken != null && !rawToken.isBlank()) {
             refreshTokenService.revokeByToken(rawToken);

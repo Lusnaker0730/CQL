@@ -30,6 +30,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final TokenVersionService tokenVersionService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -123,6 +124,9 @@ public class PasswordResetService {
         tokenEntity.setUsed(true);
         tokenRepository.save(tokenEntity);
 
+        // Invalidate all existing sessions after password reset
+        tokenVersionService.bumpVersion(user.getUsername());
+
         log.info("Password reset successful for user: {}", user.getUsername());
         return true;
     }
@@ -145,6 +149,9 @@ public class PasswordResetService {
         user.setPassword(passwordEncoder.encode(temporaryPassword));
         user.setForcePasswordChange(true);
         userRepository.save(user);
+
+        // Invalidate all existing sessions after admin password reset
+        tokenVersionService.bumpVersion(user.getUsername());
 
         log.info("Admin reset password for user: {}", user.getUsername());
 
@@ -184,6 +191,9 @@ public class PasswordResetService {
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setForcePasswordChange(false);
         userRepository.save(user);
+
+        // Invalidate all other sessions after password change
+        tokenVersionService.bumpVersion(username);
 
         log.info("Password changed for user: {}", username);
         return true;
