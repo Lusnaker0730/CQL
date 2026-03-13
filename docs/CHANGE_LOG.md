@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| PAT-044 | ✨ patch | 2026-03-13 | 前端（Editor） | CQL Monarch 語法自動產生 — 從官方 ANTLR grammar 提取關鍵字 + CI drift 檢查 | 修正 15 缺漏 + 14 多餘關鍵字 |  |
+| PAT-044 | ✨ patch | 2026-03-13 | 前端（Editor） | CQL Monarch 語法自動產生 — 從官方 ANTLR grammar 提取關鍵字 + CI drift 檢查 | 修正 15 缺漏 + 14 多餘關鍵字 | [`8ac2917`](../../commit/8ac2917) |
 | PAT-043 | ✨ patch | 2026-03-13 | CI/CD（法規） | TFDA 法規追溯 CI 強制檢查 — PR 必須引用 Issue + B/C 等級完整追溯鏈驗證 | 防止法規文件遺漏 | [`8a77dc2`](../../commit/8a77dc2) |
 | PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render | [`a1a1caf`](../../commit/a1a1caf) |
 | PAT-041 | ✨ patch | 2026-03-13 | CI/CD（後端） | PostgreSQL Migration CI 防護 — Flyway + JPA validate 對 PG service container 驗證 | 防止 H2/PG schema drift | [`4edcd3b`](../../commit/4edcd3b) |
