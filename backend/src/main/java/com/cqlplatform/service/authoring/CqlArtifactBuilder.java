@@ -74,15 +74,23 @@ public class CqlArtifactBuilder {
         Map<String, Object> dataModel = new HashMap<>();
         String safeName = name.replaceAll("[^a-zA-Z0-9_]", "_");
         dataModel.put("safeName", safeName);
-        dataModel.put("version", version != null ? version : AuthoringConstants.DEFAULT_VERSION);
+        dataModel.put("version", engine.escapeCqlString(version != null ? version : AuthoringConstants.DEFAULT_VERSION));
         dataModel.put("fhirVersion", resolvedFhirVersion);
         dataModel.put("includes", includes);
-        dataModel.put("valueSets", valueSets);
 
-        // Code systems: convert URL → {name, id}
+        // Escape value set names for use in quoted identifiers and string literals in template
+        List<Map<String, String>> escapedValueSets = new ArrayList<>();
+        for (String vs : valueSets) {
+            escapedValueSets.add(Map.of("identifier", engine.escapeCqlIdentifier(vs), "uri", engine.escapeCqlString(vs)));
+        }
+        dataModel.put("valueSets", escapedValueSets);
+
+        // Code systems: convert URL → {name, id} with escaping
         List<Map<String, String>> codeSystemEntries = new ArrayList<>();
         for (String cs : codeSystems) {
-            codeSystemEntries.add(Map.of("name", engine.getCodeSystemDisplayName(cs), "id", cs));
+            codeSystemEntries.add(Map.of(
+                    "name", engine.escapeCqlIdentifier(engine.getCodeSystemDisplayName(cs)),
+                    "id", engine.escapeCqlString(cs)));
         }
         dataModel.put("codeSystemEntries", codeSystemEntries);
         dataModel.put("codes", codes);
@@ -96,7 +104,7 @@ public class CqlArtifactBuilder {
                 String cqlType = engine.mapParameterType(pType);
                 String formattedDefault = engine.formatParameterDefault(pType, param.get("value"));
                 Map<String, String> pm = new HashMap<>();
-                pm.put("name", pName);
+                pm.put("name", engine.escapeCqlIdentifier(pName));
                 pm.put("cqlType", cqlType);
                 pm.put("formattedDefault", formattedDefault != null ? formattedDefault : "");
                 paramModels.add(pm);
@@ -117,7 +125,7 @@ public class CqlArtifactBuilder {
                 }
             }
             for (Map<String, Object> be : nonArithmetic) {
-                String beName = engine.getStr(be, "name", "BaseElement");
+                String beName = engine.escapeCqlIdentifier(engine.getStr(be, "name", "BaseElement"));
                 String beExpr;
                 if (Boolean.TRUE.equals(be.get("conjunction"))) {
                     beExpr = engine.buildConjunctionExpression(be, ctx);
@@ -127,7 +135,7 @@ public class CqlArtifactBuilder {
                 baseElementModels.add(Map.of("name", beName, "expression", beExpr));
             }
             for (Map<String, Object> be : arithmetic) {
-                String beName = engine.getStr(be, "name", "BaseElement");
+                String beName = engine.escapeCqlIdentifier(engine.getStr(be, "name", "BaseElement"));
                 String beExpr = engine.buildExpression(be, ctx);
                 baseElementModels.add(Map.of("name", beName, "expression", beExpr));
             }
@@ -151,7 +159,7 @@ public class CqlArtifactBuilder {
         if (subpopulations != null) {
             for (Map<String, Object> sp : subpopulations) {
                 if (Boolean.TRUE.equals(sp.get("special"))) continue;
-                String spName = engine.getStr(sp, "subpopulationName", "Subpopulation");
+                String spName = engine.escapeCqlIdentifier(engine.getStr(sp, "subpopulationName", "Subpopulation"));
                 String spExpr = engine.buildConjunctionExpression(sp, ctx);
                 subpopModels.add(Map.of("name", spName, "expression", spExpr));
             }
@@ -205,7 +213,7 @@ public class CqlArtifactBuilder {
                 } else if (spId.equals(AuthoringConstants.SUBPOP_MEETS_EXCLUSION)) {
                     conditions.add("\"" + AuthoringConstants.DEF_MEETS_EXCLUSION + "\"");
                 } else if (!spName.isEmpty()) {
-                    conditions.add(String.format("\"%s\" and \"%s\"", AuthoringConstants.DEF_IN_POPULATION, spName));
+                    conditions.add(String.format("\"%s\" and \"%s\"", AuthoringConstants.DEF_IN_POPULATION, engine.escapeCqlIdentifier(spName)));
                 }
             }
             if (conditions.isEmpty()) {

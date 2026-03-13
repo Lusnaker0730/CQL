@@ -132,13 +132,13 @@ public class ExpressionCqlEngine {
             case "baseElementRef": {
                 String refId = getFieldValue(fields, "reference_id", "");
                 String refName = ctx.findBaseElementName(refId);
-                expr = String.format("\"%s\"", refName != null ? refName : elementName);
+                expr = String.format("\"%s\"", escapeCqlIdentifier(refName != null ? refName : elementName));
                 break;
             }
             case "parameterRef": {
                 String refId = getFieldValue(fields, "reference_id", "");
                 String resolvedName = ctx.findParameterName(refId);
-                expr = String.format("\"%s\"", resolvedName != null ? resolvedName : elementName);
+                expr = String.format("\"%s\"", escapeCqlIdentifier(resolvedName != null ? resolvedName : elementName));
                 break;
             }
             case "externalCqlRef": {
@@ -146,9 +146,9 @@ public class ExpressionCqlEngine {
                 String refId = getFieldValue(fields, "reference_id", "");
                 String defName = refId.contains(":") ? refId.substring(refId.indexOf(':') + 1) : elementName;
                 if (libName != null && !libName.isEmpty()) {
-                    expr = String.format("\"%s\".\"%s\"", libName, defName);
+                    expr = String.format("\"%s\".\"%s\"", escapeCqlIdentifier(libName), escapeCqlIdentifier(defName));
                 } else {
-                    expr = String.format("\"%s\"", defName);
+                    expr = String.format("\"%s\"", escapeCqlIdentifier(defName));
                 }
                 break;
             }
@@ -212,7 +212,7 @@ public class ExpressionCqlEngine {
         String refId = getFieldValue(fields, side + "_operand_id", "");
         if (refId == null || refId.isEmpty()) return null;
         String refName = ctx.findBaseElementName(refId);
-        return refName != null ? String.format("\"%s\"", refName) : null;
+        return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
     }
 
     public String buildAgeRangeExpression(List<Map<String, Object>> fields) {
@@ -281,7 +281,7 @@ public class ExpressionCqlEngine {
                 for (Map<String, Object> vs : vsRefs) {
                     String vsName = getStr(vs, "name", null);
                     if (vsName != null) {
-                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, vsName));
+                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, escapeCqlIdentifier(vsName)));
                     }
                 }
             }
@@ -291,7 +291,7 @@ public class ExpressionCqlEngine {
                     String codeVal = getStr(code, "code", null);
                     String display = getStr(code, "display", codeVal);
                     if (codeVal != null) {
-                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, display != null ? display : codeVal));
+                        queryParts.add(String.format("[%s: \"%s\"]", resourceType, escapeCqlIdentifier(display != null ? display : codeVal)));
                     }
                 }
             }
@@ -305,11 +305,11 @@ public class ExpressionCqlEngine {
                 Map<String, Object> vsVal = (Map<String, Object>) value;
                 String vsName = (String) vsVal.get("name");
                 if (vsName != null) {
-                    queryParts.add(String.format("[%s: \"%s\"]", resourceType, vsName));
+                    queryParts.add(String.format("[%s: \"%s\"]", resourceType, escapeCqlIdentifier(vsName)));
                     return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", queryParts));
                 }
             } else if (value instanceof String && !((String) value).isEmpty()) {
-                queryParts.add(String.format("[%s: \"%s\"]", resourceType, value));
+                queryParts.add(String.format("[%s: \"%s\"]", resourceType, escapeCqlIdentifier((String) value)));
                 return renderElement("GenericResource.ftl", Map.of("resourceType", resourceType, "queryParts", queryParts));
             }
         }
@@ -550,11 +550,13 @@ public class ExpressionCqlEngine {
             String libName = getFieldValue(extFields, "library_name", null);
             String libVersion = getFieldValue(extFields, "library_version", null);
             if (libName != null && !libName.isEmpty()) {
+                String safeLibName = libName.replaceAll("[^a-zA-Z0-9_]", "_");
                 String includeStmt;
                 if (libVersion != null && !libVersion.isEmpty()) {
-                    includeStmt = String.format("include %s version '%s' called %s", libName, libVersion, libName);
+                    includeStmt = String.format("include %s version '%s' called %s",
+                            safeLibName, escapeCqlString(libVersion), safeLibName);
                 } else {
-                    includeStmt = String.format("include %s called %s", libName, libName);
+                    includeStmt = String.format("include %s called %s", safeLibName, safeLibName);
                 }
                 includes.add(includeStmt);
             }
@@ -594,7 +596,9 @@ public class ExpressionCqlEngine {
                             }
                             String csDisplayName = !csName.isEmpty() ? csName : getCodeSystemDisplayName(csId);
                             codes.add(String.format("code \"%s\": '%s' from \"%s\"",
-                                    display != null ? display : codeVal, codeVal, csDisplayName));
+                                    escapeCqlIdentifier(display != null ? display : codeVal),
+                                    escapeCqlString(codeVal),
+                                    escapeCqlIdentifier(csDisplayName)));
                         }
                     }
                 }
@@ -614,7 +618,7 @@ public class ExpressionCqlEngine {
     public void emitValueSets(StringBuilder cql, Set<String> valueSets) {
         if (!valueSets.isEmpty()) {
             for (String vs : valueSets) {
-                cql.append(String.format("valueset \"%s\": '%s'%n", vs, vs));
+                cql.append(String.format("valueset \"%s\": '%s'%n", escapeCqlIdentifier(vs), escapeCqlString(vs)));
             }
             cql.append("\n");
         }
@@ -624,7 +628,7 @@ public class ExpressionCqlEngine {
         if (!codeSystems.isEmpty()) {
             for (String cs : codeSystems) {
                 String csName = getCodeSystemDisplayName(cs);
-                cql.append(String.format("codesystem \"%s\": '%s'%n", csName, cs));
+                cql.append(String.format("codesystem \"%s\": '%s'%n", escapeCqlIdentifier(csName), escapeCqlString(cs)));
             }
             cql.append("\n");
         }
@@ -817,6 +821,16 @@ public class ExpressionCqlEngine {
     public String escapeCqlString(String value) {
         if (value == null) return "";
         return value.replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    /**
+     * Escape a value for use inside CQL quoted identifiers (delimited by double quotes).
+     * In CQL, a quoted identifier uses {@code "name"} syntax; an embedded double-quote
+     * must be escaped as {@code \"}.
+     */
+    public String escapeCqlIdentifier(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     public String getCodeSystemDisplayName(String systemUrl) {

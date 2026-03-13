@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -16,6 +17,14 @@ public class ExpressionTreeValidator {
 
     private final TemplateService templateService;
     private final ModifierService modifierService;
+
+    /**
+     * Allowed characters for CQL identifiers (define names, parameter names, etc.).
+     * Permits alphanumeric, CJK characters, spaces, hyphens, underscores, dots, and common punctuation.
+     * Disallows quotes, backslashes, and control characters that could be used for CQL injection.
+     */
+    private static final Pattern CQL_IDENTIFIER_PATTERN =
+            Pattern.compile("^[\\p{L}\\p{N}_\\-. ]{1,255}$");
 
     private static final Set<String> RESERVED_DEFINE_NAMES = Set.of(
             AuthoringConstants.DEF_MEETS_INCLUSION,
@@ -78,6 +87,23 @@ public class ExpressionTreeValidator {
                 if (name != null) {
                     paramNames.add(name);
                 }
+            }
+        }
+
+        // 0. Identifier character validation
+        for (String name : beNames) {
+            if (!CQL_IDENTIFIER_PATTERN.matcher(name).matches()) {
+                errors.add(String.format("baseElements: name '%s' contains invalid characters", name));
+            }
+        }
+        for (String name : spNames) {
+            if (!CQL_IDENTIFIER_PATTERN.matcher(name).matches()) {
+                errors.add(String.format("subpopulations: name '%s' contains invalid characters", name));
+            }
+        }
+        for (String name : paramNames) {
+            if (!CQL_IDENTIFIER_PATTERN.matcher(name).matches()) {
+                errors.add(String.format("parameters: name '%s' contains invalid characters", name));
             }
         }
 
@@ -198,6 +224,25 @@ public class ExpressionTreeValidator {
             String name = (String) node.get("name");
             errors.add(String.format("%s: unknown element type '%s'%s",
                     path, type, name != null ? " (name: " + name + ")" : ""));
+        }
+
+        // Validate external CQL library names
+        if ("externalCqlRef".equals(type)) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> fields = (List<Map<String, Object>>) node.get("fields");
+            if (fields != null) {
+                for (Map<String, Object> field : fields) {
+                    String fieldId = (String) field.get("id");
+                    if ("library_name".equals(fieldId) || "library_version".equals(fieldId)) {
+                        Object val = field.get("value");
+                        if (val instanceof String && !((String) val).isEmpty()
+                                && !CQL_IDENTIFIER_PATTERN.matcher((String) val).matches()) {
+                            errors.add(String.format("%s: %s '%s' contains invalid characters",
+                                    path, fieldId, val));
+                        }
+                    }
+                }
+            }
         }
 
         // Validate modifier IDs

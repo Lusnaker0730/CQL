@@ -68,14 +68,22 @@ public class EcqmCqlBuilder {
         Map<String, Object> dataModel = new HashMap<>();
         String safeName = name.replaceAll("[^a-zA-Z0-9_]", "_");
         dataModel.put("safeName", safeName);
-        dataModel.put("version", version != null ? version : AuthoringConstants.DEFAULT_VERSION);
+        dataModel.put("version", engine.escapeCqlString(version != null ? version : AuthoringConstants.DEFAULT_VERSION));
         dataModel.put("fhirVersion", resolvedFhirVersion);
         dataModel.put("includes", includes);
-        dataModel.put("valueSets", valueSets);
+
+        // Escape value set names for use in quoted identifiers and string literals in template
+        List<Map<String, String>> escapedValueSets = new ArrayList<>();
+        for (String vs : valueSets) {
+            escapedValueSets.add(Map.of("identifier", engine.escapeCqlIdentifier(vs), "uri", engine.escapeCqlString(vs)));
+        }
+        dataModel.put("valueSets", escapedValueSets);
 
         List<Map<String, String>> codeSystemEntries = new ArrayList<>();
         for (String cs : codeSystems) {
-            codeSystemEntries.add(Map.of("name", engine.getCodeSystemDisplayName(cs), "id", cs));
+            codeSystemEntries.add(Map.of(
+                    "name", engine.escapeCqlIdentifier(engine.getCodeSystemDisplayName(cs)),
+                    "id", engine.escapeCqlString(cs)));
         }
         dataModel.put("codeSystemEntries", codeSystemEntries);
         dataModel.put("codes", codes);
@@ -89,7 +97,7 @@ public class EcqmCqlBuilder {
                 String cqlType = engine.mapParameterType(pType);
                 String formattedDefault = engine.formatParameterDefault(pType, param.get("value"));
                 Map<String, String> pm = new HashMap<>();
-                pm.put("name", pName);
+                pm.put("name", engine.escapeCqlIdentifier(pName));
                 pm.put("cqlType", cqlType);
                 pm.put("formattedDefault", formattedDefault != null ? formattedDefault : "");
                 paramModels.add(pm);
@@ -101,7 +109,7 @@ public class EcqmCqlBuilder {
         List<Map<String, String>> baseElementModels = new ArrayList<>();
         if (baseElements != null) {
             for (Map<String, Object> be : baseElements) {
-                String beName = engine.getStr(be, "name", "BaseElement");
+                String beName = engine.escapeCqlIdentifier(engine.getStr(be, "name", "BaseElement"));
                 String beExpr = engine.buildExpression(be, ctx);
                 baseElementModels.add(Map.of("name", beName, "expression", beExpr));
             }
@@ -177,14 +185,14 @@ public class EcqmCqlBuilder {
         List<Map<String, String>> topStratModels = new ArrayList<>();
         if (stratifiers != null) {
             for (Map<String, Object> strat : stratifiers) {
-                String stratId = engine.getStr(strat, "stratifierId", "strat");
+                String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
                 String desc = engine.getStr(strat, "description", "");
                 Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
                 if (criteria != null) {
                     String stratExpr = engine.buildConjunctionExpression(criteria, ctx);
                     Map<String, String> sm = new HashMap<>();
                     sm.put("id", stratId);
-                    sm.put("description", desc);
+                    sm.put("description", engine.escapeCqlIdentifier(desc));
                     sm.put("expression", stratExpr);
                     topStratModels.add(sm);
                 }
@@ -207,7 +215,8 @@ public class EcqmCqlBuilder {
                     if (criteria != null) {
                         String expr = engine.buildConjunctionExpression(criteria, ctx);
                         if (!"null".equals(expr)) {
-                            supplementalDefines.add(String.format("define \"%s\":\n  %s\n", sdeName, expr));
+                            supplementalDefines.add(String.format("define \"%s\":\n  %s\n",
+                                    engine.escapeCqlIdentifier(sdeName), expr));
                         }
                     }
                 }
@@ -241,7 +250,9 @@ public class EcqmCqlBuilder {
         String paramType = isEpisodeBased ? populationBasis : "Patient";
         String paramName = isEpisodeBased ? populationBasis : "Patient";
 
-        block.append(String.format("// Aggregate Method: %s\n", engine.escapeCqlString(aggregateMethod)));
+        // Sanitize for CQL comment: strip newlines to prevent injection
+        String safeAggMethod = aggregateMethod.replace("\n", " ").replace("\r", " ");
+        block.append(String.format("// Aggregate Method: %s\n", safeAggMethod));
         block.append(String.format("define function \"%s\"(%s \"%s\"):\n", funcName, paramName, paramType));
 
         if (criteria != null) {
@@ -255,14 +266,16 @@ public class EcqmCqlBuilder {
     @SuppressWarnings("unchecked")
     private void appendStratifier(StringBuilder block, Map<String, Object> strat,
             String suffix, BuildContext ctx) {
-        String stratId = engine.getStr(strat, "stratifierId", "strat");
+        String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
         String desc = engine.getStr(strat, "description", "");
         Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
         if (criteria != null) {
             String expr = engine.buildConjunctionExpression(criteria, ctx);
             if (!"null".equals(expr)) {
                 if (!desc.isEmpty()) {
-                    block.append(String.format("// %s\n", engine.escapeCqlString(desc)));
+                    // Sanitize description for CQL comment: strip newlines to prevent injection
+                    String safeDesc = desc.replace("\n", " ").replace("\r", " ");
+                    block.append(String.format("// %s\n", safeDesc));
                 }
                 block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", stratId, suffix, expr));
             }
