@@ -53,6 +53,9 @@ public class AuditLogEntity {
     @Column(name = "query_parameters", length = 2000)
     private String queryParameters;
 
+    @Column(name = "request_id", length = 36)
+    private String requestId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

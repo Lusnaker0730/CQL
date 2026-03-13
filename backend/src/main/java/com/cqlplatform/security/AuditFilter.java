@@ -104,6 +104,8 @@ public class AuditFilter extends OncePerRequestFilter {
                 queryParameters = truncate(request.getQueryString(), 2000);
             }
 
+            String requestId = (String) request.getAttribute(RequestTracingFilter.MDC_REQUEST_ID);
+
             AuditLogEntity auditLog = AuditLogEntity.builder()
                     .username(username)
                     .method(request.getMethod())
@@ -117,6 +119,7 @@ public class AuditFilter extends OncePerRequestFilter {
                     .responseTimeMs(duration)
                     .phiAccess(phiAccess)
                     .queryParameters(queryParameters)
+                    .requestId(requestId)
                     .build();
 
             auditLogRepository.save(auditLog);

@@ -3,6 +3,7 @@ package com.cqlplatform.config;
 import com.cqlplatform.security.AuditFilter;
 import com.cqlplatform.security.JwtAuthenticationFilter;
 import com.cqlplatform.security.RateLimitFilter;
+import com.cqlplatform.security.RequestTracingFilter;
 import com.cqlplatform.security.UserRateLimitFilter;
 import com.cqlplatform.security.XssFilter;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final RequestTracingFilter requestTracingFilter;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuditFilter auditFilter;
     private final RateLimitFilter rateLimitFilter;
@@ -77,7 +79,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> configureAuthorization(auth))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                // Filter order: Tracing → RateLimit → XSS → JWT → UserRateLimit → Audit
+                .addFilterBefore(requestTracingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, RequestTracingFilter.class)
                 .addFilterBefore(xssFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(userRateLimitFilter, JwtAuthenticationFilter.class)
