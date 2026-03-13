@@ -9,6 +9,8 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-090 | 🔒 security | 2026-03-13 | 後端（CQL Engine） | CQL 執行資源耗盡防護 — Translation timeout + Retrieve 結果上限 + 回應集合截斷 + Prefetch 資源上限 + Patient 分頁上限 + Fallback cache 有界 | 防 DoS / OOM | [`9fe7b27`](../../commit/9fe7b27) |
+| BUG-089 | 🐛 bugfix | 2026-03-13 | 前端（TestCase Builder） | TWCORE 術語瀏覽器代碼欄位同步修復 — CodingField/CodeField 本地狀態未隨外部更新同步 | useState 初始化只執行一次 | [`fd879a3`](../../commit/fd879a3) |
 | PAT-047 | 🔧 refactor | 2026-03-13 | 後端（DB） | Flyway 安全強化 — 41 份 rollback 腳本 + baseline-on-migrate 生產關閉 + lock-retry-count + CI validate 步驟 | 叢集環境 + 緊急回退能力 | [`85cb768`](../../commit/85cb768) |
 | PAT-046 | 🔧 refactor | 2026-03-13 | 前端（Builder） | escapeCqlString 技術債清除 — 提取共用 utils/cqlString.ts，消除 CdsCardBuilder / RecommendationBuilder 重複定義 | 含 formatFieldValue + FieldState type | [`c3cec5a`](../../commit/c3cec5a) |
 | PAT-044 | ✨ patch | 2026-03-13 | 前端（Editor） | CQL Monarch 語法自動產生 — 從官方 ANTLR grammar 提取關鍵字 + CI drift 檢查 | 修正 15 缺漏 + 14 多餘關鍵字 | [`8ac2917`](../../commit/8ac2917) |
