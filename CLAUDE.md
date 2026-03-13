@@ -173,10 +173,17 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 
 使用 `gh issue create` 搭配 `--body` 參數時，須遵守此 `### heading\n\nvalue` 格式。
 
-### PR 法規追溯
+### PR 法規追溯（CI 強制檢查）
 
 PR 描述自動載入中文模板（`.github/pull_request_template.md`），**必須填寫**：
 - 變更說明、關聯 Issue、測試紀錄、風險評估、IEC 62304 / ISO 14971 追溯表
+
+**CI 自動檢查（`.github/workflows/regulatory-check.yml`）：**
+- ❌ Block：PR 描述未包含任何 `#NNN` Issue 引用
+- ❌ Block：安全性等級 B/C 的需求 Issue 缺少對應的設計/風險/驗證 Issue
+- ⚠️ Warn：需求 Issue 缺少安全性等級標籤
+- ⚠️ Warn：法規 Issue 內容缺少 `### 標題` 格式（腳本無法解析）
+- ✅ Skip：`docs:` 開頭的 PR 標題不觸發檢查
 
 ### 法規文件產生
 

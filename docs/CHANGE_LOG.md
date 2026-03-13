@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-043 | ✨ patch | 2026-03-13 | CI/CD（法規） | TFDA 法規追溯 CI 強制檢查 — PR 必須引用 Issue + B/C 等級完整追溯鏈驗證 | 防止法規文件遺漏 |  |
 | PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render | [`a1a1caf`](../../commit/a1a1caf) |
 | PAT-041 | ✨ patch | 2026-03-13 | CI/CD（後端） | PostgreSQL Migration CI 防護 — Flyway + JPA validate 對 PG service container 驗證 | 防止 H2/PG schema drift | [`4edcd3b`](../../commit/4edcd3b) |
 | BUG-088 | 🔒 security | 2026-03-13 | CQL 產生引擎（後端） | CQL 注入防護 — identifier 跳脫 + include 語句消毒 + 表達式樹字元驗證 | 6 CRITICAL injection points fixed | [`b7d7f08`](../../commit/b7d7f08) |
@@ -165,6 +166,41 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-043 — TFDA 法規追溯 CI 強制檢查
+
+- **日期**: 2026-03-13
+- **範圍**: CI/CD（法規合規）
+
+### 問題
+
+CLAUDE.md 寫了「必須遵守」、「必須填寫」等法規追溯要求，但沒有對應的 CI 防護。開發者遺漏 Issue 引用或漏建法規文件時，系統不會攔截，導致法規文件產生腳本在最後才發現缺漏。
+
+### 修正方案
+
+新增 GitHub Actions workflow `regulatory-check.yml`，在 PR 發起或編輯時自動檢查：
+
+**強制阻擋（Block Merge）：**
+1. PR 描述未包含任何 `#NNN` Issue 引用
+2. 安全性等級 B/C 的需求 Issue 缺少對應的設計/風險/驗證 Issue（反查所有法規 Issue 的 body 是否引用該需求）
+
+**警告（不阻擋）：**
+3. 需求 Issue 缺少安全性等級標籤（`安全性等級-A/B/C`）
+4. 法規 Issue 內容缺少 `### 標題` 格式（影響文件產生腳本解析）
+
+**豁免：**
+- `docs:` 開頭的 PR 標題自動跳過檢查
+
+### 影響的檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `.github/workflows/regulatory-check.yml` | 新增 workflow |
+| `.github/scripts/check-regulatory-traceability.py` | 新增檢查腳本 |
+| `.github/pull_request_template.md` | 加入 CI 檢查提示 |
+| `CLAUDE.md` | 記錄 CI 強制檢查規則 |
+
+---
 
 ## PAT-042 — Monaco-Redux 解耦（效能優化）
 
