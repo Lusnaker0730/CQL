@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Dialog,
   DialogTitle,
@@ -46,7 +47,7 @@ export default function IndicatorCatalogDialog({
   const [source, setSource] = useState(sourceFilter || '')
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 

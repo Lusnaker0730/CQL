@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { cqlApi } from '../api'
 import { extractApiError } from '../utils/errorUtils'
 import type { TranslationMetadata } from '../types'
+import { AUTOSAVE_HEAVY_MS } from '../constants/timing'
 
 export interface CqlStructure {
   libraryId: string
@@ -105,7 +106,7 @@ export function useCqlStructure() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       parseNow(content)
-    }, 2000)
+    }, AUTOSAVE_HEAVY_MS)
   }, [parseNow])
 
   // Manual parse trigger — uses latest known content

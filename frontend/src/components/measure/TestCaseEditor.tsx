@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { AUTOSAVE_FAST_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
 import { extractApiError } from '../../utils/errorUtils'
 import {
@@ -258,7 +259,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         } catch {
           // Invalid JSON — don't sync
         }
-      }, 500)
+      }, AUTOSAVE_FAST_MS)
     },
     [dispatch, validateBundle]
   )

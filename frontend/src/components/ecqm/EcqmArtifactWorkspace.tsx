@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { AUTOSAVE_SLOW_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogContentText,
@@ -102,7 +103,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         save(pendingRef.current)
         pendingRef.current = null
       }
-    }, 1500)
+    }, AUTOSAVE_SLOW_MS)
   }, [save])
 
   // Immediate save (flush pending + save now, or force re-save if nothing pending)

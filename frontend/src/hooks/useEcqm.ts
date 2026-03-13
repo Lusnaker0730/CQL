@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ecqmApi } from '../api'
 import type { EcqmArtifactRequest } from '../types/ecqm'
 import type { ExternalCqlLibrary } from '../types/authoring'
+import { STALE_1M } from '../constants/queryConstants'
 
 const ECQM_KEY = ['ecqm', 'artifacts'] as const
 
@@ -76,7 +77,7 @@ export function useEcqmTemplates() {
   return useQuery({
     queryKey: ['ecqm', 'templates'],
     queryFn: () => ecqmApi.getTemplates(),
-    staleTime: 60_000,
+    staleTime: STALE_1M,
   })
 }
 
@@ -84,7 +85,7 @@ export function useEcqmModifiers() {
   return useQuery({
     queryKey: ['ecqm', 'modifiers'],
     queryFn: () => ecqmApi.getModifiers(),
-    staleTime: 60_000,
+    staleTime: STALE_1M,
   })
 }
 
@@ -92,7 +93,7 @@ export function useEcqmScoringTypes() {
   return useQuery({
     queryKey: ['ecqm', 'scoring-types'],
     queryFn: () => ecqmApi.getScoringTypes(),
-    staleTime: 60_000,
+    staleTime: STALE_1M,
   })
 }
 

@@ -1,4 +1,5 @@
 import { Box, Typography, Paper } from '@mui/material'
+import { CHART_HEIGHT } from '../../constants/layout'
 import {
   LineChart,
   Line,
@@ -42,7 +43,7 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
       <Typography variant="subtitle2" gutterBottom>
         {title || t('dashboard.scoreTrend')}
       </Typography>
-      <Box sx={{ width: '100%', height: 300 }}>
+      <Box sx={{ width: '100%', height: CHART_HEIGHT }}>
         <ResponsiveContainer minWidth={0} minHeight={0}>
           <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />

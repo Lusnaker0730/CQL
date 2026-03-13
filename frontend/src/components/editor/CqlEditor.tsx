@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 
 import Editor, { BeforeMount, OnMount, OnChange } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
+import { EDITOR_HEIGHT } from '../../constants/layout'
 import { useDispatch, useSelector } from 'react-redux'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'
 import type { LibraryInfo } from '../../utils/cqlSyntax'
@@ -30,7 +31,7 @@ interface CqlEditorProps {
 }
 
 export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
-  height = '500px',
+  height = EDITOR_HEIGHT,
   readOnly = false,
   onTranslate,
   onExecute,

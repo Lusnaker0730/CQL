@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useCallback } from 'react'
 import { notificationApi } from '../api/notificationApi'
+import { STALE_30S, REFETCH_30S } from '../constants/queryConstants'
 
 const NOTIFICATIONS_KEY = ['notifications']
 const UNREAD_COUNT_KEY = ['notifications', 'unread-count']
@@ -12,13 +13,13 @@ export function useNotifications() {
   const { data: notifications = [], ...notificationsQuery } = useQuery({
     queryKey: NOTIFICATIONS_KEY,
     queryFn: notificationApi.getNotifications,
-    staleTime: 30_000,
+    staleTime: STALE_30S,
   })
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: UNREAD_COUNT_KEY,
     queryFn: notificationApi.getUnreadCount,
-    staleTime: 30_000,
+    staleTime: STALE_30S,
   })
 
   const markAsReadMutation = useMutation({
@@ -83,7 +84,7 @@ export function useNotifications() {
           es.close()
           eventSourceRef.current = null
           // Retry after 30s
-          setTimeout(connectSSE, 30_000)
+          setTimeout(connectSSE, REFETCH_30S)
         }
       })
       .catch(() => {
