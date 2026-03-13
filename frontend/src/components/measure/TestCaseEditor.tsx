@@ -39,6 +39,7 @@ import {
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import type { TestCase, MeasureDefinition } from '../../types'
 import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
+import { TEST_CASE } from '../../constants/fieldConstraints'
 
 interface TestCaseEditorProps {
   measure: MeasureDefinition
@@ -374,6 +375,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           value={title}
           onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
           placeholder={t('testCaseEditor.fields.titlePlaceholder')}
+          inputProps={{ maxLength: TEST_CASE.title.maxLength }}
         />
 
         <TextField
@@ -384,6 +386,8 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           rows={2}
           value={description}
           onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
+          inputProps={{ maxLength: TEST_CASE.description.maxLength }}
+          helperText={`${description.length} / ${TEST_CASE.description.maxLength}`}
         />
 
         <Autocomplete
@@ -398,7 +402,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
               size="small"
               fullWidth
               placeholder={t('testCaseEditor.fields.seriesPlaceholder')}
-              inputProps={{ ...params.inputProps, maxLength: 250 }}
+              inputProps={{ ...params.inputProps, maxLength: TEST_CASE.series.maxLength }}
             />
           )}
         />

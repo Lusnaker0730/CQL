@@ -6,9 +6,10 @@ interface TextAreaFieldProps {
   onChange: (value: string) => void
   placeholder?: string
   helperText?: string
+  maxLength?: number
 }
 
-export default function TextAreaField({ label, value, onChange, placeholder, helperText }: TextAreaFieldProps) {
+export default function TextAreaField({ label, value, onChange, placeholder, helperText, maxLength }: TextAreaFieldProps) {
   return (
     <TextField
       label={label}
@@ -19,7 +20,8 @@ export default function TextAreaField({ label, value, onChange, placeholder, hel
       multiline
       rows={2}
       placeholder={placeholder}
-      helperText={helperText}
+      helperText={maxLength ? `${value.length} / ${maxLength}` : helperText}
+      inputProps={maxLength ? { maxLength } : undefined}
     />
   )
 }

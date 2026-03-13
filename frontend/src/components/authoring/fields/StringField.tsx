@@ -6,9 +6,10 @@ interface StringFieldProps {
   onChange: (value: string) => void
   placeholder?: string
   helperText?: string
+  maxLength?: number
 }
 
-export default function StringField({ label, value, onChange, placeholder, helperText }: StringFieldProps) {
+export default function StringField({ label, value, onChange, placeholder, helperText, maxLength }: StringFieldProps) {
   return (
     <TextField
       label={label}
@@ -18,6 +19,7 @@ export default function StringField({ label, value, onChange, placeholder, helpe
       fullWidth
       placeholder={placeholder}
       helperText={helperText}
+      inputProps={maxLength ? { maxLength } : undefined}
     />
   )
 }
