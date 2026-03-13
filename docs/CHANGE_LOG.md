@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-047 | 🔧 refactor | 2026-03-13 | 後端（DB） | Flyway 安全強化 — 41 份 rollback 腳本 + baseline-on-migrate 生產關閉 + lock-retry-count + CI validate 步驟 | 叢集環境 + 緊急回退能力 | |
 | PAT-046 | 🔧 refactor | 2026-03-13 | 前端（Builder） | escapeCqlString 技術債清除 — 提取共用 utils/cqlString.ts，消除 CdsCardBuilder / RecommendationBuilder 重複定義 | 含 formatFieldValue + FieldState type | [`c3cec5a`](../../commit/c3cec5a) |
 | PAT-044 | ✨ patch | 2026-03-13 | 前端（Editor） | CQL Monarch 語法自動產生 — 從官方 ANTLR grammar 提取關鍵字 + CI drift 檢查 | 修正 15 缺漏 + 14 多餘關鍵字 | [`8ac2917`](../../commit/8ac2917) |
 | PAT-043 | ✨ patch | 2026-03-13 | CI/CD（法規） | TFDA 法規追溯 CI 強制檢查 — PR 必須引用 Issue + B/C 等級完整追溯鏈驗證 | 防止法規文件遺漏 | [`8a77dc2`](../../commit/8a77dc2) |

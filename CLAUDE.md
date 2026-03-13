@@ -64,7 +64,8 @@ backend/src/main/resources/
     modifiers/     — 19 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway SQL (V1~V19)
+  db/migration/    — Flyway forward migrations (V1~V40)
+  db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理）
   application.yml  — 主配置
 ```
 
