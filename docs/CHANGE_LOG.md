@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render |  |
+| PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render | [`a1a1caf`](../../commit/a1a1caf) |
 | PAT-041 | ✨ patch | 2026-03-13 | CI/CD（後端） | PostgreSQL Migration CI 防護 — Flyway + JPA validate 對 PG service container 驗證 | 防止 H2/PG schema drift | [`4edcd3b`](../../commit/4edcd3b) |
 | BUG-088 | 🔒 security | 2026-03-13 | CQL 產生引擎（後端） | CQL 注入防護 — identifier 跳脫 + include 語句消毒 + 表達式樹字元驗證 | 6 CRITICAL injection points fixed | [`b7d7f08`](../../commit/b7d7f08) |
 | BUG-087 | 🔒 security | 2026-03-12 | 安全性（全端） | 滲透測試修復 — Mass Assignment / SSRF / XSS / 授權 / Rate Limiting / 密碼洩漏 / XFF 欺騙 | 4 CRITICAL + 10 HIGH | [`5de093c`](../../commit/5de093c) |
