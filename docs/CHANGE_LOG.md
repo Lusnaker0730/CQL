@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-052 | 🔧 refactor | 2026-03-13 | 前端（常數管理） | 硬編碼常數提取 — 新增 queryConstants.ts + 擴充 timing.ts / layout.ts，22 檔 magic number 改為集中常數 (debounce/staleTime/尺寸) | 消除重複、統一維護 | [`8307c67`](../../commit/8307c67) |
 | BUG-091 | 🐛 bugfix | 2026-03-13 | 後端（測試） | 修復 6 個預存測試失敗 — GEH timeout 504 斷言、VSAC OID 驗證、ApiKey name 可選、TestCase mock 方法名 | 821 tests 全過 | [`b78de09`](../../commit/b78de09) |
 | PAT-051 | ✨ patch | 2026-03-13 | 全端（Observability） | X-Request-ID 端對端追蹤 — 前端 UUID 產生 + RequestTracingFilter MDC + 結構化日誌 + 稽核紀錄 request_id + Error Response requestId | TFDA 稽核軌跡 + 除錯效率 | [`7fc2e86`](../../commit/7fc2e86) |
 | PAT-050 | 🔒 security | 2026-03-13 | 後端（Auth/JWT） | JWT 即時撤銷 — token_version + Caffeine 快取 (30s TTL)，登出/停用/角色變更/密碼重設觸發 bump，撤銷窗口從 15 分鐘縮至 ~30 秒 | 醫療稽核必備：無 Redis 依賴 | [`16fa19c`](../../commit/16fa19c) |
