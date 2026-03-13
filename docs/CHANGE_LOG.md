@@ -9,7 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
-| BUG-088 | 🔒 security | 2026-03-13 | CQL 產生引擎（後端） | CQL 注入防護 — identifier 跳脫 + include 語句消毒 + 表達式樹字元驗證 | 6 CRITICAL injection points fixed | |
+| BUG-088 | 🔒 security | 2026-03-13 | CQL 產生引擎（後端） | CQL 注入防護 — identifier 跳脫 + include 語句消毒 + 表達式樹字元驗證 | 6 CRITICAL injection points fixed | [`b7d7f08`](../../commit/b7d7f08) |
 | BUG-087 | 🔒 security | 2026-03-12 | 安全性（全端） | 滲透測試修復 — Mass Assignment / SSRF / XSS / 授權 / Rate Limiting / 密碼洩漏 / XFF 欺騙 | 4 CRITICAL + 10 HIGH | [`5de093c`](../../commit/5de093c) |
 | PAT-040 | ✨ patch | 2026-03-12 | 法規自動化（全端） | TFDA 法規文件自動化工作流 — Issue/PR Templates + 產生腳本 + CI 整合 + 40 個法規 Issues | GitHub Templates + Python Scripts + CI | [`3405f5d`](../../commit/3405f5d) |
 | BUG-086 | 🐛 bugfix | 2026-03-12 | 後端（Auth） | 註冊 email 欄位改為選填 — 移除 @NotBlank 驗證 | Backend (Auth) | [`7dd2349`](../../commit/7dd2349) |
