@@ -50,6 +50,11 @@ function CodingField({
   const [debouncedSearch, setDebouncedSearch] = useState(searchText)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()
 
+  // Sync local input when coding.code changes externally (e.g. TWCORE picker, terminology drawer)
+  useEffect(() => {
+    setSearchText(coding.code || '')
+  }, [coding.code])
+
   useEffect(() => {
     debounceRef.current = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
     return () => clearTimeout(debounceRef.current)
