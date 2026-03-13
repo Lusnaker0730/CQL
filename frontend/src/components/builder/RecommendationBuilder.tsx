@@ -24,18 +24,13 @@ import {
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
+import { escapeCqlString, formatFieldValue } from '../../utils/cqlString'
+import type { FieldState } from '../../utils/cqlString'
 
 interface RecommendationBuilderProps {
   expressions: string[]
   onInsert: (cqlSnippet: string) => void
   onCancel: () => void
-}
-
-type FieldMode = 'literal' | 'expression'
-
-interface FieldState {
-  value: string
-  mode: FieldMode
 }
 
 interface LinkItem {
@@ -61,17 +56,6 @@ interface SuggestionItem {
 
 const INDICATORS = ['info', 'warning', 'critical'] as const
 const GRADES = ['', 'A', 'B', 'C', 'D', 'I'] as const
-
-function escapeCqlString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-}
-
-function formatFieldValue(field: FieldState): string {
-  if (!field.value) return ''
-  return field.mode === 'literal'
-    ? `'${escapeCqlString(field.value)}'`
-    : field.value
-}
 
 let nextId = 1
 

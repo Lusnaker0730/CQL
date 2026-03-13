@@ -213,6 +213,6 @@ regulatory_docs/
 
 - FHIR resource properties 定義在 `frontend/src/utils/cqlSyntax.ts` 的 `fhirResourceProperties`
 - CQL 字面值正則: `CQL_LITERAL_RE` 在 `QueryBuilder.tsx`，用於自動引號判斷
-- `escapeCqlString()` 目前各自定義在 `CdsCardBuilder.tsx` 和 `RecommendationBuilder.tsx`（待統一）
+- `escapeCqlString()` / `formatFieldValue()` 統一定義在 `utils/cqlString.ts`
 - Monaco Editor 整合: `useCqlEditor` hook 管理編輯器生命週期
 - 前端 dev server proxy: `/api/*` → `localhost:8080`

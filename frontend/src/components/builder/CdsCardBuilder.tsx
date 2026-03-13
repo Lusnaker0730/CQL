@@ -15,6 +15,8 @@ import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
+import { formatFieldValue } from '../../utils/cqlString'
+import type { FieldState } from '../../utils/cqlString'
 
 interface CdsCardBuilderProps {
   expressions: string[]
@@ -22,25 +24,7 @@ interface CdsCardBuilderProps {
   onCancel: () => void
 }
 
-type FieldMode = 'literal' | 'expression'
-
-interface FieldState {
-  value: string
-  mode: FieldMode
-}
-
 const INDICATORS = ['info', 'warning', 'critical'] as const
-
-function escapeCqlString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-}
-
-function formatFieldValue(field: FieldState): string {
-  if (!field.value) return ''
-  return field.mode === 'literal'
-    ? `'${escapeCqlString(field.value)}'`
-    : field.value
-}
 
 export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsCardBuilderProps) {
   const { t } = useTranslation('builder')
