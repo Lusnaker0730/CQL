@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import Editor, { BeforeMount, OnMount, OnChange } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
@@ -10,6 +10,13 @@ import type { RootState } from '../../store'
 import type { TerminologyValidationItem, LibraryMetadata } from '../../types'
 import { usePreferences } from '../../hooks/usePreferences'
 
+export interface CqlEditorHandle {
+  getContent: () => string
+  getEditor: () => editor.IStandaloneCodeEditor | null
+  /** Flush current editor content to Redux store */
+  flushContent: () => void
+}
+
 interface CqlEditorProps {
   height?: string | number
   readOnly?: boolean
@@ -18,9 +25,11 @@ interface CqlEditorProps {
   terminologyIssues?: TerminologyValidationItem[]
   libraryMetadata?: LibraryMetadata[]
   onEditorRef?: (editor: editor.IStandaloneCodeEditor) => void
+  /** Called on every content change (keystroke). Use for debounced consumers. */
+  onContentChanged?: (content: string) => void
 }
 
-export default function CqlEditor({
+export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
   height = '500px',
   readOnly = false,
   onTranslate,
@@ -28,7 +37,8 @@ export default function CqlEditor({
   terminologyIssues,
   libraryMetadata,
   onEditorRef,
-}: CqlEditorProps) {
+  onContentChanged,
+}, ref) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings, goToLine } = useSelector((state: RootState) => state.editor)
   const { preferences } = usePreferences()
@@ -37,6 +47,18 @@ export default function CqlEditor({
   const lastExternalContent = useRef(cqlContent)
   const librariesRef = useRef<LibraryInfo[]>([])
   const disposablesRef = useRef<Array<{ dispose: () => void }>>([])
+  const cursorRafRef = useRef(0)
+
+  // Expose imperative handle for parent components
+  useImperativeHandle(ref, () => ({
+    getContent: () => editorRef.current?.getModel()?.getValue() ?? '',
+    getEditor: () => editorRef.current,
+    flushContent: () => {
+      const value = editorRef.current?.getModel()?.getValue() ?? ''
+      lastExternalContent.current = value
+      dispatch(setCqlContent(value))
+    },
+  }), [dispatch])
 
   // Keep libraries ref in sync
   useEffect(() => {
@@ -107,19 +129,41 @@ export default function CqlEditor({
       }
     })
 
+    // Ctrl+S: sync content to Redux, then translate
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      const value = editor.getModel()?.getValue() ?? ''
+      lastExternalContent.current = value
+      dispatch(setCqlContent(value))
       onTranslate?.()
     })
 
+    // Ctrl+Enter: sync content to Redux, then execute
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      const value = editor.getModel()?.getValue() ?? ''
+      lastExternalContent.current = value
+      dispatch(setCqlContent(value))
       onExecute?.()
     })
 
+    // Sync to Redux on blur (covers button-click scenarios)
+    const blurDisposable = editor.onDidBlurEditorText(() => {
+      const value = editor.getModel()?.getValue() ?? ''
+      if (value !== lastExternalContent.current) {
+        lastExternalContent.current = value
+        dispatch(setCqlContent(value))
+      }
+    })
+    disposablesRef.current.push(blurDisposable)
+
+    // Throttle cursor position dispatch via requestAnimationFrame
     const cursorDisposable = editor.onDidChangeCursorPosition((e) => {
-      dispatch(setCursorPosition({
-        line: e.position.lineNumber,
-        column: e.position.column,
-      }))
+      cancelAnimationFrame(cursorRafRef.current)
+      cursorRafRef.current = requestAnimationFrame(() => {
+        dispatch(setCursorPosition({
+          line: e.position.lineNumber,
+          column: e.position.column,
+        }))
+      })
     })
     disposablesRef.current.push(cursorDisposable)
   }
@@ -127,6 +171,7 @@ export default function CqlEditor({
   // Cleanup Monaco subscriptions and DOM listeners on unmount
   useEffect(() => {
     return () => {
+      cancelAnimationFrame(cursorRafRef.current)
       disposablesRef.current.forEach(d => d.dispose())
       disposablesRef.current = []
       editorRef.current = null
@@ -134,14 +179,16 @@ export default function CqlEditor({
     }
   }, [])
 
+  // onChange: notify parent for debounced consumers (e.g. useCqlStructure),
+  // but do NOT dispatch to Redux on every keystroke.
   const handleChange: OnChange = useCallback(
     (value) => {
       if (value !== undefined) {
         lastExternalContent.current = value
-        dispatch(setCqlContent(value))
+        onContentChanged?.(value)
       }
     },
-    [dispatch]
+    [onContentChanged]
   )
 
   // Sync content from Redux only when it changes externally (e.g., loading a library)
@@ -279,4 +326,4 @@ export default function CqlEditor({
       />
     </Box>
   )
-}
+})

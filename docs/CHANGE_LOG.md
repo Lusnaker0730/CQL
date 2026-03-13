@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render |  |
 | PAT-041 | ✨ patch | 2026-03-13 | CI/CD（後端） | PostgreSQL Migration CI 防護 — Flyway + JPA validate 對 PG service container 驗證 | 防止 H2/PG schema drift | [`4edcd3b`](../../commit/4edcd3b) |
 | BUG-088 | 🔒 security | 2026-03-13 | CQL 產生引擎（後端） | CQL 注入防護 — identifier 跳脫 + include 語句消毒 + 表達式樹字元驗證 | 6 CRITICAL injection points fixed | [`b7d7f08`](../../commit/b7d7f08) |
 | BUG-087 | 🔒 security | 2026-03-12 | 安全性（全端） | 滲透測試修復 — Mass Assignment / SSRF / XSS / 授權 / Rate Limiting / 密碼洩漏 / XFF 欺騙 | 4 CRITICAL + 10 HIGH | [`5de093c`](../../commit/5de093c) |
@@ -164,6 +165,45 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-042 — Monaco-Redux 解耦（效能優化）
+
+- **日期**: 2026-03-13
+- **範圍**: 前端（Editor — 7 檔案）
+
+### 問題
+
+Monaco Editor 的 `onChange` 事件在每次按鍵時 dispatch `setCqlContent` 到 Redux store，導致：
+- 每次按鍵觸發全局 state 更新 → 所有依賴 `cqlContent` 的元件 re-render
+- `handleTranslate`、`handleSaveLibrary`、`handleExport` 等 callback 因 `cqlContent` 依賴每次按鍵重建
+- `libraryMatch` 正則在每次 render 執行
+- `useCqlStructure` hook 透過 Redux selector 驅動，每次按鍵觸發 debounce 重設
+
+### 修正方案
+
+**架構變更：Monaco 內部管理編輯狀態，僅在 blur / save / execute 時同步到 Redux**
+
+1. **`CqlEditor.tsx`** — `forwardRef` + `useImperativeHandle` 暴露 `CqlEditorHandle`（`getContent`、`getEditor`、`flushContent`）；`onChange` 僅呼叫 `onContentChanged` callback；blur / Ctrl+S / Ctrl+Enter 時同步 Redux
+2. **`EditorPage.tsx`** — 使用 `cqlEditorRef` 按需讀取內容（`syncAndGetContent()`）；輕量 `localContent` state 處理 UI 需求（disabled 檢查、`libraryMatch`）
+3. **`useCqlStructure.ts`** — 移除 Redux 依賴，改為 callback 驅動：暴露 `notifyContentChanged(content)` 取代 `useSelector`
+4. **`CqlBuilderPanel.tsx`** — 接受 `editorContent` prop，透過 `useEffect` 驅動 `notifyContentChanged`
+5. **`ExecutionPanel.tsx`** — 接受 `getLatestCql` prop，執行時從 editor ref 讀取最新內容
+6. **`MeasureCqlTab.tsx`** — 同 EditorPage 模式：`cqlEditorRef` + `localContent` + `onContentChanged`
+7. **`useCqlStructure.test.ts`** — 更新測試使用 `notifyContentChanged` 取代 Redux dispatch
+
+### 影響的檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `frontend/src/components/editor/CqlEditor.tsx` | forwardRef + imperative handle + blur sync |
+| `frontend/src/pages/EditorPage.tsx` | editor ref + localContent + syncAndGetContent |
+| `frontend/src/hooks/useCqlStructure.ts` | 移除 Redux 依賴，callback-driven debounce |
+| `frontend/src/components/builder/CqlBuilderPanel.tsx` | 新增 editorContent prop |
+| `frontend/src/components/execution/ExecutionPanel.tsx` | 新增 getLatestCql prop |
+| `frontend/src/components/measure/MeasureCqlTab.tsx` | editor ref + localContent |
+| `frontend/src/hooks/__tests__/useCqlStructure.test.ts` | 適配新 API |
+
+---
 
 ## BUG-087 — 滲透測試安全修復
 

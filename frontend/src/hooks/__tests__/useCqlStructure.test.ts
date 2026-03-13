@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import { createElement } from 'react'
-import editorReducer, { setCqlContent } from '../../store/editorSlice'
 import { useCqlStructure } from '../useCqlStructure'
 
 vi.mock('../../api', () => ({
@@ -18,22 +14,6 @@ vi.mock('../../utils/errorUtils', () => ({
 
 import { cqlApi } from '../../api'
 
-function createWrapper(cql = '') {
-  const store = configureStore({
-    reducer: {
-      editor: editorReducer,
-      execution: () => ({}),
-      auth: () => ({ user: null, token: null, isAuthenticated: false, loading: false }),
-    },
-  })
-  if (cql) store.dispatch(setCqlContent(cql))
-  return {
-    store,
-    wrapper: ({ children }: { children: React.ReactNode }) =>
-      createElement(Provider, { store }, children),
-  }
-}
-
 describe('useCqlStructure', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -45,15 +25,14 @@ describe('useCqlStructure', () => {
   })
 
   it('should return empty structure initially', () => {
-    const { wrapper } = createWrapper()
-    const { result } = renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
     expect(result.current.structure.libraryId).toBe('')
     expect(result.current.isParsing).toBe(false)
     expect(result.current.parseError).toBeNull()
   })
 
-  it('should parse CQL after debounce', async () => {
+  it('should parse CQL after debounce via notifyContentChanged', async () => {
     vi.mocked(cqlApi.translate).mockResolvedValue({
       success: true,
       metadata: {
@@ -69,17 +48,15 @@ describe('useCqlStructure', () => {
       },
     })
 
-    const { store, wrapper } = createWrapper()
-    const { result } = renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('library TestLib version \'1.0\'')) })
+    act(() => { result.current.notifyContentChanged('library TestLib version \'1.0\'') })
 
     // Before debounce
     expect(result.current.isParsing).toBe(false)
 
     // After debounce
     await act(async () => { vi.advanceTimersByTime(2000) })
-    // Wait for the async parsing
     vi.useRealTimers()
     await waitFor(() => expect(result.current.isParsing).toBe(false))
 
@@ -103,10 +80,9 @@ describe('useCqlStructure', () => {
       },
     })
 
-    const { store, wrapper } = createWrapper()
-    const { result } = renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('invalid cql')) })
+    act(() => { result.current.notifyContentChanged('invalid cql') })
 
     await act(async () => { vi.advanceTimersByTime(2000) })
     vi.useRealTimers()
@@ -117,10 +93,9 @@ describe('useCqlStructure', () => {
   it('should set parseError on API failure', async () => {
     vi.mocked(cqlApi.translate).mockRejectedValue(new Error('Network error'))
 
-    const { store, wrapper } = createWrapper()
-    const { result } = renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('library Test')) })
+    act(() => { result.current.notifyContentChanged('library Test') })
 
     await act(async () => { vi.advanceTimersByTime(2000) })
     vi.useRealTimers()
@@ -128,10 +103,9 @@ describe('useCqlStructure', () => {
   })
 
   it('should not parse empty CQL content', () => {
-    const { store, wrapper } = createWrapper()
-    renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('')) })
+    act(() => { result.current.notifyContentChanged('') })
     act(() => { vi.advanceTimersByTime(2000) })
 
     expect(cqlApi.translate).not.toHaveBeenCalled()
@@ -153,17 +127,16 @@ describe('useCqlStructure', () => {
       },
     })
 
-    const { store, wrapper } = createWrapper()
-    renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('library Test')) })
+    act(() => { result.current.notifyContentChanged('library Test') })
     await act(async () => { vi.advanceTimersByTime(2000) })
     vi.useRealTimers()
     await waitFor(() => expect(cqlApi.translate).toHaveBeenCalledTimes(1))
 
-    // Dispatch same content again
+    // Notify same content again
     vi.useFakeTimers()
-    act(() => { store.dispatch(setCqlContent('library Test')) })
+    act(() => { result.current.notifyContentChanged('library Test') })
     await act(async () => { vi.advanceTimersByTime(2000) })
     vi.useRealTimers()
 
@@ -187,10 +160,10 @@ describe('useCqlStructure', () => {
       },
     })
 
-    const { store, wrapper } = createWrapper()
-    const { result } = renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('library Manual')) })
+    // Notify content first so parse() has something to work with
+    act(() => { result.current.notifyContentChanged('library Manual') })
 
     // Call parse directly without waiting for debounce
     act(() => { result.current.parse() })
@@ -219,10 +192,9 @@ describe('useCqlStructure', () => {
       },
     })
 
-    const { store, wrapper } = createWrapper()
-    const { result } = renderHook(() => useCqlStructure(), { wrapper })
+    const { result } = renderHook(() => useCqlStructure())
 
-    act(() => { store.dispatch(setCqlContent('library Test version \'1.0\'')) })
+    act(() => { result.current.notifyContentChanged('library Test version \'1.0\'') })
     await act(async () => { vi.advanceTimersByTime(2000) })
     vi.useRealTimers()
     await waitFor(() => expect(result.current.structure.libraryId).toBe('Test'))

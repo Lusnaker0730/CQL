@@ -41,6 +41,8 @@ interface CqlBuilderPanelProps {
   onDeleteElement?: (type: CqlElementType, identifier: string) => void
   onGoToElement?: (type: CqlElementType, identifier: string) => void
   onEditElement?: (type: CqlElementType, identifier: string, newSnippet: string) => void
+  /** Called on every editor content change — drives debounced CQL structure parsing */
+  editorContent?: string
 }
 
 export default function CqlBuilderPanel({
@@ -48,9 +50,17 @@ export default function CqlBuilderPanel({
   onDeleteElement,
   onGoToElement,
   onEditElement,
+  editorContent,
 }: CqlBuilderPanelProps) {
   const { t } = useTranslation('builder')
-  const { structure, isParsing, parseError, parse } = useCqlStructure()
+  const { structure, isParsing, parseError, parse, notifyContentChanged } = useCqlStructure()
+
+  // Feed editor content changes into the debounced parser
+  useEffect(() => {
+    if (editorContent !== undefined) {
+      notifyContentChanged(editorContent)
+    }
+  }, [editorContent, notifyContentChanged])
   const [expanded, setExpanded] = useState<string | false>('includes')
   const [duplicateWarning, setDuplicateWarning] = useState<{ name: string; snippet: string } | null>(null)
 
