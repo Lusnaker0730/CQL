@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { extractApiError } from '../../utils/errorUtils'
 import {
@@ -85,7 +85,7 @@ const EXCLUSION_POPULATION_TYPES = new Set([
 
 export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOnly }: PopulationCriteriaTabProps) {
   const { t } = useTranslation('measures')
-  const popLabel = (type: string) => t(`populationCard.types.${type}`, type)
+  const popLabel = useCallback((type: string) => t(`populationCard.types.${type}`, type), [t])
   const queryClient = useQueryClient()
   const [subTab, setSubTab] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -190,7 +190,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       setAutoMapAlert(t('populationCriteria.autoMapped', { count: totalCount }))
       setTimeout(() => setAutoMapAlert(null), ALERT_DISMISS_ERROR_MS)
     }
-  }, [expressionNames])
+  }, [expressionNames, t])
 
   const template = SCORING_TEMPLATES[measure.scoringType]
 
@@ -289,7 +289,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       }
     }
     return msgs
-  }, [groups, template, measure.scoringType, patientExpressions])
+  }, [groups, template, measure.scoringType, patientExpressions, popLabel, t])
 
   const hasErrors = validationMessages.some((m) => m.type === 'error')
 

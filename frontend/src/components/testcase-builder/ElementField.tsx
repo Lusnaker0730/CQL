@@ -166,6 +166,7 @@ export default function ElementField({ element, path, value, onChange, initialCh
   return <PrimitiveField element={element} value={value} onChange={onChange} />
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- utility function co-located with component
 export function getDefaultValue(element: ElementMetadata): unknown {
   const type = element.type
   if (type === 'boolean') return false

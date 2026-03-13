@@ -20,6 +20,7 @@ export interface TerminologyDrawerContextValue {
   closeDrawer: () => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context + provider intentionally co-located
 export const TerminologyDrawerContext = createContext<TerminologyDrawerContextValue>({
   isOpen: false,
   options: {},

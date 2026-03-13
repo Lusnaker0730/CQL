@@ -123,6 +123,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
       visibleOptional: elements.filter((el) => !el.isRequired && filledNames.has(el.name)),
       hiddenOptional: elements.filter((el) => !el.isRequired && !filledNames.has(el.name)),
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-compute when resourceData changes, not the whole entry
   }, [elements, activeEntry?.resourceData])
 
   if (!activeEntry) {

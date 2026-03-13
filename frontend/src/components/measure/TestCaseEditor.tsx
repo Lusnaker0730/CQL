@@ -219,7 +219,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     }
   }, [state.entries])
 
-  const validateBundle = (json: string): boolean => {
+  const validateBundle = useCallback((json: string): boolean => {
     try {
       const parsed = JSON.parse(json)
       if (parsed.resourceType !== 'Bundle') {
@@ -232,7 +232,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       setBundleError(t('testCaseEditor.validation.invalidJson'))
       return false
     }
-  }
+  }, [t])
 
   // Debounced sync: JSON → Visual Builder
   const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -259,7 +259,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         }
       }, 500)
     },
-    [dispatch]
+    [dispatch, validateBundle]
   )
 
   const togglePopulation = (key: string) => {

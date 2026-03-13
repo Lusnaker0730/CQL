@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Accordion, AccordionDetails, AccordionSummary, Box, Button,
@@ -41,7 +41,7 @@ function createEmptyGroup(): PopulationGroup {
 
 export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers, onUpdateGroups }: Props) {
   const { t } = useTranslation('ecqm')
-  const groups = artifact.populationGroups || []
+  const groups = useMemo(() => artifact.populationGroups || [], [artifact.populationGroups])
 
   const addGroup = useCallback(() => {
     onUpdateGroups([...groups, createEmptyGroup()])

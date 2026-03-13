@@ -426,6 +426,7 @@ function cqlEscapeString(value: string): string {
 }
 
 /** Generate CQL from modifier chain */
+// eslint-disable-next-line react-refresh/only-export-components -- utility function co-located with component
 export function applyModifierChain(
   baseExpr: string,
   alias: string,
