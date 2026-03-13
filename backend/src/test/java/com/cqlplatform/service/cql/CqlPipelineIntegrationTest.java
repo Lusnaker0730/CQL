@@ -58,12 +58,15 @@ class CqlPipelineIntegrationTest {
 
         // Real translation service
         translationService = new CqlTranslationService();
+        setField(translationService, "translationTimeoutSeconds", 30);
 
         // Real execution service
         executionService = new CqlExecutionService(
                 dataProviderService, terminologyService,
                 Executors.newSingleThreadExecutor(), libraryRepository);
         setField(executionService, "timeoutSeconds", 30);
+        setField(executionService, "maxRetrieveCount", 10000);
+        setField(executionService, "maxCollectionSize", 1000);
         setField(executionService, "defaultFhirServerUrl", "http://localhost:9999/fhir");
     }
 

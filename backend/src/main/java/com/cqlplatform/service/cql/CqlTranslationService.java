@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +39,16 @@ public class CqlTranslationService {
     @Autowired(required = false)
     private Counter cqlTranslationErrorCounter;
 
+    @org.springframework.beans.factory.annotation.Value("${cql.execution.translation-timeout-seconds:30}")
+    private int translationTimeoutSeconds;
+
+    private static final ExecutorService TRANSLATION_EXECUTOR =
+            Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "cql-translate");
+                t.setDaemon(true);
+                return t;
+            });
+
     public CqlTranslationResponse translate(CqlTranslationRequest request) {
         if (request.getCql() == null || request.getCql().isBlank()) {
             throw new IllegalArgumentException("CQL content must not be null or empty");
@@ -46,6 +57,33 @@ public class CqlTranslationService {
         if (cqlTranslationCounter != null) cqlTranslationCounter.increment();
         Timer.Sample sample = cqlTranslationTimer != null ? Timer.start() : null;
 
+        Future<CqlTranslationResponse> future = TRANSLATION_EXECUTOR.submit(
+                () -> doTranslate(request));
+        try {
+            CqlTranslationResponse response = future.get(translationTimeoutSeconds, TimeUnit.SECONDS);
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            return response;
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            throw new CqlTranslationException("Translation timed out after " + translationTimeoutSeconds + "s");
+        } catch (ExecutionException e) {
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            Throwable cause = e.getCause();
+            if (cause instanceof CqlTranslationException cte) throw cte;
+            throw new CqlTranslationException("Translation failed: " + cause.getMessage());
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            throw new CqlTranslationException("Translation was interrupted");
+        }
+    }
+
+    private CqlTranslationResponse doTranslate(CqlTranslationRequest request) {
         try {
             CqlCompilerOptions options = LibraryManagerFactory.buildOptions(
                     request.isEnableLocators(),
@@ -69,12 +107,9 @@ public class CqlTranslationService {
                 }
             }
 
-            // Extract partial metadata even when there are errors,
-            // so the CQL Builder can display already-parsed elements
             TranslationMetadata metadata = extractMetadata(library);
 
             if (!errors.isEmpty()) {
-                if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
                 return CqlTranslationResponse.builder()
                         .success(false)
                         .errors(errors)
@@ -84,20 +119,14 @@ public class CqlTranslationService {
             }
 
             String elmJson = translator.toJson();
-
-            CqlTranslationResponse response = CqlTranslationResponse.builder()
+            return CqlTranslationResponse.builder()
                     .success(true)
                     .elmJson(elmJson)
                     .errors(errors)
                     .warnings(warnings)
                     .metadata(metadata)
                     .build();
-            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
-            return response;
-
         } catch (Exception e) {
-            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
-            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
             log.error("Translation failed", e);
             throw new CqlTranslationException("Translation failed: " + e.getMessage());
         }

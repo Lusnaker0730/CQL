@@ -174,8 +174,10 @@ class CqlExecutionIntegrationTest {
                 Executors.newSingleThreadExecutor(),
                 libraryRepository);
 
-        // Set timeout via reflection (normally injected by Spring)
+        // Set timeout and limits via reflection (normally injected by Spring)
         setField(executionService, "timeoutSeconds", 30);
+        setField(executionService, "maxRetrieveCount", 10000);
+        setField(executionService, "maxCollectionSize", 1000);
         setField(executionService, "defaultFhirServerUrl", "http://localhost:9999/fhir");
     }
 

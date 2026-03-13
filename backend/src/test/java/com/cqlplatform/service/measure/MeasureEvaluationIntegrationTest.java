@@ -103,6 +103,8 @@ class MeasureEvaluationIntegrationTest {
                 dataProviderService, terminologyService,
                 Executors.newSingleThreadExecutor(), libraryRepository);
         setField(executionService, "timeoutSeconds", 30);
+        setField(executionService, "maxRetrieveCount", 10000);
+        setField(executionService, "maxCollectionSize", 1000);
         setField(executionService, "defaultFhirServerUrl", "http://localhost:9999/fhir");
 
         populationEvaluator = new PopulationEvaluator();
