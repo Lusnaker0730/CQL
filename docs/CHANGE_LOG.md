@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-044 | ✨ patch | 2026-03-13 | 前端（Editor） | CQL Monarch 語法自動產生 — 從官方 ANTLR grammar 提取關鍵字 + CI drift 檢查 | 修正 15 缺漏 + 14 多餘關鍵字 |  |
 | PAT-043 | ✨ patch | 2026-03-13 | CI/CD（法規） | TFDA 法規追溯 CI 強制檢查 — PR 必須引用 Issue + B/C 等級完整追溯鏈驗證 | 防止法規文件遺漏 | [`8a77dc2`](../../commit/8a77dc2) |
 | PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render | [`a1a1caf`](../../commit/a1a1caf) |
 | PAT-041 | ✨ patch | 2026-03-13 | CI/CD（後端） | PostgreSQL Migration CI 防護 — Flyway + JPA validate 對 PG service container 驗證 | 防止 H2/PG schema drift | [`4edcd3b`](../../commit/4edcd3b) |
@@ -166,6 +167,37 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-044 — CQL Monarch 語法從 ANTLR Grammar 自動產生
+
+- **日期**: 2026-03-13
+- **範圍**: 前端（Editor — Monaco CQL 語法高亮）
+
+### 問題
+
+`cqlSyntax.ts` 的 116 個 CQL 關鍵字是手動維護，與官方 CQL ANTLR grammar（v1.5）存在偏差：
+- **15 個官方關鍵字缺漏**：`div`, `mod`, `implies`, `fluent`, `maximum`, `minimum`, `of`, `starting`, `timezoneoffset`, `codesystems`, `Code`, `Concept`, `Interval`, `List`, `Tuple`
+- **14 個非標準關鍵字被誤加**：`combine`, `first`, `last`, `indexof`, `skip`, `take`, `tail`（這些是系統函式，不是語言關鍵字）、`datetime`, `interval`（小寫，語法用大寫 `DateTime`/`Interval`）、`returns`, `external`, `such`, `that`, `included`
+
+### 修正方案
+
+1. **Codegen 腳本**（`scripts/generate-monarch-tokens.py`）：從 `cql.g4` 的 `keyword`、`reservedWord`、`typeNameIdentifier` 規則自動提取 token 列表
+2. **產出檔案**（`src/utils/cqlTokens.generated.ts`）：匯出 `CQL_KEYWORDS`（115）、`CQL_TYPE_KEYWORDS`（18）、`CQL_MULTI_WORD_KEYWORDS`（8）、`CQL_RESERVED_WORDS`（67）、`CQL_DATETIME_PRECISIONS`（16）
+3. **`cqlSyntax.ts`**：import 產出檔案取代手寫陣列；TWCDI 片段、FHIR 屬性表、theme 等專案特有部分保留手寫
+4. **CI drift 檢查**：`ci.yml` 的 frontend-lint job 新增 `--check` 步驟，grammar 更新但未重新產生時 CI 失敗
+
+### 影響的檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `frontend/scripts/grammar/cql.g4` | 新增：官方 ANTLR grammar v1.5 |
+| `frontend/scripts/grammar/fhirpath.g4` | 新增：FHIRPath grammar |
+| `frontend/scripts/generate-monarch-tokens.py` | 新增：codegen 腳本 |
+| `frontend/src/utils/cqlTokens.generated.ts` | 新增：自動產生的 token 列表 |
+| `frontend/src/utils/cqlSyntax.ts` | 改用 import 產出檔案 |
+| `.github/workflows/ci.yml` | 新增 grammar drift check 步驟 |
+
+---
 
 ## PAT-043 — TFDA 法規追溯 CI 強制檢查
 

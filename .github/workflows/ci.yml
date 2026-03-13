@@ -61,6 +61,10 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit
 
+      - name: CQL grammar token drift check
+        working-directory: frontend
+        run: python scripts/generate-monarch-tokens.py --check
+
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
