@@ -90,6 +90,12 @@ public final class InputValidator {
         }
     }
 
+    public static void requireValidOid(String oid) {
+        if (oid == null || !oid.matches("[A-Za-z0-9._\\-]+")) {
+            throw new IllegalArgumentException("Invalid OID");
+        }
+    }
+
     public static void requireValidCacheName(String name) {
         if (!isValidCacheName(name)) {
             throw new IllegalArgumentException("Invalid cache name");
