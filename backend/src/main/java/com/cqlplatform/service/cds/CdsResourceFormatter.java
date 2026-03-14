@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 /**
  * Formats FHIR R4 Resources into human-readable markdown strings for CDS card display.
+ * Note: No HTML escaping — the frontend (React) auto-escapes text in JSX.
  */
 @Component
 public class CdsResourceFormatter {
@@ -14,6 +15,7 @@ public class CdsResourceFormatter {
     /**
      * Format a FHIR Resource into a detailed markdown string.
      * Includes resource type, id, and type-specific clinical fields.
+     * Values are returned as-is; the frontend handles escaping.
      */
     public String formatDetail(Resource resource) {
         StringBuilder sb = new StringBuilder();
@@ -74,7 +76,7 @@ public class CdsResourceFormatter {
                 String display = formatAllCodings(cc);
                 sb.append("\nValue: ").append(display != null ? display : cc.toString());
             } else {
-                sb.append("\nValue: ").append(obs.getValue());
+                sb.append("\nValue: ").append(obs.getValue().toString());
             }
         }
         if (obs.hasEffectiveDateTimeType()) {

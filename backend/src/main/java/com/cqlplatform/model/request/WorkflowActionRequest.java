@@ -9,6 +9,4 @@ public class WorkflowActionRequest {
     @Size(max = 1000)
     @NoXss
     private String reason;
-
-    private String currentUser;
 }

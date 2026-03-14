@@ -32,5 +32,6 @@
     "required": "Hook 類型為必填",
     "invalid": "無效的 Hook 類型"
   },
-  "required": "{{field}} 為必填"
+  "required": "{{field}} 為必填",
+  "charCount": "{{current}} / {{max}}"
 }

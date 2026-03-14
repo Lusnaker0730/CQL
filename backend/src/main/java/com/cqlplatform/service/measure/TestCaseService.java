@@ -32,10 +32,10 @@ public class TestCaseService {
     private final MeasureDefinitionService definitionService;
     private final CqlExecutionService cqlExecutionService;
     private final DateShiftService dateShiftService;
+    private final FhirContext fhirContext;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR4();
 
     // ===== CRUD =====
 
@@ -385,7 +385,7 @@ public class TestCaseService {
         List<Resource> resources = new ArrayList<>();
         if (bundleJson == null || bundleJson.isBlank()) return resources;
         try {
-            Bundle bundle = FHIR_CONTEXT.newJsonParser().parseResource(Bundle.class, bundleJson);
+            Bundle bundle = fhirContext.newJsonParser().parseResource(Bundle.class, bundleJson);
             for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
                 if (entry.hasResource()) {
                     resources.add(entry.getResource());

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -42,17 +43,21 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
   })
 
   // Group requirements by resource type
-  const grouped = requirements.reduce<Record<string, DataRequirementInfo[]>>((acc, req) => {
-    const key = req.type
-    if (!acc[key]) acc[key] = []
-    acc[key].push(req)
-    return acc
-  }, {})
-
-  const resourceTypeCount = Object.keys(grouped).length
-  const valueSetCount = requirements.reduce((count, req) => {
-    return count + (req.codeFilter?.filter(cf => cf.valueSet || cf.codeSystemUrl)?.length ?? 0)
-  }, 0)
+  const { grouped, resourceTypeCount, valueSetCount } = useMemo(() => {
+    const g = requirements.reduce<Record<string, DataRequirementInfo[]>>((acc, req) => {
+      const key = req.type
+      if (!acc[key]) acc[key] = []
+      acc[key].push(req)
+      return acc
+    }, {})
+    return {
+      grouped: g,
+      resourceTypeCount: Object.keys(g).length,
+      valueSetCount: requirements.reduce((count, req) => {
+        return count + (req.codeFilter?.filter(cf => cf.valueSet || cf.codeSystemUrl)?.length ?? 0)
+      }, 0),
+    }
+  }, [requirements])
 
   if (!measure.cqlContent) {
     return (

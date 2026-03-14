@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URLEncoder;
@@ -54,7 +55,7 @@ public class FhirTerminologyService {
     private final CacheManager cacheManager;
     private final FhirImplementationGuideService igService;
     private final VsacService vsacService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = createRestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${fhir.terminology.url:https://tx.fhir.org/r4}")
@@ -70,6 +71,13 @@ public class FhirTerminologyService {
         this.cacheManager = cacheManager;
         this.igService = igService;
         this.vsacService = vsacService;
+    }
+
+    private static RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(10_000);
+        return new RestTemplate(factory);
     }
 
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {

@@ -32,5 +32,6 @@
     "required": "Hook type is required",
     "invalid": "Invalid hook type"
   },
-  "required": "{{field}} is required"
+  "required": "{{field}} is required",
+  "charCount": "{{current}} / {{max}}"
 }

@@ -37,10 +37,15 @@ import DebugPanel from './DebugPanel'
 import { usePreferences } from '../../hooks/usePreferences'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 
-export default function ExecutionPanel() {
+interface ExecutionPanelProps {
+  /** Returns the latest CQL content from the editor, flushing to Redux if needed */
+  getLatestCql?: () => string
+}
+
+export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
-  const { cqlContent } = useSelector((state: RootState) => state.editor)
+  const cqlContentFromRedux = useSelector((state: RootState) => state.editor.cqlContent)
   const { patientId, fhirServerUrl, isExecuting, results, errors, executionTimeMs, debugTrace } = useSelector(
     (state: RootState) => state.execution
   )
@@ -57,8 +62,9 @@ export default function ExecutionPanel() {
   const [debugMode, setDebugMode] = useState(false)
 
   const handleExecute = () => {
+    const cql = getLatestCql ? getLatestCql() : cqlContentFromRedux
     executeMutation.mutate({
-      cql: cqlContent,
+      cql,
       patientId: patientId || undefined,
       fhirServerUrl: fhirServerUrl || undefined,
       debugMode,
@@ -137,7 +143,7 @@ export default function ExecutionPanel() {
           <GradientButton
             startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
             onClick={handleExecute}
-            disabled={isExecuting || !cqlContent}
+            disabled={isExecuting || !(getLatestCql ? getLatestCql() : cqlContentFromRedux)}
             fullWidth
             sx={{
               py: 1.2,
@@ -263,9 +269,10 @@ export default function ExecutionPanel() {
                                 component="pre"
                                 sx={{
                                   p: 2,
-                                  bgcolor: '#F8FAFB',
+                                  bgcolor: 'action.hover',
                                   borderRadius: '8px',
-                                  border: '1px solid rgba(13,115,119,0.1)',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
                                   fontSize: '0.75rem',
                                   overflow: 'auto',
                                   maxHeight: 200,

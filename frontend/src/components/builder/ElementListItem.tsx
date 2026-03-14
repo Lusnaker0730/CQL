@@ -4,6 +4,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material'
+import TypeChip from './TypeChip'
 
 interface ElementListItemProps {
   label: string
@@ -37,35 +38,22 @@ export default function ElementListItem({
         sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
         onClick={onGoTo}
       >
-        <Typography
-          variant="body2"
-          sx={{
-            fontFamily: 'monospace',
-            fontSize: '0.8rem',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            '&:hover': { color: 'primary.main', textDecoration: 'underline' },
-          }}
-        >
-          {label}
-        </Typography>
-        {secondaryLabel && (
+        <Stack direction="row" spacing={0.5} alignItems="center">
           <Typography
-            variant="caption"
-            color="text.secondary"
+            variant="body2"
             sx={{
-              fontSize: '0.65rem',
-              lineHeight: 1.3,
-              display: 'block',
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              '&:hover': { color: 'primary.main', textDecoration: 'underline' },
             }}
           >
-            {secondaryLabel}
+            {label}
           </Typography>
-        )}
+          <TypeChip resultType={secondaryLabel} />
+        </Stack>
       </Box>
       <Stack
         className="element-actions"

@@ -14,8 +14,6 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
 
     List<MeasureDefinitionEntity> findByName(String name);
 
-    List<MeasureDefinitionEntity> findByStatus(String status);
-
     List<MeasureDefinitionEntity> findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(String name, String title);
 
     List<MeasureDefinitionEntity> findByDepartment(String department);
@@ -31,8 +29,6 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
     boolean existsByNameAndVersion(String name, String version);
 
     List<MeasureDefinitionEntity> findByOwnerUsername(String ownerUsername);
-
-    List<MeasureDefinitionEntity> findByAccessLevel(String accessLevel);
 
     @org.springframework.data.jpa.repository.Query(
         "SELECT e FROM MeasureDefinitionEntity e WHERE e.accessLevel = 'public' " +

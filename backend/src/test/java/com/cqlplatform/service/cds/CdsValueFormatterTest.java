@@ -120,6 +120,27 @@ class CdsValueFormatterTest {
     void formatValue_resource() {
         Observation obs = new Observation();
         obs.setId("obs-1");
-        assertThat(formatter.formatValue(obs)).isEqualTo("Observation/obs-1");
+        assertThat(formatter.formatValue(obs)).contains("**Observation**").contains("obs-1");
+    }
+
+    // XSS protection is handled by the frontend (React auto-escapes JSX text content).
+    // No server-side HTML escaping is needed for CDS card display values.
+
+    @Test
+    void formatExpressionLine_string_preservesRawContent() {
+        String result = formatter.formatExpressionLine("Name", "<script>alert(1)</script>");
+        assertThat(result).isEqualTo("**Name**: <script>alert(1)</script>");
+    }
+
+    @Test
+    void formatValue_string_preservesRawContent() {
+        assertThat(formatter.formatValue("<script>alert(1)</script>"))
+                .isEqualTo("<script>alert(1)</script>");
+    }
+
+    @Test
+    void formatExpressionLine_chineseText() {
+        String result = formatter.formatExpressionLine("建議", "要減肥");
+        assertThat(result).isEqualTo("**建議**: 要減肥");
     }
 }

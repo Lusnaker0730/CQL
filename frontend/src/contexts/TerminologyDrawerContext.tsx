@@ -1,4 +1,5 @@
 import { createContext, useState, useCallback, type ReactNode } from 'react'
+import { UI_TRANSITION_DELAY_MS } from '../constants/timing'
 
 export interface SelectedCoding {
   system: string
@@ -20,6 +21,7 @@ export interface TerminologyDrawerContextValue {
   closeDrawer: () => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context + provider intentionally co-located
 export const TerminologyDrawerContext = createContext<TerminologyDrawerContextValue>({
   isOpen: false,
   options: {},
@@ -39,7 +41,7 @@ export function TerminologyDrawerProvider({ children }: { children: ReactNode })
   const closeDrawer = useCallback(() => {
     setIsOpen(false)
     // Keep options around briefly so closing animation doesn't blank the content
-    setTimeout(() => setOptions({}), 300)
+    setTimeout(() => setOptions({}), UI_TRANSITION_DELAY_MS)
   }, [])
 
   return (

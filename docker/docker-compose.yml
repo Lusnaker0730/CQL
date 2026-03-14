@@ -52,6 +52,18 @@ services:
       - OKTA_CLIENT_ID=${OKTA_CLIENT_ID:-}
       - OKTA_CLIENT_SECRET=${OKTA_CLIENT_SECRET:-}
       - OKTA_ISSUER=${OKTA_ISSUER:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - SMART_ISSUER=${SMART_ISSUER:-}
+      - SMART_AUTH_ENDPOINT=${SMART_AUTH_ENDPOINT:-}
+      - SMART_TOKEN_ENDPOINT=${SMART_TOKEN_ENDPOINT:-}
+      - APP_BASE_URL=${APP_BASE_URL:-}
+      - AI_PROVIDER=${AI_PROVIDER:-none}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      - OLLAMA_ENABLED=${OLLAMA_ENABLED:-false}
+      - AI_CLOUD_API_URL=${AI_CLOUD_API_URL:-}
+      - AI_CLOUD_MODEL=${AI_CLOUD_MODEL:-}
+      - AI_CLOUD_API_KEY=${AI_CLOUD_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,6 +108,31 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  ollama:
+    profiles: [ollama]
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - cql-network
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+        limits:
+          cpus: '4.0'
+          memory: 8G
 
   hapi-fhir:
     image: hapiproject/hapi:latest
@@ -220,5 +257,6 @@ volumes:
   postgres-data:
   postgres-backup:
   hapi-data:
+  ollama-data:
   prometheus-data:
   grafana-data:

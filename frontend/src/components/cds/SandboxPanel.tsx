@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { AUTOSAVE_NORMAL_MS, AUTOSAVE_FAST_MS } from '../../constants/timing'
+import { EDITOR_HEIGHT_MEDIUM, EDITOR_HEIGHT_SMALL } from '../../constants/layout'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -147,7 +149,7 @@ function SandboxPanelInner() {
       } catch {
         // storage full or unavailable
       }
-    }, 1000)
+    }, AUTOSAVE_NORMAL_MS)
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     }
@@ -226,7 +228,7 @@ function SandboxPanelInner() {
         } catch {
           // Invalid JSON -- don't sync
         }
-      }, 500)
+      }, AUTOSAVE_FAST_MS)
     },
     [dispatch]
   )
@@ -553,7 +555,7 @@ function SandboxPanelInner() {
         {dataTab === 1 && (
           <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
             <Editor
-              height="350px"
+              height={EDITOR_HEIGHT_MEDIUM}
               language="json"
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
               value={testDataJson}
@@ -576,7 +578,7 @@ function SandboxPanelInner() {
             </Alert>
             <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
               <Editor
-                height="300px"
+                height={EDITOR_HEIGHT_SMALL}
                 language="json"
                 theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                 value={draftOrdersJson}
@@ -652,10 +654,11 @@ function SandboxPanelInner() {
                       variant="body2"
                       color="text.secondary"
                       sx={{ whiteSpace: 'pre-line' }}
-                      dangerouslySetInnerHTML={{
-                        __html: card.detail.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
-                      }}
-                    />
+                    >
+                      {card.detail.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+                        i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
+                      )}
+                    </Typography>
                   )}
                   {card.suggestions && card.suggestions.length > 0 && (
                     <Box mt={1}>

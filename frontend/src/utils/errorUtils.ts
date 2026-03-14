@@ -39,3 +39,16 @@ export function extractApiError(error: unknown): string {
   // 5. Fallback
   return 'An unknown error occurred'
 }
+
+/**
+ * Extracts the details array from a GlobalExceptionHandler error response.
+ */
+export function extractApiErrorDetails(error: unknown): string[] | undefined {
+  if (error instanceof AxiosError && error.response?.data) {
+    const data = error.response.data as Record<string, unknown>
+    if (Array.isArray(data.details)) {
+      return data.details.filter((d): d is string => typeof d === 'string')
+    }
+  }
+  return undefined
+}

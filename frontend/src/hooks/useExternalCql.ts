@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { authoringApi } from '../api'
+import type { ExternalCqlLibrary } from '../types/authoring'
 
 export function useExternalCqlList(artifactId: number) {
   return useQuery({
@@ -10,7 +11,7 @@ export function useExternalCqlList(artifactId: number) {
 
 export function useUploadExternalCql(artifactId: number) {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<ExternalCqlLibrary, Error, File>({
     mutationFn: (file: File) => authoringApi.uploadExternalCql(artifactId, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-cql', artifactId] })
@@ -20,7 +21,7 @@ export function useUploadExternalCql(artifactId: number) {
 
 export function useDeleteExternalCql(artifactId: number) {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<unknown, Error, number>({
     mutationFn: (libId: number) => authoringApi.deleteExternalCql(artifactId, libId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-cql', artifactId] })

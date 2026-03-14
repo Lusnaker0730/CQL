@@ -12,15 +12,22 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
 public class TemplateService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Set<String> BUILTIN_REFERENCE_TYPES = Set.of(
+            "baseElement", "baseElementRef", "parameterRef", "externalCqlRef",
+            "arithmeticExpression", "And", "Or", "Union", "Intersect");
+
     private List<FormTemplateCategory> categories = new ArrayList<>();
+    private Set<String> knownElementTypes = new HashSet<>();
 
     @PostConstruct
     public void init() {
@@ -28,14 +35,80 @@ public class TemplateService {
             InputStream is = new ClassPathResource("data/formTemplates.json").getInputStream();
             List<Map<String, Object>> raw = MAPPER.readValue(is, new TypeReference<>() {});
             categories = raw.stream().map(this::parseCategory).toList();
-            log.info("Loaded {} element template categories", categories.size());
+
+            // Resolve template inheritance (e.g. "extends": "Base")
+            resolveInheritance();
+
+            Set<String> types = new HashSet<>(BUILTIN_REFERENCE_TYPES);
+            for (FormTemplateCategory category : categories) {
+                for (FormTemplate entry : category.getEntries()) {
+                    if (entry.getId() != null) {
+                        types.add(entry.getId());
+                    }
+                }
+            }
+            knownElementTypes = types;
+
+            log.info("Loaded {} element template categories ({} element types)",
+                    categories.size(), knownElementTypes.size());
         } catch (IOException e) {
             log.error("Failed to load form templates", e);
         }
     }
 
+    public boolean isValidElementType(String type) {
+        return knownElementTypes.contains(type);
+    }
+
     public List<FormTemplateCategory> getAllCategories() {
         return categories;
+    }
+
+    /**
+     * Resolve template inheritance: merge base template fields into child templates.
+     * Base fields are prepended so element_name/comment appear first.
+     */
+    private void resolveInheritance() {
+        // Build lookup: template id → template
+        Map<String, FormTemplate> lookup = new java.util.HashMap<>();
+        for (FormTemplateCategory category : categories) {
+            for (FormTemplate entry : category.getEntries()) {
+                if (entry.getId() != null) {
+                    lookup.put(entry.getId(), entry);
+                }
+            }
+        }
+
+        // Merge base fields into children
+        for (FormTemplateCategory category : categories) {
+            for (FormTemplate entry : category.getEntries()) {
+                String parentId = entry.getExtendsTemplate();
+                if (parentId == null) continue;
+                FormTemplate parent = lookup.get(parentId);
+                if (parent == null || parent.getFields() == null) continue;
+
+                List<Map<String, Object>> childFields = entry.getFields() != null
+                        ? entry.getFields() : new ArrayList<>();
+
+                // Collect child field IDs to avoid duplicates
+                Set<String> childFieldIds = new HashSet<>();
+                for (Map<String, Object> f : childFields) {
+                    Object id = f.get("id");
+                    if (id != null) childFieldIds.add(id.toString());
+                }
+
+                // Prepend parent fields that are not already in child
+                List<Map<String, Object>> merged = new ArrayList<>();
+                for (Map<String, Object> pf : parent.getFields()) {
+                    Object id = pf.get("id");
+                    if (id != null && !childFieldIds.contains(id.toString())) {
+                        merged.add(pf);
+                    }
+                }
+                merged.addAll(childFields);
+                entry.setFields(merged);
+            }
+        }
     }
 
     @SuppressWarnings("unchecked")

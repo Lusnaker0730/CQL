@@ -25,6 +25,8 @@ public class FhirClientFactory {
     private final FhirContext fhirContext;
 
     private static final long CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+    private static final int MAX_CACHE_SIZE = 50;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final Map<String, CachedClient> clientCache = new ConcurrentHashMap<>();
 
@@ -48,12 +50,9 @@ public class FhirClientFactory {
 
         log.debug("Creating FHIR Client for URL: {}", serverUrl);
         IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
+        registerLoggingInterceptor(client);
 
-        LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
-        loggingInterceptor.setLogRequestSummary(true);
-        loggingInterceptor.setLogResponseSummary(true);
-        client.registerInterceptor(loggingInterceptor);
-
+        evictIfNeeded();
         clientCache.put(serverUrl, new CachedClient(client));
         return client;
     }
@@ -70,21 +69,25 @@ public class FhirClientFactory {
         }
 
         IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
+        evictIfNeeded();
         clientCache.put(cacheKey, new CachedClient(client));
         return client;
     }
 
     /**
-     * Creates an authenticated FHIR client based on the EHR connection's auth configuration.
-     * Authenticated clients are NOT cached since credentials may change.
+     * Creates a FRESH (non-cached) authenticated FHIR client based on the EHR connection's auth config.
+     * Must not reuse cached clients — adding interceptors to a cached client leaks credentials
+     * between connections and accumulates interceptors on every call.
      */
     public IGenericClient createAuthenticatedClient(EhrConnectionEntity connection) {
-        IGenericClient client = createClient(connection.getFhirServerUrl());
+        String serverUrl = connection.getFhirServerUrl() != null ? connection.getFhirServerUrl() : defaultFhirServerUrl;
+        log.debug("Creating authenticated FHIR Client for URL: {}", serverUrl);
+        IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
+        registerLoggingInterceptor(client);
 
         if ("basic".equals(connection.getAuthType()) && connection.getCredentials() != null) {
             try {
-                ObjectMapper mapper = new ObjectMapper();
-                var creds = mapper.readTree(connection.getCredentials());
+                var creds = MAPPER.readTree(connection.getCredentials());
                 String username = creds.has("username") ? creds.get("username").asText() : "";
                 String password = creds.has("password") ? creds.get("password").asText() : "";
                 client.registerInterceptor(new BasicAuthInterceptor(username, password));
@@ -93,8 +96,7 @@ public class FhirClientFactory {
             }
         } else if ("bearer".equals(connection.getAuthType()) && connection.getCredentials() != null) {
             try {
-                ObjectMapper mapper = new ObjectMapper();
-                var creds = mapper.readTree(connection.getCredentials());
+                var creds = MAPPER.readTree(connection.getCredentials());
                 String token = creds.has("token") ? creds.get("token").asText() : "";
                 client.registerInterceptor(new BearerTokenAuthInterceptor(token));
             } catch (Exception e) {
@@ -105,8 +107,40 @@ public class FhirClientFactory {
         return client;
     }
 
+    private static void registerLoggingInterceptor(IGenericClient client) {
+        LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
+        loggingInterceptor.setLogRequestSummary(true);
+        loggingInterceptor.setLogResponseSummary(true);
+        client.registerInterceptor(loggingInterceptor);
+    }
+
     public String getDefaultFhirServerUrl() {
         return defaultFhirServerUrl;
+    }
+
+    /**
+     * Evicts expired entries first; if still over MAX_CACHE_SIZE, removes the oldest entry.
+     */
+    private void evictIfNeeded() {
+        // Remove expired entries
+        clientCache.entrySet().removeIf(e -> e.getValue().isExpired());
+
+        // If still over limit, remove the oldest entry
+        while (clientCache.size() >= MAX_CACHE_SIZE) {
+            String oldestKey = null;
+            long oldestTime = Long.MAX_VALUE;
+            for (Map.Entry<String, CachedClient> entry : clientCache.entrySet()) {
+                if (entry.getValue().createdAt < oldestTime) {
+                    oldestTime = entry.getValue().createdAt;
+                    oldestKey = entry.getKey();
+                }
+            }
+            if (oldestKey != null) {
+                clientCache.remove(oldestKey);
+            } else {
+                break;
+            }
+        }
     }
 
     private static class CachedClient {

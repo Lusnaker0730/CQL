@@ -1,0 +1,28 @@
+name: Regulatory Traceability Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, labeled, unlabeled]
+
+permissions:
+  issues: read
+  pull-requests: read
+
+jobs:
+  traceability-check:
+    name: TFDA Regulatory Traceability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run regulatory traceability check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python .github/scripts/check-regulatory-traceability.py

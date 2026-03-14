@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.model.authoring.*;
+import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.security.OwnershipVerifier;
 import com.cqlplatform.service.authoring.*;
 import com.cqlplatform.service.cds.CdsHooksService;
@@ -191,11 +192,30 @@ class AuthoringControllerTest {
         ArtifactResponse response = createArtifactResponse();
         when(artifactService.getById(1L)).thenReturn(Optional.of(response));
         doNothing().when(ownershipVerifier).verifyOwnership(any());
-        when(cqlGenerationService.generateCql(eq(1L), any())).thenReturn("library Test version '1.0'");
+        when(cqlGenerationService.generateCqlWithWarnings(eq(1L), any()))
+                .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
         mockMvc.perform(post("/api/authoring/artifacts/1/cql"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.cql").value("library Test version '1.0'"));
+                .andExpect(jsonPath("$.cql").value("library Test version '1.0'"))
+                .andExpect(jsonPath("$.warnings").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void generateCql_withWarnings_shouldIncludeWarningsInResponse() throws Exception {
+        ArtifactResponse response = createArtifactResponse();
+        when(artifactService.getById(1L)).thenReturn(Optional.of(response));
+        doNothing().when(ownershipVerifier).verifyOwnership(any());
+        when(cqlGenerationService.generateCqlWithWarnings(eq(1L), any()))
+                .thenReturn(new CqlBuildResult("library Test version '1.0'",
+                        List.of("Unknown element type 'Foo' for element 'Bar'; defaulting to 'true'")));
+
+        mockMvc.perform(post("/api/authoring/artifacts/1/cql"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cql").value("library Test version '1.0'"))
+                .andExpect(jsonPath("$.warnings").isArray())
+                .andExpect(jsonPath("$.warnings[0]").value("Unknown element type 'Foo' for element 'Bar'; defaulting to 'true'"));
     }
 
     @Test

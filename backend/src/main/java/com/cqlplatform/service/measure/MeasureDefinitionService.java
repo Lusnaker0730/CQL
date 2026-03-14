@@ -5,6 +5,7 @@ import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.NotificationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
@@ -143,7 +144,7 @@ public class MeasureDefinitionService {
 
         List<MeasureDefinitionEntity> entities;
         if (hasSearch && hasDept) {
-            entities = repository.findByDepartmentAndSearchTerm(department, searchTerm);
+            entities = repository.findByDepartmentAndSearchTerm(department, InputValidator.escapeLikeWildcards(searchTerm));
         } else if (hasDept) {
             entities = repository.findByDepartment(department);
         } else if (hasSearch) {
@@ -466,9 +467,19 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findSharedWithUser("%\"" + username + "\"%").stream()
+        return repository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> getAccessibleMeasures(String username) {
+        List<MeasureDefinition> owned = getMeasuresByOwner(username);
+        List<MeasureDefinition> shared = getSharedMeasures(username);
+        Map<Long, MeasureDefinition> merged = new LinkedHashMap<>();
+        owned.forEach(m -> merged.put(m.getId(), m));
+        shared.forEach(m -> merged.putIfAbsent(m.getId(), m));
+        return new ArrayList<>(merged.values());
     }
 
     // ===== Workflow =====

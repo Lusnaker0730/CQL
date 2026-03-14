@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
+import { downloadBlob } from '../../utils/download'
 import {
   Paper,
   Typography,
@@ -99,7 +101,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -210,12 +212,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     try {
       const data = await measureApi.exportFhirMeasure(id)
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `measure-${id}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `measure-${id}.json`)
     } catch (err) {
       showNotification(t('library.importDialog.exportError', { error: extractApiError(err) }), 'error')
     }

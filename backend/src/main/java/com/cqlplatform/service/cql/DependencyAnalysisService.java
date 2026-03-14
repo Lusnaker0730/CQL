@@ -29,6 +29,7 @@ public class DependencyAnalysisService {
         private List<DependencyInfo> dependencies;
         private List<VersionConflict> conflicts;
         private List<VersionMismatch> mismatches;
+        private List<CircularDependency> circularDependencies;
         private boolean hasIssues;
     }
 
@@ -62,6 +63,14 @@ public class DependencyAnalysisService {
         private String requestedBy;
     }
 
+    @Data
+    @Builder
+    public static class CircularDependency {
+        private String libraryName;
+        private String version;
+        private List<String> cycle;
+    }
+
     @Transactional(readOnly = true)
     public DependencyAnalysisResult analyze(String libraryId) {
         int dashIdx = libraryId.lastIndexOf('-');
@@ -85,20 +94,27 @@ public class DependencyAnalysisService {
 
         List<DependencyInfo> depInfos = new ArrayList<>();
         List<VersionMismatch> mismatches = new ArrayList<>();
+        List<CircularDependency> circularDeps = new ArrayList<>();
         Map<String, Map<String, List<String>>> versionRequests = new LinkedHashMap<>();
 
+        String rootKey = name + "@" + version;
+        LinkedHashSet<String> ancestorPath = new LinkedHashSet<>();
+        ancestorPath.add(rootKey);
+
         for (String dep : deps) {
-            DependencyInfo info = analyzeDependency(dep, name + " v" + version, versionRequests, mismatches, new HashSet<>());
+            DependencyInfo info = analyzeDependency(dep, name + " v" + version,
+                    versionRequests, mismatches, circularDeps, ancestorPath);
             depInfos.add(info);
         }
 
         List<VersionConflict> conflicts = detectConflicts(versionRequests);
-        boolean hasIssues = !conflicts.isEmpty() || !mismatches.isEmpty();
+        boolean hasIssues = !conflicts.isEmpty() || !mismatches.isEmpty() || !circularDeps.isEmpty();
 
         return DependencyAnalysisResult.builder()
                 .dependencies(depInfos)
                 .conflicts(conflicts)
                 .mismatches(mismatches)
+                .circularDependencies(circularDeps)
                 .hasIssues(hasIssues)
                 .build();
     }
@@ -106,7 +122,8 @@ public class DependencyAnalysisService {
     private DependencyInfo analyzeDependency(String dep, String requestedBy,
                                               Map<String, Map<String, List<String>>> versionRequests,
                                               List<VersionMismatch> mismatches,
-                                              Set<String> visited) {
+                                              List<CircularDependency> circularDeps,
+                                              LinkedHashSet<String> ancestorPath) {
         Matcher matcher = DEP_PATTERN.matcher(dep.trim());
         String depName;
         String declaredVersion;
@@ -151,12 +168,31 @@ public class DependencyAnalysisService {
 
         List<DependencyInfo> transitive = new ArrayList<>();
         String visitKey = depName + "@" + (resolvedVersion != null ? resolvedVersion : declaredVersion);
-        if (!visited.contains(visitKey) && found.isPresent()) {
-            visited.add(visitKey);
+
+        if (ancestorPath.contains(visitKey)) {
+            // Circular dependency detected — record the cycle path
+            List<String> cyclePath = new ArrayList<>();
+            boolean inCycle = false;
+            for (String ancestor : ancestorPath) {
+                if (ancestor.equals(visitKey)) inCycle = true;
+                if (inCycle) cyclePath.add(ancestor);
+            }
+            cyclePath.add(visitKey); // close the cycle
+            circularDeps.add(CircularDependency.builder()
+                    .libraryName(depName)
+                    .version(resolvedVersion != null ? resolvedVersion : declaredVersion)
+                    .cycle(cyclePath)
+                    .build());
+            log.warn("Circular dependency detected: {}", String.join(" → ", cyclePath));
+        } else if (found.isPresent()) {
             List<String> transDeps = found.get().getDependencyList();
-            if (transDeps != null) {
+            if (transDeps != null && !transDeps.isEmpty()) {
+                // Clone ancestorPath for this branch so siblings get a complete view
+                LinkedHashSet<String> childPath = new LinkedHashSet<>(ancestorPath);
+                childPath.add(visitKey);
                 for (String td : transDeps) {
-                    transitive.add(analyzeDependency(td, depName + " v" + resolvedVersion, versionRequests, mismatches, visited));
+                    transitive.add(analyzeDependency(td, depName + " v" + resolvedVersion,
+                            versionRequests, mismatches, circularDeps, childPath));
                 }
             }
         }
@@ -218,6 +254,7 @@ public class DependencyAnalysisService {
                 .dependencies(List.of())
                 .conflicts(List.of())
                 .mismatches(List.of())
+                .circularDependencies(List.of())
                 .hasIssues(false)
                 .build();
     }

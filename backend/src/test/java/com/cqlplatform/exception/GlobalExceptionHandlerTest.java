@@ -98,18 +98,29 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getDetails()).contains("Could not resolve type", "Unknown identifier");
     }
 
-    // ===== CqlExecutionException → 500 =====
+    // ===== CqlExecutionException → 500 (generic) or 504 (timeout) =====
 
     @Test
     void handleCqlExecutionException_shouldReturn500() {
-        CqlExecutionException ex = new CqlExecutionException("Execution timed out");
+        CqlExecutionException ex = new CqlExecutionException("Null pointer during evaluation");
 
         ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleCqlExecutionException(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(500);
-        assertThat(response.getBody().getMessage()).isEqualTo("Execution timed out");
+        assertThat(response.getBody().getMessage()).isEqualTo("Null pointer during evaluation");
+    }
+
+    @Test
+    void handleCqlExecutionException_timedOut_shouldReturn504() {
+        CqlExecutionException ex = new CqlExecutionException("Execution timed out");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleCqlExecutionException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(504);
     }
 
     // ===== FhirServerUnavailableException → 503 =====

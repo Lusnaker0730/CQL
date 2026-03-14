@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { AUTOSAVE_FAST_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -38,6 +40,7 @@ import {
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import type { TestCase, MeasureDefinition } from '../../types'
 import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
+import { TEST_CASE } from '../../constants/fieldConstraints'
 
 interface TestCaseEditorProps {
   measure: MeasureDefinition
@@ -218,7 +221,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     }
   }, [state.entries])
 
-  const validateBundle = (json: string): boolean => {
+  const validateBundle = useCallback((json: string): boolean => {
     try {
       const parsed = JSON.parse(json)
       if (parsed.resourceType !== 'Bundle') {
@@ -231,7 +234,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       setBundleError(t('testCaseEditor.validation.invalidJson'))
       return false
     }
-  }
+  }, [t])
 
   // Debounced sync: JSON → Visual Builder
   const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -256,9 +259,9 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         } catch {
           // Invalid JSON — don't sync
         }
-      }, 500)
+      }, AUTOSAVE_FAST_MS)
     },
-    [dispatch]
+    [dispatch, validateBundle]
   )
 
   const togglePopulation = (key: string) => {
@@ -326,7 +329,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
 
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(saveMutation.error as Error).message}
+          {extractApiError(saveMutation.error)}
         </Alert>
       )}
 
@@ -373,6 +376,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           value={title}
           onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
           placeholder={t('testCaseEditor.fields.titlePlaceholder')}
+          inputProps={{ maxLength: TEST_CASE.title.maxLength }}
         />
 
         <TextField
@@ -383,6 +387,8 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           rows={2}
           value={description}
           onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
+          inputProps={{ maxLength: TEST_CASE.description.maxLength }}
+          helperText={`${description.length} / ${TEST_CASE.description.maxLength}`}
         />
 
         <Autocomplete
@@ -397,7 +403,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
               size="small"
               fullWidth
               placeholder={t('testCaseEditor.fields.seriesPlaceholder')}
-              inputProps={{ ...params.inputProps, maxLength: 250 }}
+              inputProps={{ ...params.inputProps, maxLength: TEST_CASE.series.maxLength }}
             />
           )}
         />

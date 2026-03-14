@@ -1,6 +1,7 @@
 package com.cqlplatform.service.cql;
 
 import com.cqlplatform.repository.CqlLibraryRepository;
+import org.cqframework.cql.cql2elm.CqlCompilerOptions;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
 
@@ -13,13 +14,19 @@ public final class LibraryManagerFactory {
     private LibraryManagerFactory() {}
 
     /**
-     * Creates a LibraryManager with:
-     * 1. DatabaseLibrarySourceProvider (user libraries, takes precedence) — if repository is available
-     * 2. ClasspathLibrarySourceProvider (FHIRHelpers and bundled libraries)
+     * Creates a LibraryManager with default compiler options
+     * (EnableLocators, EnableAnnotations, EnableResultTypes).
      */
     public static LibraryManager create(CqlLibraryRepository libraryRepository) {
+        return create(libraryRepository, defaultOptions());
+    }
+
+    /**
+     * Creates a LibraryManager with the given compiler options.
+     */
+    public static LibraryManager create(CqlLibraryRepository libraryRepository, CqlCompilerOptions options) {
         ModelManager modelManager = new ModelManager();
-        LibraryManager libraryManager = new LibraryManager(modelManager);
+        LibraryManager libraryManager = new LibraryManager(modelManager, options);
 
         // Register database provider first so user libraries take precedence
         if (libraryRepository != null) {
@@ -32,5 +39,29 @@ public final class LibraryManagerFactory {
                 .registerProvider(new ClasspathLibrarySourceProvider("cql"));
 
         return libraryManager;
+    }
+
+    /**
+     * Builds CqlCompilerOptions from individual flags.
+     */
+    public static CqlCompilerOptions buildOptions(
+            boolean enableLocators,
+            boolean enableAnnotations,
+            boolean enableResultTypes,
+            boolean validateUnits) {
+        CqlCompilerOptions options = new CqlCompilerOptions();
+        if (enableLocators) options = options.withOptions(CqlCompilerOptions.Options.EnableLocators);
+        if (enableAnnotations) options = options.withOptions(CqlCompilerOptions.Options.EnableAnnotations);
+        if (enableResultTypes) options = options.withOptions(CqlCompilerOptions.Options.EnableResultTypes);
+        options = options.withValidateUnits(validateUnits);
+        return options;
+    }
+
+    private static CqlCompilerOptions defaultOptions() {
+        return new CqlCompilerOptions(
+                CqlCompilerOptions.Options.EnableLocators,
+                CqlCompilerOptions.Options.EnableAnnotations,
+                CqlCompilerOptions.Options.EnableResultTypes
+        );
     }
 }

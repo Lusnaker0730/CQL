@@ -173,7 +173,7 @@ export default function ValueSetField({
         />
       )}
 
-      <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} />
+      <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} resourceType={effectiveResourceType} />
       <AddValueSetDialog
         open={vsDialogOpen}
         onClose={() => setVsDialogOpen(false)}

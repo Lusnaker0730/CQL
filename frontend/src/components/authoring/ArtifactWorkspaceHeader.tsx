@@ -8,13 +8,16 @@ import {
   ArrowBack as BackIcon, Save as SaveIcon, MoreVert as MoreIcon,
   CloudUpload as DeployIcon, LibraryBooks as LibraryIcon, Download as DownloadIcon,
   Visibility as ViewIcon, Close as CloseIcon, Description as CpgIcon,
+  FolderZip as ZipIcon,
 } from '@mui/icons-material'
 import { useDeployCdsService, useSaveAsLibrary } from '../../hooks/useArtifactTesting'
-import { useGenerateArtifactCql } from '../../hooks/useArtifactCql'
+import { useGenerateArtifactCql, useExportArtifactZip } from '../../hooks/useArtifactCql'
+import { extractApiError, extractApiErrorDetails } from '../../utils/errorUtils'
 import CpgMetadataEditor from './CpgMetadataEditor'
 import type { Artifact, ArtifactRequest } from '../../types/authoring'
 import { CDS_HOOK_TYPES, getHookDescription } from '../../constants/cdsHooks'
-import { FHIR_VERSION_OPTIONS, codeBlockSx } from '../../constants/authoringConstants'
+import { codeBlockSx } from '../../constants/authoringConstants'
+import { downloadBlob } from '../../utils/download'
 
 interface ArtifactWorkspaceHeaderProps {
   artifact: Artifact
@@ -45,19 +48,26 @@ export default function ArtifactWorkspaceHeader({
   const [viewCqlDialog, setViewCqlDialog] = useState(false)
   const [viewCqlContent, setViewCqlContent] = useState<string | null>(null)
   const [cpgDialogOpen, setCpgDialogOpen] = useState(false)
-  const [selectedFhirVersion, setSelectedFhirVersion] = useState(artifact.fhirVersion || 'R4')
 
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveErrorDetails, setSaveErrorDetails] = useState<string[]>([])
 
   const deployMutation = useDeployCdsService()
   const saveLibMutation = useSaveAsLibrary()
   const generateCqlMutation = useGenerateArtifactCql()
+  const exportZipMutation = useExportArtifactZip()
 
   const saveFirst = async () => {
     if (isDirty && onSaveBeforeGenerate) {
       setSaving(true)
+      setSaveError(null)
       try {
         await onSaveBeforeGenerate()
+      } catch (err) {
+        setSaveError(extractApiError(err))
+        setSaveErrorDetails(extractApiErrorDetails(err) || [])
+        throw err
       } finally {
         setSaving(false)
       }
@@ -100,7 +110,7 @@ export default function ArtifactWorkspaceHeader({
   }
 
   const handleDeploy = async () => {
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     const serviceId = artifact.name.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase()
     deployMutation.mutate(
       { id: artifact.id, serviceId, hook: deployHook },
@@ -115,15 +125,17 @@ export default function ArtifactWorkspaceHeader({
 
   const handleSaveAsLibrary = async () => {
     setAnchorEl(null)
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     saveLibMutation.mutate(artifact.id, {
       onSuccess: (data) => setSaveLibResult(data.message),
     })
   }
 
-  const handleViewCql = async (fhirVer?: string) => {
-    await saveFirst()
-    generateCqlMutation.mutate({ id: artifact.id, fhirVersion: fhirVer || selectedFhirVersion }, {
+  const handleViewCql = async () => {
+    try {
+      await saveFirst()
+    } catch { return }
+    generateCqlMutation.mutate(artifact.id, {
       onSuccess: (data) => {
         setViewCqlContent(data.cql)
         setViewCqlDialog(true)
@@ -131,17 +143,21 @@ export default function ArtifactWorkspaceHeader({
     })
   }
 
-  const handleDownloadCql = async (fhirVer?: string) => {
-    await saveFirst()
-    generateCqlMutation.mutate({ id: artifact.id, fhirVersion: fhirVer || selectedFhirVersion }, {
+  const safeName = artifact.name.replace(/[^a-zA-Z0-9_-]/g, '_')
+
+  const handleExportZip = async () => {
+    setAnchorEl(null)
+    try { await saveFirst() } catch { return }
+    exportZipMutation.mutate(artifact.id, {
+      onSuccess: (blob) => downloadBlob(blob, `${safeName}.zip`),
+    })
+  }
+
+  const handleDownloadCql = async () => {
+    try { await saveFirst() } catch { return }
+    generateCqlMutation.mutate(artifact.id, {
       onSuccess: (data) => {
-        const blob = new Blob([data.cql], { type: 'text/plain' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${artifact.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.cql`
-        a.click()
-        URL.revokeObjectURL(url)
+        downloadBlob(new Blob([data.cql], { type: 'text/plain' }), `${safeName}.cql`)
       },
     })
   }
@@ -268,10 +284,25 @@ export default function ArtifactWorkspaceHeader({
               <ListItemIcon><CpgIcon fontSize="small" /></ListItemIcon>
               <ListItemText>{t('header.cpgMetadata')}</ListItemText>
             </MenuItem>
+            <MenuItem onClick={handleExportZip} disabled={exportZipMutation.isPending}>
+              <ListItemIcon><ZipIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>{exportZipMutation.isPending ? t('header.exporting') : t('header.exportZip')}</ListItemText>
+            </MenuItem>
           </Menu>
         </Stack>
       </Box>
 
+      {saveError && (
+        <Alert severity="error" onClose={() => { setSaveError(null); setSaveErrorDetails([]) }} sx={{ mx: 2, mt: 1 }}>
+          <Typography variant="subtitle2">{t('header.saveFailed')}</Typography>
+          <Typography variant="body2">{saveError}</Typography>
+          {saveErrorDetails.map((detail, i) => (
+            <Typography key={i} variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+              • {detail}
+            </Typography>
+          ))}
+        </Alert>
+      )}
       {deployResult && (
         <Alert severity="success" onClose={() => setDeployResult(null)} sx={{ mx: 2, mt: 1 }}>
           {deployResult}
@@ -304,6 +335,14 @@ export default function ArtifactWorkspaceHeader({
           </Typography>
         </Alert>
       )}
+      {exportZipMutation.isError && (
+        <Alert severity="error" onClose={() => exportZipMutation.reset()} sx={{ mx: 2, mt: 1 }}>
+          <Typography variant="subtitle2">{t('header.exportZipFailed')}</Typography>
+          <Typography variant="body2">
+            {(exportZipMutation.error as Error)?.message || 'Unknown error'}
+          </Typography>
+        </Alert>
+      )}
       {generateCqlMutation.isError && (
         <Alert severity="error" onClose={() => generateCqlMutation.reset()} sx={{ mx: 2, mt: 1 }}>
           <Typography variant="subtitle2">{t('header.cqlGenFailed')}</Typography>
@@ -323,34 +362,15 @@ export default function ArtifactWorkspaceHeader({
           <IconButton onClick={() => setViewCqlDialog(false)} size="small" aria-label={tc('actions.close')}><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">{t('header.fhirVersion')}</Typography>
-            <TextField
-              select
-              size="small"
-              value={selectedFhirVersion}
-              onChange={(e) => setSelectedFhirVersion(e.target.value)}
-              sx={{ minWidth: 120 }}
-            >
-              {FHIR_VERSION_OPTIONS.map((v) => (
-                <MenuItem key={v.key} value={v.key}>{v.label}</MenuItem>
-              ))}
-            </TextField>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => handleViewCql(selectedFhirVersion)}
-              disabled={generateCqlMutation.isPending}
-            >
-              {generateCqlMutation.isPending ? t('header.regenerating') : t('header.regenerate')}
-            </Button>
-          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('header.fhirVersion')}: R4 (4.0.1)
+          </Typography>
           {viewCqlContent ? (
             <Box
               sx={{
                 ...codeBlockSx,
                 p: 2,
-                color: '#d4d4d4',
+                color: (theme) => theme.palette.mode === 'dark' ? '#d4d4d4' : '#1e1e1e',
                 maxHeight: '60vh',
                 overflow: 'auto',
               }}
@@ -368,13 +388,7 @@ export default function ArtifactWorkspaceHeader({
             startIcon={<DownloadIcon />}
             onClick={() => {
               if (viewCqlContent) {
-                const blob = new Blob([viewCqlContent], { type: 'text/plain' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `${artifact.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.cql`
-                a.click()
-                URL.revokeObjectURL(url)
+                downloadBlob(new Blob([viewCqlContent], { type: 'text/plain' }), `${safeName}.cql`)
               }
             }}
           >

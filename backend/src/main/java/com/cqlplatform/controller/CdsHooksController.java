@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.model.cds.*;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.cds.CdsHooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,6 +40,9 @@ public class CdsHooksController {
     public ResponseEntity<?> invokeService(
             @PathVariable String serviceId,
             @Valid @RequestBody CdsRequest request) {
+        if (request.getFhirServer() != null) {
+            InputValidator.requireValidUrl(request.getFhirServer());
+        }
         log.info("CDS invoke: serviceId={}, hook={}, fhirServer={}, prefetchKeys={}, patientId={}",
                 serviceId, request.getHook(), request.getFhirServer(),
                 request.getPrefetch() != null ? request.getPrefetch().keySet() : "null",
@@ -118,6 +122,9 @@ public class CdsHooksController {
             return ResponseEntity.status(403).build();
         }
 
+        if (request.getFhirServer() != null) {
+            InputValidator.requireValidUrl(request.getFhirServer());
+        }
         log.info("Per-user CDS invoke: user={}, serviceId={}", username, serviceId);
         try {
             CdsResponse response = cdsHooksService.invokeService(serviceId, request);

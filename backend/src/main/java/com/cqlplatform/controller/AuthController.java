@@ -6,13 +6,20 @@ import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.security.JwtTokenProvider;
+import com.cqlplatform.security.RefreshTokenCookieUtil;
+import com.cqlplatform.security.SseTicketService;
 import com.cqlplatform.service.OktaOidcService;
 import com.cqlplatform.service.OktaUserInfo;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.RefreshTokenService;
+import com.cqlplatform.service.RefreshTokenService.TokenPair;
+import com.cqlplatform.service.TokenVersionService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -38,6 +45,10 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetService passwordResetService;
+    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenCookieUtil cookieUtil;
+    private final SseTicketService sseTicketService;
+    private final TokenVersionService tokenVersionService;
 
     @Autowired(required = false)
     private OktaOidcService oktaOidcService;
@@ -49,7 +60,8 @@ public class AuthController {
     private String configuredBaseUrl;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
+                                   HttpServletResponse response) {
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
@@ -62,19 +74,22 @@ public class AuthController {
         var user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUsername()));
 
-        String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().name());
+        TokenPair pair = refreshTokenService.createTokenPair(user);
+        cookieUtil.addRefreshTokenCookie(response, pair.refreshToken(),
+                jwtTokenProvider.getRefreshExpirationMs());
 
         return ResponseEntity.ok(AuthResponse.builder()
-                .token(token)
+                .token(pair.accessToken())
                 .username(user.getUsername())
                 .role(user.getRole().name())
-                .expiresIn(jwtTokenProvider.getExpirationMs())
+                .expiresIn(pair.accessExpiresIn())
                 .forcePasswordChange(Boolean.TRUE.equals(user.getForcePasswordChange()))
                 .build());
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request,
+                                      HttpServletResponse response) {
         if (userRepository.existsByUsername(request.getUsername())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Username already exists"));
         }
@@ -93,15 +108,72 @@ public class AuthController {
 
         userRepository.save(user);
 
-        String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().name());
+        TokenPair pair = refreshTokenService.createTokenPair(user);
+        cookieUtil.addRefreshTokenCookie(response, pair.refreshToken(),
+                jwtTokenProvider.getRefreshExpirationMs());
 
         return ResponseEntity.ok(AuthResponse.builder()
-                .token(token)
+                .token(pair.accessToken())
                 .username(user.getUsername())
                 .role(user.getRole().name())
-                .expiresIn(jwtTokenProvider.getExpirationMs())
+                .expiresIn(pair.accessExpiresIn())
                 .forcePasswordChange(false)
                 .build());
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(HttpServletRequest request, HttpServletResponse response) {
+        String rawToken = cookieUtil.extractRefreshToken(request);
+        if (rawToken == null || rawToken.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "No refresh token provided"));
+        }
+
+        try {
+            TokenPair pair = refreshTokenService.refreshTokens(rawToken);
+            cookieUtil.addRefreshTokenCookie(response, pair.refreshToken(),
+                    jwtTokenProvider.getRefreshExpirationMs());
+            return ResponseEntity.ok(Map.of(
+                    "token", pair.accessToken(),
+                    "expiresIn", pair.accessExpiresIn()));
+        } catch (RefreshTokenService.RefreshTokenReuseException e) {
+            log.warn("Refresh token reuse detected: {}", e.getMessage());
+            cookieUtil.clearRefreshTokenCookie(response);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Session compromised — please log in again"));
+        } catch (RefreshTokenService.InvalidRefreshTokenException e) {
+            cookieUtil.clearRefreshTokenCookie(response);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        // Bump token version to immediately invalidate all outstanding access tokens
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            tokenVersionService.bumpVersion(auth.getName());
+        }
+
+        String rawToken = cookieUtil.extractRefreshToken(request);
+        if (rawToken != null && !rawToken.isBlank()) {
+            refreshTokenService.revokeByToken(rawToken);
+        }
+        cookieUtil.clearRefreshTokenCookie(response);
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    @PostMapping("/sse-ticket")
+    public ResponseEntity<?> issueSseTicket() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+        String role = auth.getAuthorities().stream()
+                .findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", ""))
+                .orElse("USER");
+        String ticket = sseTicketService.issueTicket(username, role);
+        return ResponseEntity.ok(Map.of("ticket", ticket));
     }
 
     @GetMapping("/me")
@@ -170,7 +242,8 @@ public class AuthController {
     }
 
     @PostMapping("/okta/callback")
-    public ResponseEntity<?> oktaCallback(@Valid @RequestBody OktaCallbackRequest request) {
+    public ResponseEntity<?> oktaCallback(@Valid @RequestBody OktaCallbackRequest request,
+                                          HttpServletResponse response) {
         if (oktaOidcService == null || oktaProperties == null || !oktaProperties.isEnabled()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "Okta SSO is not enabled"));
@@ -183,25 +256,33 @@ public class AuthController {
             // JIT Provisioning: find or create user
             UserEntity user = userRepository
                     .findByAuthProviderAndExternalId(UserEntity.AuthProvider.OKTA, userInfo.getSub())
-                    .orElseGet(() -> {
-                        // Derive username
-                        String username = deriveUsername(userInfo);
-                        UserEntity newUser = UserEntity.builder()
-                                .username(username)
-                                .authProvider(UserEntity.AuthProvider.OKTA)
-                                .externalId(userInfo.getSub())
-                                .role(UserEntity.Role.USER)
-                                .enabled(true)
-                                .build();
-                        if (userInfo.getEmail() != null) {
-                            newUser.setEmailWithHash(userInfo.getEmail());
-                        }
-                        if (userInfo.getName() != null) {
-                            newUser.setDisplayName(userInfo.getName());
-                        }
-                        log.info("JIT provisioning new Okta user: {}", username);
-                        return userRepository.save(newUser);
-                    });
+                    .orElse(null);
+
+            if (user == null) {
+                try {
+                    String username = deriveUsername(userInfo);
+                    UserEntity newUser = UserEntity.builder()
+                            .username(username)
+                            .authProvider(UserEntity.AuthProvider.OKTA)
+                            .externalId(userInfo.getSub())
+                            .role(UserEntity.Role.USER)
+                            .enabled(true)
+                            .build();
+                    if (userInfo.getEmail() != null) {
+                        newUser.setEmailWithHash(userInfo.getEmail());
+                    }
+                    if (userInfo.getName() != null) {
+                        newUser.setDisplayName(userInfo.getName());
+                    }
+                    log.info("JIT provisioning new Okta user: {}", username);
+                    user = userRepository.save(newUser);
+                } catch (DataIntegrityViolationException e) {
+                    // Concurrent JIT provisioning — retry lookup
+                    user = userRepository
+                            .findByAuthProviderAndExternalId(UserEntity.AuthProvider.OKTA, userInfo.getSub())
+                            .orElseThrow(() -> new RuntimeException("Failed to provision Okta user"));
+                }
+            }
 
             // Update display name / email if changed in Okta
             boolean updated = false;
@@ -223,20 +304,22 @@ public class AuthController {
                         .body(Map.of("error", "User account is disabled"));
             }
 
-            String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().name());
+            TokenPair pair = refreshTokenService.createTokenPair(user);
+            cookieUtil.addRefreshTokenCookie(response, pair.refreshToken(),
+                    jwtTokenProvider.getRefreshExpirationMs());
 
             return ResponseEntity.ok(AuthResponse.builder()
-                    .token(token)
+                    .token(pair.accessToken())
                     .username(user.getUsername())
                     .role(user.getRole().name())
-                    .expiresIn(jwtTokenProvider.getExpirationMs())
+                    .expiresIn(pair.accessExpiresIn())
                     .forcePasswordChange(false)
                     .build());
 
         } catch (Exception e) {
             log.error("Okta SSO callback failed", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "SSO authentication failed: " + e.getMessage()));
+                    .body(Map.of("error", "SSO authentication failed"));
         }
     }
 
@@ -262,7 +345,8 @@ public class AuthController {
         if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
             return configuredBaseUrl;
         }
-        // Fallback to request headers (only safe behind trusted reverse proxy)
+        // Fallback to request headers — only safe behind trusted reverse proxy
+        log.warn("APP_BASE_URL not configured — deriving base URL from request headers (unsafe in production)");
         String scheme = request.getHeader("X-Forwarded-Proto");
         if (scheme == null) scheme = request.getScheme();
         String host = request.getHeader("X-Forwarded-Host");

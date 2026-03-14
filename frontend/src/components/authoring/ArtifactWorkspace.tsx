@@ -15,7 +15,7 @@ import ExternalCql from './external-cql/ExternalCql'
 import CqlPreviewPanel from './cql-preview/CqlPreviewPanel'
 import ArtifactTester from './testing/ArtifactTester'
 import ArtifactSummaryView from './summary/ArtifactSummaryView'
-import { useUpdateArtifact } from '../../hooks/useAuthoring'
+import { useUpdateArtifact, useArtifact } from '../../hooks/useAuthoring'
 import { useTemplates } from '../../hooks/useTemplates'
 import { useModifiers } from '../../hooks/useModifiers'
 import { useExternalCqlList } from '../../hooks/useExternalCql'
@@ -26,6 +26,52 @@ import {
   TAB_INDEX_REVIEW_CQL, TAB_INDEX_SUMMARY, KEYBOARD_SHORTCUTS,
 } from '../../constants/authoringConstants'
 import { generateId } from '../../utils/validation'
+
+/**
+ * Sync reference element names with current base elements / parameters.
+ * Walks an expression tree and patches element_name fields for references.
+ */
+function syncReferenceNames(
+  children: ElementInstance[],
+  beMap: Map<string, string>,
+  paramMap: Map<string, string>,
+): ElementInstance[] {
+  return children.map((el) => {
+    // Recurse into conjunction sub-groups
+    if (el.conjunction && el.childInstances) {
+      const synced = syncReferenceNames(el.childInstances, beMap, paramMap)
+      return synced !== el.childInstances ? { ...el, childInstances: synced } : el
+    }
+    // Patch reference names
+    if (el.type === 'baseElementRef' || el.type === 'parameterRef') {
+      const refId = el.fields?.find((f) => f.id === 'reference_id')?.value as string | undefined
+      if (!refId) return el
+      const map = el.type === 'baseElementRef' ? beMap : paramMap
+      const currentName = map.get(refId)
+      if (!currentName) return el
+      const nameField = el.fields?.find((f) => f.id === 'element_name')
+      if (nameField && nameField.value === currentName && el.name === currentName) return el
+      return {
+        ...el,
+        name: currentName,
+        fields: (el.fields || []).map((f) =>
+          f.id === 'element_name' ? { ...f, value: currentName } : f
+        ),
+      }
+    }
+    return el
+  })
+}
+
+function syncTreeRefs(
+  tree: ConjunctionGroupType | undefined,
+  beMap: Map<string, string>,
+  paramMap: Map<string, string>,
+): ConjunctionGroupType | undefined {
+  if (!tree?.childInstances?.length) return tree
+  const synced = syncReferenceNames(tree.childInstances, beMap, paramMap)
+  return synced !== tree.childInstances ? { ...tree, childInstances: synced } : tree
+}
 
 interface ArtifactWorkspaceProps {
   artifact: Artifact
@@ -87,12 +133,8 @@ function getModifierMissingFields(mod: ModifierLike): string[] {
 function collectTreeErrors(tree: ConjunctionGroupType | undefined): string[] {
   if (!tree?.childInstances?.length) return []
   const errors: string[] = []
-  tree.childInstances.forEach((el, idx) => {
-    const name = el.fields?.find((f) => f.id === 'element_name')?.value as string | undefined
-    if (!name) {
-      errors.push(`workspace.validation.elementMissingName||${JSON.stringify({ index: idx + 1 })}`)
-      return
-    }
+  tree.childInstances.forEach((el) => {
+    const name = (el.fields?.find((f) => f.id === 'element_name')?.value as string | undefined) || el.name
     if (el.modifiers?.length) {
       let cur = el.returnType
       for (const mod of el.modifiers) {
@@ -189,7 +231,9 @@ export default function ArtifactWorkspace({
   const [isDirty, setIsDirty] = useState(false)
   const [twcoreMode, setTwcoreMode] = useState(false)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
+  const [showConflictDialog, setShowConflictDialog] = useState(false)
   const updateMutation = useUpdateArtifact()
+  const { refetch: refetchArtifact } = useArtifact(artifact.id)
 
   // Browser beforeunload guard
   useUnsavedChangesGuard(isDirty)
@@ -207,7 +251,21 @@ export default function ArtifactWorkspace({
   const updateLocal = useCallback((updates: Partial<Artifact>) => {
     setLocalArtifact((prev) => {
       pushState(prev)
-      return { ...prev, ...updates }
+      const next = { ...prev, ...updates }
+
+      // If base elements or parameters changed, sync reference names in expression trees
+      if (updates.baseElements || updates.parameters) {
+        const beMap = new Map<string, string>()
+        for (const be of (next.baseElements || [])) beMap.set(be.uniqueId, be.name)
+        const paramMap = new Map<string, string>()
+        for (const p of (next.parameters || [])) if (p.name) paramMap.set(p.uniqueId, p.name)
+
+        const syncedInclude = syncTreeRefs(next.expTreeInclude, beMap, paramMap)
+        const syncedExclude = syncTreeRefs(next.expTreeExclude, beMap, paramMap)
+        if (syncedInclude !== next.expTreeInclude) next.expTreeInclude = syncedInclude!
+        if (syncedExclude !== next.expTreeExclude) next.expTreeExclude = syncedExclude!
+      }
+      return next
     })
     setIsDirty(true)
   }, [pushState])
@@ -239,6 +297,7 @@ export default function ArtifactWorkspace({
     reviewer: localArtifact.reviewer,
     endorser: localArtifact.endorser,
     relatedArtifact: localArtifact.relatedArtifact,
+    lockVersion: localArtifact.lockVersion,
   }), [localArtifact])
 
   const handleSave = useCallback(
@@ -250,6 +309,11 @@ export default function ArtifactWorkspace({
             setLocalArtifact(updated)
             setIsDirty(false)
             onArtifactUpdate(updated)
+          },
+          onError: (error) => {
+            if ((error as { response?: { status?: number } })?.response?.status === 409) {
+              setShowConflictDialog(true)
+            }
           },
         }
       )
@@ -435,7 +499,7 @@ export default function ArtifactWorkspace({
   const dynamicEntries = useMemo((): DynamicEntry[] => {
     const entries: DynamicEntry[] = []
 
-    // Base Elements
+    // Base Elements — use the stored returnType (already computed by BaseElements component)
     for (const be of (localArtifact.baseElements || [])) {
       entries.push({
         id: `be-${be.uniqueId}`,
@@ -777,6 +841,37 @@ export default function ArtifactWorkspace({
             onClick={() => { setShowBackConfirm(false); onBack() }}
           >
             {t('workspace.discardChanges')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Optimistic lock conflict dialog */}
+      <Dialog open={showConflictDialog} onClose={() => setShowConflictDialog(false)}>
+        <DialogTitle>{t('workspace.conflict.title')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('workspace.conflict.message')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConflictDialog(false)}>
+            {t('workspace.conflict.keepEditing')}
+          </Button>
+          <Button
+            color="primary"
+            variant="contained"
+            onClick={() => {
+              setShowConflictDialog(false)
+              refetchArtifact().then(({ data }) => {
+                if (data) {
+                  setLocalArtifact(data)
+                  setIsDirty(false)
+                  onArtifactUpdate(data)
+                }
+              })
+            }}
+          >
+            {t('workspace.conflict.reload')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,9 +1,11 @@
 package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.TestCaseEntity;
+import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
 import com.cqlplatform.repository.TestCaseRepository;
+import com.cqlplatform.service.cds.PrefetchRetrieveProvider;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -234,7 +236,8 @@ class TestCaseServiceTest {
                         .displayValue("true")
                         .build()))
                 .build();
-        when(cqlExecutionService.execute(any())).thenReturn(execResponse);
+        when(cqlExecutionService.executeWithProvider(any(CqlExecutionRequest.class), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(execResponse);
 
         TestCaseRunResult result = service.runTestCase(1L);
 
@@ -259,7 +262,8 @@ class TestCaseServiceTest {
                         .displayValue("true")
                         .build()))
                 .build();
-        when(cqlExecutionService.execute(any())).thenReturn(execResponse);
+        when(cqlExecutionService.executeWithProvider(any(CqlExecutionRequest.class), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(execResponse);
 
         TestCaseRunResult result = service.runTestCase(1L);
 
@@ -296,7 +300,8 @@ class TestCaseServiceTest {
                 .results(Map.of("InPopulation", CqlExecutionResponse.ExpressionResult.builder()
                         .name("InPopulation").value(true).valueType("Boolean").displayValue("true").build()))
                 .build();
-        when(cqlExecutionService.execute(any())).thenReturn(execResponse);
+        when(cqlExecutionService.executeWithProvider(any(CqlExecutionRequest.class), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(execResponse);
 
         List<TestCaseRunResult> results = service.runAllTestCases(10L);
 

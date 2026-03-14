@@ -23,7 +23,13 @@ public class OwnershipVerifier {
     }
 
     public void verifyOwnership(String ownerUsername) {
-        if (ownerUsername == null) return;
+        if (ownerUsername == null) {
+            // Fail-closed: null owner means no one should have access (except admins)
+            if (!isAdmin()) {
+                throw new AccessDeniedException("Resource has no owner — access denied");
+            }
+            return;
+        }
         String currentUser = getCurrentUsername();
         if (!ownerUsername.equals(currentUser) && !isAdmin()) {
             throw new AccessDeniedException("You do not have permission to modify this resource");

@@ -1,0 +1,96 @@
+name: "[驗證] 軟體驗證紀錄"
+description: "記錄軟體驗證活動，符合 IEC 62304 要求"
+title: "[驗證] "
+labels: ["IEC62304:驗證"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 軟體驗證紀錄
+        請填寫以下欄位，此內容將自動彙整至 TFDA 軟體驗證報告。
+
+  - type: textarea
+    id: test_purpose
+    attributes:
+      label: 測試目的
+      description: 說明此驗證活動要驗證的項目與目標
+      placeholder: "例：驗證 CQL 翻譯服務能正確處理包含 ValueSet 的查詢語句"
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_steps
+    attributes:
+      label: 測試步驟
+      description: 詳細列出測試執行步驟
+      placeholder: |
+        1. 準備包含 ValueSet 參照的 CQL 語句
+        2. 呼叫 /api/cql/translate API
+        3. 檢查回傳的 ELM JSON 結構
+        4. 驗證 ValueSet 參照正確解析
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: 預期結果
+      description: 說明每個測試步驟的預期結果
+      placeholder: |
+        - API 回傳 HTTP 200
+        - ELM JSON 包含正確的 valueSets 節點
+        - ValueSet OID 與輸入一致
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_result
+    attributes:
+      label: 實際結果
+      description: 執行測試後的實際結果（可於測試完成後補填）
+      placeholder: "測試通過/失敗，附上截圖或日誌"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: test_result
+    attributes:
+      label: 測試結論
+      description: 此驗證活動的最終結論
+      options:
+        - 待執行
+        - 通過 (Pass)
+        - 失敗 (Fail)
+        - 有條件通過 (Conditional Pass)
+    validations:
+      required: false
+
+  - type: textarea
+    id: related_requirements
+    attributes:
+      label: 關聯需求
+      description: 此驗證對應的軟體需求 Issue 編號
+      placeholder: "例：需求 #10、需求 #11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_environment
+    attributes:
+      label: 測試環境
+      description: 測試執行的環境資訊
+      placeholder: |
+        - OS: Ubuntu 22.04
+        - Java: 21
+        - Node.js: 20
+        - 瀏覽器: Chrome 120
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 備註
+      description: 其他補充說明
+    validations:
+      required: false

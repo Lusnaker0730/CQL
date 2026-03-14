@@ -109,4 +109,19 @@ class CdsResourceFormatterTest {
         String result = formatter.formatReference(obs);
         assertThat(result).isEqualTo("Observation");
     }
+
+    // XSS protection is handled by the frontend (React auto-escapes JSX text content).
+    // No server-side HTML escaping is needed for CDS card display values.
+
+    @Test
+    void formatDetail_preservesRawContent() {
+        Observation obs = new Observation();
+        obs.setId("obs-1");
+        obs.getCode().setText("<script>alert('xss')</script>");
+
+        String result = formatter.formatDetail(obs);
+
+        // Raw content preserved — React handles escaping at render time
+        assertThat(result).contains("<script>alert('xss')</script>");
+    }
 }

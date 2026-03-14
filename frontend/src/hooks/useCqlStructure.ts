@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useSelector } from 'react-redux'
 import { cqlApi } from '../api'
 import { extractApiError } from '../utils/errorUtils'
-import type { RootState } from '../store'
 import type { TranslationMetadata } from '../types'
+import { AUTOSAVE_HEAVY_MS } from '../constants/timing'
 
 export interface CqlStructure {
   libraryId: string
@@ -55,13 +54,13 @@ function metadataToStructure(meta: TranslationMetadata): CqlStructure {
 }
 
 export function useCqlStructure() {
-  const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const [structure, setStructure] = useState<CqlStructure>(EMPTY_STRUCTURE)
   const [isParsing, setIsParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastParsedContent = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
+  const latestContent = useRef<string>('')
 
   const parseNow = useCallback(async (cql: string) => {
     if (!cql.trim()) {
@@ -100,26 +99,28 @@ export function useCqlStructure() {
     }
   }, [])
 
-  const parse = useCallback(() => {
-    parseNow(cqlContent)
-  }, [cqlContent, parseNow])
-
-  // Auto-parse with debounce when content changes
-  useEffect(() => {
-    if (cqlContent === lastParsedContent.current) return
+  // Called by the editor's onContentChanged callback — debounces translation
+  const notifyContentChanged = useCallback((content: string) => {
+    latestContent.current = content
+    if (content === lastParsedContent.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      parseNow(cqlContent)
-    }, 2000)
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [cqlContent, parseNow])
+      parseNow(content)
+    }, AUTOSAVE_HEAVY_MS)
+  }, [parseNow])
+
+  // Manual parse trigger — uses latest known content
+  const parse = useCallback(() => {
+    parseNow(latestContent.current)
+  }, [parseNow])
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => { abortRef.current?.abort() }
+    return () => {
+      abortRef.current?.abort()
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [])
 
-  return { structure, isParsing, parseError, parse }
+  return { structure, isParsing, parseError, parse, notifyContentChanged }
 }

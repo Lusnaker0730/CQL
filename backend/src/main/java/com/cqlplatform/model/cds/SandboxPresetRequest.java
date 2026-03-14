@@ -27,6 +27,7 @@ public class SandboxPresetRequest {
     private String patientId;
 
     @NotBlank(message = "Prefetch JSON is required")
+    @Size(max = 2_097_152, message = "Prefetch JSON must be at most 2 MB")
     private String prefetchJson;
 
     @Builder.Default

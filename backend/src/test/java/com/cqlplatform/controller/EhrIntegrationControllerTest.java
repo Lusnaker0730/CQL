@@ -2,6 +2,7 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.cqlplatform.entity.PatientImportEntity;
+import com.cqlplatform.model.ehr.EhrConnectionRequest;
 import com.cqlplatform.model.fhir.PatientSearchResult;
 import com.cqlplatform.service.fhir.EhrConnectionService;
 import com.cqlplatform.service.fhir.PatientImportService;
@@ -45,7 +46,7 @@ class EhrIntegrationControllerTest {
         EhrConnectionEntity entity = new EhrConnectionEntity();
         entity.setId(id);
         entity.setName(name);
-        entity.setFhirServerUrl("https://fhir.example.com/r4");
+        entity.setFhirServerUrl("https://example.com/fhir/r4");
         entity.setAuthType("none");
         entity.setStatus("connected");
         return entity;
@@ -80,13 +81,29 @@ class EhrIntegrationControllerTest {
     @WithMockUser(roles = {"ADMIN"})
     void createConnection_shouldReturn201() throws Exception {
         EhrConnectionEntity created = createConnection(1L, "New Hospital");
-        when(connectionService.create(any())).thenReturn(created);
+        when(connectionService.create(any(EhrConnectionRequest.class))).thenReturn(created);
 
         mockMvc.perform(post("/api/ehr/connections")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"New Hospital\",\"fhirServerUrl\":\"https://fhir.example.com/r4\",\"authType\":\"none\"}"))
+                        .content("{\"name\":\"New Hospital\",\"fhirServerUrl\":\"https://example.com/fhir/r4\",\"authType\":\"none\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("New Hospital"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"USER"})
+    void createConnection_withUserRole_shouldReturn403() throws Exception {
+        mockMvc.perform(post("/api/ehr/connections")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"New Hospital\",\"fhirServerUrl\":\"https://example.com/fhir/r4\",\"authType\":\"none\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = {"USER"})
+    void deleteConnection_withUserRole_shouldReturn403() throws Exception {
+        mockMvc.perform(delete("/api/ehr/connections/1"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

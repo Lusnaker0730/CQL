@@ -3,7 +3,7 @@ import { Stack, Button, IconButton, Tooltip } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface SnippetPreviewProps {
   snippet: string
@@ -21,18 +21,9 @@ export default function SnippetPreview({
   insertDisabled = false,
 }: SnippetPreviewProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
 
   if (!snippet) return null
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(snippet)
-      showNotification(t('common.copiedToClipboard'), 'success', 2000)
-    } catch {
-      showNotification(t('common.copyFailed'), 'error', 2000)
-    }
-  }
 
   return (
     <Stack spacing={0.75}>
@@ -42,7 +33,7 @@ export default function SnippetPreview({
           {insertLabel}
         </GradientButton>
         <Tooltip title={t('common.copyToClipboard')}>
-          <IconButton size="small" onClick={handleCopy} aria-label={t('common.copyToClipboard')}>
+          <IconButton size="small" onClick={() => copyToClipboard(snippet)} aria-label={t('common.copyToClipboard')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>

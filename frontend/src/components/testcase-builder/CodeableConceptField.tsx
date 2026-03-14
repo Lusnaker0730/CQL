@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip,
   FormControl, InputLabel, Select, MenuItem,
@@ -10,6 +10,7 @@ import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 import TwcoreCodePicker from './TwcoreCodePicker'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
 interface Coding {
@@ -46,11 +47,23 @@ function CodingField({
 }) {
   const { t } = useTranslation('measures')
   const [searchText, setSearchText] = useState(coding.code || '')
+  const [debouncedSearch, setDebouncedSearch] = useState(searchText)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+  // Sync local input when coding.code changes externally (e.g. TWCORE picker, terminology drawer)
+  useEffect(() => {
+    setSearchText(coding.code || '')
+  }, [coding.code])
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
+    return () => clearTimeout(debounceRef.current)
+  }, [searchText])
 
   const { data: options = [] } = useQuery<CodeSearchResult[]>({
-    queryKey: ['code-search', bindingUrl || coding.system, searchText],
-    queryFn: () => fhirApi.searchCodes(bindingUrl || coding.system || '', searchText, 20),
-    enabled: (!!bindingUrl || !!coding.system) && searchText.length >= 1,
+    queryKey: ['code-search', bindingUrl || coding.system, debouncedSearch],
+    queryFn: () => fhirApi.searchCodes(bindingUrl || coding.system || '', debouncedSearch, 20),
+    enabled: (!!bindingUrl || !!coding.system) && debouncedSearch.length >= 1,
     staleTime: 30_000,
   })
 
@@ -227,12 +240,14 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
         sx={{ mt: 1 }}
       />
 
-      <TwcoreCodePicker
-        open={twcoreOpen}
-        onClose={() => setTwcoreOpen(false)}
-        onSelect={handleTwcoreSelect}
-        resourceType={resourceType}
-      />
+      {twcoreOpen && (
+        <TwcoreCodePicker
+          open={twcoreOpen}
+          onClose={() => setTwcoreOpen(false)}
+          onSelect={handleTwcoreSelect}
+          resourceType={resourceType}
+        />
+      )}
     </Box>
   )
 }

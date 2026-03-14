@@ -11,6 +11,7 @@ import {
 } from '@mui/material'
 import GradientButton from '../common/GradientButton'
 import type { ArtifactRequest } from '../../types/authoring'
+import { ARTIFACT } from '../../constants/fieldConstraints'
 
 interface ArtifactModalProps {
   open: boolean
@@ -66,6 +67,7 @@ export default function ArtifactModal({
             autoFocus
             size="small"
             placeholder={t('modal.namePlaceholder')}
+            inputProps={{ maxLength: ARTIFACT.name.maxLength }}
           />
           <TextField
             label={t('modal.versionLabel')}
@@ -74,6 +76,7 @@ export default function ArtifactModal({
             fullWidth
             size="small"
             placeholder="1.0.0"
+            inputProps={{ maxLength: ARTIFACT.version.maxLength }}
           />
           <TextField
             label={t('modal.descriptionLabel')}
@@ -84,6 +87,8 @@ export default function ArtifactModal({
             rows={3}
             size="small"
             placeholder={t('modal.descriptionPlaceholder')}
+            inputProps={{ maxLength: ARTIFACT.description.maxLength }}
+            helperText={`${description.length} / ${ARTIFACT.description.maxLength}`}
           />
         </Stack>
       </DialogContent>

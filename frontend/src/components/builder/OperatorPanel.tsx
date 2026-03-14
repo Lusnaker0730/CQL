@@ -5,9 +5,8 @@ import ExpressionBuilder from './ExpressionBuilder'
 import OperatorReference from './OperatorReference'
 
 interface OperatorPanelProps {
-  expressions: string[]
+  expressions: string[] | { name: string; resultType?: string }[]
   parameters: string[]
-  valueSets: string[]
   onInsert: (snippet: string) => void
   onCancel: () => void
 }
@@ -15,7 +14,6 @@ interface OperatorPanelProps {
 export default function OperatorPanel({
   expressions,
   parameters,
-  valueSets,
   onInsert,
   onCancel,
 }: OperatorPanelProps) {
@@ -42,7 +40,6 @@ export default function OperatorPanel({
         <ExpressionBuilder
           expressions={expressions}
           parameters={parameters}
-          valueSets={valueSets}
           onInsert={onInsert}
           onCancel={onCancel}
         />

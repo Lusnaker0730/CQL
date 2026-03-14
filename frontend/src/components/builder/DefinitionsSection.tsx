@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -16,8 +16,10 @@ import SnippetPreview from './SnippetPreview'
 import RetrieveBuilder from './RetrieveBuilder'
 import QueryBuilder from './QueryBuilder'
 import OperatorPanel from './OperatorPanel'
-import CdsCardBuilder from './CdsCardBuilder'
+import RecommendationBuilder from './RecommendationBuilder'
+import ElementRefBuilder from './ElementRefBuilder'
 import ConditionalBuilder from './ConditionalBuilder'
+import { extractCqlName } from '../../utils/cqlNames'
 
 interface DefinitionsSectionProps {
   expressions: { name: string; context?: string; resultType?: string }[]
@@ -30,17 +32,24 @@ interface DefinitionsSectionProps {
   onEdit?: (identifier: string, newSnippet: string) => void
 }
 
-const TEMPLATES = [
-  { labelKey: 'blank' as const, template: '' },
-  { labelKey: 'ageFilter' as const, template: 'AgeInYearsAt(start of "Measurement Period") >= 18' },
-  { labelKey: 'conditionCheck' as const, template: 'exists [Condition: "ValueSetName"] C\n    where C.clinicalStatus ~ "active"' },
-  { labelKey: 'encounterCheck' as const, template: 'exists [Encounter] E\n    where E.period during "Measurement Period"\n      and E.status = \'finished\'' },
-  { labelKey: 'medicationCheck' as const, template: 'exists [MedicationRequest] M\n    where M.authoredOn during "Measurement Period"\n      and M.status = \'active\'' },
-  { labelKey: 'observationValue' as const, template: '[Observation: "CodeName"] O\n    where O.effective in "Measurement Period"\n    sort by effective desc' },
-  { labelKey: 'ifElse' as const, template: 'if <condition> then\n  <result>\nelse\n  <default>' },
-  { labelKey: 'caseWhen' as const, template: 'case\n  when <condition1> then <result1>\n  when <condition2> then <result2>\n  else <default>\nend' },
-  { labelKey: 'nullCheck' as const, template: 'if <expression> is not null then\n  <expression>.value\nelse\n  null' },
-]
+/** Build contextual templates using actual valueSets/codes from the CQL */
+function buildTemplates(valueSets: string[], codes: string[], expressions: { name: string }[]) {
+  const firstVS = valueSets.length > 0 ? extractCqlName(valueSets[0]) : 'ValueSetName'
+  const firstCode = codes.length > 0 ? extractCqlName(codes[0]) : 'CodeName'
+  const firstExpr = expressions.length > 0 ? `"${expressions[0].name}"` : '<expression>'
+
+  return [
+    { labelKey: 'blank' as const, template: '' },
+    { labelKey: 'ageFilter' as const, template: 'AgeInYearsAt(start of "Measurement Period") >= 18' },
+    { labelKey: 'conditionCheck' as const, template: `exists [Condition: "${firstVS}"] C\n    where C.clinicalStatus.coding.code contains 'active'` },
+    { labelKey: 'encounterCheck' as const, template: `exists [Encounter] E\n    where E.period during "Measurement Period"\n      and E.status = 'finished'` },
+    { labelKey: 'medicationCheck' as const, template: `exists [MedicationRequest: "${firstVS}"] M\n    where M.authoredOn during "Measurement Period"\n      and M.status = 'active'` },
+    { labelKey: 'observationValue' as const, template: `[Observation: "${firstCode}"] O\n    where O.effective in "Measurement Period"\n    sort by effective desc` },
+    { labelKey: 'ifElse' as const, template: `if ${firstExpr} then\n  <result>\nelse\n  <default>` },
+    { labelKey: 'caseWhen' as const, template: `case\n  when ${firstExpr} then <result1>\n  when <condition2> then <result2>\n  else <default>\nend` },
+    { labelKey: 'nullCheck' as const, template: `if ${firstExpr} is not null then\n  ${firstExpr}.value\nelse\n  null` },
+  ]
+}
 
 export default function DefinitionsSection({
   expressions,
@@ -54,7 +63,7 @@ export default function DefinitionsSection({
 }: DefinitionsSectionProps) {
   const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
-  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'cdscard' | 'conditional'>('template')
+  const [mode, setMode] = useState<'template' | 'retrieve' | 'query' | 'operator' | 'recommendation' | 'conditional' | 'elementRef'>('template')
   const [name, setName] = useState('')
   const [context, setContext] = useState('Patient')
   const [templateIdx, setTemplateIdx] = useState(0)
@@ -63,6 +72,11 @@ export default function DefinitionsSection({
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
+  const TEMPLATES = useMemo(
+    () => buildTemplates(valueSets, codes, expressions),
+    [valueSets, codes, expressions],
+  )
+
   const handleTemplateChange = (idx: number) => {
     setTemplateIdx(idx)
     setExpression(TEMPLATES[idx].template)
@@ -70,7 +84,8 @@ export default function DefinitionsSection({
 
   const handleAdd = () => {
     if (!name.trim() || !expression.trim()) return
-    const snippet = `define "${name}":\n  ${expression.split('\n').join('\n  ')}`
+    const contextLine = context !== 'Patient' ? `context ${context}\n` : ''
+    const snippet = `${contextLine}define "${name}":\n  ${expression.split('\n').join('\n  ')}`
     setPreviewSnippet(snippet)
   }
 
@@ -152,11 +167,14 @@ export default function DefinitionsSection({
             <ToggleButton value="operator" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               {t('definitions.operators')}
             </ToggleButton>
-            <ToggleButton value="cdscard" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
-              {t('definitions.cdsCard')}
+            <ToggleButton value="recommendation" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              {t('definitions.recommendation')}
             </ToggleButton>
             <ToggleButton value="conditional" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
               {t('definitions.conditional')}
+            </ToggleButton>
+            <ToggleButton value="elementRef" sx={{ textTransform: 'none', px: 1.5, py: 0.25 }}>
+              {t('definitions.elementRef')}
             </ToggleButton>
           </ToggleButtonGroup>
 
@@ -239,9 +257,19 @@ export default function DefinitionsSection({
               }}
               onCancel={resetForm}
             />
-          ) : mode === 'cdscard' ? (
-            <CdsCardBuilder
+          ) : mode === 'recommendation' ? (
+            <RecommendationBuilder
               expressions={expressions.map((e) => e.name)}
+              onInsert={(snippet) => {
+                onInsert(snippet)
+                resetForm()
+              }}
+              onCancel={resetForm}
+            />
+          ) : mode === 'elementRef' ? (
+            <ElementRefBuilder
+              expressions={expressions}
+              parameters={parameters}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()
@@ -250,8 +278,6 @@ export default function DefinitionsSection({
             />
           ) : mode === 'conditional' ? (
             <ConditionalBuilder
-              expressions={expressions.map((e) => e.name)}
-              parameters={parameters}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()
@@ -260,9 +286,8 @@ export default function DefinitionsSection({
             />
           ) : (
             <OperatorPanel
-              expressions={expressions.map((e) => e.name)}
+              expressions={expressions}
               parameters={parameters}
-              valueSets={valueSets}
               onInsert={(snippet) => {
                 onInsert(snippet)
                 resetForm()

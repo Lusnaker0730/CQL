@@ -2,16 +2,20 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.cqlplatform.entity.PatientImportEntity;
+import com.cqlplatform.model.ehr.EhrConnectionRequest;
 import com.cqlplatform.model.fhir.PatientImportPreview;
 import com.cqlplatform.model.fhir.PatientSearchResult;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.EhrConnectionService;
 import com.cqlplatform.service.fhir.PatientImportService;
 import com.cqlplatform.service.fhir.PatientSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,20 +46,25 @@ public class EhrIntegrationController {
     }
 
     @PostMapping("/connections")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Create Connection", description = "Create a new EHR connection")
-    public ResponseEntity<EhrConnectionEntity> createConnection(@RequestBody EhrConnectionEntity connection) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(connectionService.create(connection));
+    public ResponseEntity<EhrConnectionEntity> createConnection(@Valid @RequestBody EhrConnectionRequest request) {
+        InputValidator.requireValidUrl(request.getFhirServerUrl());
+        return ResponseEntity.status(HttpStatus.CREATED).body(connectionService.create(request));
     }
 
     @PutMapping("/connections/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Update Connection", description = "Update an existing EHR connection")
     public ResponseEntity<EhrConnectionEntity> updateConnection(
             @PathVariable Long id,
-            @RequestBody EhrConnectionEntity connection) {
-        return ResponseEntity.ok(connectionService.update(id, connection));
+            @Valid @RequestBody EhrConnectionRequest request) {
+        InputValidator.requireValidUrl(request.getFhirServerUrl());
+        return ResponseEntity.ok(connectionService.update(id, request));
     }
 
     @DeleteMapping("/connections/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Delete Connection", description = "Soft-delete an EHR connection")
     public ResponseEntity<Void> deleteConnection(@PathVariable Long id) {
         connectionService.delete(id);

@@ -41,6 +41,11 @@ export interface ChangePasswordRequest {
   newPassword: string
 }
 
+export interface RefreshResponse {
+  token: string
+  expiresIn: number
+}
+
 export interface AdminResetPasswordResponse {
   temporaryPassword: string
   username: string
@@ -104,6 +109,14 @@ export interface CqlError {
   endLine?: number
   endColumn?: number
   errorType?: string
+}
+
+export interface CqlFixSuggestionResponse {
+  success: boolean
+  explanation?: string
+  suggestedCql?: string
+  errorMessage?: string
+  model?: string
 }
 
 export interface TranslationMetadata {
@@ -181,6 +194,7 @@ export interface DependencyAnalysisResult {
   dependencies: DependencyInfo[]
   conflicts: VersionConflict[]
   mismatches: VersionMismatch[]
+  circularDependencies?: CircularDependency[]
   hasIssues: boolean
 }
 
@@ -206,6 +220,12 @@ export interface VersionMismatch {
   declaredVersion: string
   availableVersion: string
   requestedBy: string
+}
+
+export interface CircularDependency {
+  libraryName: string
+  version?: string
+  cycle: string[]
 }
 
 export interface CdsServiceDefinition {
@@ -981,6 +1001,8 @@ export interface AuditLogEntry {
   ipAddress?: string
   userAgent?: string
   responseTimeMs?: number
+  phiAccess: boolean
+  queryParameters?: string
   createdAt: string
 }
 

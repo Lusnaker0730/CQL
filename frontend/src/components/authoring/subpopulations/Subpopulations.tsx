@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
@@ -130,9 +130,9 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('subpopulations.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('subpopulations.deleteConfirm', { name: pendingDeleteName }) }}
-          />
+          <DialogContentText>
+            <Trans i18nKey="subpopulations.deleteConfirm" ns="authoring" values={{ name: pendingDeleteName }} components={{ strong: <strong /> }} />
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>
