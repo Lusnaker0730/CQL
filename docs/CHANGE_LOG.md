@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-053 | ✨ feature | 2026-03-14 | 前端（Landing/Learn） | CQL 學習中心與 Landing Page 改造 — 新首頁（Hero+功能卡片+TWCORE 範例展示）+ /learn 學習中心（CQL 入門/核心概念/TWCORE IG/互動範例/快速開始/練習場/自我測驗）+ landing i18n namespace (EN+zh-TW) | 16 新檔案、所有 CQL 範例符合 TWCORE IG | |
 | PAT-052 | 🔧 refactor | 2026-03-13 | 前端（常數管理） | 硬編碼常數提取 — 新增 queryConstants.ts + 擴充 timing.ts / layout.ts，22 檔 magic number 改為集中常數 (debounce/staleTime/尺寸) | 消除重複、統一維護 | [`8307c67`](../../commit/8307c67) |
 | BUG-091 | 🐛 bugfix | 2026-03-13 | 後端（測試） | 修復 6 個預存測試失敗 — GEH timeout 504 斷言、VSAC OID 驗證、ApiKey name 可選、TestCase mock 方法名 | 821 tests 全過 | [`b78de09`](../../commit/b78de09) |
 | PAT-051 | ✨ patch | 2026-03-13 | 全端（Observability） | X-Request-ID 端對端追蹤 — 前端 UUID 產生 + RequestTracingFilter MDC + 結構化日誌 + 稽核紀錄 request_id + Error Response requestId | TFDA 稽核軌跡 + 除錯效率 | [`7fc2e86`](../../commit/7fc2e86) |

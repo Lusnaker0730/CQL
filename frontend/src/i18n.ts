@@ -14,8 +14,9 @@ import terminologyEn from './locales/en/terminology.json'
 import authoringEn from './locales/en/authoring.json'
 import adminEn from './locales/en/admin.json'
 import ecqmEn from './locales/en/ecqm.json'
+import landingEn from './locales/en/landing.json'
 
-const NAMESPACES = ['common', 'validation', 'editor', 'builder', 'measures', 'cds', 'fhir', 'terminology', 'authoring', 'admin', 'ecqm'] as const
+const NAMESPACES = ['common', 'validation', 'editor', 'builder', 'measures', 'cds', 'fhir', 'terminology', 'authoring', 'admin', 'ecqm', 'landing'] as const
 
 // Lazy-load non-English languages on demand
 async function loadLanguage(lang: string) {
@@ -36,7 +37,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: { common: commonEn, validation: validationEn, editor: editorEn, builder: builderEn, measures: measuresEn, cds: cdsEn, fhir: fhirEn, terminology: terminologyEn, authoring: authoringEn, admin: adminEn, ecqm: ecqmEn },
+      en: { common: commonEn, validation: validationEn, editor: editorEn, builder: builderEn, measures: measuresEn, cds: cdsEn, fhir: fhirEn, terminology: terminologyEn, authoring: authoringEn, admin: adminEn, ecqm: ecqmEn, landing: landingEn },
     },
     partialBundledLanguages: true,
     fallbackLng: 'en',
