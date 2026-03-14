@@ -21,11 +21,12 @@
 
     <properties>
         <java.version>21</java.version>
-        <cql.version>3.29.0</cql.version>
+        <cql.version>4.5.0</cql.version>
         <hapi.fhir.version>8.6.6</hapi.fhir.version>
         <mockito.version>5.14.2</mockito.version>
         <byte-buddy.version>1.15.10</byte-buddy.version>
         <resilience4j.version>2.2.0</resilience4j.version>
+        <kotlin.version>2.3.10</kotlin.version>
     </properties>
 
     <dependencies>
@@ -76,7 +77,7 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>0.12.6</version>
+            <version>0.13.0</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -110,43 +111,32 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- CQL Framework - Translation -->
+        <!-- CQL Framework 4.x (Kotlin Multiplatform — JVM targets) -->
         <dependency>
-            <groupId>info.cqframework</groupId>
-            <artifactId>cql-to-elm</artifactId>
+            <groupId>org.cqframework</groupId>
+            <artifactId>cql-to-elm-jvm</artifactId>
             <version>${cql.version}</version>
         </dependency>
         <dependency>
-            <groupId>info.cqframework</groupId>
-            <artifactId>elm-jackson</artifactId>
-            <version>${cql.version}</version>
-        </dependency>
-
-        <!-- CQL Framework - Execution Engine -->
-        <dependency>
-            <groupId>info.cqframework</groupId>
-            <artifactId>engine</artifactId>
+            <groupId>org.cqframework</groupId>
+            <artifactId>elm-jvm</artifactId>
             <version>${cql.version}</version>
         </dependency>
         <dependency>
-            <groupId>info.cqframework</groupId>
+            <groupId>org.cqframework</groupId>
+            <artifactId>engine-jvm</artifactId>
+            <version>${cql.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.cqframework</groupId>
             <artifactId>engine-fhir</artifactId>
             <version>${cql.version}</version>
         </dependency>
-
-        <!-- CQL Framework - FHIR Model Info -->
         <dependency>
-            <groupId>info.cqframework</groupId>
-            <artifactId>model</artifactId>
-            <version>${cql.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>info.cqframework</groupId>
+            <groupId>org.cqframework</groupId>
             <artifactId>quick</artifactId>
             <version>${cql.version}</version>
         </dependency>
-
-
 
 
         <!-- HAPI FHIR -->
@@ -202,7 +192,7 @@
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
-            <version>4.0.3</version>
+            <version>4.0.6</version>
         </dependency>
 
         <!-- Jackson -->
@@ -269,7 +259,7 @@
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
-            <version>7.4</version>
+            <version>9.0</version>
         </dependency>
 
         <!-- Observability: Prometheus Metrics -->
@@ -298,11 +288,6 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>info.cqframework</groupId>
-            <artifactId>model-jackson</artifactId>
-            <version>${cql.version}</version>
         </dependency>
         <dependency>
             <groupId>com.nimbusds</groupId>
