@@ -23,6 +23,9 @@ import {
   RocketLaunch as StartIcon,
   Code as PlaygroundIcon,
   Quiz as QuizIcon,
+  School as AdvancedIcon,
+  BugReport as TroubleshootingIcon,
+  ListAlt as CheatSheetIcon,
 } from '@mui/icons-material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -31,11 +34,22 @@ import ConceptGuide from '../components/learn/ConceptGuide'
 import TwcoreGuide from '../components/learn/TwcoreGuide'
 import InteractiveExamples from '../components/learn/InteractiveExamples'
 import QuickStartGuide from '../components/learn/QuickStartGuide'
+import AdvancedTopics from '../components/learn/AdvancedTopics'
+import TroubleshootingGuide from '../components/learn/TroubleshootingGuide'
+import CqlCheatSheet from '../components/learn/CqlCheatSheet'
 import CqlPlayground from '../components/learn/CqlPlayground'
 import CqlQuiz from '../components/learn/CqlQuiz'
 
-const TAB_KEYS = ['introduction', 'concepts', 'twcore', 'examples', 'quickStart', 'playground', 'quiz'] as const
-const TAB_ICONS = [IntroIcon, ConceptIcon, TwcoreIcon, ExampleIcon, StartIcon, PlaygroundIcon, QuizIcon]
+const TAB_KEYS = [
+  'introduction', 'concepts', 'twcore', 'examples', 'quickStart',
+  'advanced', 'troubleshooting', 'cheatSheet',
+  'playground', 'quiz',
+] as const
+const TAB_ICONS = [
+  IntroIcon, ConceptIcon, TwcoreIcon, ExampleIcon, StartIcon,
+  AdvancedIcon, TroubleshootingIcon, CheatSheetIcon,
+  PlaygroundIcon, QuizIcon,
+]
 
 export default function LearnPage() {
   const { t, i18n } = useTranslation('landing')
@@ -111,7 +125,7 @@ export default function LearnPage() {
           <Tabs
             value={currentTab}
             onChange={handleTabChange}
-            variant={isMobile ? 'scrollable' : 'standard'}
+            variant={isMobile ? 'scrollable' : 'scrollable'}
             scrollButtons="auto"
             sx={{
               '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minHeight: 52 },
@@ -140,8 +154,11 @@ export default function LearnPage() {
           {currentTab === 2 && <TwcoreGuide />}
           {currentTab === 3 && <InteractiveExamples />}
           {currentTab === 4 && <QuickStartGuide />}
-          {currentTab === 5 && <CqlPlayground />}
-          {currentTab === 6 && <CqlQuiz />}
+          {currentTab === 5 && <AdvancedTopics />}
+          {currentTab === 6 && <TroubleshootingGuide />}
+          {currentTab === 7 && <CqlCheatSheet />}
+          {currentTab === 8 && <CqlPlayground />}
+          {currentTab === 9 && <CqlQuiz />}
         </Container>
       </Box>
 

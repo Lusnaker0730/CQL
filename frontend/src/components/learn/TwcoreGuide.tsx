@@ -55,9 +55,9 @@ export default function TwcoreGuide() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>FHIR Resource</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>TWCORE Profile</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('learn.twcore.headers.resource')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('learn.twcore.headers.profile')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('learn.twcore.headers.description')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
