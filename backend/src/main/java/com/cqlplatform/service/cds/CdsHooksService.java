@@ -1,123 +1,130 @@
 package com.cqlplatform.service.cds;
 
+import com.cqlplatform.entity.CdsFeedbackEntity;
 import com.cqlplatform.entity.CdsServiceConfigEntity;
 import com.cqlplatform.entity.CdsServicePrefetchEntity;
-import com.cqlplatform.model.CqlExecutionRequest;
-import com.cqlplatform.model.CqlExecutionResponse;
+import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.model.cds.*;
+import com.cqlplatform.repository.CdsFeedbackRepository;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
-import com.cqlplatform.service.cql.CqlExecutionService;
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
+import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.validation.HookTypeValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Resource;
-import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.util.FileCopyUtils;
-
-import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * CDS Hooks service handling CRUD, discovery, feedback, and versioning.
+ * Invocation logic is delegated to {@link CdsInvocationService}.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CdsHooksService {
 
-    private final CqlExecutionService executionService;
     private final CdsServiceConfigRepository repository;
-    private final FhirContext fhirContext;
     private final ObjectMapper objectMapper;
+    private final CdsInvocationService invocationService;
+    private final CqlTupleCardStrategy tupleStrategy;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private Timer cdsInvocationTimer;
+    private CdsFeedbackRepository feedbackRepository;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private Counter cdsInvocationCounter;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private Counter cdsInvocationErrorCounter;
+    private CqlLibraryRepository cqlLibraryRepository;
 
     @PostConstruct
     public void loadServicesFromDatabase() {
         log.info("Loading CDS services from database...");
         List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
+
+        // For versioning: group by serviceName, keep only latest enabled version
+        Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
         for (CdsServiceConfigEntity entity : entities) {
+            String key = entity.getServiceName() != null ? entity.getServiceName() : entity.getId();
+            CdsServiceConfigEntity existing = latestByServiceName.get(key);
+            if (existing == null || entity.getVersion() > existing.getVersion()) {
+                latestByServiceName.put(key, entity);
+            }
+        }
+
+        for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
             CdsServiceConfig config = entityToConfig(entity);
             serviceConfigs.put(config.getId(), config);
-            log.info("Loaded CDS service: {}", config.getId());
+            log.info("Loaded CDS service: {} (v{})", config.getId(), entity.getVersion());
         }
-        log.info("Loaded {} CDS services from database", entities.size());
-
-        // Load built-in BMI Service
-        loadBmiService();
+        log.info("Loaded {} CDS services from database", latestByServiceName.size());
     }
 
-    private void loadBmiService() {
-        try {
-            ClassPathResource resource = new ClassPathResource("cql/BMI_CDS.cql");
-            String cqlContent = new String(
-                    FileCopyUtils.copyToByteArray(resource.getInputStream()),
-                    StandardCharsets.UTF_8);
-
-            Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch = new HashMap<>();
-            prefetch.put("patient", CdsServiceDefinition.PrefetchTemplate.builder()
-                    .query("Patient/{{context.patientId}}")
-                    .build());
-            prefetch.put("observations", CdsServiceDefinition.PrefetchTemplate.builder()
-                    .query("Observation?patient={{context.patientId}}&category=vital-signs")
-                    .build());
-
-            CdsServiceConfig bmiConfig = CdsServiceConfig.builder()
-                    .id("bmi-classifier")
-                    .hook("patient-view")
-                    .title("BMI Classification")
-                    .description("Calculates BMI and provides health recommendations")
-                    .cqlLibraryId("BMI_CDS")
-                    .cqlContent(cqlContent)
-                    .defaultIndicator("info")
-                    .prefetch(prefetch)
-                    .build();
-
-            serviceConfigs.put(bmiConfig.getId(), bmiConfig);
-            log.info("Loaded built-in CDS service: bmi-classifier");
-
-        } catch (Exception e) {
-            log.error("Failed to load built-in BMI service", e);
-        }
-    }
+    // --- CRUD ---
 
     @Transactional
     public CdsServiceConfigResponse createService(CdsServiceConfigRequest request) {
-        if (repository.existsById(request.getId())) {
-            throw new IllegalArgumentException("Service with ID '" + request.getId() + "' already exists");
+        return createService(request, null);
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse createService(CdsServiceConfigRequest request, String ownerUsername) {
+        HookTypeValidator.validate(request.getHook());
+
+        String serviceName = request.getId();
+        Optional<Integer> maxVersion = repository.findMaxVersionByServiceName(serviceName);
+        int newVersion = maxVersion.map(v -> v + 1).orElse(1);
+
+        String actualId = newVersion > 1 ? serviceName + "-v" + newVersion : serviceName;
+
+        if (repository.existsById(actualId)) {
+            throw new IllegalArgumentException("Service with ID '" + actualId + "' already exists");
         }
 
         CdsServiceConfigEntity entity = requestToEntity(request);
+        entity.setId(actualId);
+        entity.setServiceName(serviceName);
+        entity.setVersion(newVersion);
+        if (ownerUsername != null) {
+            entity.setOwnerUsername(ownerUsername);
+        }
         entity = repository.save(entity);
+
+        syncCqlLibrary(entity.getCqlContent());
 
         CdsServiceConfig config = entityToConfig(entity);
         if (Boolean.TRUE.equals(entity.getEnabled())) {
+            serviceConfigs.entrySet().removeIf(e -> {
+                CdsServiceConfig c = e.getValue();
+                return serviceName.equals(c.getServiceName());
+            });
             serviceConfigs.put(config.getId(), config);
         }
 
-        log.info("Created CDS service: {}", entity.getId());
+        log.info("Created CDS service: {} (v{})", entity.getId(), newVersion);
+        return entityToResponse(entity);
+    }
+
+    @Transactional
+    public CdsServiceConfigResponse toggleShared(String id, boolean shared) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+        entity.setShared(shared);
+        entity = repository.save(entity);
+        log.info("Set service {} shared={}", id, shared);
         return entityToResponse(entity);
     }
 
     @Transactional
     public CdsServiceConfigResponse updateService(String id, CdsServiceConfigRequest request) {
+        HookTypeValidator.validate(request.getHook());
+
         CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
 
@@ -128,6 +135,9 @@ public class CdsHooksService {
         entity.setCqlLibraryId(request.getCqlLibraryId());
         entity.setDefaultIndicator(request.getDefaultIndicator());
         entity.setEnabled(request.getEnabled() != null ? request.getEnabled() : true);
+        entity.setPlanDefinitionJson(request.getPlanDefinitionJson());
+        entity.setCardGenerationMode(request.getCardGenerationMode() != null
+                ? request.getCardGenerationMode() : "cql_tuple");
 
         entity.clearPrefetchItems();
         if (request.getPrefetch() != null) {
@@ -141,6 +151,8 @@ public class CdsHooksService {
         }
 
         entity = repository.save(entity);
+
+        syncCqlLibrary(entity.getCqlContent());
 
         if (Boolean.TRUE.equals(entity.getEnabled())) {
             serviceConfigs.put(id, entityToConfig(entity));
@@ -171,9 +183,75 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getAllServices() {
-        return repository.findAll().stream()
+        return repository.findAllWithPrefetch().stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getServicesForUser(String username) {
+        return repository.findByOwnerUsernameOrSharedTrue(username).stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getServicesByOwner(String username) {
+        return repository.findByOwnerUsernameWithPrefetch(username).stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // --- Discovery ---
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceDefinition> getServiceDefinitionsForUser(String username) {
+        List<CdsServiceDefinition> definitions = new ArrayList<>();
+        List<CdsServiceConfigEntity> entities = repository.findByOwnerUsernameAndEnabledTrue(username);
+
+        for (CdsServiceConfigEntity entity : entities) {
+            CdsServiceConfig config = entityToConfig(entity);
+            definitions.add(CdsServiceDefinition.builder()
+                    .id(config.getId())
+                    .hook(config.getHook())
+                    .title(config.getTitle())
+                    .description(config.getDescription())
+                    .version(config.getVersion())
+                    .prefetch(config.getPrefetch())
+                    .build());
+        }
+
+        return definitions;
+    }
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceDefinition> getSharedServiceDefinitions() {
+        List<CdsServiceDefinition> definitions = new ArrayList<>();
+
+        List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
+
+        Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
+        for (CdsServiceConfigEntity entity : entities) {
+            String key = entity.getServiceName() != null ? entity.getServiceName() : entity.getId();
+            CdsServiceConfigEntity existing = latestByServiceName.get(key);
+            if (existing == null || entity.getVersion() > existing.getVersion()) {
+                latestByServiceName.put(key, entity);
+            }
+        }
+
+        for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
+            CdsServiceConfig config = entityToConfig(entity);
+            definitions.add(CdsServiceDefinition.builder()
+                    .id(config.getId())
+                    .hook(config.getHook())
+                    .title(config.getTitle())
+                    .description(config.getDescription())
+                    .version(config.getVersion())
+                    .prefetch(config.getPrefetch())
+                    .build());
+        }
+
+        return definitions;
     }
 
     @Transactional
@@ -213,291 +291,140 @@ public class CdsHooksService {
                     .hook(config.getHook())
                     .title(config.getTitle())
                     .description(config.getDescription())
+                    .version(config.getVersion())
                     .prefetch(config.getPrefetch())
                     .build());
-        }
-
-        if (definitions.isEmpty()) {
-            definitions.add(createDefaultDiabetesService());
-            definitions.add(createDefaultMedicationService());
         }
 
         return definitions;
     }
 
-    public CdsResponse invokeService(String serviceId, CdsRequest request) {
-        String patientId = request.getContext() != null ? request.getContext().getPatientId() : "unknown";
-        log.info("Invoking CDS service: {} for patient: {}", serviceId, patientId);
-        if (cdsInvocationCounter != null) cdsInvocationCounter.increment();
-        Timer.Sample sample = cdsInvocationTimer != null ? Timer.start() : null;
+    // --- Invocation (delegated) ---
 
+    public CdsResponse invokeService(String serviceId, CdsRequest request) {
         CdsServiceConfig config = serviceConfigs.get(serviceId);
 
         if (config == null) {
-            CdsResponse response = handleDefaultService(serviceId, request);
-            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
-            return response;
-        }
-
-        try {
-            CqlExecutionRequest execRequest = new CqlExecutionRequest();
-            execRequest.setCql(config.getCqlContent());
-            execRequest.setPatientId(request.getContext() != null ? request.getContext().getPatientId() : null);
-            // Parse prefetch data into FHIR resources for in-memory CQL execution
-            RetrieveProvider prefetchProvider = buildPrefetchProvider(request);
-
-            // Only use the client's fhirServer if prefetch is not available
-            // and the server appears to be R4 compatible (our CQL requires R4).
-            // Otherwise, fall back to the default FHIR server.
-            if (prefetchProvider == null) {
-                String fhirServer = request.getFhirServer();
-                if (fhirServer != null && (fhirServer.contains("/r2/") || fhirServer.contains("/dstu2/"))) {
-                    log.warn("Client FHIR server is DSTU2 ({}), falling back to default R4 server", fhirServer);
-                    execRequest.setFhirServerUrl(null); // will use default
-                } else {
-                    execRequest.setFhirServerUrl(fhirServer);
-                }
-            }
-
-            CqlExecutionResponse execResponse;
-            if (prefetchProvider != null) {
-                execResponse = executionService.executeWithProvider(execRequest, prefetchProvider);
-            } else {
-                execResponse = executionService.execute(execRequest);
-            }
-
-            CdsResponse response = buildCardsFromExecution(config, execResponse);
-            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
-            return response;
-        } catch (Exception e) {
-            if (cdsInvocationErrorCounter != null) cdsInvocationErrorCounter.increment();
-            if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
-            log.error("CDS service invocation failed", e);
             return CdsResponse.builder()
-                    .cards(List.of(createErrorCard(e.getMessage())))
+                    .cards(List.of(tupleStrategy.createInfoCard("Service not found",
+                            "The requested CDS service '" + serviceId + "' is not available.")))
                     .build();
         }
+
+        // Validate hook type matches config
+        if (request.getHook() != null && !request.getHook().equals(config.getHook())) {
+            throw new IllegalArgumentException(
+                    "Hook type mismatch: request hook '" + request.getHook() +
+                            "' does not match service hook '" + config.getHook() + "'");
+        }
+
+        return invocationService.invoke(config, request);
     }
 
-    private RetrieveProvider buildPrefetchProvider(CdsRequest request) {
-        if (request.getPrefetch() == null || request.getPrefetch().isEmpty()) {
-            log.info("No prefetch data provided, will use FHIR server");
-            return null;
+    // --- Feedback ---
+
+    @Transactional
+    public void processFeedback(String serviceId, CdsFeedbackRequest request) {
+        if (!repository.existsById(serviceId) && !serviceConfigs.containsKey(serviceId)) {
+            throw new IllegalArgumentException("Service not found: " + serviceId);
         }
 
-        String patientId = request.getContext() != null ? request.getContext().getPatientId() : null;
-        List<Resource> resources = new ArrayList<>();
-        IParser jsonParser = fhirContext.newJsonParser();
-
-        for (Map.Entry<String, Object> entry : request.getPrefetch().entrySet()) {
-            try {
-                String json = objectMapper.writeValueAsString(entry.getValue());
-                Resource resource = (Resource) jsonParser.parseResource(json);
-
-                if (resource instanceof Bundle bundle) {
-                    // Extract individual resources from Bundle
-                    if (bundle.hasEntry()) {
-                        for (Bundle.BundleEntryComponent bundleEntry : bundle.getEntry()) {
-                            if (bundleEntry.hasResource()) {
-                                resources.add(bundleEntry.getResource());
-                            }
-                        }
-                    }
-                } else {
-                    resources.add(resource);
-                }
-                log.info("Parsed prefetch key '{}': {}", entry.getKey(), resource.fhirType());
-            } catch (Exception e) {
-                log.warn("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
-            }
+        if (request.getFeedback() == null || request.getFeedback().isEmpty()) {
+            return;
         }
 
-        if (resources.isEmpty()) {
-            log.info("No usable resources found in prefetch data");
-            return null;
+        if (feedbackRepository == null) {
+            log.warn("Feedback repository not available, skipping feedback persistence");
+            return;
         }
 
-        log.info("Built prefetch provider with {} resources", resources.size());
-        return new PrefetchRetrieveProvider(resources, patientId);
-    }
-
-    private CdsResponse handleDefaultService(String serviceId, CdsRequest request) {
-        return switch (serviceId) {
-            case "diabetes-management" -> handleDiabetesManagement(request);
-            case "medication-check" -> handleMedicationCheck(request);
-            default -> CdsResponse.builder()
-                    .cards(List.of(createInfoCard("Service not found", "The requested CDS service is not available.")))
+        for (CdsFeedbackRequest.FeedbackItem item : request.getFeedback()) {
+            // Defense-in-depth: HTML-escape all free-text fields before persistence
+            // to prevent stored XSS even if @NoXss validation is bypassed
+            CdsFeedbackEntity entity = CdsFeedbackEntity.builder()
+                    .serviceId(serviceId)
+                    .cardUuid(escapeHtml(item.getCard()))
+                    .outcome(item.getOutcome())
+                    .outcomeTimestamp(item.getOutcomeTimestamp() != null
+                            ? LocalDateTime.parse(item.getOutcomeTimestamp())
+                            : null)
+                    .acceptedSuggestions(item.getAcceptedSuggestions() != null
+                            ? serializeToJson(item.getAcceptedSuggestions())
+                            : null)
                     .build();
-        };
-    }
 
-    private CdsResponse handleDiabetesManagement(CdsRequest request) {
-        List<CdsResponse.Card> cards = new ArrayList<>();
-
-        cards.add(CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
-                .summary("Diabetes Care Reminder")
-                .detail("This patient may benefit from diabetes management review. Consider checking HbA1c levels and reviewing medication adherence.")
-                .indicator("info")
-                .source(CdsResponse.Source.builder()
-                        .label("CQL Platform - Diabetes Management")
-                        .build())
-                .suggestions(List.of(
-                        CdsResponse.Suggestion.builder()
-                                .uuid(UUID.randomUUID().toString())
-                                .label("Order HbA1c Test")
-                                .isRecommended(true)
-                                .build(),
-                        CdsResponse.Suggestion.builder()
-                                .uuid(UUID.randomUUID().toString())
-                                .label("Review Medications")
-                                .isRecommended(false)
-                                .build()))
-                .build());
-
-        return CdsResponse.builder().cards(cards).build();
-    }
-
-    private CdsResponse handleMedicationCheck(CdsRequest request) {
-        List<CdsResponse.Card> cards = new ArrayList<>();
-
-        cards.add(CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
-                .summary("Medication Interaction Check Complete")
-                .detail("No significant drug interactions detected for the selected medications.")
-                .indicator("info")
-                .source(CdsResponse.Source.builder()
-                        .label("CQL Platform - Drug Interaction Checker")
-                        .build())
-                .build());
-
-        return CdsResponse.builder().cards(cards).build();
-    }
-
-    private CdsResponse buildCardsFromExecution(CdsServiceConfig config, CqlExecutionResponse execResponse) {
-        List<CdsResponse.Card> cards = new ArrayList<>();
-
-        log.info("Building cards from CQL execution. Success: {}, Results count: {}",
-                execResponse.isSuccess(),
-                execResponse.getResults() != null ? execResponse.getResults().size() : 0);
-        log.info("Execution Metadata: {}", execResponse.getMetadata());
-
-        if (execResponse.getResults() != null) {
-            for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults()
-                    .entrySet()) {
-                Object value = entry.getValue().getValue();
-                log.info("Expression '{}': value={}, type={}",
-                        entry.getKey(), value, entry.getValue().getValueType());
-
-                if (value instanceof Boolean && (Boolean) value) {
-                    cards.add(CdsResponse.Card.builder()
-                            .uuid(UUID.randomUUID().toString())
-                            .summary(config.getTitle() + ": " + entry.getKey())
-                            .detail("Condition '" + entry.getKey() + "' evaluated to true.")
-                            .indicator(config.getDefaultIndicator() != null ? config.getDefaultIndicator() : "warning")
-                            .source(CdsResponse.Source.builder()
-                                    .label(config.getTitle())
-                                    .build())
-                            .build());
-                } else if (value != null && value.getClass().getSimpleName().contains("Tuple")) {
-                    try {
-                        String summary = getField(value, "summary");
-                        String detail = getField(value, "detail");
-                        String indicator = getField(value, "indicator");
-                        String sourceLabel = getField(value, "sourceLabel");
-
-                        if (summary != null) {
-                            cards.add(CdsResponse.Card.builder()
-                                    .uuid(UUID.randomUUID().toString())
-                                    .summary(summary)
-                                    .detail(detail)
-                                    .indicator(indicator != null ? indicator : "info")
-                                    .source(CdsResponse.Source.builder()
-                                            .label(sourceLabel != null ? sourceLabel : config.getTitle())
-                                            .build())
-                                    .build());
-                        }
-                    } catch (Exception e) {
-                        log.warn("Failed to parse Tuple result for card", e);
-                    }
-                }
+            if (item.getOverrideReason() != null) {
+                entity.setOverrideReasonCode(escapeHtml(item.getOverrideReason().getCode()));
+                entity.setOverrideReasonDisplay(escapeHtml(item.getOverrideReason().getDisplay()));
             }
+
+            feedbackRepository.save(entity);
         }
 
-        if (cards.isEmpty()) {
-            cards.add(createInfoCard(config.getTitle(), "No recommendations at this time."));
-        }
-
-        return CdsResponse.builder().cards(cards).build();
+        log.info("Processed {} feedback items for service {}", request.getFeedback().size(), serviceId);
     }
 
-    private String getField(Object tuple, String fieldName) {
+    @Transactional(readOnly = true)
+    public List<CdsFeedbackEntity> getFeedback(String serviceId) {
+        if (feedbackRepository == null) {
+            return List.of();
+        }
+        return feedbackRepository.findByServiceIdOrderByCreatedAtDesc(serviceId);
+    }
+
+    private static String escapeHtml(String value) {
+        return value == null ? null : HtmlUtils.htmlEscape(value);
+    }
+
+    private String serializeToJson(Object obj) {
         try {
-            java.lang.reflect.Method getElements = tuple.getClass().getMethod("getElements");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> elements = (Map<String, Object>) getElements.invoke(tuple);
-            Object val = elements.get(fieldName);
-            return val != null ? val.toString() : null;
+            return objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
+            log.warn("Failed to serialize to JSON", e);
             return null;
         }
     }
 
-    private CdsResponse.Card createInfoCard(String summary, String detail) {
-        return CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
-                .summary(summary)
-                .detail(detail)
-                .indicator("info")
-                .source(CdsResponse.Source.builder()
-                        .label("CQL Platform")
-                        .build())
-                .build();
+    // --- Versioning ---
+
+    @Transactional(readOnly = true)
+    public List<CdsServiceConfigResponse> getServiceVersions(String serviceName) {
+        return repository.findByServiceNameOrderByVersionDesc(serviceName).stream()
+                .map(this::entityToResponse)
+                .collect(Collectors.toList());
     }
 
-    private CdsResponse.Card createErrorCard(String errorMessage) {
-        return CdsResponse.Card.builder()
-                .uuid(UUID.randomUUID().toString())
-                .summary("CDS Service Error")
-                .detail("An error occurred: " + errorMessage)
-                .indicator("warning")
-                .source(CdsResponse.Source.builder()
-                        .label("CQL Platform")
-                        .build())
-                .build();
+    @Transactional
+    public CdsServiceConfigResponse rollbackService(String serviceName, int targetVersion) {
+        List<CdsServiceConfigEntity> versions = repository.findByServiceNameOrderByVersionDesc(serviceName);
+
+        if (versions.isEmpty()) {
+            throw new IllegalArgumentException("No service found with name: " + serviceName);
+        }
+
+        CdsServiceConfigEntity targetEntity = versions.stream()
+                .filter(v -> v.getVersion() == targetVersion)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Version " + targetVersion + " not found for service: " + serviceName));
+
+        for (CdsServiceConfigEntity v : versions) {
+            v.setEnabled(false);
+            repository.save(v);
+            serviceConfigs.remove(v.getId());
+        }
+
+        targetEntity.setEnabled(true);
+        targetEntity = repository.save(targetEntity);
+
+        CdsServiceConfig config = entityToConfig(targetEntity);
+        serviceConfigs.put(config.getId(), config);
+
+        log.info("Rolled back service {} to version {}", serviceName, targetVersion);
+        return entityToResponse(targetEntity);
     }
 
-    private CdsServiceDefinition createDefaultDiabetesService() {
-        return CdsServiceDefinition.builder()
-                .id("diabetes-management")
-                .hook("patient-view")
-                .title("Diabetes Management")
-                .description("Clinical decision support for diabetes patient management")
-                .prefetch(Map.of(
-                        "patient", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("Patient/{{context.patientId}}")
-                                .build(),
-                        "conditions", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("Condition?patient={{context.patientId}}")
-                                .build()))
-                .build();
-    }
-
-    private CdsServiceDefinition createDefaultMedicationService() {
-        return CdsServiceDefinition.builder()
-                .id("medication-check")
-                .hook("order-select")
-                .title("Medication Interaction Check")
-                .description("Check for potential drug interactions")
-                .prefetch(Map.of(
-                        "patient", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("Patient/{{context.patientId}}")
-                                .build(),
-                        "medications", CdsServiceDefinition.PrefetchTemplate.builder()
-                                .query("MedicationRequest?patient={{context.patientId}}")
-                                .build()))
-                .build();
-    }
+    // --- Entity mapping ---
 
     private CdsServiceConfigEntity requestToEntity(CdsServiceConfigRequest request) {
         CdsServiceConfigEntity entity = CdsServiceConfigEntity.builder()
@@ -509,6 +436,11 @@ public class CdsHooksService {
                 .cqlLibraryId(request.getCqlLibraryId())
                 .defaultIndicator(request.getDefaultIndicator())
                 .enabled(request.getEnabled() != null ? request.getEnabled() : true)
+                .planDefinitionJson(request.getPlanDefinitionJson())
+                .cardGenerationMode(request.getCardGenerationMode() != null
+                        ? request.getCardGenerationMode() : "cql_tuple")
+                .serviceName(request.getId())
+                .version(1)
                 .prefetchItems(new ArrayList<>())
                 .build();
 
@@ -543,6 +475,10 @@ public class CdsHooksService {
                 .cqlContent(entity.getCqlContent())
                 .cqlLibraryId(entity.getCqlLibraryId())
                 .defaultIndicator(entity.getDefaultIndicator())
+                .version(entity.getVersion())
+                .serviceName(entity.getServiceName())
+                .planDefinitionJson(entity.getPlanDefinitionJson())
+                .cardGenerationMode(entity.getCardGenerationMode())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
                 .build();
     }
@@ -564,10 +500,60 @@ public class CdsHooksService {
                 .cqlLibraryId(entity.getCqlLibraryId())
                 .defaultIndicator(entity.getDefaultIndicator())
                 .enabled(entity.getEnabled())
+                .version(entity.getVersion())
+                .serviceName(entity.getServiceName())
+                .ownerUsername(entity.getOwnerUsername())
+                .shared(entity.getShared())
+                .planDefinitionJson(entity.getPlanDefinitionJson())
+                .cardGenerationMode(entity.getCardGenerationMode())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Sync CQL content from CDS service config to the cql_library table.
+     */
+    private void syncCqlLibrary(String cqlContent) {
+        if (cqlContent == null || cqlContent.isBlank())
+            return;
+        if (cqlLibraryRepository == null)
+            return;
+
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("library\\s+\"?([^\"\\s]+)\"?\\s+version\\s+'([^']+)'")
+                .matcher(cqlContent);
+
+        if (!matcher.find()) {
+            log.warn("Could not parse library name/version from CQL content, skipping sync");
+            return;
+        }
+
+        String libName = matcher.group(1);
+        String libVersion = matcher.group(2);
+
+        try {
+            Optional<CqlLibraryEntity> existing = cqlLibraryRepository.findByNameAndVersion(libName, libVersion);
+            if (existing.isPresent()) {
+                CqlLibraryEntity entity = existing.get();
+                entity.setCqlContent(cqlContent);
+                entity.setElmJson(null);
+                cqlLibraryRepository.save(entity);
+                log.info("Synced cql_library '{}' version '{}' with updated CQL content", libName, libVersion);
+            } else {
+                CqlLibraryEntity newLib = CqlLibraryEntity.builder()
+                        .name(libName)
+                        .version(libVersion)
+                        .cqlContent(cqlContent)
+                        .status("active")
+                        .build();
+                cqlLibraryRepository.save(newLib);
+                log.info("Created cql_library '{}' version '{}' from CDS service CQL", libName, libVersion);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync CQL library: {}", e.getMessage());
+        }
     }
 
     @lombok.Data
@@ -580,6 +566,10 @@ public class CdsHooksService {
         private String cqlLibraryId;
         private String cqlContent;
         private String defaultIndicator;
+        private Integer version;
+        private String serviceName;
+        private String planDefinitionJson;
+        private String cardGenerationMode;
         private Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch;
     }
 }

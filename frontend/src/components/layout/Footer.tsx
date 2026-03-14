@@ -1,9 +1,11 @@
 import { Box, Typography, Link, Stack } from '@mui/material'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import type { RootState } from '../../store'
 
 export default function Footer() {
   const { cursorPosition, errors, warnings } = useSelector((state: RootState) => state.editor)
+  const { t } = useTranslation()
 
   return (
     <Box
@@ -19,7 +21,7 @@ export default function Footer() {
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Stack direction="row" spacing={3}>
           <Typography variant="caption" color="text.secondary">
-            Ln {cursorPosition.line}, Col {cursorPosition.column}
+            {t('footer.line', { line: cursorPosition.line, column: cursorPosition.column })}
           </Typography>
           <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Box
@@ -43,7 +45,7 @@ export default function Footer() {
               }}
             />
             <Box component="span" sx={{ color: errors.length > 0 ? 'error.main' : 'success.main' }}>
-              {errors.length > 0 ? `${errors.length} errors` : 'No errors'}
+              {errors.length > 0 ? t('footer.errorsCount', { count: errors.length }) : t('footer.noErrors')}
             </Box>
           </Typography>
           <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -59,7 +61,7 @@ export default function Footer() {
               }}
             />
             <Box component="span" sx={{ color: warnings.length > 0 ? 'warning.main' : 'text.secondary' }}>
-              {warnings.length > 0 ? `${warnings.length} warnings` : 'No warnings'}
+              {warnings.length > 0 ? t('footer.warningsCount', { count: warnings.length }) : t('footer.noWarnings')}
             </Box>
           </Typography>
         </Stack>
@@ -77,7 +79,7 @@ export default function Footer() {
               '&:hover': { color: 'primary.main' },
             }}
           >
-            CQL Specification
+            {t('footer.cqlSpec')}
           </Link>
           <Link
             href="https://cds-hooks.org/"
@@ -91,7 +93,7 @@ export default function Footer() {
               '&:hover': { color: 'primary.main' },
             }}
           >
-            CDS Hooks
+            {t('footer.cdsHooks')}
           </Link>
           <Link
             href="https://www.hl7.org/fhir/"
@@ -105,7 +107,7 @@ export default function Footer() {
               '&:hover': { color: 'primary.main' },
             }}
           >
-            FHIR
+            {t('footer.fhir')}
           </Link>
         </Stack>
       </Stack>

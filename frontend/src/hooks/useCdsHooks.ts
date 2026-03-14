@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { cdsHooksApi } from '../api'
-import type { CdsRequest, CdsServiceConfigRequest } from '../types'
+import { cdsHooksApi, apiKeyApi } from '../api'
+import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest, SandboxPresetRequest } from '../types'
+import { REFETCH_30S } from '../constants/queryConstants'
 
 export function useCdsServices() {
   return useQuery({
@@ -53,6 +54,127 @@ export function useDeleteCdsService() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cds-services'] })
       queryClient.invalidateQueries({ queryKey: ['cds-service-configs'] })
+    },
+  })
+}
+
+export function useSubmitCdsFeedback() {
+  return useMutation({
+    mutationFn: ({ serviceId, feedback }: { serviceId: string; feedback: CdsFeedbackRequest }) =>
+      cdsHooksApi.submitFeedback(serviceId, feedback),
+  })
+}
+
+export function useCdsServiceVersions(serviceName: string | null) {
+  return useQuery({
+    queryKey: ['cds-service-versions', serviceName],
+    queryFn: () => cdsHooksApi.getServiceVersions(serviceName!),
+    enabled: !!serviceName,
+  })
+}
+
+export function useRollbackCdsService() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ serviceName, version }: { serviceName: string; version: number }) =>
+      cdsHooksApi.rollbackService(serviceName, version),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cds-services'] })
+      queryClient.invalidateQueries({ queryKey: ['cds-service-configs'] })
+      queryClient.invalidateQueries({ queryKey: ['cds-service-versions'] })
+    },
+  })
+}
+
+export function useToggleCdsServiceShared() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, shared }: { id: string; shared: boolean }) =>
+      cdsHooksApi.toggleShared(id, shared),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cds-services'] })
+      queryClient.invalidateQueries({ queryKey: ['cds-service-configs'] })
+    },
+  })
+}
+
+export function useCdsAnalytics() {
+  return useQuery({
+    queryKey: ['cds-analytics'],
+    queryFn: () => cdsHooksApi.getAllAnalytics(),
+    refetchInterval: REFETCH_30S,
+  })
+}
+
+export function useSandboxInvoke() {
+  return useMutation({
+    mutationFn: ({ serviceId, request }: { serviceId: string; request: CdsSandboxRequest }) =>
+      cdsHooksApi.sandboxInvoke(serviceId, request),
+  })
+}
+
+export function useSandboxPresets() {
+  return useQuery({
+    queryKey: ['sandbox-presets'],
+    queryFn: () => cdsHooksApi.listPresets(),
+  })
+}
+
+export function useCreateSandboxPreset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: SandboxPresetRequest) => cdsHooksApi.createPreset(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandbox-presets'] })
+    },
+  })
+}
+
+export function useUpdateSandboxPreset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: SandboxPresetRequest }) =>
+      cdsHooksApi.updatePreset(id, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandbox-presets'] })
+    },
+  })
+}
+
+export function useDeleteSandboxPreset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => cdsHooksApi.deletePreset(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandbox-presets'] })
+    },
+  })
+}
+
+// API Key hooks
+export function useApiKeys() {
+  return useQuery({
+    queryKey: ['api-keys'],
+    queryFn: () => apiKeyApi.listKeys(),
+  })
+}
+
+export function useGenerateApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => apiKeyApi.generateKey(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys'] })
+    },
+  })
+}
+
+export function useRevokeApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiKeyApi.revokeKey(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys'] })
     },
   })
 }

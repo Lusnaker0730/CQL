@@ -1,0 +1,145 @@
+[
+  {
+    "code": "MOHW-QI-001",
+    "name": "急性心肌梗塞住院死亡率",
+    "nameEn": "Acute Myocardial Infarction In-Hospital Mortality Rate",
+    "category": "Outcome",
+    "subcategory": "Mortality",
+    "description": "急性心肌梗塞患者住院期間死亡的比率",
+    "source": "MOH",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "MOHW-QI-002",
+    "name": "剖腹產率",
+    "nameEn": "Cesarean Section Rate",
+    "category": "Process",
+    "subcategory": "Obstetrics",
+    "description": "剖腹產占所有分娩的比率",
+    "source": "MOH",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "MOHW-QI-003",
+    "name": "門診抗生素使用率",
+    "nameEn": "Outpatient Antibiotic Prescribing Rate",
+    "category": "Process",
+    "subcategory": "Medication Safety",
+    "description": "門診開立抗生素處方的比率",
+    "source": "MOH",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "MOHW-QI-004",
+    "name": "糖尿病患者 HbA1c 檢測率",
+    "nameEn": "Diabetes HbA1c Testing Rate",
+    "category": "Process",
+    "subcategory": "Chronic Disease",
+    "description": "糖尿病患者定期接受 HbA1c 檢測的比率",
+    "source": "MOH",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "MOHW-QI-005",
+    "name": "跌倒發生率",
+    "nameEn": "Fall Rate",
+    "category": "Outcome",
+    "subcategory": "Patient Safety",
+    "description": "住院期間跌倒事件的發生率",
+    "source": "MOH",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "P4P-DM-001",
+    "name": "糖尿病照護品質指標 - 眼底檢查",
+    "nameEn": "Diabetes Care Quality - Eye Exam",
+    "category": "Process",
+    "subcategory": "Chronic Disease",
+    "description": "糖尿病患者接受年度眼底檢查的比率",
+    "source": "NHIA_P4P",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "P4P-DM-002",
+    "name": "糖尿病照護品質指標 - 腎功能檢測",
+    "nameEn": "Diabetes Care Quality - Renal Function Test",
+    "category": "Process",
+    "subcategory": "Chronic Disease",
+    "description": "糖尿病患者接受年度腎功能檢測的比率",
+    "source": "NHIA_P4P",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "P4P-HTN-001",
+    "name": "高血壓照護品質指標 - 血壓控制",
+    "nameEn": "Hypertension Care Quality - Blood Pressure Control",
+    "category": "Outcome",
+    "subcategory": "Chronic Disease",
+    "description": "高血壓患者血壓控制在140/90 mmHg以下的比率",
+    "source": "NHIA_P4P",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "DRG-001",
+    "name": "特定 DRG 平均住院天數",
+    "nameEn": "Average Length of Stay by DRG",
+    "category": "Efficiency",
+    "subcategory": "Utilization",
+    "description": "按 DRG 分組之平均住院天數",
+    "source": "DRG",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "DRG-002",
+    "name": "DRG 再入院率",
+    "nameEn": "DRG Readmission Rate",
+    "category": "Outcome",
+    "subcategory": "Readmission",
+    "description": "特定 DRG 之 30 天內非計畫性再入院率",
+    "source": "DRG",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "CMS122v12",
+    "name": "Diabetes: Hemoglobin A1c Poor Control",
+    "nameEn": "Diabetes: Hemoglobin A1c Poor Control (>9%)",
+    "category": "Outcome",
+    "subcategory": "Chronic Disease",
+    "description": "Percentage of patients 18-75 years of age with diabetes who had hemoglobin A1c > 9.0%",
+    "source": "CMS",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "CMS165v12",
+    "name": "Controlling High Blood Pressure",
+    "nameEn": "Controlling High Blood Pressure",
+    "category": "Outcome",
+    "subcategory": "Chronic Disease",
+    "description": "Percentage of patients 18-85 years of age who had a diagnosis of hypertension with blood pressure adequately controlled",
+    "source": "CMS",
+    "version": "2024",
+    "active": true
+  },
+  {
+    "code": "CMS69v12",
+    "name": "Preventive Care & Screening: BMI Screening and Follow-Up",
+    "nameEn": "Preventive Care and Screening: Body Mass Index Screening and Follow-Up Plan",
+    "category": "Process",
+    "subcategory": "Prevention",
+    "description": "Percentage of patients aged 18 years and older with BMI documented during the current encounter or within previous 12 months",
+    "source": "CMS",
+    "version": "2024",
+    "active": true
+  }
+]

@@ -1,0 +1,1 @@
+<#if minAge?has_content && maxAge?has_content>(${ageFunction} >= ${minAge} and ${ageFunction} <= ${maxAge})<#elseif minAge?has_content>${ageFunction} >= ${minAge}<#elseif maxAge?has_content>${ageFunction} <= ${maxAge}<#else>true</#if>

@@ -1,10 +1,7 @@
 # Development profile - H2 in-memory database
-# Dev-only secrets (safe defaults for local development)
-jwt:
-  secret: CQLPlatformSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!
-
-encryption:
-  secret-key: DefaultEncryptionKeyMustBeExactly32B
+# Secrets must be provided via environment variables (JWT_SECRET, ENCRYPTION_KEY)
+# Example: export JWT_SECRET="YourDevSecretKeyMustBeAtLeast256BitsLongForSecurity!!"
+# Example: export ENCRYPTION_KEY="YourDevEncryptionKey32BytesLong!"
 
 spring:
   datasource:
@@ -12,6 +9,14 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+      pool-name: CqlPlatformPool-Dev
 
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
@@ -22,10 +27,28 @@ spring:
   flyway:
     enabled: false
 
-  # H2 Console (development only)
+  # Dev mail config (logs to console instead of sending)
+  mail:
+    host: localhost
+    port: 1025
+    username: ""
+    password: ""
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# VSAC API Key (NLM UMLS) - must be provided via environment variable
+# Example: export VSAC_API_KEY="your-vsac-api-key"
+
   h2:
     console:
       enabled: true
       path: /h2-console
       settings:
         web-allow-others: false
+
+refresh-token:
+  cookie-secure: false   # dev runs on HTTP

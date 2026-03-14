@@ -18,6 +18,7 @@ public class MeasureEvaluationResult {
     private String reportType;
     private List<GroupResult> groups;
     private Map<String, Object> supplementalData;
+    private String errorMessage;
 
     @Data
     @Builder
@@ -28,6 +29,7 @@ public class MeasureEvaluationResult {
         private Double measureScore;
         private String measureScoreUnit;
         private List<StratifierResult> stratifiers;
+        private Integer totalPatients;
     }
 
     @Data

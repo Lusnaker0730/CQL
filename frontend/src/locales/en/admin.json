@@ -1,0 +1,113 @@
+{
+  "users": {
+    "title": "User Management",
+    "createUser": "Create User",
+    "noUsersFound": "No users found",
+    "youChip": "You",
+    "columns": {
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "roles": {
+      "admin": "ADMIN",
+      "user": "USER"
+    },
+    "status": {
+      "forceChange": "Force Change",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "tooltips": {
+      "cannotDisableSelf": "Cannot disable yourself",
+      "disableUser": "Disable user",
+      "enableUser": "Enable user",
+      "resetPassword": "Reset user's password"
+    },
+    "resetPasswordButton": "Reset Password",
+    "createDialog": {
+      "title": "Create User",
+      "usernameLabel": "Username",
+      "passwordLabel": "Password",
+      "passwordHelperText": "Minimum 8 characters, must include uppercase, lowercase, and a number",
+      "emailLabel": "Email",
+      "roleLabel": "Role",
+      "createButton": "Create"
+    },
+    "resetDialog": {
+      "title": "Password Reset Successful",
+      "userLabel": "User: <strong>{{username}}</strong>",
+      "temporaryPasswordLabel": "Temporary Password:",
+      "copiedTooltip": "Copied!",
+      "copyTooltip": "Copy to clipboard",
+      "copyAriaLabel": "Copy to clipboard",
+      "shareWarning": "Share this password securely with the user. They will be required to change it upon next login."
+    },
+    "confirmDialog": {
+      "changeRoleTitle": "Change User Role",
+      "changeRoleMessage": "Change {{username}}'s role to {{role}}?",
+      "disableUserTitle": "Disable User",
+      "enableUserTitle": "Enable User",
+      "toggleEnabledMessage": "Are you sure you want to {{action}} {{username}}?"
+    },
+    "success": {
+      "userCreated": "User created successfully",
+      "roleUpdated": "{{username}}'s role updated to {{role}}",
+      "userToggled": "{{username}} has been {{action}}d"
+    },
+    "errors": {
+      "usernameExists": "Username already exists or invalid input",
+      "createFailed": "Failed to create user",
+      "resetFailed": "Failed to reset password",
+      "updateRoleFailed": "Failed to update role",
+      "toggleFailed": "Failed to {{action}} user"
+    }
+  },
+  "audit": {
+    "title": "HIPAA Audit Dashboard",
+    "stats": {
+      "eventsToday": "Events Today",
+      "phiAccessesToday": "PHI Accesses Today",
+      "failedLoginsToday": "Failed Logins Today",
+      "activeUsersToday": "Active Users Today"
+    },
+    "activityTimeline": "Activity Timeline (14 Days)",
+    "activityTooltip": "{{date}}: {{count}} events",
+    "actionDistribution": "Action Distribution",
+    "topUsers": {
+      "title": "Most Active Users (Last 30 Days)",
+      "username": "Username",
+      "events": "Events",
+      "lastActivity": "Last Activity"
+    },
+    "tabs": {
+      "allLogs": "All Logs",
+      "phiAccess": "PHI Access",
+      "loginActivity": "Login Activity",
+      "securityEvents": "Security Events"
+    },
+    "filters": {
+      "username": "Username",
+      "action": "Action",
+      "actionAll": "All",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "statusCode": "Status Code"
+    },
+    "exportCsv": "Export CSV",
+    "table": {
+      "timestamp": "Timestamp",
+      "user": "User",
+      "action": "Action",
+      "method": "Method",
+      "path": "Path",
+      "status": "Status",
+      "ipAddress": "IP Address",
+      "timeMs": "Time (ms)",
+      "noEntries": "No audit log entries found"
+    }
+  }
+}

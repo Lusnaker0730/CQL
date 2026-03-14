@@ -22,9 +22,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         var user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
+        String password = user.getPassword() != null ? user.getPassword() : "{noop}SSO_USER_NO_PASSWORD";
+
         return new User(
                 user.getUsername(),
-                user.getPassword(),
+                password,
                 user.getEnabled(),
                 true, true, true,
                 List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
