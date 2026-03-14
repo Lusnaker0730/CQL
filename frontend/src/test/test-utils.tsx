@@ -9,6 +9,8 @@ import executionReducer from '../store/executionSlice'
 import authReducer from '../store/authSlice'
 import { ThemeProvider } from '@mui/material/styles'
 import { theme } from '../theme'
+import { PreferencesProvider } from '../contexts/PreferencesContext'
+import { NotificationProvider } from '../contexts/NotificationContext'
 
 function createTestStore(preloadedState?: Record<string, unknown>) {
   return configureStore({
@@ -17,7 +19,7 @@ function createTestStore(preloadedState?: Record<string, unknown>) {
       execution: executionReducer,
       auth: authReducer,
     },
-    preloadedState: preloadedState as any,
+    preloadedState: preloadedState as Record<string, unknown>,
   })
 }
 
@@ -49,11 +51,15 @@ function customRender(
     return (
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider theme={theme}>
-            <MemoryRouter initialEntries={[route]}>
-              {children}
-            </MemoryRouter>
-          </ThemeProvider>
+          <PreferencesProvider>
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <MemoryRouter initialEntries={[route]}>
+                  {children}
+                </MemoryRouter>
+              </ThemeProvider>
+            </NotificationProvider>
+          </PreferencesProvider>
         </QueryClientProvider>
       </Provider>
     )
@@ -62,5 +68,6 @@ function customRender(
   return { ...render(ui, { wrapper: Wrapper, ...renderOptions }), store, queryClient }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export * from '@testing-library/react'
 export { customRender as render }

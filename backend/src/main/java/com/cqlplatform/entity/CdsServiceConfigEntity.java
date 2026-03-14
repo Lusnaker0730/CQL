@@ -37,9 +37,30 @@ public class CdsServiceConfigEntity {
     @Column(name = "default_indicator", length = 20)
     private String defaultIndicator;
 
+    @Column(name = "owner_username")
+    private String ownerUsername;
+
+    @Column(name = "is_shared")
+    @Builder.Default
+    private Boolean shared = false;
+
     @Column(name = "enabled", nullable = false)
     @Builder.Default
     private Boolean enabled = true;
+
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Integer version = 1;
+
+    @Column(name = "service_name", length = 100)
+    private String serviceName;
+
+    @Column(name = "plan_definition_json", columnDefinition = "TEXT")
+    private String planDefinitionJson;
+
+    @Column(name = "card_generation_mode", length = 20)
+    @Builder.Default
+    private String cardGenerationMode = "cql_tuple";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -47,7 +68,7 @@ public class CdsServiceConfigEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "serviceConfig", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "serviceConfig", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

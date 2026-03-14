@@ -1,0 +1,559 @@
+import { useState, useCallback, useMemo } from 'react'
+import {
+  Box, Stack, Typography, Button, IconButton, Select, MenuItem, TextField,
+  FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions,
+  Chip,
+} from '@mui/material'
+import {
+  Add as AddIcon, Delete as DeleteIcon, Close as CloseIcon,
+} from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
+import type { Modifier } from '../../../types/authoring'
+import { generateId } from '../../../utils/validation'
+import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
+import { CONJUNCTION_COLOR_AND, CONJUNCTION_COLOR_OR } from '../../../constants/authoringConstants'
+
+/** A single rule: field → operator → value */
+interface ModifierRule {
+  id: string
+  field: string
+  operator: string
+  value: string
+}
+
+/** A group of rules combined with AND/OR */
+interface ModifierRuleGroup {
+  id: string
+  conjunction: 'AND' | 'OR'
+  rules: ModifierRule[]
+  groups: ModifierRuleGroup[]
+}
+
+// Fallback operators when API data isn't available yet
+const FALLBACK_OPERATORS_BY_TYPE: Record<string, Array<{ op: string; label: string }>> = {
+  code: [
+    { op: 'equals', label: 'equals' },
+    { op: 'not_equals', label: 'does not equal' },
+    { op: 'in', label: 'is in' },
+    { op: 'is_null', label: 'is null' },
+    { op: 'is_not_null', label: 'is not null' },
+  ],
+  string: [
+    { op: 'equals', label: 'equals' },
+    { op: 'not_equals', label: 'does not equal' },
+    { op: 'starts_with', label: 'starts with' },
+    { op: 'ends_with', label: 'ends with' },
+    { op: 'contains', label: 'contains' },
+    { op: 'is_null', label: 'is null' },
+  ],
+  decimal: [
+    { op: 'equals', label: '=' },
+    { op: 'not_equals', label: '!=' },
+    { op: 'gt', label: '>' },
+    { op: 'gte', label: '>=' },
+    { op: 'lt', label: '<' },
+    { op: 'lte', label: '<=' },
+    { op: 'is_null', label: 'is null' },
+  ],
+  dateTime: [
+    { op: 'before', label: 'is before' },
+    { op: 'after', label: 'is after' },
+    { op: 'within_last', label: 'within the last' },
+    { op: 'is_null', label: 'is null' },
+    { op: 'is_not_null', label: 'is not null' },
+  ],
+}
+
+/** Convert "list_of_xxx" inputType to FHIR resource name, e.g. list_of_conditions → Condition */
+function inputTypeToResourceName(inputType: string): string | null {
+  const m = inputType.match(/^list_of_(.+)$/)
+  if (!m) return null
+  const snake = m[1]
+  // Handle common plurals: conditions→Condition, observations→Observation, etc.
+  const OVERRIDES: Record<string, string> = {
+    allergy_intolerances: 'AllergyIntolerance',
+    medication_requests: 'MedicationRequest',
+    medication_statements: 'MedicationStatement',
+    service_requests: 'ServiceRequest',
+    diagnostic_reports: 'DiagnosticReport',
+  }
+  if (OVERRIDES[snake]) return OVERRIDES[snake]
+  // Default: strip trailing 's', PascalCase
+  const singular = snake.endsWith('s') ? snake.slice(0, -1) : snake
+  return singular.charAt(0).toUpperCase() + singular.slice(1)
+}
+
+/** Capitalize first letter of each word for labels: "clinicalStatus" → "Clinical Status" */
+function toLabel(name: string): string {
+  return name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim()
+}
+
+function createEmptyRule(): ModifierRule {
+  return { id: generateId(), field: '', operator: '', value: '' }
+}
+
+function createEmptyGroup(): ModifierRuleGroup {
+  return { id: generateId(), conjunction: 'AND', rules: [createEmptyRule()], groups: [] }
+}
+
+function isRuleComplete(rule: ModifierRule): boolean {
+  if (!rule.field || !rule.operator) return false
+  if (['is_null', 'is_not_null'].includes(rule.operator)) return true
+  return !!rule.value
+}
+
+function isGroupValid(group: ModifierRuleGroup): boolean {
+  return (
+    group.rules.every(isRuleComplete) &&
+    group.groups.every(isGroupValid) &&
+    (group.rules.length > 0 || group.groups.length > 0)
+  )
+}
+
+interface CustomModifierBuilderProps {
+  open: boolean
+  onClose: () => void
+  inputType: string
+  onAdd: (modifier: Modifier) => void
+}
+
+export default function CustomModifierBuilder({
+  open,
+  onClose,
+  inputType,
+  onAdd,
+}: CustomModifierBuilderProps) {
+  const { t } = useTranslation('authoring')
+  const [rootGroup, setRootGroup] = useState<ModifierRuleGroup>(createEmptyGroup())
+  const { data: apiResources } = useQueryBuilderResources()
+  const { data: apiOperators } = useQueryBuilderOperators()
+
+  // Derive field list and code value options from API resources
+  const { availableFields, codeValueOptions } = useMemo(() => {
+    const resourceName = inputTypeToResourceName(inputType)
+    if (!resourceName || !apiResources) return { availableFields: [] as Array<{ field: string; label: string; type: string }>, codeValueOptions: {} as Record<string, string[]> }
+    const resource = apiResources.find((r) => r.name === resourceName)
+    if (!resource) return { availableFields: [] as Array<{ field: string; label: string; type: string }>, codeValueOptions: {} as Record<string, string[]> }
+    const fields = resource.properties.map((p) => ({
+      field: p.name,
+      label: toLabel(p.name),
+      type: p.type === 'CodeableConcept' || p.type === 'Coding' ? 'code' : p.type === 'Quantity' ? 'decimal' : p.type === 'Period' ? 'dateTime' : p.type,
+    }))
+    const codeOpts: Record<string, string[]> = {}
+    for (const p of resource.properties) {
+      if (p.values && p.values.length > 0) {
+        codeOpts[p.name] = p.values
+      }
+    }
+    return { availableFields: fields, codeValueOptions: codeOpts }
+  }, [inputType, apiResources])
+
+  // Derive operators grouped by type from API
+  const operatorsByType = useMemo(() => {
+    if (!apiOperators || apiOperators.length === 0) return FALLBACK_OPERATORS_BY_TYPE
+    const grouped: Record<string, Array<{ op: string; label: string }>> = {}
+    for (const op of apiOperators) {
+      for (const t of op.applicableTypes) {
+        const normalizedType = t === 'CodeableConcept' || t === 'Coding' ? 'code' : t === 'Quantity' ? 'decimal' : t === 'Period' ? 'dateTime' : t
+        if (!grouped[normalizedType]) grouped[normalizedType] = []
+        if (!grouped[normalizedType].some((o) => o.op === op.id)) {
+          grouped[normalizedType].push({ op: op.id, label: op.label })
+        }
+      }
+    }
+    // Add custom operators not in backend (within_last for dateTime, ends_with for string)
+    if (grouped.dateTime && !grouped.dateTime.some((o) => o.op === 'within_last')) {
+      grouped.dateTime.push({ op: 'within_last', label: 'within the last' })
+    }
+    if (grouped.string && !grouped.string.some((o) => o.op === 'ends_with')) {
+      grouped.string.splice(3, 0, { op: 'ends_with', label: 'ends with' })
+    }
+    // Add decimal-specific operators (gt/gte/lt/lte aliases for > >= < <=)
+    if (grouped.decimal) {
+      const aliases = [
+        { op: 'gt', src: 'greater_than', label: '>' },
+        { op: 'gte', src: 'greater_or_equal', label: '>=' },
+        { op: 'lt', src: 'less_than', label: '<' },
+        { op: 'lte', src: 'less_or_equal', label: '<=' },
+      ]
+      for (const a of aliases) {
+        if (!grouped.decimal.some((o) => o.op === a.op)) {
+          const idx = grouped.decimal.findIndex((o) => o.op === a.src)
+          if (idx >= 0) grouped.decimal[idx] = { op: a.op, label: a.label }
+        }
+      }
+    }
+    return grouped
+  }, [apiOperators])
+
+  const handleReset = () => {
+    setRootGroup(createEmptyGroup())
+  }
+
+  const handleClose = () => {
+    handleReset()
+    onClose()
+  }
+
+  const getOperatorsForType = useCallback((type: string) => {
+    return operatorsByType[type] || operatorsByType.string || FALLBACK_OPERATORS_BY_TYPE.string
+  }, [operatorsByType])
+
+  const handleAdd = () => {
+    if (!isGroupValid(rootGroup)) return
+
+    // Build a custom modifier from the rules
+    const cqlWhere = buildCqlWhereClause(rootGroup, availableFields)
+    const modifier: Modifier = {
+      id: `custom_${generateId()}`,
+      name: 'Custom Filter',
+      inputTypes: [inputType],
+      returnType: inputType,
+      cqlTemplate: `({expression}).where(${cqlWhere})`,
+      values: { rules: rootGroup as unknown as Record<string, unknown> },
+    }
+    onAdd(modifier)
+    handleReset()
+  }
+
+  const isValid = isGroupValid(rootGroup) && availableFields.length > 0
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {t('customModifier.title')}
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
+      </DialogTitle>
+      <DialogContent>
+        {availableFields.length === 0 ? (
+          <Typography color="text.secondary" sx={{ py: 2 }}>
+            {t('customModifier.notAvailable', { type: inputType.replace(/_/g, ' ') })}
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              {t('customModifier.description')}
+            </Typography>
+            <RuleGroupEditor
+              group={rootGroup}
+              availableFields={availableFields}
+              getOperatorsForType={getOperatorsForType}
+              codeValueOptions={codeValueOptions}
+              onChange={setRootGroup}
+              depth={0}
+            />
+          </>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose}>{t('common:actions.cancel')}</Button>
+        <Button variant="contained" onClick={handleAdd} disabled={!isValid}>
+          {t('common:actions.add')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+// ---------- RuleGroupEditor ----------
+
+interface RuleGroupEditorProps {
+  group: ModifierRuleGroup
+  availableFields: Array<{ field: string; label: string; type: string }>
+  getOperatorsForType: (type: string) => Array<{ op: string; label: string }>
+  codeValueOptions: Record<string, string[]>
+  onChange: (updated: ModifierRuleGroup) => void
+  depth: number
+}
+
+function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValueOptions, onChange, depth }: RuleGroupEditorProps) {
+  const { t } = useTranslation('authoring')
+  const handleToggleConjunction = () => {
+    onChange({ ...group, conjunction: group.conjunction === 'AND' ? 'OR' : 'AND' })
+  }
+
+  const handleAddRule = () => {
+    onChange({ ...group, rules: [...group.rules, createEmptyRule()] })
+  }
+
+  const handleAddGroup = () => {
+    onChange({ ...group, groups: [...group.groups, createEmptyGroup()] })
+  }
+
+  const handleUpdateRule = useCallback(
+    (ruleId: string, updates: Partial<ModifierRule>) => {
+      onChange({
+        ...group,
+        rules: group.rules.map((r) => (r.id === ruleId ? { ...r, ...updates } : r)),
+      })
+    },
+    [group, onChange]
+  )
+
+  const handleRemoveRule = (ruleId: string) => {
+    onChange({ ...group, rules: group.rules.filter((r) => r.id !== ruleId) })
+  }
+
+  const handleUpdateSubgroup = (groupId: string, updated: ModifierRuleGroup) => {
+    onChange({
+      ...group,
+      groups: group.groups.map((g) => (g.id === groupId ? updated : g)),
+    })
+  }
+
+  const handleRemoveSubgroup = (groupId: string) => {
+    onChange({ ...group, groups: group.groups.filter((g) => g.id !== groupId) })
+  }
+
+  const borderColor = group.conjunction === 'AND' ? CONJUNCTION_COLOR_AND : CONJUNCTION_COLOR_OR
+
+  return (
+    <Box
+      sx={{
+        border: depth > 0 ? `2px solid ${borderColor}` : 'none',
+        borderRadius: 2,
+        p: depth > 0 ? 2 : 0,
+        ml: depth > 0 ? 2 : 0,
+        backgroundColor: depth > 0 ? 'action.hover' : 'transparent',
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+        <Chip
+          label={group.conjunction}
+          size="small"
+          onClick={handleToggleConjunction}
+          sx={{
+            backgroundColor: borderColor,
+            color: 'white',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        />
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAddRule}>
+          {t('customModifier.addRule')}
+        </Button>
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAddGroup}>
+          {t('customModifier.addGroup')}
+        </Button>
+      </Stack>
+
+      <Stack spacing={1}>
+        {group.rules.map((rule) => (
+          <RuleEditor
+            key={rule.id}
+            rule={rule}
+            availableFields={availableFields}
+            getOperatorsForType={getOperatorsForType}
+            codeValueOptions={codeValueOptions}
+            onChange={(updates) => handleUpdateRule(rule.id, updates)}
+            onRemove={() => handleRemoveRule(rule.id)}
+          />
+        ))}
+
+        {group.groups.map((subGroup) => (
+          <Box key={subGroup.id} sx={{ position: 'relative' }}>
+            <RuleGroupEditor
+              group={subGroup}
+              availableFields={availableFields}
+              getOperatorsForType={getOperatorsForType}
+              codeValueOptions={codeValueOptions}
+              onChange={(updated) => handleUpdateSubgroup(subGroup.id, updated)}
+              depth={depth + 1}
+            />
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => handleRemoveSubgroup(subGroup.id)}
+              sx={{ position: 'absolute', top: 4, right: 4 }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        ))}
+      </Stack>
+    </Box>
+  )
+}
+
+// ---------- RuleEditor ----------
+
+interface RuleEditorProps {
+  rule: ModifierRule
+  availableFields: Array<{ field: string; label: string; type: string }>
+  getOperatorsForType: (type: string) => Array<{ op: string; label: string }>
+  codeValueOptions: Record<string, string[]>
+  onChange: (updates: Partial<ModifierRule>) => void
+  onRemove: () => void
+}
+
+function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptions, onChange, onRemove }: RuleEditorProps) {
+  const { t } = useTranslation('authoring')
+  const selectedField = availableFields.find((f) => f.field === rule.field)
+  const fieldType = selectedField?.type || 'string'
+  const operators = getOperatorsForType(fieldType)
+  const needsValue = !['is_null', 'is_not_null'].includes(rule.operator)
+  const complete = isRuleComplete(rule)
+
+  const codeOptions = rule.field ? codeValueOptions[rule.field] : undefined
+
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      alignItems="center"
+      sx={{
+        p: 1,
+        borderRadius: 1,
+        backgroundColor: complete ? 'transparent' : '#FFEBEE',
+        border: 1,
+        borderColor: complete ? 'divider' : '#FFCDD2',
+      }}
+    >
+      {/* Field selector */}
+      <FormControl size="small" sx={{ minWidth: 160 }}>
+        <InputLabel>{t('customModifier.propertyLabel')}</InputLabel>
+        <Select
+          value={rule.field}
+          label={t('customModifier.propertyLabel')}
+          onChange={(e) => onChange({ field: e.target.value, operator: '', value: '' })}
+        >
+          {availableFields.map((f) => (
+            <MenuItem key={f.field} value={f.field}>{f.label}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Operator selector */}
+      {rule.field && (
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>{t('customModifier.operatorLabel')}</InputLabel>
+          <Select
+            value={rule.operator}
+            label={t('customModifier.operatorLabel')}
+            onChange={(e) => onChange({ operator: e.target.value, value: '' })}
+          >
+            {operators.map((op) => (
+              <MenuItem key={op.op} value={op.op}>{op.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
+      {/* Value input */}
+      {rule.field && rule.operator && needsValue && (
+        codeOptions ? (
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>{t('customModifier.valueLabel')}</InputLabel>
+            <Select
+              value={rule.value}
+              label={t('customModifier.valueLabel')}
+              onChange={(e) => onChange({ value: e.target.value })}
+            >
+              {codeOptions.map((v) => (
+                <MenuItem key={v} value={v}>{v}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ) : fieldType === 'dateTime' && rule.operator === 'within_last' ? (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <TextField
+              size="small"
+              type="number"
+              label={t('customModifier.valueLabel')}
+              value={rule.value.split(' ')[0] || ''}
+              onChange={(e) => onChange({ value: `${e.target.value} ${rule.value.split(' ')[1] || 'days'}` })}
+              sx={{ width: 80 }}
+            />
+            <FormControl size="small" sx={{ minWidth: 80 }}>
+              <Select
+                value={rule.value.split(' ')[1] || 'days'}
+                onChange={(e) => onChange({ value: `${rule.value.split(' ')[0] || ''} ${e.target.value}` })}
+              >
+                <MenuItem value="days">{t('customModifier.days')}</MenuItem>
+                <MenuItem value="weeks">{t('customModifier.weeks')}</MenuItem>
+                <MenuItem value="months">{t('customModifier.months')}</MenuItem>
+                <MenuItem value="years">{t('customModifier.years')}</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        ) : (
+          <TextField
+            size="small"
+            label={t('customModifier.valueLabel')}
+            value={rule.value}
+            onChange={(e) => onChange({ value: e.target.value })}
+            type={fieldType === 'decimal' ? 'number' : 'text'}
+            sx={{ minWidth: 120 }}
+          />
+        )
+      )}
+
+      <Box sx={{ flex: 1 }} />
+      <IconButton size="small" color="error" onClick={onRemove} aria-label={t('customModifier.removeRule')}>
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+  )
+}
+
+// ---------- CQL Generation ----------
+
+function buildCqlWhereClause(
+  group: ModifierRuleGroup,
+  fields: Array<{ field: string; label: string; type: string }>
+): string {
+  const parts: string[] = []
+
+  for (const rule of group.rules) {
+    const clause = buildRuleClause(rule, fields)
+    if (clause) parts.push(clause)
+  }
+
+  for (const sub of group.groups) {
+    const subClause = buildCqlWhereClause(sub, fields)
+    if (subClause) parts.push(`(${subClause})`)
+  }
+
+  const op = group.conjunction === 'AND' ? ' and ' : ' or '
+  return parts.join(op)
+}
+
+function buildRuleClause(
+  rule: ModifierRule,
+  fields: Array<{ field: string; label: string; type: string }>
+): string | null {
+  if (!rule.field || !rule.operator) return null
+  const fieldDef = fields.find((f) => f.field === rule.field)
+  if (!fieldDef) return null
+
+  // Map field path to FHIR CQL accessor
+  const accessor = rule.field.includes('.') ? rule.field : rule.field
+
+  switch (rule.operator) {
+    case 'is_null': return `${accessor} is null`
+    case 'is_not_null': return `${accessor} is not null`
+    case 'equals':
+      if (fieldDef.type === 'code') return `${accessor} ~ '${rule.value}'`
+      if (fieldDef.type === 'decimal') return `${accessor} = ${rule.value}`
+      return `${accessor} = '${rule.value}'`
+    case 'not_equals':
+      if (fieldDef.type === 'code') return `${accessor} !~ '${rule.value}'`
+      if (fieldDef.type === 'decimal') return `${accessor} != ${rule.value}`
+      return `${accessor} != '${rule.value}'`
+    case 'gt': return `${accessor} > ${rule.value}`
+    case 'gte': return `${accessor} >= ${rule.value}`
+    case 'lt': return `${accessor} < ${rule.value}`
+    case 'lte': return `${accessor} <= ${rule.value}`
+    case 'starts_with': return `StartsWith(${accessor}, '${rule.value}')`
+    case 'ends_with': return `EndsWith(${accessor}, '${rule.value}')`
+    case 'contains': return `PositionOf('${rule.value}', ${accessor}) >= 0`
+    case 'before': return `${accessor} before @${rule.value}`
+    case 'after': return `${accessor} after @${rule.value}`
+    case 'within_last': {
+      const [num, unit] = rule.value.split(' ')
+      return `${accessor} >= Now() - ${num} ${unit}`
+    }
+    case 'in': return `${accessor} in "${rule.value}"`
+    default: return null
+  }
+}

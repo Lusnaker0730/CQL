@@ -3,12 +3,12 @@ import { configureStore } from '@reduxjs/toolkit'
 import executionReducer, {
   setPatientId,
   setFhirServerUrl,
-  setIsExecuting,
   setResults,
   setExecutionErrors,
   setExecutionTimeMs,
   clearResults,
 } from '../executionSlice'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 
 function createStore() {
   return configureStore({ reducer: { execution: executionReducer } })
@@ -19,7 +19,7 @@ describe('executionSlice', () => {
     const store = createStore()
     const state = store.getState().execution
     expect(state.patientId).toBe('')
-    expect(state.fhirServerUrl).toContain('hapi.fhir.org')
+    expect(state.fhirServerUrl).toBe(DEFAULT_FHIR_SERVER_URL)
     expect(state.isExecuting).toBe(false)
     expect(state.results).toEqual({})
     expect(state.errors).toEqual([])

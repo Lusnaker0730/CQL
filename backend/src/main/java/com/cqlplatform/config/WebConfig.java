@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,19 +17,50 @@ import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    @Value("${spring.profiles.active:}")
+    private String activeProfile;
 
-    private static final List<String> ALLOWED_ORIGINS = Arrays.asList(
-            "https://sandbox.cds-hooks.org",
-            "http://localhost:5173",
-            "http://localhost:8080",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:8080");
+    @Value("${cors.allowed-origins:}")
+    private String extraAllowedOrigins;
+
+    /**
+     * Single source of truth for all allowed origins — used by both
+     * {@link #corsFilter()} and {@link #privateNetworkFilter()}.
+     */
+    private List<String> getAllAllowedOrigins() {
+        List<String> origins = new ArrayList<>();
+        origins.add("https://sandbox.cds-hooks.org");
+        if (activeProfile.contains("dev")) {
+            origins.add("http://localhost:5173");
+            origins.add("http://localhost:8080");
+            origins.add("http://127.0.0.1:5173");
+            origins.add("http://127.0.0.1:8080");
+        }
+        if (activeProfile.contains("docker")) {
+            origins.add("http://localhost:8888");
+            origins.add("http://127.0.0.1:8888");
+        }
+        if (extraAllowedOrigins != null && !extraAllowedOrigins.isBlank()) {
+            for (String o : extraAllowedOrigins.split(",")) {
+                String trimmed = o.trim();
+                if (trimmed.isEmpty()) continue;
+                // Reject bare wildcards and patterns — only exact origins allowed
+                if ("*".equals(trimmed) || trimmed.contains("*")) {
+                    throw new IllegalArgumentException(
+                            "Wildcard CORS origins are not allowed. Use exact origin URLs (e.g. https://example.com). Got: " + trimmed);
+                }
+                origins.add(trimmed);
+            }
+        }
+        return origins;
+    }
 
     @Bean
     public FilterRegistrationBean<Filter> privateNetworkFilter() {
@@ -39,26 +71,9 @@ public class WebConfig implements WebMvcConfigurer {
                     HttpServletResponse response, FilterChain filterChain)
                     throws ServletException, IOException {
 
+                // Only add the PNA header; standard CORS is handled by corsFilter()
                 String origin = request.getHeader("Origin");
-
-                if ("OPTIONS".equalsIgnoreCase(request.getMethod()) && origin != null) {
-                    // Handle CORS + PNA preflight completely
-                    if (isAllowedOrigin(origin)) {
-                        response.setHeader("Access-Control-Allow-Origin", origin);
-                        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH");
-                        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
-                        response.setHeader("Access-Control-Allow-Credentials", "true");
-                        response.setHeader("Access-Control-Allow-Private-Network", "true");
-                        response.setHeader("Access-Control-Max-Age", "3600");
-                        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-                        return;
-                    }
-                }
-
-                // For non-preflight requests, still add PNA and CORS headers
-                if (origin != null && isAllowedOrigin(origin)) {
-                    response.setHeader("Access-Control-Allow-Origin", origin);
-                    response.setHeader("Access-Control-Allow-Credentials", "true");
+                if (origin != null && getAllAllowedOrigins().contains(origin)) {
                     response.setHeader("Access-Control-Allow-Private-Network", "true");
                 }
 
@@ -73,10 +88,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(Arrays.asList(
-                "https://sandbox.cds-hooks.org",
-                "http://localhost:*",
-                "http://127.0.0.1:*"));
+        config.setAllowedOriginPatterns(getAllAllowedOrigins());
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         config.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"));
         config.setExposedHeaders(Arrays.asList("Authorization"));
@@ -87,9 +99,5 @@ public class WebConfig implements WebMvcConfigurer {
         source.registerCorsConfiguration("/**", config);
 
         return new CorsFilter(source);
-    }
-
-    private static boolean isAllowedOrigin(String origin) {
-        return ALLOWED_ORIGINS.contains(origin);
     }
 }

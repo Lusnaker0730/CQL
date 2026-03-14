@@ -7,11 +7,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.util.Base64;
 
 @Converter
@@ -27,18 +31,28 @@ public class EncryptionConverter implements AttributeConverter<String, String> {
     private final SecretKeySpec keySpec;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public EncryptionConverter(@Value("${encryption.secret-key:DefaultEncryptionKeyMustBeExactly32B}") String secretKey) {
-        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
-            keyBytes = padded;
-        } else if (keyBytes.length > 32) {
-            byte[] trimmed = new byte[32];
-            System.arraycopy(keyBytes, 0, trimmed, 0, 32);
-            keyBytes = trimmed;
+    public EncryptionConverter(@Value("${encryption.secret-key}") String secretKey) {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "ENCRYPTION_KEY environment variable is required. "
+                    + "Set a 32-byte key via: export ENCRYPTION_KEY=\"your-32-byte-secret-key-here!!!!!\"");
         }
+        byte[] keyBytes = deriveKey(secretKey);
         this.keySpec = new SecretKeySpec(keyBytes, "AES");
+    }
+
+    private static byte[] deriveKey(String secret) {
+        try {
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            KeySpec spec = new PBEKeySpec(
+                    secret.toCharArray(),
+                    "CQLPlatformEncryption".getBytes(StandardCharsets.UTF_8),
+                    65536,
+                    256);
+            return factory.generateSecret(spec).getEncoded();
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Failed to derive encryption key", e);
+        }
     }
 
     @Override

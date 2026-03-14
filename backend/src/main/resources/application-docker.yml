@@ -1,10 +1,18 @@
 # Docker profile - PostgreSQL database
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://postgres:5432/cqlplatform}
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/cqlplatform?sslmode=prefer}
     username: ${DB_USERNAME:cqlplatform}
     password: ${DB_PASSWORD:cqlplatform}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+      pool-name: CqlPlatformPool
 
   jpa:
     hibernate:
@@ -12,7 +20,7 @@ spring:
 
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    baseline-on-migrate: true  # Docker: allow first-time setup on existing DB
 
   h2:
     console:
@@ -23,12 +31,43 @@ fhir:
   server:
     url: ${FHIR_SERVER_URL:http://launch.smarthealthit.org/v/r4/fhir}
   terminology:
-    url: ${FHIR_TERMINOLOGY_URL:http://tx.fhir.org/r4}
+    url: ${FHIR_TERMINOLOGY_URL:https://tx.fhir.org/r4}
+
+# CORS — comma-separated external origins (e.g. http://192.168.1.100:8888)
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
+# SMART on FHIR — override localhost defaults for external access
+smart:
+  issuer: ${SMART_ISSUER:http://localhost:8080}
+  authorization-endpoint: ${SMART_AUTH_ENDPOINT:http://localhost:8080/api/auth/login}
+  token-endpoint: ${SMART_TOKEN_ENDPOINT:http://localhost:8080/api/auth/login}
+
+# App base URL for password reset links etc.
+app:
+  base-url: ${APP_BASE_URL:}
+
+# AI Fix Suggestion — multi-provider support
+ai:
+  provider: ${AI_PROVIDER:none}
+  ollama-url: ${OLLAMA_URL:http://ollama:11434}
+  cloud-api-url: ${AI_CLOUD_API_URL:https://api.openai.com/v1/chat/completions}
+  cloud-model: ${AI_CLOUD_MODEL:gpt-4o-mini}
+  cloud-api-key: ${AI_CLOUD_API_KEY:}
+
+# Legacy Ollama config — kept for backward compatibility
+ollama:
+  enabled: ${OLLAMA_ENABLED:false}
+
+# Prometheus: allow unauthenticated scraping on docker network
+management:
+  prometheus:
+    public: true
 
 # Logging
 logging:
   level:
-    com.cqlplatform: DEBUG
+    com.cqlplatform: INFO
     org.opencds.cqf: INFO
     ca.uhn.fhir: INFO
     org.flywaydb: INFO
