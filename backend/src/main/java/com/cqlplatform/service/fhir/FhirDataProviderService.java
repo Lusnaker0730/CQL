@@ -12,6 +12,7 @@ import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.*;
+import com.cqlplatform.service.cql.ComparableR4FhirModelResolver;
 import org.opencds.cqf.cql.engine.fhir.retrieve.RestFhirRetrieveProvider;
 import org.opencds.cqf.cql.engine.fhir.searchparam.SearchParameterResolver;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
@@ -111,6 +112,7 @@ public class FhirDataProviderService {
 
         RestFhirRetrieveProvider retrieveProvider = new RestFhirRetrieveProvider(
                 searchParameterResolver,
+                new ComparableR4FhirModelResolver(),
                 client);
 
         retrieveProvider.setTerminologyProvider(terminologyProvider);

@@ -232,7 +232,7 @@ public class CqlTranslationService {
                             .name(stmt.getName())
                             .context(stmt.getContext())
                             .accessLevel(stmt.getAccessLevel() != null ? stmt.getAccessLevel().value() : "Public")
-                            .resultType(stmt.getResultType() != null ? stmt.getResultType().toString() : null)
+                            .resultType(stmt.getResultTypeName() != null ? stmt.getResultTypeName().getLocalPart() : null)
                             .build())
                     .collect(Collectors.toList());
         }
