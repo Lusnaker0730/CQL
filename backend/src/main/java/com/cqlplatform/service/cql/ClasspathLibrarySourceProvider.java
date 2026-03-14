@@ -1,5 +1,8 @@
 package com.cqlplatform.service.cql;
 
+import kotlinx.io.CoreKt;
+import kotlinx.io.JvmCoreKt;
+import kotlinx.io.Source;
 import org.cqframework.cql.cql2elm.LibrarySourceProvider;
 import org.hl7.elm.r1.VersionedIdentifier;
 import org.springframework.core.io.ClassPathResource;
@@ -15,15 +18,15 @@ public class ClasspathLibrarySourceProvider implements LibrarySourceProvider {
     }
 
     @Override
-    public InputStream getLibrarySource(VersionedIdentifier libraryIdentifier) {
+    public Source getLibrarySource(VersionedIdentifier libraryIdentifier) {
         String libraryName = libraryIdentifier.getId();
         String version = libraryIdentifier.getVersion();
 
         // Try with version first: LibraryName-version.cql
         String fileNameWithVersion = libraryName + "-" + version + ".cql";
-        InputStream stream = tryLoadResource(fileNameWithVersion);
-        if (stream != null) {
-            return stream;
+        Source source = tryLoadResource(fileNameWithVersion);
+        if (source != null) {
+            return source;
         }
 
         // Try without version: LibraryName.cql
@@ -31,11 +34,12 @@ public class ClasspathLibrarySourceProvider implements LibrarySourceProvider {
         return tryLoadResource(fileNameWithoutVersion);
     }
 
-    private InputStream tryLoadResource(String fileName) {
+    private Source tryLoadResource(String fileName) {
         try {
             ClassPathResource resource = new ClassPathResource(basePath + fileName);
             if (resource.exists()) {
-                return resource.getInputStream();
+                InputStream is = resource.getInputStream();
+                return CoreKt.buffered(JvmCoreKt.asSource(is));
             }
         } catch (Exception e) {
             // Ignore and return null
