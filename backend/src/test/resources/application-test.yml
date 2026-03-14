@@ -20,10 +20,17 @@ spring:
 
 jwt:
   secret: TestSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!TestExtra
-  expiration-ms: 3600000
+  access-expiration-ms: 900000
+  refresh-expiration-ms: 604800000
+  absolute-session-ms: 2592000000
+  expiration-ms: 900000
+
+refresh-token:
+  cookie-secure: false
 
 rate-limit:
   enabled: false
+  user-limit-enabled: false
   requests-per-minute: 1000
 
 encryption:
@@ -34,6 +41,11 @@ fhir:
     url: http://localhost:9999/fhir
   terminology:
     url: http://localhost:9999/fhir
+
+vsac:
+  api:
+    url: http://localhost:9999/vsac
+    key: test-key
 
 cql:
   translation:

@@ -14,6 +14,7 @@ public class CdsServiceDefinition {
     private String title;
     private String description;
     private String id;
+    private Integer version;
     private Map<String, PrefetchTemplate> prefetch;
     private String usageRequirements;
 

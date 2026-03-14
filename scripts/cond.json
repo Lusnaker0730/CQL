@@ -1,0 +1,510 @@
+{
+  "resourceType": "Bundle",
+  "id": "28a5ae8d-d8fa-478d-ad4a-4b8eeb5073bc",
+  "meta": {
+    "lastUpdated": "2026-02-09T02:34:59.351+00:00"
+  },
+  "type": "searchset",
+  "link": [ {
+    "relation": "self",
+    "url": "https://twcore.hapi.fhir.tw/fhir/Condition?_count=10&_format=json"
+  }, {
+    "relation": "next",
+    "url": "https://twcore.hapi.fhir.tw/fhir?_getpages=28a5ae8d-d8fa-478d-ad4a-4b8eeb5073bc&_getpagesoffset=10&_count=10&_format=json&_pretty=true&_bundletype=searchset"
+  } ],
+  "entry": [ {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/con-nsysu-hd-past-1",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "con-nsysu-hd-past-1",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-04-08T21:40:33.860+00:00",
+        "source": "#q3z80Hrg6iTr5VSU",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "active",
+          "display": "Active"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis",
+          "display": "Encounter Diagnosis"
+        } ]
+      } ],
+      "code": {
+        "text": "急性支氣管炎"
+      },
+      "subject": {
+        "reference": "Patient/pat-nsysu-hd-1"
+      },
+      "onsetPeriod": {
+        "start": "2014-08-18T01:43:30Z",
+        "end": "2014-08-18T01:43:30Z"
+      }
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/con-nsysu-hd-past-serious-1",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "con-nsysu-hd-past-serious-1",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-04-08T21:43:56.476+00:00",
+        "source": "#zKniHaRR0TIN7Zir",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "active",
+          "display": "Active"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis",
+          "display": "Encounter Diagnosis"
+        } ]
+      } ],
+      "code": {
+        "text": "急性支氣管炎"
+      },
+      "subject": {
+        "reference": "Patient/pat-nsysu-hd-1"
+      },
+      "onsetPeriod": {
+        "start": "2014-08-18T01:43:30Z",
+        "end": "2014-08-18T01:43:30Z"
+      }
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13163",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13163",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-07-19T08:43:26.823+00:00",
+        "source": "#J2y1ASFaR3Hgj92J",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "active",
+          "display": "Active"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis",
+          "display": "Encounter Diagnosis"
+        } ]
+      } ],
+      "code": {
+        "text": "急性支氣管炎"
+      },
+      "subject": {
+        "reference": "Patient/pat-nsysu-hd-1"
+      },
+      "onsetPeriod": {
+        "start": "2014-08-18T01:43:30Z",
+        "end": "2014-08-18T01:43:30Z"
+      }
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13164",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13164",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-07-19T08:44:10.599+00:00",
+        "source": "#fSLTR2nMhn5lIE3d",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "remission"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis"
+        } ]
+      } ],
+      "code": {
+        "text": "起因於潛在病的糖尿病，伴有低血糖，未伴有昏迷"
+      },
+      "subject": {
+        "reference": "Patient/pat-example"
+      },
+      "onsetDateTime": "2022-08-01T17:00:14+08:00"
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13167",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13167",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-07-22T03:30:16.161+00:00",
+        "source": "#1NioVfXUvR9QYcYv",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "remission"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis"
+        } ]
+      } ],
+      "code": {
+        "text": "起因於潛在病的糖尿病，伴有低血糖，未伴有昏迷"
+      },
+      "subject": {
+        "reference": "Patient/pat-example"
+      },
+      "onsetDateTime": "2022-08-01T17:00:14+08:00"
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13169",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13169",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-07-22T03:34:23.490+00:00",
+        "source": "#AszMkCNEIs8ImZ1m",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "remission"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis"
+        } ]
+      } ],
+      "code": {
+        "text": "起因於潛在病的糖尿病，伴有低血糖，未伴有昏迷"
+      },
+      "subject": {
+        "reference": "Patient/pat-example"
+      },
+      "onsetDateTime": "2022-08-01T17:00:14+08:00"
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13320",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13320",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-08-07T02:52:46.903+00:00",
+        "source": "#1HbuyIqHJW09RH1A",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h3><b>病情、問題或診斷資料</b></h3><p><b>臨床狀態</b>：Remission <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\">( <a href=\"http://terminology.hl7.org/CodeSystem/condition-clinical\">ConditionClinicalStatusCodes</a>#remission)</span></p><p><b>驗證狀態</b>：Confirmed <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\">( <a href=\"http://terminology.hl7.org/CodeSystem/condition-ver-status\">ConditionVerificationStatus</a>#confirmed)</span></p><p><b>病情、問題或診斷分類</b>：Encounter Diagnosis <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\">( <a href=\"http://terminology.hl7.org/CodeSystem/condition-category\">Condition Category Codes</a>#encounter-diagnosis)</span></p><p><b>嚴重程度</b>：Mild <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\">( <a href=\"https://loinc.org/\">LOINC</a>#LA6752-5)</span></p><p><b>病情、問題或診斷識別</b>：起因於潛在病的糖尿病，伴有低血糖，未伴有昏迷 <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\">( <a href=\"CodeSystem-icd-10-cm-2021-tw.html\">臺灣2021年中文版ICD-10-CM</a>#E08.649)</span></p><p><b>病人</b>：<a href=\"Patient-pat-example.html\">Patient/pat-example</a> &quot;陳加玲&quot;</p><p><b>實際日期</b>：2022-08-01 05:00:14-0500</p><p><b>緩解日期</b>：2022-08-01 06:00:14-0500</p><p><b>診斷者</b>：<a href=\"Practitioner-pra-dr-example.html\">Practitioner/pra-dr-example</a> &quot;王依昇&quot;</p></div>"
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "remission"
+        } ]
+      },
+      "verificationStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+          "code": "confirmed"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "encounter-diagnosis"
+        } ]
+      } ],
+      "severity": {
+        "coding": [ {
+          "system": "http://loinc.org",
+          "code": "LA6752-5"
+        } ]
+      },
+      "code": {
+        "text": "起因於潛在病的糖尿病，伴有低血糖，未伴有昏迷"
+      },
+      "subject": {
+        "reference": "Patient/pat-example"
+      },
+      "onsetDateTime": "2022-08-01T17:00:14+08:00",
+      "abatementDateTime": "2022-08-01T18:00:14+08:00"
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13393",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13393",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-08-10T09:56:47.654+00:00",
+        "source": "#HV0CfQRXnMip9HlV",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "remission",
+          "display": "Remission"
+        } ],
+        "text": "123"
+      },
+      "verificationStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+          "code": "differential",
+          "display": "Differential"
+        } ],
+        "text": "123"
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "problem-list-item",
+          "display": "Problem List Item"
+        } ],
+        "text": "123"
+      } ],
+      "severity": {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "24484000",
+          "display": "Severe"
+        } ],
+        "text": "123"
+      },
+      "code": {
+        "coding": [ {
+          "system": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2021-tw",
+          "code": "A00",
+          "display": "霍亂"
+        } ]
+      },
+      "bodySite": [ {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "107008",
+          "display": "Fetal part of placenta"
+        } ],
+        "text": "123"
+      } ],
+      "subject": {
+        "reference": "Patient/13384"
+      },
+      "onsetDateTime": "2021-09-09",
+      "abatementDateTime": "2023-09-09",
+      "asserter": {
+        "reference": "Patient/13384"
+      },
+      "note": [ {
+        "authorString": "我是權威",
+        "time": "2024-01-01",
+        "text": "無話可說"
+      } ]
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13405",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13405",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-08-11T02:38:31.943+00:00",
+        "source": "#cVGnGegQ1nP7pBoB",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "inactive",
+          "display": "inactive"
+        } ],
+        "text": "inactive"
+      },
+      "verificationStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+          "code": "refuted",
+          "display": "Refuted"
+        } ],
+        "text": "Refuted"
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "problem-list-item",
+          "display": "Problem List Item"
+        } ],
+        "text": "Problem List Item"
+      } ],
+      "severity": {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "255604002",
+          "display": "Mild"
+        } ],
+        "text": "Mild"
+      },
+      "code": {
+        "coding": [ {
+          "system": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw",
+          "code": "A01.05",
+          "display": "傷寒骨髓炎"
+        } ]
+      },
+      "bodySite": [ {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "565008",
+          "display": "第五腰椎椎間盤間隙"
+        } ],
+        "text": "第五腰椎椎間盤間隙"
+      } ],
+      "subject": {
+        "reference": "Patient/13390"
+      },
+      "onsetDateTime": "2023-08-10T16:23:19+12:00",
+      "abatementDateTime": "2023-12-10T16:23:19+12:00",
+      "asserter": {
+        "reference": "Practitioner/13391"
+      },
+      "note": [ {
+        "time": "2023-12-10T16:50:19+12:00",
+        "text": "markdown"
+      } ]
+    },
+    "search": {
+      "mode": "match"
+    }
+  }, {
+    "fullUrl": "https://twcore.hapi.fhir.tw/fhir/Condition/13428",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "13428",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2024-08-12T08:52:15.183+00:00",
+        "source": "#ux5GNslqIp7AstOg",
+        "profile": [ "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Condition-twcore" ]
+      },
+      "clinicalStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+          "code": "resolved",
+          "display": "Resolved"
+        } ],
+        "text": "解決"
+      },
+      "verificationStatus": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+          "code": "refuted",
+          "display": "Refuted"
+        } ],
+        "text": "無生病"
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+          "code": "problem-list-item",
+          "display": "Problem List Item"
+        } ],
+        "text": "發燒生病"
+      } ],
+      "severity": {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "255604002",
+          "display": "Mild"
+        } ],
+        "text": "中度"
+      },
+      "code": {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "140004",
+          "display": "Chronic pharyngitis"
+        } ],
+        "text": "慢性咽喉炎"
+      },
+      "bodySite": [ {
+        "coding": [ {
+          "system": "http://snomed.info/sct",
+          "code": "1075005",
+          "display": "Promonocyte"
+        } ],
+        "text": "幼單核細胞"
+      } ],
+      "subject": {
+        "reference": "Patient/13419"
+      },
+      "onsetDateTime": "2024-08-12T16:36:00+08:00",
+      "abatementDateTime": "2024-08-12T16:36:00+08:00",
+      "asserter": {
+        "reference": "Practitioner/13414"
+      },
+      "note": [ {
+        "time": "2024-08-12T16:38:00+08:00",
+        "text": "N.A."
+      } ]
+    },
+    "search": {
+      "mode": "match"
+    }
+  } ]
+}

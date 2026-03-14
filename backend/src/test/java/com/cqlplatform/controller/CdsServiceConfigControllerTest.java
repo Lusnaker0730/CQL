@@ -1,6 +1,8 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.model.cds.CdsServiceAnalyticsDTO;
 import com.cqlplatform.model.cds.CdsServiceConfigResponse;
+import com.cqlplatform.service.cds.CdsAnalyticsService;
 import com.cqlplatform.service.cds.CdsHooksService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,13 +33,29 @@ class CdsServiceConfigControllerTest {
     @MockBean
     private CdsHooksService cdsHooksService;
 
+    @MockBean
+    private CdsAnalyticsService analyticsService;
+
     private static final String CREATE_REQUEST = """
             {"id":"test-svc","hook":"patient-view","title":"Test Service","description":"desc","cqlContent":"library T version '1.0'"}
             """;
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser")
     void getAllServices_shouldReturnList() throws Exception {
+        CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
+                .id("svc-1").hook("patient-view").title("Service 1").enabled(true)
+                .ownerUsername("testuser").build();
+        when(cdsHooksService.getServicesForUser("testuser")).thenReturn(List.of(resp));
+
+        mockMvc.perform(get("/api/cds/services"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("svc-1"));
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void getAllServices_admin_shouldReturnAll() throws Exception {
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").hook("patient-view").title("Service 1").enabled(true).build();
         when(cdsHooksService.getAllServices()).thenReturn(List.of(resp));
@@ -70,11 +88,12 @@ class CdsServiceConfigControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser")
     void createService_shouldReturn201() throws Exception {
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
-                .id("test-svc").hook("patient-view").title("Test Service").build();
-        when(cdsHooksService.createService(any())).thenReturn(resp);
+                .id("test-svc").hook("patient-view").title("Test Service")
+                .ownerUsername("testuser").build();
+        when(cdsHooksService.createService(any(), eq("testuser"))).thenReturn(resp);
 
         mockMvc.perform(post("/api/cds/services")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -84,9 +103,9 @@ class CdsServiceConfigControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser")
     void createService_duplicate_shouldReturn400() throws Exception {
-        when(cdsHooksService.createService(any()))
+        when(cdsHooksService.createService(any(), eq("testuser")))
                 .thenThrow(new IllegalArgumentException("Already exists"));
 
         mockMvc.perform(post("/api/cds/services")
@@ -96,8 +115,13 @@ class CdsServiceConfigControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = "testuser")
     void updateService_shouldReturn200() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").hook("patient-view").title("Service 1")
+                .ownerUsername("testuser").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").hook("patient-view").title("Updated").build();
         when(cdsHooksService.updateService(eq("svc-1"), any())).thenReturn(resp);
@@ -109,8 +133,27 @@ class CdsServiceConfigControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "testuser")
+    void updateService_notOwner_shouldReturn403() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").hook("patient-view").title("Service 1")
+                .ownerUsername("otheruser").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+
+        mockMvc.perform(put("/api/cds/services/svc-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CREATE_REQUEST))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
     void deleteService_admin_shouldReturn204() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").hook("patient-view").title("Service 1")
+                .ownerUsername("otheruser").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+
         mockMvc.perform(delete("/api/cds/services/svc-1"))
                 .andExpect(status().isNoContent());
 
@@ -118,8 +161,27 @@ class CdsServiceConfigControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
-    void deleteService_userRole_shouldReturn403() throws Exception {
+    @WithMockUser(username = "testuser", roles = "USER")
+    void deleteService_owner_shouldReturn204() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").hook("patient-view").title("Service 1")
+                .ownerUsername("testuser").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+
+        mockMvc.perform(delete("/api/cds/services/svc-1"))
+                .andExpect(status().isNoContent());
+
+        verify(cdsHooksService).deleteService("svc-1");
+    }
+
+    @Test
+    @WithMockUser(username = "testuser", roles = "USER")
+    void deleteService_notOwner_shouldReturn403() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").hook("patient-view").title("Service 1")
+                .ownerUsername("otheruser").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+
         mockMvc.perform(delete("/api/cds/services/svc-1"))
                 .andExpect(status().isForbidden());
     }
@@ -127,6 +189,9 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser
     void enableService_shouldReturn200() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").ownerUsername("user").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").enabled(true).build();
         when(cdsHooksService.toggleServiceEnabled("svc-1", true)).thenReturn(resp);
@@ -139,6 +204,9 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser
     void disableService_shouldReturn200() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").ownerUsername("user").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").enabled(false).build();
         when(cdsHooksService.toggleServiceEnabled("svc-1", false)).thenReturn(resp);
@@ -146,5 +214,38 @@ class CdsServiceConfigControllerTest {
         mockMvc.perform(patch("/api/cds/services/svc-1/disable"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enabled").value(false));
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void createService_invalidHookType_shouldReturn400() throws Exception {
+        when(cdsHooksService.createService(any(), eq("testuser")))
+                .thenThrow(new IllegalArgumentException("Invalid hook type: 'bad-hook'"));
+
+        String badRequest = """
+                {"id":"bad-svc","hook":"bad-hook","title":"Bad Service"}
+                """;
+
+        mockMvc.perform(post("/api/cds/services")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(badRequest))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    @WithMockUser
+    void getAnalytics_shouldReturnData() throws Exception {
+        CdsServiceAnalyticsDTO dto = CdsServiceAnalyticsDTO.builder()
+                .serviceId("svc-1").invocationCount(10).errorCount(2)
+                .avgResponseTimeMs(150.0).errorRate(20.0)
+                .feedbackAcceptedCount(5).feedbackOverriddenCount(1)
+                .build();
+        when(analyticsService.getAllServiceAnalytics()).thenReturn(List.of(dto));
+
+        mockMvc.perform(get("/api/cds/services/analytics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].serviceId").value("svc-1"))
+                .andExpect(jsonPath("$[0].invocationCount").value(10));
     }
 }

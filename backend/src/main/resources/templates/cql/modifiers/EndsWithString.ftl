@@ -1,0 +1,1 @@
+EndsWith(${expression}, '${value}')

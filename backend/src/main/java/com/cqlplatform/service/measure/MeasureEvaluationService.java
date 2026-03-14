@@ -2,30 +2,44 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
-import com.cqlplatform.model.measure.MeasureEvaluationRequest;
-import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import com.cqlplatform.model.measure.*;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.*;
 import com.cqlplatform.service.cql.CqlExecutionService;
-import com.cqlplatform.service.fhir.FhirDataProviderService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.opencds.cqf.cql.engine.runtime.Date;
+import org.opencds.cqf.cql.engine.runtime.DateTime;
 import org.opencds.cqf.cql.engine.runtime.Interval;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
+import com.cqlplatform.model.measure.EvaluationStatusConstants;
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
+/**
+ * Orchestrates measure evaluation by delegating to focused services.
+ * Flow: discover patients → execute CQL → evaluate populations → stratify → score → save.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class MeasureEvaluationService {
 
     private final CqlExecutionService cqlExecutionService;
-    private final FhirDataProviderService fhirDataProviderService;
+    private final PatientDiscoveryService patientDiscoveryService;
+    private final PopulationEvaluator populationEvaluator;
+    private final StratifierEvaluator stratifierEvaluator;
+    private final MeasureScoreCalculator scoreCalculator;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MeasureReportService measureReportService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer measureEvaluationTimer;
@@ -36,227 +50,300 @@ public class MeasureEvaluationService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter measureEvaluationErrorCounter;
 
-    @Value("${measure.reporting.default-period-start:2024-01-01}")
+    @Value("${measure.reporting.default-period-start:}")
     private String defaultPeriodStart;
 
-    @Value("${measure.reporting.default-period-end:2024-12-31}")
+    @Value("${measure.reporting.default-period-end:}")
     private String defaultPeriodEnd;
 
+    @Value("${cql.execution.measure-timeout-seconds:120}")
+    private int measureTimeoutSeconds;
+
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
-        log.info("Evaluating measure: {} for patient: {}",
-                request.getMeasureId(), request.getPatientId());
+        return evaluateMeasure(request, null, null);
+    }
+
+    public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request,
+                                                    Long measureDefinitionId,
+                                                    MeasureDefinition measureDefinition) {
+        log.info("Evaluating measure: {} for patient: {}", request.getMeasureId(), request.getPatientId());
         if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
         Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;
+        long startTime = System.currentTimeMillis();
 
-        LocalDate periodStart = request.getPeriodStart() != null ? request.getPeriodStart()
-                : LocalDate.parse(defaultPeriodStart);
-        LocalDate periodEnd = request.getPeriodEnd() != null ? request.getPeriodEnd()
-                : LocalDate.parse(defaultPeriodEnd);
+        MeasureEvaluationContext context = buildContext(request, measureDefinitionId, measureDefinition);
 
         try {
-            List<String> patientsToEvaluate;
-            if (request.getPatientId() != null && !request.getPatientId().isBlank()) {
-                patientsToEvaluate = List.of(request.getPatientId());
-            } else {
-                patientsToEvaluate = fhirDataProviderService
-                        .getAllPatientIds(request.getFhirServerUrl());
+            // 1. Discover patients
+            List<String> patients = patientDiscoveryService.discoverPatients(context);
+            if (patients.isEmpty()) {
+                stopTimer(sample);
+                incrementErrorCounter();
+                return errorResult(context, patientDiscoveryService.buildNoPatientsMessage(context));
             }
 
-            log.info("Evaluating for {} patients", patientsToEvaluate.size());
+            // 2. Execute CQL per patient and aggregate
+            AggregationState state = executeAndAggregate(context, patients);
 
-            Map<String, Integer> populationCounts = new HashMap<>();
-            populationCounts.put("Initial Population", 0);
-            populationCounts.put("Denominator", 0);
-            populationCounts.put("Denominator Exclusions", 0);
-            populationCounts.put("Denominator Exceptions", 0);
-            populationCounts.put("Numerator", 0);
-            populationCounts.put("Numerator Exclusions", 0);
-
-            int errorCount = 0;
-            for (String patientId : patientsToEvaluate) {
-                CqlExecutionRequest execRequest = new CqlExecutionRequest();
-                execRequest.setCql(request.getMeasureCql());
-                execRequest.setPatientId(patientId);
-                execRequest.setFhirServerUrl(request.getFhirServerUrl());
-
-                Map<String, Object> parameters = new HashMap<>();
-                parameters.put("Measurement Period",
-                        new Interval(
-                                new Date(periodStart.getYear(),
-                                        periodStart.getMonthValue(),
-                                        periodStart.getDayOfMonth()),
-                                true,
-                                new Date(periodEnd.getYear(),
-                                        periodEnd.getMonthValue(),
-                                        periodEnd.getDayOfMonth()),
-                                true));
-                execRequest.setParameters(parameters);
-
-                try {
-                    CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
-                    aggregateResults(populationCounts, execResponse.getResults());
-                } catch (Exception e) {
-                    errorCount++;
-                    log.error("Failed evaluation for patient {}", patientId, e);
-                }
+            // 3. Check if all patients failed
+            if (state.errorCount == patients.size()) {
+                stopTimer(sample);
+                incrementErrorCounter();
+                return errorResult(context,
+                        "All " + state.errorCount + " patient evaluations failed. Check server logs for details.");
             }
 
-            if (errorCount == patientsToEvaluate.size()) {
-                if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
-                if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
-                return MeasureEvaluationResult.builder()
-                        .measureId(request.getMeasureId())
-                        .status("error")
-                        .periodStart(periodStart)
-                        .periodEnd(periodEnd)
-                        .build();
-            }
+            // 4. Build final result
+            MeasureEvaluationResult result = buildResult(context, state, patients.size());
+            stopTimer(sample);
 
-            MeasureEvaluationResult result = buildAggregatedResult(request, populationCounts, periodStart, periodEnd,
-                    patientsToEvaluate.size());
-            if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+            // 5. Auto-save report
+            long durationMs = System.currentTimeMillis() - startTime;
+            autoSaveReport(result, measureDefinitionId, context.getFhirServerUrl(), durationMs);
+
             return result;
 
         } catch (Exception e) {
-            if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
-            if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+            incrementErrorCounter();
+            stopTimer(sample);
             log.error("Measure evaluation failed", e);
-            return MeasureEvaluationResult.builder()
-                    .measureId(request.getMeasureId())
-                    .status("error")
-                    .periodStart(periodStart)
-                    .periodEnd(periodEnd)
-                    .build();
+            return errorResult(context, e.getMessage());
         }
     }
 
-    private void aggregateResults(Map<String, Integer> counts,
-            Map<String, CqlExecutionResponse.ExpressionResult> results) {
-        for (String key : counts.keySet()) {
-            Integer count = extractPopulationCount(results, key);
-            if (count != null && count > 0) {
-                counts.put(key, counts.get(key) + count);
+    private MeasureEvaluationContext buildContext(MeasureEvaluationRequest request,
+                                                  Long measureDefinitionId,
+                                                  MeasureDefinition measureDefinition) {
+        int currentYear = LocalDate.now().getYear();
+        LocalDate periodStart = request.getPeriodStart() != null
+                ? request.getPeriodStart()
+                : (defaultPeriodStart != null && !defaultPeriodStart.isBlank()
+                        ? LocalDate.parse(defaultPeriodStart)
+                        : LocalDate.of(currentYear, 1, 1));
+        LocalDate periodEnd = request.getPeriodEnd() != null
+                ? request.getPeriodEnd()
+                : (defaultPeriodEnd != null && !defaultPeriodEnd.isBlank()
+                        ? LocalDate.parse(defaultPeriodEnd)
+                        : LocalDate.of(currentYear, 12, 31));
+
+        return MeasureEvaluationContext.builder()
+                .request(request)
+                .measureDefinition(measureDefinition)
+                .measureDefinitionId(measureDefinitionId)
+                .periodStart(periodStart)
+                .periodEnd(periodEnd)
+                .timeoutSeconds(measureTimeoutSeconds)
+                .build();
+    }
+
+    private AggregationState executeAndAggregate(MeasureEvaluationContext context, List<String> patients) {
+        Map<String, Integer> populationCounts = populationEvaluator.initializePopulationCounts();
+        Set<String> standardNames = new HashSet<>(populationCounts.keySet());
+        Map<String, Object> customExpressions = new LinkedHashMap<>();
+        Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
+        List<StratifierDefinition> stratifiers = stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
+
+        int errorCount = 0;
+        long deadline = System.currentTimeMillis() + (context.getTimeoutSeconds() * 1000L);
+
+        for (String patientId : patients) {
+            if (System.currentTimeMillis() > deadline) {
+                log.warn("Measure evaluation timed out after {}s", context.getTimeoutSeconds());
+                break;
+            }
+
+            try {
+                CqlExecutionResponse execResponse = executeForPatient(context, patientId);
+                Map<String, CqlExecutionResponse.ExpressionResult> results = execResponse.getResults();
+
+                populationEvaluator.aggregatePatientResults(populationCounts, results);
+                populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
+
+                if (!stratifiers.isEmpty()) {
+                    stratifierEvaluator.evaluatePatientStratifiers(stratifiers, results, stratificationData);
+                }
+            } catch (Exception e) {
+                errorCount++;
+                log.error("Failed evaluation for patient {}", patientId, e);
             }
         }
+
+        return new AggregationState(populationCounts, customExpressions, stratificationData, errorCount);
     }
 
-    private MeasureEvaluationResult buildAggregatedResult(
-            MeasureEvaluationRequest request,
-            Map<String, Integer> counts,
-            LocalDate periodStart,
-            LocalDate periodEnd,
-            int totalPatients) {
+    private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId) {
+        CqlExecutionRequest execRequest = new CqlExecutionRequest();
+        execRequest.setCql(context.getMeasureCql());
+        execRequest.setPatientId(patientId);
+        execRequest.setFhirServerUrl(context.getFhirServerUrl());
 
-        Integer initialPopulation = counts.get("Initial Population");
-        Integer denominator = counts.get("Denominator");
-        Integer denominatorExclusions = counts.get("Denominator Exclusions");
-        Integer denominatorExceptions = counts.get("Denominator Exceptions");
-        Integer numerator = counts.get("Numerator");
-        Integer numeratorExclusions = counts.get("Numerator Exclusions");
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("Measurement Period",
+                new Interval(
+                        new DateTime(OffsetDateTime.of(context.getPeriodStart(), LocalTime.MIN, ZoneOffset.UTC)),
+                        true,
+                        new DateTime(OffsetDateTime.of(context.getPeriodEnd(), LocalTime.MAX, ZoneOffset.UTC)),
+                        true));
+        execRequest.setParameters(parameters);
+
+        return cqlExecutionService.execute(execRequest);
+    }
+
+    private MeasureEvaluationResult buildResult(MeasureEvaluationContext context,
+                                                 AggregationState state,
+                                                 int totalPatients) {
+        Map<String, Integer> counts = state.populationCounts;
+
+        // Check if measure has multiple group definitions
+        MeasureDefinition def = context.getMeasureDefinition();
+        if (def != null && def.getGroupDefinitions() != null && def.getGroupDefinitions().size() > 1) {
+            return buildMultiGroupResult(context, state, totalPatients);
+        }
 
         List<PopulationResult> populations = new ArrayList<>();
+        populations.add(populationResult(INITIAL_POPULATION, counts.get("Initial Population")));
+        populations.add(populationResult(DENOMINATOR, counts.get("Denominator")));
 
-        populations.add(PopulationResult.builder()
-                .populationType("initial-population")
-                .populationId("initial-population")
-                .count(initialPopulation)
-                .build());
+        if (counts.get("Denominator Exclusions") > 0)
+            populations.add(populationResult(DENOMINATOR_EXCLUSION, counts.get("Denominator Exclusions")));
+        if (counts.get("Denominator Exceptions") > 0)
+            populations.add(populationResult(DENOMINATOR_EXCEPTION, counts.get("Denominator Exceptions")));
 
-        populations.add(PopulationResult.builder()
-                .populationType("denominator")
-                .populationId("denominator")
-                .count(denominator)
-                .build());
+        populations.add(populationResult(NUMERATOR, counts.get("Numerator")));
 
-        if (denominatorExclusions > 0) {
-            populations.add(PopulationResult.builder()
-                    .populationType("denominator-exclusion")
-                    .populationId("denominator-exclusion")
-                    .count(denominatorExclusions)
-                    .build());
-        }
+        if (counts.get("Numerator Exclusions") > 0)
+            populations.add(populationResult(NUMERATOR_EXCLUSION, counts.get("Numerator Exclusions")));
 
-        if (denominatorExceptions > 0) {
-            populations.add(PopulationResult.builder()
-                    .populationType("denominator-exception")
-                    .populationId("denominator-exception")
-                    .count(denominatorExceptions)
-                    .build());
-        }
+        Double measureScore = scoreCalculator.calculateProportionScore(
+                counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
 
-        populations.add(PopulationResult.builder()
-                .populationType("numerator")
-                .populationId("numerator")
-                .count(numerator)
-                .build());
-
-        if (numeratorExclusions > 0) {
-            populations.add(PopulationResult.builder()
-                    .populationType("numerator-exclusion")
-                    .populationId("numerator-exclusion")
-                    .count(numeratorExclusions)
-                    .build());
-        }
-
-        Double measureScore = calculateMeasureScore(denominator, denominatorExclusions, numerator);
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
-                .description("Primary measure group (Total Patients: " + totalPatients + ")")
+                .description("Primary measure group")
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit("percentage")
+                .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
+                .totalPatients(totalPatients)
                 .build();
 
         return MeasureEvaluationResult.builder()
-                .measureId(request.getMeasureId())
-                .measureName(request.getMeasureId())
-                .status("complete")
-                .periodStart(periodStart)
-                .periodEnd(periodEnd)
-                .reportType(request.getReportType())
+                .measureId(context.getMeasureId())
+                .measureName(context.getMeasureId())
+                .status(EvaluationStatusConstants.COMPLETE)
+                .periodStart(context.getPeriodStart())
+                .periodEnd(context.getPeriodEnd())
+                .reportType(context.getReportType())
                 .groups(List.of(groupResult))
+                .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
                 .build();
     }
 
-    private Integer extractPopulationCount(
-            Map<String, CqlExecutionResponse.ExpressionResult> results,
-            String populationName) {
+    private MeasureEvaluationResult buildMultiGroupResult(MeasureEvaluationContext context,
+                                                           AggregationState state,
+                                                           int totalPatients) {
+        MeasureDefinition def = context.getMeasureDefinition();
+        Map<String, Integer> counts = state.populationCounts;
+        List<GroupResult> groups = new ArrayList<>();
 
-        CqlExecutionResponse.ExpressionResult result = results.get(populationName);
-        if (result == null) {
-            return null;
-        }
+        for (var groupDef : def.getGroupDefinitions()) {
+            List<PopulationResult> populations = new ArrayList<>();
 
-        Object value = result.getValue();
-        if (value instanceof Boolean) {
-            return (Boolean) value ? 1 : 0;
-        } else if (value instanceof Number) {
-            return ((Number) value).intValue();
-        } else if (value instanceof Iterable<?> iterable) {
-            int count = 0;
-            var iterator = iterable.iterator();
-            while (iterator.hasNext()) {
-                iterator.next();
-                count++;
+            if (groupDef.getPopulations() != null) {
+                for (var popDef : groupDef.getPopulations()) {
+                    // Map population expression name to aggregated count
+                    String exprName = popDef.getCriteriaExpression();
+                    Integer count = counts.getOrDefault(exprName, 0);
+                    populations.add(populationResult(popDef.getPopulationType(), count));
+                }
             }
-            return count;
+
+            // Compute score per group
+            Integer denom = populations.stream()
+                    .filter(p -> DENOMINATOR.equals(p.getPopulationType()))
+                    .map(PopulationResult::getCount)
+                    .findFirst().orElse(0);
+            Integer denomEx = populations.stream()
+                    .filter(p -> DENOMINATOR_EXCLUSION.equals(p.getPopulationType()))
+                    .map(PopulationResult::getCount)
+                    .findFirst().orElse(0);
+            Integer numer = populations.stream()
+                    .filter(p -> NUMERATOR.equals(p.getPopulationType()))
+                    .map(PopulationResult::getCount)
+                    .findFirst().orElse(0);
+
+            Double score = scoreCalculator.calculateProportionScore(denom, denomEx, numer);
+
+            String desc = groupDef.getDescription() != null ? groupDef.getDescription() : "";
+            if (groupDef.getRateDescription() != null) {
+                desc = groupDef.getRateDescription() + (desc.isEmpty() ? "" : " - " + desc);
+            }
+
+            groups.add(GroupResult.builder()
+                    .groupId(groupDef.getGroupId())
+                    .description(desc)
+                    .populations(populations)
+                    .measureScore(score)
+                    .measureScoreUnit("percentage")
+                    .totalPatients(totalPatients)
+                    .build());
         }
 
-        return null;
+        return MeasureEvaluationResult.builder()
+                .measureId(context.getMeasureId())
+                .measureName(context.getMeasureId())
+                .status(EvaluationStatusConstants.COMPLETE)
+                .periodStart(context.getPeriodStart())
+                .periodEnd(context.getPeriodEnd())
+                .reportType(context.getReportType())
+                .groups(groups)
+                .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .build();
     }
 
-    private Double calculateMeasureScore(Integer denominator, Integer exclusions, Integer numerator) {
-        if (denominator == null || denominator == 0) {
-            return null;
-        }
-
-        int effectiveDenominator = denominator - (exclusions != null ? exclusions : 0);
-        if (effectiveDenominator <= 0) {
-            return null;
-        }
-
-        int effectiveNumerator = numerator != null ? numerator : 0;
-        return (double) effectiveNumerator / effectiveDenominator * 100;
+    private static PopulationResult populationResult(String type, Integer count) {
+        return PopulationResult.builder()
+                .populationType(type)
+                .populationId(type)
+                .count(count)
+                .build();
     }
+
+    private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message) {
+        return MeasureEvaluationResult.builder()
+                .measureId(context.getMeasureId())
+                .status("error")
+                .errorMessage(message)
+                .periodStart(context.getPeriodStart())
+                .periodEnd(context.getPeriodEnd())
+                .build();
+    }
+
+    private void autoSaveReport(MeasureEvaluationResult result, Long measureDefinitionId,
+                                String fhirServerUrl, long durationMs) {
+        if (measureReportService == null) return;
+        try {
+            measureReportService.saveReport(result, measureDefinitionId, fhirServerUrl, null, durationMs);
+        } catch (Exception e) {
+            log.warn("Failed to auto-save measure report, evaluation result is still valid", e);
+        }
+    }
+
+    private void stopTimer(Timer.Sample sample) {
+        if (sample != null && measureEvaluationTimer != null) sample.stop(measureEvaluationTimer);
+    }
+
+    private void incrementErrorCounter() {
+        if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
+    }
+
+    /** Internal state holder for the aggregation loop. */
+    private record AggregationState(
+            Map<String, Integer> populationCounts,
+            Map<String, Object> customExpressions,
+            Map<String, Map<String, Map<String, Integer>>> stratificationData,
+            int errorCount
+    ) {}
 }

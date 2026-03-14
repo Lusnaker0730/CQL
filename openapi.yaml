@@ -1,0 +1,5158 @@
+openapi: 3.0.3
+info:
+  title: CQL 平台 API
+  version: 1.0.0
+  description: |
+    CQL 平台後端 API — 涵蓋 CQL 編輯/執行、品質指標管理、FHIR 資源操作、
+    CDS 決策支援、權限管理等完整功能。
+  contact:
+    name: CQL Platform
+servers:
+  - url: /
+    description: 本地開發環境
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: 認證 — 登入、註冊、SSO、密碼管理
+  - name: cql
+    description: CQL 操作 — 翻譯、驗證、執行
+  - name: cql-libraries
+    description: CQL 函式庫 — CRUD、版本、分享、相依性
+  - name: measures
+    description: 品質指標 — 定義 CRUD
+  - name: measures-eval
+    description: 品質指標 — 評估與報告
+  - name: measures-testcases
+    description: 品質指標 — 測試案例
+  - name: measures-workflow
+    description: 品質指標 — 工作流程與版本
+  - name: measures-dashboard
+    description: 品質指標 — 儀表板與趨勢
+  - name: fhir
+    description: FHIR 資源 — 瀏覽、CRUD、術語服務
+  - name: fhir-ig
+    description: FHIR — Implementation Guide 瀏覽
+  - name: fhir-vsac
+    description: FHIR — VSAC 整合
+  - name: cds-config
+    description: CDS 服務管理
+  - name: cds-hooks
+    description: CDS Hooks 執行
+  - name: authoring
+    description: CDS 撰寫工具 — 工件管理與 CQL 生成
+  - name: ehr
+    description: EHR 整合 — 連線與病患匯入
+  - name: admin
+    description: 使用者管理（需 ADMIN 角色）
+  - name: audit
+    description: 稽核日誌（需 ADMIN 角色）
+  - name: departments
+    description: 部門管理
+  - name: indicators
+    description: 指標目錄
+  - name: notifications
+    description: 通知管理
+  - name: settings
+    description: 系統設定
+  - name: api-keys
+    description: API 金鑰管理
+  - name: user-prefs
+    description: 使用者偏好（最愛與最近存取）
+  - name: smart
+    description: SMART on FHIR 設定
+
+paths:
+  # ===== Auth =====
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 使用者登入
+      description: 使用帳號密碼登入，取得 JWT Token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: 帳號或密碼錯誤
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: 使用者註冊
+      description: 註冊新帳號
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: 註冊成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: 使用者名稱已存在
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: 取得目前使用者
+      description: 回傳已認證使用者的個人資訊
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+
+  /api/auth/forgot-password:
+    post:
+      tags: [auth]
+      summary: 忘記密碼
+      description: 發送密碼重設信件
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: 請求已處理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /api/auth/reset-password:
+    post:
+      tags: [auth]
+      summary: 重設密碼
+      description: 透過重設 token 設定新密碼
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: 密碼已重設
+        '400':
+          description: 令牌無效或過期
+
+  /api/auth/change-password:
+    post:
+      tags: [auth]
+      summary: 變更密碼
+      description: 已登入使用者變更自己的密碼
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: 密碼已變更
+        '400':
+          description: 目前密碼不正確
+
+  /api/auth/okta/config:
+    get:
+      tags: [auth]
+      summary: 取得 Okta SSO 設定
+      description: 查詢 Okta SSO 是否啟用及設定資訊
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OktaConfig'
+
+  /api/auth/okta/callback:
+    post:
+      tags: [auth]
+      summary: Okta SSO 回呼
+      description: Okta OIDC 授權碼交換，自動 JIT 建立使用者
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OktaCallbackRequest'
+      responses:
+        '200':
+          description: 認證成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: SSO 認證失敗
+
+  # ===== CQL Operations =====
+  /api/cql/translate:
+    post:
+      tags: [cql]
+      summary: 翻譯 CQL
+      description: 將 CQL 程式碼翻譯為 ELM 格式
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CqlTranslationRequest'
+      responses:
+        '200':
+          description: 翻譯結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlTranslationResponse'
+
+  /api/cql/validate:
+    post:
+      tags: [cql]
+      summary: 驗證 CQL
+      description: 驗證 CQL 語法與語義正確性
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cql]
+              properties:
+                cql:
+                  type: string
+                  description: CQL 原始碼
+      responses:
+        '200':
+          description: 驗證結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlTranslationResponse'
+
+  /api/cql/execute:
+    post:
+      tags: [cql]
+      summary: 執行 CQL
+      description: 對 FHIR 伺服器執行 CQL 查詢
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CqlExecutionRequest'
+      responses:
+        '200':
+          description: 執行結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlExecutionResponse'
+
+  # ===== CQL Libraries =====
+  /api/cql/libraries:
+    get:
+      tags: [cql-libraries]
+      summary: 列出 CQL 函式庫
+      description: 回傳所有已儲存的 CQL 函式庫
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 搜尋關鍵字
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+    post:
+      tags: [cql-libraries]
+      summary: 建立 CQL 函式庫
+      description: 建立新的 CQL 函式庫
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibrarySaveRequest'
+      responses:
+        '201':
+          description: 已建立
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{id}:
+    get:
+      tags: [cql-libraries]
+      summary: 取得函式庫
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+        '404':
+          description: 找不到
+    put:
+      tags: [cql-libraries]
+      summary: 更新函式庫
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibrarySaveRequest'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+    delete:
+      tags: [cql-libraries]
+      summary: 刪除函式庫
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/cql/libraries/latest/{name}:
+    get:
+      tags: [cql-libraries]
+      summary: 取得最新版本
+      description: 依函式庫名稱取得最新版本
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/versions/{name}:
+    get:
+      tags: [cql-libraries]
+      summary: 列出所有版本
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/metadata:
+    get:
+      tags: [cql-libraries]
+      summary: 取得函式庫中繼資料
+      description: 回傳所有函式庫的輕量中繼資料
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LibraryMetadataDTO'
+
+  /api/cql/libraries/{id}/fhir:
+    get:
+      tags: [cql-libraries]
+      summary: 匯出為 FHIR Library
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FHIR Library 資源
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/cql/libraries/import/fhir:
+    post:
+      tags: [cql-libraries]
+      summary: 匯入 FHIR Library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: FHIR R4 Library 資源 JSON
+      responses:
+        '200':
+          description: 匯入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/repository:
+    get:
+      tags: [cql-libraries]
+      summary: 列出範本庫
+      description: 列出可供匯入的預建 CQL 函式庫範本
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    category:
+                      type: string
+
+  /api/cql/libraries/repository/{name}/import:
+    post:
+      tags: [cql-libraries]
+      summary: 匯入範本庫
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 匯入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{name}/version:
+    post:
+      tags: [cql-libraries]
+      summary: 建立新版本
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [major, minor, patch]
+            default: minor
+          description: 版本類型
+      responses:
+        '200':
+          description: 新版本已建立
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{name}/history:
+    get:
+      tags: [cql-libraries]
+      summary: 版本歷史
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/compare:
+    get:
+      tags: [cql-libraries]
+      summary: 比較版本
+      parameters:
+        - name: oldId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: newId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  oldCql:
+                    type: string
+                  newCql:
+                    type: string
+
+  /api/cql/libraries/{id}/share:
+    post:
+      tags: [cql-libraries]
+      summary: 分享函式庫
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsernameRequest'
+      responses:
+        '200':
+          description: 已分享
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{id}/unshare:
+    post:
+      tags: [cql-libraries]
+      summary: 取消分享
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsernameRequest'
+      responses:
+        '200':
+          description: 已取消分享
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{id}/transfer:
+    post:
+      tags: [cql-libraries]
+      summary: 轉移擁有權
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferOwnershipRequest'
+      responses:
+        '200':
+          description: 已轉移
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{id}/access:
+    put:
+      tags: [cql-libraries]
+      summary: 設定存取層級
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessUpdateRequest'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/owner/{username}:
+    get:
+      tags: [cql-libraries]
+      summary: 依擁有者列出
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/shared/{username}:
+    get:
+      tags: [cql-libraries]
+      summary: 列出分享函式庫
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{id}/dependencies:
+    get:
+      tags: [cql-libraries]
+      summary: 取得相依性
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/dependents/{name}:
+    get:
+      tags: [cql-libraries]
+      summary: 取得被依賴者
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CqlLibrary'
+
+  /api/cql/libraries/{id}/dependency-analysis:
+    get:
+      tags: [cql-libraries]
+      summary: 相依性分析
+      description: 分析函式庫的相依性衝突與版本不一致問題
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: 相依性分析結果
+
+  # ===== User Library Prefs =====
+  /api/cql/user-prefs/favorites:
+    get:
+      tags: [user-prefs]
+      summary: 列出我的最愛
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    libraryId:
+                      type: string
+                    libraryName:
+                      type: string
+                    libraryVersion:
+                      type: string
+                    createdAt:
+                      type: string
+                      format: date-time
+
+  /api/cql/user-prefs/favorites/{libraryId}:
+    post:
+      tags: [user-prefs]
+      summary: 加入最愛
+      parameters:
+        - name: libraryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: 已加入
+    delete:
+      tags: [user-prefs]
+      summary: 移除最愛
+      parameters:
+        - name: libraryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 已移除
+
+  /api/cql/user-prefs/recent:
+    get:
+      tags: [user-prefs]
+      summary: 列出最近存取
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    libraryId:
+                      type: string
+                    libraryName:
+                      type: string
+                    libraryVersion:
+                      type: string
+                    accessedAt:
+                      type: string
+                      format: date-time
+    delete:
+      tags: [user-prefs]
+      summary: 清除最近存取
+      responses:
+        '204':
+          description: 已清除
+
+  /api/cql/user-prefs/recent/{libraryId}:
+    post:
+      tags: [user-prefs]
+      summary: 記錄最近存取
+      parameters:
+        - name: libraryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: 已記錄
+
+  # ===== Measures CRUD =====
+  /api/measures:
+    get:
+      tags: [measures]
+      summary: 列出所有指標
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 搜尋關鍵字
+        - name: department
+          in: query
+          schema:
+            type: string
+          description: 部門代碼篩選
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeasureDefinition'
+    post:
+      tags: [measures]
+      summary: 建立指標
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeasureDefinition'
+      responses:
+        '201':
+          description: 已建立
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/{id}:
+    get:
+      tags: [measures]
+      summary: 取得指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+        '404':
+          description: 找不到
+    put:
+      tags: [measures]
+      summary: 更新指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeasureDefinition'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+    delete:
+      tags: [measures]
+      summary: 刪除指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  # ===== Measures FHIR Import/Export =====
+  /api/measures/import/fhir:
+    post:
+      tags: [measures]
+      summary: 匯入 FHIR Measure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 匯入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/{id}/fhir:
+    get:
+      tags: [measures]
+      summary: 匯出為 FHIR Measure
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: FHIR Measure 資源
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/measures/{id}/export/bundle:
+    get:
+      tags: [measures]
+      summary: 匯出 FHIR Bundle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, xml]
+            default: json
+      responses:
+        '200':
+          description: Bundle 檔案下載
+          content:
+            application/fhir+json:
+              schema:
+                type: string
+                format: binary
+            application/fhir+xml:
+              schema:
+                type: string
+                format: binary
+
+  /api/measures/{id}/export/cql:
+    get:
+      tags: [measures]
+      summary: 匯出 CQL 原始碼
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: CQL 檔案下載
+          content:
+            text/cql:
+              schema:
+                type: string
+                format: binary
+
+  /api/measures/{id}/export/elm:
+    get:
+      tags: [measures]
+      summary: 匯出 ELM JSON
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: ELM JSON 下載
+          content:
+            application/elm+json:
+              schema:
+                type: string
+                format: binary
+
+  /api/measures/import/bundle:
+    post:
+      tags: [measures]
+      summary: 匯入 FHIR Bundle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 匯入結果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measureId:
+                    type: integer
+                  librariesImported:
+                    type: integer
+                  valueSetsImported:
+                    type: integer
+
+  /api/measures/{id}/export/hqmf:
+    get:
+      tags: [measures]
+      summary: 匯出 HQMF XML
+      description: 匯出 HQMF R2.1 XML（CMS 申報用）
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: HQMF XML 下載
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+
+  /api/measures/{id}/export/human-readable:
+    get:
+      tags: [measures]
+      summary: 匯出人類可讀文件
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: HTML 敘述文件
+          content:
+            text/html:
+              schema:
+                type: string
+                format: binary
+
+  /api/measures/{id}/cql-expressions:
+    get:
+      tags: [measures]
+      summary: 取得 CQL 表達式
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExpressionInfo'
+
+  /api/measures/{id}/data-requirements:
+    get:
+      tags: [measures]
+      summary: 取得資料需求
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: DataRequirementInfo
+
+  # ===== Measures Evaluation =====
+  /api/measures/{measureId}/$evaluate-measure:
+    post:
+      tags: [measures-eval]
+      summary: 評估指標
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subject
+          in: query
+          schema:
+            type: string
+        - name: periodStart
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: periodEnd
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: reportType
+          in: query
+          schema:
+            type: string
+            enum: [individual, subject-list, summary, data-collection]
+            default: individual
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeasureEvaluationRequest'
+      responses:
+        '200':
+          description: 評估結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureEvaluationResult'
+
+  /api/measures/evaluate:
+    post:
+      tags: [measures-eval]
+      summary: 評估自訂 CQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeasureEvaluationRequest'
+      responses:
+        '200':
+          description: 評估結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureEvaluationResult'
+
+  /api/measures/reports:
+    get:
+      tags: [measures-eval]
+      summary: 列出報告
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: MeasureReportEntity
+
+  /api/measures/{measureId}/reports:
+    get:
+      tags: [measures-eval]
+      summary: 列出指標報告
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/measures/reports/{reportId}:
+    get:
+      tags: [measures-eval]
+      summary: 取得報告
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+        '404':
+          description: 找不到
+    delete:
+      tags: [measures-eval]
+      summary: 刪除報告
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/measures/reports/{reportId}/export:
+    get:
+      tags: [measures-eval]
+      summary: 匯出報告
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [fhir, csv, excel]
+            default: fhir
+      responses:
+        '200':
+          description: 報告檔案下載
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ===== Measures Schedules =====
+  /api/measures/{measureId}/schedules:
+    get:
+      tags: [measures-eval]
+      summary: 列出排程
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: MeasureScheduleEntity
+    post:
+      tags: [measures-eval]
+      summary: 建立排程
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: MeasureScheduleEntity
+      responses:
+        '200':
+          description: 已建立
+
+  /api/measures/schedules/{scheduleId}:
+    put:
+      tags: [measures-eval]
+      summary: 更新排程
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 已更新
+    delete:
+      tags: [measures-eval]
+      summary: 刪除排程
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/measures/schedules/{scheduleId}/trigger:
+    post:
+      tags: [measures-eval]
+      summary: 手動觸發排程
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 評估結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureEvaluationResult'
+
+  # ===== Measures Comparison & Trends =====
+  /api/measures/compare:
+    get:
+      tags: [measures-eval]
+      summary: 期間比較
+      parameters:
+        - name: measureName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: p1Start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: p1End
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: p2Start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: p2End
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 比較結果
+          content:
+            application/json:
+              schema:
+                type: object
+                description: MeasureComparisonResult
+
+  /api/measures/trend:
+    get:
+      tags: [measures-eval]
+      summary: 趨勢分析
+      parameters:
+        - name: measureName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: periods
+          in: query
+          schema:
+            type: integer
+            default: 4
+      responses:
+        '200':
+          description: 趨勢資料
+          content:
+            application/json:
+              schema:
+                type: object
+                description: MeasureTrendResult
+
+  # ===== Measures Test Cases =====
+  /api/measures/{measureId}/test-cases:
+    get:
+      tags: [measures-testcases]
+      summary: 列出測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestCase'
+    post:
+      tags: [measures-testcases]
+      summary: 建立測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestCase'
+      responses:
+        '200':
+          description: 已建立
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+
+  /api/measures/{measureId}/test-cases/{testCaseId}:
+    get:
+      tags: [measures-testcases]
+      summary: 取得測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+    put:
+      tags: [measures-testcases]
+      summary: 更新測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestCase'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+    delete:
+      tags: [measures-testcases]
+      summary: 刪除測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/measures/{measureId}/test-cases/batch-import:
+    post:
+      tags: [measures-testcases]
+      summary: 批次匯入測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testCases:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TestCase'
+                dateShiftDays:
+                  type: integer
+      responses:
+        '200':
+          description: 匯入結果
+
+  /api/measures/{measureId}/test-cases/{testCaseId}/run:
+    post:
+      tags: [measures-testcases]
+      summary: 執行測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 執行結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCaseRunResult'
+
+  /api/measures/{measureId}/test-cases/run:
+    post:
+      tags: [measures-testcases]
+      summary: 執行所有測試案例
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestCaseRunResult'
+
+  /api/measures/{measureId}/test-cases/{testCaseId}/run-with-coverage:
+    post:
+      tags: [measures-testcases]
+      summary: 執行含覆蓋率測試
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 覆蓋率結果
+
+  # ===== Measures Version & Workflow =====
+  /api/measures/{id}/version:
+    post:
+      tags: [measures-workflow]
+      summary: 建立新版本
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [major, minor, patch]
+            default: minor
+      responses:
+        '200':
+          description: 新版本
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/{id}/history:
+    get:
+      tags: [measures-workflow]
+      summary: 版本歷史
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/version-compare:
+    get:
+      tags: [measures-workflow]
+      summary: 版本比較
+      parameters:
+        - name: oldId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: newId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 比較結果
+
+  /api/measures/{id}/share:
+    post:
+      tags: [measures-workflow]
+      summary: 分享指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsernameRequest'
+      responses:
+        '200':
+          description: 已分享
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/{id}/unshare:
+    post:
+      tags: [measures-workflow]
+      summary: 取消分享
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsernameRequest'
+      responses:
+        '200':
+          description: 已取消
+
+  /api/measures/{id}/transfer:
+    post:
+      tags: [measures-workflow]
+      summary: 轉移擁有權
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferOwnershipRequest'
+      responses:
+        '200':
+          description: 已轉移
+
+  /api/measures/{id}/access:
+    put:
+      tags: [measures-workflow]
+      summary: 設定存取層級
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessUpdateRequest'
+      responses:
+        '200':
+          description: 已更新
+
+  /api/measures/owner/{username}:
+    get:
+      tags: [measures-workflow]
+      summary: 依擁有者列出
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/shared/{username}:
+    get:
+      tags: [measures-workflow]
+      summary: 列出分享指標
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/{id}/submit-for-review:
+    post:
+      tags: [measures-workflow]
+      summary: 提交審查
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowActionRequest'
+      responses:
+        '200':
+          description: 已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasureDefinition'
+
+  /api/measures/{id}/approve:
+    post:
+      tags: [measures-workflow]
+      summary: 核准指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowActionRequest'
+      responses:
+        '200':
+          description: 已核准
+
+  /api/measures/{id}/reject:
+    post:
+      tags: [measures-workflow]
+      summary: 退回指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowActionRequest'
+      responses:
+        '200':
+          description: 已退回
+
+  /api/measures/{id}/retire:
+    post:
+      tags: [measures-workflow]
+      summary: 退役指標
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowActionRequest'
+      responses:
+        '200':
+          description: 已退役
+
+  /api/measures/{id}/lock:
+    post:
+      tags: [measures-workflow]
+      summary: 鎖定編輯
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowActionRequest'
+      responses:
+        '200':
+          description: 已鎖定
+
+  /api/measures/{id}/unlock:
+    post:
+      tags: [measures-workflow]
+      summary: 解鎖編輯
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowActionRequest'
+      responses:
+        '200':
+          description: 已解鎖
+
+  /api/measures/{id}/validate:
+    post:
+      tags: [measures-workflow]
+      summary: 完整驗證
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 驗證報告
+          content:
+            application/json:
+              schema:
+                type: object
+                description: ValidationReport
+
+  /api/measures/{id}/validate/quick:
+    post:
+      tags: [measures-workflow]
+      summary: 快速驗證
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 驗證報告
+
+  # ===== Measures Dashboard =====
+  /api/measures/dashboard:
+    get:
+      tags: [measures-dashboard]
+      summary: 基本儀表板
+      responses:
+        '200':
+          description: 儀表板摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalMeasures:
+                    type: integer
+                  byStatus:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  byScoring:
+                    type: object
+                    additionalProperties:
+                      type: integer
+
+  /api/measures/batch-evaluate:
+    post:
+      tags: [measures-dashboard]
+      summary: 批次評估
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: BatchEvaluationRequest
+      responses:
+        '200':
+          description: 批次結果
+
+  /api/measures/{id}/audit:
+    get:
+      tags: [measures-dashboard]
+      summary: 稽核軌跡
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/measures/dashboard/enhanced:
+    get:
+      tags: [measures-dashboard]
+      summary: 增強儀表板
+      parameters:
+        - name: department
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: EnhancedDashboardData
+
+  /api/measures/dashboard/trends:
+    get:
+      tags: [measures-dashboard]
+      summary: 分數趨勢
+      parameters:
+        - name: measureId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: periodType
+          in: query
+          schema:
+            type: string
+            default: monthly
+        - name: count
+          in: query
+          schema:
+            type: integer
+            default: 12
+      responses:
+        '200':
+          description: 趨勢資料
+
+  /api/measures/dashboard/department/{code}:
+    get:
+      tags: [measures-dashboard]
+      summary: 部門深入分析
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/measures/dashboard/alerts:
+    get:
+      tags: [measures-dashboard]
+      summary: 閾值警示
+      parameters:
+        - name: department
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: ThresholdAlert
+
+  /api/measures/{id}/thresholds:
+    post:
+      tags: [measures-dashboard]
+      summary: 設定閾值
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: MeasureThresholdEntity
+      responses:
+        '201':
+          description: 已建立
+    get:
+      tags: [measures-dashboard]
+      summary: 取得閾值
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+
+  /api/measures/dashboard/report:
+    get:
+      tags: [measures-dashboard]
+      summary: 品質報告
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            default: monthly
+        - name: department
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: QualityReport
+
+  # ===== FHIR IG =====
+  /api/fhir/ig/packages:
+    get:
+      tags: [fhir-ig]
+      summary: 列出 IG 套件
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/ig/profiles:
+    get:
+      tags: [fhir-ig]
+      summary: 瀏覽 IG Profiles
+      parameters:
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/ig/profiles/{url}:
+    get:
+      tags: [fhir-ig]
+      summary: 取得 IG Profile
+      parameters:
+        - name: url
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: StructureDefinition JSON
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/fhir/ig/valuesets:
+    get:
+      tags: [fhir-ig]
+      summary: 瀏覽 IG ValueSets
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/ig/valuesets/{url}:
+    get:
+      tags: [fhir-ig]
+      summary: 取得 IG ValueSet
+      parameters:
+        - name: url
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ValueSet JSON
+
+  /api/fhir/ig/codesystems:
+    get:
+      tags: [fhir-ig]
+      summary: 瀏覽 IG CodeSystems
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/ig/codesystems/{url}:
+    get:
+      tags: [fhir-ig]
+      summary: 取得 IG CodeSystem
+      parameters:
+        - name: url
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CodeSystem JSON
+
+  # ===== FHIR Structure Definitions =====
+  /api/fhir/structure-definitions/resource-types:
+    get:
+      tags: [fhir]
+      summary: 列出支援的資源類型
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/fhir/structure-definitions/{resourceType}:
+    get:
+      tags: [fhir]
+      summary: 取得資源元素中繼資料
+      parameters:
+        - name: resourceType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: ResourceElementMetadata
+
+  # ===== FHIR CRUD =====
+  /api/fhir/{resourceType}:
+    get:
+      tags: [fhir]
+      summary: 搜尋 FHIR 資源
+      parameters:
+        - name: resourceType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+        - name: params
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FHIR Bundle
+    post:
+      tags: [fhir]
+      summary: 建立 FHIR 資源
+      parameters:
+        - name: resourceType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 已建立
+
+  /api/fhir/{resourceType}/{id}:
+    get:
+      tags: [fhir]
+      summary: 讀取 FHIR 資源
+      parameters:
+        - name: resourceType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FHIR 資源
+    put:
+      tags: [fhir]
+      summary: 更新 FHIR 資源
+      parameters:
+        - name: resourceType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 已更新
+    delete:
+      tags: [fhir]
+      summary: 刪除 FHIR 資源
+      parameters:
+        - name: resourceType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 已刪除
+
+  # ===== FHIR Terminology =====
+  /api/fhir/ValueSet:
+    get:
+      tags: [fhir]
+      summary: 搜尋 ValueSet
+      parameters:
+        - name: title
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    url:
+                      type: string
+                    name:
+                      type: string
+                    title:
+                      type: string
+
+  /api/fhir/ValueSet/$expand:
+    get:
+      tags: [fhir]
+      summary: 展開 ValueSet
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 展開的 ValueSet
+
+  /api/fhir/CodeSystem/$validate-code:
+    get:
+      tags: [fhir]
+      summary: 驗證代碼
+      parameters:
+        - name: system
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: valueSet
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: boolean
+                  system:
+                    type: string
+                  code:
+                    type: string
+                  valueSet:
+                    type: string
+
+  /api/fhir/CodeSystem/$lookup:
+    get:
+      tags: [fhir]
+      summary: 查詢代碼資訊
+      parameters:
+        - name: system
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/CodeSystem/$search-codes:
+    get:
+      tags: [fhir]
+      summary: 搜尋代碼
+      parameters:
+        - name: system
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: text
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 成功
+
+  # ===== FHIR VSAC =====
+  /api/fhir/vsac/ValueSet:
+    get:
+      tags: [fhir-vsac]
+      summary: 搜尋 VSAC ValueSet
+      parameters:
+        - name: title
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/vsac/ValueSet/{oid}:
+    get:
+      tags: [fhir-vsac]
+      summary: 取得 VSAC ValueSet
+      parameters:
+        - name: oid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ValueSet JSON
+
+  /api/fhir/vsac/ValueSet/{oid}/$expand:
+    get:
+      tags: [fhir-vsac]
+      summary: 展開 VSAC ValueSet
+      parameters:
+        - name: oid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 展開的 ValueSet
+
+  # ===== FHIR Bulk/Transaction/Validate =====
+  /api/fhir/$export:
+    post:
+      tags: [fhir]
+      summary: 啟動批次匯出
+      parameters:
+        - name: fhirServer
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: exportType
+          in: query
+          schema:
+            type: string
+            default: system
+        - name: _outputFormat
+          in: query
+          schema:
+            type: string
+        - name: _since
+          in: query
+          schema:
+            type: string
+        - name: _type
+          in: query
+          schema:
+            type: string
+      responses:
+        '202':
+          description: 已接受
+
+  /api/fhir/$export-status:
+    get:
+      tags: [fhir]
+      summary: 輪詢匯出狀態
+      parameters:
+        - name: statusUrl
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 匯出完成
+        '202':
+          description: 處理中
+
+  /api/fhir/Bundle/$transaction:
+    post:
+      tags: [fhir]
+      summary: 執行 FHIR Transaction
+      parameters:
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Transaction 結果
+
+  /api/fhir/$validate:
+    post:
+      tags: [fhir]
+      summary: 驗證 FHIR 資源
+      parameters:
+        - name: profile
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 驗證結果
+
+  /api/fhir/Patient/$search-by-demographics:
+    get:
+      tags: [fhir]
+      summary: 依人口統計搜尋病患
+      parameters:
+        - name: family
+          in: query
+          schema:
+            type: string
+        - name: given
+          in: query
+          schema:
+            type: string
+        - name: birthdate
+          in: query
+          schema:
+            type: string
+        - name: identifier
+          in: query
+          schema:
+            type: string
+        - name: fhirServer
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FHIR Bundle
+
+  /api/fhir/cache/stats:
+    get:
+      tags: [fhir]
+      summary: 快取統計
+      responses:
+        '200':
+          description: 成功
+
+  /api/fhir/cache/{cacheName}:
+    delete:
+      tags: [fhir]
+      summary: 清除快取
+      description: 清除指定快取（僅管理員）
+      parameters:
+        - name: cacheName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 已清除
+
+  # ===== CDS Service Config =====
+  /api/cds/services:
+    get:
+      tags: [cds-config]
+      summary: 列出 CDS 服務
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CdsServiceConfigResponse'
+    post:
+      tags: [cds-config]
+      summary: 建立 CDS 服務
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CdsServiceConfigRequest'
+      responses:
+        '201':
+          description: 已建立
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdsServiceConfigResponse'
+
+  /api/cds/services/{id}:
+    get:
+      tags: [cds-config]
+      summary: 取得 CDS 服務
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdsServiceConfigResponse'
+    put:
+      tags: [cds-config]
+      summary: 更新 CDS 服務
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CdsServiceConfigRequest'
+      responses:
+        '200':
+          description: 已更新
+    delete:
+      tags: [cds-config]
+      summary: 刪除 CDS 服務
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/cds/services/{id}/enable:
+    patch:
+      tags: [cds-config]
+      summary: 啟用服務
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 已啟用
+
+  /api/cds/services/{id}/disable:
+    patch:
+      tags: [cds-config]
+      summary: 停用服務
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 已停用
+
+  /api/cds/services/{id}/share:
+    patch:
+      tags: [cds-config]
+      summary: 切換共享狀態
+      description: 僅管理員可操作
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: shared
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 已更新
+
+  /api/cds/services/{serviceName}/versions:
+    get:
+      tags: [cds-config]
+      summary: 列出服務版本
+      parameters:
+        - name: serviceName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cds/services/{serviceName}/rollback/{version}:
+    post:
+      tags: [cds-config]
+      summary: 回滾版本
+      parameters:
+        - name: serviceName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 已回滾
+
+  /api/cds/services/analytics:
+    get:
+      tags: [cds-config]
+      summary: 所有服務分析
+      responses:
+        '200':
+          description: 成功
+
+  /api/cds/services/{id}/analytics:
+    get:
+      tags: [cds-config]
+      summary: 服務分析
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cds/services/{id}/feedback:
+    get:
+      tags: [cds-config]
+      summary: 服務回饋
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ===== CDS Hooks =====
+  /cds-services:
+    get:
+      tags: [cds-hooks]
+      summary: 服務發現
+      description: 回傳共享/全域 CDS 服務
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CdsServiceDefinition'
+
+  /cds-services/{serviceId}:
+    post:
+      tags: [cds-hooks]
+      summary: 呼叫 CDS 服務
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CdsRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdsResponse'
+
+  /cds-services/{serviceId}/feedback:
+    post:
+      tags: [cds-hooks]
+      summary: 提交回饋
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: CdsFeedbackRequest
+      responses:
+        '200':
+          description: 已接收
+
+  /cds-services/{serviceId}/sandbox:
+    post:
+      tags: [cds-hooks]
+      summary: 沙箱模式測試
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: CdsSandboxRequest
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdsResponse'
+
+  /cds-services/u/{username}:
+    get:
+      tags: [cds-hooks]
+      summary: 使用者專屬服務發現
+      description: API Key 認證
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /cds-services/u/{username}/{serviceId}:
+    post:
+      tags: [cds-hooks]
+      summary: 使用者專屬服務呼叫
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CdsRequest'
+      responses:
+        '200':
+          description: 成功
+
+  # ===== Authoring =====
+  /api/authoring/artifacts:
+    get:
+      tags: [authoring]
+      summary: 列出工件
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: ArtifactSummary
+    post:
+      tags: [authoring]
+      summary: 建立工件
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactRequest'
+      responses:
+        '201':
+          description: 已建立
+
+  /api/authoring/artifacts/{id}:
+    get:
+      tags: [authoring]
+      summary: 取得工件
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [authoring]
+      summary: 更新工件
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactRequest'
+      responses:
+        '200':
+          description: 已更新
+    delete:
+      tags: [authoring]
+      summary: 刪除工件
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/authoring/artifacts/{id}/duplicate:
+    post:
+      tags: [authoring]
+      summary: 複製工件
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 已複製
+
+  /api/authoring/templates:
+    get:
+      tags: [authoring]
+      summary: 取得元素範本
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/modifiers:
+    get:
+      tags: [authoring]
+      summary: 取得修飾器
+      parameters:
+        - name: inputType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/artifacts/{id}/cql:
+    post:
+      tags: [authoring]
+      summary: 生成 CQL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: fhirVersion
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cql:
+                    type: string
+
+  /api/authoring/artifacts/{id}/elm:
+    post:
+      tags: [authoring]
+      summary: 生成 ELM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CqlTranslationResponse'
+
+  /api/authoring/artifacts/{id}/validate:
+    post:
+      tags: [authoring]
+      summary: 驗證工件 CQL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 驗證結果
+
+  /api/authoring/artifacts/{id}/external-cql:
+    get:
+      tags: [authoring]
+      summary: 列出外部 CQL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/artifacts/{artifactId}/external-cql/{libId}:
+    get:
+      tags: [authoring]
+      summary: 取得外部 CQL
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: libId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [authoring]
+      summary: 刪除外部 CQL
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: libId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/authoring/artifacts/{id}/external-cql/upload:
+    post:
+      tags: [authoring]
+      summary: 上傳外部 CQL 檔案
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上傳成功
+
+  /api/authoring/artifacts/{id}/external-cql/content:
+    post:
+      tags: [authoring]
+      summary: 上傳外部 CQL 內容
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cqlContent]
+              properties:
+                cqlContent:
+                  type: string
+      responses:
+        '200':
+          description: 上傳成功
+
+  /api/authoring/artifacts/{id}/test:
+    post:
+      tags: [authoring]
+      summary: 測試工件
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patientIds:
+                  type: array
+                  items:
+                    type: string
+                fhirServerUrl:
+                  type: string
+      responses:
+        '200':
+          description: 測試結果
+
+  /api/authoring/artifacts/{id}/deploy-cds:
+    post:
+      tags: [authoring]
+      summary: 部署為 CDS 服務
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceId:
+                  type: string
+                hook:
+                  type: string
+      responses:
+        '200':
+          description: 部署成功
+
+  /api/authoring/artifacts/{id}/save-library:
+    post:
+      tags: [authoring]
+      summary: 儲存為 CQL 函式庫
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  libraryId:
+                    type: string
+                  name:
+                    type: string
+                  version:
+                    type: string
+                  message:
+                    type: string
+
+  /api/authoring/artifacts/{id}/summary:
+    get:
+      tags: [authoring]
+      summary: 取得工件摘要
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/import-cql:
+    post:
+      tags: [authoring]
+      summary: 匯入 CQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cql]
+              properties:
+                cql:
+                  type: string
+      responses:
+        '200':
+          description: 解析結果
+
+  /api/authoring/query-builder/resources:
+    get:
+      tags: [authoring]
+      summary: 查詢建構器資源
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/query-builder/operators:
+    get:
+      tags: [authoring]
+      summary: 查詢建構器運算子
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/twcore-catalog:
+    get:
+      tags: [authoring]
+      summary: TWCORE 目錄
+      parameters:
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/authoring/twcore-catalog/code-systems:
+    get:
+      tags: [authoring]
+      summary: TWCORE 代碼系統
+      responses:
+        '200':
+          description: 成功
+
+  # ===== EHR =====
+  /api/ehr/connections:
+    get:
+      tags: [ehr]
+      summary: 列出 EHR 連線
+      parameters:
+        - name: department
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [ehr]
+      summary: 建立 EHR 連線
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: EhrConnectionEntity
+      responses:
+        '201':
+          description: 已建立
+
+  /api/ehr/connections/{id}:
+    get:
+      tags: [ehr]
+      summary: 取得連線
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [ehr]
+      summary: 更新連線
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 已更新
+    delete:
+      tags: [ehr]
+      summary: 刪除連線
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/ehr/connections/{id}/test:
+    post:
+      tags: [ehr]
+      summary: 測試連線
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 測試結果
+
+  /api/ehr/connections/{id}/patients:
+    get:
+      tags: [ehr]
+      summary: 搜尋病患
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: nationalId
+          in: query
+          schema:
+            type: string
+        - name: mrn
+          in: query
+          schema:
+            type: string
+        - name: family
+          in: query
+          schema:
+            type: string
+        - name: given
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/ehr/connections/{id}/patients/{patientId}/preview:
+    get:
+      tags: [ehr]
+      summary: 匯入預覽
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/ehr/connections/{id}/patients/{patientId}/import:
+    post:
+      tags: [ehr]
+      summary: 匯入病患資料
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: measureId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '201':
+          description: 已匯入
+
+  /api/ehr/imports:
+    get:
+      tags: [ehr]
+      summary: 匯入歷史
+      parameters:
+        - name: importedBy
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ===== Admin =====
+  /api/admin/users:
+    get:
+      tags: [admin]
+      summary: 列出所有使用者
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+    post:
+      tags: [admin]
+      summary: 建立使用者
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreateUserRequest'
+      responses:
+        '200':
+          description: 已建立
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+
+  /api/admin/users/{userId}/role:
+    put:
+      tags: [admin]
+      summary: 更新角色
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [USER, DEPARTMENT_ADMIN, ADMIN]
+      responses:
+        '200':
+          description: 已更新
+
+  /api/admin/users/{userId}/enabled:
+    put:
+      tags: [admin]
+      summary: 啟用/停用帳號
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: 已更新
+
+  /api/admin/users/{userId}/reset-password:
+    post:
+      tags: [admin]
+      summary: 重設密碼
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 臨時密碼已產生
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminResetPasswordResponse'
+
+  # ===== Audit =====
+  /api/admin/audit/logs:
+    get:
+      tags: [audit]
+      summary: 搜尋稽核日誌
+      parameters:
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          schema:
+            type: string
+        - name: statusCode
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 成功
+
+  /api/admin/audit/logs/export:
+    get:
+      tags: [audit]
+      summary: 匯出稽核日誌 CSV
+      parameters:
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          schema:
+            type: string
+        - name: statusCode
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: CSV 檔案下載
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+  /api/admin/audit/stats:
+    get:
+      tags: [audit]
+      summary: 稽核統計
+      responses:
+        '200':
+          description: 成功
+
+  /api/admin/audit/phi-access:
+    get:
+      tags: [audit]
+      summary: PHI 存取紀錄
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: startDate
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/admin/audit/login-activity:
+    get:
+      tags: [audit]
+      summary: 登入活動
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: startDate
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/admin/audit/security-events:
+    get:
+      tags: [audit]
+      summary: 安全事件
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: startDate
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ===== Departments =====
+  /api/departments:
+    get:
+      tags: [departments]
+      summary: 列出所有部門
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [departments]
+      summary: 建立部門
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: DepartmentEntity
+      responses:
+        '201':
+          description: 已建立
+
+  /api/departments/{code}:
+    get:
+      tags: [departments]
+      summary: 取得部門
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [departments]
+      summary: 更新部門
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 已更新
+
+  /api/departments/{code}/children:
+    get:
+      tags: [departments]
+      summary: 取得子部門
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ===== Indicators =====
+  /api/indicators:
+    get:
+      tags: [indicators]
+      summary: 搜尋指標代碼
+      parameters:
+        - name: source
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [indicators]
+      summary: 建立指標
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: IndicatorCatalogEntity
+      responses:
+        '201':
+          description: 已建立
+
+  /api/indicators/{code}:
+    get:
+      tags: [indicators]
+      summary: 取得指標
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+            default: MOH
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [indicators]
+      summary: 更新指標
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+            default: MOH
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 已更新
+
+  /api/indicators/import:
+    post:
+      tags: [indicators]
+      summary: 批次匯入指標
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+      responses:
+        '200':
+          description: 匯入結果
+
+  # ===== Notifications =====
+  /api/notifications:
+    get:
+      tags: [notifications]
+      summary: 取得通知
+      description: 回傳最近 50 則通知
+      responses:
+        '200':
+          description: 成功
+
+  /api/notifications/unread-count:
+    get:
+      tags: [notifications]
+      summary: 未讀數量
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+
+  /api/notifications/{id}/read:
+    post:
+      tags: [notifications]
+      summary: 標記已讀
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 已標記
+
+  /api/notifications/read-all:
+    post:
+      tags: [notifications]
+      summary: 全部標記已讀
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: integer
+
+  /api/notifications/{id}:
+    delete:
+      tags: [notifications]
+      summary: 刪除通知
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 已刪除
+
+  /api/notifications/subscribe:
+    get:
+      tags: [notifications]
+      summary: SSE 訂閱通知
+      description: Server-Sent Events 即時推送
+      responses:
+        '200':
+          description: SSE 串流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ===== Settings =====
+  /api/settings/vsac-status:
+    get:
+      tags: [settings]
+      summary: VSAC 設定狀態
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  url:
+                    type: string
+
+  /api/settings/vsac-api-key:
+    put:
+      tags: [settings]
+      summary: 更新 VSAC API 金鑰
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey]
+              properties:
+                apiKey:
+                  type: string
+      responses:
+        '200':
+          description: 已更新
+
+  # ===== API Keys =====
+  /api/user/api-keys:
+    get:
+      tags: [api-keys]
+      summary: 列出 API 金鑰
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [api-keys]
+      summary: 產生 API 金鑰
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 金鑰名稱
+      responses:
+        '201':
+          description: 已產生（僅此次回傳完整金鑰）
+
+  /api/user/api-keys/{id}:
+    delete:
+      tags: [api-keys]
+      summary: 撤銷 API 金鑰
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 已撤銷
+
+  # ===== SMART =====
+  /.well-known/smart-configuration:
+    get:
+      tags: [smart]
+      summary: SMART on FHIR 設定
+      security: []
+      responses:
+        '200':
+          description: SMART 設定
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer Token 認證
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: 錯誤訊息
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: 使用者帳號
+        password:
+          type: string
+          description: 密碼
+
+    RegisterRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          description: 帳號
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: 密碼
+        email:
+          type: string
+          description: 電子信箱
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT Token
+        username:
+          type: string
+        role:
+          type: string
+          enum: [USER, DEPARTMENT_ADMIN, ADMIN]
+        expiresIn:
+          type: integer
+          format: int64
+          description: 過期時間（毫秒）
+        forcePasswordChange:
+          type: boolean
+
+    UserInfo:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        forcePasswordChange:
+          type: boolean
+        authProvider:
+          type: string
+          enum: [LOCAL, OKTA]
+        displayName:
+          type: string
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+
+    OktaConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        authorizationEndpoint:
+          type: string
+        clientId:
+          type: string
+        scopes:
+          type: string
+
+    OktaCallbackRequest:
+      type: object
+      required: [code, redirectUri, nonce]
+      properties:
+        code:
+          type: string
+        redirectUri:
+          type: string
+        nonce:
+          type: string
+
+    CqlTranslationRequest:
+      type: object
+      required: [cql]
+      properties:
+        cql:
+          type: string
+          description: CQL 原始碼
+        enableAnnotations:
+          type: boolean
+          default: true
+        enableLocators:
+          type: boolean
+          default: true
+        enableResultTypes:
+          type: boolean
+          default: true
+        validateUnits:
+          type: boolean
+          default: true
+
+    CqlTranslationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        elm:
+          type: string
+          description: ELM XML
+        elmJson:
+          type: string
+          description: ELM JSON
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CqlError'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CqlError'
+        metadata:
+          $ref: '#/components/schemas/TranslationMetadata'
+
+    CqlError:
+      type: object
+      properties:
+        severity:
+          type: string
+        message:
+          type: string
+        startLine:
+          type: integer
+        startColumn:
+          type: integer
+        endLine:
+          type: integer
+        endColumn:
+          type: integer
+        errorType:
+          type: string
+
+    TranslationMetadata:
+      type: object
+      properties:
+        libraryId:
+          type: string
+        libraryVersion:
+          type: string
+        usings:
+          type: array
+          items:
+            type: string
+        includes:
+          type: array
+          items:
+            type: string
+        parameters:
+          type: array
+          items:
+            type: string
+        valueSets:
+          type: array
+          items:
+            type: string
+        codes:
+          type: array
+          items:
+            type: string
+        concepts:
+          type: array
+          items:
+            type: string
+        expressions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpressionInfo'
+
+    ExpressionInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        context:
+          type: string
+        accessLevel:
+          type: string
+        resultType:
+          type: string
+
+    CqlExecutionRequest:
+      type: object
+      required: [cql]
+      properties:
+        cql:
+          type: string
+        libraryId:
+          type: string
+        patientId:
+          type: string
+        contextType:
+          type: string
+          default: Patient
+        parameters:
+          type: object
+          additionalProperties: true
+        fhirServerUrl:
+          type: string
+        debugMode:
+          type: boolean
+          default: false
+        expressionNames:
+          type: array
+          items:
+            type: string
+
+    CqlExecutionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        patientId:
+          type: string
+        results:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                description: 任意類型
+              valueType:
+                type: string
+              displayValue:
+                type: string
+        errors:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          properties:
+            executionTimeMs:
+              type: integer
+              format: int64
+            libraryId:
+              type: string
+            libraryVersion:
+              type: string
+            fhirServerUrl:
+              type: string
+            resourcesRetrieved:
+              type: integer
+
+    CqlLibrary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        cqlContent:
+          type: string
+        elmJson:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+        ownerUsername:
+          type: string
+        sharedWith:
+          type: array
+          items:
+            type: string
+        accessLevel:
+          type: string
+          enum: [private, shared, public]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LibrarySaveRequest:
+      type: object
+      required: [cql]
+      properties:
+        cql:
+          type: string
+          description: CQL 原始碼
+        description:
+          type: string
+
+    LibraryMetadataDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        ownerUsername:
+          type: string
+
+    UsernameRequest:
+      type: object
+      required: [targetUsername]
+      properties:
+        targetUsername:
+          type: string
+
+    TransferOwnershipRequest:
+      type: object
+      required: [newOwner]
+      properties:
+        newOwner:
+          type: string
+
+    AccessUpdateRequest:
+      type: object
+      required: [accessLevel]
+      properties:
+        accessLevel:
+          type: string
+          enum: [private, shared, public]
+
+    MeasureDefinition:
+      type: object
+      required: [name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 200
+        version:
+          type: string
+          maxLength: 50
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 5000
+        status:
+          type: string
+          enum: [draft, active, retired, in-review]
+        scoringType:
+          type: string
+          enum: [proportion, ratio, continuous-variable, cohort, composite]
+        cqlContent:
+          type: string
+        groupDefinitions:
+          type: array
+          items:
+            type: object
+            description: GroupDefinition
+        ownerUsername:
+          type: string
+        department:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MeasureEvaluationRequest:
+      type: object
+      properties:
+        measureId:
+          type: string
+        measureCql:
+          type: string
+        patientId:
+          type: string
+        subjectType:
+          type: string
+          enum: [Patient, Group]
+          default: Patient
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        reportType:
+          type: string
+          enum: [individual, subject-list, summary, data-collection]
+          default: individual
+        fhirServerUrl:
+          type: string
+
+    MeasureEvaluationResult:
+      type: object
+      properties:
+        measureId:
+          type: string
+        measureName:
+          type: string
+        status:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        reportType:
+          type: string
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              groupId:
+                type: string
+              populations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    populationType:
+                      type: string
+                    count:
+                      type: integer
+              measureScore:
+                type: number
+                format: double
+              totalPatients:
+                type: integer
+        errorMessage:
+          type: string
+
+    TestCase:
+      type: object
+      required: [title]
+      properties:
+        id:
+          type: integer
+          format: int64
+        measureDefinitionId:
+          type: integer
+          format: int64
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        patientBundleJson:
+          type: string
+          description: FHIR Patient Bundle JSON
+        expectedPopulations:
+          type: object
+          additionalProperties:
+            type: boolean
+        status:
+          type: string
+          enum: [pass, fail, error, pending]
+        series:
+          type: string
+        sortOrder:
+          type: integer
+
+    TestCaseRunResult:
+      type: object
+      properties:
+        testCaseId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        passed:
+          type: boolean
+        populationComparisons:
+          type: array
+          items:
+            type: object
+            properties:
+              populationType:
+                type: string
+              expected:
+                type: boolean
+              actual:
+                type: boolean
+              match:
+                type: boolean
+
+    WorkflowActionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    CdsServiceConfigRequest:
+      type: object
+      required: [id, hook, title]
+      properties:
+        id:
+          type: string
+          maxLength: 100
+        hook:
+          type: string
+          maxLength: 50
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        cqlContent:
+          type: string
+        cqlLibraryId:
+          type: string
+        defaultIndicator:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        prefetch:
+          type: object
+          additionalProperties:
+            type: string
+        planDefinitionJson:
+          type: string
+        cardGenerationMode:
+          type: string
+
+    CdsServiceConfigResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        hook:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        shared:
+          type: boolean
+        ownerUsername:
+          type: string
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CdsServiceDefinition:
+      type: object
+      properties:
+        hook:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        prefetch:
+          type: object
+          additionalProperties:
+            type: string
+
+    CdsRequest:
+      type: object
+      required: [hook, hookInstance, context]
+      properties:
+        hook:
+          type: string
+        hookInstance:
+          type: string
+        fhirServer:
+          type: string
+        fhirAuthorization:
+          type: string
+        context:
+          type: object
+          properties:
+            userId:
+              type: string
+            patientId:
+              type: string
+            encounterId:
+              type: string
+            draftOrders:
+              description: 任意類型
+            selections:
+              description: 任意類型
+        prefetch:
+          type: object
+          additionalProperties: true
+
+    CdsResponse:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            type: object
+            properties:
+              uuid:
+                type: string
+              summary:
+                type: string
+              detail:
+                type: string
+              indicator:
+                type: string
+                enum: [info, warning, critical]
+              source:
+                type: object
+                properties:
+                  label:
+                    type: string
+                  url:
+                    type: string
+              suggestions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    label:
+                      type: string
+                    actions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [create, update, delete]
+                          description:
+                            type: string
+              links:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    label:
+                      type: string
+                    url:
+                      type: string
+                    type:
+                      type: string
+                      enum: [absolute, smart]
+
+    ArtifactRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        version:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, retired]
+        fhirVersion:
+          type: string
+        expTreeInclude:
+          type: object
+        expTreeExclude:
+          type: object
+        recommendations:
+          type: array
+          items:
+            type: object
+        subpopulations:
+          type: array
+          items:
+            type: object
+        baseElements:
+          type: array
+          items:
+            type: object
+        parameters:
+          type: array
+          items:
+            type: object
+        errorStatement:
+          type: object
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        enabled:
+          type: boolean
+        forcePasswordChange:
+          type: boolean
+        authProvider:
+          type: string
+        createdAt:
+          type: string
+
+    AdminCreateUserRequest:
+      type: object
+      required: [username, password, role]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [USER, DEPARTMENT_ADMIN, ADMIN]
+        email:
+          type: string
+
+    AdminResetPasswordResponse:
+      type: object
+      properties:
+        temporaryPassword:
+          type: string
+        username:
+          type: string
+        message:
+          type: string

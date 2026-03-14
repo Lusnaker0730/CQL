@@ -1,5 +1,0 @@
- Bash(cd /d/CQL/docker && docker-compose build      
-      frontend && docker-compose up -d frontend
-
-User: admin
-Pass: admin

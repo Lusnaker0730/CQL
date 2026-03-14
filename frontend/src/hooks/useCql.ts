@@ -1,4 +1,6 @@
+import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInvalidatingMutation } from './useInvalidatingMutation'
 import { useDispatch, useSelector } from 'react-redux'
 import { cqlApi } from '../api'
 import type { RootState } from '../store'
@@ -14,7 +16,8 @@ import {
   setExecutionErrors,
   setExecutionTimeMs,
 } from '../store/executionSlice'
-import type { CqlTranslationRequest, CqlExecutionRequest } from '../types'
+import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse, CqlError } from '../types'
+import { setDebugTrace } from '../store/executionSlice'
 
 export function useTranslate() {
   const dispatch = useDispatch()
@@ -25,7 +28,7 @@ export function useTranslate() {
       dispatch(setIsTranslating(true))
       return cqlApi.translate(request)
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CqlTranslationResponse) => {
       dispatch(setIsTranslating(false))
       if (data.success) {
         dispatch(setElmJson(data.elmJson || null))
@@ -53,7 +56,7 @@ export function useValidate() {
       dispatch(setIsTranslating(true))
       return cqlApi.validate(cql)
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CqlTranslationResponse) => {
       dispatch(setIsTranslating(false))
       dispatch(setErrors(data.errors || []))
       dispatch(setWarnings(data.warnings || []))
@@ -73,21 +76,31 @@ export function useExecute() {
       dispatch(setIsExecuting(true))
       return cqlApi.execute(request)
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CqlExecutionResponse) => {
       dispatch(setIsExecuting(false))
       if (data.success) {
         dispatch(setResults(data.results))
         dispatch(setExecutionErrors([]))
         dispatch(setExecutionTimeMs(data.metadata?.executionTimeMs || null))
+        dispatch(setDebugTrace(data.debugTrace || null))
       } else {
         dispatch(setResults({}))
         dispatch(setExecutionErrors(data.errors || ['Execution failed']))
+        dispatch(setDebugTrace(null))
       }
     },
     onError: (error: Error) => {
       dispatch(setIsExecuting(false))
       dispatch(setExecutionErrors([error.message]))
+      dispatch(setDebugTrace(null))
     },
+  })
+}
+
+export function useFixSuggestion() {
+  return useMutation({
+    mutationFn: ({ cql, error }: { cql: string; error: CqlError }) =>
+      cqlApi.fixSuggestion(cql, error),
   })
 }
 
@@ -129,6 +142,85 @@ export function useDeleteLibrary() {
   })
 }
 
+export function useLibrariesMetadata() {
+  return useQuery({
+    queryKey: ['libraries-metadata'],
+    queryFn: () => cqlApi.getLibrariesMetadata(),
+  })
+}
+
+export function useRepositoryLibraries() {
+  return useQuery({
+    queryKey: ['repository-libraries'],
+    queryFn: () => cqlApi.getRepositoryLibraries(),
+    staleTime: Infinity,
+  })
+}
+
+export function useExportLibrary() {
+  return useMutation({
+    mutationFn: (id: string) => cqlApi.exportFhirLibrary(id),
+  })
+}
+
+export function useImportLibrary() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (fhirLibrary: unknown) => cqlApi.importFhirLibrary(fhirLibrary),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['libraries'] })
+      queryClient.invalidateQueries({ queryKey: ['libraries-metadata'] })
+    },
+  })
+}
+
+export function useLibraryDependencies(id: string | null) {
+  return useQuery({
+    queryKey: ['library-dependencies', id],
+    queryFn: () => (id ? cqlApi.getDependencies(id) : []),
+    enabled: !!id,
+  })
+}
+
+export function useLibraryDependents(name: string | null) {
+  return useQuery({
+    queryKey: ['library-dependents', name],
+    queryFn: () => (name ? cqlApi.getDependents(name) : []),
+    enabled: !!name,
+  })
+}
+
+const LIBRARIES_KEY = ['libraries'] as const
+
+export const useShareLibrary = () =>
+  useInvalidatingMutation(
+    ({ id, targetUsername }: { id: string; targetUsername: string }) =>
+      cqlApi.shareLibrary(id, targetUsername),
+    LIBRARIES_KEY,
+  )
+
+export const useUnshareLibrary = () =>
+  useInvalidatingMutation(
+    ({ id, targetUsername }: { id: string; targetUsername: string }) =>
+      cqlApi.unshareLibrary(id, targetUsername),
+    LIBRARIES_KEY,
+  )
+
+export const useTransferOwnership = () =>
+  useInvalidatingMutation(
+    ({ id, newOwner }: { id: string; newOwner: string }) =>
+      cqlApi.transferOwnership(id, newOwner),
+    LIBRARIES_KEY,
+  )
+
+export const useSetAccessLevel = () =>
+  useInvalidatingMutation(
+    ({ id, accessLevel }: { id: string; accessLevel: string }) =>
+      cqlApi.setAccessLevel(id, accessLevel),
+    LIBRARIES_KEY,
+  )
+
 export function useCqlEditor() {
   const editor = useSelector((state: RootState) => state.editor)
   const execution = useSelector((state: RootState) => state.execution)
@@ -137,21 +229,21 @@ export function useCqlEditor() {
   const validateMutation = useValidate()
   const executeMutation = useExecute()
 
-  const translate = (cql: string) => {
+  const translate = useCallback((cql: string) => {
     translateMutation.mutate({ cql })
-  }
+  }, [translateMutation])
 
-  const validate = (cql: string) => {
+  const validate = useCallback((cql: string) => {
     validateMutation.mutate(cql)
-  }
+  }, [validateMutation])
 
-  const execute = (cql: string, patientId?: string, fhirServerUrl?: string) => {
+  const execute = useCallback((cql: string, patientId?: string, fhirServerUrl?: string) => {
     executeMutation.mutate({
       cql,
       patientId,
       fhirServerUrl,
     })
-  }
+  }, [executeMutation])
 
   return {
     ...editor,

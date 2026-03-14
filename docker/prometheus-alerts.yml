@@ -83,3 +83,33 @@ groups:
         annotations:
           summary: "Measure evaluation failures detected"
           description: "Measure evaluation error rate is {{ $value }} errors/second"
+
+      # FHIR Circuit Breaker Open
+      - alert: FhirCircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{state="open"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FHIR circuit breaker is OPEN"
+          description: "Circuit breaker {{ $labels.name }} has been open for >1m. FHIR server may be down."
+
+      # High FHIR Retry Rate
+      - alert: HighFhirRetryRate
+        expr: rate(resilience4j_retry_calls_total{kind="successful_with_retry"}[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High FHIR retry rate detected"
+          description: "Retry rate for {{ $labels.name }} is {{ $value }}/s - FHIR server may be degraded"
+
+      # CQL Queue Saturation
+      - alert: CqlQueueSaturation
+        expr: cql_execution_queue_size > 40
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CQL execution queue is saturated"
+          description: "CQL execution queue depth is {{ $value }} (capacity: 50). Consider scaling."

@@ -1,0 +1,198 @@
+package com.cqlplatform.service.cds;
+
+import ca.uhn.fhir.context.FhirContext;
+import com.cqlplatform.model.CqlExecutionResponse;
+import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
+import com.cqlplatform.model.cds.CdsRequest;
+import com.cqlplatform.model.cds.CdsResponse;
+import com.cqlplatform.service.cql.CqlExecutionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class CdsInvocationServiceTest {
+
+    @Mock
+    private CqlExecutionService executionService;
+    @Mock
+    private CqlTupleCardStrategy tupleStrategy;
+    @Mock
+    private PlanDefinitionCardStrategy planDefinitionStrategy;
+
+    private CdsInvocationService invocationService;
+
+    @BeforeEach
+    void setUp() {
+        FhirContext fhirContext = FhirContext.forR4();
+        ObjectMapper objectMapper = new ObjectMapper();
+        invocationService = new CdsInvocationService(
+                executionService, tupleStrategy, planDefinitionStrategy, fhirContext, objectMapper);
+    }
+
+    @Test
+    void invoke_cqlTupleMode_shouldUseTupleStrategy() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc")
+                .title("Test Service")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .cardGenerationMode("cql_tuple")
+                .build();
+
+        Map<String, ExpressionResult> results = new LinkedHashMap<>();
+        results.put("Check", ExpressionResult.builder()
+                .name("Check").value(true).valueType("Boolean").build());
+
+        CqlExecutionResponse execResponse = CqlExecutionResponse.builder()
+                .success(true).results(results).build();
+        when(executionService.execute(any())).thenReturn(execResponse);
+
+        CdsResponse expectedResponse = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("Test").build()))
+                .build();
+        when(tupleStrategy.buildResponse(any(), any())).thenReturn(expectedResponse);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getCards()).isNotEmpty();
+        verify(tupleStrategy).buildResponse(any(), any());
+        verify(planDefinitionStrategy, never()).buildResponse(any(), any());
+    }
+
+    @Test
+    void invoke_planDefinitionMode_shouldUsePlanDefinitionStrategy() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc")
+                .title("PlanDef Service")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .cardGenerationMode("plan_definition")
+                .planDefinitionJson("{\"resourceType\":\"PlanDefinition\"}")
+                .build();
+
+        Map<String, ExpressionResult> results = new LinkedHashMap<>();
+        results.put("Check", ExpressionResult.builder()
+                .name("Check").value(true).valueType("Boolean").build());
+
+        CqlExecutionResponse execResponse = CqlExecutionResponse.builder()
+                .success(true).results(results).build();
+        when(executionService.execute(any())).thenReturn(execResponse);
+
+        CdsResponse expectedResponse = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("PlanDef Card").build()))
+                .build();
+        when(planDefinitionStrategy.buildResponse(any(), any())).thenReturn(expectedResponse);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getCards()).isNotEmpty();
+        verify(planDefinitionStrategy).buildResponse(any(), any());
+        verify(tupleStrategy, never()).buildResponse(any(), any());
+    }
+
+    @Test
+    void invoke_nullMode_shouldDefaultToTupleStrategy() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc")
+                .title("Default Service")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .cardGenerationMode(null)
+                .build();
+
+        CqlExecutionResponse execResponse = CqlExecutionResponse.builder()
+                .success(true).results(new LinkedHashMap<>()).build();
+        when(executionService.execute(any())).thenReturn(execResponse);
+
+        CdsResponse expectedResponse = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("Default").build()))
+                .build();
+        when(tupleStrategy.buildResponse(any(), any())).thenReturn(expectedResponse);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        invocationService.invoke(config, request);
+
+        verify(tupleStrategy).buildResponse(any(), any());
+    }
+
+    @Test
+    void invoke_executionError_shouldReturnErrorCard() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc")
+                .title("Failing Service")
+                .cqlContent("bad cql")
+                .build();
+
+        when(executionService.execute(any())).thenThrow(new RuntimeException("CQL failed"));
+
+        CdsResponse.Card errorCard = CdsResponse.Card.builder()
+                .summary("CDS Service Error")
+                .detail("An error occurred: CQL failed")
+                .indicator("warning")
+                .build();
+        when(tupleStrategy.createErrorCard("CQL failed")).thenReturn(errorCard);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getCards()).hasSize(1);
+        assertThat(response.getCards().get(0).getSummary()).contains("Error");
+        verify(tupleStrategy).createErrorCard("CQL failed");
+    }
+
+    @Test
+    void invoke_planDefinitionModeWithNullJson_shouldFallbackToTupleStrategy() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc")
+                .title("Missing PlanDef")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .cardGenerationMode("plan_definition")
+                .planDefinitionJson(null)  // null JSON should fallback
+                .build();
+
+        CqlExecutionResponse execResponse = CqlExecutionResponse.builder()
+                .success(true).results(new LinkedHashMap<>()).build();
+        when(executionService.execute(any())).thenReturn(execResponse);
+
+        CdsResponse expectedResponse = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("Fallback").build()))
+                .build();
+        when(tupleStrategy.buildResponse(any(), any())).thenReturn(expectedResponse);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        invocationService.invoke(config, request);
+
+        verify(tupleStrategy).buildResponse(any(), any());
+    }
+}

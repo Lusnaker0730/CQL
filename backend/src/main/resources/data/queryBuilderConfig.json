@@ -1,0 +1,117 @@
+{
+  "resources": [
+    {
+      "name": "Observation",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["registered", "preliminary", "final", "amended", "corrected", "cancelled", "entered-in-error", "unknown"] },
+        { "name": "category", "type": "CodeableConcept" },
+        { "name": "code", "type": "CodeableConcept" },
+        { "name": "effective", "type": "dateTime" },
+        { "name": "value", "type": "Quantity" },
+        { "name": "interpretation", "type": "CodeableConcept" },
+        { "name": "bodySite", "type": "CodeableConcept" }
+      ]
+    },
+    {
+      "name": "Condition",
+      "properties": [
+        { "name": "clinicalStatus", "type": "code", "values": ["active", "recurrence", "relapse", "inactive", "remission", "resolved"] },
+        { "name": "verificationStatus", "type": "code", "values": ["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"] },
+        { "name": "category", "type": "CodeableConcept" },
+        { "name": "severity", "type": "CodeableConcept" },
+        { "name": "code", "type": "CodeableConcept" },
+        { "name": "onset", "type": "dateTime" },
+        { "name": "abatement", "type": "dateTime" },
+        { "name": "recordedDate", "type": "dateTime" }
+      ]
+    },
+    {
+      "name": "MedicationRequest",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["active", "on-hold", "cancelled", "completed", "entered-in-error", "stopped", "draft", "unknown"] },
+        { "name": "intent", "type": "code", "values": ["proposal", "plan", "order", "original-order", "reflex-order", "filler-order", "instance-order", "option"] },
+        { "name": "category", "type": "CodeableConcept" },
+        { "name": "medication", "type": "CodeableConcept" },
+        { "name": "authoredOn", "type": "dateTime" },
+        { "name": "dosageInstruction", "type": "Dosage" }
+      ]
+    },
+    {
+      "name": "Procedure",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["preparation", "in-progress", "not-done", "on-hold", "stopped", "completed", "entered-in-error", "unknown"] },
+        { "name": "code", "type": "CodeableConcept" },
+        { "name": "performed", "type": "dateTime" },
+        { "name": "category", "type": "CodeableConcept" },
+        { "name": "bodySite", "type": "CodeableConcept" },
+        { "name": "outcome", "type": "CodeableConcept" }
+      ]
+    },
+    {
+      "name": "Encounter",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["planned", "arrived", "triaged", "in-progress", "onleave", "finished", "cancelled", "entered-in-error", "unknown"] },
+        { "name": "class", "type": "Coding" },
+        { "name": "type", "type": "CodeableConcept" },
+        { "name": "period", "type": "Period" },
+        { "name": "reasonCode", "type": "CodeableConcept" }
+      ]
+    },
+    {
+      "name": "AllergyIntolerance",
+      "properties": [
+        { "name": "clinicalStatus", "type": "code", "values": ["active", "inactive", "resolved"] },
+        { "name": "verificationStatus", "type": "code", "values": ["unconfirmed", "confirmed", "refuted", "entered-in-error"] },
+        { "name": "type", "type": "code", "values": ["allergy", "intolerance"] },
+        { "name": "category", "type": "code", "values": ["food", "medication", "environment", "biologic"] },
+        { "name": "criticality", "type": "code", "values": ["low", "high", "unable-to-assess"] },
+        { "name": "code", "type": "CodeableConcept" }
+      ]
+    },
+    {
+      "name": "Immunization",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["completed", "entered-in-error", "not-done"] },
+        { "name": "vaccineCode", "type": "CodeableConcept" },
+        { "name": "occurrence", "type": "dateTime" },
+        { "name": "site", "type": "CodeableConcept" },
+        { "name": "route", "type": "CodeableConcept" }
+      ]
+    },
+    {
+      "name": "ServiceRequest",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["draft", "active", "on-hold", "revoked", "completed", "entered-in-error", "unknown"] },
+        { "name": "intent", "type": "code", "values": ["proposal", "plan", "directive", "order", "original-order", "reflex-order", "filler-order", "instance-order", "option"] },
+        { "name": "code", "type": "CodeableConcept" },
+        { "name": "authoredOn", "type": "dateTime" },
+        { "name": "category", "type": "CodeableConcept" }
+      ]
+    },
+    {
+      "name": "DiagnosticReport",
+      "properties": [
+        { "name": "status", "type": "code", "values": ["registered", "partial", "preliminary", "final", "amended", "corrected", "appended", "cancelled", "entered-in-error", "unknown"] },
+        { "name": "category", "type": "CodeableConcept" },
+        { "name": "code", "type": "CodeableConcept" },
+        { "name": "effective", "type": "dateTime" }
+      ]
+    }
+  ],
+  "operators": [
+    { "id": "equals", "symbol": "=", "label": "Equality", "applicableTypes": ["code", "string", "integer", "decimal", "boolean"] },
+    { "id": "not_equals", "symbol": "!=", "label": "Not Equal", "applicableTypes": ["code", "string", "integer", "decimal", "boolean"] },
+    { "id": "greater_than", "symbol": ">", "label": "Greater Than", "applicableTypes": ["integer", "decimal", "Quantity", "dateTime"] },
+    { "id": "less_than", "symbol": "<", "label": "Less Than", "applicableTypes": ["integer", "decimal", "Quantity", "dateTime"] },
+    { "id": "greater_or_equal", "symbol": ">=", "label": "Greater or Equal", "applicableTypes": ["integer", "decimal", "Quantity", "dateTime"] },
+    { "id": "less_or_equal", "symbol": "<=", "label": "Less or Equal", "applicableTypes": ["integer", "decimal", "Quantity", "dateTime"] },
+    { "id": "in", "symbol": "in", "label": "In ValueSet", "applicableTypes": ["CodeableConcept", "Coding", "code"] },
+    { "id": "contains", "symbol": "contains", "label": "Contains", "applicableTypes": ["string"] },
+    { "id": "starts_with", "symbol": "starts with", "label": "Starts With", "applicableTypes": ["string"] },
+    { "id": "during", "symbol": "during", "label": "During Period", "applicableTypes": ["dateTime", "Period"] },
+    { "id": "before", "symbol": "before", "label": "Before", "applicableTypes": ["dateTime"] },
+    { "id": "after", "symbol": "after", "label": "After", "applicableTypes": ["dateTime"] },
+    { "id": "is_null", "symbol": "is null", "label": "Is Null", "applicableTypes": ["code", "string", "integer", "decimal", "boolean", "CodeableConcept", "Quantity", "dateTime"] },
+    { "id": "is_not_null", "symbol": "is not null", "label": "Is Not Null", "applicableTypes": ["code", "string", "integer", "decimal", "boolean", "CodeableConcept", "Quantity", "dateTime"] }
+  ]
+}

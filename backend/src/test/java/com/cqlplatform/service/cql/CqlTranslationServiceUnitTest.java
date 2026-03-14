@@ -34,6 +34,14 @@ class CqlTranslationServiceUnitTest {
     @BeforeEach
     void setUp() {
         translationService = new CqlTranslationService();
+        // Set translation timeout (normally injected by Spring)
+        try {
+            java.lang.reflect.Field f = CqlTranslationService.class.getDeclaredField("translationTimeoutSeconds");
+            f.setAccessible(true);
+            f.set(translationService, 30);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test

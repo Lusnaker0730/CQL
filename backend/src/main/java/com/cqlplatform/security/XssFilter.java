@@ -9,18 +9,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 @Component
 public class XssFilter extends OncePerRequestFilter {
-
-    private static final Pattern[] XSS_PATTERNS = {
-            Pattern.compile("<script>(.*?)</script>", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("javascript:", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("on\\w+\\s*=", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("<iframe(.*?)>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
-            Pattern.compile("eval\\s*\\(", Pattern.CASE_INSENSITIVE),
-    };
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -62,11 +53,30 @@ public class XssFilter extends OncePerRequestFilter {
 
         private String sanitize(String value) {
             if (value == null) return null;
-            String sanitized = value;
-            for (Pattern pattern : XSS_PATTERNS) {
-                sanitized = pattern.matcher(sanitized).replaceAll("");
+            StringBuilder sb = new StringBuilder(value.length());
+            for (int i = 0; i < value.length(); i++) {
+                char c = value.charAt(i);
+                switch (c) {
+                    case '<':
+                        sb.append("&lt;");
+                        break;
+                    case '>':
+                        sb.append("&gt;");
+                        break;
+                    case '&':
+                        sb.append("&amp;");
+                        break;
+                    case '"':
+                        sb.append("&quot;");
+                        break;
+                    case '\'':
+                        sb.append("&#x27;");
+                        break;
+                    default:
+                        sb.append(c);
+                }
             }
-            return sanitized;
+            return sb.toString();
         }
     }
 }

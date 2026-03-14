@@ -4,10 +4,10 @@ import { render } from '../../../test/test-utils'
 
 // Mock Monaco editor since it requires a browser environment
 vi.mock('@monaco-editor/react', () => ({
-  default: ({ value, onChange }: { value: string; onChange?: (v: string) => void }) => (
+  default: ({ value, defaultValue, onChange }: { value?: string; defaultValue?: string; onChange?: (v: string) => void }) => (
     <textarea
       data-testid="monaco-editor"
-      value={value}
+      value={value ?? defaultValue ?? ''}
       onChange={(e) => onChange?.(e.target.value)}
     />
   ),
