@@ -9,6 +9,8 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-055 | ✨ feature | 2026-03-14 | 後端（CQL Engine） | CQL Framework 3.29→4.5.0 升級 — Kotlin Multiplatform 架構、groupId 遷移 (info→org.cqframework)、LibrarySourceProvider kotlinx.io.Source 適配、EvaluationParams builder、RestFhirRetrieveProvider +ModelResolver | 821 tests pass、6 檔案修改 | [`0d0f28a`](../../commit/0d0f28a) |
+| PAT-054 | 🔒 security | 2026-03-14 | 後端+CI（依賴升級） | Spring Boot 3.2→3.5.10 + HAPI FHIR 7.0→8.6.6 + Jackson 2.21.1 + ucum 1.0.9 + CI 密碼改 Secrets 參照 — 修復 Trivy CVE 掃描 + GitGuardian 告警 | 821 tests pass、Spring FW 6.2.x 對齊 | [`b532232`](../../commit/b532232) |
 | PAT-053 | ✨ feature | 2026-03-14 | 前端（Landing/Learn） | CQL 學習中心與 Landing Page 改造 — 新首頁（Hero+功能卡片+TWCORE 範例展示）+ /learn 學習中心（CQL 入門/核心概念/TWCORE IG/互動範例/快速開始/練習場/自我測驗）+ landing i18n namespace (EN+zh-TW) | 16 新檔案、所有 CQL 範例符合 TWCORE IG | [`cec2f1f`](../../commit/cec2f1f) |
 | PAT-052 | 🔧 refactor | 2026-03-13 | 前端（常數管理） | 硬編碼常數提取 — 新增 queryConstants.ts + 擴充 timing.ts / layout.ts，22 檔 magic number 改為集中常數 (debounce/staleTime/尺寸) | 消除重複、統一維護 | [`8307c67`](../../commit/8307c67) |
 | BUG-091 | 🐛 bugfix | 2026-03-13 | 後端（測試） | 修復 6 個預存測試失敗 — GEH timeout 504 斷言、VSAC OID 驗證、ApiKey name 可選、TestCase mock 方法名 | 821 tests 全過 | [`b78de09`](../../commit/b78de09) |
