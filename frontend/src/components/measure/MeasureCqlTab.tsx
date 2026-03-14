@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { extractApiError } from '../../utils/errorUtils'
 import { Box, Stack, Button, CircularProgress, Alert, Chip } from '@mui/material'
-import { Translate as TranslateIcon, Save as SaveIcon } from '@mui/icons-material'
+import { Translate as TranslateIcon, Save as SaveIcon, FileUpload as ImportIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import { useSelector, useDispatch } from 'react-redux'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import CqlEditor from '../editor/CqlEditor'
 import type { CqlEditorHandle } from '../editor/CqlEditor'
 import { measureApi, cqlApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import ImportCqlFromLibraryDialog from './ImportCqlFromLibraryDialog'
 import type { MeasureDefinition } from '../../types'
 import { AUTOSAVE_DEBOUNCE_MS } from '../../constants/timing'
 
@@ -30,6 +31,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
   const queryClient = useQueryClient()
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [restoredDraft, setRestoredDraft] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const cqlEditorRef = useRef<CqlEditorHandle>(null)
   // Local mirror of editor content — updated via onContentChanged callback
   const [localContent, setLocalContent] = useState('')
@@ -111,6 +113,11 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
     },
   })
 
+  const handleImportCql = useCallback((cqlContent: string) => {
+    dispatch(setCqlContent(cqlContent))
+    setLocalContent(cqlContent)
+  }, [dispatch])
+
   const isDirty = localContent !== (measure.cqlContent || '')
   useUnsavedChangesGuard(isDirty)
 
@@ -143,6 +150,15 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
         >
           {saveMutation.isPending ? t('cql.saving') : t('cql.saveCql')}
         </GradientButton>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<ImportIcon />}
+          disabled={readOnly}
+          onClick={() => setImportDialogOpen(true)}
+        >
+          {t('cql.importFromLibrary')}
+        </Button>
         {isDirty && (
           <Alert severity="info" sx={{ py: 0, px: 1, fontSize: '0.75rem' }}>
             {t('cql.unsavedChanges')}
@@ -179,6 +195,13 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <CqlEditor ref={cqlEditorRef} height="100%" readOnly={readOnly} onContentChanged={handleContentChanged} />
       </Box>
+
+      <ImportCqlFromLibraryDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onImport={handleImportCql}
+        hasExistingContent={!!localContent.trim()}
+      />
     </Box>
   )
 }
