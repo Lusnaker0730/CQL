@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 // Test the hook logic indirectly via store behavior since hooks need React context
 import { configureStore } from '@reduxjs/toolkit'

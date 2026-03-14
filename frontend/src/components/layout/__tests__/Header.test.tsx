@@ -15,15 +15,15 @@ const authenticatedState = {
 describe('Header', () => {
   it('should render CQL Platform title', () => {
     render(<Header />, { preloadedState: authenticatedState })
-    expect(screen.getByText('CQL Platform')).toBeInTheDocument()
+    expect(screen.getByText('app.title')).toBeInTheDocument()
   })
 
   it('should render navigation items', () => {
     render(<Header />, { preloadedState: authenticatedState })
-    expect(screen.getByText('Editor')).toBeInTheDocument()
-    expect(screen.getByText('CDS Hooks')).toBeInTheDocument()
-    expect(screen.getByText('Measures')).toBeInTheDocument()
-    expect(screen.getByText('FHIR Browser')).toBeInTheDocument()
+    expect(screen.getByText('nav.editor')).toBeInTheDocument()
+    expect(screen.getByText('nav.cdsHooks')).toBeInTheDocument()
+    expect(screen.getByText('nav.measures')).toBeInTheDocument()
+    expect(screen.getByText('nav.fhirBrowser')).toBeInTheDocument()
   })
 
   it('should display username when logged in', () => {

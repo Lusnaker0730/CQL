@@ -5,8 +5,6 @@ import editorReducer, {
   setElmJson,
   setErrors,
   setWarnings,
-  setIsTranslating,
-  setCursorPosition,
   clearEditor,
 } from '../editorSlice'
 

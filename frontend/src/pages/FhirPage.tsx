@@ -1,12 +1,25 @@
-import { Box, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, Typography, Tabs, Tab } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
+import {
+  Storage as FhirIcon,
+  MenuBook as IgIcon,
+  CloudSync as EhrIcon,
+} from '@mui/icons-material'
 import FhirBrowser from '../components/fhir/FhirBrowser'
+import ImplementationGuideBrowser from '../components/fhir/ImplementationGuideBrowser'
+import EhrConnectionList from '../components/ehr/EhrConnectionList'
 
 export default function FhirPage() {
+  const { t } = useTranslation('fhir')
+  const [tabIndex, setTabIndex] = useState(0)
+
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
-          FHIR Browser
+          {t('page.title')}
         </Typography>
         <Box
           sx={{
@@ -18,13 +31,24 @@ export default function FhirPage() {
           }}
         />
         <Typography variant="body2" color="text.secondary">
-          Browse and explore FHIR resources on connected FHIR servers. Search for patients,
-          conditions, observations, and other clinical data.
+          {t('page.subtitle')}
         </Typography>
       </Box>
 
-      <Box sx={{ height: 'calc(100% - 90px)' }}>
-        <FhirBrowser />
+      <Tabs
+        value={tabIndex}
+        onChange={(_, v) => setTabIndex(v)}
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+      >
+        <Tab icon={<FhirIcon />} iconPosition="start" label={t('page.tabFhirBrowser')} />
+        <Tab icon={<IgIcon />} iconPosition="start" label={t('page.tabTwCoreIg')} />
+        <Tab icon={<EhrIcon />} iconPosition="start" label={t('page.tabEhrConnections')} />
+      </Tabs>
+
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        {tabIndex === 0 && <FhirBrowser />}
+        {tabIndex === 1 && <ImplementationGuideBrowser />}
+        {tabIndex === 2 && <EhrConnectionList />}
       </Box>
     </Box>
   )

@@ -1,25 +1,53 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useMemo } from 'react'
-import { Box, Typography, Paper, Tabs, Tab, Chip, Stack } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import {
+  Box,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
+  Button,
+  Collapse,
+} from '@mui/material'
+import {
+  CheckCircle as ValidIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  AutoFixHigh as AiFixIcon,
+} from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
+import type { TerminologyValidationItem } from '../../types'
+import { useFixSuggestion } from '../../hooks/useCql'
+import TabPanel, { a11yProps } from '../common/TabPanel'
 
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
+interface ElmViewerProps {
+  terminologyResults?: TerminologyValidationItem[]
+  isTermValidating?: boolean
+  onApplyFix?: (suggestedCql: string) => void
+  aiEnabled?: boolean
 }
 
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
-    </div>
-  )
-}
-
-export default function ElmViewer() {
-  const { elmJson, errors, warnings } = useSelector((state: RootState) => state.editor)
+export default function ElmViewer({ terminologyResults = [], isTermValidating = false, onApplyFix, aiEnabled = true }: ElmViewerProps) {
+  const { t } = useTranslation('editor')
+  const { elmJson, errors, warnings, cqlContent } = useSelector((state: RootState) => state.editor)
+  const fixMutation = useFixSuggestion()
+  const [activeSuggestion, setActiveSuggestion] = useState<{
+    index: number
+    explanation?: string
+    suggestedCql?: string
+    errorMessage?: string
+  } | null>(null)
   const [tabValue, setTabValue] = React.useState(0)
 
   const parsedElm = useMemo(() => {
@@ -48,11 +76,12 @@ export default function ElmViewer() {
   return (
     <Paper sx={{ height: '100%', overflow: 'auto' }}>
       <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
-        <Tab label="Metadata" />
+        <Tab label={t('elm.metadata')} {...a11yProps(0, 'elm')} />
         <Tab
+          {...a11yProps(1, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
-              <span>Errors</span>
+              <span>{t('elm.errors')}</span>
               {errors.length > 0 && (
                 <Chip label={errors.length} color="error" size="small" />
               )}
@@ -60,24 +89,42 @@ export default function ElmViewer() {
           }
         />
         <Tab
+          {...a11yProps(2, 'elm')}
           label={
             <Stack direction="row" spacing={1} alignItems="center">
-              <span>Warnings</span>
+              <span>{t('elm.warnings')}</span>
               {warnings.length > 0 && (
                 <Chip label={warnings.length} color="warning" size="small" />
               )}
             </Stack>
           }
         />
-        <Tab label="ELM JSON" />
+        <Tab label={t('elm.elmJson')} {...a11yProps(3, 'elm')} />
+        <Tab
+          {...a11yProps(4, 'elm')}
+          label={
+            <Stack direction="row" spacing={1} alignItems="center">
+              <span>{t('elm.terminology')}</span>
+              {isTermValidating ? (
+                <CircularProgress size={14} />
+              ) : terminologyResults.length > 0 ? (
+                <Chip
+                  label={terminologyResults.length}
+                  size="small"
+                  color={terminologyResults.every((r) => r.status === 'valid') ? 'success' : 'warning'}
+                />
+              ) : null}
+            </Stack>
+          }
+        />
       </Tabs>
 
-      <TabPanel value={tabValue} index={0}>
+      <TabPanel value={tabValue} index={0} prefix="elm" sx={{ p: 2 }}>
         {metadata ? (
           <Stack spacing={2}>
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
-                Library
+                {t('elm.library')}
               </Typography>
               <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
                 {metadata.libraryId} v{metadata.version}
@@ -87,7 +134,7 @@ export default function ElmViewer() {
             {metadata.usings.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Using
+                  {t('elm.using')}
                 </Typography>
                 {metadata.usings.map((u: { localIdentifier: string; version: string }, i: number) => (
                   <Chip
@@ -109,7 +156,7 @@ export default function ElmViewer() {
             {metadata.includes.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Includes
+                  {t('elm.includes')}
                 </Typography>
                 {metadata.includes.map((inc: { localIdentifier: string; path: string; version: string }, i: number) => (
                   <Chip
@@ -131,7 +178,7 @@ export default function ElmViewer() {
             {metadata.parameters.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Parameters
+                  {t('elm.parameters')}
                 </Typography>
                 {metadata.parameters.map((p: { name: string }, i: number) => (
                   <Chip
@@ -153,7 +200,7 @@ export default function ElmViewer() {
             {metadata.valueSets.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Value Sets
+                  {t('elm.valueSets')}
                 </Typography>
                 {metadata.valueSets.map((vs: { name: string }, i: number) => (
                   <Chip
@@ -175,7 +222,7 @@ export default function ElmViewer() {
             {metadata.statements.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Expressions ({metadata.statements.length})
+                  {t('elm.expressions', { count: metadata.statements.length })}
                 </Typography>
                 {metadata.statements.map((stmt: { name: string; context: string }, i: number) => (
                   <Chip
@@ -196,12 +243,12 @@ export default function ElmViewer() {
           </Stack>
         ) : (
           <Typography color="text.secondary">
-            No ELM data available. Translate CQL to view metadata.
+            {t('elm.noElmData')}
           </Typography>
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={1} prefix="elm" sx={{ p: 2 }}>
         {errors.length > 0 ? (
           <Stack spacing={1}>
             {errors.map((error, i) => (
@@ -216,19 +263,147 @@ export default function ElmViewer() {
                   borderRadius: '0 8px 8px 0',
                 }}
               >
-                <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
-                  Line {error.startLine}:{error.startColumn}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
+                      {t('elm.lineCol', { line: error.startLine, column: error.startColumn })}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
+                  </Box>
+                  {aiEnabled && <Button
+                    size="small"
+                    startIcon={
+                      fixMutation.isPending && activeSuggestion?.index === i
+                        ? <CircularProgress size={14} />
+                        : <AiFixIcon />
+                    }
+                    disabled={fixMutation.isPending}
+                    onClick={() => {
+                      setActiveSuggestion({ index: i })
+                      fixMutation.mutate(
+                        { cql: cqlContent, error },
+                        {
+                          onSuccess: (data) => {
+                            if (data.success) {
+                              setActiveSuggestion({
+                                index: i,
+                                explanation: data.explanation,
+                                suggestedCql: data.suggestedCql,
+                              })
+                            } else {
+                              setActiveSuggestion({
+                                index: i,
+                                errorMessage: data.errorMessage || t('elm.aiFixUnavailable'),
+                              })
+                            }
+                          },
+                          onError: () => {
+                            setActiveSuggestion({
+                              index: i,
+                              errorMessage: t('elm.aiFixUnavailable'),
+                            })
+                          },
+                        }
+                      )
+                    }}
+                    sx={{
+                      ml: 1,
+                      flexShrink: 0,
+                      textTransform: 'none',
+                      color: 'primary.main',
+                      borderColor: 'primary.main',
+                    }}
+                    variant="outlined"
+                  >
+                    {t('elm.aiFix')}
+                  </Button>}
+                </Stack>
+                <Collapse in={activeSuggestion?.index === i && (!!activeSuggestion?.explanation || !!activeSuggestion?.suggestedCql || !!activeSuggestion?.errorMessage)}>
+                  {activeSuggestion?.index === i && (
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                      {activeSuggestion.errorMessage ? (
+                        <>
+                          <Typography variant="body2" color="error.main" sx={{ mb: 1 }}>
+                            {activeSuggestion.errorMessage}
+                          </Typography>
+                          <Button size="small" onClick={() => setActiveSuggestion(null)}>
+                            {t('elm.dismiss')}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {activeSuggestion.explanation && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                {t('elm.aiExplanation')}
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                {activeSuggestion.explanation}
+                              </Typography>
+                            </Box>
+                          )}
+                          {activeSuggestion.suggestedCql && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                {t('elm.suggestedFix')}
+                              </Typography>
+                              <Box
+                                component="pre"
+                                sx={{
+                                  mt: 0.5,
+                                  p: 1.5,
+                                  bgcolor: 'action.hover',
+                                  borderRadius: '6px',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  overflow: 'auto',
+                                  fontSize: '0.75rem',
+                                  maxHeight: 200,
+                                  fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+                                  color: 'text.primary',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {activeSuggestion.suggestedCql}
+                              </Box>
+                            </Box>
+                          )}
+                          <Stack direction="row" spacing={1}>
+                            {activeSuggestion.suggestedCql && onApplyFix && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => {
+                                  onApplyFix(activeSuggestion.suggestedCql!)
+                                  setActiveSuggestion(null)
+                                }}
+                                sx={{
+                                  textTransform: 'none',
+                                  background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+                                }}
+                              >
+                                {t('elm.applyFix')}
+                              </Button>
+                            )}
+                            <Button size="small" onClick={() => setActiveSuggestion(null)} sx={{ textTransform: 'none' }}>
+                              {t('elm.dismiss')}
+                            </Button>
+                          </Stack>
+                        </>
+                      )}
+                    </Box>
+                  )}
+                </Collapse>
               </Paper>
             ))}
           </Stack>
         ) : (
-          <Typography color="success.main">No errors</Typography>
+          <Typography color="success.main">{t('elm.noErrors')}</Typography>
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={2} prefix="elm" sx={{ p: 2 }}>
         {warnings.length > 0 ? (
           <Stack spacing={1}>
             {warnings.map((warning, i) => (
@@ -244,26 +419,27 @@ export default function ElmViewer() {
                 }}
               >
                 <Typography variant="body2" fontWeight="bold" sx={{ color: 'warning.dark' }}>
-                  Line {warning.startLine}:{warning.startColumn}
+                  {t('elm.lineCol', { line: warning.startLine, column: warning.startColumn })}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.primary' }}>{warning.message}</Typography>
               </Paper>
             ))}
           </Stack>
         ) : (
-          <Typography color="text.secondary">No warnings</Typography>
+          <Typography color="text.secondary">{t('elm.noWarnings')}</Typography>
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={3} prefix="elm" sx={{ p: 2 }}>
         {elmJson ? (
           <Box
             component="pre"
             sx={{
               p: 2,
-              bgcolor: '#F8FAFB',
+              bgcolor: 'action.hover',
               borderRadius: '8px',
-              border: '1px solid rgba(13,115,119,0.1)',
+              border: '1px solid',
+              borderColor: 'divider',
               overflow: 'auto',
               fontSize: '0.75rem',
               maxHeight: 400,
@@ -275,7 +451,68 @@ export default function ElmViewer() {
           </Box>
         ) : (
           <Typography color="text.secondary">
-            No ELM data available. Translate CQL to view ELM JSON.
+            {t('elm.noElmJson')}
+          </Typography>
+        )}
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={4} prefix="elm" sx={{ p: 2 }}>
+        {isTermValidating ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={20} />
+            <Typography color="text.secondary">{t('elm.validatingTerminology')}</Typography>
+          </Box>
+        ) : terminologyResults.length > 0 ? (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell scope="col" sx={{ fontWeight: 600, width: 40 }}>{t('elm.terminologyStatus')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyType')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyName')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyReference')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('elm.terminologyDetail')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {terminologyResults.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      {item.status === 'valid' ? (
+                        <ValidIcon fontSize="small" color="success" />
+                      ) : item.status === 'error' ? (
+                        <ErrorIcon fontSize="small" color="error" />
+                      ) : (
+                        <InfoIcon fontSize="small" color="warning" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={item.type}
+                        size="small"
+                        variant="outlined"
+                        color={item.type === 'valueset' ? 'success' : item.type === 'code' ? 'primary' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                        {item.url || (item.system ? `${item.system} | ${item.code}` : item.code || '—')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">{item.detail || '—'}</Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography color="text.secondary">
+            {t('elm.noTerminology')}
           </Typography>
         )}
       </TabPanel>

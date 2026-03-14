@@ -1,0 +1,924 @@
+{
+  "page": {
+    "title": "Quality Measures (eCQM)",
+    "subtitle": "Define, evaluate, and analyze electronic Clinical Quality Measures using CQL.",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "measures": "Measures",
+      "comparison": "Comparison & Trends"
+    }
+  },
+  "dashboard": {
+    "title": "eCQM Dashboard",
+    "totalMeasures": "Total Measures",
+    "scoringDistribution": "Scoring Type Distribution",
+    "noScoringData": "No scoring data available.",
+    "recentEvaluations": "Recent Evaluations",
+    "noRecentEvaluations": "No recent evaluations found.",
+    "pendingReview": "Pending Review",
+    "noPendingReview": "No measures pending review.",
+    "tableHeaders": {
+      "measure": "Measure",
+      "score": "Score",
+      "status": "Status",
+      "date": "Date",
+      "target": "Target"
+    },
+    "loadError": "Failed to load dashboard data. {{error}}",
+    "noData": "No dashboard data available.",
+    "na": "N/A",
+    "unknownError": "Unknown error",
+    "inReview": "In Review",
+    "scoreTrend": "Score Trend",
+    "noDepartmentData": "No department data available",
+    "periodType": "Period",
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly",
+    "departmentScores": "Department Scores",
+    "qualityReport": "Quality Report",
+    "noReportData": "No report data available",
+    "averageScore": "Average Score",
+    "aboveTarget": "Above Target",
+    "belowTarget": "Below Target",
+    "alerts": "Alerts",
+    "noAlerts": "No threshold alerts",
+    "score": "Score"
+  },
+  "library": {
+    "title": "Measure Library",
+    "batchEvaluate": "Batch Evaluate ({{count}})",
+    "importFhir": "Import FHIR",
+    "newMeasure": "New Measure",
+    "searchPlaceholder": "Search measures...",
+    "tabs": {
+      "all": "All ({{count}})",
+      "myMeasures": "My Measures",
+      "sharedWithMe": "Shared with Me",
+      "public": "Public"
+    },
+    "tableHeaders": {
+      "name": "Name",
+      "version": "Version",
+      "status": "Status",
+      "scoring": "Scoring",
+      "setting": "Setting",
+      "department": "Department",
+      "owner": "Owner",
+      "actions": "Actions"
+    },
+    "editMeasure": "Edit measure",
+    "exportMeasure": "Export measure",
+    "deleteMeasure": "Delete measure",
+    "emptyState": "No measures found. Create one or import a FHIR Measure.",
+    "lockedBy": "Locked by {{user}}",
+    "noValue": "-",
+    "createDialog": {
+      "title": "Create Measure Definition",
+      "name": "Name",
+      "version": "Version",
+      "titleField": "Title",
+      "description": "Description",
+      "scoringType": "Scoring Type",
+      "loadFromLibrary": "Load from Library",
+      "cqlContent": "CQL Content",
+      "creating": "Creating...",
+      "create": "Create"
+    },
+    "editDialog": {
+      "title": "Edit Measure Definition",
+      "name": "Name",
+      "version": "Version",
+      "status": "Status",
+      "titleField": "Title",
+      "description": "Description",
+      "scoringType": "Scoring Type",
+      "loadFromLibrary": "Load from Library",
+      "cqlContent": "CQL Content",
+      "saving": "Saving...",
+      "save": "Save"
+    },
+    "importDialog": {
+      "title": "Import FHIR Resource",
+      "importType": "Import Type",
+      "measureSingle": "FHIR Measure (single resource)",
+      "measureBundle": "FHIR Bundle (Measure + Libraries + ValueSets)",
+      "bundleJson": "FHIR Bundle JSON",
+      "measureJson": "FHIR Measure JSON",
+      "bundlePlaceholder": "Paste a FHIR Bundle containing Measure, Library, and ValueSet resources...",
+      "measurePlaceholder": "Paste a FHIR Measure resource JSON here...",
+      "importing": "Importing...",
+      "import": "Import",
+      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped, {{valueSets}} value sets found.",
+      "invalidJson": "Invalid JSON format",
+      "loadError": "Failed to load measure: {{error}}",
+      "exportError": "Export failed: {{error}}",
+      "uploadFile": "Upload File",
+      "orPaste": "or paste JSON below"
+    }
+  },
+  "editor": {
+    "lockedWarning": "Locked by {{user}}. Editing disabled.",
+    "lockedBy": "Locked by {{user}}",
+    "rejectionNotice": "This measure was rejected by {{reviewer}}: \"{{comment}}\". Please address the feedback and resubmit.",
+    "rejectDialog": {
+      "title": "Reject Measure",
+      "reasonLabel": "Rejection Reason",
+      "reasonPlaceholder": "Please provide feedback on why this measure is being rejected..."
+    },
+    "buttons": {
+      "versioning": "Versioning",
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "share": "Share",
+      "audit": "Audit",
+      "export": "Export",
+      "submitForReview": "Submit for Review",
+      "approve": "Approve",
+      "reject": "Reject",
+      "retire": "Retire"
+    },
+    "tabs": {
+      "details": "Details",
+      "cql": "CQL",
+      "dataRequirements": "Data Requirements",
+      "populationCriteria": "Population Criteria",
+      "evaluate": "Evaluate",
+      "testCases": "Test Cases",
+      "reports": "Reports",
+      "validate": "Validate"
+    },
+    "exportFormats": {
+      "fhirJson": "FHIR Bundle (JSON)",
+      "fhirXml": "FHIR Bundle (XML)",
+      "cqlOnly": "CQL Only",
+      "elmOnly": "ELM Only",
+      "hqmfXml": "HQMF (XML)",
+      "humanReadable": "Human Readable (HTML)"
+    },
+    "versionMenu": {
+      "createVersion": "Create Version",
+      "versionHistory": "Version History",
+      "compareVersions": "Compare Versions"
+    },
+    "workflowMessages": {
+      "submitted": "Measure submitted for review",
+      "approved": "Measure approved and set to active",
+      "rejected": "Measure rejected, returned to draft",
+      "retired": "Measure retired"
+    },
+    "errors": {
+      "actionFailed": "Action failed",
+      "lockFailed": "Lock failed",
+      "unlockFailed": "Unlock failed",
+      "exportFailed": "Export failed: {{error}}",
+      "loadVersionFailed": "Failed to load measure version: {{error}}"
+    }
+  },
+  "details": {
+    "title": "Measure Details",
+    "saving": "Saving...",
+    "saveChanges": "Save Changes",
+    "updateSuccess": "Measure updated successfully.",
+    "generalInformation": "General Information",
+    "fields": {
+      "name": "Name",
+      "version": "Version",
+      "status": "Status",
+      "scoringType": "Scoring Type",
+      "measureSet": "Measure Set",
+      "measureSetPlaceholder": "e.g. CMS Quality Reporting",
+      "nqfNumber": "NQF Number",
+      "nqfNumberPlaceholder": "e.g. 0059",
+      "cmsMeasureId": "CMS Measure ID",
+      "cmsMeasureIdPlaceholder": "e.g. CMS122v12",
+      "setting": "Setting",
+      "settingHelper": "Care setting where this measure applies",
+      "department": "Department",
+      "departmentHelper": "Assign this measure to a department for filtering and reporting",
+      "none": "None",
+      "compositeScoring": "Composite Scoring"
+    },
+    "measureOverview": "Measure Overview",
+    "overviewFields": {
+      "title": "Title",
+      "description": "Description",
+      "rationale": "Rationale",
+      "rationalePlaceholder": "Why is this measure important?",
+      "clinicalGuidance": "Clinical Guidance",
+      "clinicalGuidancePlaceholder": "Implementation guidance for clinical users"
+    },
+    "stewardDevelopers": "Steward & Developers",
+    "stewardFields": {
+      "steward": "Steward",
+      "stewardPlaceholder": "Organization responsible for the measure",
+      "developers": "Developers",
+      "developerPlaceholder": "Developer name or organization",
+      "removeDeveloper": "Remove developer",
+      "addDeveloper": "Add Developer"
+    },
+    "references": "References",
+    "referenceFields": {
+      "type": "Type",
+      "reference": "Reference",
+      "referencePlaceholder": "URL or citation text",
+      "removeReference": "Remove reference",
+      "addReference": "Add Reference"
+    },
+    "legal": "Legal",
+    "legalFields": {
+      "copyright": "Copyright",
+      "disclaimer": "Disclaimer"
+    }
+  },
+  "cql": {
+    "translate": "Translate",
+    "saving": "Saving...",
+    "saveCql": "Save CQL",
+    "unsavedChanges": "Unsaved changes",
+    "errorCount": "{{count}} errors",
+    "errorCount_one": "{{count}} error",
+    "warningCount": "{{count}} warnings",
+    "warningCount_one": "{{count}} warning",
+    "discardDraft": "Discard Draft",
+    "draftRestored": "Restored unsaved draft from a previous session.",
+    "translationFailed": "Translation failed: {{error}}"
+  },
+  "populationCriteria": {
+    "title": "Population Criteria",
+    "addGroup": "Add Group",
+    "saving": "Saving...",
+    "save": "Save",
+    "resetPopulations": "Reset Populations",
+    "scoringChanged": "Scoring type changed to <strong>{{scoringType}}</strong>. Populations may no longer match the expected template.",
+    "noExpressions": "No CQL expressions found. Save your CQL in the CQL tab first, then the expression dropdowns will be populated.",
+    "autoMapped": "Auto-mapped {{count}} expressions based on CQL definition names",
+    "autoMapped_one": "Auto-mapped {{count}} expression based on CQL definition names",
+    "populationCount": "{{count}} populations",
+    "groupLabel": "Group {{number}}",
+    "removeGroup": "Remove group",
+    "fields": {
+      "groupDescription": "Group Description",
+      "rateNumber": "Rate #",
+      "rateNumberHelper": "For multi-rate",
+      "rateDescription": "Rate Description",
+      "rateDescriptionHelper": "e.g. 'Rate 1: Screening'",
+      "populationBasis": "Population Basis",
+      "populationBasisHelper": "Determines the expected return type of population criteria expressions"
+    },
+    "populations": "Populations",
+    "addSecondIP": "Add Second Initial Population",
+    "addOptional": "Add Optional Population",
+    "stratifiers": "Stratifiers",
+    "stratifierFields": {
+      "stratifierId": "Stratifier ID",
+      "cqlExpression": "CQL Expression",
+      "removeStratifier": "Remove stratifier",
+      "populationAssociations": "Population Associations",
+      "addStratifier": "Add Stratifier",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe the criteria for this stratifier..."
+    },
+    "scoringUnit": {
+      "label": "Scoring Unit",
+      "placeholder": "e.g. %, per 1000",
+      "helper": "Unit of measure for the score"
+    },
+    "riskAdjustment": "Risk Adjustment",
+    "supplementalData": "Supplemental Data",
+    "subTabs": {
+      "populations": "Populations",
+      "stratifications": "Stratifications",
+      "reporting": "Reporting",
+      "supplemental": "Supplemental"
+    },
+    "sidebar": {
+      "groups": "Groups",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar"
+    },
+    "exclusions": "Exclusions / Exceptions",
+    "noStratifiers": "No stratifiers defined. Add a stratifier to disaggregate measure results.",
+    "reporting": {
+      "improvementNotation": "Improvement Notation",
+      "improvementNotationHelper": "Indicates whether an increase or decrease in the measure score represents improvement.",
+      "increase": "Increased score indicates improvement",
+      "decrease": "Decreased score indicates improvement",
+      "notSet": "Not set",
+      "rateAggregation": "Rate Aggregation",
+      "rateAggregationPlaceholder": "Describe how rates are aggregated across populations or reporting periods...",
+      "rateAggregationHelper": "Describes how to combine or aggregate calculations from multiple populations or rate groups."
+    },
+    "completeness": {
+      "label": "Completeness",
+      "populations": "Populations defined",
+      "expressions": "Expressions assigned",
+      "improvementNotation": "Improvement notation set",
+      "stratifiers": "Stratifiers defined",
+      "supplemental": "Supplemental data defined"
+    },
+    "validation": {
+      "missingRequired": "Missing required population \"{{name}}\"",
+      "noExpression": "\"{{name}}\" has no expression assigned",
+      "bothAssociations": "Both Initial Populations must have an association type (Denominator or Numerator)",
+      "differentAssociations": "Initial Populations must have different association types",
+      "duplicatePopulation": "Duplicate population type \"{{name}}\"",
+      "nonBooleanReturn": "\"{{name}}\" expression returns non-Boolean type",
+      "noPopulationAssociations": "Stratifier \"{{name}}\" has no population associations"
+    }
+  },
+  "populationCard": {
+    "required": "Required",
+    "optional": "Optional",
+    "missingExpression": "Required population is missing an expression",
+    "nonBooleanWarning": "Expression returns {{type}} — Boolean expected for most populations",
+    "removePopulation": "Remove population",
+    "cannotRemove": "Required populations cannot be removed",
+    "association": "Association",
+    "denominator": "Denominator",
+    "numerator": "Numerator",
+    "cqlExpression": "CQL Expression",
+    "none": "None",
+    "unknown": "unknown",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe the criteria for this population...",
+    "types": {
+      "initial-population": "Initial Population",
+      "denominator": "Denominator",
+      "denominator-exclusion": "Denominator Exclusion",
+      "denominator-exception": "Denominator Exception",
+      "numerator": "Numerator",
+      "numerator-exclusion": "Numerator Exclusion",
+      "measure-population": "Measure Population",
+      "measure-population-exclusion": "Measure Population Exclusion"
+    },
+    "descriptions": {
+      "initial-population": "The initial set of patients to be evaluated by the measure.",
+      "denominator": "The lower portion of a fraction used to calculate a rate. Typically a subset of the Initial Population.",
+      "denominator-exclusion": "Patients removed from the denominator before determining membership in the numerator.",
+      "denominator-exception": "Patients who should have met the numerator criteria but did not due to valid exceptions.",
+      "numerator": "The upper portion of a fraction. Patients from the denominator meeting the desired criteria.",
+      "numerator-exclusion": "Patients removed from the numerator. Used in ratio measures.",
+      "measure-population": "The population basis for continuous variable measures.",
+      "measure-population-exclusion": "Patients excluded from the measure population in continuous variable measures."
+    }
+  },
+  "dataRequirements": {
+    "title": "Data Requirements",
+    "noCql": "No CQL content defined for this measure. Add CQL logic in the CQL tab to see data requirements.",
+    "extractionError": "Failed to extract data requirements: {{error}}",
+    "noRequirements": "No data requirements found. The CQL may not contain any Retrieve expressions, or translation may have failed.",
+    "resourceTypes": "{{count}} Resource Types",
+    "resourceTypes_one": "{{count}} Resource Type",
+    "valueSets": "{{count}} Value Sets",
+    "valueSets_one": "{{count}} Value Set",
+    "totalRequirements": "{{count}} Total Requirements",
+    "totalRequirements_one": "{{count}} Total Requirement",
+    "requirementCount": "{{count}} requirements",
+    "requirementCount_one": "{{count}} requirement",
+    "tableHeaders": {
+      "filterType": "Filter Type",
+      "path": "Path",
+      "valueSetCodes": "Value Set / Codes"
+    },
+    "noFilters": "No filters (retrieves all {{type}} resources)",
+    "filterTypes": {
+      "code": "Code",
+      "valueSet": "Value Set",
+      "codeSystem": "Code System",
+      "date": "Date",
+      "dateFilter": "Date filter"
+    }
+  },
+  "evaluation": {
+    "title": "Evaluate: {{name}}",
+    "patientId": "Patient ID (optional for individual report)",
+    "patientIdPlaceholder": "Leave empty for population report",
+    "periodStart": "Period Start",
+    "periodEnd": "Period End",
+    "evaluating": "Evaluating...",
+    "evaluateMeasure": "Evaluate Measure",
+    "schedules": "Schedules",
+    "evaluationFailed": "Evaluation failed: {{error}}",
+    "emptyState": "Click \"Evaluate Measure\" to run the measure against patient data."
+  },
+  "testCases": {
+    "title": "Test Cases",
+    "passCount": "{{pass}}/{{total}} pass",
+    "failCount": "{{count}} fail",
+    "dateCalculator": "Date Calculator",
+    "running": "Running...",
+    "runAll": "Run All",
+    "exportAll": "Export All",
+    "importing": "Importing...",
+    "import": "Import",
+    "addTestCase": "Add Test Case",
+    "saveCqlFirst": "Save CQL content in the CQL tab first before running test cases.",
+    "importFailed": "Import failed: {{error}}",
+    "importSuccess": "Test cases imported successfully.",
+    "emptyTitle": "No test cases yet",
+    "emptyDescription": "Create test cases with expected population outcomes to validate your measure logic.",
+    "createFirst": "Create First Test Case",
+    "tooltips": {
+      "runWithCoverage": "Run with coverage",
+      "runTestCase": "Run this test case",
+      "exportJson": "Export JSON",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "ariaLabels": {
+      "runWithCoverage": "Run with coverage",
+      "runTestCase": "Run test case",
+      "exportJson": "Export test case JSON",
+      "edit": "Edit test case",
+      "delete": "Delete test case"
+    }
+  },
+  "importDialog": {
+    "title": "Import Test Cases",
+    "dropHint": "Click or drag a JSON file here to import test cases",
+    "formatHint": "Supports: JSON array, single test case, MADiE format, or bare FHIR Bundle",
+    "noValidCases": "No valid test cases found in the file. Each item must contain a patient Bundle.",
+    "parseError": "Failed to parse file: {{error}}",
+    "preview": "{{count}} test case(s) found in {{file}}",
+    "removeFromImport": "Remove from import",
+    "enableDateShift": "Enable date shifting (adjust all dates in patient bundles)",
+    "shiftDays": "Shift days",
+    "shiftDaysHelp": "Positive = forward, negative = backward",
+    "shiftExplanation": "All date, dateTime, and period fields in patient bundles will be shifted by the specified number of days. Useful for aligning historical data with the measurement period.",
+    "importing": "Importing {{count}} test case(s)...",
+    "importError": "Import failed: {{error}}",
+    "resultSummary": "{{success}} of {{total}} test case(s) imported successfully",
+    "done": "Done",
+    "cancel": "Cancel",
+    "importCount": "Import {{count}} test case(s)"
+  },
+  "testCaseEditor": {
+    "newTitle": "New Test Case",
+    "editTitle": "Edit: {{name}}",
+    "saving": "Saving...",
+    "save": "Save",
+    "fields": {
+      "title": "Test Case Title",
+      "titlePlaceholder": "e.g. 65yo Female with Diabetes, No HbA1c",
+      "description": "Description",
+      "series": "Series",
+      "seriesPlaceholder": "Group test cases by series name"
+    },
+    "expectedPopulations": "Expected Population Membership",
+    "populationTypes": {
+      "initial-population": "Initial Population",
+      "denominator": "Denominator",
+      "denominator-exclusion": "Denominator Exclusion",
+      "denominator-exception": "Denominator Exception",
+      "numerator": "Numerator",
+      "numerator-exclusion": "Numerator Exclusion"
+    },
+    "populationTypesShort": {
+      "initial-population": "Ini",
+      "denominator": "Den",
+      "denominator-exclusion": "DEx",
+      "denominator-exception": "DXp",
+      "numerator": "Num",
+      "numerator-exclusion": "NEx"
+    },
+    "tabs": {
+      "visualBuilder": "Visual Builder",
+      "jsonAdvanced": "JSON (Advanced)"
+    },
+    "validation": {
+      "invalidBundle": "Root resource must be a FHIR Bundle",
+      "invalidJson": "Invalid JSON"
+    },
+    "draftRestored": "Restored unsaved draft from a previous session.",
+    "discardDraft": "Discard Draft"
+  },
+  "testCaseResult": {
+    "pass": "Pass",
+    "fail": "Fail",
+    "error": "Error",
+    "tableHeaders": {
+      "population": "Population",
+      "expected": "Expected",
+      "actual": "Actual",
+      "result": "Result"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "na": "-",
+    "ms": "ms"
+  },
+  "evaluationResult": {
+    "populationLabels": {
+      "initial-population": "Initial Population",
+      "denominator": "Denominator",
+      "denominator-exclusion": "Denominator Exclusions",
+      "denominator-exception": "Denominator Exceptions",
+      "numerator": "Numerator",
+      "numerator-exclusion": "Numerator Exclusions",
+      "measure-population": "Measure Population",
+      "measure-population-exclusion": "Measure Population Exclusions",
+      "measure-observation": "Measure Observation"
+    },
+    "measureScore": "Measure Score",
+    "tableHeaders": {
+      "population": "Population",
+      "count": "Count",
+      "subjects": "Subjects"
+    },
+    "na": "N/A",
+    "toggleStratification": "Toggle stratification details",
+    "stratification": "Stratification ({{count}} strata)",
+    "stratificationHeaders": {
+      "stratum": "Stratum",
+      "value": "Value",
+      "score": "Score",
+      "populations": "Populations"
+    },
+    "supplementalData": "Supplemental Data",
+    "groupLabel": "Group: {{groupId}}"
+  },
+  "comparison": {
+    "title": "Period Comparison & Trends",
+    "measureName": "Measure Name",
+    "compareTwoPeriods": "Compare Two Periods",
+    "period1Start": "Period 1 Start",
+    "period1End": "Period 1 End",
+    "period2Start": "Period 2 Start",
+    "period2End": "Period 2 End",
+    "comparing": "Comparing...",
+    "compare": "Compare",
+    "period1": "Period 1",
+    "period2": "Period 2",
+    "na": "N/A",
+    "delta": "Delta",
+    "change": "Change",
+    "scoreTrend": "Score Trend",
+    "periods": "Periods",
+    "loading": "Loading...",
+    "loadTrend": "Load Trend",
+    "scoreProgression": "{{name}} - Score Progression",
+    "noReportData": "No report data found for this measure."
+  },
+  "share": {
+    "title": "Share: {{name}}",
+    "accessLevel": "Access Level",
+    "levels": {
+      "private": "Private",
+      "shared": "Shared",
+      "public": "Public"
+    },
+    "publicInfo": "All users can view and use this measure.",
+    "shareWithUsers": "Share with Users",
+    "usernamePlaceholder": "Enter username...",
+    "shareButton": "Share",
+    "noSharedUsers": "Not shared with any specific users.",
+    "unshare": "Unshare with user",
+    "owner": "Owner:",
+    "unassigned": "unassigned",
+    "transfer": "Transfer",
+    "transferWarning": "Transferring ownership cannot be undone by you.",
+    "newOwnerPlaceholder": "New owner username...",
+    "close": "Close"
+  },
+  "validation": {
+    "title": "Measure Validation",
+    "quickCheck": "Quick Check",
+    "validating": "Validating...",
+    "fullValidation": "Full Validation",
+    "instructions": "Click \"Full Validation\" to check your measure for completeness, CQL correctness, population logic, and QI-Core compliance. Use \"Quick Check\" for a faster CQL + population check.",
+    "passed": "Validation Passed",
+    "failed": "Validation Failed",
+    "errorCount": "{{count}} errors",
+    "warningCount": "{{count}} warnings",
+    "infoCount": "{{count}} info",
+    "fix": "Fix",
+    "noIssues": "No issues found. Your measure looks good!",
+    "categories": {
+      "cql": "CQL Logic",
+      "populations": "Populations",
+      "metadata": "Metadata",
+      "testCases": "Test Cases",
+      "qiCore": "QI-Core"
+    }
+  },
+  "panel": {
+    "title": "Quality Measure Evaluation",
+    "selectMeasure": "Select Saved Measure (optional)",
+    "measureId": "Measure ID",
+    "patientId": "Patient ID (optional for individual report)",
+    "patientIdPlaceholder": "Leave empty for population report",
+    "periodStart": "Period Start",
+    "periodEnd": "Period End",
+    "evaluating": "Evaluating...",
+    "evaluateMeasure": "Evaluate Measure",
+    "schedules": "Schedules",
+    "evaluationFailed": "Evaluation failed: {{error}}",
+    "emptyState": "Enter measure details and click \"Evaluate Measure\" to see results.",
+    "loadError": "Failed to load measure: {{error}}"
+  },
+  "batch": {
+    "title": "Batch Evaluate Measures",
+    "description": "Evaluate {{count}} selected measures in a single batch operation.",
+    "description_one": "Evaluate {{count}} selected measure in a single batch operation.",
+    "fhirServerUrl": "FHIR Server URL (optional)",
+    "fhirServerPlaceholder": "http://hapi.fhir.org/baseR4",
+    "periodStart": "Period Start",
+    "periodEnd": "Period End",
+    "evaluating": "Evaluating measures...",
+    "evaluationFailed": "Batch evaluation failed: {{error}}",
+    "result": "{{success}} of {{total}} measures evaluated successfully",
+    "tableHeaders": {
+      "measureName": "Measure Name",
+      "status": "Status",
+      "score": "Score",
+      "errorMessage": "Error Message"
+    },
+    "running": "Running...",
+    "runBatch": "Run Batch Evaluation"
+  },
+  "workflow": {
+    "steps": {
+      "details": {
+        "label": "Details",
+        "tooltip": "Name, version, scoring type, and key metadata (steward, rationale) defined"
+      },
+      "cql": {
+        "label": "CQL",
+        "tooltip": "CQL logic written and saved"
+      },
+      "populations": {
+        "label": "Populations",
+        "tooltip": "At least one population criteria defined"
+      },
+      "review": {
+        "label": "Review",
+        "tooltip": "Measure submitted for review and approved"
+      },
+      "active": {
+        "label": "Active",
+        "tooltip": "Measure status set to active"
+      }
+    }
+  },
+  "reports": {
+    "title": "Report History",
+    "loading": "Loading reports...",
+    "tableHeaders": {
+      "measure": "Measure",
+      "period": "Period",
+      "score": "Score",
+      "status": "Status",
+      "date": "Date",
+      "duration": "Duration",
+      "actions": "Actions"
+    },
+    "toggleDetails": "Toggle report details",
+    "defaultStatus": "complete",
+    "downloadReport": "Download report",
+    "deleteReport": "Delete report",
+    "emptyState": "No reports yet. Evaluate a measure to generate reports.",
+    "exportFormats": {
+      "fhirJson": "FHIR MeasureReport (JSON)",
+      "csv": "CSV",
+      "excel": "Excel (XLSX)",
+      "qrda": "QRDA III (XML)"
+    },
+    "exportFailed": "Export failed"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "addSchedule": "Add Schedule",
+    "close": "Close",
+    "tableHeaders": {
+      "enabled": "Enabled",
+      "cron": "Cron",
+      "period": "Period",
+      "lastRun": "Last Run",
+      "nextRun": "Next Run",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "never": "Never",
+    "noNextRun": "-",
+    "triggerSchedule": "Trigger schedule",
+    "deleteSchedule": "Delete schedule",
+    "emptyState": "No schedules configured.",
+    "manualComplete": "Manual evaluation completed: {{status}}",
+    "createDialog": {
+      "title": "Create Schedule",
+      "preset": "Preset",
+      "cronExpression": "Cron Expression",
+      "cronHelper": "Spring cron format (sec min hour dom month dow)",
+      "periodType": "Period Type",
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "yearly": "Yearly",
+      "fhirServerUrl": "FHIR Server URL (optional)",
+      "creating": "Creating...",
+      "create": "Create"
+    },
+    "presets": {
+      "monthly": "Monthly (1st at midnight)",
+      "quarterly": "Quarterly (Jan, Apr, Jul, Oct 1st)",
+      "yearly": "Yearly (Jan 1st)"
+    }
+  },
+  "riskAdjustment": {
+    "title": "Risk Adjustment Variables",
+    "description": "Description",
+    "remove": "Remove {{name}}",
+    "addLabel": "Add risk adjustment variable",
+    "selectPlaceholder": "Select a CQL expression"
+  },
+  "supplementalData": {
+    "title": "Supplemental Data Elements",
+    "description": "Description",
+    "remove": "Remove {{name}}",
+    "addLabel": "Add supplemental data element",
+    "selectPlaceholder": "Select a CQL expression"
+  },
+  "observations": {
+    "title": "Observation Criteria",
+    "observationLabel": "Observation {{number}}",
+    "removeObservation": "Remove observation {{number}}",
+    "fields": {
+      "cqlExpression": "CQL Expression",
+      "aggregateMethod": "Aggregate Method",
+      "populationReference": "Population Reference",
+      "description": "Description"
+    },
+    "addObservation": "Add Observation",
+    "aggregateMethods": {
+      "count": "Count",
+      "sum": "Sum",
+      "average": "Average",
+      "median": "Median",
+      "minimum": "Minimum",
+      "maximum": "Maximum"
+    }
+  },
+  "audit": {
+    "title": "Audit Trail: {{name}}",
+    "emptyState": "No audit history available.",
+    "by": "by {{user}}",
+    "close": "Close"
+  },
+  "dateCalculator": {
+    "title": "Date Calculator",
+    "close": "close",
+    "tabs": {
+      "duration": "Duration",
+      "computedDate": "Computed Date"
+    },
+    "fields": {
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "duration": "Duration",
+      "unit": "Unit"
+    },
+    "units": {
+      "days": "Days",
+      "months": "Months",
+      "years": "Years"
+    },
+    "result": {
+      "duration": "Duration",
+      "resultDate": "Result Date",
+      "daysFormat": "{{days}} days",
+      "fullFormat": "{{years}} years, {{months}} months, {{days}} days"
+    }
+  },
+  "coverage": {
+    "noData": "No coverage data",
+    "tabs": {
+      "definitions": "Definitions",
+      "functions": "Functions"
+    },
+    "labels": {
+      "definitions": "definitions",
+      "functions": "functions"
+    },
+    "covered": "{{covered}}/{{total}} {{label}} covered",
+    "relevance": {
+      "true": "TRUE",
+      "false": "FALSE",
+      "na": "NA"
+    }
+  },
+  "indicators": {
+    "title": "Indicator Code Mapping",
+    "mapped": "Mapped",
+    "mohCode": "MOH Indicator Code",
+    "nhiaCode": "NHIA P4P Code",
+    "drgCode": "DRG Indicator Code",
+    "category": "Indicator Category",
+    "noCategory": "None",
+    "browse": "Browse Catalog",
+    "hint": "Map this measure to national indicator codes (MOH, NHIA P4P, DRG) for reporting compliance.",
+    "catalogTitle": "Indicator Catalog",
+    "search": "Search indicators...",
+    "source": "Source",
+    "allSources": "All Sources",
+    "noResults": "No indicators found.",
+    "code": "Code",
+    "name": "Name",
+    "select": "Select",
+    "close": "Close"
+  },
+  "testCaseBuilder": {
+    "bundleEntries": "BUNDLE ENTRIES",
+    "buildTestBundle": "Build your test patient bundle",
+    "stepPatient": "1. Patient",
+    "stepEncounter": "2. Encounter",
+    "stepClinical": "3. Clinical Data",
+    "startGuide": "Start by adding a Patient, then add Encounters and clinical resources (Conditions, Observations, Procedures, etc.) to build the test scenario.",
+    "selectResource": "Select a resource from the list to edit its properties.",
+    "addResource": "Add Resource",
+    "noResourcesYet": "No resources yet. Start by adding a Patient resource.",
+    "deleteResource": "Delete Resource",
+    "deleteConfirm": "Are you sure you want to remove this resource from the test case bundle?",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteResourceAria": "Delete resource",
+    "requiredFields": "Required Fields",
+    "optionalFields": "Optional Fields",
+    "addAttribute": "Add Attribute",
+    "addAttributes": "Add Attributes",
+    "array": "(array)",
+    "addCount": "Add ({{count}})",
+    "available": "({{count}} available)",
+    "idLabel": "ID:",
+    "idPlaceholder": "resource-id",
+    "twcore": {
+      "title": "TWCORE Terminology",
+      "searchPlaceholder": "Search code, display, or Chinese name...",
+      "noMatchingCodes": "No matching codes found.",
+      "noTerminology": "No TWCORE terminology available.",
+      "use": "Use"
+    },
+    "identifierPresets": {
+      "label": "Identifier Type",
+      "nationalId": "National ID",
+      "nationalIdHint": "Format: 1 letter + 9 digits",
+      "passport": "Passport",
+      "residentCert": "Resident Certificate",
+      "medicalRecord": "Medical Record No."
+    },
+    "twAddress": {
+      "title": "Taiwan Address Details",
+      "section": "Section",
+      "village": "Village",
+      "neighborhood": "Neighborhood",
+      "lane": "Lane",
+      "alley": "Alley",
+      "number": "Number",
+      "floor": "Floor",
+      "room": "Room"
+    },
+    "fields": {
+      "system": "system",
+      "code": "code",
+      "display": "display",
+      "value": "value",
+      "unit": "unit",
+      "use": "use",
+      "family": "family",
+      "type": "type",
+      "reference": "reference",
+      "text": "text",
+      "start": "start",
+      "end": "end",
+      "emptyOption": "\u2014",
+      "selectOption": "\u2014 Select \u2014",
+      "autoGenerated": "Auto-generated if left empty",
+      "boundTo": "Bound to: {{url}}",
+      "searchTerminology": "Search Terminology",
+      "browseTwcore": "Browse TWCORE terminology",
+      "browseTwcoreAria": "Browse TWCORE",
+      "removeCoding": "Remove coding",
+      "addCoding": "Add Coding",
+      "nameText": "Full Name Text",
+      "nameTextPlaceholder": "e.g. John Smith",
+      "givenNames": "given names",
+      "addGivenName": "Add given name",
+      "addressLines": "address lines",
+      "addLine": "Add line",
+      "city": "city",
+      "district": "district",
+      "state": "state",
+      "postalCode": "postalCode",
+      "country": "country",
+      "hideSystemCode": "Hide system / code",
+      "showSystemCode": "Show system / code",
+      "identifierSystemPlaceholder": "e.g. http://hospital.org/mrn"
+    },
+    "arrayField": {
+      "add": "Add",
+      "removeItem": "Remove item"
+    },
+    "choiceType": {
+      "type": "Type"
+    }
+  }
+}
