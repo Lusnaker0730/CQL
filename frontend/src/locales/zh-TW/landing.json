@@ -46,6 +46,9 @@
       "twcore": "TWCORE IG",
       "examples": "互動範例",
       "quickStart": "快速開始",
+      "advanced": "進階主題",
+      "troubleshooting": "疑難排解",
+      "cheatSheet": "速查表",
       "playground": "練習場",
       "quiz": "自我測驗"
     },
@@ -140,12 +143,18 @@
       "example": {
         "title": "完整範例：糖尿病照護品質指標",
         "description": "以下範例展示如何使用 CQL + TWCORE IG 定義一個糖尿病照護品質指標，計算 HbA1c 檢驗完成率。"
+      },
+      "headers": {
+        "resource": "FHIR 資源",
+        "profile": "TWCORE Profile",
+        "description": "說明"
       }
     },
     "examples": {
       "title": "互動範例",
       "subtitle": "點選範例查看 CQL 程式碼與詳細說明",
       "tryInEditor": "在編輯器中開啟",
+      "openInEditor": "在編輯器中開啟",
       "copyCode": "複製程式碼",
       "copied": "已複製！",
       "diabetes": {
@@ -209,7 +218,15 @@
       "success": "翻譯成功！CQL 語法正確。",
       "errors": "翻譯發現 {{count}} 個問題：",
       "loginRequired": "登入後可使用完整的翻譯功能",
-      "loginToTranslate": "登入以翻譯"
+      "loginToTranslate": "登入以翻譯",
+      "lines": "{{count}} 行",
+      "templates": {
+        "starter": "入門範本",
+        "diabetes": "糖尿病照護",
+        "hypertension": "高血壓",
+        "medication": "用藥安全",
+        "encounter": "就醫分析"
+      }
     },
     "quiz": {
       "title": "CQL 自我測驗",
@@ -224,6 +241,231 @@
       "needsWork": "還需要加油！建議先閱讀入門介紹和核心概念。",
       "correct": "正確！",
       "incorrect": "不正確。",
+      "q1": {
+        "question": "CQL 的全稱是什麼？",
+        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
+        "answer": 1,
+        "explanation": "CQL 全稱 Clinical Quality Language（臨床品質語言），由 HL7 International 制定。"
+      },
+      "q2": {
+        "question": "CQL 使用哪個資料模型來存取臨床資料？",
+        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
+        "answer": 2,
+        "explanation": "CQL 建立在 FHIR（Fast Healthcare Interoperability Resources）資料模型之上。"
+      },
+      "q3": {
+        "question": "在 CQL 中，如何查詢所有的 Condition（診斷）資源？",
+        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
+        "answer": 1,
+        "explanation": "CQL 使用方括號語法 [ResourceType] 來查詢 FHIR 資源，例如 [Condition] 查詢所有診斷資源。"
+      },
+      "q4": {
+        "question": "CQL 被編譯後產生的中間格式稱為什麼？",
+        "options": ["AST", "ELM", "XML", "JSON-LD"],
+        "answer": 1,
+        "explanation": "CQL 被編譯為 ELM（Expression Logical Model），這是一種機器可執行的邏輯模型。"
+      },
+      "q5": {
+        "question": "TWCORE IG 是由哪個機構制定的？",
+        "options": ["HL7 International", "WHO", "衛生福利部", "健保署"],
+        "answer": 2,
+        "explanation": "TWCORE IG（台灣核心實作指引）是衛生福利部依 HL7 FHIR R4 規範制定的在地化標準。"
+      },
+      "q6": {
+        "question": "在 CQL 中，'context Patient' 的作用是什麼？",
+        "options": ["宣告病患變數", "限定查詢範圍為目前評估的病患", "定義病患資料結構", "匯入病患資料庫"],
+        "answer": 1,
+        "explanation": "context Patient 將所有後續查詢的範圍限定為目前正在評估的病患。"
+      },
+      "q7": {
+        "question": "台灣的診斷碼主要使用哪個術語系統？",
+        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
+        "answer": 2,
+        "explanation": "台灣主要使用 ICD-10-CM-TW（台灣國際疾病分類）作為診斷編碼系統。"
+      },
+      "q8": {
+        "question": "CQL 中 define 關鍵字的作用是什麼？",
+        "options": ["定義變數", "建立具名的可重用運算式", "宣告函式庫", "定義資料類型"],
+        "answer": 1,
+        "explanation": "define 建立具名的運算式，可被其他定義引用，是 CQL 的核心建構區塊。"
+      },
+      "q9": {
+        "question": "LOINC 代碼 4548-4 對應的檢驗項目是什麼？",
+        "options": ["血糖（Glucose）", "肌酸酐（Creatinine）", "糖化血色素（HbA1c）", "膽固醇（Cholesterol）"],
+        "answer": 2,
+        "explanation": "LOINC 4548-4 對應 Hemoglobin A1c/Hemoglobin.total in Blood，即糖化血色素（HbA1c）。"
+      },
+      "q10": {
+        "question": "eCQM 的全稱是什麼？",
+        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
+        "answer": 1,
+        "explanation": "eCQM 全稱 electronic Clinical Quality Measure（電子臨床品質指標），使用 CQL 定義量測邏輯。"
+      }
+    },
+    "advanced": {
+      "title": "CQL 進階主題",
+      "subtitle": "探索進階 CQL 模式，處理複雜臨床邏輯",
+      "aggregate": {
+        "title": "聚合查詢",
+        "description": "使用 Count、Sum、Avg 等聚合函式對 FHIR 資料集合進行統計計算。"
+      },
+      "multiSource": {
+        "title": "組合查詢（多資料來源）",
+        "description": "同時查詢多個 FHIR 資源類型，並透過多來源查詢在資源之間建立關聯。"
+      },
+      "intervals": {
+        "title": "區間運算",
+        "description": "CQL 提供豐富的區間運算，用於處理日期範圍和數值區間：overlaps、during、meets 等。"
+      },
+      "tuples": {
+        "title": "Tuple 建構與存取",
+        "description": "Tuple 讓您建立帶有具名欄位的結構化資料，適合從定義中回傳複合結果。"
+      }
+    },
+    "troubleshooting": {
+      "title": "疑難排解指南",
+      "subtitle": "常見 CQL 錯誤及解決方法",
+      "errors": {
+        "resolveType": {
+          "title": "無法解析類型",
+          "error": "Could not resolve type name 'Patient'",
+          "solution": "在函式庫最上方加入 FHIR 資料模型宣告。這會告訴 CQL 要使用哪個資料模型來解析資源類型。",
+          "fix": "在 library 宣告後加入 'using FHIR version '4.0.1''"
+        },
+        "resolveContext": {
+          "title": "無法解析上下文",
+          "error": "Could not resolve context name 'Patients'",
+          "solution": "使用正確的上下文名稱。有效的上下文為 'Patient'、'Practitioner'、'Encounter' 或 'Unfiltered'，最常用的是 'Patient'。",
+          "fix": "使用 'context Patient'（單數、大寫開頭）"
+        },
+        "invokeMember": {
+          "title": "無法呼叫成員",
+          "error": "Cannot invoke member 'value' on type 'List<FHIR.Observation>'",
+          "solution": "您正在嘗試對列表而非單一元素存取屬性。請使用查詢別名來存取個別元素。",
+          "fix": "使用查詢：[Observation] O where O.value is not null"
+        },
+        "resolveCodeSystem": {
+          "title": "無法解析代碼系統",
+          "error": "Could not resolve code system name 'LOINC'",
+          "solution": "在引用之前先宣告代碼系統。代碼系統必須使用其標準 URL 來宣告。",
+          "fix": "加入：codesystem \"LOINC\": 'http://loinc.org'"
+        },
+        "timeout": {
+          "title": "翻譯逾時",
+          "error": "Translation timed out after 30 seconds",
+          "solution": "您的 CQL 可能太複雜。將大型運算式拆分為較小的 define 語句，減少巢狀查詢，或簡化邏輯。",
+          "fix": "將複雜運算式拆分為多個較簡單的定義"
+        },
+        "noResults": {
+          "title": "沒有回傳結果",
+          "error": "All definitions returned null or empty results",
+          "solution": "檢查您的 FHIR 伺服器是否有符合的資料。驗證量測期間的日期範圍、代碼系統 URI 及值集 OID 是否與伺服器上的資料相符。",
+          "fix": "確認資料存在：檢查病患 ID、日期範圍與術語代碼"
+        }
+      }
+    },
+    "cheatSheet": {
+      "title": "CQL 速查表",
+      "subtitle": "CQL 語法與常用模式的簡明參考",
+      "dataTypes": {
+        "title": "資料類型",
+        "type": "類型",
+        "example": "範例",
+        "boolean": "布林值",
+        "booleanEx": "true, false",
+        "integer": "整數",
+        "integerEx": "42, -7",
+        "decimal": "小數",
+        "decimalEx": "3.14, -0.5",
+        "string": "字串",
+        "stringEx": "'Hello World'",
+        "dateTime": "日期時間",
+        "dateTimeEx": "@2024-01-15T08:30:00",
+        "time": "時間",
+        "timeEx": "@T14:30:00",
+        "quantity": "數量",
+        "quantityEx": "120 'mmHg'",
+        "interval": "區間",
+        "intervalEx": "Interval[1, 10]",
+        "list": "列表",
+        "listEx": "{ 1, 2, 3 }",
+        "tuple": "Tuple",
+        "tupleEx": "Tuple { name: 'test', value: 1 }"
+      },
+      "operators": {
+        "title": "運算子",
+        "category": "類別",
+        "operatorCol": "運算子",
+        "comparison": "比較",
+        "comparisonOps": "=, !=, <, >, <=, >=, ~, !~",
+        "arithmetic": "算術",
+        "arithmeticOps": "+, -, *, /, div, mod",
+        "stringOps": "字串",
+        "stringOpsVal": "+, &, Length(), IndexOf(), Substring()",
+        "dateTimeOps": "日期時間",
+        "dateTimeOpsVal": "+, -, duration in, difference in",
+        "listOps": "列表",
+        "listOpsVal": "in, contains, includes, union, intersect, except",
+        "logical": "邏輯",
+        "logicalOps": "and, or, not, xor, implies"
+      },
+      "retrieve": {
+        "title": "FHIR 資料擷取模式",
+        "pattern": "模式",
+        "basicRetrieve": "基本擷取",
+        "basicRetrieveEx": "[Condition]",
+        "codeFilter": "代碼篩選",
+        "codeFilterEx": "[Condition: \"Diabetes\"]",
+        "dateFilter": "日期篩選",
+        "dateFilterEx": "[Observation] O where O.effective during \"Measurement Period\""
+      },
+      "functions": {
+        "title": "常用函式",
+        "function": "函式",
+        "description": "說明",
+        "ageInYears": "AgeInYears()",
+        "ageInYearsDesc": "評估時病患的年齡（以年為單位）",
+        "count": "Count(list)",
+        "countDesc": "列表中的元素數量",
+        "exists": "exists(list)",
+        "existsDesc": "列表至少有一個元素時為 true",
+        "first": "First(list)",
+        "firstDesc": "列表的第一個元素",
+        "last": "Last(list)",
+        "lastDesc": "列表的最後一個元素",
+        "sum": "Sum(list)",
+        "sumDesc": "數值元素的總和",
+        "avg": "Avg(list)",
+        "avgDesc": "數值元素的平均值",
+        "toString": "ToString(value)",
+        "toStringDesc": "將值轉換為字串表示",
+        "toDateTime": "ToDateTime(value)",
+        "toDateTimeDesc": "將值轉換為日期時間",
+        "flatten": "Flatten(list)",
+        "flattenDesc": "將巢狀列表展平為單一列表"
+      }
+    },
+    "quiz": {
+      "title": "CQL 自我測驗",
+      "subtitle": "測試您對 CQL 核心概念的理解",
+      "question": "第 {{current}} 題（共 {{total}} 題）",
+      "checkAnswer": "確認答案",
+      "next": "下一題",
+      "restart": "重新測驗",
+      "score": "您的得分：{{score}} / {{total}}",
+      "perfect": "滿分！您已掌握 CQL 的核心概念。",
+      "good": "做得不錯！建議再複習一下答錯的部分。",
+      "needsWork": "還需要加油！建議先閱讀入門介紹和核心概念。",
+      "correct": "正確！",
+      "incorrect": "不正確。",
+      "reviewTopics": "需要複習的主題：",
+      "topics": {
+        "terminology": "術語系統",
+        "syntax": "語法",
+        "concepts": "核心概念",
+        "twcore": "TWCORE",
+        "standards": "標準規範"
+      },
       "q1": {
         "question": "CQL 的全稱是什麼？",
         "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],

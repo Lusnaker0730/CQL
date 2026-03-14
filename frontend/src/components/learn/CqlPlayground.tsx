@@ -1,12 +1,15 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Box, Typography, Paper, Button, Alert, Grid, Menu, MenuItem } from '@mui/material'
 import {
   PlayArrow as TranslateIcon,
   ExpandMore as DropdownIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import type { RootState } from '../../store'
+import { setCqlContent } from '../../store/editorSlice'
+import CqlEditor from '../editor/CqlEditor'
+import type { CqlEditorHandle } from '../editor/CqlEditor'
 import {
   CQL_PLAYGROUND_STARTER,
   CQL_EXAMPLE_DIABETES,
@@ -23,24 +26,23 @@ const TEMPLATES = [
   { key: 'encounter', code: CQL_EXAMPLE_ENCOUNTER },
 ] as const
 
-const TEMPLATE_LABELS: Record<string, string> = {
-  starter: 'Starter Template',
-  diabetes: 'Diabetes Care',
-  hypertension: 'Hypertension',
-  medication: 'Medication Safety',
-  encounter: 'Encounter Analysis',
-}
-
 export default function CqlPlayground() {
   const { t } = useTranslation('landing')
+  const dispatch = useDispatch()
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
-  const [code, setCode] = useState(CQL_PLAYGROUND_STARTER)
+  const cqlEditorRef = useRef<CqlEditorHandle>(null)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [templateAnchor, setTemplateAnchor] = useState<null | HTMLElement>(null)
+  const [lineCount, setLineCount] = useState(CQL_PLAYGROUND_STARTER.split('\n').length)
+
+  const handleContentChanged = useCallback((content: string) => {
+    setLineCount(content.split('\n').length)
+  }, [])
 
   const handleTranslate = useCallback(async () => {
     if (!isAuthenticated) return
+    const code = cqlEditorRef.current?.getContent() ?? ''
     setLoading(true)
     setResult(null)
     try {
@@ -60,15 +62,14 @@ export default function CqlPlayground() {
     } finally {
       setLoading(false)
     }
-  }, [code, isAuthenticated, t])
+  }, [isAuthenticated, t])
 
   const handleLoadTemplate = useCallback((templateCode: string) => {
-    setCode(templateCode)
+    dispatch(setCqlContent(templateCode))
+    setLineCount(templateCode.split('\n').length)
     setResult(null)
     setTemplateAnchor(null)
-  }, [])
-
-  const lineCount = useMemo(() => code.split('\n').length, [code])
+  }, [dispatch])
 
   return (
     <Box>
@@ -109,60 +110,21 @@ export default function CqlPlayground() {
               >
                 {TEMPLATES.map(({ key, code: templateCode }) => (
                   <MenuItem key={key} onClick={() => handleLoadTemplate(templateCode)}>
-                    {TEMPLATE_LABELS[key]}
+                    {t(`learn.playground.templates.${key}`)}
                   </MenuItem>
                 ))}
               </Menu>
               <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                {lineCount} lines
+                {t('learn.playground.lines', { count: lineCount })}
               </Typography>
             </Box>
 
-            {/* Editor */}
-            <Box sx={{ display: 'flex' }}>
-              {/* Line numbers */}
-              <Box
-                sx={{
-                  p: 2,
-                  pr: 1,
-                  bgcolor: '#1E1E2E',
-                  color: 'rgba(255,255,255,0.25)',
-                  fontFamily: '"Fira Code", monospace',
-                  fontSize: '0.82rem',
-                  lineHeight: 1.6,
-                  textAlign: 'right',
-                  userSelect: 'none',
-                  minWidth: 40,
-                  whiteSpace: 'pre-line',
-                }}
-              >
-                {Array.from({ length: lineCount }, (_, i) => i + 1).join('\n')}
-              </Box>
-              {/* Textarea */}
-              <Box
-                component="textarea"
-                value={code}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCode(e.target.value)}
-                spellCheck={false}
-                sx={{
-                  flex: 1,
-                  p: 2,
-                  pl: 1,
-                  bgcolor: '#1E1E2E',
-                  color: '#D4D4D4',
-                  fontFamily: '"Fira Code", "Cascadia Code", monospace',
-                  fontSize: '0.82rem',
-                  lineHeight: 1.6,
-                  border: 'none',
-                  outline: 'none',
-                  resize: 'vertical',
-                  minHeight: 400,
-                  width: '100%',
-                  whiteSpace: 'pre',
-                  overflowX: 'auto',
-                }}
-              />
-            </Box>
+            {/* Monaco Editor */}
+            <CqlEditor
+              ref={cqlEditorRef}
+              height={400}
+              onContentChanged={handleContentChanged}
+            />
           </Paper>
         </Grid>
 

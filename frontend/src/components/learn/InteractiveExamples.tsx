@@ -1,12 +1,16 @@
 import { useState, useCallback } from 'react'
-import { Box, Typography, Paper, Grid, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import { Box, Typography, Paper, Grid, List, ListItemButton, ListItemIcon, ListItemText, Button } from '@mui/material'
 import {
   Bloodtype as DiabetesIcon,
   MonitorHeart as HypertensionIcon,
   Medication as MedicationIcon,
   EventNote as EncounterIcon,
+  OpenInNew as OpenInEditorIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { setCqlContent } from '../../store/editorSlice'
 import CodeBlock from './CodeBlock'
 import {
   CQL_EXAMPLE_DIABETES,
@@ -24,11 +28,18 @@ const EXAMPLES = [
 
 export default function InteractiveExamples() {
   const { t } = useTranslation('landing')
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [selected, setSelected] = useState(0)
 
   const handleSelect = useCallback((index: number) => {
     setSelected(index)
   }, [])
+
+  const handleOpenInEditor = useCallback(() => {
+    dispatch(setCqlContent(EXAMPLES[selected].code))
+    navigate('/')
+  }, [dispatch, navigate, selected])
 
   const example = EXAMPLES[selected]
 
@@ -80,9 +91,18 @@ export default function InteractiveExamples() {
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle1" fontWeight={700}>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
                 {t(`learn.examples.${example.key}.title`)}
               </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<OpenInEditorIcon />}
+                onClick={handleOpenInEditor}
+                sx={{ textTransform: 'none' }}
+              >
+                {t('learn.examples.openInEditor')}
+              </Button>
             </Box>
             <CodeBlock code={example.code} maxHeight={400} />
             <Box sx={{ p: 2.5, bgcolor: 'action.hover' }}>

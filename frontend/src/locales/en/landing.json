@@ -46,6 +46,9 @@
       "twcore": "TWCORE IG",
       "examples": "Interactive Examples",
       "quickStart": "Quick Start",
+      "advanced": "Advanced Topics",
+      "troubleshooting": "Troubleshooting",
+      "cheatSheet": "Cheat Sheet",
       "playground": "Playground",
       "quiz": "Self Quiz"
     },
@@ -140,12 +143,18 @@
       "example": {
         "title": "Full Example: Diabetes Care Quality Measure",
         "description": "The following example demonstrates how to use CQL + TWCORE IG to define a diabetes care quality measure calculating HbA1c screening completion rate."
+      },
+      "headers": {
+        "resource": "FHIR Resource",
+        "profile": "TWCORE Profile",
+        "description": "Description"
       }
     },
     "examples": {
       "title": "Interactive Examples",
       "subtitle": "Click an example to view CQL code and detailed explanation",
       "tryInEditor": "Open in Editor",
+      "openInEditor": "Open in Editor",
       "copyCode": "Copy Code",
       "copied": "Copied!",
       "diabetes": {
@@ -209,7 +218,15 @@
       "success": "Translation successful! CQL syntax is correct.",
       "errors": "Translation found {{count}} issue(s):",
       "loginRequired": "Login to use full translation features",
-      "loginToTranslate": "Login to Translate"
+      "loginToTranslate": "Login to Translate",
+      "lines": "{{count}} lines",
+      "templates": {
+        "starter": "Starter Template",
+        "diabetes": "Diabetes Care",
+        "hypertension": "Hypertension",
+        "medication": "Medication Safety",
+        "encounter": "Encounter Analysis"
+      }
     },
     "quiz": {
       "title": "CQL Self Quiz",
@@ -224,6 +241,231 @@
       "needsWork": "Keep learning! Review the Introduction and Core Concepts sections.",
       "correct": "Correct!",
       "incorrect": "Incorrect.",
+      "q1": {
+        "question": "What does CQL stand for?",
+        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
+        "answer": 1,
+        "explanation": "CQL stands for Clinical Quality Language, developed by HL7 International."
+      },
+      "q2": {
+        "question": "Which data model does CQL use to access clinical data?",
+        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
+        "answer": 2,
+        "explanation": "CQL is built on top of the FHIR (Fast Healthcare Interoperability Resources) data model."
+      },
+      "q3": {
+        "question": "How do you query all Condition resources in CQL?",
+        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
+        "answer": 1,
+        "explanation": "CQL uses bracket syntax [ResourceType] to query FHIR resources, e.g., [Condition] retrieves all Condition resources."
+      },
+      "q4": {
+        "question": "What is the compiled intermediate format of CQL called?",
+        "options": ["AST", "ELM", "XML", "JSON-LD"],
+        "answer": 1,
+        "explanation": "CQL is compiled to ELM (Expression Logical Model), a machine-executable logical model."
+      },
+      "q5": {
+        "question": "Which organization developed the TWCORE IG?",
+        "options": ["HL7 International", "WHO", "Ministry of Health and Welfare (Taiwan)", "National Health Insurance Administration"],
+        "answer": 2,
+        "explanation": "TWCORE IG is developed by Taiwan's Ministry of Health and Welfare based on HL7 FHIR R4."
+      },
+      "q6": {
+        "question": "What does 'context Patient' do in CQL?",
+        "options": ["Declares a patient variable", "Scopes queries to the currently evaluated patient", "Defines patient data structure", "Imports patient database"],
+        "answer": 1,
+        "explanation": "'context Patient' scopes all subsequent queries to the currently evaluated patient."
+      },
+      "q7": {
+        "question": "Which terminology system is primarily used for diagnoses in Taiwan?",
+        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
+        "answer": 2,
+        "explanation": "Taiwan primarily uses ICD-10-CM-TW for diagnosis coding."
+      },
+      "q8": {
+        "question": "What does the 'define' keyword do in CQL?",
+        "options": ["Defines a variable", "Creates a named reusable expression", "Declares a library", "Defines a data type"],
+        "answer": 1,
+        "explanation": "'define' creates named expressions that can be referenced by other definitions — CQL's core building blocks."
+      },
+      "q9": {
+        "question": "What lab test does LOINC code 4548-4 correspond to?",
+        "options": ["Glucose", "Creatinine", "HbA1c", "Cholesterol"],
+        "answer": 2,
+        "explanation": "LOINC 4548-4 corresponds to Hemoglobin A1c/Hemoglobin.total in Blood (HbA1c)."
+      },
+      "q10": {
+        "question": "What does eCQM stand for?",
+        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
+        "answer": 1,
+        "explanation": "eCQM stands for electronic Clinical Quality Measure, using CQL for measure logic definition."
+      }
+    },
+    "advanced": {
+      "title": "Advanced CQL Topics",
+      "subtitle": "Explore advanced CQL patterns for complex clinical logic",
+      "aggregate": {
+        "title": "Aggregate Queries",
+        "description": "Use aggregate functions like Count, Sum, and Avg to compute statistics over FHIR data collections."
+      },
+      "multiSource": {
+        "title": "Combined Queries (Multiple Sources)",
+        "description": "Query multiple FHIR resource types simultaneously and correlate data across them using multi-source queries."
+      },
+      "intervals": {
+        "title": "Interval Operations",
+        "description": "CQL provides rich interval operations for working with date ranges and numeric intervals: overlaps, during, meets, and more."
+      },
+      "tuples": {
+        "title": "Tuple Construction & Access",
+        "description": "Tuples let you create structured data with named fields, useful for returning composite results from definitions."
+      }
+    },
+    "troubleshooting": {
+      "title": "Troubleshooting Guide",
+      "subtitle": "Common CQL errors and how to fix them",
+      "errors": {
+        "resolveType": {
+          "title": "Could not resolve type",
+          "error": "Could not resolve type name 'Patient'",
+          "solution": "Add the FHIR model declaration at the top of your library. This tells CQL which data model to use for resolving resource types.",
+          "fix": "Add 'using FHIR version '4.0.1'' after your library declaration"
+        },
+        "resolveContext": {
+          "title": "Could not resolve context",
+          "error": "Could not resolve context name 'Patients'",
+          "solution": "Use the correct context name. Valid contexts are 'Patient', 'Practitioner', 'Encounter', or 'Unfiltered'. The most common is 'Patient'.",
+          "fix": "Use 'context Patient' (singular, capitalized)"
+        },
+        "invokeMember": {
+          "title": "Cannot invoke member",
+          "error": "Cannot invoke member 'value' on type 'List<FHIR.Observation>'",
+          "solution": "You're trying to access a property on a list instead of a single element. Use a query alias to access individual elements.",
+          "fix": "Use a query: [Observation] O where O.value is not null"
+        },
+        "resolveCodeSystem": {
+          "title": "Could not resolve code system",
+          "error": "Could not resolve code system name 'LOINC'",
+          "solution": "Declare the code system before referencing it. Code systems must be declared with their canonical URL.",
+          "fix": "Add: codesystem \"LOINC\": 'http://loinc.org'"
+        },
+        "timeout": {
+          "title": "Translation Timeout",
+          "error": "Translation timed out after 30 seconds",
+          "solution": "Your CQL may be too complex. Break down large expressions into smaller define statements, reduce nested queries, or simplify logic.",
+          "fix": "Split complex expressions into multiple simpler definitions"
+        },
+        "noResults": {
+          "title": "No Results Returned",
+          "error": "All definitions returned null or empty results",
+          "solution": "Check that your FHIR server has matching data. Verify date ranges in your Measurement Period, code system URIs, and value set OIDs match the data on the server.",
+          "fix": "Verify data exists: check patient IDs, date ranges, and terminology codes"
+        }
+      }
+    },
+    "cheatSheet": {
+      "title": "CQL Quick Reference",
+      "subtitle": "A concise cheat sheet for CQL syntax and common patterns",
+      "dataTypes": {
+        "title": "Data Types",
+        "type": "Type",
+        "example": "Example",
+        "boolean": "Boolean",
+        "booleanEx": "true, false",
+        "integer": "Integer",
+        "integerEx": "42, -7",
+        "decimal": "Decimal",
+        "decimalEx": "3.14, -0.5",
+        "string": "String",
+        "stringEx": "'Hello World'",
+        "dateTime": "DateTime",
+        "dateTimeEx": "@2024-01-15T08:30:00",
+        "time": "Time",
+        "timeEx": "@T14:30:00",
+        "quantity": "Quantity",
+        "quantityEx": "120 'mmHg'",
+        "interval": "Interval",
+        "intervalEx": "Interval[1, 10]",
+        "list": "List",
+        "listEx": "{ 1, 2, 3 }",
+        "tuple": "Tuple",
+        "tupleEx": "Tuple { name: 'test', value: 1 }"
+      },
+      "operators": {
+        "title": "Operators",
+        "category": "Category",
+        "operatorCol": "Operator",
+        "comparison": "Comparison",
+        "comparisonOps": "=, !=, <, >, <=, >=, ~, !~",
+        "arithmetic": "Arithmetic",
+        "arithmeticOps": "+, -, *, /, div, mod",
+        "stringOps": "String",
+        "stringOpsVal": "+, &, Length(), IndexOf(), Substring()",
+        "dateTimeOps": "DateTime",
+        "dateTimeOpsVal": "+, -, duration in, difference in",
+        "listOps": "List",
+        "listOpsVal": "in, contains, includes, union, intersect, except",
+        "logical": "Logical",
+        "logicalOps": "and, or, not, xor, implies"
+      },
+      "retrieve": {
+        "title": "FHIR Retrieve Patterns",
+        "pattern": "Pattern",
+        "basicRetrieve": "Basic retrieve",
+        "basicRetrieveEx": "[Condition]",
+        "codeFilter": "With code filter",
+        "codeFilterEx": "[Condition: \"Diabetes\"]",
+        "dateFilter": "With date filter",
+        "dateFilterEx": "[Observation] O where O.effective during \"Measurement Period\""
+      },
+      "functions": {
+        "title": "Common Functions",
+        "function": "Function",
+        "description": "Description",
+        "ageInYears": "AgeInYears()",
+        "ageInYearsDesc": "Patient's age in years at evaluation time",
+        "count": "Count(list)",
+        "countDesc": "Number of elements in a list",
+        "exists": "exists(list)",
+        "existsDesc": "True if list has at least one element",
+        "first": "First(list)",
+        "firstDesc": "First element of a list",
+        "last": "Last(list)",
+        "lastDesc": "Last element of a list",
+        "sum": "Sum(list)",
+        "sumDesc": "Sum of numeric elements",
+        "avg": "Avg(list)",
+        "avgDesc": "Average of numeric elements",
+        "toString": "ToString(value)",
+        "toStringDesc": "Convert value to string representation",
+        "toDateTime": "ToDateTime(value)",
+        "toDateTimeDesc": "Convert value to DateTime",
+        "flatten": "Flatten(list)",
+        "flattenDesc": "Flatten nested lists into a single list"
+      }
+    },
+    "quiz": {
+      "title": "CQL Self Quiz",
+      "subtitle": "Test your understanding of CQL core concepts",
+      "question": "Question {{current}} of {{total}}",
+      "checkAnswer": "Check Answer",
+      "next": "Next",
+      "restart": "Restart Quiz",
+      "score": "Your score: {{score}} / {{total}}",
+      "perfect": "Perfect score! You've mastered CQL core concepts.",
+      "good": "Well done! Consider reviewing the questions you missed.",
+      "needsWork": "Keep learning! Review the Introduction and Core Concepts sections.",
+      "correct": "Correct!",
+      "incorrect": "Incorrect.",
+      "reviewTopics": "Topics to review:",
+      "topics": {
+        "terminology": "Terminology",
+        "syntax": "Syntax",
+        "concepts": "Concepts",
+        "twcore": "TWCORE",
+        "standards": "Standards"
+      },
       "q1": {
         "question": "What does CQL stand for?",
         "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],

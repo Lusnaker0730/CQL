@@ -9,13 +9,30 @@ import {
   Radio,
   Alert,
   LinearProgress,
+  Chip,
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 
 const QUESTION_COUNT = 10
 
+// Topic mapping: question index -> topic key
+const TOPIC_MAP: Record<number, { key: string; tab: string }> = {
+  0: { key: 'terminology', tab: 'concepts' },
+  1: { key: 'terminology', tab: 'concepts' },
+  2: { key: 'syntax', tab: 'concepts' },
+  3: { key: 'concepts', tab: 'concepts' },
+  4: { key: 'twcore', tab: 'twcore' },
+  5: { key: 'concepts', tab: 'concepts' },
+  6: { key: 'twcore', tab: 'twcore' },
+  7: { key: 'syntax', tab: 'concepts' },
+  8: { key: 'standards', tab: 'twcore' },
+  9: { key: 'standards', tab: 'introduction' },
+}
+
 export default function CqlQuiz() {
   const { t } = useTranslation('landing')
+  const [, setSearchParams] = useSearchParams()
   const [currentQ, setCurrentQ] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [checked, setChecked] = useState(false)
@@ -57,7 +74,26 @@ export default function CqlQuiz() {
     setFinished(false)
   }, [])
 
+  const handleNavigateToTab = useCallback((tab: string) => {
+    setSearchParams({ tab })
+  }, [setSearchParams])
+
   const totalCorrect = scores.filter(Boolean).length
+
+  // Compute missed topics from wrong answers
+  const missedTopics = useMemo(() => {
+    if (!finished) return []
+    const topicSet = new Map<string, string>()
+    scores.forEach((correct, index) => {
+      if (!correct) {
+        const topic = TOPIC_MAP[index]
+        if (topic && !topicSet.has(topic.key)) {
+          topicSet.set(topic.key, topic.tab)
+        }
+      }
+    })
+    return Array.from(topicSet.entries()).map(([key, tab]) => ({ key, tab }))
+  }, [finished, scores])
 
   if (finished) {
     const ratio = totalCorrect / QUESTION_COUNT
@@ -90,6 +126,28 @@ export default function CqlQuiz() {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.7 }}>
             {t(`learn.quiz.${feedbackKey}`)}
           </Typography>
+
+          {missedTopics.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('learn.quiz.reviewTopics')}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {missedTopics.map(({ key, tab }) => (
+                  <Chip
+                    key={key}
+                    label={t(`learn.quiz.topics.${key}`)}
+                    color="warning"
+                    variant="outlined"
+                    clickable
+                    onClick={() => handleNavigateToTab(tab)}
+                    sx={{ fontWeight: 600 }}
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+
           <Button variant="contained" onClick={handleRestart} sx={{ textTransform: 'none', px: 4 }}>
             {t('learn.quiz.restart')}
           </Button>
