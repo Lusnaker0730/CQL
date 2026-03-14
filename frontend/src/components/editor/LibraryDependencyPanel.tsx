@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -35,6 +36,7 @@ export default function LibraryDependencyPanel({
   libraryName,
   onLoadLibrary,
 }: LibraryDependencyPanelProps) {
+  const { t } = useTranslation('editor')
   const [depsOpen, setDepsOpen] = useState(true)
   const [dependentsOpen, setDependentsOpen] = useState(true)
 
@@ -45,7 +47,7 @@ export default function LibraryDependencyPanel({
     return (
       <Box sx={{ p: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          Save a library first to view its dependency analysis.
+          {t('dependency.saveFirst')}
         </Typography>
       </Box>
     )
@@ -64,7 +66,7 @@ export default function LibraryDependencyPanel({
         <Stack direction="row" alignItems="center" spacing={1}>
           <TreeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Dependency Analysis
+            {t('dependency.title')}
           </Typography>
         </Stack>
       </Box>
@@ -80,7 +82,7 @@ export default function LibraryDependencyPanel({
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <DependencyIcon sx={{ fontSize: 16, color: 'info.main' }} />
           <Typography variant="subtitle2">
-            Dependencies
+            {t('dependency.dependencies')}
           </Typography>
           <Chip label={dependencies.length} size="small" sx={{ height: 18, fontSize: '0.7rem' }} />
         </Stack>
@@ -93,7 +95,7 @@ export default function LibraryDependencyPanel({
           </Box>
         ) : dependencies.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, pb: 1, display: 'block' }}>
-            No dependencies found.
+            {t('dependency.noDependencies')}
           </Typography>
         ) : (
           <List dense disablePadding>
@@ -143,7 +145,7 @@ export default function LibraryDependencyPanel({
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <DependentIcon sx={{ fontSize: 16, color: 'warning.main' }} />
           <Typography variant="subtitle2">
-            Impact Analysis
+            {t('dependency.impactAnalysis')}
           </Typography>
           <Chip label={dependents.length} size="small" sx={{ height: 18, fontSize: '0.7rem' }} />
         </Stack>
@@ -156,13 +158,13 @@ export default function LibraryDependencyPanel({
           </Box>
         ) : dependents.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, pb: 1, display: 'block' }}>
-            No other libraries depend on this one.
+            {t('dependency.noDependents')}
           </Typography>
         ) : (
           <>
             <Alert severity="info" sx={{ mx: 1, mb: 0.5, py: 0 }}>
               <Typography variant="caption">
-                {dependents.length} {dependents.length === 1 ? 'library' : 'libraries'} will be affected by changes to this library.
+                {t('dependency.affectedLibraries', { count: dependents.length })}
               </Typography>
             </Alert>
             <List dense disablePadding>

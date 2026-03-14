@@ -1,4 +1,5 @@
 import { Box, TextField, Chip, Typography } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 
 interface ResourceFormHeaderProps {
   resourceType: string
@@ -7,6 +8,8 @@ interface ResourceFormHeaderProps {
 }
 
 export default function ResourceFormHeader({ resourceType, resourceId, onIdChange }: ResourceFormHeaderProps) {
+  const { t } = useTranslation('measures')
+
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
       <Chip
@@ -15,12 +18,12 @@ export default function ResourceFormHeader({ resourceType, resourceId, onIdChang
         size="small"
         sx={{ fontWeight: 600 }}
       />
-      <Typography variant="caption" color="text.secondary">ID:</Typography>
+      <Typography variant="caption" color="text.secondary">{t('testCaseBuilder.idLabel')}</Typography>
       <TextField
         size="small"
         value={resourceId}
         onChange={(e) => onIdChange(e.target.value)}
-        placeholder="resource-id"
+        placeholder={t('testCaseBuilder.idPlaceholder')}
         sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.85rem' } }}
         variant="standard"
       />

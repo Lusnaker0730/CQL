@@ -5,12 +5,17 @@ import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.CqlTranslationResponse.ExpressionInfo;
 import com.cqlplatform.model.measure.*;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
 
 @Service
 @RequiredArgsConstructor
@@ -23,11 +28,24 @@ public class MeasureValidationService {
 
     // Required populations per scoring type
     private static final Map<String, List<String>> REQUIRED_POPULATIONS = Map.of(
-            "proportion", List.of("initial-population", "denominator", "numerator"),
-            "ratio", List.of("initial-population", "denominator", "numerator"),
-            "continuous-variable", List.of("initial-population", "measure-population"),
-            "cohort", List.of("initial-population"),
-            "composite", List.of()
+            ScoringTypeConstants.PROPORTION, List.of(INITIAL_POPULATION, DENOMINATOR, NUMERATOR),
+            ScoringTypeConstants.RATIO, List.of(INITIAL_POPULATION, DENOMINATOR, NUMERATOR),
+            ScoringTypeConstants.CONTINUOUS_VARIABLE, List.of(INITIAL_POPULATION, MEASURE_POPULATION),
+            ScoringTypeConstants.COHORT, List.of(INITIAL_POPULATION),
+            ScoringTypeConstants.COMPOSITE, List.of()
+    );
+
+    private static final Map<String, String> QI_CORE_PROFILES = Map.ofEntries(
+            Map.entry("Patient", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-patient"),
+            Map.entry("Condition", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-condition"),
+            Map.entry("Encounter", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-encounter"),
+            Map.entry("Procedure", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-procedure"),
+            Map.entry("Observation", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-observation"),
+            Map.entry("MedicationRequest", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-medicationrequest"),
+            Map.entry("MedicationAdministration", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-medicationadministration"),
+            Map.entry("Immunization", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-immunization"),
+            Map.entry("ServiceRequest", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-servicerequest"),
+            Map.entry("Coverage", "http://hl7.org/fhir/us/qicore/StructureDefinition/qicore-coverage")
     );
 
     private static final Set<String> VALID_FHIR_RESOURCE_TYPES = Set.of(
@@ -81,7 +99,7 @@ public class MeasureValidationService {
         // 9. Test case sufficiency
         validateTestCases(measureId, report);
 
-        report.finalize(System.currentTimeMillis() - start);
+        report.complete(System.currentTimeMillis() - start);
         return report;
     }
 
@@ -99,7 +117,7 @@ public class MeasureValidationService {
         CqlTranslationResponse cqlResult = validateCql(measure, report);
         validatePopulations(measure, cqlResult, report);
 
-        report.finalize(System.currentTimeMillis() - start);
+        report.complete(System.currentTimeMillis() - start);
         return report;
     }
 
@@ -190,7 +208,7 @@ public class MeasureValidationService {
 
         Set<String> cqlExpressionNames = getCqlExpressionNames(cqlResult);
         Map<String, String> expressionReturnTypes = getCqlExpressionReturnTypes(cqlResult);
-        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : "proportion";
+        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : ScoringTypeConstants.PROPORTION;
         List<String> required = REQUIRED_POPULATIONS.getOrDefault(scoringType, List.of());
 
         for (int gi = 0; gi < groups.size(); gi++) {
@@ -252,9 +270,9 @@ public class MeasureValidationService {
             }
 
             // Ratio dual-IP: both must have different associationType
-            if ("ratio".equalsIgnoreCase(scoringType)) {
+            if (ScoringTypeConstants.RATIO.equalsIgnoreCase(scoringType)) {
                 List<PopulationDefinition> ips = group.getPopulations().stream()
-                        .filter(p -> "initial-population".equals(p.getPopulationType()))
+                        .filter(p -> INITIAL_POPULATION.equals(p.getPopulationType()))
                         .collect(Collectors.toList());
                 if (ips.size() == 2) {
                     String assoc1 = ips.get(0).getAssociationType();
@@ -311,9 +329,9 @@ public class MeasureValidationService {
     private void validateObservations(MeasureDefinition measure, CqlTranslationResponse cqlResult, ValidationReport report) {
         if (measure.getGroupDefinitions() == null) return;
         Set<String> cqlExpressionNames = getCqlExpressionNames(cqlResult);
-        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : "proportion";
+        String scoringType = measure.getScoringType() != null ? measure.getScoringType() : ScoringTypeConstants.PROPORTION;
 
-        boolean needsObservation = "continuous-variable".equalsIgnoreCase(scoringType);
+        boolean needsObservation = ScoringTypeConstants.CONTINUOUS_VARIABLE.equalsIgnoreCase(scoringType);
 
         for (int gi = 0; gi < measure.getGroupDefinitions().size(); gi++) {
             GroupDefinition group = measure.getGroupDefinitions().get(gi);
@@ -431,8 +449,10 @@ public class MeasureValidationService {
 
         // Check that CQL uses FHIR model
         List<String> usings = cqlResult.getMetadata().getUsings();
+        boolean usesQiCore = false;
         if (usings != null) {
             boolean hasFhir = usings.stream().anyMatch(u -> u.contains("FHIR") || u.contains("QICore"));
+            usesQiCore = usings.stream().anyMatch(u -> u.contains("QICore"));
             if (!hasFhir) {
                 report.addWarning("QI_CORE",
                         "CQL does not reference FHIR or QI-Core data model. eCQMs should use FHIR-based models.",
@@ -440,15 +460,32 @@ public class MeasureValidationService {
             }
         }
 
-        // Check expressions for unknown resource types (basic heuristic from ELM)
-        // This is a lightweight check; full QI-Core profile validation would need profile definitions
+        // Check expressions for unknown resource types and suggest QI-Core profiles
         if (cqlResult.getElmJson() != null) {
-            for (String resourceType : extractRetrieveTypes(cqlResult.getElmJson())) {
+            List<String> retrieveTypes = extractRetrieveTypes(cqlResult.getElmJson());
+            for (String resourceType : retrieveTypes) {
                 if (!VALID_FHIR_RESOURCE_TYPES.contains(resourceType)) {
                     report.addWarning("QI_CORE",
                             "CQL retrieves resource type '" + resourceType + "' which is not a standard FHIR resource type",
                             resourceType, "Verify the resource type name is correct");
                 }
+            }
+
+            // Suggest QI-Core profiles for retrieved resource types
+            Set<String> uniqueTypes = new LinkedHashSet<>(retrieveTypes);
+            for (String resourceType : uniqueTypes) {
+                if (QI_CORE_PROFILES.containsKey(resourceType)) {
+                    report.addInfo("QI_CORE",
+                            "Resource '" + resourceType + "' has a QI-Core profile: " + QI_CORE_PROFILES.get(resourceType),
+                            resourceType, "Consider validating test data against this profile");
+                }
+            }
+
+            // If using FHIR but not QI-Core, suggest QI-Core for eCQM compliance
+            if (!usesQiCore && !uniqueTypes.isEmpty()) {
+                report.addInfo("QI_CORE",
+                        "Consider using QI-Core profiles for eCQM compliance. Add 'using QICore version \"4.1.1\"' to your CQL.",
+                        "usings", "QI-Core provides standardized profiles required by CMS for eCQM submission");
             }
         }
     }
@@ -512,31 +549,45 @@ public class MeasureValidationService {
                 .collect(Collectors.toMap(ExpressionInfo::getName, ExpressionInfo::getResultType, (a, b) -> a));
     }
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     /**
-     * Basic heuristic: extract resource type names from ELM JSON retrieve elements.
+     * Extract resource type names from ELM JSON retrieve elements.
      * Looks for "dataType" fields with format "{http://hl7.org/fhir}ResourceType".
      */
     private List<String> extractRetrieveTypes(String elmJson) {
         List<String> types = new ArrayList<>();
         if (elmJson == null) return types;
 
-        // Simple regex-based extraction of retrieve dataType from ELM JSON
-        int idx = 0;
-        String searchKey = "\"dataType\"";
-        while ((idx = elmJson.indexOf(searchKey, idx)) != -1) {
-            int colonIdx = elmJson.indexOf(":", idx);
-            int quoteStart = elmJson.indexOf("\"", colonIdx + 1);
-            int quoteEnd = elmJson.indexOf("\"", quoteStart + 1);
-            if (quoteStart >= 0 && quoteEnd > quoteStart) {
-                String value = elmJson.substring(quoteStart + 1, quoteEnd);
+        try {
+            JsonNode root = MAPPER.readTree(elmJson);
+            collectDataTypes(root, types);
+        } catch (Exception e) {
+            log.warn("Failed to parse ELM JSON for retrieve type extraction: {}", e.getMessage());
+        }
+        return types;
+    }
+
+    private void collectDataTypes(JsonNode node, List<String> types) {
+        if (node == null) return;
+
+        if (node.isObject()) {
+            JsonNode dataType = node.get("dataType");
+            if (dataType != null && dataType.isTextual()) {
+                String value = dataType.asText();
                 // Extract resource type from "{http://hl7.org/fhir}ResourceType"
-                int braceEnd = value.indexOf("}");
+                int braceEnd = value.indexOf('}');
                 if (braceEnd >= 0 && braceEnd + 1 < value.length()) {
                     types.add(value.substring(braceEnd + 1));
                 }
             }
-            idx = quoteEnd > 0 ? quoteEnd : idx + 1;
+            for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+                collectDataTypes(it.next(), types);
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) {
+                collectDataTypes(child, types);
+            }
         }
-        return types;
     }
 }

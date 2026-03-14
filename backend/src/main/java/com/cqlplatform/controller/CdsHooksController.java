@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.model.cds.*;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.cds.CdsHooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.cqlplatform.util.IdGenerator;
 
 @RestController
 @RequestMapping("/cds-services")
@@ -38,6 +40,9 @@ public class CdsHooksController {
     public ResponseEntity<?> invokeService(
             @PathVariable String serviceId,
             @Valid @RequestBody CdsRequest request) {
+        if (request.getFhirServer() != null) {
+            InputValidator.requireValidUrl(request.getFhirServer());
+        }
         log.info("CDS invoke: serviceId={}, hook={}, fhirServer={}, prefetchKeys={}, patientId={}",
                 serviceId, request.getHook(), request.getFhirServer(),
                 request.getPrefetch() != null ? request.getPrefetch().keySet() : "null",
@@ -73,8 +78,12 @@ public class CdsHooksController {
             CdsRequest cdsRequest = new CdsRequest();
             cdsRequest.setHook(sandboxRequest.getHook());
             cdsRequest.setHookInstance(sandboxRequest.getHookInstance() != null
-                    ? sandboxRequest.getHookInstance() : java.util.UUID.randomUUID().toString());
+                    ? sandboxRequest.getHookInstance() : IdGenerator.uuid());
             cdsRequest.setContext(sandboxRequest.getContext());
+            // Inject draftOrders into context if provided (for order-select/order-sign hooks)
+            if (sandboxRequest.getDraftOrders() != null && cdsRequest.getContext() != null) {
+                cdsRequest.getContext().setDraftOrders(sandboxRequest.getDraftOrders());
+            }
             // Use testData as prefetch, no fhirServer -> forces PrefetchRetrieveProvider
             cdsRequest.setPrefetch(sandboxRequest.getTestData());
 
@@ -113,6 +122,9 @@ public class CdsHooksController {
             return ResponseEntity.status(403).build();
         }
 
+        if (request.getFhirServer() != null) {
+            InputValidator.requireValidUrl(request.getFhirServer());
+        }
         log.info("Per-user CDS invoke: user={}, serviceId={}", username, serviceId);
         try {
             CdsResponse response = cdsHooksService.invokeService(serviceId, request);

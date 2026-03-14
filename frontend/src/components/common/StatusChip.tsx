@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Chip, type ChipProps } from '@mui/material'
 import {
   CheckCircle as ActiveIcon,
@@ -5,12 +6,13 @@ import {
   Archive as RetiredIcon,
   RateReview as ReviewIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 
-const STATUS_CONFIG: Record<string, { color: ChipProps['color']; icon: React.ReactElement }> = {
-  draft: { color: 'default', icon: <DraftIcon sx={{ fontSize: 14 }} /> },
-  'in-review': { color: 'info', icon: <ReviewIcon sx={{ fontSize: 14 }} /> },
-  active: { color: 'success', icon: <ActiveIcon sx={{ fontSize: 14 }} /> },
-  retired: { color: 'warning', icon: <RetiredIcon sx={{ fontSize: 14 }} /> },
+const STATUS_CONFIG: Record<string, { color: ChipProps['color']; icon: React.ReactElement; labelKey: string }> = {
+  draft: { color: 'default', icon: <DraftIcon sx={{ fontSize: 14 }} />, labelKey: 'status.draft' },
+  'in-review': { color: 'info', icon: <ReviewIcon sx={{ fontSize: 14 }} />, labelKey: 'status.inReview' },
+  active: { color: 'success', icon: <ActiveIcon sx={{ fontSize: 14 }} />, labelKey: 'status.active' },
+  retired: { color: 'warning', icon: <RetiredIcon sx={{ fontSize: 14 }} />, labelKey: 'status.retired' },
 }
 
 interface StatusChipProps {
@@ -18,12 +20,12 @@ interface StatusChipProps {
   size?: ChipProps['size']
 }
 
-export default function StatusChip({ status, size = 'small' }: StatusChipProps) {
+function StatusChip({ status, size = 'small' }: StatusChipProps) {
+  const { t } = useTranslation()
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.draft
-  const displayLabel = status === 'in-review' ? 'In Review' : status.charAt(0).toUpperCase() + status.slice(1)
   return (
     <Chip
-      label={displayLabel}
+      label={t(config.labelKey)}
       size={size}
       color={config.color}
       icon={config.icon}
@@ -32,3 +34,5 @@ export default function StatusChip({ status, size = 'small' }: StatusChipProps) 
     />
   )
 }
+
+export default memo(StatusChip)

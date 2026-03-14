@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -28,7 +30,17 @@ import { measureApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { helpContent } from '../../constants/helpContent'
 import { REFERENCE_TYPES } from '../../constants/populationConfig'
+import {
+  MEASURE_STATUS_OPTIONS,
+  SCORING_TYPE_OPTIONS,
+  MEASURE_SETTING_OPTIONS,
+  COMPOSITE_SCORING_OPTIONS,
+  DEFAULT_REFERENCE_TYPE,
+} from '../../constants/measureConstants'
 import type { MeasureDefinition, MeasureReference } from '../../types'
+import DepartmentSelector from '../common/DepartmentSelector'
+import IndicatorMappingSection from './IndicatorMappingSection'
+import { MEASURE } from '../../constants/fieldConstraints'
 
 interface MeasureDetailsTabProps {
   measure: MeasureDefinition
@@ -44,6 +56,7 @@ function sectionFilled(fields: (string | undefined | null | unknown[])[]): boole
 }
 
 export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }: MeasureDetailsTabProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [form, setForm] = useState<MeasureDefinition>({ ...measure })
   const [isDirty, setIsDirty] = useState(false)
@@ -73,7 +86,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
   // Reference management
   const addReference = () => {
     const refs = [...(form.references || [])]
-    refs.push({ type: 'citation', reference: '' })
+    refs.push({ type: DEFAULT_REFERENCE_TYPE, reference: '' })
     updateField('references', refs)
   }
 
@@ -107,7 +120,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
     updateField('developers', devs)
   }
 
-  const generalFilled = sectionFilled([form.name, form.version, form.scoringType, form.measureSet, form.setting])
+  const generalFilled = sectionFilled([form.name, form.version, form.scoringType, form.measureSet, form.setting, form.nqfNumber, form.cmsMeasureId])
   const overviewFilled = sectionFilled([form.title, form.description, form.rationale, form.clinicalGuidance])
   const stewardFilled = sectionFilled([form.steward, form.developers])
   const refsFilled = sectionFilled([form.references])
@@ -116,7 +129,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       <SectionHeader
-        title="Measure Details"
+        title={t('details.title')}
         helpText={helpContent.measures.details}
         actions={
           <GradientButton
@@ -124,20 +137,20 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
             disabled={!isDirty || updateMutation.isPending || readOnly}
             onClick={() => updateMutation.mutate()}
           >
-            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            {updateMutation.isPending ? t('details.saving') : t('details.saveChanges')}
           </GradientButton>
         }
       />
 
       {updateMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(updateMutation.error as Error).message}
+          {extractApiError(updateMutation.error)}
         </Alert>
       )}
 
       {updateMutation.isSuccess && !isDirty && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Measure updated successfully.
+          {t('details.updateSuccess')}
         </Alert>
       )}
 
@@ -147,94 +160,121 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {generalFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">General Information</Typography>
+              <Typography variant="subtitle2">{t('details.generalInformation')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Name"
+                label={t('details.fields.name')}
                 required
                 size="small"
                 fullWidth
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
+                inputProps={{ maxLength: MEASURE.name.maxLength }}
               />
               <Stack direction="row" spacing={2}>
                 <TextField
-                  label="Version"
+                  label={t('details.fields.version')}
                   size="small"
                   fullWidth
                   value={form.version}
                   onChange={(e) => updateField('version', e.target.value)}
+                  inputProps={{ maxLength: MEASURE.version.maxLength }}
                 />
                 <TextField
-                  label="Status"
+                  label={t('details.fields.status')}
                   select
                   size="small"
                   fullWidth
                   value={form.status}
                   onChange={(e) => updateField('status', e.target.value)}
                 >
-                  <MenuItem value="draft">Draft</MenuItem>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="retired">Retired</MenuItem>
+                  {MEASURE_STATUS_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
               </Stack>
               <Stack direction="row" spacing={2}>
                 <TextField
-                  label="Scoring Type"
+                  label={t('details.fields.scoringType')}
                   select
                   size="small"
                   fullWidth
                   value={form.scoringType}
                   onChange={(e) => updateField('scoringType', e.target.value)}
                 >
-                  <MenuItem value="proportion">Proportion</MenuItem>
-                  <MenuItem value="ratio">Ratio</MenuItem>
-                  <MenuItem value="continuous-variable">Continuous Variable</MenuItem>
-                  <MenuItem value="cohort">Cohort</MenuItem>
-                  <MenuItem value="composite">Composite</MenuItem>
+                  {SCORING_TYPE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
                 <TextField
-                  label="Measure Set"
+                  label={t('details.fields.measureSet')}
                   size="small"
                   fullWidth
                   value={form.measureSet || ''}
                   onChange={(e) => updateField('measureSet', e.target.value)}
-                  placeholder="e.g. CMS Quality Reporting"
+                  placeholder={t('details.fields.measureSetPlaceholder')}
+                  inputProps={{ maxLength: MEASURE.measureSet.maxLength }}
                 />
               </Stack>
-              <TextField
-                label="Setting"
-                select
-                size="small"
-                fullWidth
-                value={form.setting || ''}
-                onChange={(e) => updateField('setting', e.target.value)}
-                helperText="Care setting where this measure applies"
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                <MenuItem value="inpatient">Inpatient</MenuItem>
-                <MenuItem value="outpatient">Outpatient</MenuItem>
-                <MenuItem value="emergency">Emergency</MenuItem>
-                <MenuItem value="community">Community</MenuItem>
-                <MenuItem value="long-term-care">Long-term Care</MenuItem>
-                <MenuItem value="home-health">Home Health</MenuItem>
-              </TextField>
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  label={t('details.fields.nqfNumber')}
+                  size="small"
+                  fullWidth
+                  value={form.nqfNumber || ''}
+                  onChange={(e) => updateField('nqfNumber', e.target.value)}
+                  placeholder={t('details.fields.nqfNumberPlaceholder')}
+                  inputProps={{ maxLength: MEASURE.nqfNumber.maxLength }}
+                />
+                <TextField
+                  label={t('details.fields.cmsMeasureId')}
+                  size="small"
+                  fullWidth
+                  value={form.cmsMeasureId || ''}
+                  onChange={(e) => updateField('cmsMeasureId', e.target.value)}
+                  placeholder={t('details.fields.cmsMeasureIdPlaceholder')}
+                  inputProps={{ maxLength: MEASURE.cmsMeasureId.maxLength }}
+                />
+              </Stack>
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  label={t('details.fields.setting')}
+                  select
+                  size="small"
+                  fullWidth
+                  value={form.setting || ''}
+                  onChange={(e) => updateField('setting', e.target.value)}
+                  helperText={t('details.fields.settingHelper')}
+                >
+                  <MenuItem value="">
+                    <em>{t('details.fields.none')}</em>
+                  </MenuItem>
+                  {MEASURE_SETTING_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </TextField>
+                <DepartmentSelector
+                  value={form.department || ''}
+                  onChange={(v) => updateField('department', v)}
+                  label={t('details.fields.department')}
+                  showAll={false}
+                />
+              </Stack>
               {form.compositeScoring && (
                 <TextField
-                  label="Composite Scoring"
+                  label={t('details.fields.compositeScoring')}
                   select
                   size="small"
                   fullWidth
                   value={form.compositeScoring || ''}
                   onChange={(e) => updateField('compositeScoring', e.target.value)}
                 >
-                  <MenuItem value="opportunity">Opportunity</MenuItem>
-                  <MenuItem value="linear">Linear</MenuItem>
+                  {COMPOSITE_SCORING_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </TextField>
               )}
             </Stack>
@@ -246,46 +286,53 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {overviewFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">Measure Overview</Typography>
+              <Typography variant="subtitle2">{t('details.measureOverview')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Title"
+                label={t('details.overviewFields.title')}
                 size="small"
                 fullWidth
                 value={form.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
+                inputProps={{ maxLength: MEASURE.title.maxLength }}
               />
               <TextField
-                label="Description"
+                label={t('details.overviewFields.description')}
                 size="small"
                 fullWidth
                 multiline
                 rows={3}
                 value={form.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
+                inputProps={{ maxLength: MEASURE.description.maxLength }}
+                helperText={`${(form.description || '').length} / ${MEASURE.description.maxLength}`}
               />
               <TextField
-                label="Rationale"
+                label={t('details.overviewFields.rationale')}
                 size="small"
                 fullWidth
                 multiline
                 rows={3}
                 value={form.rationale || ''}
                 onChange={(e) => updateField('rationale', e.target.value)}
-                placeholder="Why is this measure important?"
+                placeholder={t('details.overviewFields.rationalePlaceholder')}
+                inputProps={{ maxLength: MEASURE.rationale.maxLength }}
+                helperText={`${(form.rationale || '').length} / ${MEASURE.rationale.maxLength}`}
               />
               <TextField
-                label="Clinical Guidance"
+                label={t('details.overviewFields.clinicalGuidance')}
                 size="small"
                 fullWidth
                 multiline
                 rows={3}
                 value={form.clinicalGuidance || ''}
                 onChange={(e) => updateField('clinicalGuidance', e.target.value)}
-                placeholder="Implementation guidance for clinical users"
+                placeholder={t('details.overviewFields.clinicalGuidancePlaceholder')}
+                inputProps={{ maxLength: MEASURE.clinicalGuidance.maxLength }}
+                helperText={`${(form.clinicalGuidance || '').length} / ${MEASURE.clinicalGuidance.maxLength}`}
               />
             </Stack>
           </AccordionDetails>
@@ -296,21 +343,22 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {stewardFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">Steward & Developers</Typography>
+              <Typography variant="subtitle2">{t('details.stewardDevelopers')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Steward"
+                label={t('details.stewardFields.steward')}
                 size="small"
                 fullWidth
                 value={form.steward || ''}
                 onChange={(e) => updateField('steward', e.target.value)}
-                placeholder="Organization responsible for the measure"
+                placeholder={t('details.stewardFields.stewardPlaceholder')}
+                inputProps={{ maxLength: MEASURE.steward.maxLength }}
               />
               <Divider />
-              <Typography variant="caption" color="text.secondary">Developers</Typography>
+              <Typography variant="caption" color="text.secondary">{t('details.stewardFields.developers')}</Typography>
               {(form.developers || []).map((dev, i) => (
                 <Stack key={i} direction="row" spacing={1} alignItems="center">
                   <TextField
@@ -318,15 +366,16 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                     fullWidth
                     value={dev}
                     onChange={(e) => updateDeveloper(i, e.target.value)}
-                    placeholder="Developer name or organization"
+                    placeholder={t('details.stewardFields.developerPlaceholder')}
+                    inputProps={{ maxLength: MEASURE.developer.maxLength }}
                   />
-                  <IconButton size="small" aria-label="Remove developer" color="error" onClick={() => removeDeveloper(i)}>
+                  <IconButton size="small" aria-label={t('details.stewardFields.removeDeveloper')} color="error" onClick={() => removeDeveloper(i)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>
               ))}
               <Button size="small" startIcon={<AddIcon />} onClick={addDeveloper} sx={{ alignSelf: 'flex-start' }}>
-                Add Developer
+                {t('details.stewardFields.addDeveloper')}
               </Button>
             </Stack>
           </AccordionDetails>
@@ -337,7 +386,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {refsFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">References</Typography>
+              <Typography variant="subtitle2">{t('details.references')}</Typography>
               {(form.references || []).length > 0 && (
                 <Chip label={`${(form.references || []).length}`} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
               )}
@@ -349,63 +398,76 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
                   <TextField
                     select
-                    label="Type"
+                    label={t('details.referenceFields.type')}
                     size="small"
                     sx={{ minWidth: 160 }}
                     value={ref.type}
                     onChange={(e) => updateReference(i, 'type', e.target.value)}
                   >
-                    {REFERENCE_TYPES.map((t) => (
-                      <MenuItem key={t} value={t}>{t}</MenuItem>
+                    {REFERENCE_TYPES.map((refType) => (
+                      <MenuItem key={refType} value={refType}>{refType}</MenuItem>
                     ))}
                   </TextField>
                   <TextField
-                    label="Reference"
+                    label={t('details.referenceFields.reference')}
                     size="small"
                     fullWidth
                     value={ref.reference}
                     onChange={(e) => updateReference(i, 'reference', e.target.value)}
-                    placeholder="URL or citation text"
+                    placeholder={t('details.referenceFields.referencePlaceholder')}
+                    inputProps={{ maxLength: MEASURE.reference.maxLength }}
                   />
-                  <IconButton size="small" aria-label="Remove reference" color="error" onClick={() => removeReference(i)}>
+                  <IconButton size="small" aria-label={t('details.referenceFields.removeReference')} color="error" onClick={() => removeReference(i)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>
               ))}
               <Button size="small" startIcon={<AddIcon />} onClick={addReference} sx={{ alignSelf: 'flex-start' }}>
-                Add Reference
+                {t('details.referenceFields.addReference')}
               </Button>
             </Stack>
           </AccordionDetails>
         </Accordion>
+
+        {/* Indicator Code Mapping */}
+        <IndicatorMappingSection
+          measure={form}
+          onChange={(updates) => {
+            setForm((prev) => ({ ...prev, ...updates }))
+            setIsDirty(true)
+          }}
+          readOnly={readOnly}
+        />
 
         {/* Legal */}
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
               {legalFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
-              <Typography variant="subtitle2">Legal</Typography>
+              <Typography variant="subtitle2">{t('details.legal')}</Typography>
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <TextField
-                label="Copyright"
+                label={t('details.legalFields.copyright')}
                 size="small"
                 fullWidth
                 multiline
                 rows={2}
                 value={form.copyright || ''}
                 onChange={(e) => updateField('copyright', e.target.value)}
+                inputProps={{ maxLength: MEASURE.copyright.maxLength }}
               />
               <TextField
-                label="Disclaimer"
+                label={t('details.legalFields.disclaimer')}
                 size="small"
                 fullWidth
                 multiline
                 rows={2}
                 value={form.disclaimer || ''}
                 onChange={(e) => updateField('disclaimer', e.target.value)}
+                inputProps={{ maxLength: MEASURE.disclaimer.maxLength }}
               />
             </Stack>
           </AccordionDetails>

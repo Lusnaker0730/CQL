@@ -1,10 +1,16 @@
-import { useState } from 'react'
-import { Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack } from '@mui/material'
-import { MenuBook as MenuBookIcon } from '@mui/icons-material'
+import { useState, useEffect, useRef } from 'react'
+import {
+  Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack,
+  FormControl, InputLabel, Select, MenuItem, FormHelperText,
+} from '@mui/material'
+import { MenuBook as MenuBookIcon, Search as SearchIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
+import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 import TwcoreCodePicker from './TwcoreCodePicker'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
 interface CodeFieldProps {
@@ -14,28 +20,62 @@ interface CodeFieldProps {
 }
 
 export default function CodeField({ element, value, onChange }: CodeFieldProps) {
+  const { t } = useTranslation('measures')
   const [inputValue, setInputValue] = useState(String(value || ''))
+  const [debouncedInput, setDebouncedInput] = useState(inputValue)
   const [twcoreOpen, setTwcoreOpen] = useState(false)
+
+  // Sync local input when value changes externally
+  useEffect(() => {
+    setInputValue(String(value || ''))
+  }, [value])
   const resourceType = useCurrentResourceType()
+  const { openDrawer } = useTerminologyDrawer()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedInput(inputValue), SEARCH_DEBOUNCE_CODE_MS)
+    return () => clearTimeout(debounceRef.current)
+  }, [inputValue])
 
   const hasBinding = !!element.bindingValueSetUrl
+  const isRequiredBinding = element.bindingStrength === 'required' && element.boundCodes.length > 0
 
   const { data: options = [] } = useQuery<CodeSearchResult[]>({
-    queryKey: ['code-search', element.bindingValueSetUrl, inputValue],
-    queryFn: () => fhirApi.searchCodes(element.bindingValueSetUrl || '', inputValue, 20),
-    enabled: hasBinding && inputValue.length >= 1,
+    queryKey: ['code-search', element.bindingValueSetUrl, debouncedInput],
+    queryFn: () => fhirApi.searchCodes(element.bindingValueSetUrl || '', debouncedInput, 20),
+    enabled: hasBinding && !isRequiredBinding && debouncedInput.length >= 1,
     staleTime: 30_000,
   })
 
+  const searchButton = (
+    <Tooltip title={t('testCaseBuilder.fields.searchTerminology')}>
+      <IconButton
+        size="small"
+        onClick={() => openDrawer({
+          tab: 0,
+          system: element.bindingValueSetUrl || '',
+          onSelect: (coding) => {
+            onChange(coding.code)
+            setInputValue(coding.code)
+          },
+        })}
+        aria-label={t('testCaseBuilder.fields.searchTerminology')}
+      >
+        <SearchIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  )
+
   const twcoreButton = (
-    <Tooltip title="Browse TWCORE terminology">
-      <IconButton size="small" onClick={() => setTwcoreOpen(true)} aria-label="Browse TWCORE">
+    <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
+      <IconButton size="small" onClick={() => setTwcoreOpen(true)} aria-label={t('testCaseBuilder.fields.browseTwcoreAria')}>
         <MenuBookIcon fontSize="small" />
       </IconButton>
     </Tooltip>
   )
 
-  const twcorePicker = (
+  const twcorePicker = twcoreOpen ? (
     <TwcoreCodePicker
       open={twcoreOpen}
       onClose={() => setTwcoreOpen(false)}
@@ -45,7 +85,28 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
       }}
       resourceType={resourceType}
     />
-  )
+  ) : null
+
+  // Required binding with known codes → fixed dropdown, no TWCORE button
+  if (isRequiredBinding) {
+    return (
+      <FormControl fullWidth size="small" required={element.isRequired} sx={{ mb: 1 }}>
+        <InputLabel>{element.name}</InputLabel>
+        <Select
+          value={String(value || '')}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          label={element.name}
+        >
+          {element.boundCodes.map((code) => (
+            <MenuItem key={code} value={code}>{code}</MenuItem>
+          ))}
+        </Select>
+        {element.bindingValueSetUrl && (
+          <FormHelperText>{t('testCaseBuilder.fields.boundTo', { url: element.bindingValueSetUrl })}</FormHelperText>
+        )}
+      </FormControl>
+    )
+  }
 
   if (!hasBinding) {
     return (
@@ -59,6 +120,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
           required={element.isRequired}
           helperText={element.description || undefined}
         />
+        {searchButton}
         {twcoreButton}
         {twcorePicker}
       </Stack>
@@ -105,11 +167,12 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
             size="small"
             fullWidth
             required={element.isRequired}
-            helperText={element.description || `Bound to: ${element.bindingValueSetUrl}`}
+            helperText={element.description || t('testCaseBuilder.fields.boundTo', { url: element.bindingValueSetUrl })}
           />
         )}
         sx={{ flex: 1 }}
       />
+      {searchButton}
       {twcoreButton}
       {twcorePicker}
     </Stack>

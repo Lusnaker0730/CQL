@@ -9,6 +9,7 @@ import {
   Paper,
   CircularProgress,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 interface CoverageItem {
   name: string;
@@ -27,17 +28,22 @@ interface TestCaseCoverageProps {
   isLoading: boolean;
 }
 
-const relevanceChipProps: Record<
-  'TRUE' | 'FALSE' | 'NA',
-  { label: string; color: 'success' | 'error' | 'default' }
-> = {
-  TRUE: { label: 'TRUE', color: 'success' },
-  FALSE: { label: 'FALSE', color: 'error' },
-  NA: { label: 'NA', color: 'default' },
+const RELEVANCE_COLORS: Record<'TRUE' | 'FALSE' | 'NA', 'success' | 'error' | 'default'> = {
+  TRUE: 'success',
+  FALSE: 'error',
+  NA: 'default',
+};
+
+const RELEVANCE_KEYS: Record<'TRUE' | 'FALSE' | 'NA', string> = {
+  TRUE: 'coverage.relevance.true',
+  FALSE: 'coverage.relevance.false',
+  NA: 'coverage.relevance.na',
 };
 
 const CoverageItemRow: React.FC<{ item: CoverageItem }> = ({ item }) => {
-  const chipProps = relevanceChipProps[item.relevance];
+  const { t } = useTranslation('measures');
+  const chipLabel = t(RELEVANCE_KEYS[item.relevance]);
+  const chipColor = RELEVANCE_COLORS[item.relevance];
   return (
     <Paper
       variant="outlined"
@@ -52,7 +58,7 @@ const CoverageItemRow: React.FC<{ item: CoverageItem }> = ({ item }) => {
       <Typography sx={{ fontWeight: 500, flex: 1, minWidth: 0 }}>
         {item.name}
       </Typography>
-      <Chip label={chipProps.label} color={chipProps.color} size="small" />
+      <Chip label={chipLabel} color={chipColor} size="small" />
       <Typography
         variant="caption"
         color="text.secondary"
@@ -68,6 +74,7 @@ const TestCaseCoverage: React.FC<TestCaseCoverageProps> = ({
   coverage,
   isLoading,
 }) => {
+  const { t } = useTranslation('measures');
   const [tabIndex, setTabIndex] = useState(0);
 
   if (isLoading) {
@@ -81,13 +88,13 @@ const TestCaseCoverage: React.FC<TestCaseCoverageProps> = ({
   if (!coverage) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">No coverage data</Typography>
+        <Typography color="text.secondary">{t('coverage.noData')}</Typography>
       </Box>
     );
   }
 
   const items = tabIndex === 0 ? coverage.definitions : coverage.functions;
-  const label = tabIndex === 0 ? 'definitions' : 'functions';
+  const label = tabIndex === 0 ? t('coverage.labels.definitions') : t('coverage.labels.functions');
   const coveredCount = items.filter((i) => i.relevance === 'TRUE').length;
   const totalCount = items.length;
 
@@ -98,12 +105,12 @@ const TestCaseCoverage: React.FC<TestCaseCoverageProps> = ({
         onChange={(_, v) => setTabIndex(v)}
         sx={{ mb: 1 }}
       >
-        <Tab label="Definitions" />
-        <Tab label="Functions" />
+        <Tab label={t('coverage.tabs.definitions')} />
+        <Tab label={t('coverage.tabs.functions')} />
       </Tabs>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        {coveredCount}/{totalCount} {label} covered
+        {t('coverage.covered', { covered: coveredCount, total: totalCount, label })}
       </Typography>
 
       <Stack spacing={1}>

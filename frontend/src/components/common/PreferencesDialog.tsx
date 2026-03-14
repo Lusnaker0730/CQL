@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -15,8 +16,16 @@ import {
   Typography,
   Divider,
   Box,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Chip,
+  Alert,
 } from '@mui/material'
+import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { usePreferences } from '../../hooks/usePreferences'
+import { settingsApi, type VsacStatus, type AiStatus } from '../../api/settingsApi'
 import FhirServerUrlField from './FhirServerUrlField'
 
 interface PreferencesDialogProps {
@@ -26,19 +35,73 @@ interface PreferencesDialogProps {
 
 export default function PreferencesDialog({ open, onClose }: PreferencesDialogProps) {
   const { preferences, updatePreferences, resetPreferences } = usePreferences()
+  const { t } = useTranslation()
+
+  const [vsacStatus, setVsacStatus] = useState<VsacStatus | null>(null)
+  const [vsacApiKey, setVsacApiKey] = useState('')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [vsacSaving, setVsacSaving] = useState(false)
+  const [vsacMessage, setVsacMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null)
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [showAiApiKey, setShowAiApiKey] = useState(false)
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      settingsApi.getVsacStatus()
+        .then(setVsacStatus)
+        .catch(() => setVsacStatus(null))
+      settingsApi.getAiStatus()
+        .then(setAiStatus)
+        .catch(() => setAiStatus(null))
+    }
+  }, [open])
+
+  const handleSaveVsacKey = async () => {
+    setVsacSaving(true)
+    setVsacMessage(null)
+    try {
+      const result = await settingsApi.updateVsacApiKey(vsacApiKey)
+      setVsacStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
+      setVsacApiKey('')
+      setVsacMessage({ type: 'success', text: t('preferences.vsacKeySaved') })
+    } catch {
+      setVsacMessage({ type: 'error', text: t('preferences.vsacKeySaveFailed') })
+    } finally {
+      setVsacSaving(false)
+    }
+  }
+
+  const handleSaveAiKey = async () => {
+    setAiSaving(true)
+    setAiMessage(null)
+    try {
+      const result = await settingsApi.updateAiApiKey(aiApiKey)
+      setAiStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
+      setAiApiKey('')
+      setAiMessage({ type: 'success', text: t('preferences.aiKeySaved') })
+    } catch {
+      setAiMessage({ type: 'error', text: t('preferences.aiKeySaveFailed') })
+    } finally {
+      setAiSaving(false)
+    }
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Preferences</DialogTitle>
+      <DialogTitle>{t('preferences.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <Typography variant="subtitle2" color="text.secondary">
-            Editor Settings
+            {t('preferences.editorSettings')}
           </Typography>
 
           <Box>
             <Typography variant="body2" gutterBottom>
-              Font Size: {preferences.editorFontSize}px
+              {t('preferences.fontSize', { size: preferences.editorFontSize })}
             </Typography>
             <Slider
               value={preferences.editorFontSize}
@@ -56,30 +119,30 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
           </Box>
 
           <FormControl size="small" fullWidth>
-            <InputLabel>Tab Size</InputLabel>
+            <InputLabel>{t('preferences.tabSize')}</InputLabel>
             <Select
               value={preferences.editorTabSize}
               onChange={(e) => updatePreferences({ editorTabSize: e.target.value as number })}
-              label="Tab Size"
+              label={t('preferences.tabSize')}
             >
-              <MenuItem value={2}>2 spaces</MenuItem>
-              <MenuItem value={4}>4 spaces</MenuItem>
-              <MenuItem value={8}>8 spaces</MenuItem>
+              <MenuItem value={2}>{t('preferences.tabSizeSpaces', { count: 2 })}</MenuItem>
+              <MenuItem value={4}>{t('preferences.tabSizeSpaces', { count: 4 })}</MenuItem>
+              <MenuItem value={8}>{t('preferences.tabSizeSpaces', { count: 8 })}</MenuItem>
             </Select>
           </FormControl>
 
           <FormControl size="small" fullWidth>
-            <InputLabel>Word Wrap</InputLabel>
+            <InputLabel>{t('preferences.wordWrap')}</InputLabel>
             <Select
               value={preferences.editorWordWrap}
               onChange={(e) =>
                 updatePreferences({ editorWordWrap: e.target.value as 'on' | 'off' | 'wordWrapColumn' })
               }
-              label="Word Wrap"
+              label={t('preferences.wordWrap')}
             >
-              <MenuItem value="on">On</MenuItem>
-              <MenuItem value="off">Off</MenuItem>
-              <MenuItem value="wordWrapColumn">Word Wrap Column</MenuItem>
+              <MenuItem value="on">{t('preferences.wordWrapOn')}</MenuItem>
+              <MenuItem value="off">{t('preferences.wordWrapOff')}</MenuItem>
+              <MenuItem value="wordWrapColumn">{t('preferences.wordWrapColumn')}</MenuItem>
             </Select>
           </FormControl>
 
@@ -90,47 +153,200 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
                 onChange={(e) => updatePreferences({ editorMinimap: e.target.checked })}
               />
             }
-            label="Show Minimap"
+            label={t('preferences.showMinimap')}
           />
 
           <Divider />
 
           <Typography variant="subtitle2" color="text.secondary">
-            Appearance
+            {t('preferences.appearance')}
           </Typography>
 
           <FormControl size="small" fullWidth>
-            <InputLabel>Theme</InputLabel>
+            <InputLabel>{t('preferences.theme')}</InputLabel>
             <Select
               value={preferences.themeMode}
               onChange={(e) => updatePreferences({ themeMode: e.target.value as 'light' | 'dark' })}
-              label="Theme"
+              label={t('preferences.theme')}
             >
-              <MenuItem value="light">Light</MenuItem>
-              <MenuItem value="dark">Dark</MenuItem>
+              <MenuItem value="light">{t('preferences.themeLight')}</MenuItem>
+              <MenuItem value="dark">{t('preferences.themeDark')}</MenuItem>
             </Select>
           </FormControl>
 
           <Divider />
 
           <Typography variant="subtitle2" color="text.secondary">
-            Defaults
+            {t('preferences.defaults')}
           </Typography>
 
           <FhirServerUrlField
-            label="Default FHIR Server URL"
+            label={t('preferences.defaultFhirServerUrl')}
             value={preferences.defaultFhirServerUrl}
             onChange={(value) => updatePreferences({ defaultFhirServerUrl: value })}
             selfValidate
           />
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            {t('preferences.terminology')}
+          </Typography>
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Typography variant="body2">{t('preferences.vsacStatus')}</Typography>
+              {vsacStatus ? (
+                <Chip
+                  size="small"
+                  icon={vsacStatus.configured ? <CheckCircle /> : <Cancel />}
+                  label={vsacStatus.configured ? t('preferences.vsacConfigured') : t('preferences.vsacNotConfigured')}
+                  color={vsacStatus.configured ? 'success' : 'warning'}
+                  variant="outlined"
+                />
+              ) : (
+                <Chip size="small" label={t('preferences.vsacUnavailable')} color="default" variant="outlined" />
+              )}
+            </Box>
+
+            {vsacStatus && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                {t('preferences.vsacUrl')}: {vsacStatus.url}
+              </Typography>
+            )}
+
+            <TextField
+              label={t('preferences.vsacApiKey')}
+              size="small"
+              fullWidth
+              type={showApiKey ? 'text' : 'password'}
+              value={vsacApiKey}
+              onChange={(e) => setVsacApiKey(e.target.value)}
+              placeholder={t('preferences.vsacApiKeyPlaceholder')}
+              helperText={t('preferences.vsacApiKeyHelp')}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowApiKey(!showApiKey)} edge="end">
+                      {showApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleSaveVsacKey}
+              disabled={!vsacApiKey.trim() || vsacSaving}
+              sx={{ mt: 1, textTransform: 'none' }}
+            >
+              {vsacSaving ? t('preferences.vsacKeySaving') : t('preferences.vsacKeySave')}
+            </Button>
+
+            {vsacMessage && (
+              <Alert severity={vsacMessage.type} sx={{ mt: 1 }} onClose={() => setVsacMessage(null)}>
+                {vsacMessage.text}
+              </Alert>
+            )}
+          </Box>
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            {t('preferences.aiFixSuggestion')}
+          </Typography>
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Typography variant="body2">{t('preferences.aiStatus')}</Typography>
+              {aiStatus ? (
+                aiStatus.enabled ? (
+                  <Chip
+                    size="small"
+                    icon={<CheckCircle />}
+                    label={
+                      aiStatus.provider === 'ollama'
+                        ? `Ollama (${aiStatus.model})`
+                        : `Cloud (${aiStatus.model})`
+                    }
+                    color="success"
+                    variant="outlined"
+                  />
+                ) : (
+                  <Chip
+                    size="small"
+                    icon={<Cancel />}
+                    label={t('preferences.aiDisabled')}
+                    color="default"
+                    variant="outlined"
+                  />
+                )
+              ) : (
+                <Chip size="small" label={t('preferences.aiUnavailable')} color="default" variant="outlined" />
+              )}
+            </Box>
+
+            {aiStatus?.provider === 'cloud' && (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Typography variant="body2">{t('preferences.aiApiKeyStatus')}</Typography>
+                  <Chip
+                    size="small"
+                    icon={aiStatus.configured ? <CheckCircle /> : <Cancel />}
+                    label={aiStatus.configured ? t('preferences.aiKeyConfigured') : t('preferences.aiKeyNotConfigured')}
+                    color={aiStatus.configured ? 'success' : 'warning'}
+                    variant="outlined"
+                  />
+                </Box>
+
+                <TextField
+                  label={t('preferences.aiApiKey')}
+                  size="small"
+                  fullWidth
+                  type={showAiApiKey ? 'text' : 'password'}
+                  value={aiApiKey}
+                  onChange={(e) => setAiApiKey(e.target.value)}
+                  placeholder={t('preferences.aiApiKeyPlaceholder')}
+                  helperText={t('preferences.aiApiKeyHelp')}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setShowAiApiKey(!showAiApiKey)} edge="end">
+                          {showAiApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleSaveAiKey}
+                  disabled={!aiApiKey.trim() || aiSaving}
+                  sx={{ mt: 1, textTransform: 'none' }}
+                >
+                  {aiSaving ? t('preferences.aiKeySaving') : t('preferences.aiKeySave')}
+                </Button>
+
+                {aiMessage && (
+                  <Alert severity={aiMessage.type} sx={{ mt: 1 }} onClose={() => setAiMessage(null)}>
+                    {aiMessage.text}
+                  </Alert>
+                )}
+              </>
+            )}
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
         <Button onClick={resetPreferences} color="warning">
-          Reset to Defaults
+          {t('actions.resetToDefaults')}
         </Button>
         <Button onClick={onClose} variant="contained">
-          Done
+          {t('actions.done')}
         </Button>
       </DialogActions>
     </Dialog>

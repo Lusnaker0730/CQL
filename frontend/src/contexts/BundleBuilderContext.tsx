@@ -1,5 +1,7 @@
 import { createContext, useContext, useReducer, type ReactNode } from 'react'
 import type { BundleEntry, BundleBuilderState, BundleBuilderAction } from '../types'
+import { FHIR_BUNDLE_TYPE } from '../components/testcase-builder/constants'
+import { generateId } from '../utils/validation'
 
 const initialState: BundleBuilderState = {
   entries: [],
@@ -67,7 +69,7 @@ export function useBundleBuilder() {
 export function serializeToBundle(entries: BundleEntry[]): string {
   const bundle = {
     resourceType: 'Bundle',
-    type: 'collection',
+    type: FHIR_BUNDLE_TYPE,
     entry: entries.map((e) => ({
       resource: {
         resourceType: e.resourceType,
@@ -93,7 +95,7 @@ export function parseFromBundle(json: string): BundleEntry[] {
     .map((e: Record<string, unknown>) => {
       const resource = e.resource as Record<string, unknown>
       const resourceType = (resource.resourceType as string) || 'Unknown'
-      const id = (resource.id as string) || crypto.randomUUID()
+      const id = (resource.id as string) || generateId()
       const { resourceType: _rt, ...rest } = resource
       return {
         id,

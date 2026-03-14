@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Stack,
   TextField,
@@ -14,6 +14,7 @@ import {
   Box,
 } from '@mui/material'
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { RESOURCE_SEARCH_PARAMS } from '../../utils/fhirBrowserUtils'
 
 interface SearchParam {
@@ -54,16 +55,24 @@ export default function SearchParamBuilder({
   mode,
   onModeChange,
 }: SearchParamBuilderProps) {
+  const { t } = useTranslation('fhir')
   const [params, setParams] = useState<SearchParam[]>(() => parseParamsString(value))
   const availableParams = RESOURCE_SEARCH_PARAMS[resourceType] || [
     { name: '_id', type: 'token', label: 'ID' },
   ]
 
+  // Track mode and value in refs so the resourceType-change effect can read
+  // current values without re-running when they change independently
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const valueRef = useRef(value)
+  valueRef.current = value
+
   useEffect(() => {
-    if (mode === 'structured') {
-      setParams(parseParamsString(value))
+    if (modeRef.current === 'structured') {
+      setParams(parseParamsString(valueRef.current))
     }
-  }, [resourceType]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resourceType])
 
   const handleModeChange = (_: unknown, newMode: 'structured' | 'raw' | null) => {
     if (!newMode) return
@@ -96,7 +105,7 @@ export default function SearchParamBuilder({
   return (
     <Box>
       <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-        <Typography variant="caption" color="text.secondary">Search Parameters</Typography>
+        <Typography variant="caption" color="text.secondary">{t('searchParams.title')}</Typography>
         <ToggleButtonGroup
           value={mode}
           exclusive
@@ -104,8 +113,8 @@ export default function SearchParamBuilder({
           size="small"
           sx={{ '& .MuiToggleButton-root': { py: 0, px: 1, fontSize: '0.7rem', textTransform: 'none' } }}
         >
-          <ToggleButton value="structured">Structured</ToggleButton>
-          <ToggleButton value="raw">Raw</ToggleButton>
+          <ToggleButton value="structured">{t('searchParams.structured')}</ToggleButton>
+          <ToggleButton value="raw">{t('searchParams.raw')}</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
 
@@ -115,19 +124,19 @@ export default function SearchParamBuilder({
           onChange={(e) => onChange(e.target.value)}
           size="small"
           fullWidth
-          placeholder="e.g., name=John&birthdate=gt1990-01-01"
-          helperText="Enter FHIR search parameters"
+          placeholder={t('searchParams.rawPlaceholder')}
+          helperText={t('searchParams.rawHelperText')}
         />
       ) : (
         <Stack spacing={1}>
           {params.map((param, idx) => (
             <Stack key={idx} direction="row" spacing={1} alignItems="center">
               <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Parameter</InputLabel>
+                <InputLabel>{t('searchParams.parameterLabel')}</InputLabel>
                 <Select
                   value={param.name}
                   onChange={(e) => updateParam(idx, 'name', e.target.value)}
-                  label="Parameter"
+                  label={t('searchParams.parameterLabel')}
                 >
                   {availableParams.map(p => (
                     <MenuItem key={p.name} value={p.name}>{p.label}</MenuItem>
@@ -139,9 +148,9 @@ export default function SearchParamBuilder({
                 onChange={(e) => updateParam(idx, 'value', e.target.value)}
                 size="small"
                 fullWidth
-                placeholder={param.name ? `Value for ${param.name}` : 'Value'}
+                placeholder={param.name ? t('searchParams.valueForParam', { name: param.name }) : t('searchParams.valuePlaceholder')}
               />
-              <IconButton size="small" onClick={() => removeParam(idx)} color="error">
+              <IconButton size="small" onClick={() => removeParam(idx)} color="error" aria-label={t('searchParams.removeParameter')}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Stack>
@@ -152,7 +161,7 @@ export default function SearchParamBuilder({
             onClick={addParam}
             sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
           >
-            Add Parameter
+            {t('searchParams.addParameter')}
           </Button>
         </Stack>
       )}

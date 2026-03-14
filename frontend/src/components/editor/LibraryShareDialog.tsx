@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -38,6 +39,7 @@ interface LibraryShareDialogProps {
 }
 
 export default function LibraryShareDialog({ open, onClose, library }: LibraryShareDialogProps) {
+  const { t } = useTranslation('editor')
   const [shareUsername, setShareUsername] = useState('')
   const [transferUsername, setTransferUsername] = useState('')
   const [showTransfer, setShowTransfer] = useState(false)
@@ -90,14 +92,14 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
         <Stack direction="row" alignItems="center" spacing={1}>
           <SharedIcon color="primary" />
           <Typography variant="h6">
-            Share: {library.name} v{library.version}
+            {t('share.title', { name: library.name, version: library.version })}
           </Typography>
         </Stack>
       </DialogTitle>
       <DialogContent dividers>
         {/* Access Level */}
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Access Level
+          {t('share.accessLevel')}
         </Typography>
         <ToggleButtonGroup
           value={currentAccess}
@@ -109,21 +111,21 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
         >
           <ToggleButton value="private">
             <PrivateIcon sx={{ fontSize: 16, mr: 0.5 }} />
-            Private
+            {t('share.private')}
           </ToggleButton>
           <ToggleButton value="shared">
             <SharedIcon sx={{ fontSize: 16, mr: 0.5 }} />
-            Shared
+            {t('share.shared')}
           </ToggleButton>
           <ToggleButton value="public">
             <PublicIcon sx={{ fontSize: 16, mr: 0.5 }} />
-            Public
+            {t('share.public')}
           </ToggleButton>
         </ToggleButtonGroup>
 
         {currentAccess === 'public' && (
           <Alert severity="info" sx={{ mb: 2, py: 0 }}>
-            <Typography variant="caption">All users can view and use this library.</Typography>
+            <Typography variant="caption">{t('share.publicDesc')}</Typography>
           </Alert>
         )}
 
@@ -131,12 +133,12 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
 
         {/* Share with specific users */}
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Share with Users
+          {t('share.shareWithUsers')}
         </Typography>
         <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
           <TextField
             size="small"
-            placeholder="Enter username..."
+            placeholder={t('share.enterUsername')}
             value={shareUsername}
             onChange={(e) => setShareUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleShare()}
@@ -153,7 +155,7 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
               whiteSpace: 'nowrap',
             }}
           >
-            Share
+            {t('share.share')}
           </Button>
         </Stack>
 
@@ -168,7 +170,7 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
                 <ListItemSecondaryAction>
                   <IconButton
                     size="small"
-                    aria-label="Unshare with user"
+                    aria-label={t('share.unshareWithUser')}
                     onClick={() => handleUnshare(username)}
                     disabled={unshareMutation.isPending}
                     color="error"
@@ -181,7 +183,7 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
           </List>
         ) : (
           <Typography variant="caption" color="text.secondary">
-            Not shared with any specific users.
+            {t('share.notShared')}
           </Typography>
         )}
 
@@ -190,8 +192,8 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
         {/* Owner info & Transfer */}
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="subtitle2">Owner:</Typography>
-            <Chip label={library.ownerUsername || 'unassigned'} size="small" />
+            <Typography variant="subtitle2">{t('share.owner')}</Typography>
+            <Chip label={library.ownerUsername || t('share.unassigned')} size="small" />
           </Stack>
           <Button
             size="small"
@@ -199,19 +201,19 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
             onClick={() => setShowTransfer(!showTransfer)}
             sx={{ textTransform: 'none' }}
           >
-            Transfer
+            {t('share.transfer')}
           </Button>
         </Stack>
 
         {showTransfer && (
           <Box sx={{ mt: 1 }}>
             <Alert severity="warning" sx={{ mb: 1, py: 0 }}>
-              <Typography variant="caption">Transferring ownership cannot be undone by you.</Typography>
+              <Typography variant="caption">{t('share.transferWarning')}</Typography>
             </Alert>
             <Stack direction="row" spacing={1}>
               <TextField
                 size="small"
-                placeholder="New owner username..."
+                placeholder={t('share.newOwnerUsername')}
                 value={transferUsername}
                 onChange={(e) => setTransferUsername(e.target.value)}
                 fullWidth
@@ -223,14 +225,14 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
                 onClick={handleTransfer}
                 disabled={!transferUsername.trim() || transferMutation.isPending}
               >
-                Transfer
+                {t('share.transfer')}
               </Button>
             </Stack>
           </Box>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('common:actions.close')}</Button>
       </DialogActions>
     </Dialog>
   )

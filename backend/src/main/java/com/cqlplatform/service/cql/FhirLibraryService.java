@@ -36,7 +36,7 @@ public class FhirLibraryService {
         ObjectNode type = fhirLibrary.putObject("type");
         ArrayNode typeCoding = type.putArray("coding");
         ObjectNode typeCode = typeCoding.addObject();
-        typeCode.put("system", "http://terminology.hl7.org/CodeSystem/library-type");
+        typeCode.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_LIBRARY_TYPE);
         typeCode.put("code", "logic-library");
         typeCode.put("display", "Logic Library");
 

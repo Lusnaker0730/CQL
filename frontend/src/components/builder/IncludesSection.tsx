@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -8,9 +9,9 @@ import {
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
-import { useLibrariesMetadata } from '../../hooks/useCql'
+import { useRepositoryLibraries } from '../../hooks/useCql'
 import { cqlApi } from '../../api'
 
 interface IncludesSectionProps {
@@ -50,7 +51,8 @@ function getIncludeIdentifier(raw: string): string {
 }
 
 export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, onEdit }: IncludesSectionProps) {
-  const { data: metadata = [] } = useLibrariesMetadata()
+  const { t } = useTranslation('builder')
+  const { data: repoLibraries = [] } = useRepositoryLibraries()
   const [showForm, setShowForm] = useState(false)
   const [selectedLib, setSelectedLib] = useState<LibraryOption | null>(null)
   const [versions, setVersions] = useState<string[]>([])
@@ -61,14 +63,10 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
-  const libraryOptions: LibraryOption[] = metadata.map((m) => ({
-    name: m.name,
-    version: m.version,
+  const uniqueLibs: LibraryOption[] = repoLibraries.map((r) => ({
+    name: r.name,
+    version: r.version,
   }))
-
-  const uniqueLibs = libraryOptions.filter(
-    (lib, idx, arr) => arr.findIndex((l) => l.name === lib.name) === idx
-  )
 
   const handleSelectLibrary = async (lib: LibraryOption | null) => {
     setSelectedLib(lib)
@@ -153,13 +151,13 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No includes found
+          {t('common.noItemsFound', { type: t('sections.includes').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Include
+          {t('common.addItem', { type: 'Include' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -169,14 +167,14 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
             getOptionLabel={(o) => `${o.name} (${o.version})`}
             value={selectedLib}
             onChange={(_, val) => handleSelectLibrary(val)}
-            renderInput={(params) => <TextField {...params} label="Library" placeholder="Search libraries..." />}
+            renderInput={(params) => <TextField {...params} label={t('includes.library')} placeholder={t('includes.searchLibraries')} />}
           />
           {selectedLib && (
             <>
               <TextField
                 select
                 size="small"
-                label="Version"
+                label={t('includes.version')}
                 value={selectedVersion}
                 onChange={(e) => setSelectedVersion(e.target.value)}
                 disabled={loadingVersions}
@@ -189,7 +187,7 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
               </TextField>
               <TextField
                 size="small"
-                label="Alias"
+                label={t('includes.alias')}
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
               />
@@ -198,14 +196,14 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel={editingItem ? 'Update' : 'Insert'}
+                  insertLabel={editingItem ? t('common.update') : t('common.insert')}
                 />
               ) : (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="outlined" onClick={handleAdd} disabled={!selectedVersion || !alias}>
-                    Preview {editingItem ? 'Update' : 'Insert'}
+                    {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
                   </Button>
-                  <Button size="small" onClick={resetForm}>Cancel</Button>
+                  <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
                 </Stack>
               )}
             </>
@@ -215,7 +213,9 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title={t('common.deleteElement')}
+        itemName={deleteTarget || ''}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

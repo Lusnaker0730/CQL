@@ -1,6 +1,7 @@
 package com.cqlplatform.model.auth;
 
 import com.cqlplatform.security.NoXss;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -15,9 +16,10 @@ public class AdminCreateUserRequest {
     private String username;
 
     @NotBlank
-    @Size(min = 6, max = 100)
+    @Size(min = 8, max = 100)
     private String password;
 
+    @Email
     @Size(max = 200)
     private String email;
 

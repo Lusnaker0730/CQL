@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.util.UUID;
+import com.cqlplatform.util.IdGenerator;
+
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
 
 /**
  * Generates QRDA Category III XML (aggregate quality report) from MeasureReportEntity.
@@ -21,12 +23,12 @@ import java.util.UUID;
 public class QrdaExportService {
 
     private static final Map<String, String> POPULATION_TYPE_OIDS = Map.of(
-            "initial-population", "2.16.840.1.113883.10.20.27.3.14",
-            "denominator", "2.16.840.1.113883.10.20.27.3.15",
-            "denominator-exclusion", "2.16.840.1.113883.10.20.27.3.17",
-            "denominator-exception", "2.16.840.1.113883.10.20.27.3.18",
-            "numerator", "2.16.840.1.113883.10.20.27.3.16",
-            "numerator-exclusion", "2.16.840.1.113883.10.20.27.3.19"
+            INITIAL_POPULATION, "2.16.840.1.113883.10.20.27.3.14",
+            DENOMINATOR, "2.16.840.1.113883.10.20.27.3.15",
+            DENOMINATOR_EXCLUSION, "2.16.840.1.113883.10.20.27.3.17",
+            DENOMINATOR_EXCEPTION, "2.16.840.1.113883.10.20.27.3.18",
+            NUMERATOR, "2.16.840.1.113883.10.20.27.3.16",
+            NUMERATOR_EXCLUSION, "2.16.840.1.113883.10.20.27.3.19"
     );
 
     public String exportQrdaIII(MeasureReportEntity report) {
@@ -39,7 +41,7 @@ public class QrdaExportService {
         xml.append("  <realmCode code=\"US\"/>\n");
         xml.append("  <typeId root=\"2.16.840.1.113883.1.3\" extension=\"POCD_HD000040\"/>\n");
         xml.append("  <templateId root=\"2.16.840.1.113883.10.20.27.1.1\" extension=\"2024-05-01\"/>\n");
-        xml.append("  <id root=\"").append(esc(UUID.randomUUID().toString())).append("\"/>\n");
+        xml.append("  <id root=\"").append(esc(IdGenerator.uuid())).append("\"/>\n");
         xml.append("  <code code=\"55184-6\" codeSystem=\"2.16.840.1.113883.6.1\" displayName=\"Quality Reporting Document Architecture Category III\"/>\n");
         xml.append("  <title>QRDA III Report - ").append(esc(report.getMeasureName())).append("</title>\n");
         xml.append("  <effectiveTime value=\"").append(formatDateTime(LocalDateTime.now())).append("\"/>\n");

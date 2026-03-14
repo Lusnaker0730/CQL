@@ -5,6 +5,7 @@ import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.security.InputValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -319,8 +320,7 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getSharedLibraries(String username) {
-        return libraryRepository.findAll().stream()
-                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+        return libraryRepository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -351,9 +351,22 @@ public class CqlLibraryService {
         for (String dep : library.getDependencies()) {
             if (visited.contains(dep)) continue;
             visited.add(dep);
-            // dep format is "LibraryName version 'x.y.z'" — extract name
+            // dep format is "LibraryName version 'x.y.z'" — extract name and version
             String depName = dep.split("\\s+")[0].replace("\"", "");
-            getLatestLibrary(depName).ifPresent(depLib -> {
+            String depVersion = null;
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("version\\s+'([^']+)'").matcher(dep);
+            if (m.find()) {
+                depVersion = m.group(1);
+            }
+            // Try exact version first, fall back to latest
+            Optional<CqlLibrary> resolved = Optional.empty();
+            if (depVersion != null) {
+                resolved = getLibraryByNameAndVersion(depName, depVersion);
+            }
+            if (resolved.isEmpty()) {
+                resolved = getLatestLibrary(depName);
+            }
+            resolved.ifPresent(depLib -> {
                 result.add(depLib);
                 collectDependencies(depLib, result, visited);
             });

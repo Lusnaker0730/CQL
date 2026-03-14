@@ -1,10 +1,11 @@
+import { memo } from 'react'
 import { Box, Skeleton, Stack } from '@mui/material'
 
 interface CardListSkeletonProps {
   count?: number
 }
 
-export default function CardListSkeleton({ count = 3 }: CardListSkeletonProps) {
+function CardListSkeleton({ count = 3 }: CardListSkeletonProps) {
   return (
     <Stack spacing={2}>
       {Array.from({ length: count }).map((_, i) => (
@@ -22,3 +23,5 @@ export default function CardListSkeleton({ count = 3 }: CardListSkeletonProps) {
     </Stack>
   )
 }
+
+export default memo(CardListSkeleton)

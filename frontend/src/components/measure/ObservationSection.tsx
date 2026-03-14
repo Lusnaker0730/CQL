@@ -10,8 +10,9 @@ import {
   Box,
 } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
-const AGGREGATE_METHODS = ['Count', 'Sum', 'Average', 'Median', 'Minimum', 'Maximum'];
+const AGGREGATE_METHOD_KEYS = ['count', 'sum', 'average', 'median', 'minimum', 'maximum'] as const;
 
 interface Observation {
   criteriaExpression: string;
@@ -35,7 +36,10 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
   populationTypes,
   readOnly = false,
 }) => {
+  const { t } = useTranslation('measures');
   const items = observations ?? [];
+
+  const AGGREGATE_METHODS = AGGREGATE_METHOD_KEYS.map((key) => t(`observations.aggregateMethods.${key}`));
 
   const handleAdd = () => {
     onChange([
@@ -60,22 +64,22 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Observation Criteria
+          {t('observations.title')}
         </Typography>
 
         {items.map((item, index) => (
-          <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+          <Paper key={`obs-${item.criteriaExpression || index}-${item.aggregateMethod}`} variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
                 <Typography variant="body2" fontWeight={500}>
-                  Observation {index + 1}
+                  {t('observations.observationLabel', { number: index + 1 })}
                 </Typography>
                 {!readOnly && (
                   <IconButton
                     size="small"
                     color="error"
                     onClick={() => handleRemove(index)}
-                    aria-label={`Remove observation ${index + 1}`}
+                    aria-label={t('observations.removeObservation', { number: index + 1 })}
                   >
                     <Delete fontSize="small" />
                   </IconButton>
@@ -89,7 +93,7 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
                   handleFieldChange(index, 'criteriaExpression', newValue ?? '')
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" label="CQL Expression" />
+                  <TextField {...params} size="small" label={t('observations.fields.cqlExpression')} />
                 )}
                 disabled={readOnly}
               />
@@ -101,7 +105,7 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
                   handleFieldChange(index, 'aggregateMethod', newValue ?? '')
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" label="Aggregate Method" />
+                  <TextField {...params} size="small" label={t('observations.fields.aggregateMethod')} />
                 )}
                 disabled={readOnly}
               />
@@ -113,14 +117,14 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
                   handleFieldChange(index, 'populationRef', newValue ?? '')
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" label="Population Reference" />
+                  <TextField {...params} size="small" label={t('observations.fields.populationReference')} />
                 )}
                 disabled={readOnly}
               />
 
               <TextField
                 size="small"
-                label="Description"
+                label={t('observations.fields.description')}
                 value={item.description ?? ''}
                 onChange={(e) => handleFieldChange(index, 'description', e.target.value)}
                 fullWidth
@@ -138,7 +142,7 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
               startIcon={<Add />}
               onClick={handleAdd}
             >
-              Add Observation
+              {t('observations.addObservation')}
             </Button>
           </Box>
         )}

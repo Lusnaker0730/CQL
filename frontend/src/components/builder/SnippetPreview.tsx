@@ -1,7 +1,9 @@
-import { Box, Stack, Button, IconButton, Tooltip } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { Stack, Button, IconButton, Tooltip } from '@mui/material'
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
-import { useNotification } from '../../hooks/useNotification'
+import CqlPreviewBox from './CqlPreviewBox'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface SnippetPreviewProps {
   snippet: string
@@ -18,48 +20,24 @@ export default function SnippetPreview({
   insertLabel = 'Insert',
   insertDisabled = false,
 }: SnippetPreviewProps) {
-  const { showNotification } = useNotification()
+  const { t } = useTranslation('builder')
+  const copyToClipboard = useCopyToClipboard()
 
   if (!snippet) return null
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(snippet)
-      showNotification('Copied to clipboard', 'success', 2000)
-    } catch {
-      showNotification('Failed to copy', 'error', 2000)
-    }
-  }
-
   return (
     <Stack spacing={0.75}>
-      <Box
-        sx={{
-          p: 1,
-          bgcolor: 'rgba(27,58,92,0.04)',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          fontFamily: 'monospace',
-          fontSize: '0.75rem',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          maxHeight: 120,
-          overflow: 'auto',
-        }}
-      >
-        {snippet}
-      </Box>
+      <CqlPreviewBox code={snippet} />
       <Stack direction="row" spacing={1} alignItems="center">
         <GradientButton onClick={onInsert} disabled={insertDisabled}>
           {insertLabel}
         </GradientButton>
-        <Tooltip title="Copy to clipboard">
-          <IconButton size="small" onClick={handleCopy}>
+        <Tooltip title={t('common.copyToClipboard')}>
+          <IconButton size="small" onClick={() => copyToClipboard(snippet)} aria-label={t('common.copyToClipboard')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Button size="small" onClick={onCancel}>Cancel</Button>
+        <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
   )

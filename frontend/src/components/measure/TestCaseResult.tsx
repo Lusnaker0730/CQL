@@ -14,6 +14,7 @@ import {
   Cancel as FailIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import type { TestCaseRunResult } from '../../types'
 
 interface TestCaseResultProps {
@@ -21,13 +22,22 @@ interface TestCaseResultProps {
 }
 
 const STATUS_CONFIG = {
-  pass: { icon: <PassIcon sx={{ fontSize: 18 }} />, color: 'success' as const, label: 'Pass' },
-  fail: { icon: <FailIcon sx={{ fontSize: 18 }} />, color: 'error' as const, label: 'Fail' },
-  error: { icon: <ErrorIcon sx={{ fontSize: 18 }} />, color: 'warning' as const, label: 'Error' },
+  pass: { icon: <PassIcon sx={{ fontSize: 18 }} />, color: 'success' as const },
+  fail: { icon: <FailIcon sx={{ fontSize: 18 }} />, color: 'error' as const },
+  error: { icon: <ErrorIcon sx={{ fontSize: 18 }} />, color: 'warning' as const },
+}
+
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  pass: 'testCaseResult.pass',
+  fail: 'testCaseResult.fail',
+  error: 'testCaseResult.error',
 }
 
 export default function TestCaseResult({ result }: TestCaseResultProps) {
-  const config = STATUS_CONFIG[result.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.error
+  const { t } = useTranslation('measures')
+  const statusKey = (result.status as keyof typeof STATUS_CONFIG) || 'error'
+  const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.error
+  const statusLabel = t(STATUS_LABEL_KEYS[statusKey] || STATUS_LABEL_KEYS.error)
 
   return (
     <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -35,7 +45,7 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
         <Stack direction="row" spacing={1} alignItems="center">
           <Chip
             icon={config.icon}
-            label={config.label}
+            label={statusLabel}
             size="small"
             color={config.color}
             variant="outlined"
@@ -47,7 +57,7 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
         </Stack>
         {result.executionTimeMs != null && (
           <Typography variant="caption" color="text.secondary">
-            {result.executionTimeMs}ms
+            {result.executionTimeMs}{t('testCaseResult.ms')}
           </Typography>
         )}
       </Stack>
@@ -62,23 +72,23 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }}>Population</TableCell>
-              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Expected</TableCell>
-              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Actual</TableCell>
-              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">Result</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }}>{t('testCaseResult.tableHeaders.population')}</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">{t('testCaseResult.tableHeaders.expected')}</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">{t('testCaseResult.tableHeaders.actual')}</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">{t('testCaseResult.tableHeaders.result')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {result.comparisons.map((comp) => (
               <TableRow key={comp.populationType}>
                 <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>
-                  {comp.populationType}
+                  {t(`testCaseEditor.populationTypes.${comp.populationType}`, comp.populationType)}
                 </TableCell>
                 <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }} align="center">
-                  {comp.expected == null ? '-' : comp.expected ? 'Yes' : 'No'}
+                  {comp.expected == null ? t('testCaseResult.na') : comp.expected ? t('testCaseResult.yes') : t('testCaseResult.no')}
                 </TableCell>
                 <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }} align="center">
-                  {comp.actual == null ? '-' : comp.actual ? 'Yes' : 'No'}
+                  {comp.actual == null ? t('testCaseResult.na') : comp.actual ? t('testCaseResult.yes') : t('testCaseResult.no')}
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }} align="center">
                   {comp.match ? (

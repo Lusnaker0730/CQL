@@ -29,6 +29,7 @@ public class MeasureEvaluationResult {
         private Double measureScore;
         private String measureScoreUnit;
         private List<StratifierResult> stratifiers;
+        private Integer totalPatients;
     }
 
     @Data

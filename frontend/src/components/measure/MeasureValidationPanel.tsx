@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -42,12 +43,12 @@ const SEVERITY_CONFIG = {
   INFO: { icon: <InfoIcon sx={{ fontSize: 18 }} />, color: 'info.main', chipColor: 'info' as const },
 }
 
-const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ReactElement }> = {
-  CQL: { label: 'CQL Logic', icon: <CqlIcon sx={{ fontSize: 18 }} /> },
-  POPULATIONS: { label: 'Populations', icon: <PopIcon sx={{ fontSize: 18 }} /> },
-  METADATA: { label: 'Metadata', icon: <MetaIcon sx={{ fontSize: 18 }} /> },
-  TEST_CASES: { label: 'Test Cases', icon: <TestIcon sx={{ fontSize: 18 }} /> },
-  QI_CORE: { label: 'QI-Core', icon: <QiCoreIcon sx={{ fontSize: 18 }} /> },
+const CATEGORY_CONFIG: Record<string, { labelKey: string; icon: React.ReactElement }> = {
+  CQL: { labelKey: 'validation.categories.cql', icon: <CqlIcon sx={{ fontSize: 18 }} /> },
+  POPULATIONS: { labelKey: 'validation.categories.populations', icon: <PopIcon sx={{ fontSize: 18 }} /> },
+  METADATA: { labelKey: 'validation.categories.metadata', icon: <MetaIcon sx={{ fontSize: 18 }} /> },
+  TEST_CASES: { labelKey: 'validation.categories.testCases', icon: <TestIcon sx={{ fontSize: 18 }} /> },
+  QI_CORE: { labelKey: 'validation.categories.qiCore', icon: <QiCoreIcon sx={{ fontSize: 18 }} /> },
 }
 
 interface MeasureValidationPanelProps {
@@ -56,6 +57,7 @@ interface MeasureValidationPanelProps {
 }
 
 export default function MeasureValidationPanel({ measureId, onNavigateToTab }: MeasureValidationPanelProps) {
+  const { t } = useTranslation('measures')
   const [report, setReport] = useState<ValidationReport | null>(null)
   const validateMutation = useValidateMeasure()
   const quickValidateMutation = useQuickValidateMeasure()
@@ -77,14 +79,17 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
   const isLoading = validateMutation.isPending || quickValidateMutation.isPending
 
   // Group issues by category
-  const groupedIssues: Record<string, ValidationIssue[]> = {}
-  if (report) {
-    for (const issue of report.issues) {
-      const cat = issue.category || 'OTHER'
-      if (!groupedIssues[cat]) groupedIssues[cat] = []
-      groupedIssues[cat].push(issue)
+  const groupedIssues = useMemo(() => {
+    const groups: Record<string, ValidationIssue[]> = {}
+    if (report) {
+      for (const issue of report.issues) {
+        const cat = issue.category || 'OTHER'
+        if (!groups[cat]) groups[cat] = []
+        groups[cat].push(issue)
+      }
     }
-  }
+    return groups
+  }, [report])
 
   const handleFix = (issue: ValidationIssue) => {
     if (!onNavigateToTab) return
@@ -92,8 +97,8 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
     switch (issue.category) {
       case 'METADATA': onNavigateToTab(0); break       // Details
       case 'CQL': onNavigateToTab(1); break             // CQL
-      case 'POPULATIONS': onNavigateToTab(2); break     // Population Criteria
-      case 'TEST_CASES': onNavigateToTab(4); break      // Test Cases
+      case 'POPULATIONS': onNavigateToTab(3); break     // Population Criteria
+      case 'TEST_CASES': onNavigateToTab(5); break      // Test Cases
       default: break
     }
   }
@@ -101,7 +106,7 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h6">Measure Validation</Typography>
+        <Typography variant="h6">{t('validation.title')}</Typography>
         <Stack direction="row" spacing={1}>
           <Button
             size="small"
@@ -111,22 +116,21 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
             disabled={!measureId || isLoading}
             sx={{ textTransform: 'none' }}
           >
-            Quick Check
+            {t('validation.quickCheck')}
           </Button>
           <GradientButton
             startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <RunIcon />}
             onClick={handleFullValidate}
             disabled={!measureId || isLoading}
           >
-            {isLoading ? 'Validating...' : 'Full Validation'}
+            {isLoading ? t('validation.validating') : t('validation.fullValidation')}
           </GradientButton>
         </Stack>
       </Stack>
 
       {!report && !isLoading && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Click "Full Validation" to check your measure for completeness, CQL correctness, population logic, and QI-Core compliance.
-          Use "Quick Check" for a faster CQL + population check.
+          {t('validation.instructions')}
         </Alert>
       )}
 
@@ -140,17 +144,17 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
           >
             <Stack direction="row" spacing={2} alignItems="center">
               <Typography variant="body2" fontWeight={600}>
-                {report.valid ? 'Validation Passed' : 'Validation Failed'}
+                {report.valid ? t('validation.passed') : t('validation.failed')}
               </Typography>
               <Stack direction="row" spacing={1}>
                 {report.errorCount > 0 && (
-                  <Chip label={`${report.errorCount} errors`} size="small" color="error" variant="outlined" />
+                  <Chip label={t('validation.errorCount', { count: report.errorCount })} size="small" color="error" variant="outlined" />
                 )}
                 {report.warningCount > 0 && (
-                  <Chip label={`${report.warningCount} warnings`} size="small" color="warning" variant="outlined" />
+                  <Chip label={t('validation.warningCount', { count: report.warningCount })} size="small" color="warning" variant="outlined" />
                 )}
                 {report.infoCount > 0 && (
-                  <Chip label={`${report.infoCount} info`} size="small" color="info" variant="outlined" />
+                  <Chip label={t('validation.infoCount', { count: report.infoCount })} size="small" color="info" variant="outlined" />
                 )}
               </Stack>
               <Typography variant="caption" color="text.secondary">
@@ -160,7 +164,7 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
           </Alert>
 
           {/* Grouped Issues */}
-          {Object.entries(CATEGORY_CONFIG).map(([catKey, catConfig]) => {
+          {Object.entries(CATEGORY_CONFIG).map(([catKey, catCfg]) => {
             const issues = groupedIssues[catKey]
             if (!issues || issues.length === 0) return null
 
@@ -171,9 +175,9 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
               <Accordion key={catKey} defaultExpanded={errorCount > 0}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                    {catConfig.icon}
+                    {catCfg.icon}
                     <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                      {catConfig.label}
+                      {t(catCfg.labelKey)}
                     </Typography>
                     <Stack direction="row" spacing={0.5}>
                       {errorCount > 0 && (
@@ -211,7 +215,7 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
                               onClick={() => handleFix(issue)}
                               sx={{ textTransform: 'none', fontSize: '0.7rem', whiteSpace: 'nowrap', ml: 1 }}
                             >
-                              Fix
+                              {t('validation.fix')}
                             </Button>
                           )}
                         </ListItem>
@@ -226,7 +230,7 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
           {/* No issues at all */}
           {report.issues.length === 0 && (
             <Alert severity="success" sx={{ mt: 2 }}>
-              No issues found. Your measure looks good!
+              {t('validation.noIssues')}
             </Alert>
           )}
         </>

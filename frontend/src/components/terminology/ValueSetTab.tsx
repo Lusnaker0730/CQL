@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Box,
   TextField,
@@ -33,6 +35,7 @@ import type { ValueSetSearchResult, ValueSetSummary } from '../../types'
 type SourceMode = 'remote' | 'local' | 'both'
 
 export default function ValueSetTab() {
+  const { t } = useTranslation('terminology')
   const [searchTitle, setSearchTitle] = useState('')
   const [debouncedTitle, setDebouncedTitle] = useState('')
   const [selectedVs, setSelectedVs] = useState<ValueSetSearchResult | null>(null)
@@ -40,7 +43,7 @@ export default function ValueSetTab() {
   const [source, setSource] = useState<SourceMode>('remote')
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTitle(searchTitle), 300)
+    const timer = setTimeout(() => setDebouncedTitle(searchTitle), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [searchTitle])
 
@@ -104,12 +107,12 @@ export default function ValueSetTab() {
     <Stack spacing={2}>
       <Stack direction="row" spacing={2} alignItems="center">
         <TextField
-          label="Search ValueSets by title"
+          label={t('valueSet.searchLabel')}
           value={searchTitle}
           onChange={(e) => setSearchTitle(e.target.value)}
           size="small"
           sx={{ flex: 1 }}
-          placeholder="e.g., diabetes, blood pressure"
+          placeholder={t('valueSet.searchPlaceholder')}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -129,28 +132,28 @@ export default function ValueSetTab() {
           onChange={(_, val) => val && setSource(val as SourceMode)}
           size="small"
         >
-          <ToggleButton value="remote" title="Remote terminology server">
+          <ToggleButton value="remote" title={t('valueSet.sourceRemoteTitle')}>
             <RemoteIcon fontSize="small" sx={{ mr: 0.5 }} />
-            <Typography variant="caption">Remote</Typography>
+            <Typography variant="caption">{t('valueSet.sourceRemote')}</Typography>
           </ToggleButton>
-          <ToggleButton value="local" title="Local IG packages">
+          <ToggleButton value="local" title={t('valueSet.sourceLocalTitle')}>
             <LocalIcon fontSize="small" sx={{ mr: 0.5 }} />
-            <Typography variant="caption">Local IG</Typography>
+            <Typography variant="caption">{t('valueSet.sourceLocal')}</Typography>
           </ToggleButton>
-          <ToggleButton value="both" title="Both sources">
-            <Typography variant="caption">Both</Typography>
+          <ToggleButton value="both" title={t('valueSet.sourceBothTitle')}>
+            <Typography variant="caption">{t('valueSet.sourceBoth')}</Typography>
           </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
 
       {searchError && (
-        <Alert severity="error">Search failed: {(searchError as Error).message}</Alert>
+        <Alert severity="error">{t('valueSet.searchFailed', { error: (searchError as Error).message })}</Alert>
       )}
 
       {searchResults && searchResults.length > 0 && (
         <Box>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+            {t('valueSet.resultCount', { count: searchResults.length })}
           </Typography>
           <Stack spacing={1}>
             {searchResults.map((vs) => (
@@ -176,7 +179,7 @@ export default function ValueSetTab() {
                       </Typography>
                       {vs.source && (
                         <Chip
-                          label={vs.source === 'local' ? 'Local IG' : 'Remote'}
+                          label={vs.source === 'local' ? t('valueSet.chipLocalIg') : t('valueSet.chipRemote')}
                           size="small"
                           variant="outlined"
                           color={vs.source === 'local' ? 'success' : 'default'}
@@ -191,13 +194,13 @@ export default function ValueSetTab() {
                   <Stack direction="row" spacing={0.5}>
                     <IconButton
                       size="small"
-                      title="Copy to CQL"
+                      title={t('valueSet.copyCql')}
                       onClick={(e) => { e.stopPropagation(); handleCopyCql(vs) }}
-                      aria-label="Copy to CQL"
+                      aria-label={t('valueSet.copyCql')}
                     >
                       <CopyIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" title="Expand" aria-label="Expand value set">
+                    <IconButton size="small" title={t('valueSet.expand')} aria-label={t('valueSet.expand')}>
                       <ExpandIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -209,7 +212,7 @@ export default function ValueSetTab() {
       )}
 
       {searchResults && searchResults.length === 0 && debouncedTitle.length >= 2 && (
-        <Typography color="text.secondary" variant="body2">No ValueSets found.</Typography>
+        <Typography color="text.secondary" variant="body2">{t('valueSet.noResults')}</Typography>
       )}
 
       {expandMutation.isPending && (
@@ -220,7 +223,7 @@ export default function ValueSetTab() {
 
       {expandMutation.isError && (
         <Alert severity="error">
-          Expand failed: {(expandMutation.error as Error).message}
+          {t('valueSet.expandFailed', { error: (expandMutation.error as Error).message })}
         </Alert>
       )}
 
@@ -228,7 +231,7 @@ export default function ValueSetTab() {
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
             <Typography variant="subtitle2">
-              Codes in {selectedVs.title || selectedVs.name}
+              {t('valueSet.codesIn', { name: selectedVs.title || selectedVs.name })}
             </Typography>
             <Chip
               label={`${expandMutation.data.expansion?.total ?? filteredCodes.length}`}
@@ -237,7 +240,7 @@ export default function ValueSetTab() {
             />
           </Stack>
           <TextField
-            label="Filter codes"
+            label={t('valueSet.filterCodes')}
             value={codeFilter}
             onChange={(e) => setCodeFilter(e.target.value)}
             size="small"
@@ -248,9 +251,9 @@ export default function ValueSetTab() {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>System</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Code</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Display</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('valueSet.colSystem')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('valueSet.colCode')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('valueSet.colDisplay')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -268,7 +271,7 @@ export default function ValueSetTab() {
                 {filteredCodes.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3}>
-                      <Typography variant="body2" color="text.secondary">No codes found.</Typography>
+                      <Typography variant="body2" color="text.secondary">{t('valueSet.noCodesFound')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}

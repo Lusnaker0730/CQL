@@ -9,6 +9,7 @@ import {
   Chip,
 } from '@mui/material';
 import { Delete } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 interface RiskAdjustmentVariable {
   definition: string;
@@ -28,6 +29,7 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
   expressionNames,
   readOnly = false,
 }) => {
+  const { t } = useTranslation('measures');
   const items = riskAdjustments ?? [];
 
   const selectedDefinitions = items.map((item) => item.definition);
@@ -56,7 +58,7 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Risk Adjustment Variables
+          {t('riskAdjustment.title')}
         </Typography>
 
         {items.map((item, index) => (
@@ -67,7 +69,7 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
             />
             <TextField
               size="small"
-              label="Description"
+              label={t('riskAdjustment.description')}
               value={item.description}
               onChange={(e) => handleDescriptionChange(index, e.target.value)}
               inputProps={{ maxLength: 128 }}
@@ -79,7 +81,7 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
                 size="small"
                 color="error"
                 onClick={() => handleRemove(index)}
-                aria-label={`Remove ${item.definition}`}
+                aria-label={t('riskAdjustment.remove', { name: item.definition })}
               >
                 <Delete fontSize="small" />
               </IconButton>
@@ -100,8 +102,8 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
               <TextField
                 {...params}
                 size="small"
-                label="Add risk adjustment variable"
-                placeholder="Select a CQL expression"
+                label={t('riskAdjustment.addLabel')}
+                placeholder={t('riskAdjustment.selectPlaceholder')}
               />
             )}
             blurOnSelect

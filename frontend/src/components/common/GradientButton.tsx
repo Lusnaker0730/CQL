@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Button, type ButtonProps } from '@mui/material'
 
 const gradientSx = {
@@ -5,7 +6,7 @@ const gradientSx = {
   '&:hover': { background: 'linear-gradient(135deg, #095052 0%, #0D7377 100%)' },
 } as const
 
-export default function GradientButton(props: ButtonProps) {
+function GradientButton(props: ButtonProps) {
   const { sx, variant = 'contained', size = 'small', ...rest } = props
   return (
     <Button
@@ -16,3 +17,5 @@ export default function GradientButton(props: ButtonProps) {
     />
   )
 }
+
+export default memo(GradientButton)

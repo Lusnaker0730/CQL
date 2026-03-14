@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -16,7 +17,7 @@ import {
   ContentCopy as CopyIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 
 interface OperatorEntry {
   name: string
@@ -28,6 +29,12 @@ interface OperatorEntry {
 }
 
 const OPERATORS: OperatorEntry[] = [
+  // Conditional
+  { name: 'if/then/else', category: 'Conditional', syntax: 'if cond then expr1 else expr2', description: 'Simple conditional expression', snippet: 'if  then\n  \nelse\n  ', example: "if BMI is not null then 'Has BMI' else 'No BMI'" },
+  { name: 'case/when', category: 'Conditional', syntax: 'case when cond then expr ... else expr end', description: 'Multi-branch conditional', snippet: 'case\n  when  then \n  else \nend', example: "case when A < 18.5 then 'Low' when A < 25 then 'Normal' else 'High' end" },
+  { name: 'Coalesce', category: 'Conditional', syntax: 'Coalesce(expr1, expr2, ...)', description: 'Returns first non-null argument', snippet: 'Coalesce(, )', example: 'Coalesce(O.value, 0)' },
+  { name: 'if is null', category: 'Conditional', syntax: 'if expr is null then default else expr', description: 'Null guard pattern', snippet: 'if  is null then\n  \nelse\n  ', example: 'if Height is null then null else Weight / (Height * Height)' },
+
   // Comparison
   { name: '=', category: 'Comparison', syntax: 'expr1 = expr2', description: 'Equality comparison', snippet: ' = ', example: 'A = B' },
   { name: '!=', category: 'Comparison', syntax: 'expr1 != expr2', description: 'Inequality comparison', snippet: ' != ', example: 'A != B' },
@@ -111,7 +118,7 @@ const OPERATORS: OperatorEntry[] = [
 ]
 
 const CATEGORIES = [
-  'Comparison', 'Logical', 'Temporal', 'Arithmetic', 'Type',
+  'Conditional', 'Comparison', 'Logical', 'Temporal', 'Arithmetic', 'Type',
   'Aggregate', 'Date/Age', 'String', 'List',
 ]
 
@@ -120,9 +127,10 @@ interface OperatorReferenceProps {
 }
 
 export default function OperatorReference({ onInsert }: OperatorReferenceProps) {
+  const { t } = useTranslation('builder')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | false>(false)
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
 
   const filteredByCategory = useMemo(() => {
     const term = search.toLowerCase()
@@ -135,20 +143,11 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
     return map
   }, [search])
 
-  const handleCopy = async (snippet: string) => {
-    try {
-      await navigator.clipboard.writeText(snippet.trim())
-      showNotification('Copied to clipboard', 'success', 2000)
-    } catch {
-      showNotification('Failed to copy', 'error', 2000)
-    }
-  }
-
   return (
     <Stack spacing={0.5}>
       <TextField
         size="small"
-        placeholder="Search operators..."
+        placeholder={t('operatorReference.searchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         InputProps={{
@@ -235,7 +234,7 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
                       <IconButton
                         className="op-copy"
                         size="small"
-                        onClick={(e) => { e.stopPropagation(); handleCopy(op.snippet) }}
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(op.snippet.trim()) }}
                         sx={{ opacity: 0, transition: 'opacity 0.15s', p: 0.25, mt: 0.25 }}
                       >
                         <CopyIcon sx={{ fontSize: 14 }} />

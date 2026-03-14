@@ -12,8 +12,10 @@ import {
   CircularProgress,
   Typography,
   Box,
+  useTheme,
 } from '@mui/material'
 import { CheckCircle as ValidateIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
@@ -34,6 +36,8 @@ const SAMPLE_JSON = JSON.stringify(
 )
 
 export default function ValidateTab() {
+  const { t } = useTranslation('fhir')
+  const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const [validationStatus, setValidationStatus] = useState<'none' | 'valid' | 'invalid'>('none')
   const [issues, setIssues] = useState<{ severity: string; location?: string; diagnostics?: string; message?: string }[]>([])
@@ -55,15 +59,16 @@ export default function ValidateTab() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="subtitle2">Validate a FHIR Resource</Typography>
+      <Typography variant="subtitle2">{t('validate.title')}</Typography>
       <Typography variant="body2" color="text.secondary">
-        Paste a FHIR resource JSON below and click Validate to check for conformance issues.
+        {t('validate.description')}
       </Typography>
 
       <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
         <Editor
           height="300px"
           language="json"
+          theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
           defaultValue={SAMPLE_JSON}
           onMount={handleEditorMount}
           options={{
@@ -82,18 +87,18 @@ export default function ValidateTab() {
         startIcon={validateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <ValidateIcon />}
         sx={{ alignSelf: 'flex-start', '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
       >
-        {validateMutation.isPending ? 'Validating...' : 'Validate'}
+        {validateMutation.isPending ? t('validate.validating') : t('validate.validateButton')}
       </GradientButton>
 
       {validateMutation.isError && (
         <Alert severity="error">
-          Validation failed: {(validateMutation.error as Error).message}
+          {t('validate.validationFailed', { error: (validateMutation.error as Error).message })}
         </Alert>
       )}
 
       {validationStatus !== 'none' && (
         <Chip
-          label={validationStatus === 'valid' ? 'Valid' : 'Invalid'}
+          label={validationStatus === 'valid' ? t('validate.valid') : t('validate.invalid')}
           color={validationStatus === 'valid' ? 'success' : 'error'}
           icon={validationStatus === 'valid' ? <ValidateIcon /> : undefined}
           sx={{ alignSelf: 'flex-start' }}
@@ -103,17 +108,18 @@ export default function ValidateTab() {
       {issues.length > 0 && (
         <TableContainer
           sx={{
-            bgcolor: '#F8FAFB',
+            bgcolor: 'action.hover',
             borderRadius: '8px',
-            border: '1px solid rgba(13,115,119,0.1)',
+            border: '1px solid',
+            borderColor: 'divider',
           }}
         >
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Severity</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Location</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Message</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('validate.colSeverity')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('validate.colLocation')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('validate.colMessage')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

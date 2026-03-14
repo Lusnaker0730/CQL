@@ -4,8 +4,6 @@ import com.cqlplatform.entity.CdsServiceConfigEntity;
 import com.cqlplatform.model.cds.CdsServiceConfigRequest;
 import com.cqlplatform.model.cds.CdsServiceConfigResponse;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
-import com.cqlplatform.service.cql.CqlExecutionService;
-import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,17 +24,18 @@ import static org.mockito.Mockito.*;
 class CdsServiceVersioningTest {
 
     @Mock
-    private CqlExecutionService executionService;
-    @Mock
     private CdsServiceConfigRepository repository;
+    @Mock
+    private CdsInvocationService invocationService;
+    @Mock
+    private CqlTupleCardStrategy tupleStrategy;
 
     private CdsHooksService cdsHooksService;
 
     @BeforeEach
     void setUp() {
-        FhirContext fhirContext = FhirContext.forR4();
         ObjectMapper objectMapper = new ObjectMapper();
-        cdsHooksService = new CdsHooksService(executionService, repository, fhirContext, objectMapper);
+        cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy);
     }
 
     @Test
@@ -120,7 +119,6 @@ class CdsServiceVersioningTest {
         assertThat(response.getVersion()).isEqualTo(1);
         assertThat(response.getEnabled()).isTrue();
 
-        // Verify v2 was disabled
         ArgumentCaptor<CdsServiceConfigEntity> captor = ArgumentCaptor.forClass(CdsServiceConfigEntity.class);
         verify(repository, atLeast(3)).save(captor.capture());
     }

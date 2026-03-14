@@ -9,6 +9,7 @@ import {
   Chip,
 } from '@mui/material';
 import { Delete } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 interface SupplementalDataElement {
   definition: string;
@@ -28,6 +29,7 @@ const SupplementalDataSection: React.FC<SupplementalDataSectionProps> = ({
   expressionNames,
   readOnly = false,
 }) => {
+  const { t } = useTranslation('measures');
   const items = supplementalData ?? [];
 
   const selectedDefinitions = items.map((item) => item.definition);
@@ -56,7 +58,7 @@ const SupplementalDataSection: React.FC<SupplementalDataSectionProps> = ({
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Supplemental Data Elements
+          {t('supplementalData.title')}
         </Typography>
 
         {items.map((item, index) => (
@@ -67,7 +69,7 @@ const SupplementalDataSection: React.FC<SupplementalDataSectionProps> = ({
             />
             <TextField
               size="small"
-              label="Description"
+              label={t('supplementalData.description')}
               value={item.description}
               onChange={(e) => handleDescriptionChange(index, e.target.value)}
               inputProps={{ maxLength: 128 }}
@@ -79,7 +81,7 @@ const SupplementalDataSection: React.FC<SupplementalDataSectionProps> = ({
                 size="small"
                 color="error"
                 onClick={() => handleRemove(index)}
-                aria-label={`Remove ${item.definition}`}
+                aria-label={t('supplementalData.remove', { name: item.definition })}
               >
                 <Delete fontSize="small" />
               </IconButton>
@@ -100,8 +102,8 @@ const SupplementalDataSection: React.FC<SupplementalDataSectionProps> = ({
               <TextField
                 {...params}
                 size="small"
-                label="Add supplemental data element"
-                placeholder="Select a CQL expression"
+                label={t('supplementalData.addLabel')}
+                placeholder={t('supplementalData.selectPlaceholder')}
               />
             )}
             blurOnSelect

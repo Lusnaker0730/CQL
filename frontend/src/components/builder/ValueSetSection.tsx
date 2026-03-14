@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -13,20 +14,14 @@ import {
   IconButton,
   ToggleButtonGroup,
   ToggleButton,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Chip,
-  List,
-  ListItemButton,
-  ListItemText,
 } from '@mui/material'
 import { Add as AddIcon, ExpandMore, ExpandLess, Search as SearchIcon, LocalLibrary as BrowseIcon } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
-import { useTwcoreFullCatalog } from '../../hooks/useTwcoreCatalog'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
+import TwcoreBrowser from './TwcoreBrowser'
+import type { TwcoreCatalogEntry } from '../../types/authoring'
 
 interface ValueSetSectionProps {
   valueSets: string[]
@@ -48,6 +43,7 @@ function parseValueSet(raw: string): { name: string; url: string } | null {
 type BrowseMode = 'vsac' | 'twcore'
 
 export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo, onEdit }: ValueSetSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [browseMode, setBrowseMode] = useState<BrowseMode>('vsac')
   const [searchTerm, setSearchTerm] = useState('')
@@ -57,43 +53,10 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
   const [editUrl, setEditUrl] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
-  const [twcoreFilter, setTwcoreFilter] = useState('')
-  const [expandedEntry, setExpandedEntry] = useState<string | null>(null)
-
   const { data: searchResults = [], isLoading: isSearching } = useSearchValueSets(
     browseMode === 'vsac' && searchTerm.length >= 2 ? searchTerm : undefined
   )
   const expandMutation = useExpandValueSet()
-  const { data: twcoreCatalog = [], isLoading: isTwcoreLoading } = useTwcoreFullCatalog()
-
-  const filteredCatalog = useMemo(() => {
-    if (!twcoreFilter.trim()) return twcoreCatalog
-    const lower = twcoreFilter.toLowerCase()
-    return twcoreCatalog
-      .map((entry) => {
-        const filteredCategories = entry.categories
-          .map((cat) => ({
-            ...cat,
-            codes: cat.codes.filter(
-              (c) =>
-                c.code.toLowerCase().includes(lower) ||
-                c.display.toLowerCase().includes(lower) ||
-                c.displayZh.toLowerCase().includes(lower)
-            ),
-          }))
-          .filter((cat) => cat.codes.length > 0 || cat.name.toLowerCase().includes(lower))
-        if (
-          filteredCategories.length > 0 ||
-          entry.name.toLowerCase().includes(lower) ||
-          entry.resourceType.toLowerCase().includes(lower)
-        ) {
-          return { ...entry, categories: filteredCategories.length > 0 ? filteredCategories : entry.categories }
-        }
-        return null
-      })
-      .filter(Boolean) as typeof twcoreCatalog
-  }, [twcoreCatalog, twcoreFilter])
-
   const handleExpand = (url: string) => {
     if (expandedUrl === url) {
       setExpandedUrl(null)
@@ -141,8 +104,6 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
     setEditName('')
     setEditUrl('')
     setPreviewSnippet('')
-    setTwcoreFilter('')
-    setExpandedEntry(null)
   }
 
   const handleConfirmDelete = () => {
@@ -152,7 +113,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
     }
   }
 
-  const handleTwcoreCodeClick = (entry: typeof twcoreCatalog[0], code: { code: string; display: string; displayZh: string }) => {
+  const handleTwcoreCodeClick = (entry: TwcoreCatalogEntry, code: { code: string; display: string; displayZh: string }) => {
     const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
     const name = `${displayLabel} [${code.code}]`
     handleInsertValueSet(name, entry.system)
@@ -177,13 +138,13 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No value sets found
+          {t('common.noItemsFound', { type: t('sections.valueSets').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add ValueSet
+          {t('common.addItem', { type: 'ValueSet' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -191,13 +152,13 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
             <>
               <TextField
                 size="small"
-                label="ValueSet Name"
+                label={t('valueSets.name')}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
               />
               <TextField
                 size="small"
-                label="URL / OID"
+                label={t('valueSets.urlOid')}
                 value={editUrl}
                 onChange={(e) => setEditUrl(e.target.value)}
               />
@@ -206,14 +167,14 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel="Update"
+                  insertLabel={t('common.update')}
                 />
               ) : (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="outlined" onClick={handleManualSave} disabled={!editName.trim() || !editUrl.trim()}>
-                    Preview Update
+                    {t('common.previewUpdate')}
                   </Button>
-                  <Button size="small" onClick={resetForm}>Cancel</Button>
+                  <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
                 </Stack>
               )}
             </>
@@ -230,11 +191,11 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
               >
                 <ToggleButton value="vsac" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
                   <SearchIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                  Search VSAC
+                  {t('valueSets.searchVsac')}
                 </ToggleButton>
                 <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
                   <BrowseIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                  Browse TWCORE
+                  {t('valueSets.browseTwcore')}
                 </ToggleButton>
               </ToggleButtonGroup>
 
@@ -242,8 +203,8 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                 <>
                   <TextField
                     size="small"
-                    label="Search VSAC ValueSets"
-                    placeholder="e.g. Diabetes, HbA1c..."
+                    label={t('valueSets.searchVsacTitle')}
+                    placeholder={t('valueSets.searchVsacPlaceholder')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     InputProps={{
@@ -269,7 +230,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                                 onClick={() => handleInsertValueSet(vs.title || vs.name, vs.url)}
                                 sx={{ minWidth: 0, px: 1, fontSize: '0.7rem' }}
                               >
-                                Insert
+                                {t('common.insert')}
                               </Button>
                             </Stack>
                           </Stack>
@@ -308,90 +269,10 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
               )}
 
               {browseMode === 'twcore' && (
-                <>
-                  <TextField
-                    size="small"
-                    label="Filter TWCORE entries"
-                    placeholder="e.g. diabetes, 血壓..."
-                    value={twcoreFilter}
-                    onChange={(e) => setTwcoreFilter(e.target.value)}
-                  />
-
-                  {isTwcoreLoading ? (
-                    <Stack alignItems="center" py={1}>
-                      <CircularProgress size={20} />
-                    </Stack>
-                  ) : filteredCatalog.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                      No matching TWCORE entries
-                    </Typography>
-                  ) : (
-                    <Stack sx={{ maxHeight: 300, overflow: 'auto' }}>
-                      {filteredCatalog.map((entry) => (
-                        <Accordion
-                          key={entry.name}
-                          expanded={expandedEntry === entry.name}
-                          onChange={(_, isExpanded) => setExpandedEntry(isExpanded ? entry.name : null)}
-                          disableGutters
-                          elevation={0}
-                          sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent' }}
-                        >
-                          <AccordionSummary expandIcon={<ExpandMore sx={{ fontSize: 16 }} />} sx={{ minHeight: 32, px: 0.5, '& .MuiAccordionSummary-content': { my: 0.25 } }}>
-                            <Stack direction="row" spacing={0.5} alignItems="center">
-                              <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
-                                {entry.name}
-                              </Typography>
-                              <Chip label={entry.resourceType} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-                            </Stack>
-                          </AccordionSummary>
-                          <AccordionDetails sx={{ px: 0.5, py: 0 }}>
-                            {entry.categories.map((cat) => (
-                              <Accordion
-                                key={cat.name}
-                                disableGutters
-                                elevation={0}
-                                sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent' }}
-                              >
-                                <AccordionSummary expandIcon={<ExpandMore sx={{ fontSize: 14 }} />} sx={{ minHeight: 28, px: 0.5, '& .MuiAccordionSummary-content': { my: 0.15 } }}>
-                                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                                    {cat.name} ({cat.codes.length})
-                                  </Typography>
-                                </AccordionSummary>
-                                <AccordionDetails sx={{ px: 0, py: 0 }}>
-                                  <List dense disablePadding>
-                                    {cat.codes.map((code) => (
-                                      <ListItemButton
-                                        key={code.code}
-                                        onClick={() => handleTwcoreCodeClick(entry, code)}
-                                        sx={{ py: 0.15, px: 1 }}
-                                      >
-                                        <ListItemText
-                                          primary={
-                                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                                              <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}>
-                                                {code.code}
-                                              </Typography>
-                                              {' '}{code.display}
-                                              {code.displayZh && (
-                                                <Typography component="span" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                                  {' '}({code.displayZh})
-                                                </Typography>
-                                              )}
-                                            </Typography>
-                                          }
-                                        />
-                                      </ListItemButton>
-                                    ))}
-                                  </List>
-                                </AccordionDetails>
-                              </Accordion>
-                            ))}
-                          </AccordionDetails>
-                        </Accordion>
-                      ))}
-                    </Stack>
-                  )}
-                </>
+                <TwcoreBrowser
+                  emptyMessage={t('valueSets.noTwcoreEntries')}
+                  onCodeClick={handleTwcoreCodeClick}
+                />
               )}
 
               {previewSnippet && (
@@ -399,12 +280,12 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                   snippet={previewSnippet}
                   onInsert={handleConfirmInsert}
                   onCancel={() => setPreviewSnippet('')}
-                  insertLabel="Insert"
+                  insertLabel={t('common.insert')}
                 />
               )}
 
               <Button size="small" onClick={resetForm}>
-                Cancel
+                {t('common.cancel')}
               </Button>
             </>
           )}
@@ -413,7 +294,9 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title={t('common.deleteElement')}
+        itemName={deleteTarget || ''}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

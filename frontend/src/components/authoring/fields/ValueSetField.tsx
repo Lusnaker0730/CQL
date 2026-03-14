@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, TextField, Chip, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
@@ -34,6 +35,7 @@ export default function ValueSetField({
   onFieldUpdate,
   resourceType,
 }: ValueSetFieldProps) {
+  const { t } = useTranslation('authoring')
   const [codeDialogOpen, setCodeDialogOpen] = useState(false)
   const [vsDialogOpen, setVsDialogOpen] = useState(false)
 
@@ -81,7 +83,7 @@ export default function ValueSetField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           fullWidth
-          placeholder="Enter value set OID or search..."
+          placeholder={t('valueSetField.oidPlaceholder')}
         />
       </Box>
     )
@@ -93,16 +95,16 @@ export default function ValueSetField({
       <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
         <Chip
           icon={<AuthIcon sx={{ fontSize: 16 }} />}
-          label="VSAC AUTHENTICATED"
+          label={t('valueSetField.vsacAuthenticated')}
           size="small"
           variant="outlined"
           sx={{ color: 'text.secondary', borderColor: 'divider' }}
         />
         <GradientButton size="small" startIcon={<VsIcon />} onClick={() => setVsDialogOpen(true)}>
-          ADD VALUE SET
+          {t('valueSetField.addValueSet')}
         </GradientButton>
         <GradientButton size="small" startIcon={<AddIcon />} onClick={() => setCodeDialogOpen(true)}>
-          ADD CODE
+          {t('valueSetField.addCode')}
         </GradientButton>
       </Stack>
 
@@ -110,7 +112,7 @@ export default function ValueSetField({
       {valueSets.length > 0 && (
         <Box sx={{ mb: 1 }}>
           <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
-            Value Sets
+            {t('valueSetField.valueSets')}
           </Typography>
           <Stack spacing={0.5}>
             {valueSets.map((vs, i) => (
@@ -122,8 +124,8 @@ export default function ValueSetField({
                   {vs.name}{' '}
                   <Typography component="span" variant="caption" color="text.secondary">({vs.oid})</Typography>
                 </Typography>
-                <Tooltip title="Remove">
-                  <IconButton size="small" onClick={() => handleRemoveValueSet(i)}>
+                <Tooltip title={t('valueSetField.remove')}>
+                  <IconButton size="small" onClick={() => handleRemoveValueSet(i)} aria-label={t('valueSetField.removeValueSet')}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -137,7 +139,7 @@ export default function ValueSetField({
       {codes.length > 0 && (
         <Box sx={{ mb: 1 }}>
           <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
-            Codes
+            {t('valueSetField.codes')}
           </Typography>
           <Stack spacing={0.5}>
             {codes.map((c, i) => (
@@ -147,8 +149,8 @@ export default function ValueSetField({
                 <Chip label={c.codeSystem.name} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
                 <Typography variant="body2" fontWeight={600}>{c.code}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{c.display}</Typography>
-                <Tooltip title="Remove">
-                  <IconButton size="small" onClick={() => handleRemoveCode(i)}>
+                <Tooltip title={t('valueSetField.remove')}>
+                  <IconButton size="small" onClick={() => handleRemoveCode(i)} aria-label={t('valueSetField.removeCode')}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -166,12 +168,12 @@ export default function ValueSetField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           fullWidth
-          placeholder="Or enter a value set OID directly..."
+          placeholder={t('valueSetField.oidDirectPlaceholder')}
           sx={{ mt: 0.5 }}
         />
       )}
 
-      <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} />
+      <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} resourceType={effectiveResourceType} />
       <AddValueSetDialog
         open={vsDialogOpen}
         onClose={() => setVsDialogOpen(false)}
@@ -214,6 +216,7 @@ function AddValueSetDialog({
   onAdd: (vs: ValueSetReference) => void
   resourceType?: string
 }) {
+  const { t } = useTranslation('authoring')
   const [tab, setTab] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [oid, setOid] = useState('')
@@ -289,15 +292,15 @@ function AddValueSetDialog({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        Add Value Set
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        {t('valueSetField.addVsTitle')}
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3 }}>
-        <Tab label="Search VSAC" />
-        <Tab label="Enter OID" />
+        <Tab label={t('valueSetField.searchVsac')} />
+        <Tab label={t('valueSetField.enterOid')} />
         <Tab
-          label="Browse TWCORE"
+          label={t('valueSetField.browseTwcore')}
           icon={<TwcoreIcon sx={{ fontSize: 18 }} />}
           iconPosition="start"
           disabled={!resourceType}
@@ -310,7 +313,7 @@ function AddValueSetDialog({
             <TextField
               fullWidth
               size="small"
-              placeholder="Search value sets by name..."
+              placeholder={t('valueSetField.searchVsPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               sx={{ mb: 2 }}
@@ -332,8 +335,8 @@ function AddValueSetDialog({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>NAME</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>OID / URL</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>{t('valueSetField.colName')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>{t('valueSetField.colOid')}</TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
@@ -352,7 +355,7 @@ function AddValueSetDialog({
                         <Typography variant="caption" color="text.secondary">{vs.url}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Button size="small" variant="outlined">Select</Button>
+                        <Button size="small" variant="outlined">{t('valueSetField.select')}</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -360,32 +363,32 @@ function AddValueSetDialog({
               </Table>
             ) : searchQuery.length >= 2 && !isSearching ? (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No value sets found for &quot;{searchQuery}&quot;. Try a different search term or enter the OID manually.
+                {t('valueSetField.noVsFound', { query: searchQuery })}
               </Typography>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                Type at least 2 characters to search VSAC value sets.
+                {t('valueSetField.vsSearchHint')}
               </Typography>
             )}
           </Box>
         ) : tab === 1 ? (
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Value Set OID or URL"
+              label={t('valueSetField.oidLabel')}
               size="small"
               value={oid}
               onChange={(e) => setOid(e.target.value)}
               fullWidth
-              placeholder="e.g. 2.16.840.1.113883.3.526.3.1032"
+              placeholder={t('valueSetField.oidFieldPlaceholder')}
             />
             <TextField
-              label="Display Name"
+              label={t('valueSetField.displayNameLabel')}
               size="small"
               value={name}
               onChange={(e) => setName(e.target.value)}
               fullWidth
-              placeholder="e.g. Diabetes"
-              helperText="Optional. If left blank, the OID will be used as the name."
+              placeholder={t('valueSetField.displayNamePlaceholder')}
+              helperText={t('valueSetField.displayNameHelper')}
             />
           </Stack>
         ) : (
@@ -394,7 +397,7 @@ function AddValueSetDialog({
             <TextField
               fullWidth
               size="small"
-              placeholder="Filter codes by name, code, or Chinese name..."
+              placeholder={t('valueSetField.filterTwcore')}
               value={twcoreFilter}
               onChange={(e) => setTwcoreFilter(e.target.value)}
               sx={{ mb: 2 }}
@@ -414,8 +417,8 @@ function AddValueSetDialog({
             ) : filteredTwcore.length === 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
                 {twcoreFilter
-                  ? `No codes found matching "${twcoreFilter}"`
-                  : `No TWCORE codes available for ${resourceType}`}
+                  ? t('valueSetField.noCodesMatch', { filter: twcoreFilter })
+                  : t('valueSetField.noTwcoreCodes', { type: resourceType })}
               </Typography>
             ) : (
               filteredTwcore.map((entry) => (
@@ -428,7 +431,7 @@ function AddValueSetDialog({
                       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
                           <Typography variant="body2" fontWeight={600}>{cat.name}</Typography>
-                          <Chip label={`${cat.codes.length} codes`} size="small" sx={{ fontSize: '0.7rem' }} />
+                          <Chip label={t('valueSetField.codesCount', { count: cat.codes.length })} size="small" sx={{ fontSize: '0.7rem' }} />
                           <Box sx={{ flex: 1 }} />
                           <Button
                             size="small"
@@ -436,7 +439,7 @@ function AddValueSetDialog({
                             onClick={(e) => { e.stopPropagation(); handleAddCategory(entry.system, cat) }}
                             sx={{ fontSize: '0.7rem', minWidth: 'auto' }}
                           >
-                            Add All
+                            {t('valueSetField.addAll')}
                           </Button>
                         </Stack>
                       </AccordionSummary>
@@ -444,9 +447,9 @@ function AddValueSetDialog({
                         <Table size="small">
                           <TableHead>
                             <TableRow>
-                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>CODE</TableCell>
-                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>DISPLAY</TableCell>
-                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>中文</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>{t('valueSetField.colCode')}</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>{t('valueSetField.colDisplay')}</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '0.7rem', py: 0.5 }}>{t('valueSetField.colChinese')}</TableCell>
                               <TableCell sx={{ py: 0.5 }} />
                             </TableRow>
                           </TableHead>
@@ -468,7 +471,7 @@ function AddValueSetDialog({
                                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>{c.displayZh}</Typography>
                                 </TableCell>
                                 <TableCell sx={{ py: 0.5 }}>
-                                  <Button size="small" variant="outlined" sx={{ fontSize: '0.7rem', minWidth: 'auto', py: 0 }}>Select</Button>
+                                  <Button size="small" variant="outlined" sx={{ fontSize: '0.7rem', minWidth: 'auto', py: 0 }}>{t('valueSetField.select')}</Button>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -485,10 +488,10 @@ function AddValueSetDialog({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose}>{t('actions.cancel', { ns: 'common' })}</Button>
         {tab === 1 && (
           <Button variant="contained" onClick={handleManualAdd} disabled={!oid.trim()}>
-            Add
+            {t('valueSetField.add')}
           </Button>
         )}
       </DialogActions>

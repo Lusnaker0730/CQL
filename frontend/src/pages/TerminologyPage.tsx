@@ -1,12 +1,16 @@
 import { Box, Typography } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import TerminologyBrowser from '../components/terminology/TerminologyBrowser'
 
 export default function TerminologyPage() {
+  const { t } = useTranslation('terminology')
+
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2 }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
-          Terminology Browser
+          {t('page.title')}
         </Typography>
         <Box
           sx={{
@@ -18,8 +22,7 @@ export default function TerminologyPage() {
           }}
         />
         <Typography variant="body2" color="text.secondary">
-          Search and explore clinical terminologies. Look up codes, expand ValueSets,
-          and validate code membership.
+          {t('page.subtitle')}
         </Typography>
       </Box>
 

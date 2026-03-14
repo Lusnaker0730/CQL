@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cqlplatform.model.cds.CdsConstants;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -54,8 +56,8 @@ public class CdsAnalyticsService {
                 .findCurrentPeriodByServiceId(serviceId)
                 .orElse(null);
 
-        long acceptedCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, "accepted");
-        long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, "overridden");
+        long acceptedCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, CdsConstants.FEEDBACK_ACCEPTED);
+        long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(serviceId, CdsConstants.FEEDBACK_OVERRIDDEN);
 
         if (analytics == null) {
             return CdsServiceAnalyticsDTO.builder()
@@ -69,24 +71,7 @@ public class CdsAnalyticsService {
                     .build();
         }
 
-        double avgResponseTime = analytics.getInvocationCount() > 0
-                ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()
-                : 0;
-
-        double errorRate = analytics.getInvocationCount() > 0
-                ? (double) analytics.getErrorCount() / analytics.getInvocationCount() * 100
-                : 0;
-
-        return CdsServiceAnalyticsDTO.builder()
-                .serviceId(serviceId)
-                .invocationCount(analytics.getInvocationCount())
-                .errorCount(analytics.getErrorCount())
-                .avgResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
-                .errorRate(Math.round(errorRate * 100.0) / 100.0)
-                .lastInvokedAt(analytics.getLastInvokedAt())
-                .feedbackAcceptedCount(acceptedCount)
-                .feedbackOverriddenCount(overriddenCount)
-                .build();
+        return buildDto(analytics, acceptedCount, overriddenCount);
     }
 
     @Transactional(readOnly = true)
@@ -96,29 +81,33 @@ public class CdsAnalyticsService {
         return allAnalytics.stream()
                 .map(analytics -> {
                     long acceptedCount = feedbackRepository.countByServiceIdAndOutcome(
-                            analytics.getServiceId(), "accepted");
+                            analytics.getServiceId(), CdsConstants.FEEDBACK_ACCEPTED);
                     long overriddenCount = feedbackRepository.countByServiceIdAndOutcome(
-                            analytics.getServiceId(), "overridden");
-
-                    double avgResponseTime = analytics.getInvocationCount() > 0
-                            ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()
-                            : 0;
-
-                    double errorRate = analytics.getInvocationCount() > 0
-                            ? (double) analytics.getErrorCount() / analytics.getInvocationCount() * 100
-                            : 0;
-
-                    return CdsServiceAnalyticsDTO.builder()
-                            .serviceId(analytics.getServiceId())
-                            .invocationCount(analytics.getInvocationCount())
-                            .errorCount(analytics.getErrorCount())
-                            .avgResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
-                            .errorRate(Math.round(errorRate * 100.0) / 100.0)
-                            .lastInvokedAt(analytics.getLastInvokedAt())
-                            .feedbackAcceptedCount(acceptedCount)
-                            .feedbackOverriddenCount(overriddenCount)
-                            .build();
+                            analytics.getServiceId(), CdsConstants.FEEDBACK_OVERRIDDEN);
+                    return buildDto(analytics, acceptedCount, overriddenCount);
                 })
                 .collect(Collectors.toList());
+    }
+
+    private CdsServiceAnalyticsDTO buildDto(CdsServiceAnalyticsEntity analytics,
+                                            long acceptedCount, long overriddenCount) {
+        double avgResponseTime = analytics.getInvocationCount() > 0
+                ? (double) analytics.getTotalResponseTimeMs() / analytics.getInvocationCount()
+                : 0;
+
+        double errorRate = analytics.getInvocationCount() > 0
+                ? (double) analytics.getErrorCount() / analytics.getInvocationCount() * 100
+                : 0;
+
+        return CdsServiceAnalyticsDTO.builder()
+                .serviceId(analytics.getServiceId())
+                .invocationCount(analytics.getInvocationCount())
+                .errorCount(analytics.getErrorCount())
+                .avgResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
+                .errorRate(Math.round(errorRate * 100.0) / 100.0)
+                .lastInvokedAt(analytics.getLastInvokedAt())
+                .feedbackAcceptedCount(acceptedCount)
+                .feedbackOverriddenCount(overriddenCount)
+                .build();
     }
 }

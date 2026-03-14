@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import MeasureLibrary from '../components/measure/MeasureLibrary'
 import MeasureEditor from '../components/measure/MeasureEditor'
 import MeasureComparison from '../components/measure/MeasureComparison'
@@ -8,6 +10,7 @@ import { measureApi } from '../api'
 import type { MeasureDefinition } from '../types'
 
 export default function MeasuresPage() {
+  const { t } = useTranslation('measures')
   const [topTab, setTopTab] = useState(0)
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureDefinition | null>(null)
 
@@ -31,10 +34,10 @@ export default function MeasuresPage() {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
-          Quality Measures (eCQM)
+          {t('page.title')}
         </Typography>
         <Box
           sx={{
@@ -46,14 +49,14 @@ export default function MeasuresPage() {
           }}
         />
         <Typography variant="body2" color="text.secondary">
-          Define, evaluate, and analyze electronic Clinical Quality Measures using CQL.
+          {t('page.subtitle')}
         </Typography>
       </Box>
 
       <Tabs value={topTab} onChange={(_, v) => setTopTab(v)} sx={{ mb: 2 }}>
-        <Tab label="Dashboard" />
-        <Tab label="Measures" />
-        <Tab label="Comparison & Trends" />
+        <Tab label={t('page.tabs.dashboard')} />
+        <Tab label={t('page.tabs.measures')} />
+        <Tab label={t('page.tabs.comparison')} />
       </Tabs>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>

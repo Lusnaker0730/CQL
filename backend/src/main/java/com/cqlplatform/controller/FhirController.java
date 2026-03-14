@@ -63,6 +63,7 @@ public class FhirController {
             return ResponseEntity.notFound().build();
         }
         String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        InputValidator.requireValidFhirCanonicalUrl(decodedUrl);
         StructureDefinition sd = igService.getProfileByUrl(decodedUrl);
         if (sd == null) {
             return ResponseEntity.notFound().build();
@@ -89,6 +90,7 @@ public class FhirController {
             return ResponseEntity.notFound().build();
         }
         String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        InputValidator.requireValidFhirCanonicalUrl(decodedUrl);
         ValueSet vs = igService.getValueSetByUrl(decodedUrl);
         if (vs == null) {
             return ResponseEntity.notFound().build();
@@ -115,6 +117,7 @@ public class FhirController {
             return ResponseEntity.notFound().build();
         }
         String decodedUrl = java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8);
+        InputValidator.requireValidFhirCanonicalUrl(decodedUrl);
         CodeSystem cs = igService.getCodeSystemByUrl(decodedUrl);
         if (cs == null) {
             return ResponseEntity.notFound().build();
@@ -136,15 +139,9 @@ public class FhirController {
     @GetMapping("/structure-definitions/{resourceType}")
     @Operation(summary = "Get Resource Metadata", description = "Get element metadata for a FHIR resource type")
     public ResponseEntity<ResourceElementMetadata> getResourceMetadata(@PathVariable String resourceType) {
-        if (!InputValidator.isValidFhirResourceType(resourceType)) {
-            return ResponseEntity.badRequest().build();
-        }
-        try {
-            ResourceElementMetadata metadata = structureDefinitionService.getResourceMetadata(resourceType);
-            return ResponseEntity.ok(metadata);
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
+        InputValidator.requireValidFhirResourceType(resourceType);
+        ResourceElementMetadata metadata = structureDefinitionService.getResourceMetadata(resourceType);
+        return ResponseEntity.ok(metadata);
     }
 
     // ─── Cache Management ────────────────────────────────────────────
@@ -158,6 +155,7 @@ public class FhirController {
     @DeleteMapping("/cache/{cacheName}")
     @Operation(summary = "Evict Cache", description = "Clear a named cache (ADMIN only)")
     public ResponseEntity<Map<String, String>> evictCache(@PathVariable String cacheName) {
+        InputValidator.requireValidCacheName(cacheName);
         terminologyService.evictCache(cacheName);
         return ResponseEntity.ok(Map.of("message", "Cache '" + cacheName + "' evicted"));
     }
@@ -173,9 +171,7 @@ public class FhirController {
             @RequestParam(name = "_since", required = false) String since,
             @RequestParam(name = "_type", required = false) String typeFilter) {
 
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().build();
-        }
+        InputValidator.requireValidUrl(fhirServer);
 
         FhirBulkExportService.BulkExportKickOffResult result =
                 bulkExportService.kickOffExport(fhirServer, exportType, outputFormat, since, typeFilter);
@@ -187,12 +183,10 @@ public class FhirController {
     public ResponseEntity<FhirBulkExportService.BulkExportStatusResult> pollExportStatus(
             @RequestParam String statusUrl) {
 
-        if (!InputValidator.isValidUrl(statusUrl)) {
-            return ResponseEntity.badRequest().build();
-        }
+        InputValidator.requireValidUrl(statusUrl);
 
         FhirBulkExportService.BulkExportStatusResult result = bulkExportService.pollExportStatus(statusUrl);
-        if ("in-progress".equals(result.status())) {
+        if (com.cqlplatform.model.measure.EvaluationStatusConstants.IN_PROGRESS.equals(result.status())) {
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(result);
         }
         return ResponseEntity.ok(result);
@@ -206,8 +200,8 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer,
             @RequestBody String bundleJson) {
 
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         Bundle bundle = (Bundle) fhirContext.newJsonParser().parseResource(bundleJson);
@@ -223,9 +217,10 @@ public class FhirController {
     @PostMapping(value = "/$validate", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Validate Resource", description = "Validate a FHIR resource against profiles")
     public ResponseEntity<FhirValidationService.ValidationResult> validateResource(
+            @RequestParam(required = false) String profile,
             @RequestBody String resourceJson) {
 
-        FhirValidationService.ValidationResult result = validationService.validateResource(resourceJson);
+        FhirValidationService.ValidationResult result = validationService.validateResource(resourceJson, profile);
         return ResponseEntity.ok(result);
     }
 
@@ -241,16 +236,17 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer) {
 
         if (!InputValidator.isValidNameParam(family)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid family name parameter"));
+            throw new IllegalArgumentException("Invalid family name parameter");
         }
         if (!InputValidator.isValidNameParam(given)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid given name parameter"));
+            throw new IllegalArgumentException("Invalid given name parameter");
         }
         if (!InputValidator.isValidDateParam(birthdate)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid birthdate parameter"));
+            throw new IllegalArgumentException("Invalid birthdate parameter");
         }
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid FHIR server URL"));
+        InputValidator.requireValidIdentifierParam(identifier);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         Bundle bundle = dataProviderService.searchPatientsByDemographics(fhirServer, family, given, birthdate, identifier);
@@ -282,9 +278,7 @@ public class FhirController {
     @GetMapping("/vsac/ValueSet/{oid}")
     @Operation(summary = "Get VSAC ValueSet", description = "Fetch a ValueSet from VSAC by OID")
     public ResponseEntity<String> getVsacValueSet(@PathVariable String oid) {
-        if (!InputValidator.isValidResourceId(oid)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid OID\"}");
-        }
+        InputValidator.requireValidOid(oid);
 
         ValueSet valueSet = vsacService.getValueSetByOid(oid);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(valueSet);
@@ -296,9 +290,7 @@ public class FhirController {
     @GetMapping("/vsac/ValueSet/{oid}/$expand")
     @Operation(summary = "Expand VSAC ValueSet", description = "Expand a ValueSet from VSAC by OID")
     public ResponseEntity<String> expandVsacValueSet(@PathVariable String oid) {
-        if (!InputValidator.isValidResourceId(oid)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid OID\"}");
-        }
+        InputValidator.requireValidResourceId(oid);
 
         ValueSet expanded = vsacService.expandValueSetByOid(oid);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expanded);
@@ -317,13 +309,11 @@ public class FhirController {
             @RequestParam(required = false) String params) {
 
         if (!InputValidator.isValidFhirResourceType(resourceType)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR resource type: " + resourceType + "\"}");
+            throw new IllegalArgumentException("Invalid FHIR resource type: " + resourceType);
         }
-        if (!InputValidator.isValidSearchParams(params)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid search parameters\"}");
-        }
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        InputValidator.requireValidSearchParams(params);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         Bundle bundle = dataProviderService.searchResources(fhirServer, resourceType, params);
@@ -340,14 +330,10 @@ public class FhirController {
             @PathVariable String id,
             @RequestParam(required = false) String fhirServer) {
 
-        if (!InputValidator.isValidFhirResourceType(resourceType)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR resource type\"}");
-        }
-        if (!InputValidator.isValidResourceId(id)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid resource ID\"}");
-        }
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        InputValidator.requireValidFhirResourceType(resourceType);
+        InputValidator.requireValidResourceId(id);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         Resource resource = dataProviderService.getResource(fhirServer, resourceType, id);
@@ -364,8 +350,9 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer,
             @RequestBody String resourceJson) {
 
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        InputValidator.requireValidFhirResourceType(resourceType);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
@@ -384,8 +371,10 @@ public class FhirController {
             @RequestParam(required = false) String fhirServer,
             @RequestBody String resourceJson) {
 
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Invalid FHIR server URL\"}");
+        InputValidator.requireValidFhirResourceType(resourceType);
+        InputValidator.requireValidResourceId(id);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
@@ -404,8 +393,10 @@ public class FhirController {
             @PathVariable String id,
             @RequestParam(required = false) String fhirServer) {
 
-        if (!InputValidator.isValidUrl(fhirServer)) {
-            return ResponseEntity.badRequest().build();
+        InputValidator.requireValidFhirResourceType(resourceType);
+        InputValidator.requireValidResourceId(id);
+        if (fhirServer != null) {
+            InputValidator.requireValidUrl(fhirServer);
         }
 
         dataProviderService.deleteResource(fhirServer, resourceType, id);
@@ -421,7 +412,15 @@ public class FhirController {
         ValueSet expanded;
         // Detect VSAC URLs and route to VsacService which has proper auth
         if (url.contains("cts.nlm.nih.gov/fhir/ValueSet/")) {
-            String oid = url.substring(url.lastIndexOf("/") + 1);
+            // Extract OID from path — URI parsing handles query params and fragments
+            String path;
+            try {
+                path = new java.net.URI(url).getPath();
+            } catch (java.net.URISyntaxException e) {
+                throw new IllegalArgumentException("Invalid VSAC URL");
+            }
+            String oid = path.substring(path.lastIndexOf('/') + 1);
+            InputValidator.requireValidResourceId(oid);
             try {
                 expanded = vsacService.expandValueSetByOid(oid);
             } catch (Exception e) {
@@ -429,10 +428,16 @@ public class FhirController {
                 try {
                     expanded = terminologyService.expandValueSet(url, filter);
                 } catch (Exception e2) {
-                    // Both VSAC and generic service failed
+                    // Both VSAC and generic service failed — build OperationOutcome safely
+                    OperationOutcome outcome = new OperationOutcome();
+                    outcome.addIssue()
+                            .setSeverity(OperationOutcome.IssueSeverity.ERROR)
+                            .setCode(OperationOutcome.IssueType.TRANSIENT)
+                            .setDiagnostics("VSAC ValueSet expansion failed. Ensure VSAC_API_KEY is configured. OID: " + oid);
+                    String errJson = fhirContext.newJsonParser().encodeResourceToString(outcome);
                     return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .body("{\"resourceType\":\"OperationOutcome\",\"issue\":[{\"severity\":\"error\",\"code\":\"transient\",\"diagnostics\":\"VSAC ValueSet expansion failed. Ensure VSAC_API_KEY is configured. OID: " + oid + "\"}]}");
+                            .body(errJson);
                 }
             }
         } else {
@@ -477,8 +482,9 @@ public class FhirController {
             @RequestParam String text,
             @RequestParam(defaultValue = "20") int maxResults) {
 
+        int clampedMax = Math.clamp(maxResults, 1, 200);
         java.util.List<FhirTerminologyService.CodeSearchResult> results =
-                terminologyService.searchCodes(system, text, maxResults);
+                terminologyService.searchCodes(system, text, clampedMax);
         return ResponseEntity.ok(results);
     }
 

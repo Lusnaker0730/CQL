@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -54,6 +55,7 @@ export default function VersionHistoryDialog({
   onSelectVersion,
   entityType,
 }: VersionHistoryDialogProps) {
+  const { t } = useTranslation('editor')
   const [page, setPage] = useState(0)
   const rowsPerPage = 10
 
@@ -72,7 +74,7 @@ export default function VersionHistoryDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{label} Version History</DialogTitle>
+      <DialogTitle>{t('version.historyTitle', { type: label })}</DialogTitle>
       <DialogContent sx={{ px: 0 }}>
         {versions.length === 0 ? (
           <Typography
@@ -80,7 +82,7 @@ export default function VersionHistoryDialog({
             color="text.secondary"
             sx={{ px: 3, py: 2 }}
           >
-            No version history available.
+            {t('version.noHistory')}
           </Typography>
         ) : (
           <>
@@ -88,9 +90,9 @@ export default function VersionHistoryDialog({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell scope="col">Version</TableCell>
-                    <TableCell scope="col">Status</TableCell>
-                    <TableCell scope="col">Date</TableCell>
+                    <TableCell scope="col">{t('version.versionCol')}</TableCell>
+                    <TableCell scope="col">{t('version.statusCol')}</TableCell>
+                    <TableCell scope="col">{t('version.dateCol')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -134,7 +136,7 @@ export default function VersionHistoryDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} size="small">
-          Close
+          {t('common:actions.close')}
         </Button>
       </DialogActions>
     </Dialog>

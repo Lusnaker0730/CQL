@@ -18,10 +18,11 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { formatJson } from '../../utils/fhirBrowserUtils'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import ResourceEditorDialog from './ResourceEditorDialog'
 
 interface ResourceDetailDialogProps {
@@ -45,6 +46,8 @@ export default function ResourceDetailDialog({
   onDeleted,
   onUpdated,
 }: ResourceDetailDialogProps) {
+  const { t } = useTranslation('fhir')
+  const { t: tc } = useTranslation('common')
   const [copied, setCopied] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -77,7 +80,7 @@ export default function ResourceDetailDialog({
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {resourceType}/{resourceId}
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" aria-label={t('detail.closeDialog')}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -106,19 +109,19 @@ export default function ResourceDetailDialog({
         </DialogContent>
         <DialogActions>
           <Stack direction="row" spacing={1}>
-            <Tooltip title="Copy JSON">
+            <Tooltip title={t('detail.copyJson')}>
               <Button size="small" startIcon={<CopyIcon />} onClick={handleCopy}>
-                Copy
+                {t('detail.copy')}
               </Button>
             </Tooltip>
-            <Tooltip title="Edit resource">
+            <Tooltip title={t('detail.editResource')}>
               <Button size="small" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
-                Edit
+                {tc('actions.edit')}
               </Button>
             </Tooltip>
-            <Tooltip title="Delete resource">
+            <Tooltip title={t('detail.deleteResource')}>
               <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-                Delete
+                {tc('actions.delete')}
               </Button>
             </Tooltip>
           </Stack>
@@ -127,8 +130,8 @@ export default function ResourceDetailDialog({
 
       <ConfirmDeleteDialog
         open={deleteOpen}
-        resourceType={resourceType}
-        resourceId={resourceId}
+        title={t('detail.deleteTitle')}
+        itemName={`${resourceType}/${resourceId}`}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeleteOpen(false)}
         isPending={deleteMutation.isPending}
@@ -149,7 +152,7 @@ export default function ResourceDetailDialog({
       />
 
       <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)}>
-        <Alert severity="success" variant="filled">JSON copied to clipboard</Alert>
+        <Alert severity="success" variant="filled">{t('detail.jsonCopied')}</Alert>
       </Snackbar>
     </>
   )

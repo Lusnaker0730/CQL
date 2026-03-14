@@ -17,24 +17,18 @@ import {
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
-  Person,
-  LocalHospital,
-  MedicalServices,
   Info as InfoIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-
-const RESOURCE_ICONS: Record<string, React.ReactNode> = {
-  Patient: <Person />,
-  Encounter: <LocalHospital />,
-}
-const DEFAULT_ICON = <MedicalServices />
+import { getResourceIcon } from './constants'
 
 interface ResourceEntryListProps {
   onDirty: () => void
 }
 
 export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
+  const { t } = useTranslation('measures')
   const { state, dispatch } = useBundleBuilder()
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
@@ -51,7 +45,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <InfoIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
         <Typography variant="body2" color="text.secondary">
-          No resources yet. Start by adding a Patient resource.
+          {t('testCaseBuilder.noResourcesYet')}
         </Typography>
       </Box>
     )
@@ -68,7 +62,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
             sx={{ borderRadius: 1, mb: 0.5 }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
-              {RESOURCE_ICONS[entry.resourceType] || DEFAULT_ICON}
+              {getResourceIcon(entry.resourceType)}
             </ListItemIcon>
             <ListItemText
               primary={
@@ -92,7 +86,7 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
                 setDeleteId(entry.id)
               }}
               sx={{ ml: 1 }}
-              aria-label="Delete resource"
+              aria-label={t('testCaseBuilder.deleteResourceAria')}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
@@ -101,15 +95,15 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
       </List>
 
       <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
-        <DialogTitle>Delete Resource</DialogTitle>
+        <DialogTitle>{t('testCaseBuilder.deleteResource')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to remove this resource from the test case bundle?
+            {t('testCaseBuilder.deleteConfirm')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
-          <Button color="error" onClick={handleDelete}>Delete</Button>
+          <Button onClick={() => setDeleteId(null)}>{t('testCaseBuilder.cancel')}</Button>
+          <Button color="error" onClick={handleDelete}>{t('testCaseBuilder.delete')}</Button>
         </DialogActions>
       </Dialog>
     </>

@@ -1,23 +1,48 @@
-export const FHIR_RESOURCE_TYPES = [
-  'Patient',
-  'Encounter',
-  'Condition',
-  'Observation',
-  'Procedure',
-  'MedicationRequest',
-  'MedicationStatement',
-  'DiagnosticReport',
-  'ServiceRequest',
-  'Immunization',
-  'AllergyIntolerance',
-  'CarePlan',
-  'Goal',
-  'Claim',
-  'Coverage',
-  'Organization',
-  'Practitioner',
-  'Location',
-]
+/** A loosely-typed FHIR resource with required resourceType. */
+export interface FhirResource extends Record<string, unknown> {
+  resourceType: string
+  id?: string
+}
+
+/**
+ * Safely traverse a dot-separated path on an unknown object,
+ * returning the value at that path or undefined.
+ * Supports bracket-free array indexing via numeric segments (e.g. "name.0.family").
+ */
+function getNestedValue(obj: unknown, path: string): unknown {
+  let current: unknown = obj
+  for (const segment of path.split('.')) {
+    if (current == null || typeof current !== 'object') return undefined
+    const idx = Number(segment)
+    if (Array.isArray(current) && !Number.isNaN(idx)) {
+      current = current[idx]
+    } else {
+      current = (current as Record<string, unknown>)[segment]
+    }
+  }
+  return current
+}
+
+/** Shorthand: resolve a nested path to a string, falling back to ''. */
+function str(resource: FhirResource, path: string): string {
+  const v = getNestedValue(resource, path)
+  return typeof v === 'string' ? v : ''
+}
+
+/** Shorthand: resolve a CodeableConcept-style path to its display or text. */
+function codeDisplay(resource: FhirResource, basePath: string): string {
+  return str(resource, `${basePath}.coding.0.display`) || str(resource, `${basePath}.text`)
+}
+
+/** Format a HumanName at the given array path (e.g. "name.0"). */
+function humanName(resource: FhirResource, path: string): string {
+  const nameObj = getNestedValue(resource, path)
+  if (!nameObj || typeof nameObj !== 'object') return ''
+  const n = nameObj as Record<string, unknown>
+  const family = typeof n.family === 'string' ? n.family : ''
+  const given = Array.isArray(n.given) ? (n.given as string[]) : []
+  return [family, ...given].filter(Boolean).join(', ')
+}
 
 export function formatJson(data: unknown): string {
   try {
@@ -42,117 +67,134 @@ export function getResourceCount(data: unknown): number {
   }
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export const RESOURCE_DISPLAY_FIELDS: Record<string, { key: string; label: string; extract: (r: any) => string }[]> = {
+export interface DisplayField {
+  key: string
+  label: string
+  extract: (r: FhirResource) => string
+}
+
+export const RESOURCE_DISPLAY_FIELDS: Record<string, DisplayField[]> = {
   Patient: [
-    { key: 'name', label: 'Name', extract: r => {
-      const n = r.name?.[0]
-      if (!n) return ''
-      return [n.family, ...(n.given || [])].filter(Boolean).join(', ')
-    }},
-    { key: 'gender', label: 'Gender', extract: r => r.gender || '' },
-    { key: 'birthDate', label: 'Birth Date', extract: r => r.birthDate || '' },
+    { key: 'name', label: 'Name', extract: r => humanName(r, 'name.0') },
+    { key: 'gender', label: 'Gender', extract: r => str(r, 'gender') },
+    { key: 'birthDate', label: 'Birth Date', extract: r => str(r, 'birthDate') },
   ],
   Encounter: [
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'class', label: 'Class', extract: r => r.class?.code || r.class?.display || '' },
-    { key: 'period', label: 'Period', extract: r => r.period?.start ? `${r.period.start} — ${r.period.end || ''}` : '' },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'class', label: 'Class', extract: r => str(r, 'class.code') || str(r, 'class.display') },
+    { key: 'period', label: 'Period', extract: r => {
+      const start = str(r, 'period.start')
+      return start ? `${start} — ${str(r, 'period.end')}` : ''
+    }},
   ],
   Condition: [
-    { key: 'code', label: 'Code', extract: r => r.code?.coding?.[0]?.display || r.code?.text || '' },
-    { key: 'clinicalStatus', label: 'Clinical Status', extract: r => r.clinicalStatus?.coding?.[0]?.code || '' },
-    { key: 'onset', label: 'Onset', extract: r => r.onsetDateTime || '' },
+    { key: 'code', label: 'Code', extract: r => codeDisplay(r, 'code') },
+    { key: 'clinicalStatus', label: 'Clinical Status', extract: r => str(r, 'clinicalStatus.coding.0.code') },
+    { key: 'onset', label: 'Onset', extract: r => str(r, 'onsetDateTime') },
   ],
   Observation: [
-    { key: 'code', label: 'Code', extract: r => r.code?.coding?.[0]?.display || r.code?.text || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'date', label: 'Date', extract: r => r.effectiveDateTime || r.effectivePeriod?.start || '' },
+    { key: 'code', label: 'Code', extract: r => codeDisplay(r, 'code') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'date', label: 'Date', extract: r => str(r, 'effectiveDateTime') || str(r, 'effectivePeriod.start') },
   ],
   Procedure: [
-    { key: 'code', label: 'Code', extract: r => r.code?.coding?.[0]?.display || r.code?.text || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'date', label: 'Date', extract: r => r.performedDateTime || r.performedPeriod?.start || '' },
+    { key: 'code', label: 'Code', extract: r => codeDisplay(r, 'code') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'date', label: 'Date', extract: r => str(r, 'performedDateTime') || str(r, 'performedPeriod.start') },
   ],
   MedicationRequest: [
-    { key: 'medication', label: 'Medication', extract: r => r.medicationCodeableConcept?.coding?.[0]?.display || r.medicationCodeableConcept?.text || r.medicationReference?.display || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'intent', label: 'Intent', extract: r => r.intent || '' },
+    { key: 'medication', label: 'Medication', extract: r =>
+      codeDisplay(r, 'medicationCodeableConcept') || str(r, 'medicationReference.display')
+    },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'intent', label: 'Intent', extract: r => str(r, 'intent') },
   ],
   MedicationStatement: [
-    { key: 'medication', label: 'Medication', extract: r => r.medicationCodeableConcept?.coding?.[0]?.display || r.medicationCodeableConcept?.text || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'date', label: 'Date', extract: r => r.effectiveDateTime || r.effectivePeriod?.start || '' },
+    { key: 'medication', label: 'Medication', extract: r => codeDisplay(r, 'medicationCodeableConcept') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'date', label: 'Date', extract: r => str(r, 'effectiveDateTime') || str(r, 'effectivePeriod.start') },
   ],
   DiagnosticReport: [
-    { key: 'code', label: 'Code', extract: r => r.code?.coding?.[0]?.display || r.code?.text || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'date', label: 'Date', extract: r => r.effectiveDateTime || r.effectivePeriod?.start || '' },
+    { key: 'code', label: 'Code', extract: r => codeDisplay(r, 'code') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'date', label: 'Date', extract: r => str(r, 'effectiveDateTime') || str(r, 'effectivePeriod.start') },
   ],
   ServiceRequest: [
-    { key: 'code', label: 'Code', extract: r => r.code?.coding?.[0]?.display || r.code?.text || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'intent', label: 'Intent', extract: r => r.intent || '' },
+    { key: 'code', label: 'Code', extract: r => codeDisplay(r, 'code') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'intent', label: 'Intent', extract: r => str(r, 'intent') },
   ],
   Immunization: [
-    { key: 'vaccine', label: 'Vaccine', extract: r => r.vaccineCode?.coding?.[0]?.display || r.vaccineCode?.text || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'date', label: 'Date', extract: r => r.occurrenceDateTime || '' },
+    { key: 'vaccine', label: 'Vaccine', extract: r => codeDisplay(r, 'vaccineCode') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'date', label: 'Date', extract: r => str(r, 'occurrenceDateTime') },
   ],
   AllergyIntolerance: [
-    { key: 'code', label: 'Code', extract: r => r.code?.coding?.[0]?.display || r.code?.text || '' },
-    { key: 'clinicalStatus', label: 'Clinical Status', extract: r => r.clinicalStatus?.coding?.[0]?.code || '' },
-    { key: 'type', label: 'Type', extract: r => r.type || '' },
+    { key: 'code', label: 'Code', extract: r => codeDisplay(r, 'code') },
+    { key: 'clinicalStatus', label: 'Clinical Status', extract: r => str(r, 'clinicalStatus.coding.0.code') },
+    { key: 'type', label: 'Type', extract: r => str(r, 'type') },
   ],
   CarePlan: [
-    { key: 'title', label: 'Title', extract: r => r.title || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'intent', label: 'Intent', extract: r => r.intent || '' },
+    { key: 'title', label: 'Title', extract: r => str(r, 'title') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'intent', label: 'Intent', extract: r => str(r, 'intent') },
   ],
   Goal: [
-    { key: 'description', label: 'Description', extract: r => r.description?.text || '' },
-    { key: 'lifecycleStatus', label: 'Status', extract: r => r.lifecycleStatus || '' },
-    { key: 'target', label: 'Target Date', extract: r => r.target?.[0]?.dueDate || '' },
+    { key: 'description', label: 'Description', extract: r => str(r, 'description.text') },
+    { key: 'lifecycleStatus', label: 'Status', extract: r => str(r, 'lifecycleStatus') },
+    { key: 'target', label: 'Target Date', extract: r => str(r, 'target.0.dueDate') },
   ],
   Claim: [
-    { key: 'type', label: 'Type', extract: r => r.type?.coding?.[0]?.display || r.type?.coding?.[0]?.code || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'total', label: 'Total', extract: r => r.total?.value ? `${r.total.value} ${r.total.currency || ''}` : '' },
+    { key: 'type', label: 'Type', extract: r =>
+      str(r, 'type.coding.0.display') || str(r, 'type.coding.0.code')
+    },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'total', label: 'Total', extract: r => {
+      const value = getNestedValue(r, 'total.value')
+      if (value == null) return ''
+      const currency = str(r, 'total.currency')
+      return `${value} ${currency}`.trim()
+    }},
   ],
   Coverage: [
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'type', label: 'Type', extract: r => r.type?.coding?.[0]?.display || r.type?.text || '' },
-    { key: 'period', label: 'Period', extract: r => r.period?.start ? `${r.period.start} — ${r.period.end || ''}` : '' },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'type', label: 'Type', extract: r => codeDisplay(r, 'type') },
+    { key: 'period', label: 'Period', extract: r => {
+      const start = str(r, 'period.start')
+      return start ? `${start} — ${str(r, 'period.end')}` : ''
+    }},
   ],
   Organization: [
-    { key: 'name', label: 'Name', extract: r => r.name || '' },
-    { key: 'type', label: 'Type', extract: r => r.type?.[0]?.coding?.[0]?.display || '' },
-    { key: 'active', label: 'Active', extract: r => r.active !== undefined ? String(r.active) : '' },
+    { key: 'name', label: 'Name', extract: r => str(r, 'name') },
+    { key: 'type', label: 'Type', extract: r => str(r, 'type.0.coding.0.display') },
+    { key: 'active', label: 'Active', extract: r => {
+      const active = getNestedValue(r, 'active')
+      return active !== undefined ? String(active) : ''
+    }},
   ],
   Practitioner: [
-    { key: 'name', label: 'Name', extract: r => {
-      const n = r.name?.[0]
-      if (!n) return ''
-      return [n.family, ...(n.given || [])].filter(Boolean).join(', ')
+    { key: 'name', label: 'Name', extract: r => humanName(r, 'name.0') },
+    { key: 'gender', label: 'Gender', extract: r => str(r, 'gender') },
+    { key: 'active', label: 'Active', extract: r => {
+      const active = getNestedValue(r, 'active')
+      return active !== undefined ? String(active) : ''
     }},
-    { key: 'gender', label: 'Gender', extract: r => r.gender || '' },
-    { key: 'active', label: 'Active', extract: r => r.active !== undefined ? String(r.active) : '' },
   ],
   Location: [
-    { key: 'name', label: 'Name', extract: r => r.name || '' },
-    { key: 'status', label: 'Status', extract: r => r.status || '' },
-    { key: 'type', label: 'Type', extract: r => r.type?.[0]?.coding?.[0]?.display || '' },
+    { key: 'name', label: 'Name', extract: r => str(r, 'name') },
+    { key: 'status', label: 'Status', extract: r => str(r, 'status') },
+    { key: 'type', label: 'Type', extract: r => str(r, 'type.0.coding.0.display') },
   ],
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
-const FALLBACK_FIELDS = [
-  { key: 'lastUpdated', label: 'Last Updated', extract: (r: Record<string, unknown>) => {
-    const meta = r.meta as Record<string, unknown> | undefined
-    return (meta?.lastUpdated as string) || ''
-  }},
+const FALLBACK_FIELDS: DisplayField[] = [
+  { key: 'lastUpdated', label: 'Last Updated', extract: r => str(r, 'meta.lastUpdated') },
 ]
 
-export function getDisplayFields(resourceType: string) {
+/** Derived from RESOURCE_DISPLAY_FIELDS keys — single source of truth for the browser dropdown. */
+export const FHIR_RESOURCE_TYPES = Object.keys(RESOURCE_DISPLAY_FIELDS)
+
+export function getDisplayFields(resourceType: string): DisplayField[] {
   return RESOURCE_DISPLAY_FIELDS[resourceType] || FALLBACK_FIELDS
 }
 

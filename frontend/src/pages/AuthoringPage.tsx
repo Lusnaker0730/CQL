@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { Alert, Box, Snackbar, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import ArtifactList from '../components/authoring/ArtifactList'
 import ArtifactModal from '../components/authoring/ArtifactModal'
 import ArtifactWorkspace from '../components/authoring/ArtifactWorkspace'
@@ -8,10 +10,13 @@ import { useArtifacts, useArtifact, useCreateArtifact, useDeleteArtifact, useDup
 import type { ArtifactSummary, Artifact, ArtifactRequest } from '../types/authoring'
 
 export default function AuthoringPage() {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState(false)
 
   const { data: artifacts = [], isLoading, error } = useArtifacts()
   const { data: fullArtifact } = useArtifact(selectedId ?? undefined)
@@ -39,6 +44,10 @@ export default function AuthoringPage() {
         if (selectedId === deleteTarget) setSelectedId(null)
         setDeleteTarget(null)
       },
+      onError: () => {
+        setDeleteTarget(null)
+        setDeleteError(true)
+      },
     })
   }
 
@@ -56,12 +65,12 @@ export default function AuthoringPage() {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
       {!selectedId && (
         <>
           <Box sx={{ mb: 2 }}>
             <Typography variant="h5" sx={{ mb: 0.5 }}>
-              CDS Authoring Tool
+              {t('page.title')}
             </Typography>
             <Box
               sx={{
@@ -73,7 +82,7 @@ export default function AuthoringPage() {
               }}
             />
             <Typography variant="body2" color="text.secondary">
-              Build clinical decision support rules visually and generate CQL automatically.
+              {t('page.subtitle')}
             </Typography>
           </Box>
 
@@ -143,17 +152,30 @@ export default function AuthoringPage() {
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>Delete Artifact</DialogTitle>
+        <DialogTitle>{t('page.deleteTitle')}</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete this artifact? This action cannot be undone.
+          {t('page.deleteConfirm')}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
-            Delete
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+            {tc('actions.cancel')}
+          </Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? tc('actions.deleting') : tc('actions.delete')}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar open={deleteError} autoHideDuration={5000} onClose={() => setDeleteError(false)}>
+        <Alert severity="error" onClose={() => setDeleteError(false)}>
+          {t('page.deleteError')}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

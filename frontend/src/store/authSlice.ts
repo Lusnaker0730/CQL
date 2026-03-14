@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 interface AuthState {
-  user: { username: string; role: string; forcePasswordChange?: boolean } | null
+  user: { username: string; role: string; forcePasswordChange?: boolean; department?: string } | null
   token: string | null
   isAuthenticated: boolean
   loading: boolean
@@ -39,21 +39,25 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string; username: string; role: string; forcePasswordChange?: boolean }>
+      action: PayloadAction<{ token: string; username: string; role: string; forcePasswordChange?: boolean; department?: string }>
     ) => {
-      const { token, username, role, forcePasswordChange } = action.payload
+      const { token, username, role, forcePasswordChange, department } = action.payload
       state.token = token
-      state.user = { username, role, forcePasswordChange }
+      state.user = { username, role, forcePasswordChange, department }
       state.isAuthenticated = true
       state.loading = false
       localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange }))
+      localStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange, department }))
     },
     clearForcePasswordChange: (state) => {
       if (state.user) {
         state.user.forcePasswordChange = false
         localStorage.setItem('user', JSON.stringify(state.user))
       }
+    },
+    updateToken: (state, action: PayloadAction<string>) => {
+      state.token = action.payload
+      localStorage.setItem('token', action.payload)
     },
     logout: (state) => {
       state.token = null
@@ -69,5 +73,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { setCredentials, clearForcePasswordChange, logout, setLoading } = authSlice.actions
+export const { setCredentials, clearForcePasswordChange, updateToken, logout, setLoading } = authSlice.actions
 export default authSlice.reducer

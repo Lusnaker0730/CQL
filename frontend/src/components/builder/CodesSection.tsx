@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import {
   Stack,
   TextField,
@@ -18,12 +20,21 @@ import {
   AccordionDetails,
   Chip,
 } from '@mui/material'
-import { Add as AddIcon, ExpandMore, Search as SearchIcon, LocalLibrary as BrowseIcon } from '@mui/icons-material'
+import {
+  Add as AddIcon,
+  Search as SearchIcon,
+  LocalLibrary as BrowseIcon,
+  ExpandMore as ExpandMoreIcon,
+  MedicalServices as FhirIcon,
+} from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
+import TwcoreBrowser from './TwcoreBrowser'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
-import { useTwcoreFullCatalog } from '../../hooks/useTwcoreCatalog'
+import { ALL_CODE_SYSTEMS, CODE_SYSTEM_GROUPS, findCodeSystemByUrl, findCodeSystemByLabel } from '../../constants/codeSystems'
+import type { PredefinedCodeSystem } from '../../constants/codeSystems'
+import type { TwcoreCatalogEntry } from '../../types/authoring'
 
 interface CodesSectionProps {
   codes: string[]
@@ -33,20 +44,6 @@ interface CodesSectionProps {
   onEdit?: (identifier: string, newSnippet: string) => void
 }
 
-const COMMON_CODE_SYSTEMS = [
-  { value: 'http://loinc.org', label: 'LOINC' },
-  { value: 'http://snomed.info/sct', label: 'SNOMED CT' },
-  { value: 'http://www.nlm.nih.gov/research/umls/rxnorm', label: 'RxNorm' },
-  { value: 'http://hl7.org/fhir/sid/icd-10-cm', label: 'ICD-10-CM' },
-  { value: 'http://www.ama-assn.org/go/cpt', label: 'CPT' },
-  { value: 'http://terminology.hl7.org/CodeSystem/condition-clinical', label: 'Condition Clinical Status' },
-  { value: 'http://terminology.hl7.org/CodeSystem/observation-category', label: 'Observation Category' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw', label: 'ICD-10-CM (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw', label: 'ICD-10-PCS (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medcation-atc-tw', label: 'ATC (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw', label: 'NHI Medication (TW)' },
-  { value: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw', label: 'NHI Department (TW)' },
-]
 
 /**
  * Parse a code string like: "HbA1c Code": '4548-4' from "LOINC" display 'Hemoglobin A1c'
@@ -57,9 +54,10 @@ function parseCode(raw: string): { name: string; code: string; system: string; d
   return null
 }
 
-type BrowseMode = 'manual' | 'twcore'
+type BrowseMode = 'manual' | 'fhir-codes' | 'twcore'
 
 export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit }: CodesSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [browseMode, setBrowseMode] = useState<BrowseMode>('manual')
   const [systemUrl, setSystemUrl] = useState('')
@@ -71,49 +69,17 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
-  const [twcoreFilter, setTwcoreFilter] = useState('')
-  const [expandedEntry, setExpandedEntry] = useState<string | null>(null)
-
   const lookupMutation = useLookupCode()
   const { data: searchResults, isFetching: isSearching, isError: isSearchError } = useSearchCodes(systemUrl, debouncedSearch)
-  const { data: twcoreCatalog = [], isLoading: isTwcoreLoading } = useTwcoreFullCatalog()
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), 500)
+    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
     return () => clearTimeout(timer)
   }, [searchText])
 
-  const filteredCatalog = useMemo(() => {
-    if (!twcoreFilter.trim()) return twcoreCatalog
-    const lower = twcoreFilter.toLowerCase()
-    return twcoreCatalog
-      .map((entry) => {
-        const filteredCategories = entry.categories
-          .map((cat) => ({
-            ...cat,
-            codes: cat.codes.filter(
-              (c) =>
-                c.code.toLowerCase().includes(lower) ||
-                c.display.toLowerCase().includes(lower) ||
-                c.displayZh.toLowerCase().includes(lower)
-            ),
-          }))
-          .filter((cat) => cat.codes.length > 0 || cat.name.toLowerCase().includes(lower))
-        if (
-          filteredCategories.length > 0 ||
-          entry.name.toLowerCase().includes(lower) ||
-          entry.resourceType.toLowerCase().includes(lower)
-        ) {
-          return { ...entry, categories: filteredCategories.length > 0 ? filteredCategories : entry.categories }
-        }
-        return null
-      })
-      .filter(Boolean) as typeof twcoreCatalog
-  }, [twcoreCatalog, twcoreFilter])
-
   const handleSystemChange = (url: string) => {
     setSystemUrl(url)
-    const match = COMMON_CODE_SYSTEMS.find((s) => s.value === url)
+    const match = findCodeSystemByUrl(url)
     setSystemAlias(match?.label || '')
     setSearchText('')
     setDebouncedSearch('')
@@ -165,8 +131,8 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     if (!parsed) return
     setEditingItem(parsed.name)
     // Find the system URL from the alias
-    const sys = COMMON_CODE_SYSTEMS.find((s) => s.label === parsed.system)
-    setSystemUrl(sys?.value || '')
+    const sys = findCodeSystemByLabel(parsed.system)
+    setSystemUrl(sys?.url || '')
     setSystemAlias(parsed.system)
     setCodeValue(parsed.code)
     setDisplayName(parsed.display)
@@ -184,8 +150,6 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     setDebouncedSearch('')
     setEditingItem(null)
     setPreviewSnippet('')
-    setTwcoreFilter('')
-    setExpandedEntry(null)
   }
 
   const handleConfirmDelete = () => {
@@ -195,13 +159,20 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     }
   }
 
-  const handleTwcoreCodeClick = (entry: typeof twcoreCatalog[0], code: { code: string; display: string; displayZh: string }) => {
+  const handleTwcoreCodeClick = (entry: TwcoreCatalogEntry, code: { code: string; display: string; displayZh: string }) => {
     // Derive a system alias from the entry system URL
-    const knownSystem = COMMON_CODE_SYSTEMS.find((s) => s.value === entry.system)
+    const knownSystem = findCodeSystemByUrl(entry.system)
     const alias = knownSystem?.label || entry.name
     const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
     const csSnippet = `codesystem "${alias}": '${entry.system}'`
     const codeSnippet = `code "${displayLabel}": '${code.code}' from "${alias}" display '${code.display}'`
+    setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
+  }
+
+  const handleFhirCodeClick = (sys: PredefinedCodeSystem, code: { code: string; display: string; displayZh: string }) => {
+    const csSnippet = `codesystem "${sys.alias}": '${sys.url}'`
+    const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
+    const codeSnippet = `code "${displayLabel}": '${code.code}' from "${sys.alias}" display '${code.display}'`
     setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
   }
 
@@ -224,13 +195,13 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
         })
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No codes found
+          {t('common.noItemsFound', { type: t('sections.codes').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Code
+          {t('common.addItem', { type: 'Code' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
@@ -238,17 +209,21 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
             <ToggleButtonGroup
               value={browseMode}
               exclusive
-              onChange={(_, val) => { if (val) setBrowseMode(val) }}
+              onChange={(_, val) => { if (val) { setBrowseMode(val); setPreviewSnippet('') } }}
               size="small"
               fullWidth
             >
-              <ToggleButton value="manual" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
+              <ToggleButton value="manual" sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
                 <SearchIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                Manual / Search
+                {t('codes.manualSearch')}
               </ToggleButton>
-              <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
+              <ToggleButton value="fhir-codes" sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+                <FhirIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                {t('codes.fhirCodes')}
+              </ToggleButton>
+              <ToggleButton value="twcore" sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
                 <BrowseIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                Browse TWCORE
+                {t('codes.browseTwcore')}
               </ToggleButton>
             </ToggleButtonGroup>
           )}
@@ -258,12 +233,12 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               <TextField
                 select
                 size="small"
-                label="Code System"
+                label={t('codes.codeSystem')}
                 value={systemUrl}
                 onChange={(e) => handleSystemChange(e.target.value)}
               >
-                {COMMON_CODE_SYSTEMS.map((cs) => (
-                  <MenuItem key={cs.value} value={cs.value}>
+                {ALL_CODE_SYSTEMS.map((cs) => (
+                  <MenuItem key={cs.url} value={cs.url}>
                     {cs.label}
                   </MenuItem>
                 ))}
@@ -271,7 +246,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
 
               <TextField
                 size="small"
-                label="System Alias"
+                label={t('codes.systemAlias')}
                 value={systemAlias}
                 onChange={(e) => setSystemAlias(e.target.value)}
               />
@@ -279,7 +254,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               <Stack direction="row" spacing={1}>
                 <TextField
                   size="small"
-                  label="Code"
+                  label={t('codes.code')}
                   value={codeValue}
                   onChange={(e) => setCodeValue(e.target.value)}
                   fullWidth
@@ -291,16 +266,16 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                   disabled={!systemUrl || !codeValue || lookupMutation.isPending}
                   sx={{ minWidth: 80 }}
                 >
-                  {lookupMutation.isPending ? <CircularProgress size={16} /> : 'Lookup'}
+                  {lookupMutation.isPending ? <CircularProgress size={16} /> : t('codes.lookup')}
                 </Button>
               </Stack>
 
               <TextField
                 size="small"
-                label="Search by text"
+                label={t('codes.searchByText')}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder='e.g., "diabetes"'
+                placeholder={t('codes.searchPlaceholder')}
                 disabled={!systemUrl}
                 InputProps={{
                   endAdornment: isSearching ? <CircularProgress size={16} /> : null,
@@ -332,115 +307,80 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               )}
               {debouncedSearch.length >= 2 && !isSearching && isSearchError && (
                 <Alert severity="warning" sx={{ py: 0, fontSize: '0.8rem' }}>
-                  Search failed — terminology server may be unavailable. Try again later.
+                  {t('codes.searchFailed')}
                 </Alert>
               )}
               {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && !isSearchError && (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  No results found
+                  {t('codes.noResults')}
                 </Typography>
               )}
 
               <TextField
                 size="small"
-                label="Display Name"
+                label={t('codes.displayName')}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
 
               {lookupMutation.isError && (
                 <Alert severity="warning" sx={{ py: 0 }}>
-                  Code lookup failed — you can still enter manually.
+                  {t('codes.lookupFailed')}
                 </Alert>
               )}
             </>
           )}
 
-          {browseMode === 'twcore' && !editingItem && (
-            <>
-              <TextField
-                size="small"
-                label="Filter TWCORE entries"
-                placeholder="e.g. diabetes, 血壓..."
-                value={twcoreFilter}
-                onChange={(e) => setTwcoreFilter(e.target.value)}
-              />
-
-              {isTwcoreLoading ? (
-                <Stack alignItems="center" py={1}>
-                  <CircularProgress size={20} />
-                </Stack>
-              ) : filteredCatalog.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  No matching TWCORE entries
-                </Typography>
-              ) : (
-                <Stack sx={{ maxHeight: 300, overflow: 'auto' }}>
-                  {filteredCatalog.map((entry) => (
-                    <Accordion
-                      key={entry.name}
-                      expanded={expandedEntry === entry.name}
-                      onChange={(_, isExpanded) => setExpandedEntry(isExpanded ? entry.name : null)}
-                      disableGutters
-                      elevation={0}
-                      sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent' }}
-                    >
-                      <AccordionSummary expandIcon={<ExpandMore sx={{ fontSize: 16 }} />} sx={{ minHeight: 32, px: 0.5, '& .MuiAccordionSummary-content': { my: 0.25 } }}>
-                        <Stack direction="row" spacing={0.5} alignItems="center">
-                          <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
-                            {entry.name}
+          {browseMode === 'fhir-codes' && !editingItem && (
+            <Paper variant="outlined" sx={{ maxHeight: 360, overflow: 'auto' }}>
+              {CODE_SYSTEM_GROUPS.map((group) => (
+                <Accordion key={group.label} disableGutters elevation={0} sx={{ '&:before': { display: 'none' } }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 36, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                      {group.label}
+                      <Typography component="span" sx={{ ml: 0.5, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        ({group.labelZh})
+                      </Typography>
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0 }}>
+                    {group.systems.map((sys) => (
+                      <Accordion key={sys.url} disableGutters elevation={0} sx={{ ml: 1, '&:before': { display: 'none' } }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />} sx={{ minHeight: 32, '& .MuiAccordionSummary-content': { my: 0.25 } }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                            {sys.label}
+                            <Typography component="span" sx={{ ml: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>
+                              ({sys.labelZh})
+                            </Typography>
                           </Typography>
-                          <Chip label={entry.resourceType} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-                        </Stack>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ px: 0.5, py: 0 }}>
-                        {entry.categories.map((cat) => (
-                          <Accordion
-                            key={cat.name}
-                            disableGutters
-                            elevation={0}
-                            sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent' }}
-                          >
-                            <AccordionSummary expandIcon={<ExpandMore sx={{ fontSize: 14 }} />} sx={{ minHeight: 28, px: 0.5, '& .MuiAccordionSummary-content': { my: 0.15 } }}>
-                              <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                                {cat.name} ({cat.codes.length})
-                              </Typography>
-                            </AccordionSummary>
-                            <AccordionDetails sx={{ px: 0, py: 0 }}>
-                              <List dense disablePadding>
-                                {cat.codes.map((code) => (
-                                  <ListItemButton
-                                    key={code.code}
-                                    onClick={() => handleTwcoreCodeClick(entry, code)}
-                                    sx={{ py: 0.15, px: 1 }}
-                                  >
-                                    <ListItemText
-                                      primary={
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                                          <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}>
-                                            {code.code}
-                                          </Typography>
-                                          {' '}{code.display}
-                                          {code.displayZh && (
-                                            <Typography component="span" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                              {' '}({code.displayZh})
-                                            </Typography>
-                                          )}
-                                        </Typography>
-                                      }
-                                    />
-                                  </ListItemButton>
-                                ))}
-                              </List>
-                            </AccordionDetails>
-                          </Accordion>
-                        ))}
-                      </AccordionDetails>
-                    </Accordion>
-                  ))}
-                </Stack>
-              )}
-            </>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ pt: 0, pb: 0.5, pl: 1 }}>
+                          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                            {sys.codes.map((c) => (
+                              <Chip
+                                key={c.code}
+                                label={`${c.code} — ${c.display} (${c.displayZh})`}
+                                size="small"
+                                variant="outlined"
+                                onClick={() => handleFhirCodeClick(sys, c)}
+                                sx={{ fontSize: '0.75rem', cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                              />
+                            ))}
+                          </Stack>
+                        </AccordionDetails>
+                      </Accordion>
+                    ))}
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </Paper>
+          )}
+
+          {browseMode === 'twcore' && !editingItem && (
+            <TwcoreBrowser
+              emptyMessage={t('codes.noTwcoreEntries')}
+              onCodeClick={handleTwcoreCodeClick}
+            />
           )}
 
           {previewSnippet ? (
@@ -448,25 +388,27 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
               snippet={previewSnippet}
               onInsert={handleConfirmInsert}
               onCancel={() => setPreviewSnippet('')}
-              insertLabel={editingItem ? 'Update' : 'Insert'}
+              insertLabel={editingItem ? t('common.update') : t('common.insert')}
             />
           ) : (browseMode === 'manual' || editingItem) ? (
             <Stack direction="row" spacing={1}>
               <Button size="small" variant="outlined" onClick={handleAdd}
                 disabled={!systemUrl || !codeValue || !systemAlias}>
-                Preview {editingItem ? 'Update' : 'Insert'}
+                {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
               </Button>
-              <Button size="small" onClick={resetForm}>Cancel</Button>
+              <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
             </Stack>
           ) : (
-            <Button size="small" onClick={resetForm}>Cancel</Button>
+            <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
           )}
         </Stack>
       )}
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title={t('common.deleteElement')}
+        itemName={deleteTarget || ''}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

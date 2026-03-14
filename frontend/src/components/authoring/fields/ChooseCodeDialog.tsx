@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
   FormControl, InputLabel, Select, MenuItem, Stack, IconButton,
@@ -8,29 +9,18 @@ import {
 import { Close as CloseIcon, CheckCircle as ValidIcon, Search as SearchIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../../hooks/useTerminology'
+import { ALL_CODE_SYSTEMS, findCodeSystemByUrl, RESOURCE_SUGGESTED_CODES } from '../../../constants/codeSystems'
 import type { CodeReference } from '../../../types/authoring'
-
-const CODE_SYSTEMS = [
-  { label: 'SNOMED', url: 'http://snomed.info/sct' },
-  { label: 'ICD-9-CM', url: 'http://hl7.org/fhir/sid/icd-9-cm' },
-  { label: 'ICD-10-CM', url: 'http://hl7.org/fhir/sid/icd-10-cm' },
-  { label: 'NCI', url: 'http://ncimeta.nci.nih.gov' },
-  { label: 'LOINC', url: 'http://loinc.org' },
-  { label: 'RXNORM', url: 'http://www.nlm.nih.gov/research/umls/rxnorm' },
-  { label: 'ICD-10-CM (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw' },
-  { label: 'ICD-10-PCS (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw' },
-  { label: 'ATC (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medcation-atc-tw' },
-  { label: 'NHI Medication (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw' },
-  { label: 'NHI Department (TW)', url: 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-treatment-department-nhi-tw' },
-]
 
 interface ChooseCodeDialogProps {
   open: boolean
   onClose: () => void
   onSelect: (code: CodeReference) => void
+  resourceType?: string
 }
 
-export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCodeDialogProps) {
+export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType }: ChooseCodeDialogProps) {
+  const { t } = useTranslation('authoring')
   const [code, setCode] = useState('')
   const [systemUrl, setSystemUrl] = useState('')
   const [systemLabel, setSystemLabel] = useState('')
@@ -46,6 +36,20 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
 
   const lookupMutation = useLookupCode()
   const effectiveSystemUrl = isOther ? customSystemUrl : systemUrl
+  const suggestedCodes = resourceType ? RESOURCE_SUGGESTED_CODES[resourceType] : undefined
+
+  const handleQuickSelect = (entry: { code: string; display: string; displayZh: string; system: string; systemLabel: string }) => {
+    setCode(entry.code)
+    setSystemUrl(entry.system)
+    setSystemLabel(entry.systemLabel)
+    setIsOther(false)
+    setValidated(true)
+    setValidationResult({
+      code: entry.code,
+      codeSystem: entry.systemLabel,
+      display: `${entry.display} (${entry.displayZh})`,
+    })
+  }
 
   // Live search
   const { data: searchResults, isLoading: isSearching } = useSearchCodes(
@@ -61,7 +65,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
     } else {
       setIsOther(false)
       setSystemUrl(value)
-      const match = CODE_SYSTEMS.find((cs) => cs.url === value)
+      const match = findCodeSystemByUrl(value)
       setSystemLabel(match?.label || '')
     }
     setValidated(false)
@@ -95,7 +99,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
   }
 
   const handleSelectFromSearch = (result: { system: string; code: string; display: string }) => {
-    const csLabel = CODE_SYSTEMS.find((cs) => cs.url === result.system)?.label || systemLabel || result.system
+    const csLabel = findCodeSystemByUrl(result.system)?.label || systemLabel || result.system
     setValidated(true)
     setValidationResult({
       code: result.code,
@@ -139,31 +143,55 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        Choose code
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        {t('chooseCode.title')}
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
 
       <DialogContent>
+        {/* Quick select for resource-specific codes */}
+        {suggestedCodes && suggestedCodes.length > 0 && (
+          <>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
+              {t('chooseCode.quickSelect')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+              {suggestedCodes.map((sc) => (
+                <Chip
+                  key={sc.code}
+                  label={`${sc.code} ${sc.displayZh}`}
+                  onClick={() => handleQuickSelect(sc)}
+                  color={validationResult?.code === sc.code ? 'primary' : 'default'}
+                  variant={validationResult?.code === sc.code ? 'filled' : 'outlined'}
+                  clickable
+                />
+              ))}
+            </Box>
+            <Divider sx={{ my: 1.5 }}>
+              <Chip label={t('chooseCode.orManual')} size="small" />
+            </Divider>
+          </>
+        )}
+
         {/* Manual code entry */}
         <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 1 }}>
           <TextField
-            label="Code"
+            label={t('chooseCode.codeLabel')}
             size="small"
             value={code}
             onChange={(e) => { setCode(e.target.value); setValidated(false) }}
             sx={{ flex: 1 }}
           />
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Code system</InputLabel>
+            <InputLabel>{t('chooseCode.codeSystemLabel')}</InputLabel>
             <Select
               value={isOther ? '__other__' : systemUrl}
-              label="Code system"
+              label={t('chooseCode.codeSystemLabel')}
               onChange={(e) => handleSystemChange(e.target.value)}
             >
-              {CODE_SYSTEMS.map((cs) => (
+              {ALL_CODE_SYSTEMS.map((cs) => (
                 <MenuItem key={cs.url} value={cs.url}>{cs.label}</MenuItem>
               ))}
-              <MenuItem value="__other__">Other</MenuItem>
+              <MenuItem value="__other__">{t('chooseCode.other')}</MenuItem>
             </Select>
           </FormControl>
           <GradientButton
@@ -171,18 +199,18 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
             disabled={!code.trim() || !effectiveSystemUrl.trim() || lookupMutation.isPending}
             sx={{ minWidth: 100, height: 40 }}
           >
-            {lookupMutation.isPending ? <CircularProgress size={18} color="inherit" /> : 'VALIDATE'}
+            {lookupMutation.isPending ? <CircularProgress size={18} color="inherit" /> : t('chooseCode.validate')}
           </GradientButton>
         </Stack>
 
         {isOther && (
           <TextField
-            label="Code system URL"
+            label={t('chooseCode.codeSystemUrl')}
             size="small"
             fullWidth
             value={customSystemUrl}
             onChange={(e) => { setCustomSystemUrl(e.target.value); setValidated(false) }}
-            placeholder="e.g. http://example.org/fhir/CodeSystem/my-codes"
+            placeholder={t('chooseCode.codeSystemPlaceholder')}
             sx={{ mt: 1 }}
           />
         )}
@@ -191,13 +219,13 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
         {effectiveSystemUrl && (
           <>
             <Divider sx={{ my: 2 }}>
-              <Chip label="OR SEARCH" size="small" />
+              <Chip label={t('chooseCode.orSearch')} size="small" />
             </Divider>
 
             <TextField
               fullWidth
               size="small"
-              placeholder={`Search codes in ${systemLabel || 'selected system'}...`}
+              placeholder={t('chooseCode.searchCodesPlaceholder', { system: systemLabel || 'selected system' })}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{
@@ -219,8 +247,8 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>CODE</TableCell>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>DISPLAY</TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>{t('chooseCode.colCode')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>{t('chooseCode.colDisplay')}</TableCell>
                       <TableCell />
                     </TableRow>
                   </TableHead>
@@ -242,7 +270,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
                           <Typography variant="body2">{r.display}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Button size="small" variant="outlined">Use</Button>
+                          <Button size="small" variant="outlined">{t('chooseCode.use')}</Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -253,7 +281,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
 
             {searchText.length >= 2 && !isSearching && searchResults && searchResults.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                No codes found for &quot;{searchText}&quot;
+                {t('chooseCode.noCodesFound', { text: searchText })}
               </Typography>
             )}
           </>
@@ -262,7 +290,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
         {/* Validation result */}
         {lookupMutation.isError && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Could not look up display name. The code will be added with the code value as display.
+            {t('chooseCode.lookupWarning')}
           </Alert>
         )}
 
@@ -271,9 +299,9 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.75rem' }}>Code</TableCell>
-                  <TableCell sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.75rem' }}>Code System</TableCell>
-                  <TableCell sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.75rem' }}>Display</TableCell>
+                  <TableCell sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.75rem' }}>{t('chooseCode.colCodeHeader')}</TableCell>
+                  <TableCell sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.75rem' }}>{t('chooseCode.colCodeSystem')}</TableCell>
+                  <TableCell sx={{ fontWeight: 600, textTransform: 'uppercase', fontSize: '0.75rem' }}>{t('chooseCode.colDisplayHeader')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -289,7 +317,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
               <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ValidIcon color="success" fontSize="small" />
                 <Typography variant="body2" color="success.main" fontWeight={600}>
-                  Validation Successful!
+                  {t('chooseCode.validationSuccess')}
                 </Typography>
               </Box>
             )}
@@ -298,9 +326,9 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>CANCEL</Button>
+        <Button onClick={handleClose}>{t('actions.cancel', { ns: 'common' })}</Button>
         <Button variant="contained" onClick={handleSelect} disabled={!validated || !validationResult}>
-          SELECT
+          {t('chooseCode.selectButton')}
         </Button>
       </DialogActions>
     </Dialog>

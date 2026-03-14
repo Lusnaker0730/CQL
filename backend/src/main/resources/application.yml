@@ -1,6 +1,10 @@
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/xml,text/html,text/plain,text/css,application/javascript
   # TLS/HTTPS Configuration - uncomment and provide keystore for production
   # ssl:
   #   enabled: true
@@ -31,9 +35,18 @@ spring:
     username: ${DB_USERNAME:cqlplatform}
     password: ${DB_PASSWORD:cqlplatform}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000        # 5 minutes
+      max-lifetime: 600000        # 10 minutes
+      connection-timeout: 20000   # 20 seconds
+      leak-detection-threshold: 60000  # log warning if connection held > 60s
+      pool-name: CqlPlatformPool
 
   # JPA Configuration
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -57,18 +70,40 @@ spring:
   # Flyway Configuration
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    baseline-on-migrate: false
     locations: classpath:db/migration
+    lock-retry-count: ${FLYWAY_LOCK_RETRY_COUNT:10}
 
 # JWT Configuration
 jwt:
   secret: ${JWT_SECRET}
-  expiration-ms: ${JWT_EXPIRATION:86400000}  # 24 hours
+  access-expiration-ms: ${JWT_ACCESS_EXPIRATION:900000}      # 15 min
+  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
+  absolute-session-ms: ${JWT_ABSOLUTE_SESSION:2592000000}     # 30 days
+  expiration-ms: ${JWT_EXPIRATION:900000}                     # backward compat alias
+
+refresh-token:
+  cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
 
 # Rate Limiting
 rate-limit:
   enabled: true
   requests-per-minute: ${RATE_LIMIT_RPM:60}
+  # Per-tier IP limits
+  translate-rpm: ${RATE_LIMIT_TRANSLATE_RPM:20}
+  execute-rpm: ${RATE_LIMIT_EXECUTE_RPM:10}
+  fix-suggestion-rpm: ${RATE_LIMIT_FIX_SUGGESTION_RPM:5}
+  library-read-rpm: ${RATE_LIMIT_LIBRARY_READ_RPM:120}
+  # Per-user limits
+  user-limit-enabled: ${RATE_LIMIT_USER_ENABLED:true}
+  user-translate-rpm: ${RATE_LIMIT_USER_TRANSLATE_RPM:15}
+  user-execute-rpm: ${RATE_LIMIT_USER_EXECUTE_RPM:8}
+  user-fix-suggestion-rpm: ${RATE_LIMIT_USER_FIX_SUGGESTION_RPM:3}
+  user-default-rpm: ${RATE_LIMIT_USER_DEFAULT_RPM:40}
+  # Payload weighting thresholds (bytes)
+  payload-tier2: 10240
+  payload-tier3: 51200
+  payload-tier4: 204800
 
 # PHI Encryption
 encryption:
@@ -79,6 +114,28 @@ smart:
   issuer: ${SMART_ISSUER:http://localhost:8080}
   authorization-endpoint: ${SMART_AUTH_ENDPOINT:http://localhost:8080/api/auth/login}
   token-endpoint: ${SMART_TOKEN_ENDPOINT:http://localhost:8080/api/auth/login}
+
+# Okta SSO Configuration
+okta:
+  enabled: ${OKTA_ENABLED:false}
+  client-id: ${OKTA_CLIENT_ID:}
+  client-secret: ${OKTA_CLIENT_SECRET:}
+  issuer: ${OKTA_ISSUER:}
+
+# AI Fix Suggestion — multi-provider support
+ai:
+  provider: ${AI_PROVIDER:none}
+  ollama-url: ${OLLAMA_URL:http://localhost:11434}
+  ollama-model: ${OLLAMA_MODEL:qwen2.5-coder:7b}
+  ollama-timeout-seconds: ${OLLAMA_TIMEOUT:120}
+  cloud-api-url: ${AI_CLOUD_API_URL:https://api.openai.com/v1/chat/completions}
+  cloud-model: ${AI_CLOUD_MODEL:gpt-4o-mini}
+  cloud-api-key: ${AI_CLOUD_API_KEY:}
+  cloud-timeout-seconds: ${AI_CLOUD_TIMEOUT:60}
+
+# Legacy Ollama config — kept for backward compatibility
+ollama:
+  enabled: ${OLLAMA_ENABLED:false}
 
 # CQL Platform Configuration
 cql:
@@ -92,10 +149,14 @@ cql:
     debug-mode: false
     enable-expression-caching: true
     timeout-seconds: 120
+    translation-timeout-seconds: 30
     measure-timeout-seconds: 120
     thread-pool-size: 10
     max-pool-size: 20
     queue-capacity: 50
+    max-retrieve-count: 10000
+    max-collection-size: 1000
+    max-patient-count: 50000
 
 # FHIR Configuration
 fhir:
@@ -106,10 +167,11 @@ fhir:
   implementation-guides:
     enabled: ${FHIR_IG_ENABLED:true}
   client:
-    pool-max-total: 20
-    pool-default-per-route: 10
+    pool-max-total: 50
+    pool-default-per-route: 30
     connect-timeout-ms: 5000
-    socket-timeout-ms: 30000
+    socket-timeout-ms: 15000
+    connection-request-timeout-ms: 5000
 
 # VSAC Configuration
 vsac:
@@ -121,21 +183,14 @@ vsac:
 cds:
   hooks:
     enabled: true
-    services:
-      - id: diabetes-management
-        title: Diabetes Management
-        description: CDS for diabetes patient management
-        hook: patient-view
-      - id: medication-check
-        title: Medication Interaction Check
-        description: Check for potential drug interactions
-        hook: order-select
 
 # Measure Configuration
 measure:
   reporting:
-    default-period-start: "2024-01-01"
-    default-period-end: "2024-12-31"
+    default-period-start: ${MEASURE_DEFAULT_PERIOD_START:}
+    default-period-end: ${MEASURE_DEFAULT_PERIOD_END:}
+  locking:
+    timeout-minutes: ${MEASURE_LOCK_TIMEOUT_MINUTES:30}
   scheduling:
     enabled: ${MEASURE_SCHEDULING_ENABLED:true}
 
@@ -213,6 +268,14 @@ resilience4j:
         baseConfig: default
         failureRateThreshold: 60
         waitDurationInOpenState: 120s
+      ollamaService:
+        baseConfig: default
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60s
+      cloudAiService:
+        baseConfig: default
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60s
 
   retry:
     configs:
@@ -232,6 +295,7 @@ resilience4j:
     instances:
       fhirDataProvider:
         baseConfig: default
+        maxAttempts: 2
       fhirTerminology:
         baseConfig: default
         maxAttempts: 4
@@ -240,3 +304,11 @@ resilience4j:
         baseConfig: default
         maxAttempts: 3
         waitDuration: 3s
+      ollamaService:
+        baseConfig: default
+        maxAttempts: 2
+        waitDuration: 2s
+      cloudAiService:
+        baseConfig: default
+        maxAttempts: 2
+        waitDuration: 2s

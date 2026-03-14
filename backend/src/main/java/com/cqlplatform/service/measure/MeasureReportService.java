@@ -33,15 +33,7 @@ public class MeasureReportService {
             Integer totalPatients = null;
             if (result.getGroups() != null && !result.getGroups().isEmpty()) {
                 measureScore = result.getGroups().get(0).getMeasureScore();
-                String desc = result.getGroups().get(0).getDescription();
-                if (desc != null && desc.contains("Total Patients: ")) {
-                    try {
-                        String countStr = desc.substring(desc.indexOf("Total Patients: ") + 16);
-                        countStr = countStr.replace(")", "").trim();
-                        totalPatients = Integer.parseInt(countStr);
-                    } catch (Exception ignored) {
-                    }
-                }
+                totalPatients = result.getGroups().get(0).getTotalPatients();
             }
 
             MeasureReportEntity entity = MeasureReportEntity.builder()
@@ -51,7 +43,7 @@ public class MeasureReportService {
                     .reportType(result.getReportType())
                     .periodStart(result.getPeriodStart())
                     .periodEnd(result.getPeriodEnd())
-                    .scoringType("proportion")
+                    .scoringType(com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION)
                     .measureScore(measureScore)
                     .totalPatients(totalPatients)
                     .resultJson(resultJson)

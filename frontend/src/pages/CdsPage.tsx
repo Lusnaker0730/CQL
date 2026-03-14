@@ -1,13 +1,17 @@
 import { Box, Grid, Typography } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import CdsPanel from '../components/cds/CdsPanel'
 import CqlEditor from '../components/editor/CqlEditor'
 
 export default function CdsPage() {
+  const { t } = useTranslation('cds')
+
   return (
-    <Box sx={{ height: 'calc(100vh - 120px)', p: 2 }}>
+    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2 }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ mb: 0.5 }}>
-          CDS Hooks Integration
+          {t('page.title')}
         </Typography>
         <Box
           sx={{
@@ -19,8 +23,7 @@ export default function CdsPage() {
           }}
         />
         <Typography variant="body2" color="text.secondary">
-          Clinical Decision Support Hooks allow you to invoke CQL-based decision support at key
-          clinical decision points.
+          {t('page.subtitle')}
         </Typography>
       </Box>
 

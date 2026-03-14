@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Box,
   Paper,
@@ -37,11 +38,13 @@ import {
   Inventory as PackageIcon,
   Close as CloseIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useIgPackages, useIgProfiles, useIgValueSets, useIgCodeSystems } from '../../hooks/useImplementationGuide'
 import { fhirApi } from '../../api'
 import type { ProfileSummary, ValueSetSummary, CodeSystemSummary } from '../../types'
 import StatusChip from '../common/StatusChip'
 import CardListSkeleton from '../common/CardListSkeleton'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface DetailDialogState {
   open: boolean
@@ -50,6 +53,7 @@ interface DetailDialogState {
 }
 
 export default function ImplementationGuideBrowser() {
+  const { t } = useTranslation('fhir')
   const [tabIndex, setTabIndex] = useState(0)
 
   return (
@@ -59,10 +63,10 @@ export default function ImplementationGuideBrowser() {
         onChange={(_, v) => setTabIndex(v)}
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
       >
-        <Tab icon={<PackageIcon />} iconPosition="start" label="Packages" />
-        <Tab icon={<ProfileIcon />} iconPosition="start" label="Profiles" />
-        <Tab icon={<ValueSetIcon />} iconPosition="start" label="ValueSets" />
-        <Tab icon={<CodeSystemIcon />} iconPosition="start" label="CodeSystems" />
+        <Tab icon={<PackageIcon />} iconPosition="start" label={t('ig.tabPackages')} />
+        <Tab icon={<ProfileIcon />} iconPosition="start" label={t('ig.tabProfiles')} />
+        <Tab icon={<ValueSetIcon />} iconPosition="start" label={t('ig.tabValueSets')} />
+        <Tab icon={<CodeSystemIcon />} iconPosition="start" label={t('ig.tabCodeSystems')} />
       </Tabs>
 
       <Box sx={{ flex: 1, overflow: 'auto' }}>
@@ -76,12 +80,13 @@ export default function ImplementationGuideBrowser() {
 }
 
 function PackagesTab() {
+  const { t } = useTranslation('fhir')
   const { data: packages, isLoading, error } = useIgPackages()
 
   if (isLoading) return <CardListSkeleton />
-  if (error) return <Alert severity="error">Failed to load packages: {(error as Error).message}</Alert>
+  if (error) return <Alert severity="error">{t('ig.packageLoadError', { error: extractApiError(error) })}</Alert>
   if (!packages || packages.length === 0) {
-    return <Alert severity="info">No Implementation Guide packages loaded.</Alert>
+    return <Alert severity="info">{t('ig.noPackages')}</Alert>
   }
 
   return (
@@ -92,25 +97,25 @@ function PackagesTab() {
             <Typography variant="h6" gutterBottom>{pkg.title}</Typography>
             <Stack spacing={1}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Chip label={`Name: ${pkg.name}`} size="small" variant="outlined" />
-                <Chip label={`Version: ${pkg.version}`} size="small" variant="outlined" />
-                <Chip label={`FHIR: ${pkg.fhirVersion}`} size="small" variant="outlined" />
+                <Chip label={t('ig.nameLabel', { name: pkg.name })} size="small" variant="outlined" />
+                <Chip label={t('ig.versionLabel', { version: pkg.version })} size="small" variant="outlined" />
+                <Chip label={t('ig.fhirLabel', { fhirVersion: pkg.fhirVersion })} size="small" variant="outlined" />
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Canonical: {pkg.canonical}
+                {t('ig.canonicalLabel', { canonical: pkg.canonical })}
               </Typography>
               <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
                   <Typography variant="h5" color="primary.main">{pkg.profileCount}</Typography>
-                  <Typography variant="caption" color="text.secondary">Profiles</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('ig.profiles')}</Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
                   <Typography variant="h5" color="primary.main">{pkg.valueSetCount}</Typography>
-                  <Typography variant="caption" color="text.secondary">ValueSets</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('ig.valueSets')}</Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
                   <Typography variant="h5" color="primary.main">{pkg.codeSystemCount}</Typography>
-                  <Typography variant="caption" color="text.secondary">CodeSystems</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('ig.codeSystems')}</Typography>
                 </Paper>
               </Stack>
             </Stack>
@@ -122,6 +127,7 @@ function PackagesTab() {
 }
 
 function ProfilesTab() {
+  const { t } = useTranslation('fhir')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [resourceType, setResourceType] = useState<string>('')
@@ -129,7 +135,7 @@ function ProfilesTab() {
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -147,7 +153,7 @@ function ProfilesTab() {
       const json = await fhirApi.getProfile(profile.url)
       setDetail({ open: true, title: profile.title || profile.name, json: JSON.stringify(json, null, 2) })
     } catch {
-      setDetail({ open: true, title: 'Error', json: 'Failed to load profile' })
+      setDetail({ open: true, title: t('ig.loadError'), json: t('ig.loadProfileFailed') })
     }
     setLoadingDetail(false)
   }
@@ -156,12 +162,12 @@ function ProfilesTab() {
     <Stack spacing={2}>
       <Stack direction="row" spacing={2}>
         <TextField
-          label="Search profiles"
+          label={t('ig.searchProfiles')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           size="small"
           sx={{ flex: 1 }}
-          placeholder="e.g., Patient, Observation"
+          placeholder={t('ig.searchProfilesPlaceholder')}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -171,37 +177,37 @@ function ProfilesTab() {
           }}
         />
         <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Resource Type</InputLabel>
+          <InputLabel>{t('browser.resourceTypeLabel')}</InputLabel>
           <Select
             value={resourceType}
-            label="Resource Type"
+            label={t('browser.resourceTypeLabel')}
             onChange={(e) => setResourceType(e.target.value)}
           >
-            <MenuItem value="">All Types</MenuItem>
-            {resourceTypes.map((t) => (
-              <MenuItem key={t} value={t}>{t}</MenuItem>
+            <MenuItem value="">{t('ig.allTypes')}</MenuItem>
+            {resourceTypes.map((rt) => (
+              <MenuItem key={rt} value={rt}>{rt}</MenuItem>
             ))}
           </Select>
         </FormControl>
       </Stack>
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">Failed to load profiles: {(error as Error).message}</Alert>}
+      {error && <Alert severity="error">{t('ig.profileLoadError', { error: extractApiError(error) })}</Alert>}
 
       {profiles && (
         <>
           <Typography variant="subtitle2" color="text.secondary">
-            {profiles.length} profile{profiles.length !== 1 ? 's' : ''}
+            {t('ig.profileCount', { count: profiles.length })}
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Name</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Title</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Type</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Kind</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colName')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colTitle')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colType')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colKind')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colStatus')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -228,7 +234,7 @@ function ProfilesTab() {
                 {profiles.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <Typography variant="body2" color="text.secondary">No profiles found.</Typography>
+                      <Typography variant="body2" color="text.secondary">{t('ig.noProfiles')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -244,13 +250,14 @@ function ProfilesTab() {
 }
 
 function ValueSetsTab() {
+  const { t } = useTranslation('fhir')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -262,7 +269,7 @@ function ValueSetsTab() {
       const json = await fhirApi.getIgValueSet(vs.url)
       setDetail({ open: true, title: vs.title || vs.name, json: JSON.stringify(json, null, 2) })
     } catch {
-      setDetail({ open: true, title: 'Error', json: 'Failed to load ValueSet' })
+      setDetail({ open: true, title: t('ig.loadError'), json: t('ig.loadValueSetFailed') })
     }
     setLoadingDetail(false)
   }
@@ -270,12 +277,12 @@ function ValueSetsTab() {
   return (
     <Stack spacing={2}>
       <TextField
-        label="Search ValueSets"
+        label={t('ig.searchValueSets')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         size="small"
         fullWidth
-        placeholder="e.g., ICD, medication"
+        placeholder={t('ig.searchValueSetsPlaceholder')}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -286,21 +293,21 @@ function ValueSetsTab() {
       />
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">Failed to load ValueSets: {(error as Error).message}</Alert>}
+      {error && <Alert severity="error">{t('ig.valueSetLoadError', { error: extractApiError(error) })}</Alert>}
 
       {valueSets && (
         <>
           <Typography variant="subtitle2" color="text.secondary">
-            {valueSets.length} ValueSet{valueSets.length !== 1 ? 's' : ''}
+            {t('ig.valueSetCount', { count: valueSets.length })}
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Title</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>URL</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Concepts</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colTitle')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colUrl')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colStatus')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colConcepts')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -330,7 +337,7 @@ function ValueSetsTab() {
                 {valueSets.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Typography variant="body2" color="text.secondary">No ValueSets found.</Typography>
+                      <Typography variant="body2" color="text.secondary">{t('ig.noValueSets')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -346,13 +353,14 @@ function ValueSetsTab() {
 }
 
 function CodeSystemsTab() {
+  const { t } = useTranslation('fhir')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -364,7 +372,7 @@ function CodeSystemsTab() {
       const json = await fhirApi.getIgCodeSystem(cs.url)
       setDetail({ open: true, title: cs.title || cs.name, json: JSON.stringify(json, null, 2) })
     } catch {
-      setDetail({ open: true, title: 'Error', json: 'Failed to load CodeSystem' })
+      setDetail({ open: true, title: t('ig.loadError'), json: t('ig.loadCodeSystemFailed') })
     }
     setLoadingDetail(false)
   }
@@ -372,12 +380,12 @@ function CodeSystemsTab() {
   return (
     <Stack spacing={2}>
       <TextField
-        label="Search CodeSystems"
+        label={t('ig.searchCodeSystems')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         size="small"
         fullWidth
-        placeholder="e.g., LOINC, SNOMED"
+        placeholder={t('ig.searchCodeSystemsPlaceholder')}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -388,21 +396,21 @@ function CodeSystemsTab() {
       />
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">Failed to load CodeSystems: {(error as Error).message}</Alert>}
+      {error && <Alert severity="error">{t('ig.codeSystemLoadError', { error: extractApiError(error) })}</Alert>}
 
       {codeSystems && (
         <>
           <Typography variant="subtitle2" color="text.secondary">
-            {codeSystems.length} CodeSystem{codeSystems.length !== 1 ? 's' : ''}
+            {t('ig.codeSystemCount', { count: codeSystems.length })}
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Title</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>URL</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell scope="col" sx={{ fontWeight: 600 }}>Concepts</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colTitle')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colUrl')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colStatus')}</TableCell>
+                  <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('ig.colConcepts')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -432,7 +440,7 @@ function CodeSystemsTab() {
                 {codeSystems.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Typography variant="body2" color="text.secondary">No CodeSystems found.</Typography>
+                      <Typography variant="body2" color="text.secondary">{t('ig.noCodeSystems')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -448,12 +456,15 @@ function CodeSystemsTab() {
 }
 
 function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; onClose: () => void; loading: boolean }) {
+  const { t } = useTranslation('fhir')
+  const { t: tc } = useTranslation('common')
+
   return (
     <Dialog open={state.open} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">{state.title}</Typography>
-          <Button onClick={onClose} startIcon={<CloseIcon />} size="small">Close</Button>
+          <Button onClick={onClose} startIcon={<CloseIcon />} size="small">{tc('actions.close')}</Button>
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -484,9 +495,9 @@ function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; o
           size="small"
           onClick={() => navigator.clipboard.writeText(state.json)}
         >
-          Copy JSON
+          {t('ig.copyJson')}
         </Button>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{tc('actions.close')}</Button>
       </DialogActions>
     </Dialog>
   )

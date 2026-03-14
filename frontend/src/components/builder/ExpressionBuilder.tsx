@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -16,19 +17,20 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material'
 import SnippetPreview from './SnippetPreview'
+import ElementSelectField from './ElementSelectField'
 
 interface ExpressionRow {
   id: string
   operand: string
   operator: string
   value: string
+  unit: string
   conjunction: 'and' | 'or'
 }
 
 interface ExpressionBuilderProps {
-  expressions: string[]
+  expressions: string[] | { name: string; resultType?: string }[]
   parameters: string[]
-  valueSets: string[]
   onInsert: (snippet: string) => void
   onCancel: () => void
 }
@@ -59,39 +61,21 @@ function nextId() { return `row-${++rowIdCounter}` }
 export default function ExpressionBuilder({
   expressions,
   parameters,
-  valueSets,
   onInsert,
   onCancel,
 }: ExpressionBuilderProps) {
+  const { t } = useTranslation('builder')
   const [name, setName] = useState('')
   const [rows, setRows] = useState<ExpressionRow[]>([
-    { id: nextId(), operand: '', operator: '', value: '', conjunction: 'and' },
+    { id: nextId(), operand: '', operator: '', value: '', unit: '', conjunction: 'and' },
   ])
   const [wrapping, setWrapping] = useState('')
   const [previewSnippet, setPreviewSnippet] = useState('')
 
-  const operandOptions = useMemo(() => {
-    const opts: { value: string; label: string; group: string }[] = []
-    for (const e of expressions) {
-      opts.push({ value: `"${e}"`, label: e, group: 'Definitions' })
-    }
-    for (const p of parameters) {
-      const m = p.match(/^"([^"]+)"/)
-      if (m) opts.push({ value: `"${m[1]}"`, label: m[1], group: 'Parameters' })
-    }
-    for (const vs of valueSets) {
-      const m = vs.match(/^"([^"]+)"/)
-      if (m) opts.push({ value: `"${m[1]}"`, label: m[1], group: 'Value Sets' })
-    }
-    // Built-in functions
-    opts.push({ value: 'AgeInYearsAt(start of "Measurement Period")', label: 'AgeInYearsAt(...)', group: 'Functions' })
-    opts.push({ value: 'AgeInYears()', label: 'AgeInYears()', group: 'Functions' })
-    opts.push({ value: 'AgeInMonths()', label: 'AgeInMonths()', group: 'Functions' })
-    opts.push({ value: 'Today()', label: 'Today()', group: 'Functions' })
-    opts.push({ value: 'Now()', label: 'Now()', group: 'Functions' })
-    opts.push({ value: 'Count()', label: 'Count(...)', group: 'Functions' })
-    return opts
-  }, [expressions, parameters, valueSets])
+  // Normalize expressions to typed format
+  const typedExpressions = useMemo(() => {
+    return expressions.map((e) => typeof e === 'string' ? { name: e } : e)
+  }, [expressions])
 
   const updateRow = useCallback((id: string, field: keyof ExpressionRow, value: string) => {
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r))
@@ -99,7 +83,7 @@ export default function ExpressionBuilder({
   }, [])
 
   const addRow = () => {
-    setRows((prev) => [...prev, { id: nextId(), operand: '', operator: '', value: '', conjunction: 'and' }])
+    setRows((prev) => [...prev, { id: nextId(), operand: '', operator: '', value: '', unit: '', conjunction: 'and' }])
     setPreviewSnippet('')
   }
 
@@ -123,7 +107,8 @@ export default function ExpressionBuilder({
       if (UNARY_OPS.includes(row.operator)) {
         line += `${row.operand} ${row.operator}`
       } else if (row.operator && row.value) {
-        line += `${row.operand} ${row.operator} ${row.value}`
+        const val = row.unit ? `${row.value} '${row.unit}'` : row.value
+        line += `${row.operand} ${row.operator} ${val}`
       } else {
         line += row.operand
       }
@@ -160,13 +145,13 @@ export default function ExpressionBuilder({
     <Stack spacing={1}>
       <TextField
         size="small"
-        label="Definition Name"
+        label={t('definitions.name')}
         value={name}
         onChange={(e) => { setName(e.target.value); setPreviewSnippet('') }}
       />
 
       <Typography variant="caption" fontWeight={500} color="text.secondary">
-        Expression rows:
+        {t('expression.rows')}
       </Typography>
 
       {rows.map((row, idx) => (
@@ -198,23 +183,13 @@ export default function ExpressionBuilder({
           )}
 
           <Stack spacing={0.5}>
-            <TextField
-              select
-              size="small"
-              label="Operand"
+            <ElementSelectField
               value={row.operand}
-              onChange={(e) => updateRow(row.id, 'operand', e.target.value)}
-              sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
-            >
-              <MenuItem value="">
-                <em>Select...</em>
-              </MenuItem>
-              {operandOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '0.8rem' }}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </TextField>
+              onChange={(v) => updateRow(row.id, 'operand', v)}
+              expressions={typedExpressions}
+              parameters={parameters}
+              label="Operand"
+            />
 
             <Stack direction="row" spacing={0.5} alignItems="center">
               <TextField
@@ -226,7 +201,7 @@ export default function ExpressionBuilder({
                 sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
               >
                 <MenuItem value="">
-                  <em>None</em>
+                  <em>{t('expression.none')}</em>
                 </MenuItem>
                 {ALL_OPERATORS.map((group) => [
                   <MenuItem key={`header-${group.group}`} disabled sx={{ fontSize: '0.7rem', fontWeight: 600, opacity: 1 }}>
@@ -241,19 +216,31 @@ export default function ExpressionBuilder({
               </TextField>
 
               {row.operator && !UNARY_OPS.includes(row.operator) && (
-                <TextField
-                  size="small"
-                  label="Value"
-                  value={row.value}
-                  onChange={(e) => updateRow(row.id, 'value', e.target.value)}
-                  sx={{ flex: 1, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
-                  placeholder='18, "Name", ...'
-                />
+                <>
+                  <TextField
+                    size="small"
+                    label="Value"
+                    value={row.value}
+                    onChange={(e) => updateRow(row.id, 'value', e.target.value)}
+                    sx={{ flex: 1, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
+                    placeholder={t('expression.valuePlaceholder')}
+                  />
+                  {COMPARISON_OPS.includes(row.operator) && (
+                    <TextField
+                      size="small"
+                      label={t('expression.unit')}
+                      value={row.unit}
+                      onChange={(e) => updateRow(row.id, 'unit', e.target.value)}
+                      sx={{ width: 100, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}
+                      placeholder="kg/m2"
+                    />
+                  )}
+                </>
               )}
 
               {rows.length > 1 && (
-                <Tooltip title="Remove row">
-                  <IconButton size="small" onClick={() => removeRow(row.id)} sx={{ color: 'error.main' }}>
+                <Tooltip title={t('expression.removeRow')}>
+                  <IconButton size="small" onClick={() => removeRow(row.id)} sx={{ color: 'error.main' }} aria-label={t('expression.removeRow')}>
                     <DeleteIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 </Tooltip>
@@ -264,13 +251,13 @@ export default function ExpressionBuilder({
       ))}
 
       <Button size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
-        Add Row
+        {t('expression.addRow')}
       </Button>
 
       <TextField
         select
         size="small"
-        label="Wrapping Function"
+        label={t('expression.wrappingFunction')}
         value={wrapping}
         onChange={(e) => { setWrapping(e.target.value); setPreviewSnippet('') }}
       >
@@ -288,9 +275,9 @@ export default function ExpressionBuilder({
       ) : (
         <Stack direction="row" spacing={1}>
           <Button size="small" variant="outlined" onClick={handlePreview} disabled={!isValid}>
-            Preview
+            {t('expression.preview')}
           </Button>
-          <Button size="small" onClick={onCancel}>Cancel</Button>
+          <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
         </Stack>
       )}
     </Stack>

@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { downloadBlob } from '../../utils/download'
 import {
   Box,
   Typography,
@@ -32,6 +34,8 @@ import {
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
+import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
@@ -40,6 +44,8 @@ import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
+import TestCaseImportDialog from './TestCaseImportDialog'
+import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
 
 interface TestCasesTabProps {
   measure: MeasureDefinition
@@ -54,10 +60,14 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 }
 
 export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
+  const { t } = useTranslation('measures')
+  const { t: tCommon } = useTranslation('common')
   const queryClient = useQueryClient()
-  const [editing, setEditing] = useState<TestCase | null | 'new'>(null)
+  const { showNotification } = useNotification()
+  const [editing, setEditingRaw] = useState<TestCase | null | 'new'>(null)
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [coverageData, setCoverageData] = useState<Record<number, { data: CoverageResult | null; loading: boolean }>>({})
 
   const { data: testCases = [], isLoading } = useQuery({
@@ -66,11 +76,40 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     enabled: !!measure.id,
   })
 
+  // Wrap setEditing to persist to sessionStorage
+  const setEditing = (val: TestCase | null | 'new') => {
+    setEditingRaw(val)
+    if (val === null) {
+      clearEditingState(measure.id!)
+    } else if (val === 'new') {
+      saveEditingState(measure.id!, 'new')
+    } else if (val.id) {
+      saveEditingState(measure.id!, val.id)
+    }
+  }
+
+  // Restore editing state from sessionStorage on remount (once only)
+  const restoredRef = React.useRef(false)
+  useEffect(() => {
+    if (isLoading || restoredRef.current) return
+    restoredRef.current = true
+    const savedId = loadEditingState(measure.id!)
+    if (savedId === null) return
+    if (savedId === 'new') {
+      setEditingRaw('new')
+    } else {
+      const found = testCases.find((tc) => tc.id === savedId)
+      if (found) setEditingRaw(found)
+      else clearEditingState(measure.id!) // stale reference
+    }
+  }, [measure.id, isLoading, testCases])
+
   const deleteMutation = useMutation({
     mutationFn: (testCaseId: number) => measureApi.deleteTestCase(measure.id!, testCaseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.deleteFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const runOneMutation = useMutation({
@@ -82,6 +121,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         return [...filtered, result]
       })
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const runAllMutation = useMutation({
@@ -90,6 +130,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults(results)
     },
+    onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
   })
 
   const coverageMutation = useMutation({
@@ -105,85 +146,38 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     },
   })
 
-  const importRef = React.useRef<HTMLInputElement>(null)
+  const toExportShape = (tc: TestCase) => ({
+    title: tc.title,
+    description: tc.description,
+    series: tc.series,
+    sortOrder: tc.sortOrder,
+    expectedPopulations: tc.expectedPopulations,
+    patientBundleJson: tc.patientBundleJson,
+  })
+
 
   const exportSingleTestCase = (tc: TestCase) => {
-    const exportData = {
-      title: tc.title,
-      description: tc.description,
-      series: tc.series,
-      expectedPopulations: tc.expectedPopulations,
-      patientBundleJson: tc.patientBundleJson,
-    }
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${tc.title.replace(/[^a-z0-9]/gi, '_')}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    const blob = new Blob([JSON.stringify(toExportShape(tc), null, 2)], { type: 'application/json' })
+    downloadBlob(blob, `${tc.title.replace(/[^a-z0-9]/gi, '_')}.json`)
   }
 
   const exportAllTestCases = () => {
     if (testCases.length === 0) return
-    const exportData = testCases.map((tc) => ({
-      title: tc.title,
-      description: tc.description,
-      series: tc.series,
-      expectedPopulations: tc.expectedPopulations,
-      patientBundleJson: tc.patientBundleJson,
-    }))
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${measure.name || 'measure'}-test-cases.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    const blob = new Blob(
+      [JSON.stringify(testCases.map(toExportShape), null, 2)],
+      { type: 'application/json' }
+    )
+    downloadBlob(blob, `${measure.name || 'measure'}-test-cases.json`)
   }
 
-  const importMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const text = await file.text()
-      const parsed = JSON.parse(text)
-      const rawItems: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
-      const results: TestCase[] = []
-      for (const raw of rawItems) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const item = raw as any
-        // Support MADiE format: detect by checking for 'json' or 'patientBundleJson' field
-        const bundleJson = item.patientBundleJson || item.json
-          || (item.resourceType === 'Bundle' ? JSON.stringify(item) : undefined)
-        const tc: TestCase = {
-          title: item.title || item.name || file.name.replace(/\.json$/, ''),
-          description: item.description || '',
-          series: item.series || item.groupName || undefined,
-          expectedPopulations: item.expectedPopulations || item.groupPopulationValues?.reduce(
-            (acc: Record<string, boolean>, p: { name: string; expected: boolean }) => {
-              acc[p.name] = p.expected
-              return acc
-            }, {}
-          ) || {},
-          patientBundleJson: typeof bundleJson === 'string' ? bundleJson : JSON.stringify(bundleJson),
-        }
-        results.push(await measureApi.createTestCase(measure.id!, tc))
-      }
-      return results
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
-      if (importRef.current) importRef.current.value = ''
-    },
-  })
-
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) importMutation.mutate(file)
-  }
-
-  const passCount = testCases.filter((tc) => tc.status === 'pass').length
-  const failCount = testCases.filter((tc) => tc.status === 'fail').length
-  const totalCount = testCases.length
+  const { passCount, failCount, totalCount } = useMemo(() => {
+    let pass = 0, fail = 0
+    for (const tc of testCases) {
+      if (tc.status === 'pass') pass++
+      else if (tc.status === 'fail') fail++
+    }
+    return { passCount: pass, failCount: fail, totalCount: testCases.length }
+  }, [testCases])
 
   const groupedTestCases = useMemo(() => {
     const groups = new Map<string, TestCase[]>()
@@ -221,28 +215,28 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             {tc.expectedPopulations && (
               <Stack direction="row" spacing={0.25}>
                 {Object.entries(tc.expectedPopulations).filter(([, v]) => v).map(([key]) => (
-                  <Chip key={key} label={key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).substring(0, 3)} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }} />
+                  <Chip key={key} label={t(`testCaseEditor.populationTypesShort.${key}`, key.substring(0, 3))} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }} />
                 ))}
               </Stack>
             )}
-            <Tooltip title="Run with coverage">
-              <IconButton size="small" aria-label="Run with coverage" onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
+            <Tooltip title={t('testCases.tooltips.runWithCoverage')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.runWithCoverage')} onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
                 <RunIcon fontSize="small" color="secondary" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Run this test case">
-              <IconButton size="small" aria-label="Run test case" onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
+            <Tooltip title={t('testCases.tooltips.runTestCase')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.runTestCase')} onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
                 {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Export JSON">
-              <IconButton size="small" aria-label="Export test case JSON" onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
+            <Tooltip title={t('testCases.tooltips.exportJson')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.exportJson')} onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton size="small" aria-label="Edit test case" onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
+            <Tooltip title={t('testCases.tooltips.edit')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.edit')} onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
             </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" aria-label="Delete test case" color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
+            <Tooltip title={t('testCases.tooltips.delete')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.delete')} color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
             </Tooltip>
           </Stack>
         </Stack>
@@ -278,19 +272,19 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h6">Test Cases</Typography>
+          <Typography variant="h6">{t('testCases.title')}</Typography>
           <HelpTooltip text={helpContent.measures.testCases} />
           {totalCount > 0 && (
             <Stack direction="row" spacing={0.5}>
               <Chip
-                label={`${passCount}/${totalCount} pass`}
+                label={t('testCases.passCount', { pass: passCount, total: totalCount })}
                 size="small"
                 color={passCount === totalCount && totalCount > 0 ? 'success' : 'default'}
                 sx={{ height: 22, fontSize: '0.75rem' }}
               />
               {failCount > 0 && (
                 <Chip
-                  label={`${failCount} fail`}
+                  label={t('testCases.failCount', { count: failCount })}
                   size="small"
                   color="error"
                   sx={{ height: 22, fontSize: '0.75rem' }}
@@ -307,7 +301,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             variant="outlined"
             sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
           >
-            Date Calculator
+            {t('testCases.dateCalculator')}
           </Button>
           <Button
             size="small"
@@ -320,7 +314,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             }}
             variant="outlined"
           >
-            {runAllMutation.isPending ? 'Running...' : 'Run All'}
+            {runAllMutation.isPending ? t('testCases.running') : t('testCases.runAll')}
           </Button>
           <Button
             size="small"
@@ -330,49 +324,35 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             variant="outlined"
             sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
           >
-            Export All
+            {t('testCases.exportAll')}
           </Button>
           <Button
             size="small"
             startIcon={<ImportIcon />}
-            onClick={() => importRef.current?.click()}
+            onClick={() => setImportDialogOpen(true)}
             variant="outlined"
-            disabled={importMutation.isPending}
             sx={{ borderColor: 'rgba(13,115,119,0.4)', color: 'primary.dark' }}
           >
-            {importMutation.isPending ? 'Importing...' : 'Import'}
+            {t('testCases.import')}
           </Button>
-          <input ref={importRef} type="file" accept=".json" hidden onChange={handleFileImport} />
           <GradientButton
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
           >
-            Add Test Case
+            {t('testCases.addTestCase')}
           </GradientButton>
         </Stack>
       </Stack>
 
       {!measure.cqlContent && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Save CQL content in the CQL tab first before running test cases.
+          {t('testCases.saveCqlFirst')}
         </Alert>
       )}
 
       {runAllMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(runAllMutation.error as Error).message}
-        </Alert>
-      )}
-
-      {importMutation.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Import failed: {(importMutation.error as Error).message}
-        </Alert>
-      )}
-
-      {importMutation.isSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Test cases imported successfully.
+          {extractApiError(runAllMutation.error)}
         </Alert>
       )}
 
@@ -383,17 +363,17 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       ) : testCases.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary" gutterBottom>
-            No test cases yet
+            {t('testCases.emptyTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Create test cases with expected population outcomes to validate your measure logic.
+            {t('testCases.emptyDescription')}
           </Typography>
           <Button
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
             variant="outlined"
           >
-            Create First Test Case
+            {t('testCases.createFirst')}
           </Button>
         </Paper>
       ) : (
@@ -415,6 +395,11 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         </Stack>
       )}
       <DateCalculatorDialog open={dateCalcOpen} onClose={() => setDateCalcOpen(false)} />
+      <TestCaseImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        measureId={measure.id!}
+      />
     </Box>
   )
 }

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-@Profile("dev")
+@Profile({"dev", "docker"})
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
@@ -79,10 +79,13 @@ public class DataInitializer implements CommandLineRunner {
                 codesystem "ATC": 'http://www.whocc.no/atc'
                 codesystem "LOINC": 'http://loinc.org'
                 codesystem "TW-NHI-ORDER": 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-service-payment-tw'
+                codesystem "ActCode": 'http://terminology.hl7.org/CodeSystem/v3-ActCode'
 
-                // --- LOINC codes for HbA1c and Glycated Albumin ---
+                // --- Codes ---
                 code "HbA1c LOINC": '4548-4' from "LOINC" display 'Hemoglobin A1c/Hemoglobin.total in Blood'
                 code "Glycated Albumin LOINC": '13980-8' from "LOINC" display 'Albumin glycated/Albumin.total in Serum or Plasma'
+                code "AMB": 'AMB' from "ActCode" display 'ambulatory'
+                code "IMP": 'IMP' from "ActCode" display 'inpatient encounter'
 
                 // --- Measurement Period (parameter) ---
                 parameter "Measurement Period" Interval<DateTime>
@@ -98,21 +101,21 @@ public class DataInitializer implements CommandLineRunner {
                 define "Outpatient Encounters":
                   [Encounter] E
                     where E.status = 'finished'
-                      and E.class.code in { 'AMB', 'IMP' }
-                      and E.period starts during "Measurement Period"
+                      and (E.class ~ "AMB" or E.class ~ "IMP")
+                      and E.period overlaps "Measurement Period"
 
                 // Diabetes diagnosis: ICD-10-CM E08-E13
                 define "Diabetes Conditions":
                   [Condition] C
-                    where C.code.coding exists (
-                      coding where coding.system = 'http://hl7.org/fhir/sid/icd-10-cm'
+                    where exists(C.code.coding Coding
+                      where Coding.system = 'http://hl7.org/fhir/sid/icd-10-cm'
                         and (
-                          coding.code starts with 'E08'
-                          or coding.code starts with 'E09'
-                          or coding.code starts with 'E10'
-                          or coding.code starts with 'E11'
-                          or coding.code starts with 'E12'
-                          or coding.code starts with 'E13'
+                          StartsWith(Coding.code.value, 'E08')
+                          or StartsWith(Coding.code.value, 'E09')
+                          or StartsWith(Coding.code.value, 'E10')
+                          or StartsWith(Coding.code.value, 'E11')
+                          or StartsWith(Coding.code.value, 'E12')
+                          or StartsWith(Coding.code.value, 'E13')
                         )
                     )
 
@@ -121,9 +124,9 @@ public class DataInitializer implements CommandLineRunner {
                   [MedicationRequest] MR
                     where MR.status in { 'active', 'completed' }
                       and MR.authoredOn during "Measurement Period"
-                      and MR.medication.coding exists (
-                        coding where coding.system = 'http://www.whocc.no/atc'
-                          and coding.code starts with 'A10'
+                      and exists(MR.medication.coding Coding
+                        where Coding.system = 'http://www.whocc.no/atc'
+                          and StartsWith(Coding.code.value, 'A10')
                       )
 
                 // =====================
@@ -146,8 +149,8 @@ public class DataInitializer implements CommandLineRunner {
                     where O.status in { 'final', 'amended', 'corrected' }
                       and (
                         O.code ~ "HbA1c LOINC"
-                        or O.code.coding exists (
-                          coding where coding.code starts with '09006'
+                        or exists(O.code.coding Coding
+                          where StartsWith(Coding.code.value, '09006')
                         )
                       )
                       and O.effective during "Measurement Period"
@@ -158,8 +161,8 @@ public class DataInitializer implements CommandLineRunner {
                     where O.status in { 'final', 'amended', 'corrected' }
                       and (
                         O.code ~ "Glycated Albumin LOINC"
-                        or O.code.coding exists (
-                          coding where coding.code starts with '09139'
+                        or exists(O.code.coding Coding
+                          where StartsWith(Coding.code.value, '09139')
                         )
                       )
                       and O.effective during "Measurement Period"
@@ -172,17 +175,17 @@ public class DataInitializer implements CommandLineRunner {
 
         List<PopulationDefinition> populations = List.of(
                 PopulationDefinition.builder()
-                        .populationType("initial-population")
+                        .populationType(com.cqlplatform.model.measure.PopulationTypeConstants.INITIAL_POPULATION)
                         .criteriaExpression("Initial Population")
                         .description("門診就醫之病人")
                         .build(),
                 PopulationDefinition.builder()
-                        .populationType("denominator")
+                        .populationType(com.cqlplatform.model.measure.PopulationTypeConstants.DENOMINATOR)
                         .criteriaExpression("Denominator")
                         .description("門診主次診斷為糖尿病且使用糖尿病用藥之病人數")
                         .build(),
                 PopulationDefinition.builder()
-                        .populationType("numerator")
+                        .populationType(com.cqlplatform.model.measure.PopulationTypeConstants.NUMERATOR)
                         .criteriaExpression("Numerator")
                         .description("分母ID中，在統計期間有執行醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)檢驗人數")
                         .build());
@@ -202,7 +205,7 @@ public class DataInitializer implements CommandLineRunner {
                 .title("糖尿病病人醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)執行率")
                 .description("衡量門診主次診斷為糖尿病且使用糖尿病用藥之病人，在統計期間有執行醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)檢驗的比率。")
                 .status("active")
-                .scoringType("proportion")
+                .scoringType(com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION)
                 .cqlLibraryId("DiabetesHbA1cRate")
                 .cqlContent(cqlContent)
                 .groupDefinitionList(groups)

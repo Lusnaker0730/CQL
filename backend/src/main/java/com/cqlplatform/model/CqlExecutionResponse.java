@@ -41,6 +41,7 @@ public class CqlExecutionResponse {
         private List<ExpressionTrace> expressionTraces;
         private List<RetrieveTrace> retrieveTraces;
         private long totalTimeMs;
+        private Map<String, String> sourceLocators;
     }
 
     @Data
@@ -51,6 +52,8 @@ public class CqlExecutionResponse {
         private String resultDisplay;
         private long evaluationTimeMs;
         private int order;
+        private String sourceLocator;
+        private List<String> dependencies;
     }
 
     @Data

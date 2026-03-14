@@ -4,8 +4,6 @@ import com.cqlplatform.entity.CdsFeedbackEntity;
 import com.cqlplatform.model.cds.CdsFeedbackRequest;
 import com.cqlplatform.repository.CdsFeedbackRepository;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
-import com.cqlplatform.service.cql.CqlExecutionService;
-import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,19 +22,20 @@ import static org.mockito.Mockito.*;
 class CdsFeedbackTest {
 
     @Mock
-    private CqlExecutionService executionService;
-    @Mock
     private CdsServiceConfigRepository repository;
     @Mock
     private CdsFeedbackRepository feedbackRepository;
+    @Mock
+    private CdsInvocationService invocationService;
+    @Mock
+    private CqlTupleCardStrategy tupleStrategy;
 
     private CdsHooksService cdsHooksService;
 
     @BeforeEach
     void setUp() {
-        FhirContext fhirContext = FhirContext.forR4();
         ObjectMapper objectMapper = new ObjectMapper();
-        cdsHooksService = new CdsHooksService(executionService, repository, fhirContext, objectMapper);
+        cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy);
 
         // Inject feedbackRepository via reflection since it's @Autowired(required=false)
         try {
@@ -50,7 +49,6 @@ class CdsFeedbackTest {
 
     @Test
     void processFeedback_withAccepted_shouldPersist() {
-        // Register a service in memory so validation passes
         CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
                 .id("test-svc").hook("patient-view").title("Test").build();
         cdsHooksService.registerService(config);
@@ -134,6 +132,37 @@ class CdsFeedbackTest {
         cdsHooksService.processFeedback("test-svc", request);
 
         verify(feedbackRepository, never()).save(any());
+    }
+
+    @Test
+    void processFeedback_withHtmlInDisplay_shouldEscapeBeforePersist() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc").hook("patient-view").title("Test").build();
+        cdsHooksService.registerService(config);
+
+        CdsFeedbackRequest request = CdsFeedbackRequest.builder()
+                .feedback(List.of(
+                        CdsFeedbackRequest.FeedbackItem.builder()
+                                .card("<img src=x>")
+                                .outcome("overridden")
+                                .overrideReason(CdsFeedbackRequest.OverrideReason.builder()
+                                        .code("<b>bold</b>")
+                                        .display("<img src=x onerror=alert(1)>")
+                                        .build())
+                                .build()
+                ))
+                .build();
+
+        cdsHooksService.processFeedback("test-svc", request);
+
+        ArgumentCaptor<CdsFeedbackEntity> captor = ArgumentCaptor.forClass(CdsFeedbackEntity.class);
+        verify(feedbackRepository).save(captor.capture());
+
+        CdsFeedbackEntity saved = captor.getValue();
+        // All free-text fields must be HTML-escaped
+        assertThat(saved.getCardUuid()).isEqualTo("&lt;img src=x&gt;");
+        assertThat(saved.getOverrideReasonCode()).isEqualTo("&lt;b&gt;bold&lt;/b&gt;");
+        assertThat(saved.getOverrideReasonDisplay()).isEqualTo("&lt;img src=x onerror=alert(1)&gt;");
     }
 
     @Test

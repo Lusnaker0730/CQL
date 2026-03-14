@@ -189,6 +189,9 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser
     void enableService_shouldReturn200() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").ownerUsername("user").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").enabled(true).build();
         when(cdsHooksService.toggleServiceEnabled("svc-1", true)).thenReturn(resp);
@@ -201,6 +204,9 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser
     void disableService_shouldReturn200() throws Exception {
+        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
+                .id("svc-1").ownerUsername("user").build();
+        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").enabled(false).build();
         when(cdsHooksService.toggleServiceEnabled("svc-1", false)).thenReturn(resp);

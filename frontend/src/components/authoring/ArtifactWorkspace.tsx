@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip } from '@mui/material'
-import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
+import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip, Tooltip, Alert, FormControlLabel, Switch } from '@mui/material'
+import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon, Public as PublicIcon } from '@mui/icons-material'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { useArtifactHistory } from '../../hooks/useArtifactHistory'
 import ArtifactWorkspaceHeader from './ArtifactWorkspaceHeader'
@@ -14,32 +15,69 @@ import ExternalCql from './external-cql/ExternalCql'
 import CqlPreviewPanel from './cql-preview/CqlPreviewPanel'
 import ArtifactTester from './testing/ArtifactTester'
 import ArtifactSummaryView from './summary/ArtifactSummaryView'
-import { useUpdateArtifact } from '../../hooks/useAuthoring'
+import { useUpdateArtifact, useArtifact } from '../../hooks/useAuthoring'
 import { useTemplates } from '../../hooks/useTemplates'
 import { useModifiers } from '../../hooks/useModifiers'
 import { useExternalCqlList } from '../../hooks/useExternalCql'
 import type { Artifact, ArtifactRequest, ConjunctionGroup as ConjunctionGroupType, ElementInstance } from '../../types/authoring'
 import type { DynamicEntry } from './element-select/ElementSelectDropdown'
+import {
+  SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION,
+  TAB_INDEX_REVIEW_CQL, TAB_INDEX_SUMMARY, KEYBOARD_SHORTCUTS,
+} from '../../constants/authoringConstants'
+import { generateId } from '../../utils/validation'
+
+/**
+ * Sync reference element names with current base elements / parameters.
+ * Walks an expression tree and patches element_name fields for references.
+ */
+function syncReferenceNames(
+  children: ElementInstance[],
+  beMap: Map<string, string>,
+  paramMap: Map<string, string>,
+): ElementInstance[] {
+  return children.map((el) => {
+    // Recurse into conjunction sub-groups
+    if (el.conjunction && el.childInstances) {
+      const synced = syncReferenceNames(el.childInstances, beMap, paramMap)
+      return synced !== el.childInstances ? { ...el, childInstances: synced } : el
+    }
+    // Patch reference names
+    if (el.type === 'baseElementRef' || el.type === 'parameterRef') {
+      const refId = el.fields?.find((f) => f.id === 'reference_id')?.value as string | undefined
+      if (!refId) return el
+      const map = el.type === 'baseElementRef' ? beMap : paramMap
+      const currentName = map.get(refId)
+      if (!currentName) return el
+      const nameField = el.fields?.find((f) => f.id === 'element_name')
+      if (nameField && nameField.value === currentName && el.name === currentName) return el
+      return {
+        ...el,
+        name: currentName,
+        fields: (el.fields || []).map((f) =>
+          f.id === 'element_name' ? { ...f, value: currentName } : f
+        ),
+      }
+    }
+    return el
+  })
+}
+
+function syncTreeRefs(
+  tree: ConjunctionGroupType | undefined,
+  beMap: Map<string, string>,
+  paramMap: Map<string, string>,
+): ConjunctionGroupType | undefined {
+  if (!tree?.childInstances?.length) return tree
+  const synced = syncReferenceNames(tree.childInstances, beMap, paramMap)
+  return synced !== tree.childInstances ? { ...tree, childInstances: synced } : tree
+}
 
 interface ArtifactWorkspaceProps {
   artifact: Artifact
   onBack: () => void
   onArtifactUpdate: (updated: Artifact) => void
 }
-
-const TAB_LABELS = [
-  'Inclusions',
-  'Exclusions',
-  'Subpopulations',
-  'Base Elements',
-  'Recommendations',
-  'Parameters',
-  'Error Handling',
-  'External CQL',
-  'Review CQL',
-  'Testing',
-  'Summary',
-]
 
 const DEFAULT_TREE: ConjunctionGroupType = {
   id: 'And',
@@ -51,46 +89,118 @@ const DEFAULT_TREE: ConjunctionGroupType = {
 
 type TabStatus = 'empty' | 'has-content' | 'has-error'
 
-function computeTabStatuses(a: Artifact): TabStatus[] {
+interface TabStatusInfo {
+  status: TabStatus
+  errors: string[]  // i18n keys with interpolation params already applied
+}
+
+interface ModifierLike {
+  id: string
+  name: string
+  cqlTemplate?: string
+  values?: Record<string, unknown>
+  inputTypes: string[]
+  returnType: string
+}
+
+function getModifierMissingFields(mod: ModifierLike): string[] {
+  if (mod.cqlTemplate === 'LookBackModifier' || mod.id.startsWith('LookBack')) {
+    const missing: string[] = []
+    if (!mod.values?.value) missing.push('value')
+    if (!mod.values?.unit) missing.push('unit')
+    return missing
+  }
+  if (mod.cqlTemplate === 'ValueComparisonNumber' || mod.cqlTemplate === 'ValueComparisonObservation') {
+    const missing: string[] = []
+    if (!mod.values?.minOperator) missing.push('operator')
+    if (!mod.values?.minValue && mod.values?.minValue !== 0) missing.push('value')
+    return missing
+  }
+  if (mod.cqlTemplate === 'WithUnit') return mod.values?.unit ? [] : ['unit']
+  if (['EqualsString', 'StartsWithString', 'EndsWithString'].includes(mod.cqlTemplate || '')) {
+    return mod.values?.value ? [] : ['value']
+  }
+  if (mod.cqlTemplate === 'Qualifier') {
+    const q = (mod.values?.qualifier as string) ?? 'value set'
+    return q === 'value set' ? (mod.values?.valueSet ? [] : ['valueSet']) : (mod.values?.code ? [] : ['code'])
+  }
+  if (mod.cqlTemplate === 'BeforeInterval' || mod.cqlTemplate === 'AfterInterval') {
+    return mod.values?.value ? [] : ['value']
+  }
+  return []
+}
+
+function collectTreeErrors(tree: ConjunctionGroupType | undefined): string[] {
+  if (!tree?.childInstances?.length) return []
+  const errors: string[] = []
+  tree.childInstances.forEach((el) => {
+    const name = (el.fields?.find((f) => f.id === 'element_name')?.value as string | undefined) || el.name
+    if (el.modifiers?.length) {
+      let cur = el.returnType
+      for (const mod of el.modifiers) {
+        if (!mod.inputTypes.includes(cur)) {
+          errors.push(`workspace.validation.elementModifierTypeMismatch||${JSON.stringify({
+            element: name, modifier: mod.name, expected: mod.inputTypes.join('/'), actual: cur,
+          })}`)
+        }
+        const missing = getModifierMissingFields(mod)
+        if (missing.length > 0) {
+          errors.push(`workspace.validation.elementModifierMissingFields||${JSON.stringify({
+            element: name, modifier: mod.name, fields: missing.join(', '),
+          })}`)
+        }
+        cur = mod.returnType
+      }
+    }
+  })
+  return errors
+}
+
+function computeTabStatuses(a: Artifact): TabStatusInfo[] {
   const treeHasContent = (tree?: ConjunctionGroupType) =>
     (tree?.childInstances?.length ?? 0) > 0
 
-  const treeHasError = (tree?: ConjunctionGroupType): boolean => {
-    if (!tree?.childInstances?.length) return false
-    return tree.childInstances.some((el) => {
-      const name = el.fields?.find((f) => f.id === 'element_name')?.value
-      if (!name) return true // missing name
-      if (el.modifiers?.length) {
-        let cur = el.returnType
-        for (const mod of el.modifiers) {
-          if (!mod.inputTypes.includes(cur)) return true
-          cur = mod.returnType
-        }
-      }
-      return false
-    })
-  }
+  const includeErrors = collectTreeErrors(a.expTreeInclude)
+  const excludeErrors = collectTreeErrors(a.expTreeExclude)
 
-  const recsHasError = (a.recommendations || []).some((r) => !r.text.trim())
-  const paramsHasError = (a.parameters || []).some((p) => !p.name.trim() || !p.type)
-  const subpopsHasError = (a.subpopulations || []).filter((s) => !s.special).some((s) => !s.subpopulationName.trim())
-  const baseHasError = (a.baseElements || []).some((be) => !be.name.trim())
+  const recErrors: string[] = []
+  ;(a.recommendations || []).forEach((r, i) => {
+    if (!r.text.trim()) recErrors.push(`workspace.validation.recommendationMissingText||${JSON.stringify({ index: i + 1 })}`)
+  })
 
-  const status = (hasContent: boolean, hasError: boolean): TabStatus =>
-    hasError ? 'has-error' : hasContent ? 'has-content' : 'empty'
+  const paramErrors: string[] = []
+  ;(a.parameters || []).forEach((p, i) => {
+    if (!p.name.trim()) paramErrors.push(`workspace.validation.parameterMissingName||${JSON.stringify({ index: i + 1 })}`)
+    else if (!p.type) paramErrors.push(`workspace.validation.parameterMissingType||${JSON.stringify({ name: p.name })}`)
+  })
+
+  const subpopErrors: string[] = []
+  ;(a.subpopulations || []).filter((s) => !s.special).forEach((s, i) => {
+    if (!s.subpopulationName.trim()) subpopErrors.push(`workspace.validation.subpopulationMissingName||${JSON.stringify({ index: i + 1 })}`)
+  })
+
+  const baseErrors: string[] = []
+  ;(a.baseElements || []).forEach((be, i) => {
+    if (!be.name.trim()) baseErrors.push(`workspace.validation.baseElementMissingName||${JSON.stringify({ index: i + 1 })}`)
+  })
+
+  const info = (hasContent: boolean, errors: string[]): TabStatusInfo => ({
+    status: errors.length > 0 ? 'has-error' : hasContent ? 'has-content' : 'empty',
+    errors,
+  })
 
   return [
-    status(treeHasContent(a.expTreeInclude), treeHasError(a.expTreeInclude)),       // Inclusions
-    status(treeHasContent(a.expTreeExclude), treeHasError(a.expTreeExclude)),       // Exclusions
-    status((a.subpopulations || []).filter((s) => !s.special).length > 0, subpopsHasError), // Subpopulations
-    status((a.baseElements || []).length > 0, baseHasError),                         // Base Elements
-    status((a.recommendations || []).length > 0, recsHasError),                      // Recommendations
-    status((a.parameters || []).length > 0, paramsHasError),                         // Parameters
-    status(!!(a.errorStatement?.ifThenClauses?.length || a.errorStatement?.elseClause), false), // Error Handling
-    'empty', // External CQL (managed separately)
-    'empty', // Review CQL
-    'empty', // Testing
-    'empty', // Summary
+    info(treeHasContent(a.expTreeInclude), includeErrors),
+    info(treeHasContent(a.expTreeExclude), excludeErrors),
+    info((a.subpopulations || []).filter((s) => !s.special).length > 0, subpopErrors),
+    info((a.baseElements || []).length > 0, baseErrors),
+    info((a.recommendations || []).length > 0, recErrors),
+    info((a.parameters || []).length > 0, paramErrors),
+    info(!!(a.errorStatement?.ifThenClauses?.length || a.errorStatement?.elseClause), []),
+    { status: 'empty', errors: [] },
+    { status: 'empty', errors: [] },
+    { status: 'empty', errors: [] },
+    { status: 'empty', errors: [] },
   ]
 }
 
@@ -99,11 +209,31 @@ export default function ArtifactWorkspace({
   onBack,
   onArtifactUpdate,
 }: ArtifactWorkspaceProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
+
+  const TAB_LABELS = [
+    t('workspace.tabInclusions'),
+    t('workspace.tabExclusions'),
+    t('workspace.tabSubpopulations'),
+    t('workspace.tabBaseElements'),
+    t('workspace.tabRecommendations'),
+    t('workspace.tabParameters'),
+    t('workspace.tabErrorHandling'),
+    t('workspace.tabExternalCql'),
+    t('workspace.tabReviewCql'),
+    t('workspace.tabTesting'),
+    t('workspace.tabSummary'),
+  ]
+
   const [tab, setTab] = useState(0)
   const [localArtifact, setLocalArtifact] = useState<Artifact>(artifact)
   const [isDirty, setIsDirty] = useState(false)
+  const [twcoreMode, setTwcoreMode] = useState(false)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
+  const [showConflictDialog, setShowConflictDialog] = useState(false)
   const updateMutation = useUpdateArtifact()
+  const { refetch: refetchArtifact } = useArtifact(artifact.id)
 
   // Browser beforeunload guard
   useUnsavedChangesGuard(isDirty)
@@ -121,7 +251,21 @@ export default function ArtifactWorkspace({
   const updateLocal = useCallback((updates: Partial<Artifact>) => {
     setLocalArtifact((prev) => {
       pushState(prev)
-      return { ...prev, ...updates }
+      const next = { ...prev, ...updates }
+
+      // If base elements or parameters changed, sync reference names in expression trees
+      if (updates.baseElements || updates.parameters) {
+        const beMap = new Map<string, string>()
+        for (const be of (next.baseElements || [])) beMap.set(be.uniqueId, be.name)
+        const paramMap = new Map<string, string>()
+        for (const p of (next.parameters || [])) if (p.name) paramMap.set(p.uniqueId, p.name)
+
+        const syncedInclude = syncTreeRefs(next.expTreeInclude, beMap, paramMap)
+        const syncedExclude = syncTreeRefs(next.expTreeExclude, beMap, paramMap)
+        if (syncedInclude !== next.expTreeInclude) next.expTreeInclude = syncedInclude!
+        if (syncedExclude !== next.expTreeExclude) next.expTreeExclude = syncedExclude!
+      }
+      return next
     })
     setIsDirty(true)
   }, [pushState])
@@ -153,6 +297,7 @@ export default function ArtifactWorkspace({
     reviewer: localArtifact.reviewer,
     endorser: localArtifact.endorser,
     relatedArtifact: localArtifact.relatedArtifact,
+    lockVersion: localArtifact.lockVersion,
   }), [localArtifact])
 
   const handleSave = useCallback(
@@ -164,6 +309,11 @@ export default function ArtifactWorkspace({
             setLocalArtifact(updated)
             setIsDirty(false)
             onArtifactUpdate(updated)
+          },
+          onError: (error) => {
+            if ((error as { response?: { status?: number } })?.response?.status === 409) {
+              setShowConflictDialog(true)
+            }
           },
         }
       )
@@ -225,7 +375,7 @@ export default function ArtifactWorkspace({
       }
       if (e.key === 'g' && !isInput) {
         e.preventDefault()
-        setTab(8) // Review CQL tab
+        setTab(TAB_INDEX_REVIEW_CQL)
         return
       }
       if (e.key === '/' || e.key === '?') {
@@ -233,11 +383,11 @@ export default function ArtifactWorkspace({
         setShowShortcutHelp((prev) => !prev)
         return
       }
-      // Ctrl+1-9 → tabs 0-8, Ctrl+0 → tab 10 (Summary)
+      // Ctrl+1-9 → tabs 0-8, Ctrl+0 → Summary
       if (!isInput && e.key >= '0' && e.key <= '9') {
         e.preventDefault()
-        const tabIndex = e.key === '0' ? 10 : parseInt(e.key) - 1
-        if (tabIndex <= 10) setTab(tabIndex)
+        const tabIndex = e.key === '0' ? TAB_INDEX_SUMMARY : parseInt(e.key) - 1
+        if (tabIndex <= TAB_INDEX_SUMMARY) setTab(tabIndex)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -349,7 +499,7 @@ export default function ArtifactWorkspace({
   const dynamicEntries = useMemo((): DynamicEntry[] => {
     const entries: DynamicEntry[] = []
 
-    // Base Elements
+    // Base Elements — use the stored returnType (already computed by BaseElements component)
     for (const be of (localArtifact.baseElements || [])) {
       entries.push({
         id: `be-${be.uniqueId}`,
@@ -434,32 +584,86 @@ export default function ArtifactWorkspace({
         onUpdate={updateLocal}
       />
 
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
-      >
+      <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', px: 2 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ flex: 1 }}
+        >
         {TAB_LABELS.map((label, i) => {
-          const st = tabStatuses[i]
+          const si = tabStatuses[i]
+          const errorIcon = si.errors.length > 0 ? (
+            <Tooltip
+              arrow
+              title={
+                <Box sx={{ '& ul': { m: 0, pl: 2 }, '& li': { mb: 0.25 } }}>
+                  <Typography variant="caption" fontWeight={600}>
+                    {t('workspace.validation.errorsFound', { count: si.errors.length })}
+                  </Typography>
+                  <ul>
+                    {si.errors.slice(0, 8).map((e, ei) => {
+                      const [key, paramsJson] = e.split('||')
+                      return <li key={ei}><Typography variant="caption">{t(key, JSON.parse(paramsJson)) as string}</Typography></li>
+                    })}
+                    {si.errors.length > 8 && (
+                      <li><Typography variant="caption">…+{si.errors.length - 8}</Typography></li>
+                    )}
+                  </ul>
+                </Box>
+              }
+            >
+              <ErrorIcon fontSize="small" color="warning" />
+            </Tooltip>
+          ) : undefined
           return (
             <Tab
               key={label}
               label={label}
               icon={
-                st === 'has-error' ? <ErrorIcon fontSize="small" color="warning" /> :
-                  st === 'has-content' ? <CheckIcon fontSize="small" color="success" /> :
-                    undefined
+                errorIcon ?? (si.status === 'has-content' ? <CheckIcon fontSize="small" color="success" /> : undefined)
               }
               iconPosition="end"
               sx={{ minHeight: 48 }}
             />
           )
         })}
-      </Tabs>
+        </Tabs>
+        <Tooltip title="啟用 TWCORE 台灣核心實作指引範本">
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={twcoreMode}
+                onChange={(e) => setTwcoreMode(e.target.checked)}
+              />
+            }
+            label={
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <PublicIcon fontSize="small" />
+                <Typography variant="caption" fontWeight={600} noWrap>TWCORE</Typography>
+              </Stack>
+            }
+            sx={{ ml: 1, mr: 1, flexShrink: 0 }}
+          />
+        </Tooltip>
+      </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
+        {tabStatuses[tab].errors.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight={600} gutterBottom>
+              {t('workspace.validation.errorsFound', { count: tabStatuses[tab].errors.length })}
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.25 } }}>
+              {tabStatuses[tab].errors.map((e, ei) => {
+                const [key, paramsJson] = e.split('||')
+                return <li key={ei}><Typography variant="body2">{t(key, JSON.parse(paramsJson)) as string}</Typography></li>
+              })}
+            </Box>
+          </Alert>
+        )}
         {tab === 0 && (
           <ConjunctionGroup
             group={includeTree}
@@ -467,6 +671,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onUpdateGroup={handleUpdateInclude}
             onAddElement={handleAddIncludeElement}
             onRemoveElement={handleRemoveIncludeElement}
@@ -480,6 +685,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onUpdateGroup={handleUpdateExclude}
             onAddElement={handleAddExcludeElement}
             onRemoveElement={handleRemoveExcludeElement}
@@ -492,6 +698,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onChange={(subpopulations) => updateLocal({ subpopulations })}
           />
         )}
@@ -501,6 +708,7 @@ export default function ArtifactWorkspace({
             templates={templates}
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
+            twcoreMode={twcoreMode}
             onChange={(baseElements) => updateLocal({ baseElements })}
           />
         )}
@@ -528,13 +736,10 @@ export default function ArtifactWorkspace({
             artifactId={localArtifact.id}
             onApplyToArtifact={(lib) => {
               const defs = lib.details?.definitions ?? []
-              const SYSTEM_DEFS = new Set([
-                'MeetsInclusionCriteria', 'MeetsExclusionCriteria', 'InPopulation',
-                'Recommendation', 'Errors', 'Patient',
-              ])
+              const SYSTEM_DEFS = SYSTEM_DEFINITIONS
 
               const makeRef = (d: { name: string; resultType?: string }) => ({
-                uniqueId: crypto.randomUUID(),
+                uniqueId: generateId(),
                 type: 'externalCqlRef' as const,
                 name: d.name,
                 returnType: d.resultType || 'System.Any',
@@ -555,17 +760,17 @@ export default function ArtifactWorkspace({
                 childInstances: elements,
               })
 
-              const incDef = defs.find((d) => d.name === 'MeetsInclusionCriteria')
-              const excDef = defs.find((d) => d.name === 'MeetsExclusionCriteria')
+              const incDef = defs.find((d) => d.name === DEF_MEETS_INCLUSION)
+              const excDef = defs.find((d) => d.name === DEF_MEETS_EXCLUSION)
 
               const updates: Partial<Artifact> = {}
               if (incDef) {
-                updates.expTreeInclude = wrapConj('MeetsInclusionCriteria', [
+                updates.expTreeInclude = wrapConj(DEF_MEETS_INCLUSION, [
                   makeRef({ ...incDef, resultType: incDef.resultType || 'System.Boolean' }),
                 ]) as ConjunctionGroupType
               }
               if (excDef) {
-                updates.expTreeExclude = wrapConj('MeetsExclusionCriteria', [
+                updates.expTreeExclude = wrapConj(DEF_MEETS_EXCLUSION, [
                   makeRef({ ...excDef, resultType: excDef.resultType || 'System.Boolean' }),
                 ]) as ConjunctionGroupType
               }
@@ -573,7 +778,7 @@ export default function ArtifactWorkspace({
               const baseEls = defs
                 .filter((d) => !SYSTEM_DEFS.has(d.name))
                 .map((d) => ({
-                  uniqueId: crypto.randomUUID(),
+                  uniqueId: generateId(),
                   name: d.name,
                   type: 'externalCqlRef' as const,
                   returnType: d.resultType || 'System.Any',
@@ -623,46 +828,69 @@ export default function ArtifactWorkspace({
 
       {/* Unsaved changes confirmation dialog */}
       <Dialog open={showBackConfirm} onClose={() => setShowBackConfirm(false)}>
-        <DialogTitle>Unsaved Changes</DialogTitle>
+        <DialogTitle>{t('workspace.unsavedTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+            {t('workspace.unsavedMessage')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBackConfirm(false)}>Cancel</Button>
+          <Button onClick={() => setShowBackConfirm(false)}>{tc('actions.cancel')}</Button>
           <Button
             color="error"
             onClick={() => { setShowBackConfirm(false); onBack() }}
           >
-            Discard Changes
+            {t('workspace.discardChanges')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Optimistic lock conflict dialog */}
+      <Dialog open={showConflictDialog} onClose={() => setShowConflictDialog(false)}>
+        <DialogTitle>{t('workspace.conflict.title')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('workspace.conflict.message')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConflictDialog(false)}>
+            {t('workspace.conflict.keepEditing')}
+          </Button>
+          <Button
+            color="primary"
+            variant="contained"
+            onClick={() => {
+              setShowConflictDialog(false)
+              refetchArtifact().then(({ data }) => {
+                if (data) {
+                  setLocalArtifact(data)
+                  setIsDirty(false)
+                  onArtifactUpdate(data)
+                }
+              })
+            }}
+          >
+            {t('workspace.conflict.reload')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Keyboard shortcut help dialog */}
       <Dialog open={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Keyboard Shortcuts</DialogTitle>
+        <DialogTitle>{t('workspace.shortcutsTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5}>
-            {[
-              ['Ctrl + S', 'Save artifact'],
-              ['Ctrl + Z', 'Undo last change'],
-              ['Ctrl + Y', 'Redo last change'],
-              ['Ctrl + G', 'Go to Review CQL'],
-              ['Ctrl + 1–9', 'Switch to tab 1–9'],
-              ['Ctrl + 0', 'Switch to Summary'],
-              ['Ctrl + /', 'Toggle this help'],
-            ].map(([key, desc]) => (
-              <Stack key={key} direction="row" alignItems="center" justifyContent="space-between">
-                <Chip label={key} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
-                <Typography variant="body2" color="text.secondary">{desc}</Typography>
+            {KEYBOARD_SHORTCUTS.map((sc) => (
+              <Stack key={sc.key} direction="row" alignItems="center" justifyContent="space-between">
+                <Chip label={sc.key} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
+                <Typography variant="body2" color="text.secondary">{sc.description}</Typography>
               </Stack>
             ))}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowShortcutHelp(false)}>Close</Button>
+          <Button onClick={() => setShowShortcutHelp(false)}>{tc('actions.close')}</Button>
         </DialogActions>
       </Dialog>
     </Card>

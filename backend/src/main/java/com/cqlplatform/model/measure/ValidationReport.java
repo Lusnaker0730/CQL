@@ -52,7 +52,7 @@ public class ValidationReport {
         infoCount++;
     }
 
-    public void finalize(long timeMs) {
+    public void complete(long timeMs) {
         this.validationTimeMs = timeMs;
         this.valid = errorCount == 0;
     }

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Stack, Typography, type StackProps } from '@mui/material'
 import HelpTooltip from './HelpTooltip'
 
@@ -7,7 +8,7 @@ interface SectionHeaderProps extends Omit<StackProps, 'title'> {
   actions?: React.ReactNode
 }
 
-export default function SectionHeader({ title, helpText, actions, ...stackProps }: SectionHeaderProps) {
+function SectionHeader({ title, helpText, actions, ...stackProps }: SectionHeaderProps) {
   return (
     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} {...stackProps}>
       <Stack direction="row" spacing={0.5} alignItems="center">
@@ -22,3 +23,5 @@ export default function SectionHeader({ title, helpText, actions, ...stackProps 
     </Stack>
   )
 }
+
+export default memo(SectionHeader)

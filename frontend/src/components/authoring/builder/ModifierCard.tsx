@@ -3,6 +3,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, Alert,
 } from '@mui/material'
 import { Close as RemoveIcon, Warning as WarnIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import UcumUnitField from '../fields/UcumUnitField'
 import type { Modifier } from '../../../types/authoring'
 
@@ -39,6 +40,7 @@ interface ModifierCardProps {
 }
 
 export default function ModifierCard({ modifier, onRemove, onUpdateValues }: ModifierCardProps) {
+  const { t } = useTranslation('authoring')
   const handleValueChange = (key: string, value: unknown) => {
     onUpdateValues({ ...(modifier.values || {}), [key]: value })
   }
@@ -53,15 +55,15 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
             {modifier.name}
           </Typography>
           {missingFields.length > 0 && (
-            <Tooltip title={`Missing: ${missingFields.join(', ')}`}>
+            <Tooltip title={t('modifier.missingFields', { fields: missingFields.join(', ') })}>
               <WarnIcon fontSize="small" color="warning" />
             </Tooltip>
           )}
           <Typography variant="caption" color="text.secondary">
             {modifier.returnType.replace(/_/g, ' ')}
           </Typography>
-          <Tooltip title="Remove modifier">
-            <IconButton size="small" onClick={onRemove}>
+          <Tooltip title={t('modifier.removeModifier')}>
+            <IconButton size="small" onClick={onRemove} aria-label={t('modifier.removeModifier')}>
               <RemoveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -75,7 +77,7 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
         {missingFields.length > 0 && (
           <Alert severity="warning" sx={{ mt: 1, py: 0 }} icon={false}>
             <Typography variant="caption">
-              Please fill in required fields: {missingFields.join(', ')}
+              {t('modifier.fillRequired', { fields: missingFields.join(', ') })}
             </Typography>
           </Alert>
         )}
@@ -93,6 +95,7 @@ function ModifierValueEditor({
   modifier: Modifier
   onValueChange: (key: string, value: unknown) => void
 }) {
+  const { t } = useTranslation('authoring')
   if (!modifier.values || Object.keys(modifier.values).length === 0) return null
 
   const modType = modifier.cqlTemplate || modifier.id
@@ -101,7 +104,7 @@ function ModifierValueEditor({
   if (modType === 'LookBackModifier' || modifier.id.startsWith('LookBack')) {
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">Within the last</Typography>
+        <Typography variant="body2" color="text.secondary">{t('modifier.withinLast')}</Typography>
         <TextField
           size="small"
           type="number"
@@ -116,7 +119,7 @@ function ModifierValueEditor({
             displayEmpty
             onChange={(e) => onValueChange('unit', e.target.value)}
           >
-            <MenuItem value="" disabled><em>Unit</em></MenuItem>
+            <MenuItem value="" disabled><em>{t('modifier.unit')}</em></MenuItem>
             {TIME_UNITS.map((u) => (
               <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>
             ))}
@@ -131,7 +134,7 @@ function ModifierValueEditor({
     return (
       <Stack spacing={1} mt={1}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="text.secondary">Min:</Typography>
+          <Typography variant="body2" color="text.secondary">{t('modifier.min')}</Typography>
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <Select
               value={modifier.values.minOperator ?? ''}
@@ -150,11 +153,11 @@ function ModifierValueEditor({
             value={modifier.values.minValue ?? ''}
             onChange={(e) => onValueChange('minValue', e.target.value)}
             sx={{ width: 100 }}
-            placeholder="Value"
+            placeholder={t('modifier.value')}
           />
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="text.secondary">Max:</Typography>
+          <Typography variant="body2" color="text.secondary">{t('modifier.max')}</Typography>
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <Select
               value={modifier.values.maxOperator ?? ''}
@@ -173,13 +176,13 @@ function ModifierValueEditor({
             value={modifier.values.maxValue ?? ''}
             onChange={(e) => onValueChange('maxValue', e.target.value)}
             sx={{ width: 100 }}
-            placeholder="Value"
+            placeholder={t('modifier.value')}
             disabled={!modifier.values.maxOperator}
           />
         </Stack>
         {(modifier.values.unit !== undefined) && (
           <UcumUnitField
-            label="Unit"
+            label={t('modifier.unit')}
             value={(modifier.values.unit as string) ?? ''}
             onChange={(val) => onValueChange('unit', val)}
             sx={{ width: 220 }}
@@ -189,11 +192,11 @@ function ModifierValueEditor({
     )
   }
 
-  // WithUnit
-  if (modType === 'WithUnit') {
+  // ConvertUnits / WithUnit
+  if (modType === 'ConvertUnits' || modType === 'WithUnit') {
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">Unit:</Typography>
+        <Typography variant="body2" color="text.secondary">{t('modifier.unit')}:</Typography>
         <UcumUnitField
           value={(modifier.values.unit as string) ?? ''}
           onChange={(val) => onValueChange('unit', val)}
@@ -208,10 +211,10 @@ function ModifierValueEditor({
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
         <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Comparison</InputLabel>
+          <InputLabel>{t('modifier.comparison')}</InputLabel>
           <Select
             value={modifier.values.value ?? ''}
-            label="Comparison"
+            label={t('modifier.comparison')}
             onChange={(e) => onValueChange('value', e.target.value)}
           >
             {BOOL_COMPARISON_OPTIONS.map((opt) => (
@@ -227,13 +230,13 @@ function ModifierValueEditor({
   if (modType === 'EqualsString' || modType === 'StartsWithString' || modType === 'EndsWithString') {
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">Value:</Typography>
+        <Typography variant="body2" color="text.secondary">{t('modifier.value')}:</Typography>
         <TextField
           size="small"
           value={modifier.values.value ?? ''}
           onChange={(e) => onValueChange('value', e.target.value)}
           sx={{ flex: 1 }}
-          placeholder="Enter text..."
+          placeholder={t('modifier.enterText')}
         />
       </Stack>
     )
@@ -252,10 +255,10 @@ function ModifierValueEditor({
           InputLabelProps={{ shrink: true }}
         />
         <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Precision</InputLabel>
+          <InputLabel>{t('modifier.precision')}</InputLabel>
           <Select
             value={modifier.values.precision ?? ''}
-            label="Precision"
+            label={t('modifier.precision')}
             onChange={(e) => onValueChange('precision', e.target.value)}
           >
             <MenuItem value=""><em>Default</em></MenuItem>
@@ -276,7 +279,7 @@ function ModifierValueEditor({
     return (
       <Stack spacing={1} mt={1}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="text.secondary">Match by:</Typography>
+          <Typography variant="body2" color="text.secondary">{t('modifier.matchBy')}</Typography>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <Select
               value={modifier.values.qualifier ?? 'value set'}
@@ -291,20 +294,20 @@ function ModifierValueEditor({
         {(modifier.values.qualifier ?? 'value set') === 'value set' ? (
           <TextField
             size="small"
-            label="Value Set Name"
+            label={t('modifier.valueSetName')}
             value={modifier.values.valueSet ?? ''}
             onChange={(e) => onValueChange('valueSet', e.target.value)}
             sx={{ flex: 1 }}
-            placeholder="Enter value set name..."
+            placeholder={t('modifier.enterValueSet')}
           />
         ) : (
           <TextField
             size="small"
-            label="Code"
+            label={t('modifier.codeLabel')}
             value={modifier.values.code ?? ''}
             onChange={(e) => onValueChange('code', e.target.value)}
             sx={{ flex: 1 }}
-            placeholder="Enter code..."
+            placeholder={t('modifier.enterCode')}
           />
         )}
       </Stack>
@@ -316,14 +319,14 @@ function ModifierValueEditor({
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">
-          {modType === 'BeforeInterval' ? 'Before:' : 'After:'}
+          {modType === 'BeforeInterval' ? t('modifier.before') : t('modifier.after')}
         </Typography>
         <TextField
           size="small"
           value={modifier.values.value ?? ''}
           onChange={(e) => onValueChange('value', e.target.value)}
           sx={{ flex: 1 }}
-          placeholder="Enter value or expression..."
+          placeholder={t('modifier.enterValueOrExpr')}
         />
       </Stack>
     )
@@ -333,13 +336,13 @@ function ModifierValueEditor({
   if (modType.startsWith('Contains')) {
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">Contains:</Typography>
+        <Typography variant="body2" color="text.secondary">{t('modifier.contains')}</Typography>
         <TextField
           size="small"
           value={modifier.values.value ?? ''}
           onChange={(e) => onValueChange('value', e.target.value)}
           sx={{ width: 150 }}
-          placeholder="Value"
+          placeholder={t('modifier.value')}
         />
         {modifier.values.unit !== undefined && (
           <UcumUnitField
@@ -388,8 +391,8 @@ function getMissingRequiredFields(modifier: Modifier): string[] {
     return missing
   }
 
-  // WithUnit requires unit
-  if (modifier.cqlTemplate === 'WithUnit') {
+  // ConvertUnits / WithUnit requires unit
+  if (modifier.cqlTemplate === 'ConvertUnits' || modifier.cqlTemplate === 'WithUnit') {
     return modifier.values?.unit ? [] : ['unit']
   }
 

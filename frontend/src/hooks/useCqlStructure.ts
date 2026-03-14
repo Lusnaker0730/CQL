@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useSelector } from 'react-redux'
 import { cqlApi } from '../api'
-import type { RootState } from '../store'
+import { extractApiError } from '../utils/errorUtils'
 import type { TranslationMetadata } from '../types'
+import { AUTOSAVE_HEAVY_MS } from '../constants/timing'
 
 export interface CqlStructure {
   libraryId: string
@@ -54,48 +54,73 @@ function metadataToStructure(meta: TranslationMetadata): CqlStructure {
 }
 
 export function useCqlStructure() {
-  const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const [structure, setStructure] = useState<CqlStructure>(EMPTY_STRUCTURE)
   const [isParsing, setIsParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastParsedContent = useRef<string>('')
+  const abortRef = useRef<AbortController | null>(null)
+  const latestContent = useRef<string>('')
 
   const parseNow = useCallback(async (cql: string) => {
     if (!cql.trim()) {
       setStructure(EMPTY_STRUCTURE)
       return
     }
+    // Skip if content unchanged
+    if (cql === lastParsedContent.current) return
+
+    // Cancel previous in-flight request
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setIsParsing(true)
     setParseError(null)
     try {
-      const result = await cqlApi.translate({ cql })
+      const result = await cqlApi.translate({ cql }, controller.signal)
+      if (controller.signal.aborted) return
       if (result.metadata) {
         setStructure(metadataToStructure(result.metadata))
+        lastParsedContent.current = cql
       }
-      lastParsedContent.current = cql
+      if (!result.success && result.errors?.length) {
+        const msg = result.errors
+          .slice(0, 3)
+          .map((e) => e.startLine ? `Line ${e.startLine}: ${e.message}` : e.message)
+          .join('\n')
+        setParseError(msg)
+      }
     } catch (err) {
-      setParseError((err as Error).message)
+      if ((err as Error).name === 'AbortError' || controller.signal.aborted) return
+      setParseError(extractApiError(err))
     } finally {
-      setIsParsing(false)
+      if (!controller.signal.aborted) setIsParsing(false)
     }
   }, [])
 
-  const parse = useCallback(() => {
-    parseNow(cqlContent)
-  }, [cqlContent, parseNow])
-
-  // Auto-parse with debounce when content changes
-  useEffect(() => {
-    if (cqlContent === lastParsedContent.current) return
+  // Called by the editor's onContentChanged callback — debounces translation
+  const notifyContentChanged = useCallback((content: string) => {
+    latestContent.current = content
+    if (content === lastParsedContent.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      parseNow(cqlContent)
-    }, 2000)
+      parseNow(content)
+    }, AUTOSAVE_HEAVY_MS)
+  }, [parseNow])
+
+  // Manual parse trigger — uses latest known content
+  const parse = useCallback(() => {
+    parseNow(latestContent.current)
+  }, [parseNow])
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
+      abortRef.current?.abort()
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [cqlContent, parseNow])
+  }, [])
 
-  return { structure, isParsing, parseError, parse }
+  return { structure, isParsing, parseError, parse, notifyContentChanged }
 }

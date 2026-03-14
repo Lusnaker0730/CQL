@@ -19,38 +19,49 @@ import {
   Person as PersonIcon,
   Settings as SettingsIcon,
   HelpOutline as HelpIcon,
+  ManageSearch as ManageSearchIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import type { RootState } from '../../store'
 import { logout } from '../../store/authSlice'
+import { authApi } from '../../api/authApi'
 import { usePreferences } from '../../hooks/usePreferences'
 import PreferencesDialog from '../common/PreferencesDialog'
 import HelpDrawer from '../common/HelpDrawer'
+import LanguageSwitcher from '../common/LanguageSwitcher'
+import NotificationBell from './NotificationBell'
+import TerminologyLookupDrawer from '../terminology/TerminologyLookupDrawer'
+import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 
 const baseNavItems = [
-  { label: 'Editor', path: '/' },
-  { label: 'CDS Hooks', path: '/cds' },
-  { label: 'Measures', path: '/measures' },
-  { label: 'Authoring', path: '/authoring' },
-  { label: 'FHIR Browser', path: '/fhir' },
-  { label: 'Terminology', path: '/terminology' },
+  { labelKey: 'nav.editor', path: '/' },
+  { labelKey: 'nav.cdsHooks', path: '/cds' },
+  { labelKey: 'nav.measures', path: '/measures' },
+  { labelKey: 'nav.authoring', path: '/authoring' },
+  { labelKey: 'nav.ecqm', path: '/ecqm' },
+  { labelKey: 'nav.fhirBrowser', path: '/fhir' },
+  { labelKey: 'nav.terminology', path: '/terminology' },
 ]
 
 export default function Header() {
   const navigate = useNavigate()
   const location = useLocation()
   const dispatch = useDispatch()
+  const { t } = useTranslation()
   const user = useSelector((state: RootState) => state.auth.user)
   const { preferences, updatePreferences } = usePreferences()
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const { isOpen: terminologyOpen, openDrawer: openTerminology, closeDrawer: closeTerminology } = useTerminologyDrawer()
 
   const navItems = user?.role === 'ADMIN'
-    ? [...baseNavItems, { label: 'Users', path: '/admin/users' }, { label: 'Audit Log', path: '/admin/audit' }]
+    ? [...baseNavItems, { labelKey: 'nav.users', path: '/admin/users' }, { labelKey: 'nav.auditLog', path: '/admin/audit' }]
     : baseNavItems
 
   const handleLogout = () => {
+    authApi.logout().catch(() => {})
     dispatch(logout())
     navigate('/login')
   }
@@ -64,7 +75,7 @@ export default function Header() {
       <AppBar position="static" elevation={0}>
         <Toolbar>
           <ButtonBase
-            aria-label="Go to home page"
+            aria-label={t('nav.goToHome')}
             sx={{
               display: 'flex',
               alignItems: 'center',
@@ -102,7 +113,7 @@ export default function Header() {
                   color: 'white',
                 }}
               >
-                TWCORE CQL Platform
+                {t('app.title')}
               </Typography>
               <Typography
                 sx={{
@@ -114,12 +125,12 @@ export default function Header() {
                   color: 'white',
                 }}
               >
-                Clinical Quality Language
+                {t('app.subtitle')}
               </Typography>
             </Box>
           </ButtonBase>
 
-          <nav aria-label="Main navigation">
+          <nav aria-label={t('nav.mainNavigation')}>
             <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1 }}>
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path
@@ -146,7 +157,7 @@ export default function Header() {
                       transition: 'all 0.2s ease',
                     }}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </Button>
                 )
               })}
@@ -170,11 +181,26 @@ export default function Header() {
                 }}
               />
             )}
+            <NotificationBell />
+            <LanguageSwitcher />
+            <IconButton
+              color="inherit"
+              onClick={() => terminologyOpen ? closeTerminology() : openTerminology()}
+              aria-label={t('toolbar.terminologyLookup')}
+              title={t('toolbar.terminologyLookup')}
+              sx={{
+                backgroundColor: terminologyOpen ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
+                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+                transition: 'background-color 0.2s ease',
+              }}
+            >
+              <ManageSearchIcon sx={{ fontSize: 20 }} />
+            </IconButton>
             <IconButton
               color="inherit"
               onClick={toggleDarkMode}
-              aria-label={preferences.themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={preferences.themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={preferences.themeMode === 'dark' ? t('toolbar.switchToLight') : t('toolbar.switchToDark')}
+              title={preferences.themeMode === 'dark' ? t('toolbar.switchToLight') : t('toolbar.switchToDark')}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
@@ -190,8 +216,8 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={() => setPrefsOpen(true)}
-              aria-label="Settings"
-              title="Settings"
+              aria-label={t('toolbar.settings')}
+              title={t('toolbar.settings')}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
@@ -203,8 +229,8 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={() => setHelpOpen(true)}
-              aria-label="Help"
-              title="Help"
+              aria-label={t('toolbar.help')}
+              title={t('toolbar.help')}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
@@ -218,8 +244,8 @@ export default function Header() {
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="GitHub"
-              title="GitHub"
+              aria-label={t('toolbar.github')}
+              title={t('toolbar.github')}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
@@ -231,8 +257,8 @@ export default function Header() {
             <IconButton
               color="inherit"
               onClick={handleLogout}
-              aria-label="Logout"
-              title="Logout"
+              aria-label={t('toolbar.logout')}
+              title={t('toolbar.logout')}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
@@ -247,6 +273,7 @@ export default function Header() {
 
       <PreferencesDialog open={prefsOpen} onClose={() => setPrefsOpen(false)} />
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <TerminologyLookupDrawer />
     </>
   )
 }

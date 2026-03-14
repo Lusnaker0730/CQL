@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -44,6 +45,7 @@ interface MeasureShareDialogProps {
 }
 
 export default function MeasureShareDialog({ open, onClose, measure, onMeasureUpdate }: MeasureShareDialogProps) {
+  const { t } = useTranslation('measures')
   const [shareUsername, setShareUsername] = useState('')
   const [transferUsername, setTransferUsername] = useState('')
   const [showTransfer, setShowTransfer] = useState(false)
@@ -109,13 +111,13 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
         <Stack direction="row" alignItems="center" spacing={1}>
           <SharedIcon color="primary" />
           <Typography variant="h6">
-            Share: {measure.title || measure.name}
+            {t('share.title', { name: measure.title || measure.name })}
           </Typography>
         </Stack>
       </DialogTitle>
       <DialogContent dividers>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Access Level
+          {t('share.accessLevel')}
         </Typography>
         <ToggleButtonGroup
           value={currentAccess}
@@ -127,33 +129,33 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
         >
           <ToggleButton value="private">
             <PrivateIcon sx={{ fontSize: 16, mr: 0.5 }} />
-            Private
+            {t('share.levels.private')}
           </ToggleButton>
           <ToggleButton value="shared">
             <SharedIcon sx={{ fontSize: 16, mr: 0.5 }} />
-            Shared
+            {t('share.levels.shared')}
           </ToggleButton>
           <ToggleButton value="public">
             <PublicIcon sx={{ fontSize: 16, mr: 0.5 }} />
-            Public
+            {t('share.levels.public')}
           </ToggleButton>
         </ToggleButtonGroup>
 
         {currentAccess === 'public' && (
           <Alert severity="info" sx={{ mb: 2, py: 0 }}>
-            <Typography variant="caption">All users can view and use this measure.</Typography>
+            <Typography variant="caption">{t('share.publicInfo')}</Typography>
           </Alert>
         )}
 
         <Divider sx={{ my: 1.5 }} />
 
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Share with Users
+          {t('share.shareWithUsers')}
         </Typography>
         <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
           <TextField
             size="small"
-            placeholder="Enter username..."
+            placeholder={t('share.usernamePlaceholder')}
             value={shareUsername}
             onChange={(e) => setShareUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleShare()}
@@ -166,11 +168,12 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
             onClick={handleShare}
             disabled={!shareUsername.trim() || shareMutation.isPending}
             sx={{
-              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
+              background: (theme) =>
+                `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
               whiteSpace: 'nowrap',
             }}
           >
-            Share
+            {t('share.shareButton')}
           </Button>
         </Stack>
 
@@ -185,7 +188,7 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
                 <ListItemSecondaryAction>
                   <IconButton
                     size="small"
-                    aria-label="Unshare with user"
+                    aria-label={t('share.unshare')}
                     onClick={() => handleUnshare(username)}
                     disabled={unshareMutation.isPending}
                     color="error"
@@ -198,7 +201,7 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
           </List>
         ) : (
           <Typography variant="caption" color="text.secondary">
-            Not shared with any specific users.
+            {t('share.noSharedUsers')}
           </Typography>
         )}
 
@@ -206,8 +209,8 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
 
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="subtitle2">Owner:</Typography>
-            <Chip label={measure.ownerUsername || 'unassigned'} size="small" />
+            <Typography variant="subtitle2">{t('share.owner')}</Typography>
+            <Chip label={measure.ownerUsername || t('share.unassigned')} size="small" />
           </Stack>
           <Button
             size="small"
@@ -215,19 +218,19 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
             onClick={() => setShowTransfer(!showTransfer)}
             sx={{ textTransform: 'none' }}
           >
-            Transfer
+            {t('share.transfer')}
           </Button>
         </Stack>
 
         {showTransfer && (
           <Box sx={{ mt: 1 }}>
             <Alert severity="warning" sx={{ mb: 1, py: 0 }}>
-              <Typography variant="caption">Transferring ownership cannot be undone by you.</Typography>
+              <Typography variant="caption">{t('share.transferWarning')}</Typography>
             </Alert>
             <Stack direction="row" spacing={1}>
               <TextField
                 size="small"
-                placeholder="New owner username..."
+                placeholder={t('share.newOwnerPlaceholder')}
                 value={transferUsername}
                 onChange={(e) => setTransferUsername(e.target.value)}
                 fullWidth
@@ -239,14 +242,14 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
                 onClick={handleTransfer}
                 disabled={!transferUsername.trim() || transferMutation.isPending}
               >
-                Transfer
+                {t('share.transfer')}
               </Button>
             </Stack>
           </Box>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('share.close')}</Button>
       </DialogActions>
     </Dialog>
   )

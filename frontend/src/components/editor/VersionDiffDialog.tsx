@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -58,6 +59,7 @@ export default function VersionDiffDialog({
   versions,
   onCompare,
 }: VersionDiffDialogProps) {
+  const { t } = useTranslation('editor')
   const [oldVersionId, setOldVersionId] = useState<string | number>('')
   const [newVersionId, setNewVersionId] = useState<string | number>('')
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
@@ -77,7 +79,7 @@ export default function VersionDiffDialog({
       setDiffTab(0)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load version diff',
+        err instanceof Error ? err.message : t('diff.loadFailed'),
       )
     } finally {
       setLoading(false)
@@ -105,14 +107,14 @@ export default function VersionDiffDialog({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xl" fullWidth>
-      <DialogTitle>Compare Versions</DialogTitle>
+      <DialogTitle>{t('diff.title')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Old Version</InputLabel>
+            <InputLabel>{t('diff.oldVersion')}</InputLabel>
             <Select
               value={oldVersionId}
-              label="Old Version"
+              label={t('diff.oldVersion')}
               onChange={(e) => {
                 setOldVersionId(e.target.value)
                 setDiffResult(null)
@@ -127,14 +129,14 @@ export default function VersionDiffDialog({
           </FormControl>
 
           <Typography variant="body2" color="text.secondary">
-            vs
+            {t('diff.vs')}
           </Typography>
 
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>New Version</InputLabel>
+            <InputLabel>{t('diff.newVersion')}</InputLabel>
             <Select
               value={newVersionId}
-              label="New Version"
+              label={t('diff.newVersion')}
               onChange={(e) => {
                 setNewVersionId(e.target.value)
                 setDiffResult(null)
@@ -157,11 +159,11 @@ export default function VersionDiffDialog({
               ) : undefined
             }
           >
-            {loading ? 'Comparing...' : 'Compare'}
+            {loading ? t('diff.comparing') : t('diff.compare')}
           </GradientButton>
 
           {diffResult && totalChanges > 0 && (
-            <Chip label={`${totalChanges} changes`} size="small" color="info" />
+            <Chip label={t('diff.changes', { count: totalChanges })} size="small" color="info" />
           )}
         </Box>
 
@@ -169,7 +171,7 @@ export default function VersionDiffDialog({
           newVersionId !== '' &&
           oldVersionId === newVersionId && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              Please select two different versions to compare.
+              {t('diff.selectVersions')}
             </Alert>
           )}
 
@@ -186,11 +188,11 @@ export default function VersionDiffDialog({
               onChange={(_, v) => setDiffTab(v)}
               sx={{ mb: 2, '& .MuiTab-root': { textTransform: 'none' } }}
             >
-              <Tab label="CQL Diff" />
+              <Tab label={t('diff.cqlDiff')} />
               <Tab
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    Metadata Diff
+                    {t('diff.metadataDiff')}
                     {(diffResult.metadataChanges?.length || 0) > 0 && (
                       <Chip label={diffResult.metadataChanges!.length} size="small" sx={{ height: 18, fontSize: '0.7rem' }} />
                     )}
@@ -200,7 +202,7 @@ export default function VersionDiffDialog({
               <Tab
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    Population Diff
+                    {t('diff.populationDiff')}
                     {(diffResult.populationChanges?.length || 0) > 0 && (
                       <Chip label={diffResult.populationChanges!.length} size="small" sx={{ height: 18, fontSize: '0.7rem' }} />
                     )}
@@ -236,7 +238,7 @@ export default function VersionDiffDialog({
               <Box sx={{ maxHeight: '55vh', overflow: 'auto' }}>
                 {(!diffResult.metadataChanges || diffResult.metadataChanges.length === 0) ? (
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No metadata changes detected between versions.
+                    {t('diff.noMetadataChanges')}
                   </Typography>
                 ) : (
                   <List dense>
@@ -257,7 +259,7 @@ export default function VersionDiffDialog({
               <Box sx={{ maxHeight: '55vh', overflow: 'auto' }}>
                 {(!diffResult.populationChanges || diffResult.populationChanges.length === 0) ? (
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No population changes detected between versions.
+                    {t('diff.noPopulationChanges')}
                   </Typography>
                 ) : (
                   <List dense>
@@ -287,14 +289,14 @@ export default function VersionDiffDialog({
             }}
           >
             <Typography variant="body2">
-              Select two versions and click Compare to view differences.
+              {t('diff.selectAndCompare')}
             </Typography>
           </Box>
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={handleClose} size="small">
-          Close
+          {t('common:actions.close')}
         </Button>
       </DialogActions>
     </Dialog>

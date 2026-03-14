@@ -30,6 +30,7 @@ import {
   Download as ImportIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
 import { useLibraries } from '../../hooks/useCql'
@@ -45,6 +46,7 @@ const ACCESS_ICON = {
 }
 
 export default function LibraryQuickAccess() {
+  const { t } = useTranslation('editor')
   const { recent, favoritesList, toggleFavorite, isFavorite, clearRecent } = useLibraryHistory()
   const dispatch = useDispatch()
   const queryClient = useQueryClient()
@@ -110,7 +112,7 @@ export default function LibraryQuickAccess() {
         }}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main' }}>
-          Quick Access
+          {t('quickAccess.title')}
         </Typography>
       </Box>
 
@@ -124,14 +126,14 @@ export default function LibraryQuickAccess() {
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-          <Typography variant="subtitle2">Favorites</Typography>
+          <Typography variant="subtitle2">{t('quickAccess.favorites')}</Typography>
         </Stack>
         {favoritesOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
       <Collapse in={favoritesOpen}>
         {favoritesList.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-            No favorites yet. Star a library to add it here.
+            {t('quickAccess.noFavorites')}
           </Typography>
         ) : (
           <List dense disablePadding>
@@ -173,7 +175,7 @@ export default function LibraryQuickAccess() {
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <HistoryIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-          <Typography variant="subtitle2">Recent</Typography>
+          <Typography variant="subtitle2">{t('quickAccess.recent')}</Typography>
         </Stack>
         <Stack direction="row" alignItems="center" spacing={0.5}>
           {recent.length > 0 && (
@@ -183,8 +185,8 @@ export default function LibraryQuickAccess() {
                 e.stopPropagation()
                 clearRecent()
               }}
-              title="Clear recent"
-              aria-label="Clear recent libraries"
+              title={t('quickAccess.clearRecent')}
+              aria-label={t('quickAccess.clearRecentLibraries')}
             >
               <ClearIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -195,7 +197,7 @@ export default function LibraryQuickAccess() {
       <Collapse in={recentOpen}>
         {recent.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-            No recent libraries.
+            {t('quickAccess.noRecent')}
           </Typography>
         ) : (
           <List dense disablePadding>
@@ -241,7 +243,7 @@ export default function LibraryQuickAccess() {
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <SharedIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-          <Typography variant="subtitle2">Browse</Typography>
+          <Typography variant="subtitle2">{t('quickAccess.browse')}</Typography>
           <Chip label={filteredLibraries.length} size="small" sx={{ height: 16, fontSize: '0.65rem' }} />
         </Stack>
         {browseOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -256,14 +258,14 @@ export default function LibraryQuickAccess() {
             '& .MuiTab-root': { minHeight: 28, py: 0, fontSize: '0.7rem', minWidth: 0 },
           }}
         >
-          <Tab label="All" />
-          <Tab label="My" />
-          <Tab label="Shared" />
-          <Tab label="Public" />
+          <Tab label={t('quickAccess.all')} />
+          <Tab label={t('quickAccess.my')} />
+          <Tab label={t('quickAccess.shared')} />
+          <Tab label={t('quickAccess.public')} />
         </Tabs>
         {filteredLibraries.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-            No libraries found.
+            {t('quickAccess.noLibraries')}
           </Typography>
         ) : (
           <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
@@ -296,7 +298,7 @@ export default function LibraryQuickAccess() {
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <RepositoryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-          <Typography variant="subtitle2">Repository</Typography>
+          <Typography variant="subtitle2">{t('quickAccess.repository')}</Typography>
         </Stack>
         {repoOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
@@ -307,7 +309,7 @@ export default function LibraryQuickAccess() {
           </Box>
         ) : repoLibraries.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-            No repository libraries available.
+            {t('quickAccess.noRepository')}
           </Typography>
         ) : (
           <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
@@ -326,8 +328,8 @@ export default function LibraryQuickAccess() {
                     importRepoMutation.mutate(lib.name)
                   }}
                   disabled={importRepoMutation.isPending}
-                  title="Import to your libraries"
-                  aria-label="Import library"
+                  title={t('quickAccess.importToLibraries')}
+                  aria-label={t('quickAccess.importLibrary')}
                 >
                   <ImportIcon sx={{ fontSize: 16 }} />
                 </IconButton>
@@ -349,7 +351,7 @@ export default function LibraryQuickAccess() {
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <TwcdiIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-          <Typography variant="subtitle2">TWCDI Templates</Typography>
+          <Typography variant="subtitle2">{t('quickAccess.twcdiTemplates')}</Typography>
         </Stack>
         {twcdiOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>

@@ -47,10 +47,10 @@ public class MeasureScoreCalculator {
             return calculateProportionScore(denominator, exclusions, numerator);
         }
         return switch (scoringType.toLowerCase()) {
-            case "proportion" -> calculateProportionScore(denominator, exclusions, numerator);
-            case "ratio" -> calculateRatioScore(denominator, exclusions, numerator);
-            case "cohort" -> null; // Cohort measures don't have a numeric score
-            case "continuous-variable" -> null; // Requires observation values, not simple counts
+            case com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION -> calculateProportionScore(denominator, exclusions, numerator);
+            case com.cqlplatform.model.measure.ScoringTypeConstants.RATIO -> calculateRatioScore(denominator, exclusions, numerator);
+            case com.cqlplatform.model.measure.ScoringTypeConstants.COHORT -> null; // Cohort measures don't have a numeric score
+            case com.cqlplatform.model.measure.ScoringTypeConstants.CONTINUOUS_VARIABLE -> null; // Requires observation values, not simple counts
             default -> calculateProportionScore(denominator, exclusions, numerator);
         };
     }

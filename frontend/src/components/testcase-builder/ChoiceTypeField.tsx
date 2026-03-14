@@ -1,18 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, TextField, Typography, MenuItem } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
 import ElementField from './ElementField'
 
 interface ChoiceTypeFieldProps {
   element: ElementMetadata
   value: unknown
-  onChange: (value: unknown) => void
+  onChange: (value: unknown, choiceFieldName?: string) => void
+  /** Pre-detected choice type from existing data (e.g. "Quantity") */
+  initialChoiceType?: string
   depth: number
 }
 
-export default function ChoiceTypeField({ element, value, onChange, depth }: ChoiceTypeFieldProps) {
+export default function ChoiceTypeField({ element, value, onChange, initialChoiceType, depth }: ChoiceTypeFieldProps) {
+  const { t } = useTranslation('measures')
   const choiceTypes = element.choiceTypes || []
-  const [selectedType, setSelectedType] = useState<string>(choiceTypes[0] || '')
+  const [selectedType, setSelectedType] = useState<string>(initialChoiceType || choiceTypes[0] || '')
+
+  // Sync selectedType when switching between entries with different initialChoiceType
+  useEffect(() => {
+    if (initialChoiceType) {
+      setSelectedType(initialChoiceType)
+    }
+  }, [initialChoiceType])
 
   const handleTypeChange = (newType: string) => {
     setSelectedType(newType)
@@ -32,6 +43,8 @@ export default function ChoiceTypeField({ element, value, onChange, depth }: Cho
     choiceTypes: [],
     bindingStrength: null,
     bindingValueSetUrl: null,
+    bindingCodeSystemUrl: null,
+    boundCodes: [],
     children: [],
     description: element.description,
     referenceTargets: [],
@@ -46,13 +59,13 @@ export default function ChoiceTypeField({ element, value, onChange, depth }: Cho
         <TextField
           select
           size="small"
-          label="Type"
+          label={t('testCaseBuilder.choiceType.type')}
           value={selectedType}
           onChange={(e) => handleTypeChange(e.target.value)}
           sx={{ width: 150 }}
         >
-          {choiceTypes.map((t) => (
-            <MenuItem key={t} value={t}>{t}</MenuItem>
+          {choiceTypes.map((ct) => (
+            <MenuItem key={ct} value={ct}>{ct}</MenuItem>
           ))}
         </TextField>
         <Box sx={{ flex: 1 }}>
@@ -60,7 +73,7 @@ export default function ChoiceTypeField({ element, value, onChange, depth }: Cho
             element={syntheticElement}
             path={element.path}
             value={value}
-            onChange={onChange}
+            onChange={(val) => onChange(val, syntheticElement.name)}
             depth={depth}
           />
         </Box>

@@ -1,5 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../api'
+import { useInvalidatingMutation } from './useInvalidatingMutation'
+import { STALE_30S } from '../constants/queryConstants'
+
+const MEASURES_KEY = ['measures'] as const
 
 export function useMeasuresByOwner(username: string | undefined) {
   return useQuery({
@@ -17,89 +21,51 @@ export function useSharedMeasures(username: string | undefined) {
   })
 }
 
-export function useShareMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, targetUsername }: { id: number; targetUsername: string }) =>
+export const useShareMeasure = () =>
+  useInvalidatingMutation(
+    ({ id, targetUsername }: { id: number; targetUsername: string }) =>
       measureApi.shareMeasure(id, targetUsername),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+    MEASURES_KEY,
+  )
 
-export function useUnshareMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, targetUsername }: { id: number; targetUsername: string }) =>
+export const useUnshareMeasure = () =>
+  useInvalidatingMutation(
+    ({ id, targetUsername }: { id: number; targetUsername: string }) =>
       measureApi.unshareMeasure(id, targetUsername),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+    MEASURES_KEY,
+  )
 
-export function useTransferMeasureOwnership() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, newOwner }: { id: number; newOwner: string }) =>
+export const useTransferMeasureOwnership = () =>
+  useInvalidatingMutation(
+    ({ id, newOwner }: { id: number; newOwner: string }) =>
       measureApi.transferMeasureOwnership(id, newOwner),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+    MEASURES_KEY,
+  )
 
-export function useSetMeasureAccessLevel() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, accessLevel }: { id: number; accessLevel: string }) =>
+export const useSetMeasureAccessLevel = () =>
+  useInvalidatingMutation(
+    ({ id, accessLevel }: { id: number; accessLevel: string }) =>
       measureApi.setMeasureAccessLevel(id, accessLevel),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+    MEASURES_KEY,
+  )
 
-export function useLockMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => measureApi.lockMeasure(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+export const useLockMeasure = () =>
+  useInvalidatingMutation((id: number) => measureApi.lockMeasure(id), MEASURES_KEY)
 
-export function useUnlockMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => measureApi.unlockMeasure(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+export const useUnlockMeasure = () =>
+  useInvalidatingMutation((id: number) => measureApi.unlockMeasure(id), MEASURES_KEY)
 
-export function useSubmitForReview() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => measureApi.submitForReview(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+export const useSubmitForReview = () =>
+  useInvalidatingMutation((id: number) => measureApi.submitForReview(id), MEASURES_KEY)
 
-export function useApproveMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => measureApi.approveMeasure(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+export const useApproveMeasure = () =>
+  useInvalidatingMutation((id: number) => measureApi.approveMeasure(id), MEASURES_KEY)
 
-export function useRejectMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => measureApi.rejectMeasure(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+export const useRejectMeasure = () =>
+  useInvalidatingMutation(({ id, reason }: { id: number; reason?: string }) => measureApi.rejectMeasure(id, reason), MEASURES_KEY)
 
-export function useRetireMeasure() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => measureApi.retireMeasure(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measures'] }),
-  })
-}
+export const useRetireMeasure = () =>
+  useInvalidatingMutation((id: number) => measureApi.retireMeasure(id), MEASURES_KEY)
 
 export function useValidateMeasure() {
   return useMutation({
@@ -125,7 +91,7 @@ export function useDashboard() {
   return useQuery({
     queryKey: ['measure-dashboard'],
     queryFn: () => measureApi.getDashboard(),
-    staleTime: 30000,
+    staleTime: STALE_30S,
   })
 }
 

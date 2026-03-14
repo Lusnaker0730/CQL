@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -16,12 +17,15 @@ import {
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { measureApi } from '../../api'
 import { helpContent } from '../../constants/helpContent'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import type { MeasureDefinition, MeasureEvaluationResult } from '../../types'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
+import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 import EvaluationResultCard from './EvaluationResultCard'
 import MeasureScheduleManager from './MeasureScheduleManager'
@@ -31,11 +35,13 @@ interface MeasureEvaluationTabProps {
 }
 
 export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabProps) {
+  const { t } = useTranslation('measures')
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [patientId, setPatientId] = useState('')
-  const [periodStart, setPeriodStart] = useState('2024-01-01')
-  const [periodEnd, setPeriodEnd] = useState('2024-12-31')
-  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
+  const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
+  const [periodStart, setPeriodStart] = useState(defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
+  const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [showSchedules, setShowSchedules] = useState(false)
   const [dateError, setDateError] = useState<string | null>(null)
@@ -81,7 +87,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
         <Typography variant="h6">
-          Evaluate: {measure.title || measure.name}
+          {t('evaluation.title', { name: measure.title || measure.name })}
         </Typography>
         <HelpTooltip text={helpContent.measures.evaluate} />
       </Stack>
@@ -98,17 +104,17 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
         />
 
         <TextField
-          label="Patient ID (optional for individual report)"
+          label={t('evaluation.patientId')}
           value={patientId}
           onChange={(e) => setPatientId(e.target.value)}
           size="small"
           fullWidth
-          placeholder="Leave empty for population report"
+          placeholder={t('evaluation.patientIdPlaceholder')}
         />
 
         <Stack direction="row" spacing={2}>
           <TextField
-            label="Period Start"
+            label={t('evaluation.periodStart')}
             type="date"
             value={periodStart}
             onChange={(e) => { setPeriodStart(e.target.value); setDateError(null) }}
@@ -118,7 +124,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
             error={!!dateError}
           />
           <TextField
-            label="Period End"
+            label={t('evaluation.periodEnd')}
             type="date"
             value={periodEnd}
             onChange={(e) => { setPeriodEnd(e.target.value); setDateError(null) }}
@@ -142,7 +148,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
               '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' },
             }}
           >
-            {evaluateMutation.isPending ? 'Evaluating...' : 'Evaluate Measure'}
+            {evaluateMutation.isPending ? t('evaluation.evaluating') : t('evaluation.evaluateMeasure')}
           </GradientButton>
           <Button
             variant="outlined"
@@ -150,7 +156,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
             startIcon={<ScheduleIcon />}
             onClick={() => setShowSchedules(true)}
           >
-            Schedules
+            {t('evaluation.schedules')}
           </Button>
         </Stack>
 
@@ -158,7 +164,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
 
         {evaluateMutation.isError && (
           <Alert severity="error">
-            Evaluation failed: {(evaluateMutation.error as Error).message}
+            {t('evaluation.evaluationFailed', { error: extractApiError(evaluateMutation.error) })}
           </Alert>
         )}
 
@@ -166,7 +172,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
 
         {!result && !evaluateMutation.isPending && (
           <Typography variant="body2" color="text.secondary" textAlign="center">
-            Click "Evaluate Measure" to run the measure against patient data.
+            {t('evaluation.emptyState')}
           </Typography>
         )}
       </Stack>

@@ -6,18 +6,26 @@ import com.cqlplatform.model.request.CqlValidationRequest;
 import com.cqlplatform.model.request.LibrarySaveRequest;
 import com.cqlplatform.model.request.TransferOwnershipRequest;
 import com.cqlplatform.model.request.UsernameRequest;
+import com.cqlplatform.security.InputValidator;
+import com.cqlplatform.security.OwnershipVerifier;
+import com.cqlplatform.service.ai.CqlFixService;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.cqlplatform.service.cql.CqlLibraryService;
+import com.cqlplatform.service.cql.CqlRepositoryService;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import com.cqlplatform.service.cql.DependencyAnalysisService;
 import com.cqlplatform.service.cql.FhirLibraryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,8 +41,12 @@ public class CqlController {
     private final CqlExecutionService executionService;
     private final CqlLibraryService libraryService;
     private final FhirLibraryService fhirLibraryService;
-    private final com.cqlplatform.service.cql.CqlRepositoryService repositoryService;
-    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+    private final CqlRepositoryService repositoryService;
+    private final OwnershipVerifier ownershipVerifier;
+    private final DependencyAnalysisService dependencyAnalysisService;
+
+    @Autowired(required = false)
+    private CqlFixService cqlFixService;
 
     @PostMapping("/translate")
     @Operation(summary = "Translate CQL to ELM", description = "Translates CQL code to ELM (Expression Logical Model) format")
@@ -50,20 +62,73 @@ public class CqlController {
         return ResponseEntity.ok(response);
     }
 
+    // ===== AI Fix Suggestion =====
+
+    public record CqlErrorDto(
+            String severity,
+            String message,
+            Integer startLine,
+            Integer startColumn,
+            Integer endLine,
+            Integer endColumn,
+            String errorType
+    ) {}
+
+    public record FixSuggestionRequest(
+            @NotBlank @Size(max = 512_000) String cql,
+            @NotNull CqlErrorDto error
+    ) {}
+
+    @PostMapping("/fix-suggestion")
+    @Operation(summary = "AI Fix Suggestion", description = "Uses AI to suggest a fix for a CQL compilation error")
+    public ResponseEntity<CqlFixSuggestionResponse> fixSuggestion(
+            @Valid @RequestBody FixSuggestionRequest request) {
+        if (cqlFixService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(CqlFixSuggestionResponse.builder()
+                            .success(false)
+                            .errorMessage("AI suggestion service is not enabled")
+                            .build());
+        }
+        CqlTranslationResponse.CqlError error = CqlTranslationResponse.CqlError.builder()
+                .severity(request.error().severity())
+                .message(request.error().message())
+                .startLine(request.error().startLine())
+                .startColumn(request.error().startColumn())
+                .endLine(request.error().endLine())
+                .endColumn(request.error().endColumn())
+                .errorType(request.error().errorType())
+                .build();
+        CqlFixSuggestionResponse response = cqlFixService.suggestFix(request.cql(), error);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/execute")
     @Operation(summary = "Execute CQL", description = "Executes CQL against a FHIR server")
     public ResponseEntity<CqlExecutionResponse> execute(@Valid @RequestBody CqlExecutionRequest request) {
+        if (request.getFhirServerUrl() != null) {
+            InputValidator.requireValidUrl(request.getFhirServerUrl());
+        }
         CqlExecutionResponse response = executionService.execute(request);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/libraries")
-    @Operation(summary = "List CQL Libraries", description = "Returns all stored CQL libraries")
+    @Operation(summary = "List CQL Libraries", description = "Returns all stored CQL libraries. Supports pagination via page/size params.")
     public ResponseEntity<List<CqlLibrary>> listLibraries(
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false, defaultValue = "200") Integer size) {
         List<CqlLibrary> libraries = search != null ?
                 libraryService.searchLibraries(search) :
                 libraryService.getAllLibraries();
+        if (page != null) {
+            int start = page * size;
+            if (start >= libraries.size()) {
+                return ResponseEntity.ok(List.of());
+            }
+            libraries = libraries.subList(start, Math.min(start + size, libraries.size()));
+        }
         return ResponseEntity.ok(libraries);
     }
 
@@ -79,7 +144,7 @@ public class CqlController {
     @Operation(summary = "Create CQL Library", description = "Creates a new CQL library")
     public ResponseEntity<CqlLibrary> createLibrary(@Valid @RequestBody LibrarySaveRequest request) {
         CqlLibrary library = libraryService.saveLibrary(request.getCql(), request.getDescription());
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(library);
+        return ResponseEntity.status(HttpStatus.CREATED).body(library);
     }
 
     @PutMapping("/libraries/{id}")
@@ -142,7 +207,7 @@ public class CqlController {
 
     @GetMapping("/libraries/repository")
     @Operation(summary = "List Repository Libraries", description = "Lists pre-built CQL library templates available for import")
-    public ResponseEntity<List<com.cqlplatform.service.cql.CqlRepositoryService.RepositoryLibrary>> listRepositoryLibraries() {
+    public ResponseEntity<List<CqlRepositoryService.RepositoryLibrary>> listRepositoryLibraries() {
         return ResponseEntity.ok(repositoryService.listRepositoryLibraries());
     }
 
@@ -187,7 +252,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> shareLibrary(
             @PathVariable String id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.shareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -197,7 +262,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> unshareLibrary(
             @PathVariable String id,
             @Valid @RequestBody UsernameRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.unshareLibrary(id, request.getTargetUsername(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -207,7 +272,7 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> transferOwnership(
             @PathVariable String id,
             @Valid @RequestBody TransferOwnershipRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.transferOwnership(id, request.getNewOwner(), currentUser);
         return ResponseEntity.ok(library);
     }
@@ -217,21 +282,27 @@ public class CqlController {
     public ResponseEntity<CqlLibrary> setAccessLevel(
             @PathVariable String id,
             @Valid @RequestBody AccessUpdateRequest request) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUser = ownershipVerifier.getCurrentUsername();
         CqlLibrary library = libraryService.setAccessLevel(id, request.getAccessLevel(), currentUser);
         return ResponseEntity.ok(library);
     }
 
     @GetMapping("/libraries/owner/{username}")
-    @Operation(summary = "Get Libraries by Owner", description = "Returns all libraries owned by a user")
+    @Operation(summary = "Get Libraries by Owner", description = "Returns all libraries owned by a user (own user or admin only)")
     public ResponseEntity<List<CqlLibrary>> getLibrariesByOwner(@PathVariable String username) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         List<CqlLibrary> libraries = libraryService.getLibrariesByOwner(username);
         return ResponseEntity.ok(libraries);
     }
 
     @GetMapping("/libraries/shared/{username}")
-    @Operation(summary = "Get Shared Libraries", description = "Returns libraries shared with a user or public")
+    @Operation(summary = "Get Shared Libraries", description = "Returns libraries shared with a user or public (own user or admin only)")
     public ResponseEntity<List<CqlLibrary>> getSharedLibraries(@PathVariable String username) {
+        if (!ownershipVerifier.isAdmin() && !ownershipVerifier.getCurrentUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         List<CqlLibrary> libraries = libraryService.getSharedLibraries(username);
         return ResponseEntity.ok(libraries);
     }
@@ -250,5 +321,12 @@ public class CqlController {
     public ResponseEntity<List<CqlLibrary>> getDependents(@PathVariable String name) {
         List<CqlLibrary> dependents = libraryService.getDependents(name);
         return ResponseEntity.ok(dependents);
+    }
+
+    @GetMapping("/libraries/{id}/dependency-analysis")
+    @Operation(summary = "Analyze Dependencies", description = "Analyze library dependencies for version conflicts and mismatches")
+    public ResponseEntity<DependencyAnalysisService.DependencyAnalysisResult> analyzeDependencies(@PathVariable String id) {
+        DependencyAnalysisService.DependencyAnalysisResult result = dependencyAnalysisService.analyze(id);
+        return ResponseEntity.ok(result);
     }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -16,12 +16,13 @@ import {
   Checkbox,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Add as AddIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import CardListSkeleton from '../common/CardListSkeleton'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
 import { ResourceTypeProvider } from '../../contexts/ResourceTypeContext'
 import ResourceFormHeader from './ResourceFormHeader'
-import ElementField from './ElementField'
+import ElementField, { getDefaultValue } from './ElementField'
 import type { ElementMetadata } from '../../types'
 
 interface ResourceFormProps {
@@ -29,6 +30,7 @@ interface ResourceFormProps {
 }
 
 export default function ResourceForm({ onDirty }: ResourceFormProps) {
+  const { t } = useTranslation('measures')
   const { state, dispatch } = useBundleBuilder()
   const activeEntry = state.entries.find((e) => e.id === state.activeEntryId)
   const { data: metadata, isLoading } = useFhirMetadata(activeEntry?.resourceType)
@@ -36,15 +38,29 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   const [selectedAttrs, setSelectedAttrs] = useState<Set<string>>(new Set())
 
   const handleFieldChange = useCallback(
-    (path: string, value: unknown) => {
+    (path: string, value: unknown, choiceFieldName?: string) => {
       if (!activeEntry) return
-      const fieldName = path.split('.').slice(1).join('.')
+      const baseName = path.split('.').slice(1).join('.')
       const newData = { ...activeEntry.resourceData }
 
-      if (value === undefined || value === null || value === '') {
-        delete newData[fieldName]
+      if (choiceFieldName) {
+        // Choice type: clean up old variants (keys starting with baseName + uppercase,
+        // e.g. "valueQuantity", "valueString") and the base name itself
+        for (const key of Object.keys(newData)) {
+          if (key === baseName || (key.startsWith(baseName) && key.length > baseName.length && /[A-Z]/.test(key[baseName.length]))) {
+            delete newData[key]
+          }
+        }
+
+        if (value !== undefined && value !== null && value !== '') {
+          newData[choiceFieldName] = value
+        }
       } else {
-        newData[fieldName] = value
+        if (value === undefined || value === null || value === '') {
+          delete newData[baseName]
+        } else {
+          newData[baseName] = value
+        }
       }
 
       dispatch({
@@ -68,11 +84,53 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     [activeEntry, dispatch, onDirty]
   )
 
+  const elements = metadata?.elements || []
+  const requiredElements = elements.filter((el) => el.isRequired)
+
+  // Build set of element names that have data (including choice type variants)
+  // NOTE: useMemo MUST be called before any early returns to satisfy Rules of Hooks
+  const { visibleOptional, hiddenOptional } = useMemo(() => {
+    if (!activeEntry) return { visibleOptional: [] as ElementMetadata[], hiddenOptional: [] as ElementMetadata[] }
+    const dataKeys = Object.keys(activeEntry.resourceData)
+    // Pre-build a lookup map: choiceFieldName → element name
+    const choiceKeyMap = new Map<string, string>()
+    for (const el of elements) {
+      if (el.isChoiceType && el.choiceTypes) {
+        for (const ct of el.choiceTypes) {
+          choiceKeyMap.set(el.name + ct.charAt(0).toUpperCase() + ct.slice(1), el.name)
+        }
+      }
+    }
+
+    const filledNames = new Set<string>()
+    for (const key of dataKeys) {
+      if (key === 'id') continue
+      const directEl = elements.find((e) => e.name === key)
+      if (directEl && !directEl.isRequired) {
+        filledNames.add(directEl.name)
+        continue
+      }
+      if (!directEl) {
+        const elName = choiceKeyMap.get(key)
+        if (elName) {
+          const choiceEl = elements.find((e) => e.name === elName)
+          if (choiceEl && !choiceEl.isRequired) filledNames.add(elName)
+        }
+      }
+    }
+
+    return {
+      visibleOptional: elements.filter((el) => !el.isRequired && filledNames.has(el.name)),
+      hiddenOptional: elements.filter((el) => !el.isRequired && !filledNames.has(el.name)),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-compute when resourceData changes, not the whole entry
+  }, [elements, activeEntry?.resourceData])
+
   if (!activeEntry) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Select a resource from the list to edit its properties.
+          {t('testCaseBuilder.selectResource')}
         </Typography>
       </Box>
     )
@@ -86,27 +144,13 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     )
   }
 
-  const elements = metadata?.elements || []
-  const requiredElements = elements.filter((el) => el.isRequired)
-  const filledOptionalNames = new Set(
-    Object.keys(activeEntry.resourceData).filter(
-      (k) => k !== 'id' && !requiredElements.some((r) => r.name === k)
-    )
-  )
-  const visibleOptional = elements.filter(
-    (el) => !el.isRequired && filledOptionalNames.has(el.name)
-  )
-  const hiddenOptional = elements.filter(
-    (el) => !el.isRequired && !filledOptionalNames.has(el.name)
-  )
-
   const handleAddAttributes = () => {
     if (!activeEntry) return
     const newData = { ...activeEntry.resourceData }
     selectedAttrs.forEach((name) => {
       const el = elements.find((e) => e.name === name)
       if (el && !(name in newData)) {
-        newData[name] = el.isArray ? [] : (el.type === 'boolean' ? false : '')
+        newData[name] = el.isArray ? [] : getDefaultValue(el)
       }
     })
     dispatch({
@@ -119,7 +163,26 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   }
 
   const getFieldValue = (el: ElementMetadata) => {
+    // For choice types, look for typed keys (e.g., "valueQuantity" for element "value")
+    if (el.isChoiceType && el.choiceTypes) {
+      for (const ct of el.choiceTypes) {
+        const key = el.name + ct.charAt(0).toUpperCase() + ct.slice(1)
+        if (key in activeEntry.resourceData) {
+          return activeEntry.resourceData[key]
+        }
+      }
+    }
     return activeEntry.resourceData[el.name]
+  }
+
+  /** Detect which choice type is currently stored (e.g., "Quantity" from key "valueQuantity") */
+  const getSelectedChoiceType = (el: ElementMetadata): string | undefined => {
+    if (!el.isChoiceType || !el.choiceTypes) return undefined
+    for (const ct of el.choiceTypes) {
+      const key = el.name + ct.charAt(0).toUpperCase() + ct.slice(1)
+      if (key in activeEntry.resourceData) return ct
+    }
+    return undefined
   }
 
   return (
@@ -135,7 +198,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">
-              Required Fields
+              {t('testCaseBuilder.requiredFields')}
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
@@ -145,7 +208,8 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
                 element={el}
                 path={`${activeEntry.resourceType}.${el.name}`}
                 value={getFieldValue(el)}
-                onChange={(val) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val)}
+                onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
+                initialChoiceType={getSelectedChoiceType(el)}
                 depth={0}
               />
             ))}
@@ -157,7 +221,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">
-              Optional Fields
+              {t('testCaseBuilder.optionalFields')}
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
@@ -167,7 +231,8 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
                 element={el}
                 path={`${activeEntry.resourceType}.${el.name}`}
                 value={getFieldValue(el)}
-                onChange={(val) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val)}
+                onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
+                initialChoiceType={getSelectedChoiceType(el)}
                 depth={0}
               />
             ))}
@@ -183,12 +248,12 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           disabled={hiddenOptional.length === 0}
           sx={{ textTransform: 'none' }}
         >
-          Add Attribute ({hiddenOptional.length} available)
+          {t('testCaseBuilder.addAttribute')} {t('testCaseBuilder.available', { count: hiddenOptional.length })}
         </Button>
       </Box>
 
       <Dialog open={addAttrOpen} onClose={() => setAddAttrOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add Attributes</DialogTitle>
+        <DialogTitle>{t('testCaseBuilder.addAttributes')}</DialogTitle>
         <DialogContent>
           <List dense>
             {hiddenOptional.map((el) => (
@@ -209,7 +274,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
                 <ListItemText
                   primary={el.name}
                   secondary={
-                    [el.type, el.isArray ? '(array)' : '', el.description || '']
+                    [el.type, el.isArray ? t('testCaseBuilder.array') : '', el.description || '']
                       .filter(Boolean)
                       .join(' ')
                   }
@@ -221,13 +286,13 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           </List>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddAttrOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddAttrOpen(false)}>{t('testCaseBuilder.cancel')}</Button>
           <Button
             variant="contained"
             disabled={selectedAttrs.size === 0}
             onClick={handleAddAttributes}
           >
-            Add ({selectedAttrs.size})
+            {t('testCaseBuilder.addCount', { count: selectedAttrs.size })}
           </Button>
         </DialogActions>
       </Dialog>

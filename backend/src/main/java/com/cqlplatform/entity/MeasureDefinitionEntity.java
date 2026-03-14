@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,11 +42,11 @@ public class MeasureDefinitionEntity {
 
     @Column(name = "status", length = 20)
     @Builder.Default
-    private String status = "draft";
+    private String status = com.cqlplatform.model.measure.MeasureStatusConstants.DRAFT;
 
     @Column(name = "scoring_type", length = 30)
     @Builder.Default
-    private String scoringType = "proportion";
+    private String scoringType = com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION;
 
     @Column(name = "cql_library_id", length = 200)
     private String cqlLibraryId;
@@ -73,9 +74,11 @@ public class MeasureDefinitionEntity {
     @Builder.Default
     private List<Long> componentMeasureIdList = new ArrayList<>();
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_by", length = 100)
     private String createdBy;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "owner_username", length = 100)
     private String ownerUsername;
 
@@ -91,9 +94,11 @@ public class MeasureDefinitionEntity {
     @Builder.Default
     private List<String> sharedWithList = new ArrayList<>();
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -102,6 +107,18 @@ public class MeasureDefinitionEntity {
 
     @Column(name = "locked_at")
     private LocalDateTime lockedAt;
+
+    @Column(name = "reviewed_by", length = 100)
+    private String reviewedBy;
+
+    @Column(name = "approved_by", length = 100)
+    private String approvedBy;
+
+    @Column(name = "review_comment", length = 2000)
+    private String reviewComment;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
 
     @Column(name = "setting", length = 50)
     private String setting;
@@ -139,6 +156,12 @@ public class MeasureDefinitionEntity {
     @Column(name = "measure_set", length = 200)
     private String measureSet;
 
+    @Column(name = "nqf_number", length = 20)
+    private String nqfNumber;
+
+    @Column(name = "cms_measure_id", length = 20)
+    private String cmsMeasureId;
+
     @Column(name = "supplemental_data_guidance", columnDefinition = "TEXT")
     private String supplementalDataGuidance;
 
@@ -158,6 +181,29 @@ public class MeasureDefinitionEntity {
     @Transient
     @Builder.Default
     private List<MeasureDefinition.SupplementalDataDef> supplementalDataList = new ArrayList<>();
+
+    @Column(name = "improvement_notation", length = 20)
+    private String improvementNotation;
+
+    @Column(name = "rate_aggregation", length = 2000)
+    private String rateAggregation;
+
+    // Indicator code mapping
+    @Column(name = "moh_indicator_code", length = 50)
+    private String mohIndicatorCode;
+
+    @Column(name = "nhia_p4p_code", length = 50)
+    private String nhiaP4pCode;
+
+    @Column(name = "drg_indicator_code", length = 50)
+    private String drgIndicatorCode;
+
+    @Column(name = "indicator_category", length = 100)
+    private String indicatorCategory;
+
+    // Department (soft multi-tenancy)
+    @Column(name = "department", length = 100)
+    private String department;
 
     @PrePersist
     protected void onCreate() {

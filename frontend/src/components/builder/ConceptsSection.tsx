@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -10,7 +11,8 @@ import {
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import { extractCqlName } from '../../utils/cqlNames'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 
 interface ConceptsSectionProps {
@@ -22,16 +24,6 @@ interface ConceptsSectionProps {
   onEdit?: (identifier: string, newSnippet: string) => void
 }
 
-/**
- * Parse a code string to extract just the name.
- * Input: "HbA1c Code": '4548-4' from "LOINC" display 'Hemoglobin A1c'
- * Output: "HbA1c Code"
- */
-function parseCodeName(raw: string): string {
-  const m = raw.match(/^"([^"]+)"/)
-  return m ? m[1] : raw
-}
-
 export default function ConceptsSection({
   concepts,
   codes,
@@ -40,6 +32,7 @@ export default function ConceptsSection({
   onGoTo,
   onEdit,
 }: ConceptsSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [conceptName, setConceptName] = useState('')
   const [selectedCodes, setSelectedCodes] = useState<string[]>([])
@@ -48,7 +41,7 @@ export default function ConceptsSection({
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
-  const codeNames = codes.map(parseCodeName)
+  const codeNames = codes.map(extractCqlName)
 
   const handleToggleCode = (codeName: string) => {
     setSelectedCodes((prev) =>
@@ -113,25 +106,25 @@ export default function ConceptsSection({
         ))
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No concepts found
+          {t('common.noItemsFound', { type: t('sections.concepts').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Concept
+          {t('common.addItem', { type: 'Concept' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
           <TextField
             size="small"
-            label="Concept Name"
+            label={t('concepts.name')}
             value={conceptName}
             onChange={(e) => setConceptName(e.target.value)}
           />
 
           <Typography variant="caption" fontWeight={500} color="text.secondary">
-            Select codes to include:
+            {t('concepts.selectCodes')}
           </Typography>
           {codeNames.length > 0 ? (
             <Box sx={{ maxHeight: 160, overflow: 'auto', pl: 0.5 }}>
@@ -157,13 +150,13 @@ export default function ConceptsSection({
             </Box>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-              No codes available. Add codes first.
+              {t('concepts.noCodesAvailable')}
             </Typography>
           )}
 
           <TextField
             size="small"
-            label="Display (optional)"
+            label={t('concepts.display')}
             value={displayText}
             onChange={(e) => setDisplayText(e.target.value)}
           />
@@ -173,15 +166,15 @@ export default function ConceptsSection({
               snippet={previewSnippet}
               onInsert={handleConfirmInsert}
               onCancel={() => setPreviewSnippet('')}
-              insertLabel={editingItem ? 'Update' : 'Insert'}
+              insertLabel={editingItem ? t('common.update') : t('common.insert')}
             />
           ) : (
             <Stack direction="row" spacing={1}>
               <Button size="small" variant="outlined" onClick={handleAdd}
                 disabled={!conceptName.trim() || selectedCodes.length === 0}>
-                Preview {editingItem ? 'Update' : 'Insert'}
+                {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
               </Button>
-              <Button size="small" onClick={resetForm}>Cancel</Button>
+              <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
             </Stack>
           )}
         </Stack>
@@ -189,7 +182,9 @@ export default function ConceptsSection({
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title={t('common.deleteElement')}
+        itemName={deleteTarget || ''}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

@@ -26,6 +26,7 @@ import {
   SwapHoriz as TransferIcon,
 } from '@mui/icons-material'
 import { useMeasureAuditTrail } from '../../hooks/useMeasures'
+import { useTranslation } from 'react-i18next'
 
 const ACTION_CONFIG: Record<string, { icon: React.ReactElement; color: 'primary' | 'success' | 'error' | 'warning' | 'info' | 'default' }> = {
   CREATE: { icon: <CreateIcon sx={{ fontSize: 16 }} />, color: 'success' },
@@ -49,6 +50,7 @@ interface AuditTrailDialogProps {
 }
 
 export default function AuditTrailDialog({ open, onClose, measureId, measureName }: AuditTrailDialogProps) {
+  const { t } = useTranslation('measures')
   const { data: auditEntries = [], isLoading } = useMeasureAuditTrail(measureId, open)
 
   const formatDate = (dateStr: string) => {
@@ -61,7 +63,7 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <HistoryIcon color="primary" />
-          <Typography variant="h6">Audit Trail: {measureName}</Typography>
+          <Typography variant="h6">{t('audit.title', { name: measureName })}</Typography>
         </Stack>
       </DialogTitle>
       <DialogContent dividers>
@@ -73,7 +75,7 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
 
         {!isLoading && auditEntries.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-            No audit history available.
+            {t('audit.emptyState')}
           </Typography>
         )}
 
@@ -112,7 +114,7 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
                           />
                           {entry.performedBy && (
                             <Typography variant="caption" color="text.secondary">
-                              by {entry.performedBy}
+                              {t('audit.by', { user: entry.performedBy })}
                             </Typography>
                           )}
                         </Stack>
@@ -135,7 +137,7 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('audit.close')}</Button>
       </DialogActions>
     </Dialog>
   )

@@ -17,5 +17,7 @@ public class AuditLogEntry {
     private String ipAddress;
     private String userAgent;
     private Long responseTimeMs;
+    private boolean phiAccess;
+    private String queryParameters;
     private String createdAt;
 }

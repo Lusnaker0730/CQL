@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Paper,
@@ -27,6 +28,7 @@ import {
   Delete as DeleteIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
@@ -37,13 +39,14 @@ interface MeasureScheduleManagerProps {
   onClose?: () => void
 }
 
-const PRESET_CRONS: Record<string, string> = {
-  'Monthly (1st at midnight)': '0 0 1 * *',
-  'Quarterly (Jan, Apr, Jul, Oct 1st)': '0 0 1 1,4,7,10 *',
-  'Yearly (Jan 1st)': '0 0 1 1 *',
+const PRESET_CRON_VALUES: Record<string, string> = {
+  monthly: '0 0 1 * *',
+  quarterly: '0 0 1 1,4,7,10 *',
+  yearly: '0 0 1 1 *',
 }
 
 export default function MeasureScheduleManager({ measure, onClose }: MeasureScheduleManagerProps) {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [newSchedule, setNewSchedule] = useState({
@@ -51,6 +54,12 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
     fhirServerUrl: '',
     periodType: 'monthly',
   })
+
+  const presetCrons: Record<string, string> = {
+    [t('schedules.presets.monthly')]: PRESET_CRON_VALUES.monthly,
+    [t('schedules.presets.quarterly')]: PRESET_CRON_VALUES.quarterly,
+    [t('schedules.presets.yearly')]: PRESET_CRON_VALUES.yearly,
+  }
 
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ['schedules', measure.id],
@@ -88,16 +97,16 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
     <Paper sx={{ p: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
-          <Typography variant="h6">Schedules</Typography>
+          <Typography variant="h6">{t('schedules.title')}</Typography>
           <Typography variant="body2" color="text.secondary">
             {measure.title || measure.name} v{measure.version}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <GradientButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            Add Schedule
+            {t('schedules.addSchedule')}
           </GradientButton>
-          {onClose && <Button size="small" onClick={onClose}>Close</Button>}
+          {onClose && <Button size="small" onClick={onClose}>{t('schedules.close')}</Button>}
         </Stack>
       </Stack>
 
@@ -105,13 +114,13 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell scope="col">Enabled</TableCell>
-              <TableCell scope="col">Cron</TableCell>
-              <TableCell scope="col">Period</TableCell>
-              <TableCell scope="col">Last Run</TableCell>
-              <TableCell scope="col">Next Run</TableCell>
-              <TableCell scope="col">Status</TableCell>
-              <TableCell scope="col" align="right">Actions</TableCell>
+              <TableCell scope="col">{t('schedules.tableHeaders.enabled')}</TableCell>
+              <TableCell scope="col">{t('schedules.tableHeaders.cron')}</TableCell>
+              <TableCell scope="col">{t('schedules.tableHeaders.period')}</TableCell>
+              <TableCell scope="col">{t('schedules.tableHeaders.lastRun')}</TableCell>
+              <TableCell scope="col">{t('schedules.tableHeaders.nextRun')}</TableCell>
+              <TableCell scope="col">{t('schedules.tableHeaders.status')}</TableCell>
+              <TableCell scope="col" align="right">{t('schedules.tableHeaders.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -126,12 +135,12 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
                 <TableCell>{s.periodType}</TableCell>
                 <TableCell>
                   <Typography variant="caption">
-                    {s.lastRunAt ? new Date(s.lastRunAt).toLocaleString() : 'Never'}
+                    {s.lastRunAt ? new Date(s.lastRunAt).toLocaleString() : t('schedules.never')}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption">
-                    {s.nextRunAt ? new Date(s.nextRunAt).toLocaleString() : '-'}
+                    {s.nextRunAt ? new Date(s.nextRunAt).toLocaleString() : t('schedules.noNextRun')}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -142,12 +151,12 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
                 </TableCell>
                 <TableCell align="right">
                   <IconButton size="small" color="primary"
-                    aria-label="Trigger schedule"
+                    aria-label={t('schedules.triggerSchedule')}
                     disabled={triggerMutation.isPending}
                     onClick={() => triggerMutation.mutate(s.id!)}>
                     <PlayIcon fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" aria-label="Delete schedule" color="error" onClick={() => deleteMutation.mutate(s.id!)}>
+                  <IconButton size="small" aria-label={t('schedules.deleteSchedule')} color="error" onClick={() => deleteMutation.mutate(s.id!)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -157,7 +166,7 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
               <TableRow>
                 <TableCell colSpan={7} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                    No schedules configured.
+                    {t('schedules.emptyState')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -168,48 +177,48 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
 
       {triggerMutation.isSuccess && (
         <Alert severity="success" sx={{ mt: 2 }}>
-          Manual evaluation completed: {triggerMutation.data?.status}
+          {t('schedules.manualComplete', { status: triggerMutation.data?.status })}
         </Alert>
       )}
 
       {/* Create Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Schedule</DialogTitle>
+        <DialogTitle>{t('schedules.createDialog.title')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Preset" select size="small" fullWidth
+            <TextField label={t('schedules.createDialog.preset')} select size="small" fullWidth
               value="" onChange={(e) => {
-                const cron = PRESET_CRONS[e.target.value]
+                const cron = presetCrons[e.target.value]
                 if (cron) setNewSchedule({ ...newSchedule, cronExpression: cron })
               }}>
-              {Object.keys(PRESET_CRONS).map((label) => (
+              {Object.keys(presetCrons).map((label) => (
                 <MenuItem key={label} value={label}>{label}</MenuItem>
               ))}
             </TextField>
-            <TextField label="Cron Expression" size="small" fullWidth
+            <TextField label={t('schedules.createDialog.cronExpression')} size="small" fullWidth
               value={newSchedule.cronExpression}
               onChange={(e) => setNewSchedule({ ...newSchedule, cronExpression: e.target.value })}
-              helperText="Spring cron format (sec min hour dom month dow)" />
-            <TextField label="Period Type" select size="small" fullWidth
+              helperText={t('schedules.createDialog.cronHelper')} />
+            <TextField label={t('schedules.createDialog.periodType')} select size="small" fullWidth
               value={newSchedule.periodType}
               onChange={(e) => setNewSchedule({ ...newSchedule, periodType: e.target.value })}>
-              <MenuItem value="monthly">Monthly</MenuItem>
-              <MenuItem value="quarterly">Quarterly</MenuItem>
-              <MenuItem value="yearly">Yearly</MenuItem>
+              <MenuItem value="monthly">{t('schedules.createDialog.monthly')}</MenuItem>
+              <MenuItem value="quarterly">{t('schedules.createDialog.quarterly')}</MenuItem>
+              <MenuItem value="yearly">{t('schedules.createDialog.yearly')}</MenuItem>
             </TextField>
-            <TextField label="FHIR Server URL (optional)" size="small" fullWidth
+            <TextField label={t('schedules.createDialog.fhirServerUrl')} size="small" fullWidth
               value={newSchedule.fhirServerUrl}
               onChange={(e) => setNewSchedule({ ...newSchedule, fhirServerUrl: e.target.value })} />
             {createMutation.isError && (
-              <Alert severity="error">{(createMutation.error as Error).message}</Alert>
+              <Alert severity="error">{extractApiError(createMutation.error)}</Alert>
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
           <Button onClick={() => createMutation.mutate(newSchedule)} variant="contained"
             disabled={createMutation.isPending}>
-            {createMutation.isPending ? 'Creating...' : 'Create'}
+            {createMutation.isPending ? t('schedules.createDialog.creating') : t('schedules.createDialog.create')}
           </Button>
         </DialogActions>
       </Dialog>

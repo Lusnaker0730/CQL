@@ -106,7 +106,18 @@
       "Bash(cat:*)",
       "Bash(git pull:*)",
       "Bash(docker-compose ps:*)",
-      "Bash(where.exe:*)"
+      "Bash(where.exe:*)",
+      "Bash(mvn dependency:resolve:*)",
+      "Bash(command -v:*)",
+      "Bash(powershell.exe -Command \"Get-Command java -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source; Get-Command mvn -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"Get-Command mvn -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path ''$env:APPDATA\\\\Code\\\\User\\\\workspaceStorage'' -Recurse -Filter ''jdt_ws'' -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path \"\"$env:APPDATA\\\\Code\\\\User\\\\workspaceStorage\"\" -Directory -ErrorAction SilentlyContinue | ForEach-Object { Get-ChildItem -Path $_FullName -Filter ''jdt_ws'' -Directory -Recurse -ErrorAction SilentlyContinue } | Select-Object -ExpandProperty FullName\")",
+      "Bash(powershell.exe -Command \"[System.Environment]::GetFolderPath\\(''ApplicationData''\\)\")",
+      "Bash(powershell.exe -Command \"Test-Path ''$env:APPDATA\\\\Code''; Get-ChildItem ''$env:APPDATA\\\\Code'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''$env:USERPROFILE\\\\.vscode\\\\extensions'' -Directory -Filter ''*java*'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Get-Process *code* -ErrorAction SilentlyContinue | Select-Object Name,Path | Format-Table -AutoSize\")",
+      "Bash(powershell.exe -Command \"Test-Path ''$env:LOCALAPPDATA\\\\Programs\\\\Microsoft VS Code''; Test-Path ''$env:USERPROFILE\\\\.vscode''; Get-ChildItem ''$env:USERPROFILE\\\\.vscode'' -ErrorAction SilentlyContinue | Select-Object Name\")"
     ]
   }
 }

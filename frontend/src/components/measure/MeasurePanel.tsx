@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { getScoreChipColor, getScoreThemeColor } from '../../utils/scoreColors'
 import {
   Box,
   Paper,
@@ -38,20 +40,27 @@ import type { RootState } from '../../store'
 import { setCqlContent } from '../../store/editorSlice'
 import MeasureScheduleManager from './MeasureScheduleManager'
 import { validateDateRange, validateFhirUrl } from '../../utils/validation'
+import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
+import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
+import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface MeasurePanelProps {
   selectedMeasure?: MeasureDefinition | null
 }
 
 export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
+  const { t } = useTranslation('measures')
   const dispatch = useDispatch()
+  const { showNotification } = useNotification()
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [measureId, setMeasureId] = useState('custom-measure')
   const [patientId, setPatientId] = useState('')
-  const [periodStart, setPeriodStart] = useState('2024-01-01')
-  const [periodEnd, setPeriodEnd] = useState('2024-12-31')
-  const [fhirServer, setFhirServer] = useState('http://hapi-fhir:8080/fhir')
+  const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
+  const [periodStart, setPeriodStart] = useState(defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
+  const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [selectedDef, setSelectedDef] = useState<MeasureDefinition | null>(null)
   const [stratExpanded, setStratExpanded] = useState(false)
@@ -76,10 +85,12 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
           if (full.cqlContent) {
             dispatch(setCqlContent(full.cqlContent))
           }
+        }).catch((err) => {
+          showNotification(t('panel.loadError', { error: extractApiError(err) }), 'error')
         })
       }
     }
-  }, [selectedMeasure, dispatch])
+  }, [selectedMeasure, dispatch, showNotification, t])
 
   const evaluateMutation = useMutation({
     mutationFn: () => {
@@ -116,31 +127,11 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   }
 
   const getPopulationLabel = (type: string): string => {
-    const labels: Record<string, string> = {
-      'initial-population': 'Initial Population',
-      denominator: 'Denominator',
-      'denominator-exclusion': 'Denominator Exclusions',
-      'denominator-exception': 'Denominator Exceptions',
-      numerator: 'Numerator',
-      'numerator-exclusion': 'Numerator Exclusions',
-      'measure-population': 'Measure Population',
-      'measure-population-exclusion': 'Measure Population Exclusions',
-      'measure-observation': 'Measure Observation',
-    }
-    return labels[type] || type
+    const key = `evaluationResult.populationLabels.${type}`
+    const translated = t(key)
+    return translated === key ? type : translated
   }
 
-  const getScoreColor = (score: number): string => {
-    if (score >= 80) return 'success'
-    if (score >= 60) return 'warning'
-    return 'error'
-  }
-
-  const getScoreHex = (score: number): string => {
-    if (score >= 80) return '#2E7D32'
-    if (score >= 60) return '#ED6C02'
-    return '#D32F2F'
-  }
 
   if (showSchedules && selectedDef) {
     return <MeasureScheduleManager measure={selectedDef} onClose={() => setShowSchedules(false)} />
@@ -149,7 +140,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>
-        Quality Measure Evaluation
+        {t('panel.title')}
       </Typography>
 
       <Stack spacing={2}>
@@ -174,14 +165,14 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             }
           }}
           renderInput={(params) => (
-            <TextField {...params} label="Select Saved Measure (optional)" />
+            <TextField {...params} label={t('panel.selectMeasure')} />
           )}
           isOptionEqualToValue={(option, value) => option.id === value.id}
         />
 
         {!selectedDef && (
           <TextField
-            label="Measure ID"
+            label={t('panel.measureId')}
             value={measureId}
             onChange={(e) => setMeasureId(e.target.value)}
             size="small"
@@ -200,17 +191,17 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
         />
 
         <TextField
-          label="Patient ID (optional for individual report)"
+          label={t('panel.patientId')}
           value={patientId}
           onChange={(e) => setPatientId(e.target.value)}
           size="small"
           fullWidth
-          placeholder="Leave empty for population report"
+          placeholder={t('panel.patientIdPlaceholder')}
         />
 
         <Stack direction="row" spacing={2}>
           <TextField
-            label="Period Start"
+            label={t('panel.periodStart')}
             type="date"
             value={periodStart}
             onChange={(e) => {
@@ -223,7 +214,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             error={!!dateError}
           />
           <TextField
-            label="Period End"
+            label={t('panel.periodEnd')}
             type="date"
             value={periodEnd}
             onChange={(e) => {
@@ -252,7 +243,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
               },
             }}
           >
-            {evaluateMutation.isPending ? 'Evaluating...' : 'Evaluate Measure'}
+            {evaluateMutation.isPending ? t('panel.evaluating') : t('panel.evaluateMeasure')}
           </GradientButton>
           {selectedDef && (
             <Button
@@ -261,7 +252,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
               startIcon={<ScheduleIcon />}
               onClick={() => setShowSchedules(true)}
             >
-              Schedules
+              {t('panel.schedules')}
             </Button>
           )}
         </Stack>
@@ -270,7 +261,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
 
         {evaluateMutation.isError && (
           <Alert severity="error">
-            Evaluation failed: {(evaluateMutation.error as Error).message}
+            {t('panel.evaluationFailed', { error: extractApiError(evaluateMutation.error) })}
           </Alert>
         )}
 
@@ -302,7 +293,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                 {result.groups?.map((group) => (
                   <Box key={group.groupId} mb={2}>
                     <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.primary' }}>
-                      {group.description || `Group: ${group.groupId}`}
+                      {group.description || t('evaluationResult.groupLabel', { groupId: group.groupId })}
                     </Typography>
 
                     {group.measureScore !== undefined && group.measureScore !== null && (
@@ -311,23 +302,23 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                           sx={{
                             fontSize: '3rem',
                             fontWeight: 700,
-                            color: getScoreHex(group.measureScore),
+                            color: getScoreThemeColor(group.measureScore),
                             lineHeight: 1.1,
                           }}
                         >
                           {group.measureScore.toFixed(1)}%
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
-                          Measure Score
+                          {t('evaluationResult.measureScore')}
                         </Typography>
                         <LinearProgress
                           variant="determinate"
                           value={Math.min(group.measureScore, 100)}
-                          color={getScoreColor(group.measureScore) as 'success' | 'warning' | 'error'}
+                          color={getScoreChipColor(group.measureScore) as 'success' | 'warning' | 'error'}
                           sx={{
                             height: 10,
                             borderRadius: 5,
-                            bgcolor: 'rgba(13,115,119,0.08)',
+                            bgcolor: (theme) => `${theme.palette.primary.main}14`,
                           }}
                         />
                       </Box>
@@ -337,9 +328,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell scope="col">Population</TableCell>
-                            <TableCell scope="col" align="right">Count</TableCell>
-                            <TableCell scope="col">Subjects</TableCell>
+                            <TableCell scope="col">{t('evaluationResult.tableHeaders.population')}</TableCell>
+                            <TableCell scope="col" align="right">{t('evaluationResult.tableHeaders.count')}</TableCell>
+                            <TableCell scope="col">{t('evaluationResult.tableHeaders.subjects')}</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -352,7 +343,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                               </TableCell>
                               <TableCell align="right">
                                 <Chip
-                                  label={pop.count ?? 'N/A'}
+                                  label={pop.count ?? t('evaluationResult.na')}
                                   size="small"
                                   color={pop.count && pop.count > 0 ? 'primary' : 'default'}
                                 />
@@ -376,11 +367,11 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                         <Stack direction="row" alignItems="center" spacing={1}
                           onClick={() => setStratExpanded(!stratExpanded)}
                           sx={{ cursor: 'pointer' }}>
-                          <IconButton size="small" aria-label="Toggle stratification details">
+                          <IconButton size="small" aria-label={t('evaluationResult.toggleStratification')}>
                             {stratExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
                           <Typography variant="subtitle2">
-                            Stratification ({group.stratifiers.length} strata)
+                            {t('evaluationResult.stratification', { count: group.stratifiers.length })}
                           </Typography>
                         </Stack>
                         <Collapse in={stratExpanded}>
@@ -388,15 +379,15 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                             <Table size="small">
                               <TableHead>
                                 <TableRow>
-                                  <TableCell scope="col">Stratum</TableCell>
-                                  <TableCell scope="col">Value</TableCell>
-                                  <TableCell scope="col" align="right">Score</TableCell>
-                                  <TableCell scope="col">Populations</TableCell>
+                                  <TableCell scope="col">{t('evaluationResult.stratificationHeaders.stratum')}</TableCell>
+                                  <TableCell scope="col">{t('evaluationResult.stratificationHeaders.value')}</TableCell>
+                                  <TableCell scope="col" align="right">{t('evaluationResult.stratificationHeaders.score')}</TableCell>
+                                  <TableCell scope="col">{t('evaluationResult.stratificationHeaders.populations')}</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {group.stratifiers.map((strat: StratifierResult, idx: number) => (
-                                  <TableRow key={idx}>
+                                {group.stratifiers.map((strat: StratifierResult) => (
+                                  <TableRow key={`${strat.strataId}-${strat.strataValue}`}>
                                     <TableCell>
                                       <Typography variant="body2" fontWeight={500}>{strat.strataId}</Typography>
                                     </TableCell>
@@ -406,7 +397,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                     <TableCell align="right">
                                       {strat.measureScore != null && (
                                         <Typography variant="body2" sx={{
-                                          color: getScoreHex(strat.measureScore),
+                                          color: getScoreThemeColor(strat.measureScore),
                                           fontWeight: 600,
                                         }}>
                                           {strat.measureScore.toFixed(1)}%
@@ -415,9 +406,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                     </TableCell>
                                     <TableCell>
                                       <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                        {strat.populations?.map((pop, pidx) => (
+                                        {strat.populations?.map((pop) => (
                                           <Chip
-                                            key={pidx}
+                                            key={pop.populationType}
                                             label={`${getPopulationLabel(pop.populationType)}: ${pop.count ?? 0}`}
                                             size="small"
                                             variant="outlined"
@@ -439,15 +430,16 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                 {result.supplementalData && Object.keys(result.supplementalData).length > 0 && (
                   <Box mt={2}>
                     <Typography variant="subtitle2" gutterBottom>
-                      Supplemental Data
+                      {t('evaluationResult.supplementalData')}
                     </Typography>
                     <Box
                       component="pre"
                       sx={{
                         p: 2,
-                        bgcolor: '#F8FAFB',
+                        bgcolor: 'action.hover',
                         borderRadius: '8px',
-                        border: '1px solid rgba(13,115,119,0.1)',
+                        border: '1px solid',
+                        borderColor: 'divider',
                         fontSize: '0.75rem',
                         overflow: 'auto',
                         fontFamily: '"Consolas", monospace',
@@ -465,7 +457,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
 
         {!result && !evaluateMutation.isPending && (
           <Typography variant="body2" color="text.secondary" textAlign="center">
-            Enter measure details and click "Evaluate Measure" to see results.
+            {t('panel.emptyState')}
           </Typography>
         )}
       </Stack>

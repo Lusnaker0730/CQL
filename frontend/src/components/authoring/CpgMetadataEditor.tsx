@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField,
   Typography, Box, LinearProgress, IconButton, Divider, Switch, FormControlLabel,
@@ -19,6 +20,8 @@ interface ContactDetail {
 }
 
 export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }: CpgMetadataEditorProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [local, setLocal] = useState<Record<string, unknown>>({})
 
   useEffect(() => {
@@ -79,14 +82,14 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        CPG on FHIR Metadata
-        <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
+        {t('cpg.title')}
+        <IconButton onClick={onClose} size="small" aria-label={tc('actions.close')}><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
         {/* Progress bar */}
         <Box sx={{ mb: 3 }}>
           <Stack direction="row" justifyContent="space-between" mb={0.5}>
-            <Typography variant="caption" color="text.secondary">Completion</Typography>
+            <Typography variant="caption" color="text.secondary">{t('cpg.completion')}</Typography>
             <Typography variant="caption" color="text.secondary">{progress}%</Typography>
           </Stack>
           <LinearProgress
@@ -99,22 +102,22 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
         <Stack spacing={2.5}>
           {/* Basic Info */}
           <TextField
-            label="Canonical URL"
+            label={t('cpg.canonicalUrl')}
             size="small"
             fullWidth
             value={local.url || ''}
             onChange={(e) => update('url', e.target.value)}
-            placeholder="https://example.org/Library/MyArtifact"
+            placeholder={t('cpg.canonicalPlaceholder')}
           />
           <TextField
-            label="Publisher"
+            label={t('cpg.publisher')}
             size="small"
             fullWidth
             value={local.publisher || ''}
             onChange={(e) => update('publisher', e.target.value)}
           />
           <TextField
-            label="Purpose"
+            label={t('cpg.purpose')}
             size="small"
             fullWidth
             multiline
@@ -123,7 +126,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
             onChange={(e) => update('purpose', e.target.value)}
           />
           <TextField
-            label="Usage / Description"
+            label={t('cpg.usageDescription')}
             size="small"
             fullWidth
             multiline
@@ -132,7 +135,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
             onChange={(e) => update('usageInfo', e.target.value)}
           />
           <TextField
-            label="Copyright"
+            label={t('cpg.copyright')}
             size="small"
             fullWidth
             value={local.copyright || ''}
@@ -145,16 +148,16 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                 onChange={(e) => update('experimental', e.target.checked)}
               />
             }
-            label="Experimental"
+            label={t('cpg.experimental')}
           />
 
           <Divider />
 
           {/* Dates */}
-          <Typography variant="subtitle2">Dates</Typography>
+          <Typography variant="subtitle2">{t('cpg.dates')}</Typography>
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Approval Date"
+              label={t('cpg.approvalDate')}
               type="date"
               size="small"
               fullWidth
@@ -163,7 +166,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               InputLabelProps={{ shrink: true }}
             />
             <TextField
-              label="Last Review Date"
+              label={t('cpg.lastReviewDate')}
               type="date"
               size="small"
               fullWidth
@@ -174,7 +177,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
           </Stack>
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Effective Period Start"
+              label={t('cpg.effectivePeriodStart')}
               type="date"
               size="small"
               fullWidth
@@ -183,7 +186,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               InputLabelProps={{ shrink: true }}
             />
             <TextField
-              label="Effective Period End"
+              label={t('cpg.effectivePeriodEnd')}
               type="date"
               size="small"
               fullWidth
@@ -198,22 +201,28 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
           {/* Contacts: Author, Reviewer, Endorser */}
           {(['author', 'reviewer', 'endorser'] as const).map((key) => {
             const c = contacts(key)
+            const contactLabels = {
+              author: { title: t('cpg.authors'), add: t('cpg.addAuthor'), name: t('cpg.authorName'), remove: t('cpg.removeAuthor') },
+              reviewer: { title: t('cpg.reviewers'), add: t('cpg.addReviewer'), name: t('cpg.reviewerName'), remove: t('cpg.removeReviewer') },
+              endorser: { title: t('cpg.endorsers'), add: t('cpg.addEndorser'), name: t('cpg.endorserName'), remove: t('cpg.removeEndorser') },
+            }
+            const labels = contactLabels[key]
             return (
               <Box key={key}>
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                  <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>{key}s</Typography>
-                  <IconButton size="small" onClick={c.add}><AddIcon fontSize="small" /></IconButton>
+                  <Typography variant="subtitle2">{labels.title}</Typography>
+                  <IconButton size="small" onClick={c.add} aria-label={labels.add}><AddIcon fontSize="small" /></IconButton>
                 </Stack>
                 {c.list.map((contact, i) => (
                   <Stack key={i} direction="row" spacing={1} mb={0.5} alignItems="center">
                     <TextField
                       size="small"
-                      label={`${key} name`}
+                      label={labels.name}
                       value={contact.name || ''}
                       onChange={(e) => c.updateName(i, e.target.value)}
                       sx={{ flex: 1 }}
                     />
-                    <IconButton size="small" color="error" onClick={() => c.remove(i)}>
+                    <IconButton size="small" color="error" onClick={() => c.remove(i)} aria-label={labels.remove}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -227,8 +236,8 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
           {/* Related Artifacts */}
           <Box>
             <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-              <Typography variant="subtitle2">Related Artifacts</Typography>
-              <IconButton size="small" onClick={() => update('relatedArtifact', [...relatedArtifacts, { type: 'citation', display: '', url: '' }])}>
+              <Typography variant="subtitle2">{t('cpg.relatedArtifacts')}</Typography>
+              <IconButton size="small" onClick={() => update('relatedArtifact', [...relatedArtifacts, { type: 'citation', display: '', url: '' }])} aria-label={t('cpg.addRelatedArtifact')}>
                 <AddIcon fontSize="small" />
               </IconButton>
             </Stack>
@@ -236,7 +245,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               <Stack key={i} direction="row" spacing={1} mb={0.5} alignItems="center">
                 <TextField
                   size="small"
-                  label="Type"
+                  label={t('cpg.typeLabel')}
                   select
                   value={ra.type || 'citation'}
                   onChange={(e) => {
@@ -252,7 +261,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                 </TextField>
                 <TextField
                   size="small"
-                  label="Display"
+                  label={t('cpg.displayLabel')}
                   value={(ra.display as string) || ''}
                   onChange={(e) => {
                     const updated = [...relatedArtifacts]
@@ -263,7 +272,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                 />
                 <TextField
                   size="small"
-                  label="URL"
+                  label={t('cpg.urlLabel')}
                   value={(ra.url as string) || ''}
                   onChange={(e) => {
                     const updated = [...relatedArtifacts]
@@ -272,7 +281,7 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                   }}
                   sx={{ flex: 1 }}
                 />
-                <IconButton size="small" color="error" onClick={() => update('relatedArtifact', relatedArtifacts.filter((_, idx) => idx !== i))}>
+                <IconButton size="small" color="error" onClick={() => update('relatedArtifact', relatedArtifacts.filter((_, idx) => idx !== i))} aria-label={t('cpg.removeRelatedArtifact')}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -281,8 +290,8 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave}>Save Metadata</Button>
+        <Button onClick={onClose}>{tc('actions.cancel')}</Button>
+        <Button variant="contained" onClick={handleSave}>{t('cpg.saveMetadata')}</Button>
       </DialogActions>
     </Dialog>
   )

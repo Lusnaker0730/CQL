@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { AUTOSAVE_FAST_MS } from '../../constants/timing'
+import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -13,18 +16,21 @@ import {
   Autocomplete,
   Tabs,
   Tab,
+  useTheme,
 } from '@mui/material'
 import {
   Save as SaveIcon,
   Close as CloseIcon,
   ViewModule as BuilderIcon,
   Code as JsonIcon,
+  CloudDownload as EhrImportIcon,
 } from '@mui/icons-material'
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import { useTestCaseDraft, clearTestCaseDraft } from '../../hooks/useTestCaseDraft'
 import {
   BundleBuilderProvider,
   useBundleBuilder,
@@ -33,6 +39,8 @@ import {
 } from '../../contexts/BundleBuilderContext'
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import type { TestCase, MeasureDefinition } from '../../types'
+import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
+import { TEST_CASE } from '../../constants/fieldConstraints'
 
 interface TestCaseEditorProps {
   measure: MeasureDefinition
@@ -42,14 +50,14 @@ interface TestCaseEditorProps {
   readOnly?: boolean
 }
 
-const POPULATION_TYPES = [
-  { key: 'initial-population', label: 'Initial Population' },
-  { key: 'denominator', label: 'Denominator' },
-  { key: 'denominator-exclusion', label: 'Denominator Exclusion' },
-  { key: 'denominator-exception', label: 'Denominator Exception' },
-  { key: 'numerator', label: 'Numerator' },
-  { key: 'numerator-exclusion', label: 'Numerator Exclusion' },
-]
+const POPULATION_KEYS = [
+  'initial-population',
+  'denominator',
+  'denominator-exclusion',
+  'denominator-exception',
+  'numerator',
+  'numerator-exclusion',
+] as const
 
 const DEFAULT_BUNDLE = `{
   "resourceType": "Bundle",
@@ -59,6 +67,35 @@ const DEFAULT_BUNDLE = `{
       "resource": {
         "resourceType": "Patient",
         "id": "test-patient-1",
+        "meta": {
+          "profile": [
+            "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Patient-twcore"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "official",
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "NNxxx",
+                  "display": "National Person Identifier"
+                }
+              ]
+            },
+            "system": "http://www.moi.gov.tw/",
+            "value": "A123456789"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "text": "Test Patient",
+            "family": "Patient",
+            "given": ["Test"]
+          }
+        ],
         "gender": "female",
         "birthDate": "1960-01-01"
       }
@@ -67,6 +104,8 @@ const DEFAULT_BUNDLE = `{
 }`
 
 function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: TestCaseEditorProps) {
+  const { t } = useTranslation('measures')
+  const theme = useTheme()
   const queryClient = useQueryClient()
   const isNew = !testCase?.id
   const { state, dispatch } = useBundleBuilder()
@@ -86,18 +125,58 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
   const existingSeries: string[] = []
   const [isDirty, setIsDirty] = useState(false)
   const [bundleTab, setBundleTab] = useState(0) // 0 = Visual, 1 = JSON
+  const [showDraftAlert, setShowDraftAlert] = useState(false)
+  const [ehrImportOpen, setEhrImportOpen] = useState(false)
   useUnsavedChangesGuard(isDirty)
+
+  // Draft auto-save
+  const { restoredDraft, dismissDraft } = useTestCaseDraft({
+    measureId: measure.id!,
+    testCaseId: testCase?.id ?? null,
+    title,
+    description,
+    bundleJson,
+    expectedPops,
+    series,
+  })
+
+  // Restore draft on mount (only once)
+  const draftAppliedRef = useRef(false)
+  useEffect(() => {
+    if (restoredDraft && !draftAppliedRef.current) {
+      draftAppliedRef.current = true
+      setTitle(restoredDraft.title)
+      setDescription(restoredDraft.description)
+      setBundleJson(restoredDraft.bundleJson)
+      setExpectedPops(restoredDraft.expectedPops)
+      setSeries(restoredDraft.series)
+      setShowDraftAlert(true)
+      try {
+        const entries = parseFromBundle(restoredDraft.bundleJson)
+        if (entries.length > 0) {
+          dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+        }
+      } catch {
+        // Invalid JSON in draft — user can fix in JSON tab
+      }
+    }
+  }, [restoredDraft, dispatch])
 
   // Track whether sync is in progress to prevent loops
   const syncingRef = useRef(false)
   const initializedRef = useRef(false)
+
+  // Track bundleJson in a ref so the initialization effect can read the
+  // current value without re-running when bundleJson changes
+  const bundleJsonRef = useRef(bundleJson)
+  bundleJsonRef.current = bundleJson
 
   // Initialize builder from existing JSON on mount
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true
       try {
-        const entries = parseFromBundle(bundleJson)
+        const entries = parseFromBundle(bundleJsonRef.current)
         if (entries.length > 0) {
           dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
         }
@@ -105,16 +184,21 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         // Invalid JSON — user will see error in JSON tab
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dispatch])
 
+  // Only reset editor state when switching to a DIFFERENT test case, not on
+  // same-test-case reference changes (e.g. React Query refetch).
+  const prevTestCaseIdRef = useRef(testCase?.id)
   useEffect(() => {
-    if (testCase) {
+    if (testCase && testCase.id !== prevTestCaseIdRef.current) {
+      prevTestCaseIdRef.current = testCase.id
       setTitle(testCase.title)
       setDescription(testCase.description || '')
       const json = testCase.patientBundleJson || DEFAULT_BUNDLE
       setBundleJson(json)
       setExpectedPops(testCase.expectedPopulations || {})
       setSeries(testCase.series || '')
+      setIsDirty(false)
       try {
         const entries = parseFromBundle(json)
         dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
@@ -122,7 +206,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         // ignore
       }
     }
-  }, [testCase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [testCase, dispatch])
 
   // Sync: Visual Builder → JSON (when entries change)
   useEffect(() => {
@@ -137,20 +221,20 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     }
   }, [state.entries])
 
-  const validateBundle = (json: string): boolean => {
+  const validateBundle = useCallback((json: string): boolean => {
     try {
       const parsed = JSON.parse(json)
       if (parsed.resourceType !== 'Bundle') {
-        setBundleError('Root resource must be a FHIR Bundle')
+        setBundleError(t('testCaseEditor.validation.invalidBundle'))
         return false
       }
       setBundleError(null)
       return true
     } catch {
-      setBundleError('Invalid JSON')
+      setBundleError(t('testCaseEditor.validation.invalidJson'))
       return false
     }
-  }
+  }, [t])
 
   // Debounced sync: JSON → Visual Builder
   const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -175,9 +259,9 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         } catch {
           // Invalid JSON — don't sync
         }
-      }, 500)
+      }, AUTOSAVE_FAST_MS)
     },
-    [dispatch]
+    [dispatch, validateBundle]
   )
 
   const togglePopulation = (key: string) => {
@@ -204,6 +288,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+      clearTestCaseDraft(measure.id!, testCase?.id ?? null)
       onSaved()
     },
   })
@@ -218,47 +303,92 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">
-          {isNew ? 'New Test Case' : `Edit: ${testCase?.title}`}
+          {isNew ? t('testCaseEditor.newTitle') : t('testCaseEditor.editTitle', { name: testCase?.title })}
         </Typography>
         <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            startIcon={<EhrImportIcon />}
+            onClick={() => setEhrImportOpen(true)}
+            disabled={readOnly}
+          >
+            {t('ehr.importFromEhr', { ns: 'fhir' })}
+          </Button>
           <Button size="small" startIcon={<CloseIcon />} onClick={onClose}>
-            Cancel
+            {t('actions.cancel', { ns: 'common' })}
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
             disabled={!title.trim() || saveMutation.isPending || readOnly}
             onClick={handleSave}
           >
-            {saveMutation.isPending ? 'Saving...' : 'Save'}
+            {saveMutation.isPending ? t('testCaseEditor.saving') : t('testCaseEditor.save')}
           </GradientButton>
         </Stack>
       </Stack>
 
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(saveMutation.error as Error).message}
+          {extractApiError(saveMutation.error)}
+        </Alert>
+      )}
+
+      {showDraftAlert && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                dismissDraft()
+                setShowDraftAlert(false)
+                // Reset to server values
+                setTitle(testCase?.title || '')
+                setDescription(testCase?.description || '')
+                const json = testCase?.patientBundleJson || DEFAULT_BUNDLE
+                setBundleJson(json)
+                setExpectedPops(testCase?.expectedPopulations || {
+                  'initial-population': true, 'denominator': true, 'numerator': false,
+                })
+                setSeries(testCase?.series || '')
+                try {
+                  const entries = parseFromBundle(json)
+                  dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+                } catch { /* ignore */ }
+              }}
+            >
+              {t('testCaseEditor.discardDraft')}
+            </Button>
+          }
+        >
+          {t('testCaseEditor.draftRestored')}
         </Alert>
       )}
 
       <Stack spacing={2}>
         <TextField
-          label="Test Case Title"
+          label={t('testCaseEditor.fields.title')}
           required
           size="small"
           fullWidth
           value={title}
           onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
-          placeholder="e.g. 65yo Female with Diabetes, No HbA1c"
+          placeholder={t('testCaseEditor.fields.titlePlaceholder')}
+          inputProps={{ maxLength: TEST_CASE.title.maxLength }}
         />
 
         <TextField
-          label="Description"
+          label={t('testCaseEditor.fields.description')}
           size="small"
           fullWidth
           multiline
           rows={2}
           value={description}
           onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
+          inputProps={{ maxLength: TEST_CASE.description.maxLength }}
+          helperText={`${description.length} / ${TEST_CASE.description.maxLength}`}
         />
 
         <Autocomplete
@@ -269,11 +399,11 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Series"
+              label={t('testCaseEditor.fields.series')}
               size="small"
               fullWidth
-              placeholder="Group test cases by series name"
-              inputProps={{ ...params.inputProps, maxLength: 250 }}
+              placeholder={t('testCaseEditor.fields.seriesPlaceholder')}
+              inputProps={{ ...params.inputProps, maxLength: TEST_CASE.series.maxLength }}
             />
           )}
         />
@@ -281,23 +411,23 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         <Divider />
 
         <Typography variant="subtitle2" color="text.secondary">
-          Expected Population Membership
+          {t('testCaseEditor.expectedPopulations')}
         </Typography>
 
         <Paper variant="outlined" sx={{ p: 1.5 }}>
           <Stack spacing={0.5}>
-            {POPULATION_TYPES.map((pop) => (
+            {POPULATION_KEYS.map((key) => (
               <FormControlLabel
-                key={pop.key}
+                key={key}
                 control={
                   <Switch
                     size="small"
-                    checked={!!expectedPops[pop.key]}
-                    onChange={() => togglePopulation(pop.key)}
+                    checked={!!expectedPops[key]}
+                    onChange={() => togglePopulation(key)}
                   />
                 }
                 label={
-                  <Typography variant="body2">{pop.label}</Typography>
+                  <Typography variant="body2">{t(`testCaseEditor.populationTypes.${key}`)}</Typography>
                 }
               />
             ))}
@@ -315,13 +445,13 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
             <Tab
               icon={<BuilderIcon sx={{ fontSize: 18 }} />}
               iconPosition="start"
-              label="Visual Builder"
+              label={t('testCaseEditor.tabs.visualBuilder')}
               sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.85rem' }}
             />
             <Tab
               icon={<JsonIcon sx={{ fontSize: 18 }} />}
               iconPosition="start"
-              label="JSON (Advanced)"
+              label={t('testCaseEditor.tabs.jsonAdvanced')}
               sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.85rem' }}
             />
           </Tabs>
@@ -341,6 +471,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
                 <Editor
                   height="300px"
                   language="json"
+                  theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                   value={bundleJson}
                   onChange={(v) => handleBundleChange(v || '')}
                   options={{
@@ -357,6 +488,23 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           )}
         </Box>
       </Stack>
+
+      {ehrImportOpen && (
+        <EhrImportForTestCase
+          open={ehrImportOpen}
+          measureId={measure.id}
+          onClose={() => setEhrImportOpen(false)}
+          onImported={(json) => {
+            setBundleJson(json)
+            setIsDirty(true)
+            try {
+              const entries = parseFromBundle(json)
+              dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+            } catch { /* ignore parse errors */ }
+            setEhrImportOpen(false)
+          }}
+        />
+      )}
     </Box>
   )
 }

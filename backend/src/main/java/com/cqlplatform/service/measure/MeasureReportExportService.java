@@ -3,6 +3,7 @@ package com.cqlplatform.service.measure;
 import com.cqlplatform.entity.MeasureReportEntity;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.*;
+import com.cqlplatform.util.CsvUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -44,7 +45,7 @@ public class MeasureReportExportService {
         ObjectNode fhirReport = MAPPER.createObjectNode();
         fhirReport.put("resourceType", "MeasureReport");
         fhirReport.put("id", report.getId().toString());
-        fhirReport.put("status", report.getStatus() != null ? report.getStatus() : "complete");
+        fhirReport.put("status", report.getStatus() != null ? report.getStatus() : com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
         fhirReport.put("type", report.getReportType() != null ? report.getReportType() : "summary");
         fhirReport.put("measure", report.getMeasureName());
 
@@ -65,7 +66,7 @@ public class MeasureReportExportService {
                         ObjectNode code = popNode.putObject("code");
                         ArrayNode coding = code.putArray("coding");
                         ObjectNode codeEntry = coding.addObject();
-                        codeEntry.put("system", "http://terminology.hl7.org/CodeSystem/measure-population");
+                        codeEntry.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_POPULATION);
                         codeEntry.put("code", pop.getPopulationType());
                         popNode.put("count", pop.getCount() != null ? pop.getCount() : 0);
                     }
@@ -130,22 +131,22 @@ public class MeasureReportExportService {
 
     private ResponseEntity<byte[]> exportAsCsv(MeasureReportEntity report) {
         StringBuilder csv = new StringBuilder();
-        csv.append("Measure Report: ").append(report.getMeasureName()).append("\n");
+        csv.append("Measure Report: ").append(CsvUtils.escapeCsv(report.getMeasureName())).append("\n");
         csv.append("Period: ").append(report.getPeriodStart()).append(" to ").append(report.getPeriodEnd()).append("\n");
-        csv.append("Status: ").append(report.getStatus()).append("\n\n");
+        csv.append("Status: ").append(CsvUtils.escapeCsv(report.getStatus())).append("\n\n");
 
         MeasureEvaluationResult result = report.getEvaluationResult();
         if (result != null && result.getGroups() != null) {
             for (GroupResult group : result.getGroups()) {
-                csv.append("Group: ").append(group.getGroupId()).append("\n");
+                csv.append("Group: ").append(CsvUtils.escapeCsv(group.getGroupId())).append("\n");
                 if (group.getDescription() != null) {
-                    csv.append("Description: ").append(group.getDescription()).append("\n");
+                    csv.append("Description: ").append(CsvUtils.escapeCsv(group.getDescription())).append("\n");
                 }
                 csv.append("\nPopulation Type,Count\n");
 
                 if (group.getPopulations() != null) {
                     for (PopulationResult pop : group.getPopulations()) {
-                        csv.append(pop.getPopulationType()).append(",")
+                        csv.append(CsvUtils.escapeCsv(pop.getPopulationType())).append(",")
                                 .append(pop.getCount() != null ? pop.getCount() : 0).append("\n");
                     }
                 }
@@ -160,9 +161,9 @@ public class MeasureReportExportService {
                     for (StratifierResult strat : group.getStratifiers()) {
                         if (strat.getPopulations() != null) {
                             for (PopulationResult pop : strat.getPopulations()) {
-                                csv.append(strat.getStrataId()).append(",")
-                                        .append(strat.getStrataValue()).append(",")
-                                        .append(pop.getPopulationType()).append(",")
+                                csv.append(CsvUtils.escapeCsv(strat.getStrataId())).append(",")
+                                        .append(CsvUtils.escapeCsv(strat.getStrataValue())).append(",")
+                                        .append(CsvUtils.escapeCsv(pop.getPopulationType())).append(",")
                                         .append(pop.getCount() != null ? pop.getCount() : 0).append(",")
                                         .append(strat.getMeasureScore() != null ? String.format("%.2f%%", strat.getMeasureScore()) : "")
                                         .append("\n");

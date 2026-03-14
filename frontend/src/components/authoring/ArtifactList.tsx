@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Card,
@@ -25,12 +26,17 @@ import {
   ContentCopy as DuplicateIcon,
   Edit as EditIcon,
 } from '@mui/icons-material'
+import { FixedSizeList } from 'react-window'
 import StatusChip from '../common/StatusChip'
 import GradientButton from '../common/GradientButton'
 import type { ArtifactSummary } from '../../types/authoring'
+import { ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT } from '../../constants/layout'
 
 type SortField = 'name' | 'version' | 'status' | 'updatedAt'
 type SortDir = 'asc' | 'desc'
+
+/** Fixed column widths so the header table and virtualised body rows stay aligned. */
+const COL_WIDTHS = { name: '40%', version: '12%', status: '12%', updated: '20%', actions: '16%' } as const
 
 interface ArtifactListProps {
   artifacts: ArtifactSummary[]
@@ -53,6 +59,8 @@ export default function ArtifactList({
   onDelete,
   onDuplicate,
 }: ArtifactListProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('updatedAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -92,16 +100,16 @@ export default function ArtifactList({
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">CDS Artifacts</Typography>
+          <Typography variant="h6">{t('list.title')}</Typography>
           <Stack direction="row" spacing={1}>
-            <GradientButton onClick={onImport} variant="outlined">Import CQL</GradientButton>
-            <GradientButton onClick={onCreate}>New Artifact</GradientButton>
+            <GradientButton onClick={onImport} variant="outlined">{t('list.importCql')}</GradientButton>
+            <GradientButton onClick={onCreate}>{t('list.newArtifact')}</GradientButton>
           </Stack>
         </Stack>
 
         <TextField
           size="small"
-          placeholder="Search artifacts..."
+          placeholder={t('list.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
@@ -116,7 +124,7 @@ export default function ArtifactList({
 
         {!!error && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            Failed to load artifacts
+            {t('list.loadError')}
           </Alert>
         )}
 
@@ -125,11 +133,11 @@ export default function ArtifactList({
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Version</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Updated</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t('list.colName')}</TableCell>
+                  <TableCell>{t('list.colVersion')}</TableCell>
+                  <TableCell>{t('list.colStatus')}</TableCell>
+                  <TableCell>{t('list.colUpdated')}</TableCell>
+                  <TableCell align="right">{t('list.colActions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -148,125 +156,173 @@ export default function ArtifactList({
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color="text.secondary">
-              {search ? 'No artifacts match your search.' : 'No artifacts yet. Create one to get started.'}
+              {search ? t('list.noResults') : t('list.emptyState')}
             </Typography>
           </Box>
         ) : (
-          <TableContainer sx={{ flex: 1 }}>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortField === 'name'}
-                      direction={sortField === 'name' ? sortDir : 'asc'}
-                      onClick={() => handleSort('name')}
-                    >
-                      Name
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortField === 'version'}
-                      direction={sortField === 'version' ? sortDir : 'asc'}
-                      onClick={() => handleSort('version')}
-                    >
-                      Version
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortField === 'status'}
-                      direction={sortField === 'status' ? sortDir : 'asc'}
-                      onClick={() => handleSort('status')}
-                    >
-                      Status
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortField === 'updatedAt'}
-                      direction={sortField === 'updatedAt' ? sortDir : 'asc'}
-                      onClick={() => handleSort('updatedAt')}
-                    >
-                      Updated
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((artifact) => (
-                  <TableRow
-                    key={artifact.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => onSelect(artifact)}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
-                        {artifact.name}
-                      </Typography>
-                      {artifact.description && (
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 300, display: 'block' }}>
-                          {artifact.description}
-                        </Typography>
-                      )}
+          <>
+            <TableContainer>
+              <Table size="small" stickyHeader sx={{ tableLayout: 'fixed' }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: COL_WIDTHS.name }}>
+                      <TableSortLabel
+                        active={sortField === 'name'}
+                        direction={sortField === 'name' ? sortDir : 'asc'}
+                        onClick={() => handleSort('name')}
+                      >
+                        {t('list.colName')}
+                      </TableSortLabel>
                     </TableCell>
-                    <TableCell>{artifact.version}</TableCell>
-                    <TableCell>
-                      <StatusChip status={artifact.status} />
+                    <TableCell sx={{ width: COL_WIDTHS.version }}>
+                      <TableSortLabel
+                        active={sortField === 'version'}
+                        direction={sortField === 'version' ? sortDir : 'asc'}
+                        onClick={() => handleSort('version')}
+                      >
+                        {t('list.colVersion')}
+                      </TableSortLabel>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="caption">
-                        {new Date(artifact.updatedAt).toLocaleDateString()}
-                      </Typography>
+                    <TableCell sx={{ width: COL_WIDTHS.status }}>
+                      <TableSortLabel
+                        active={sortField === 'status'}
+                        direction={sortField === 'status' ? sortDir : 'asc'}
+                        onClick={() => handleSort('status')}
+                      >
+                        {t('list.colStatus')}
+                      </TableSortLabel>
                     </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0} justifyContent="flex-end">
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onSelect(artifact)
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Duplicate">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onDuplicate(artifact.id)
-                            }}
-                          >
-                            <DuplicateIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onDelete(artifact.id)
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
+                    <TableCell sx={{ width: COL_WIDTHS.updated }}>
+                      <TableSortLabel
+                        active={sortField === 'updatedAt'}
+                        direction={sortField === 'updatedAt' ? sortDir : 'asc'}
+                        onClick={() => handleSort('updatedAt')}
+                      >
+                        {t('list.colUpdated')}
+                      </TableSortLabel>
                     </TableCell>
+                    <TableCell sx={{ width: COL_WIDTHS.actions }} align="right">{t('list.colActions')}</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+              </Table>
+            </TableContainer>
+            <ArtifactVirtualList
+              artifacts={filtered}
+              onSelect={onSelect}
+              onDuplicate={onDuplicate}
+              onDelete={onDelete}
+              t={t}
+              tc={tc}
+            />
+          </>
         )}
       </CardContent>
     </Card>
+  )
+}
+
+interface ArtifactVirtualListProps {
+  artifacts: ArtifactSummary[]
+  onSelect: (artifact: ArtifactSummary) => void
+  onDuplicate: (id: number) => void
+  onDelete: (id: number) => void
+  t: (key: string) => string
+  tc: (key: string) => string
+}
+
+function ArtifactVirtualList({
+  artifacts,
+  onSelect,
+  onDuplicate,
+  onDelete,
+  t,
+  tc,
+}: ArtifactVirtualListProps) {
+  const renderRow = useCallback(
+    ({ index, style }: { index: number; style: React.CSSProperties }) => {
+      const artifact = artifacts[index]
+      return (
+        <Table size="small" style={style} key={artifact.id} sx={{ tableLayout: 'fixed' }}>
+          <TableBody>
+            <TableRow
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => onSelect(artifact)}
+            >
+              <TableCell sx={{ width: COL_WIDTHS.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <Typography variant="body2" fontWeight={500} noWrap>
+                  {artifact.name}
+                </Typography>
+                {artifact.description && (
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                    {artifact.description}
+                  </Typography>
+                )}
+              </TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.version }}>{artifact.version}</TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.status }}>
+                <StatusChip status={artifact.status} />
+              </TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.updated }}>
+                <Typography variant="caption">
+                  {new Date(artifact.updatedAt).toLocaleDateString()}
+                </Typography>
+              </TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.actions }} align="right">
+                <Stack direction="row" spacing={0} justifyContent="flex-end">
+                  <Tooltip title={t('list.edit')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelect(artifact)
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('list.duplicate')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDuplicate(artifact.id)
+                      }}
+                    >
+                      <DuplicateIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={tc('actions.delete')}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete(artifact.id)
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      )
+    },
+    [artifacts, onSelect, onDuplicate, onDelete, t, tc]
+  )
+
+  return (
+    <FixedSizeList
+      height={Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT)}
+      width="100%"
+      itemCount={artifacts.length}
+      itemSize={ARTIFACT_ROW_HEIGHT}
+      overscanCount={5}
+    >
+      {renderRow}
+    </FixedSizeList>
   )
 }

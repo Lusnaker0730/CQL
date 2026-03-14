@@ -20,6 +20,7 @@ import {
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
@@ -29,6 +30,7 @@ import {
   extractPaginationLinks,
   extractSearchParamsFromUrl,
 } from '../../utils/fhirBrowserUtils'
+import type { FhirResource } from '../../utils/fhirBrowserUtils'
 import ResourceDetailDialog from './ResourceDetailDialog'
 import ResourceEditorDialog from './ResourceEditorDialog'
 import SearchParamBuilder from './SearchParamBuilder'
@@ -36,17 +38,33 @@ import QueryHistory from './QueryHistory'
 import useFhirQueryHistory from '../../hooks/useFhirQueryHistory'
 import type { HistoryEntry } from '../../hooks/useFhirQueryHistory'
 
+/** A single entry in a FHIR Bundle search response. */
+interface FhirBundleEntry {
+  resource?: FhirResource
+  fullUrl?: string
+  search?: { mode?: string; score?: number }
+}
+
+/** A FHIR Bundle returned from a search operation. */
+interface FhirBundle extends Record<string, unknown> {
+  resourceType: 'Bundle'
+  type?: string
+  total?: number
+  entry?: FhirBundleEntry[]
+  link?: Array<{ relation: string; url: string }>
+}
+
 interface SearchTabProps {
   fhirServer: string
   resourceType: string
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) {
+  const { t } = useTranslation('fhir')
   const [searchParams, setSearchParams] = useState('')
   const [searchMode, setSearchMode] = useState<'structured' | 'raw'>('structured')
-  const [searchResult, setSearchResult] = useState<any>(null)
-  const [selectedResource, setSelectedResource] = useState<any>(null)
+  const [searchResult, setSearchResult] = useState<FhirBundle | null>(null)
+  const [selectedResource, setSelectedResource] = useState<FhirResource | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -59,7 +77,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
       return fhirApi.search(rt, p, fhirServer)
     },
     onSuccess: (data) => {
-      setSearchResult(data)
+      setSearchResult(data as FhirBundle)
       addEntry(resourceType, searchParams, fhirServer)
     },
   })
@@ -81,10 +99,10 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     searchMutation.mutate({ type: rt, raw: params })
   }
 
-  const entries: any[] = searchResult?.entry || []
+  const entries: FhirBundleEntry[] = searchResult?.entry || []
   const fields = getDisplayFields(resourceType)
 
-  const handleRowClick = (resource: any) => {
+  const handleRowClick = (resource: FhirResource) => {
     setSelectedResource(resource)
     setDetailOpen(true)
   }
@@ -124,7 +142,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           startIcon={searchMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
           sx={{ '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
         >
-          {searchMutation.isPending ? 'Searching...' : 'Search'}
+          {searchMutation.isPending ? t('search.searching') : t('search.searchButton')}
         </GradientButton>
         <Button
           variant="outlined"
@@ -133,13 +151,13 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           onClick={() => setCreateOpen(true)}
           sx={{ textTransform: 'none' }}
         >
-          Create Resource
+          {t('search.createResource')}
         </Button>
       </Stack>
 
       {searchMutation.isError && (
         <Alert severity="error">
-          Search failed: {(searchMutation.error as Error).message}
+          {t('search.searchFailed', { error: (searchMutation.error as Error).message })}
         </Alert>
       )}
 
@@ -147,11 +165,11 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" mb={1} justifyContent="space-between">
             <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="subtitle2">Results</Typography>
+              <Typography variant="subtitle2">{t('search.results')}</Typography>
               <Chip
-                label={`${getResourceCount(searchResult)} resources`}
+                label={t('search.resourceCount', { count: getResourceCount(searchResult) })}
                 size="small"
-                sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }}
+                sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.main', fontWeight: 600 }}
               />
             </Stack>
             <Stack direction="row" spacing={0.5}>
@@ -162,7 +180,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                   onClick={() => handlePageNav(paginationLinks.prev!)}
                   disabled={searchMutation.isPending}
                 >
-                  Prev
+                  {t('search.prev')}
                 </Button>
               )}
               {paginationLinks.next && (
@@ -172,7 +190,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                   onClick={() => handlePageNav(paginationLinks.next!)}
                   disabled={searchMutation.isPending}
                 >
-                  Next
+                  {t('search.next')}
                 </Button>
               )}
             </Stack>
@@ -181,24 +199,25 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           {entries.length > 0 ? (
             <TableContainer
               sx={{
-                bgcolor: '#F8FAFB',
+                bgcolor: 'action.hover',
                 borderRadius: '8px',
-                border: '1px solid rgba(13,115,119,0.1)',
+                border: '1px solid',
+                borderColor: 'divider',
               }}
             >
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('search.colType')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('search.colId')}</TableCell>
                     {fields.map(f => (
                       <TableCell key={f.key} sx={{ fontWeight: 600 }}>{f.label}</TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {entries.map((entry: any, idx: number) => {
-                    const resource = entry.resource || {}
+                  {entries.map((entry, idx) => {
+                    const resource: FhirResource = entry.resource || { resourceType: '' }
                     return (
                       <TableRow
                         key={idx}
@@ -222,7 +241,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
               </Table>
             </TableContainer>
           ) : (
-            <Alert severity="info">No resources found.</Alert>
+            <Alert severity="info">{t('search.noResources')}</Alert>
           )}
         </Box>
       )}
@@ -252,4 +271,3 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     </Stack>
   )
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */

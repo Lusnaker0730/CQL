@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Stack,
@@ -10,6 +11,10 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material'
 import {
   ExpandMore as ExpandMoreIcon,
@@ -24,14 +29,20 @@ import ConceptsSection from './ConceptsSection'
 import ParametersSection from './ParametersSection'
 import DefinitionsSection from './DefinitionsSection'
 import FunctionsSection from './FunctionsSection'
+import ValidationPanel from './ValidationPanel'
+import BaseElementsPanel from './BaseElementsPanel'
+import ExpressionTreeView from './ExpressionTreeView'
 
 import type { CqlElementType } from '../../utils/cqlElementLocator'
+import { extractCqlName } from '../../utils/cqlNames'
 
 interface CqlBuilderPanelProps {
   onInsertSnippet: (snippet: string) => void
   onDeleteElement?: (type: CqlElementType, identifier: string) => void
   onGoToElement?: (type: CqlElementType, identifier: string) => void
   onEditElement?: (type: CqlElementType, identifier: string, newSnippet: string) => void
+  /** Called on every editor content change — drives debounced CQL structure parsing */
+  editorContent?: string
 }
 
 export default function CqlBuilderPanel({
@@ -39,9 +50,19 @@ export default function CqlBuilderPanel({
   onDeleteElement,
   onGoToElement,
   onEditElement,
+  editorContent,
 }: CqlBuilderPanelProps) {
-  const { structure, isParsing, parseError, parse } = useCqlStructure()
+  const { t } = useTranslation('builder')
+  const { structure, isParsing, parseError, parse, notifyContentChanged } = useCqlStructure()
+
+  // Feed editor content changes into the debounced parser
+  useEffect(() => {
+    if (editorContent !== undefined) {
+      notifyContentChanged(editorContent)
+    }
+  }, [editorContent, notifyContentChanged])
   const [expanded, setExpanded] = useState<string | false>('includes')
+  const [duplicateWarning, setDuplicateWarning] = useState<{ name: string; snippet: string } | null>(null)
 
   // Keep Monaco IntelliSense in sync with CQL structure
   useEffect(() => { updateCqlStructure(structure) }, [structure])
@@ -50,26 +71,42 @@ export default function CqlBuilderPanel({
     setExpanded(isExpanded ? panel : false)
   }
 
-  const handleAutoIncludeC3F = (snippet: string) => {
-    if (snippet.includes('C3F.') && !structure.includes.some((inc) => inc.includes('called C3F'))) {
-      const c3fInclude = `include CDS_Connect_Commons_for_FHIRv401 version '1.1.1' called C3F`
-      onInsertSnippet(c3fInclude)
-      // Small delay to avoid race with content update
-      setTimeout(() => onInsertSnippet(snippet), 50)
-    } else {
-      onInsertSnippet(snippet)
+  // Extract identifier name from a CQL snippet
+  const extractSnippetName = useCallback((snippet: string): string | null => {
+    const m = snippet.match(/^(?:define|parameter|valueset|codesystem|code|concept|include)\s+"([^"]+)"/)
+    return m ? m[1] : null
+  }, [])
+
+  // Collect all known names from the current structure
+  const getAllNames = useCallback((): string[] => {
+    return [
+      ...structure.expressions.map((e) => e.name),
+      ...structure.functions.map((f) => f.name),
+      ...structure.parameters.map(extractCqlName),
+      ...structure.valueSets.map(extractCqlName),
+      ...structure.codes.map(extractCqlName),
+    ]
+  }, [structure])
+
+  // Wrap insert with duplicate name check
+  const handleInsertWithCheck = useCallback((snippet: string) => {
+    const name = extractSnippetName(snippet)
+    if (name && getAllNames().includes(name)) {
+      setDuplicateWarning({ name, snippet })
+      return
     }
-  }
+    onInsertSnippet(snippet)
+  }, [extractSnippetName, getAllNames, onInsertSnippet])
 
   const sections = [
     {
       id: 'includes',
-      label: 'Includes',
+      label: t('sections.includes'),
       count: structure.includes.length,
       content: (
         <IncludesSection
           includes={structure.includes}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('include', id)}
           onGoTo={(id) => onGoToElement?.('include', id)}
           onEdit={(id, snippet) => onEditElement?.('include', id, snippet)}
@@ -78,12 +115,12 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'valueSets',
-      label: 'Value Sets',
+      label: t('sections.valueSets'),
       count: structure.valueSets.length,
       content: (
         <ValueSetSection
           valueSets={structure.valueSets}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('valueset', id)}
           onGoTo={(id) => onGoToElement?.('valueset', id)}
           onEdit={(id, snippet) => onEditElement?.('valueset', id, snippet)}
@@ -92,12 +129,12 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'codes',
-      label: 'Codes',
+      label: t('sections.codes'),
       count: structure.codes.length,
       content: (
         <CodesSection
           codes={structure.codes}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('code', id)}
           onGoTo={(id) => onGoToElement?.('code', id)}
           onEdit={(id, snippet) => onEditElement?.('code', id, snippet)}
@@ -106,13 +143,13 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'concepts',
-      label: 'Concepts',
+      label: t('sections.concepts'),
       count: structure.concepts.length,
       content: (
         <ConceptsSection
           concepts={structure.concepts}
           codes={structure.codes}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('concept', id)}
           onGoTo={(id) => onGoToElement?.('concept', id)}
           onEdit={(id, snippet) => onEditElement?.('concept', id, snippet)}
@@ -121,12 +158,12 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'parameters',
-      label: 'Parameters',
+      label: t('sections.parameters'),
       count: structure.parameters.length,
       content: (
         <ParametersSection
           parameters={structure.parameters}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('parameter', id)}
           onGoTo={(id) => onGoToElement?.('parameter', id)}
           onEdit={(id, snippet) => onEditElement?.('parameter', id, snippet)}
@@ -135,12 +172,12 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'definitions',
-      label: 'Definitions',
+      label: t('sections.definitions'),
       count: structure.expressions.length,
       content: (
         <DefinitionsSection
           expressions={structure.expressions}
-          onInsert={handleAutoIncludeC3F}
+          onInsert={handleInsertWithCheck}
           valueSets={structure.valueSets}
           codes={structure.codes}
           parameters={structure.parameters}
@@ -152,16 +189,46 @@ export default function CqlBuilderPanel({
     },
     {
       id: 'functions',
-      label: 'Functions',
+      label: t('sections.functions'),
       count: structure.functions.length,
       content: (
         <FunctionsSection
           functions={structure.functions}
-          onInsert={onInsertSnippet}
+          onInsert={handleInsertWithCheck}
           onDelete={(id) => onDeleteElement?.('function', id)}
           onGoTo={(id) => onGoToElement?.('function', id)}
           onEdit={(id, snippet) => onEditElement?.('function', id, snippet)}
         />
+      ),
+    },
+    {
+      id: 'baseElements',
+      label: t('sections.baseElements'),
+      count: 0,
+      content: (
+        <BaseElementsPanel
+          structure={structure}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+        />
+      ),
+    },
+    {
+      id: 'expressionTree',
+      label: t('sections.expressionTree'),
+      count: 0,
+      content: (
+        <ExpressionTreeView
+          structure={structure}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+        />
+      ),
+    },
+    {
+      id: 'validation',
+      label: t('sections.validation'),
+      count: 0,
+      content: (
+        <ValidationPanel structure={structure} parseError={parseError} />
       ),
     },
   ]
@@ -179,7 +246,7 @@ export default function CqlBuilderPanel({
       >
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="subtitle2" fontWeight={600} color="secondary.main">
-            CQL Builder
+            {t('title')}
           </Typography>
           <Button
             size="small"
@@ -188,7 +255,7 @@ export default function CqlBuilderPanel({
             disabled={isParsing}
             sx={{ fontSize: '0.75rem' }}
           >
-            {isParsing ? 'Parsing...' : 'Parse CQL'}
+            {isParsing ? t('parsing') : t('parseCql')}
           </Button>
         </Stack>
         {structure.libraryId && (
@@ -199,7 +266,7 @@ export default function CqlBuilderPanel({
       </Box>
 
       {parseError && (
-        <Alert severity="warning" sx={{ mx: 1, mt: 1, py: 0 }}>
+        <Alert severity="warning" sx={{ mx: 1, mt: 1, py: 0, whiteSpace: 'pre-line' }}>
           {parseError}
         </Alert>
       )}
@@ -212,6 +279,7 @@ export default function CqlBuilderPanel({
             onChange={handleAccordion(section.id)}
             disableGutters
             elevation={0}
+            TransitionProps={{ unmountOnExit: true }}
             sx={{
               '&:before': { display: 'none' },
               border: '1px solid',
@@ -250,6 +318,27 @@ export default function CqlBuilderPanel({
           </Accordion>
         ))}
       </Box>
+
+      <Dialog open={!!duplicateWarning} onClose={() => setDuplicateWarning(null)}>
+        <DialogTitle>{t('duplicateWarning.title')}</DialogTitle>
+        <DialogContent>
+          <Typography>{t('duplicateWarning.message', { name: duplicateWarning?.name })}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDuplicateWarning(null)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (duplicateWarning) {
+                onInsertSnippet(duplicateWarning.snippet)
+                setDuplicateWarning(null)
+              }
+            }}
+          >
+            {t('duplicateWarning.insertAnyway')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

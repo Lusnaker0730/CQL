@@ -1,13 +1,17 @@
+import { memo } from 'react'
 import { Box, CircularProgress, Typography, Stack } from '@mui/material'
+import { PAGE_CONTENT_HEIGHT } from '../../constants/layout'
+import { useTranslation } from 'react-i18next'
 
-export default function PageLoadingFallback() {
+function PageLoadingFallback() {
+  const { t } = useTranslation()
   return (
     <Box
       sx={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: 'calc(100vh - 120px)',
+        minHeight: PAGE_CONTENT_HEIGHT,
         background: (theme) =>
           theme.palette.mode === 'dark'
             ? 'linear-gradient(180deg, #1a1a1a 0%, #121212 100%)'
@@ -15,11 +19,13 @@ export default function PageLoadingFallback() {
       }}
     >
       <Stack alignItems="center" spacing={2}>
-        <CircularProgress sx={{ color: '#0D7377' }} />
+        <CircularProgress sx={{ color: 'primary.main' }} />
         <Typography variant="body2" color="text.secondary">
-          Loading...
+          {t('status.loading')}
         </Typography>
       </Stack>
     </Box>
   )
 }
+
+export default memo(PageLoadingFallback)

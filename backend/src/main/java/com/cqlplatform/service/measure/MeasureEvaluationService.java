@@ -20,6 +20,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 
+import com.cqlplatform.model.measure.EvaluationStatusConstants;
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 /**
  * Orchestrates measure evaluation by delegating to focused services.
  * Flow: discover patients → execute CQL → evaluate populations → stratify → score → save.
@@ -47,10 +50,10 @@ public class MeasureEvaluationService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter measureEvaluationErrorCounter;
 
-    @Value("${measure.reporting.default-period-start:2024-01-01}")
+    @Value("${measure.reporting.default-period-start:}")
     private String defaultPeriodStart;
 
-    @Value("${measure.reporting.default-period-end:2024-12-31}")
+    @Value("${measure.reporting.default-period-end:}")
     private String defaultPeriodEnd;
 
     @Value("${cql.execution.measure-timeout-seconds:120}")
@@ -111,10 +114,17 @@ public class MeasureEvaluationService {
     private MeasureEvaluationContext buildContext(MeasureEvaluationRequest request,
                                                   Long measureDefinitionId,
                                                   MeasureDefinition measureDefinition) {
+        int currentYear = LocalDate.now().getYear();
         LocalDate periodStart = request.getPeriodStart() != null
-                ? request.getPeriodStart() : LocalDate.parse(defaultPeriodStart);
+                ? request.getPeriodStart()
+                : (defaultPeriodStart != null && !defaultPeriodStart.isBlank()
+                        ? LocalDate.parse(defaultPeriodStart)
+                        : LocalDate.of(currentYear, 1, 1));
         LocalDate periodEnd = request.getPeriodEnd() != null
-                ? request.getPeriodEnd() : LocalDate.parse(defaultPeriodEnd);
+                ? request.getPeriodEnd()
+                : (defaultPeriodEnd != null && !defaultPeriodEnd.isBlank()
+                        ? LocalDate.parse(defaultPeriodEnd)
+                        : LocalDate.of(currentYear, 12, 31));
 
         return MeasureEvaluationContext.builder()
                 .request(request)
@@ -191,18 +201,18 @@ public class MeasureEvaluationService {
         }
 
         List<PopulationResult> populations = new ArrayList<>();
-        populations.add(populationResult("initial-population", counts.get("Initial Population")));
-        populations.add(populationResult("denominator", counts.get("Denominator")));
+        populations.add(populationResult(INITIAL_POPULATION, counts.get("Initial Population")));
+        populations.add(populationResult(DENOMINATOR, counts.get("Denominator")));
 
         if (counts.get("Denominator Exclusions") > 0)
-            populations.add(populationResult("denominator-exclusion", counts.get("Denominator Exclusions")));
+            populations.add(populationResult(DENOMINATOR_EXCLUSION, counts.get("Denominator Exclusions")));
         if (counts.get("Denominator Exceptions") > 0)
-            populations.add(populationResult("denominator-exception", counts.get("Denominator Exceptions")));
+            populations.add(populationResult(DENOMINATOR_EXCEPTION, counts.get("Denominator Exceptions")));
 
-        populations.add(populationResult("numerator", counts.get("Numerator")));
+        populations.add(populationResult(NUMERATOR, counts.get("Numerator")));
 
         if (counts.get("Numerator Exclusions") > 0)
-            populations.add(populationResult("numerator-exclusion", counts.get("Numerator Exclusions")));
+            populations.add(populationResult(NUMERATOR_EXCLUSION, counts.get("Numerator Exclusions")));
 
         Double measureScore = scoreCalculator.calculateProportionScore(
                 counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
@@ -211,17 +221,18 @@ public class MeasureEvaluationService {
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
-                .description("Primary measure group (Total Patients: " + totalPatients + ")")
+                .description("Primary measure group")
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit("percentage")
                 .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
+                .totalPatients(totalPatients)
                 .build();
 
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .measureName(context.getMeasureId())
-                .status("complete")
+                .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
                 .reportType(context.getReportType())
@@ -251,15 +262,15 @@ public class MeasureEvaluationService {
 
             // Compute score per group
             Integer denom = populations.stream()
-                    .filter(p -> "denominator".equals(p.getPopulationType()))
+                    .filter(p -> DENOMINATOR.equals(p.getPopulationType()))
                     .map(PopulationResult::getCount)
                     .findFirst().orElse(0);
             Integer denomEx = populations.stream()
-                    .filter(p -> "denominator-exclusion".equals(p.getPopulationType()))
+                    .filter(p -> DENOMINATOR_EXCLUSION.equals(p.getPopulationType()))
                     .map(PopulationResult::getCount)
                     .findFirst().orElse(0);
             Integer numer = populations.stream()
-                    .filter(p -> "numerator".equals(p.getPopulationType()))
+                    .filter(p -> NUMERATOR.equals(p.getPopulationType()))
                     .map(PopulationResult::getCount)
                     .findFirst().orElse(0);
 
@@ -272,17 +283,18 @@ public class MeasureEvaluationService {
 
             groups.add(GroupResult.builder()
                     .groupId(groupDef.getGroupId())
-                    .description(desc + " (Total Patients: " + totalPatients + ")")
+                    .description(desc)
                     .populations(populations)
                     .measureScore(score)
                     .measureScoreUnit("percentage")
+                    .totalPatients(totalPatients)
                     .build());
         }
 
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .measureName(context.getMeasureId())
-                .status("complete")
+                .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
                 .reportType(context.getReportType())

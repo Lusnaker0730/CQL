@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Box, Stack, Typography, Button, IconButton, Select, MenuItem, TextField,
   FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -7,7 +7,11 @@ import {
 import {
   Add as AddIcon, Delete as DeleteIcon, Close as CloseIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import type { Modifier } from '../../../types/authoring'
+import { generateId } from '../../../utils/validation'
+import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
+import { CONJUNCTION_COLOR_AND, CONJUNCTION_COLOR_OR } from '../../../constants/authoringConstants'
 
 /** A single rule: field → operator → value */
 interface ModifierRule {
@@ -25,62 +29,8 @@ interface ModifierRuleGroup {
   groups: ModifierRuleGroup[]
 }
 
-// FHIR resource fields that can be filtered on
-const FHIR_FIELD_MAP: Record<string, Array<{ field: string; label: string; type: string }>> = {
-  list_of_conditions: [
-    { field: 'clinicalStatus', label: 'Clinical Status', type: 'code' },
-    { field: 'verificationStatus', label: 'Verification Status', type: 'code' },
-    { field: 'severity', label: 'Severity', type: 'code' },
-    { field: 'onsetDateTime', label: 'Onset Date', type: 'dateTime' },
-    { field: 'abatementDateTime', label: 'Abatement Date', type: 'dateTime' },
-  ],
-  list_of_observations: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'effectiveDateTime', label: 'Effective Date', type: 'dateTime' },
-    { field: 'valueQuantity.value', label: 'Value (Quantity)', type: 'decimal' },
-    { field: 'valueQuantity.unit', label: 'Value Unit', type: 'string' },
-    { field: 'issued', label: 'Issued Date', type: 'dateTime' },
-  ],
-  list_of_procedures: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'performedDateTime', label: 'Performed Date', type: 'dateTime' },
-  ],
-  list_of_encounters: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'class', label: 'Class', type: 'code' },
-    { field: 'period.start', label: 'Period Start', type: 'dateTime' },
-    { field: 'period.end', label: 'Period End', type: 'dateTime' },
-  ],
-  list_of_medication_requests: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'intent', label: 'Intent', type: 'code' },
-    { field: 'authoredOn', label: 'Authored On', type: 'dateTime' },
-  ],
-  list_of_medication_statements: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'effectiveDateTime', label: 'Effective Date', type: 'dateTime' },
-  ],
-  list_of_allergy_intolerances: [
-    { field: 'clinicalStatus', label: 'Clinical Status', type: 'code' },
-    { field: 'verificationStatus', label: 'Verification Status', type: 'code' },
-    { field: 'type', label: 'Type', type: 'code' },
-    { field: 'criticality', label: 'Criticality', type: 'code' },
-  ],
-  list_of_immunizations: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'occurrenceDateTime', label: 'Occurrence Date', type: 'dateTime' },
-  ],
-  list_of_devices: [
-    { field: 'status', label: 'Status', type: 'code' },
-  ],
-  list_of_service_requests: [
-    { field: 'status', label: 'Status', type: 'code' },
-    { field: 'intent', label: 'Intent', type: 'code' },
-    { field: 'authoredOn', label: 'Authored On', type: 'dateTime' },
-  ],
-}
-
-const OPERATORS_BY_TYPE: Record<string, Array<{ op: string; label: string }>> = {
+// Fallback operators when API data isn't available yet
+const FALLBACK_OPERATORS_BY_TYPE: Record<string, Array<{ op: string; label: string }>> = {
   code: [
     { op: 'equals', label: 'equals' },
     { op: 'not_equals', label: 'does not equal' },
@@ -114,18 +64,28 @@ const OPERATORS_BY_TYPE: Record<string, Array<{ op: string; label: string }>> = 
   ],
 }
 
-const CODE_VALUE_OPTIONS: Record<string, string[]> = {
-  'clinicalStatus': ['active', 'recurrence', 'relapse', 'inactive', 'remission', 'resolved'],
-  'verificationStatus': ['unconfirmed', 'provisional', 'differential', 'confirmed', 'refuted', 'entered-in-error'],
-  'status': ['registered', 'preliminary', 'final', 'amended', 'corrected', 'cancelled', 'entered-in-error', 'unknown', 'active', 'completed', 'on-hold', 'stopped', 'draft', 'requested', 'received', 'accepted', 'in-progress', 'preparation', 'not-done'],
-  'severity': ['severe', 'moderate', 'mild'],
-  'criticality': ['low', 'high', 'unable-to-assess'],
-  'type': ['allergy', 'intolerance'],
-  'intent': ['proposal', 'plan', 'order', 'original-order', 'reflex-order', 'filler-order', 'instance-order', 'option'],
+/** Convert "list_of_xxx" inputType to FHIR resource name, e.g. list_of_conditions → Condition */
+function inputTypeToResourceName(inputType: string): string | null {
+  const m = inputType.match(/^list_of_(.+)$/)
+  if (!m) return null
+  const snake = m[1]
+  // Handle common plurals: conditions→Condition, observations→Observation, etc.
+  const OVERRIDES: Record<string, string> = {
+    allergy_intolerances: 'AllergyIntolerance',
+    medication_requests: 'MedicationRequest',
+    medication_statements: 'MedicationStatement',
+    service_requests: 'ServiceRequest',
+    diagnostic_reports: 'DiagnosticReport',
+  }
+  if (OVERRIDES[snake]) return OVERRIDES[snake]
+  // Default: strip trailing 's', PascalCase
+  const singular = snake.endsWith('s') ? snake.slice(0, -1) : snake
+  return singular.charAt(0).toUpperCase() + singular.slice(1)
 }
 
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 9)
+/** Capitalize first letter of each word for labels: "clinicalStatus" → "Clinical Status" */
+function toLabel(name: string): string {
+  return name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim()
 }
 
 function createEmptyRule(): ModifierRule {
@@ -163,9 +123,68 @@ export default function CustomModifierBuilder({
   inputType,
   onAdd,
 }: CustomModifierBuilderProps) {
+  const { t } = useTranslation('authoring')
   const [rootGroup, setRootGroup] = useState<ModifierRuleGroup>(createEmptyGroup())
+  const { data: apiResources } = useQueryBuilderResources()
+  const { data: apiOperators } = useQueryBuilderOperators()
 
-  const availableFields = FHIR_FIELD_MAP[inputType] || []
+  // Derive field list and code value options from API resources
+  const { availableFields, codeValueOptions } = useMemo(() => {
+    const resourceName = inputTypeToResourceName(inputType)
+    if (!resourceName || !apiResources) return { availableFields: [] as Array<{ field: string; label: string; type: string }>, codeValueOptions: {} as Record<string, string[]> }
+    const resource = apiResources.find((r) => r.name === resourceName)
+    if (!resource) return { availableFields: [] as Array<{ field: string; label: string; type: string }>, codeValueOptions: {} as Record<string, string[]> }
+    const fields = resource.properties.map((p) => ({
+      field: p.name,
+      label: toLabel(p.name),
+      type: p.type === 'CodeableConcept' || p.type === 'Coding' ? 'code' : p.type === 'Quantity' ? 'decimal' : p.type === 'Period' ? 'dateTime' : p.type,
+    }))
+    const codeOpts: Record<string, string[]> = {}
+    for (const p of resource.properties) {
+      if (p.values && p.values.length > 0) {
+        codeOpts[p.name] = p.values
+      }
+    }
+    return { availableFields: fields, codeValueOptions: codeOpts }
+  }, [inputType, apiResources])
+
+  // Derive operators grouped by type from API
+  const operatorsByType = useMemo(() => {
+    if (!apiOperators || apiOperators.length === 0) return FALLBACK_OPERATORS_BY_TYPE
+    const grouped: Record<string, Array<{ op: string; label: string }>> = {}
+    for (const op of apiOperators) {
+      for (const t of op.applicableTypes) {
+        const normalizedType = t === 'CodeableConcept' || t === 'Coding' ? 'code' : t === 'Quantity' ? 'decimal' : t === 'Period' ? 'dateTime' : t
+        if (!grouped[normalizedType]) grouped[normalizedType] = []
+        if (!grouped[normalizedType].some((o) => o.op === op.id)) {
+          grouped[normalizedType].push({ op: op.id, label: op.label })
+        }
+      }
+    }
+    // Add custom operators not in backend (within_last for dateTime, ends_with for string)
+    if (grouped.dateTime && !grouped.dateTime.some((o) => o.op === 'within_last')) {
+      grouped.dateTime.push({ op: 'within_last', label: 'within the last' })
+    }
+    if (grouped.string && !grouped.string.some((o) => o.op === 'ends_with')) {
+      grouped.string.splice(3, 0, { op: 'ends_with', label: 'ends with' })
+    }
+    // Add decimal-specific operators (gt/gte/lt/lte aliases for > >= < <=)
+    if (grouped.decimal) {
+      const aliases = [
+        { op: 'gt', src: 'greater_than', label: '>' },
+        { op: 'gte', src: 'greater_or_equal', label: '>=' },
+        { op: 'lt', src: 'less_than', label: '<' },
+        { op: 'lte', src: 'less_or_equal', label: '<=' },
+      ]
+      for (const a of aliases) {
+        if (!grouped.decimal.some((o) => o.op === a.op)) {
+          const idx = grouped.decimal.findIndex((o) => o.op === a.src)
+          if (idx >= 0) grouped.decimal[idx] = { op: a.op, label: a.label }
+        }
+      }
+    }
+    return grouped
+  }, [apiOperators])
 
   const handleReset = () => {
     setRootGroup(createEmptyGroup())
@@ -175,6 +194,10 @@ export default function CustomModifierBuilder({
     handleReset()
     onClose()
   }
+
+  const getOperatorsForType = useCallback((type: string) => {
+    return operatorsByType[type] || operatorsByType.string || FALLBACK_OPERATORS_BY_TYPE.string
+  }, [operatorsByType])
 
   const handleAdd = () => {
     if (!isGroupValid(rootGroup)) return
@@ -198,23 +221,24 @@ export default function CustomModifierBuilder({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Build Custom Modifier
-        <IconButton onClick={handleClose} size="small"><CloseIcon /></IconButton>
+        {t('customModifier.title')}
+        <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent>
         {availableFields.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 2 }}>
-            Custom modifier builder is not available for the type "{inputType.replace(/_/g, ' ')}".
-            Only FHIR resource list types are supported.
+            {t('customModifier.notAvailable', { type: inputType.replace(/_/g, ' ') })}
           </Typography>
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Build filter rules based on FHIR resource properties. Rules with a pink background are incomplete.
+              {t('customModifier.description')}
             </Typography>
             <RuleGroupEditor
               group={rootGroup}
               availableFields={availableFields}
+              getOperatorsForType={getOperatorsForType}
+              codeValueOptions={codeValueOptions}
               onChange={setRootGroup}
               depth={0}
             />
@@ -222,9 +246,9 @@ export default function CustomModifierBuilder({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose}>{t('common:actions.cancel')}</Button>
         <Button variant="contained" onClick={handleAdd} disabled={!isValid}>
-          Add
+          {t('common:actions.add')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -236,11 +260,14 @@ export default function CustomModifierBuilder({
 interface RuleGroupEditorProps {
   group: ModifierRuleGroup
   availableFields: Array<{ field: string; label: string; type: string }>
+  getOperatorsForType: (type: string) => Array<{ op: string; label: string }>
+  codeValueOptions: Record<string, string[]>
   onChange: (updated: ModifierRuleGroup) => void
   depth: number
 }
 
-function RuleGroupEditor({ group, availableFields, onChange, depth }: RuleGroupEditorProps) {
+function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValueOptions, onChange, depth }: RuleGroupEditorProps) {
+  const { t } = useTranslation('authoring')
   const handleToggleConjunction = () => {
     onChange({ ...group, conjunction: group.conjunction === 'AND' ? 'OR' : 'AND' })
   }
@@ -278,7 +305,7 @@ function RuleGroupEditor({ group, availableFields, onChange, depth }: RuleGroupE
     onChange({ ...group, groups: group.groups.filter((g) => g.id !== groupId) })
   }
 
-  const borderColor = group.conjunction === 'AND' ? '#0D7377' : '#E67E22'
+  const borderColor = group.conjunction === 'AND' ? CONJUNCTION_COLOR_AND : CONJUNCTION_COLOR_OR
 
   return (
     <Box
@@ -303,10 +330,10 @@ function RuleGroupEditor({ group, availableFields, onChange, depth }: RuleGroupE
           }}
         />
         <Button size="small" startIcon={<AddIcon />} onClick={handleAddRule}>
-          Add rule
+          {t('customModifier.addRule')}
         </Button>
         <Button size="small" startIcon={<AddIcon />} onClick={handleAddGroup}>
-          Add group
+          {t('customModifier.addGroup')}
         </Button>
       </Stack>
 
@@ -316,6 +343,8 @@ function RuleGroupEditor({ group, availableFields, onChange, depth }: RuleGroupE
             key={rule.id}
             rule={rule}
             availableFields={availableFields}
+            getOperatorsForType={getOperatorsForType}
+            codeValueOptions={codeValueOptions}
             onChange={(updates) => handleUpdateRule(rule.id, updates)}
             onRemove={() => handleRemoveRule(rule.id)}
           />
@@ -326,6 +355,8 @@ function RuleGroupEditor({ group, availableFields, onChange, depth }: RuleGroupE
             <RuleGroupEditor
               group={subGroup}
               availableFields={availableFields}
+              getOperatorsForType={getOperatorsForType}
+              codeValueOptions={codeValueOptions}
               onChange={(updated) => handleUpdateSubgroup(subGroup.id, updated)}
               depth={depth + 1}
             />
@@ -349,18 +380,21 @@ function RuleGroupEditor({ group, availableFields, onChange, depth }: RuleGroupE
 interface RuleEditorProps {
   rule: ModifierRule
   availableFields: Array<{ field: string; label: string; type: string }>
+  getOperatorsForType: (type: string) => Array<{ op: string; label: string }>
+  codeValueOptions: Record<string, string[]>
   onChange: (updates: Partial<ModifierRule>) => void
   onRemove: () => void
 }
 
-function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorProps) {
+function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptions, onChange, onRemove }: RuleEditorProps) {
+  const { t } = useTranslation('authoring')
   const selectedField = availableFields.find((f) => f.field === rule.field)
   const fieldType = selectedField?.type || 'string'
-  const operators = OPERATORS_BY_TYPE[fieldType] || OPERATORS_BY_TYPE.string
+  const operators = getOperatorsForType(fieldType)
   const needsValue = !['is_null', 'is_not_null'].includes(rule.operator)
   const complete = isRuleComplete(rule)
 
-  const codeOptions = rule.field ? CODE_VALUE_OPTIONS[rule.field] : undefined
+  const codeOptions = rule.field ? codeValueOptions[rule.field] : undefined
 
   return (
     <Stack
@@ -377,10 +411,10 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
     >
       {/* Field selector */}
       <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel>Property</InputLabel>
+        <InputLabel>{t('customModifier.propertyLabel')}</InputLabel>
         <Select
           value={rule.field}
-          label="Property"
+          label={t('customModifier.propertyLabel')}
           onChange={(e) => onChange({ field: e.target.value, operator: '', value: '' })}
         >
           {availableFields.map((f) => (
@@ -392,10 +426,10 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
       {/* Operator selector */}
       {rule.field && (
         <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Operator</InputLabel>
+          <InputLabel>{t('customModifier.operatorLabel')}</InputLabel>
           <Select
             value={rule.operator}
-            label="Operator"
+            label={t('customModifier.operatorLabel')}
             onChange={(e) => onChange({ operator: e.target.value, value: '' })}
           >
             {operators.map((op) => (
@@ -409,10 +443,10 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
       {rule.field && rule.operator && needsValue && (
         codeOptions ? (
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Value</InputLabel>
+            <InputLabel>{t('customModifier.valueLabel')}</InputLabel>
             <Select
               value={rule.value}
-              label="Value"
+              label={t('customModifier.valueLabel')}
               onChange={(e) => onChange({ value: e.target.value })}
             >
               {codeOptions.map((v) => (
@@ -425,7 +459,7 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
             <TextField
               size="small"
               type="number"
-              label="Value"
+              label={t('customModifier.valueLabel')}
               value={rule.value.split(' ')[0] || ''}
               onChange={(e) => onChange({ value: `${e.target.value} ${rule.value.split(' ')[1] || 'days'}` })}
               sx={{ width: 80 }}
@@ -435,17 +469,17 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
                 value={rule.value.split(' ')[1] || 'days'}
                 onChange={(e) => onChange({ value: `${rule.value.split(' ')[0] || ''} ${e.target.value}` })}
               >
-                <MenuItem value="days">days</MenuItem>
-                <MenuItem value="weeks">weeks</MenuItem>
-                <MenuItem value="months">months</MenuItem>
-                <MenuItem value="years">years</MenuItem>
+                <MenuItem value="days">{t('customModifier.days')}</MenuItem>
+                <MenuItem value="weeks">{t('customModifier.weeks')}</MenuItem>
+                <MenuItem value="months">{t('customModifier.months')}</MenuItem>
+                <MenuItem value="years">{t('customModifier.years')}</MenuItem>
               </Select>
             </FormControl>
           </Stack>
         ) : (
           <TextField
             size="small"
-            label="Value"
+            label={t('customModifier.valueLabel')}
             value={rule.value}
             onChange={(e) => onChange({ value: e.target.value })}
             type={fieldType === 'decimal' ? 'number' : 'text'}
@@ -455,7 +489,7 @@ function RuleEditor({ rule, availableFields, onChange, onRemove }: RuleEditorPro
       )}
 
       <Box sx={{ flex: 1 }} />
-      <IconButton size="small" color="error" onClick={onRemove}>
+      <IconButton size="small" color="error" onClick={onRemove} aria-label={t('customModifier.removeRule')}>
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Stack>

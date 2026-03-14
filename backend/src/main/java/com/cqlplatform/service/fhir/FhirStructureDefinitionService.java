@@ -8,25 +8,47 @@ import ca.uhn.fhir.context.RuntimeChildChoiceDefinition;
 import ca.uhn.fhir.context.RuntimeChildResourceBlockDefinition;
 import ca.uhn.fhir.context.RuntimeChildResourceDefinition;
 import ca.uhn.fhir.context.RuntimeResourceDefinition;
+import ca.uhn.fhir.context.support.DefaultProfileValidationSupport;
+import ca.uhn.fhir.context.support.ValidationSupportContext;
 import com.cqlplatform.model.fhir.ElementMetadata;
 import com.cqlplatform.model.fhir.ResourceElementMetadata;
+import org.hl7.fhir.common.hapi.validation.support.CachingValidationSupport;
+import org.hl7.fhir.common.hapi.validation.support.CommonCodeSystemsTerminologyService;
+import org.hl7.fhir.common.hapi.validation.support.InMemoryTerminologyServerValidationSupport;
+import org.hl7.fhir.common.hapi.validation.support.ValidationSupportChain;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class FhirStructureDefinitionService {
 
+    private static final Logger log = LoggerFactory.getLogger(FhirStructureDefinitionService.class);
+
     private static final int MAX_DEPTH = 3;
 
-    private static final List<String> SUPPORTED_RESOURCE_TYPES = List.of(
-            "Patient", "Encounter", "Condition", "Observation", "Procedure",
-            "MedicationRequest", "Coverage", "DiagnosticReport", "Immunization",
-            "AllergyIntolerance", "ServiceRequest", "CarePlan", "Goal",
-            "FamilyMemberHistory", "DeviceUseStatement"
+    // Infrastructure / conformance resource types excluded from the visual builder
+    private static final Set<String> EXCLUDED_RESOURCE_TYPES = Set.of(
+            // Conformance & Terminology
+            "StructureDefinition", "StructureMap", "ValueSet", "CodeSystem", "ConceptMap",
+            "NamingSystem", "TerminologyCapabilities",
+            // Capability & Search
+            "CapabilityStatement", "SearchParameter", "CompartmentDefinition", "OperationDefinition",
+            // Implementation Support
+            "ImplementationGuide", "GraphDefinition", "ExampleScenario",
+            // Exchange infrastructure
+            "Bundle", "OperationOutcome", "Parameters", "Binary",
+            "MessageHeader", "MessageDefinition",
+            // Testing
+            "TestScript", "TestReport",
+            // Other infrastructure
+            "Subscription", "EventDefinition"
     );
 
     private static final Set<String> SKIP_ELEMENTS = Set.of(
@@ -42,13 +64,27 @@ public class FhirStructureDefinitionService {
 
     private final FhirContext fhirContext;
     private final ConcurrentHashMap<String, ResourceElementMetadata> cache = new ConcurrentHashMap<>();
+    private final CachingValidationSupport validationSupport;
+    private final ConcurrentHashMap<String, StructureDefinition> structureDefinitionCache = new ConcurrentHashMap<>();
 
     public FhirStructureDefinitionService(FhirContext fhirContext) {
         this.fhirContext = fhirContext;
+
+        DefaultProfileValidationSupport defaultSupport = new DefaultProfileValidationSupport(fhirContext);
+        InMemoryTerminologyServerValidationSupport terminologySupport = new InMemoryTerminologyServerValidationSupport(fhirContext);
+        CommonCodeSystemsTerminologyService commonCodeSystems = new CommonCodeSystemsTerminologyService(fhirContext);
+
+        ValidationSupportChain chain = new ValidationSupportChain(
+                defaultSupport, terminologySupport, commonCodeSystems
+        );
+        this.validationSupport = new CachingValidationSupport(chain);
     }
 
     public List<String> getSupportedResourceTypes() {
-        return SUPPORTED_RESOURCE_TYPES;
+        return fhirContext.getResourceTypes().stream()
+                .filter(type -> !EXCLUDED_RESOURCE_TYPES.contains(type))
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     public ResourceElementMetadata getResourceMetadata(String resourceType) {
@@ -57,14 +93,15 @@ public class FhirStructureDefinitionService {
 
     private ResourceElementMetadata buildResourceMetadata(String resourceType) {
         RuntimeResourceDefinition resourceDef = fhirContext.getResourceDefinition(resourceType);
-        List<ElementMetadata> elements = buildElements(resourceDef, resourceType, 0);
+        List<ElementMetadata> elements = buildElements(resourceDef, resourceType, 0, null);
         return new ResourceElementMetadata(resourceType, elements);
     }
 
     private List<ElementMetadata> buildElements(
             BaseRuntimeElementCompositeDefinition<?> compositeDef,
             String parentPath,
-            int depth
+            int depth,
+            String datatypeContext
     ) {
         if (depth >= MAX_DEPTH) {
             return Collections.emptyList();
@@ -80,7 +117,7 @@ public class FhirStructureDefinitionService {
             }
 
             try {
-                ElementMetadata element = buildElement(childDef, parentPath, depth);
+                ElementMetadata element = buildElement(childDef, parentPath, depth, datatypeContext);
                 if (element != null) {
                     elements.add(element);
                 }
@@ -95,7 +132,8 @@ public class FhirStructureDefinitionService {
     private ElementMetadata buildElement(
             BaseRuntimeChildDefinition childDef,
             String parentPath,
-            int depth
+            int depth,
+            String datatypeContext
     ) {
         String elementName = childDef.getElementName();
         String path = parentPath + "." + elementName;
@@ -127,16 +165,24 @@ public class FhirStructureDefinitionService {
         // Binding info
         String bindingStrength = null;
         String bindingValueSetUrl = null;
-        var bindingInfo = extractBinding(childDef, elementName);
+        String bindingCodeSystemUrl = null;
+        List<String> boundCodes = Collections.emptyList();
+        var bindingInfo = extractBinding(path, datatypeContext);
         if (bindingInfo != null) {
-            bindingStrength = bindingInfo[0];
-            bindingValueSetUrl = bindingInfo[1];
+            bindingStrength = bindingInfo.strength;
+            bindingValueSetUrl = bindingInfo.valueSetUrl;
+            if (("required".equals(bindingStrength) || "extensible".equals(bindingStrength))
+                    && bindingValueSetUrl != null) {
+                var expanded = expandValueSetCodes(bindingValueSetUrl);
+                boundCodes = expanded.codes;
+                bindingCodeSystemUrl = expanded.codeSystemUrl;
+            }
         }
 
         List<ElementMetadata> children = Collections.emptyList();
         if (elementDef instanceof BaseRuntimeElementCompositeDefinition<?> compositeChild) {
             if (!PRIMITIVE_TYPES.contains(typeName)) {
-                children = buildElements(compositeChild, path, depth + 1);
+                children = buildElements(compositeChild, path, depth + 1, typeName);
             }
         }
 
@@ -144,7 +190,7 @@ public class FhirStructureDefinitionService {
                 elementName, path, typeName,
                 isArray, isRequired, min, maxStr,
                 false, Collections.emptyList(),
-                bindingStrength, bindingValueSetUrl,
+                bindingStrength, bindingValueSetUrl, bindingCodeSystemUrl, boundCodes,
                 children, description,
                 Collections.emptyList()
         );
@@ -170,7 +216,7 @@ public class FhirStructureDefinitionService {
                 elementName, path, "choice",
                 isArray, isRequired, min, max,
                 true, choiceTypes,
-                null, null,
+                null, null, null, Collections.emptyList(),
                 Collections.emptyList(), null,
                 Collections.emptyList()
         );
@@ -193,11 +239,253 @@ public class FhirStructureDefinitionService {
                 elementName, path, "Reference",
                 isArray, isRequired, min, max,
                 false, Collections.emptyList(),
-                null, null,
+                null, null, null, Collections.emptyList(),
                 Collections.emptyList(), null,
                 referenceTargets
         );
     }
+
+    // --- Binding extraction from StructureDefinition snapshots ---
+
+    private StructureDefinition getStructureDefinition(String url) {
+        return structureDefinitionCache.computeIfAbsent(url, u -> {
+            IBaseResource resource = validationSupport.fetchStructureDefinition(u);
+            if (resource instanceof StructureDefinition sd) {
+                return sd;
+            }
+            return null;
+        });
+    }
+
+    /**
+     * Binding info holder
+     */
+    private record BindingInfo(String strength, String valueSetUrl) {}
+
+    /**
+     * Find binding for a given element path by looking up the StructureDefinition snapshot.
+     * Tries resource-level path first (e.g. Patient.gender), then datatype path (e.g. HumanName.use).
+     */
+    private BindingInfo extractBinding(String elementPath, String datatypeContext) {
+        // Try resource-level path first (e.g. "Patient.gender")
+        BindingInfo info = findBindingForPath(elementPath);
+        if (info != null) {
+            return info;
+        }
+
+        // Try datatype path (e.g. "HumanName.use" for "Patient.name.use")
+        if (datatypeContext != null) {
+            String elementName = elementPath.substring(elementPath.lastIndexOf('.') + 1);
+            String datatypePath = datatypeContext + "." + elementName;
+            info = findBindingForPath(datatypePath);
+            if (info != null) {
+                return info;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Look up a specific element path in the corresponding StructureDefinition snapshot.
+     */
+    private BindingInfo findBindingForPath(String elementPath) {
+        // Derive the resource/type name from the path (first segment)
+        int dotIdx = elementPath.indexOf('.');
+        if (dotIdx < 0) {
+            return null;
+        }
+        String typeName = elementPath.substring(0, dotIdx);
+
+        // Build the StructureDefinition URL
+        String sdUrl = com.cqlplatform.model.fhir.FhirCodeSystemConstants.STRUCTURE_DEFINITION_BASE + typeName;
+        StructureDefinition sd = getStructureDefinition(sdUrl);
+        if (sd == null || sd.getSnapshot() == null) {
+            return null;
+        }
+
+        for (StructureDefinition.StructureDefinitionSnapshotComponent snap : List.of(sd.getSnapshot())) {
+            for (ElementDefinition elem : snap.getElement()) {
+                if (elementPath.equals(elem.getPath()) && elem.hasBinding()) {
+                    ElementDefinition.ElementDefinitionBindingComponent binding = elem.getBinding();
+                    String strength = binding.getStrength() != null
+                            ? binding.getStrength().toCode()
+                            : null;
+                    String vsUrl = binding.getValueSet();
+                    if (strength != null) {
+                        return new BindingInfo(strength, vsUrl);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private record ExpandedCodes(List<String> codes, String codeSystemUrl) {}
+
+    /**
+     * Maximum number of codes for a useful dropdown. Expansions exceeding this
+     * likely indicate the full CodeSystem was returned instead of a filtered subset.
+     */
+    private static final int MAX_BOUND_CODES = 80;
+
+    /**
+     * Expand a ValueSet URL into its list of codes using the validation support chain.
+     * Also extracts the CodeSystem URL from the ValueSet compose (needed for correct FHIR serialization).
+     */
+    private ExpandedCodes expandValueSetCodes(String valueSetUrl) {
+        try {
+            IBaseResource vsResource = validationSupport.fetchValueSet(valueSetUrl);
+            if (!(vsResource instanceof ValueSet vs)) {
+                return new ExpandedCodes(Collections.emptyList(), null);
+            }
+
+            // Extract CodeSystem URL and filter info from compose.include
+            String codeSystemUrl = null;
+            List<ValueSet.ConceptSetComponent> filterIncludes = new ArrayList<>();
+            if (vs.hasCompose()) {
+                for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
+                    if (include.hasSystem()) {
+                        if (codeSystemUrl == null) codeSystemUrl = include.getSystem();
+                        if (include.hasFilter()) filterIncludes.add(include);
+                    }
+                }
+            }
+
+            // Collect excluded codes
+            Set<String> excludedCodes = new HashSet<>();
+            if (vs.hasCompose()) {
+                for (ValueSet.ConceptSetComponent exclude : vs.getCompose().getExclude()) {
+                    for (ValueSet.ConceptReferenceComponent concept : exclude.getConcept()) {
+                        if (concept.getCode() != null) excludedCodes.add(concept.getCode());
+                    }
+                }
+            }
+
+            // Try expansion via validation support
+            ValidationSupportContext vsContext = new ValidationSupportContext(validationSupport);
+            var expansion = validationSupport.expandValueSet(vsContext, null, vsResource);
+            if (expansion != null && expansion.getValueSet() instanceof ValueSet expandedVs) {
+                ValueSet.ValueSetExpansionComponent exp = expandedVs.getExpansion();
+                if (exp != null && !exp.getContains().isEmpty()) {
+                    List<String> codes = new ArrayList<>();
+                    for (ValueSet.ValueSetExpansionContainsComponent c : exp.getContains()) {
+                        if (c.getCode() != null) {
+                            codes.add(c.getCode());
+                        }
+                        if (codeSystemUrl == null && c.getSystem() != null) {
+                            codeSystemUrl = c.getSystem();
+                        }
+                    }
+
+                    // If expansion is suspiciously large and compose uses filters,
+                    // the InMemoryTerminologyServer likely failed to apply hierarchy
+                    // filters and returned the entire CodeSystem. Resolve manually.
+                    if (codes.size() > MAX_BOUND_CODES && !filterIncludes.isEmpty()) {
+                        log.debug("Expansion of {} returned {} codes (> {}), attempting manual filter resolution",
+                                valueSetUrl, codes.size(), MAX_BOUND_CODES);
+                        List<String> filtered = resolveFilteredCodes(filterIncludes, excludedCodes);
+                        if (!filtered.isEmpty()) {
+                            return new ExpandedCodes(filtered, codeSystemUrl);
+                        }
+                        // If manual resolution fails, return empty rather than 1000+ codes
+                        return new ExpandedCodes(Collections.emptyList(), codeSystemUrl);
+                    }
+
+                    return new ExpandedCodes(codes, codeSystemUrl);
+                }
+            }
+
+            // Fallback: extract codes directly from compose.include if expansion fails
+            if (vs.hasCompose()) {
+                List<String> codes = new ArrayList<>();
+                for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
+                    for (ValueSet.ConceptReferenceComponent concept : include.getConcept()) {
+                        if (concept.getCode() != null) {
+                            codes.add(concept.getCode());
+                        }
+                    }
+                }
+                if (!codes.isEmpty()) {
+                    return new ExpandedCodes(codes, codeSystemUrl);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to expand ValueSet {}: {}", valueSetUrl, e.getMessage());
+        }
+        return new ExpandedCodes(Collections.emptyList(), null);
+    }
+
+    /**
+     * Manually resolve is-a hierarchy filters by walking the CodeSystem concept tree.
+     * HAPI's InMemoryTerminologyServerValidationSupport doesn't handle hierarchical
+     * filters properly for large CodeSystems (e.g., v3-ActCode), returning the entire
+     * CodeSystem instead of the filtered subset.
+     */
+    private List<String> resolveFilteredCodes(List<ValueSet.ConceptSetComponent> filterIncludes, Set<String> excludedCodes) {
+        List<String> result = new ArrayList<>();
+        for (ValueSet.ConceptSetComponent include : filterIncludes) {
+            String systemUrl = include.getSystem();
+            for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
+                if ("concept".equals(filter.getProperty()) && filter.getOp() == ValueSet.FilterOperator.ISA) {
+                    String ancestorCode = filter.getValue();
+                    List<String> descendants = findDescendantCodes(systemUrl, ancestorCode);
+                    for (String code : descendants) {
+                        if (!excludedCodes.contains(code)) {
+                            result.add(code);
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Find all descendant codes of a given ancestor code in a CodeSystem's concept hierarchy.
+     */
+    private List<String> findDescendantCodes(String codeSystemUrl, String ancestorCode) {
+        IBaseResource csResource = validationSupport.fetchCodeSystem(codeSystemUrl);
+        if (!(csResource instanceof CodeSystem cs)) {
+            log.debug("CodeSystem {} not found for hierarchy resolution", codeSystemUrl);
+            return Collections.emptyList();
+        }
+
+        // Find the ancestor concept in the hierarchy
+        CodeSystem.ConceptDefinitionComponent ancestor = findConceptInHierarchy(cs.getConcept(), ancestorCode);
+        if (ancestor == null) {
+            log.debug("Ancestor code {} not found in CodeSystem {}", ancestorCode, codeSystemUrl);
+            return Collections.emptyList();
+        }
+
+        // Collect all descendant codes (excluding the abstract ancestor itself)
+        List<String> descendants = new ArrayList<>();
+        collectDescendantCodes(ancestor.getConcept(), descendants);
+        return descendants;
+    }
+
+    private CodeSystem.ConceptDefinitionComponent findConceptInHierarchy(
+            List<CodeSystem.ConceptDefinitionComponent> concepts, String targetCode) {
+        for (CodeSystem.ConceptDefinitionComponent concept : concepts) {
+            if (targetCode.equals(concept.getCode())) {
+                return concept;
+            }
+            CodeSystem.ConceptDefinitionComponent found = findConceptInHierarchy(concept.getConcept(), targetCode);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private void collectDescendantCodes(List<CodeSystem.ConceptDefinitionComponent> concepts, List<String> result) {
+        for (CodeSystem.ConceptDefinitionComponent concept : concepts) {
+            if (concept.getCode() != null) {
+                result.add(concept.getCode());
+            }
+            collectDescendantCodes(concept.getConcept(), result);
+        }
+    }
+
+    // --- Type name helpers ---
 
     private String getTypeName(BaseRuntimeElementDefinition<?> elementDef) {
         String name = elementDef.getName();
@@ -237,31 +525,6 @@ public class FhirStructureDefinitionService {
 
     private String getDescription(BaseRuntimeElementDefinition<?> elementDef) {
         // HAPI doesn't directly expose the description; return null
-        return null;
-    }
-
-    private String[] extractBinding(BaseRuntimeChildDefinition childDef, String elementName) {
-        // Try to extract binding information from the StructureDefinition
-        try {
-            BaseRuntimeElementDefinition<?> childElementDef = childDef.getChildByName(elementName);
-            if (childElementDef != null) {
-                // Check for code type — these often have bindings
-                String typeName = getTypeName(childElementDef);
-                if ("code".equals(typeName) || "Coding".equals(typeName) || "CodeableConcept".equals(typeName)) {
-                    // Try to get the binding from StructureDefinition snapshot
-                    return extractBindingFromStructureDefinition(childDef);
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
-    }
-
-    private String[] extractBindingFromStructureDefinition(BaseRuntimeChildDefinition childDef) {
-        // HAPI's RuntimeChildDefinition doesn't directly expose bindings in a simple way
-        // For commonly known bindings, we could hard-code them, but for now return null
-        // The frontend will use freetext input for codes without known bindings
         return null;
     }
 }

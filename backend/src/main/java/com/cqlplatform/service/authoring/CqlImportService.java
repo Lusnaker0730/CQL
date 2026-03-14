@@ -1,5 +1,6 @@
 package com.cqlplatform.service.authoring;
 
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.service.cql.CqlTranslationService;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.cqlplatform.util.CqlParsingUtils;
+import com.cqlplatform.util.IdGenerator;
 
 /**
  * Service for importing CQL source code back into an artifact structure.
@@ -23,10 +26,8 @@ public class CqlImportService {
 
     private final CqlTranslationService translationService;
 
-    private static final Pattern LIBRARY_PATTERN =
-            Pattern.compile("library\\s+\"?([\\w_]+)\"?(?:\\s+version\\s+'([^']*)')?");
-    private static final Pattern USING_PATTERN =
-            Pattern.compile("using\\s+FHIR\\s+version\\s+'([^']*)'");
+    private static final Pattern LIBRARY_PATTERN = CqlParsingUtils.LIBRARY_PATTERN;
+    private static final Pattern USING_PATTERN = CqlParsingUtils.FHIR_VERSION_PATTERN;
     private static final Pattern VALUESET_PATTERN =
             Pattern.compile("valueset\\s+\"([^\"]+)\"\\s*:\\s*'([^']*)'");
     private static final Pattern PARAMETER_PATTERN =
@@ -45,10 +46,10 @@ public class CqlImportService {
         Matcher libMatcher = LIBRARY_PATTERN.matcher(cqlContent);
         if (libMatcher.find()) {
             result.put("name", libMatcher.group(1));
-            result.put("version", libMatcher.group(2) != null ? libMatcher.group(2) : "1.0.0");
+            result.put("version", libMatcher.group(2) != null ? libMatcher.group(2) : AuthoringConstants.DEFAULT_VERSION);
         } else {
             result.put("name", "ImportedArtifact");
-            result.put("version", "1.0.0");
+            result.put("version", AuthoringConstants.DEFAULT_VERSION);
         }
 
         // Parse FHIR version
@@ -56,7 +57,7 @@ public class CqlImportService {
         if (usingMatcher.find()) {
             result.put("fhirVersion", usingMatcher.group(1));
         } else {
-            result.put("fhirVersion", "4.0.1");
+            result.put("fhirVersion", AuthoringConstants.DEFAULT_FHIR_VERSION);
         }
 
         // Extract value sets
@@ -75,7 +76,7 @@ public class CqlImportService {
         Matcher paramMatcher = PARAMETER_PATTERN.matcher(cqlContent);
         while (paramMatcher.find()) {
             Map<String, Object> param = new LinkedHashMap<>();
-            param.put("uniqueId", UUID.randomUUID().toString());
+            param.put("uniqueId", IdGenerator.uuid());
             param.put("name", paramMatcher.group(1));
             param.put("type", paramMatcher.group(2));
             if (paramMatcher.group(3) != null) {

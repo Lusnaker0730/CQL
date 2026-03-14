@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -34,6 +35,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { adminApi } from '../api'
 import type { AuditLogEntry, AuditLogSearchParams, AuditStatsResponse } from '../types'
+import { REFETCH_30S } from '../constants/queryConstants'
 
 function StatCard({ title, value, icon, color }: { title: string; value: number; icon: React.ReactNode; color: string }) {
   return (
@@ -75,17 +77,17 @@ function StatCard({ title, value, icon, color }: { title: string; value: number;
   )
 }
 
-function ActivityChart({ stats }: { stats: AuditStatsResponse }) {
+function ActivityChart({ stats, t }: { stats: AuditStatsResponse; t: (key: string, options?: Record<string, unknown>) => string }) {
   const maxCount = Math.max(...stats.dailyActivity.map((d) => d.count), 1)
 
   return (
     <Paper sx={{ p: 2.5, borderRadius: 2, flex: 2, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
-        Activity Timeline (14 Days)
+        {t('audit.activityTimeline')}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 120 }}>
         {stats.dailyActivity.map((day) => (
-          <Tooltip key={day.date} title={`${day.date}: ${day.count} events`}>
+          <Tooltip key={day.date} title={t('audit.activityTooltip', { date: day.date, count: day.count })}>
             <Box
               sx={{
                 flex: 1,
@@ -112,7 +114,7 @@ function ActivityChart({ stats }: { stats: AuditStatsResponse }) {
   )
 }
 
-function ActionDistribution({ stats }: { stats: AuditStatsResponse }) {
+function ActionDistribution({ stats, t }: { stats: AuditStatsResponse; t: (key: string) => string }) {
   const entries = Object.entries(stats.actionCounts)
   const maxCount = Math.max(...entries.map(([, v]) => v), 1)
   const colors: Record<string, string> = {
@@ -125,7 +127,7 @@ function ActionDistribution({ stats }: { stats: AuditStatsResponse }) {
   return (
     <Paper sx={{ p: 2.5, borderRadius: 2, flex: 1, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
-        Action Distribution
+        {t('audit.actionDistribution')}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {entries.map(([action, count]) => (
@@ -164,6 +166,7 @@ function AuditLogTable({
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
+  t,
 }: {
   logs: AuditLogEntry[]
   loading: boolean
@@ -172,6 +175,7 @@ function AuditLogTable({
   rowsPerPage: number
   onPageChange: (page: number) => void
   onRowsPerPageChange: (size: number) => void
+  t: (key: string) => string
 }) {
   const statusColor = (code?: number) => {
     if (!code) return 'default'
@@ -187,14 +191,14 @@ function AuditLogTable({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Timestamp</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Method</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Path</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>IP Address</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Time (ms)</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.timestamp')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.user')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.action')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.method')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.path')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.status')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.ipAddress')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('audit.table.timeMs')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -207,7 +211,7 @@ function AuditLogTable({
             ) : logs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">No audit log entries found</Typography>
+                  <Typography color="text.secondary">{t('audit.table.noEntries')}</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -280,6 +284,7 @@ function AuditLogTable({
 }
 
 export default function AuditDashboardPage() {
+  const { t } = useTranslation('admin')
   const [tab, setTab] = useState(0)
 
   // All logs filters
@@ -297,7 +302,7 @@ export default function AuditDashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['audit', 'stats'],
     queryFn: adminApi.getAuditStats,
-    refetchInterval: 30000,
+    refetchInterval: REFETCH_30S,
   })
 
   // All logs query
@@ -352,7 +357,7 @@ export default function AuditDashboardPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
         <SecurityIcon sx={{ fontSize: 28, color: 'primary.main' }} />
         <Typography variant="h5" fontWeight={700}>
-          HIPAA Audit Dashboard
+          {t('audit.title')}
         </Typography>
       </Box>
 
@@ -365,25 +370,25 @@ export default function AuditDashboardPage() {
         <>
           <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
             <StatCard
-              title="Events Today"
+              title={t('audit.stats.eventsToday')}
               value={stats.totalEventsToday}
               icon={<ShieldIcon />}
               color="#0D7377"
             />
             <StatCard
-              title="PHI Accesses Today"
+              title={t('audit.stats.phiAccessesToday')}
               value={stats.phiAccessCount}
               icon={<PhiIcon />}
               color="#1B3A5C"
             />
             <StatCard
-              title="Failed Logins Today"
+              title={t('audit.stats.failedLoginsToday')}
               value={stats.failedLoginAttempts}
               icon={<WarningIcon />}
               color="#D32F2F"
             />
             <StatCard
-              title="Active Users Today"
+              title={t('audit.stats.activeUsersToday')}
               value={stats.activeUsersToday}
               icon={<PeopleIcon />}
               color="#2E7D32"
@@ -392,23 +397,23 @@ export default function AuditDashboardPage() {
 
           {/* Charts Row */}
           <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-            {stats.dailyActivity.length > 0 && <ActivityChart stats={stats} />}
-            {Object.keys(stats.actionCounts).length > 0 && <ActionDistribution stats={stats} />}
+            {stats.dailyActivity.length > 0 && <ActivityChart stats={stats} t={t} />}
+            {Object.keys(stats.actionCounts).length > 0 && <ActionDistribution stats={stats} t={t} />}
           </Box>
 
           {/* Top Users */}
           {stats.topUsers.length > 0 && (
             <Paper sx={{ p: 2.5, borderRadius: 2, mb: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-                Most Active Users (Last 30 Days)
+                {t('audit.topUsers.title')}
               </Typography>
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Username</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">Events</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Last Activity</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('audit.topUsers.username')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }} align="right">{t('audit.topUsers.events')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('audit.topUsers.lastActivity')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -442,10 +447,10 @@ export default function AuditDashboardPage() {
           onChange={(_, v) => setTab(v)}
           sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
         >
-          <Tab label="All Logs" />
-          <Tab label="PHI Access" />
-          <Tab label="Login Activity" />
-          <Tab label="Security Events" />
+          <Tab label={t('audit.tabs.allLogs')} />
+          <Tab label={t('audit.tabs.phiAccess')} />
+          <Tab label={t('audit.tabs.loginActivity')} />
+          <Tab label={t('audit.tabs.securityEvents')} />
         </Tabs>
 
         {/* All Logs Tab */}
@@ -453,20 +458,20 @@ export default function AuditDashboardPage() {
           <Box>
             <Box sx={{ display: 'flex', gap: 1.5, p: 2, flexWrap: 'wrap', alignItems: 'center' }}>
               <TextField
-                label="Username"
+                label={t('audit.filters.username')}
                 size="small"
                 value={filters.username || ''}
                 onChange={(e) => updateFilter('username', e.target.value)}
                 sx={{ minWidth: 150 }}
               />
               <FormControl size="small" sx={{ minWidth: 130 }}>
-                <InputLabel>Action</InputLabel>
+                <InputLabel>{t('audit.filters.action')}</InputLabel>
                 <Select
-                  label="Action"
+                  label={t('audit.filters.action')}
                   value={filters.action || ''}
                   onChange={(e) => updateFilter('action', e.target.value)}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t('audit.filters.actionAll')}</MenuItem>
                   <MenuItem value="READ">READ</MenuItem>
                   <MenuItem value="CREATE">CREATE</MenuItem>
                   <MenuItem value="UPDATE">UPDATE</MenuItem>
@@ -474,7 +479,7 @@ export default function AuditDashboardPage() {
                 </Select>
               </FormControl>
               <TextField
-                label="Start Date"
+                label={t('audit.filters.startDate')}
                 type="date"
                 size="small"
                 value={filters.startDate || ''}
@@ -483,7 +488,7 @@ export default function AuditDashboardPage() {
                 sx={{ minWidth: 150 }}
               />
               <TextField
-                label="End Date"
+                label={t('audit.filters.endDate')}
                 type="date"
                 size="small"
                 value={filters.endDate || ''}
@@ -492,7 +497,7 @@ export default function AuditDashboardPage() {
                 sx={{ minWidth: 150 }}
               />
               <TextField
-                label="Status Code"
+                label={t('audit.filters.statusCode')}
                 type="number"
                 size="small"
                 value={filters.statusCode || ''}
@@ -507,7 +512,7 @@ export default function AuditDashboardPage() {
                 size="small"
                 sx={{ borderRadius: 2 }}
               >
-                Export CSV
+                {t('audit.exportCsv')}
               </Button>
             </Box>
             <AuditLogTable
@@ -518,6 +523,7 @@ export default function AuditDashboardPage() {
               rowsPerPage={filters.size || 20}
               onPageChange={(p) => setFilters((prev) => ({ ...prev, page: p }))}
               onRowsPerPageChange={(s) => setFilters((prev) => ({ ...prev, size: s, page: 0 }))}
+              t={t}
             />
           </Box>
         )}
@@ -532,6 +538,7 @@ export default function AuditDashboardPage() {
             rowsPerPage={phiSize}
             onPageChange={setPhiPage}
             onRowsPerPageChange={(s) => { setPhiSize(s); setPhiPage(0) }}
+            t={t}
           />
         )}
 
@@ -545,6 +552,7 @@ export default function AuditDashboardPage() {
             rowsPerPage={loginSize}
             onPageChange={setLoginPage}
             onRowsPerPageChange={(s) => { setLoginSize(s); setLoginPage(0) }}
+            t={t}
           />
         )}
 
@@ -558,6 +566,7 @@ export default function AuditDashboardPage() {
             rowsPerPage={secSize}
             onPageChange={setSecPage}
             onRowsPerPageChange={(s) => { setSecSize(s); setSecPage(0) }}
+            t={t}
           />
         )}
       </Paper>

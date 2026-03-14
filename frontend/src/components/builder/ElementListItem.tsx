@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
 import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material'
+import TypeChip from './TypeChip'
 
 interface ElementListItemProps {
   label: string
@@ -19,12 +21,13 @@ export default function ElementListItem({
   onEdit,
   onDelete,
 }: ElementListItemProps) {
+  const { t } = useTranslation('builder')
   return (
     <Box
       sx={{
         display: 'flex',
         alignItems: 'center',
-        py: 0.25,
+        py: 0.5,
         px: 0.5,
         borderRadius: 0.5,
         '&:hover': { bgcolor: 'rgba(13,115,119,0.04)' },
@@ -35,24 +38,22 @@ export default function ElementListItem({
         sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
         onClick={onGoTo}
       >
-        <Typography
-          variant="body2"
-          sx={{
-            fontFamily: 'monospace',
-            fontSize: '0.8rem',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            '&:hover': { color: 'primary.main', textDecoration: 'underline' },
-          }}
-        >
-          {label}
-        </Typography>
-        {secondaryLabel && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            {secondaryLabel}
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Typography
+            variant="body2"
+            sx={{
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              '&:hover': { color: 'primary.main', textDecoration: 'underline' },
+            }}
+          >
+            {label}
           </Typography>
-        )}
+          <TypeChip resultType={secondaryLabel} />
+        </Stack>
       </Box>
       <Stack
         className="element-actions"
@@ -60,16 +61,16 @@ export default function ElementListItem({
         spacing={0}
         sx={{ opacity: 0, transition: 'opacity 0.15s', flexShrink: 0 }}
       >
-        <Tooltip title="Go to definition">
+        <Tooltip title={t('common.goToDefinition')}>
           <span>
-            <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}>
+            <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }} aria-label={t('common.goToDefinition')}>
               <EditIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip title="Delete">
+        <Tooltip title={t('common.delete')}>
           <span>
-            <IconButton size="small" onClick={onDelete} sx={{ p: 0.25, color: 'error.main' }}>
+            <IconButton size="small" onClick={onDelete} sx={{ p: 0.25, color: 'error.main' }} aria-label={t('common.delete')}>
               <DeleteIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>

@@ -1,10 +1,12 @@
 package com.cqlplatform.entity;
 
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,6 +21,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class CdsArtifactEntity {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -33,18 +36,18 @@ public class CdsArtifactEntity {
 
     @Column(name = "version", length = 50)
     @Builder.Default
-    private String version = "1.0.0";
+    private String version = AuthoringConstants.DEFAULT_VERSION;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "status", length = 20)
     @Builder.Default
-    private String status = "draft";
+    private String status = AuthoringConstants.DEFAULT_STATUS;
 
     @Column(name = "fhir_version", length = 20)
     @Builder.Default
-    private String fhirVersion = "4.0.1";
+    private String fhirVersion = AuthoringConstants.DEFAULT_FHIR_VERSION;
 
     // CPG Metadata
     @Column(name = "url", length = 500)
@@ -64,7 +67,7 @@ public class CdsArtifactEntity {
 
     @Column(name = "experimental")
     @Builder.Default
-    private Boolean experimental = false;
+    private Boolean experimental = AuthoringConstants.DEFAULT_EXPERIMENTAL;
 
     @Column(name = "approval_date")
     private LocalDate approvalDate;
@@ -140,6 +143,10 @@ public class CdsArtifactEntity {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    private Long lockVersion;
 
     // Transient fields for deserialized JSON
     @Transient
@@ -265,6 +272,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.writeValueAsString(list);
         } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize list for entity id={}: {}", id, e.getMessage());
             return "[]";
         }
     }
@@ -274,6 +282,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.readValue(json, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize list for entity id={}: {}", id, e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -283,6 +292,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.writeValueAsString(map);
         } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize map for entity id={}: {}", id, e.getMessage());
             return defaultVal;
         }
     }
@@ -292,6 +302,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.readValue(json, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize map for entity id={}: {}", id, e.getMessage());
             return new LinkedHashMap<>();
         }
     }

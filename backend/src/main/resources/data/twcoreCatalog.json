@@ -619,6 +619,194 @@
       ]
     },
     {
+      "resourceType": "Condition",
+      "name": "TWCORE Condition Codes (ICD-10-CM)",
+      "url": "http://hl7.org/fhir/sid/icd-10-cm",
+      "system": "http://hl7.org/fhir/sid/icd-10-cm",
+      "categories": [
+        {
+          "name": "心血管疾病 (Cardiovascular)",
+          "codes": [
+            { "code": "I10", "display": "Essential (primary) hypertension", "displayZh": "原發性高血壓" },
+            { "code": "I11.9", "display": "Hypertensive heart disease without heart failure", "displayZh": "高血壓性心臟病" },
+            { "code": "I21.9", "display": "Acute myocardial infarction, unspecified", "displayZh": "急性心肌梗塞" },
+            { "code": "I25.10", "display": "Atherosclerotic heart disease of native coronary artery", "displayZh": "冠狀動脈粥狀硬化性心臟病" },
+            { "code": "I25.9", "display": "Chronic ischemic heart disease, unspecified", "displayZh": "慢性缺血性心臟病" },
+            { "code": "I48.91", "display": "Unspecified atrial fibrillation", "displayZh": "心房顫動" },
+            { "code": "I50.9", "display": "Heart failure, unspecified", "displayZh": "心臟衰竭" },
+            { "code": "I63.9", "display": "Cerebral infarction, unspecified", "displayZh": "腦梗塞" },
+            { "code": "I73.9", "display": "Peripheral vascular disease, unspecified", "displayZh": "周邊血管疾病" },
+            { "code": "I82.90", "display": "Acute embolism and thrombosis of unspecified vein", "displayZh": "靜脈栓塞" }
+          ]
+        },
+        {
+          "name": "呼吸系統疾病 (Respiratory)",
+          "codes": [
+            { "code": "J00", "display": "Acute nasopharyngitis [common cold]", "displayZh": "急性鼻咽炎（普通感冒）" },
+            { "code": "J06.9", "display": "Acute upper respiratory infection, unspecified", "displayZh": "急性上呼吸道感染" },
+            { "code": "J18.9", "display": "Pneumonia, unspecified organism", "displayZh": "肺炎" },
+            { "code": "J44.9", "display": "Chronic obstructive pulmonary disease, unspecified", "displayZh": "慢性阻塞性肺病" },
+            { "code": "J45.909", "display": "Unspecified asthma, uncomplicated", "displayZh": "氣喘" },
+            { "code": "J84.9", "display": "Interstitial pulmonary disease, unspecified", "displayZh": "間質性肺病" },
+            { "code": "J98.4", "display": "Other disorders of lung", "displayZh": "其他肺部疾病" },
+            { "code": "R05.9", "display": "Cough, unspecified", "displayZh": "咳嗽" },
+            { "code": "R06.00", "display": "Dyspnea, unspecified", "displayZh": "呼吸困難" },
+            { "code": "J47.9", "display": "Bronchiectasis, uncomplicated", "displayZh": "支氣管擴張症" }
+          ]
+        },
+        {
+          "name": "消化系統疾病 (Digestive)",
+          "codes": [
+            { "code": "K21.0", "display": "Gastro-esophageal reflux disease with esophagitis", "displayZh": "胃食道逆流" },
+            { "code": "K25.9", "display": "Gastric ulcer, unspecified", "displayZh": "胃潰瘍" },
+            { "code": "K26.9", "display": "Duodenal ulcer, unspecified", "displayZh": "十二指腸潰瘍" },
+            { "code": "K29.70", "display": "Gastritis, unspecified, without bleeding", "displayZh": "胃炎" },
+            { "code": "K59.00", "display": "Constipation, unspecified", "displayZh": "便秘" },
+            { "code": "K74.60", "display": "Unspecified cirrhosis of liver", "displayZh": "肝硬化" },
+            { "code": "K75.9", "display": "Inflammatory liver disease, unspecified", "displayZh": "肝炎" },
+            { "code": "K80.20", "display": "Calculus of gallbladder without cholecystitis", "displayZh": "膽結石" },
+            { "code": "R11.10", "display": "Vomiting, unspecified", "displayZh": "嘔吐" },
+            { "code": "R19.7", "display": "Diarrhea, unspecified", "displayZh": "腹瀉" }
+          ]
+        },
+        {
+          "name": "神經系統疾病 (Neurological)",
+          "codes": [
+            { "code": "G20", "display": "Parkinson's disease", "displayZh": "帕金森氏病" },
+            { "code": "G30.9", "display": "Alzheimer's disease, unspecified", "displayZh": "阿茲海默症" },
+            { "code": "G40.909", "display": "Epilepsy, unspecified, not intractable", "displayZh": "癲癇" },
+            { "code": "G43.909", "display": "Migraine, unspecified, not intractable", "displayZh": "偏頭痛" },
+            { "code": "G47.00", "display": "Insomnia, unspecified", "displayZh": "失眠" },
+            { "code": "F32.9", "display": "Major depressive disorder, single episode, unspecified", "displayZh": "憂鬱症" },
+            { "code": "F41.9", "display": "Anxiety disorder, unspecified", "displayZh": "焦慮症" },
+            { "code": "R51.9", "display": "Headache, unspecified", "displayZh": "頭痛" },
+            { "code": "G62.9", "display": "Polyneuropathy, unspecified", "displayZh": "多發性神經病變" },
+            { "code": "R55", "display": "Syncope and collapse", "displayZh": "暈厥" }
+          ]
+        },
+        {
+          "name": "感染性疾病 (Infectious)",
+          "codes": [
+            { "code": "A01.00", "display": "Typhoid fever, unspecified", "displayZh": "傷寒" },
+            { "code": "A49.1", "display": "Streptococcal infection, unspecified site", "displayZh": "鏈球菌感染" },
+            { "code": "A90", "display": "Dengue fever [classical dengue]", "displayZh": "登革熱" },
+            { "code": "B19.9", "display": "Unspecified viral hepatitis without hepatic coma", "displayZh": "病毒性肝炎" },
+            { "code": "J02.9", "display": "Acute pharyngitis, unspecified", "displayZh": "急性咽喉炎" },
+            { "code": "J11.1", "display": "Influenza due to unidentified influenza virus", "displayZh": "流行性感冒" },
+            { "code": "N39.0", "display": "Urinary tract infection, site not specified", "displayZh": "泌尿道感染" },
+            { "code": "R50.9", "display": "Fever, unspecified", "displayZh": "發燒" },
+            { "code": "U07.1", "display": "COVID-19", "displayZh": "新冠肺炎" },
+            { "code": "A09", "display": "Infectious gastroenteritis and colitis, unspecified", "displayZh": "感染性腸胃炎" }
+          ]
+        },
+        {
+          "name": "肌肉骨骼疾病 (Musculoskeletal)",
+          "codes": [
+            { "code": "M06.9", "display": "Rheumatoid arthritis, unspecified", "displayZh": "類風濕性關節炎" },
+            { "code": "M10.9", "display": "Gout, unspecified", "displayZh": "痛風" },
+            { "code": "M19.90", "display": "Unspecified osteoarthritis, unspecified site", "displayZh": "退化性關節炎" },
+            { "code": "M25.50", "display": "Pain in unspecified joint", "displayZh": "關節疼痛" },
+            { "code": "M54.50", "display": "Low back pain, unspecified", "displayZh": "下背痛" },
+            { "code": "M54.9", "display": "Dorsalgia, unspecified", "displayZh": "背痛" },
+            { "code": "M62.830", "display": "Muscle spasm of back", "displayZh": "背部肌肉痙攣" },
+            { "code": "M79.10", "display": "Myalgia, unspecified site", "displayZh": "肌肉疼痛" },
+            { "code": "M81.0", "display": "Age-related osteoporosis without current pathological fracture", "displayZh": "骨質疏鬆" },
+            { "code": "R52", "display": "Pain, unspecified", "displayZh": "疼痛" }
+          ]
+        },
+        {
+          "name": "內分泌疾病 (Endocrine)",
+          "codes": [
+            { "code": "E03.9", "display": "Hypothyroidism, unspecified", "displayZh": "甲狀腺低下" },
+            { "code": "E04.1", "display": "Nontoxic single thyroid nodule", "displayZh": "甲狀腺結節" },
+            { "code": "E05.90", "display": "Thyrotoxicosis, unspecified without thyrotoxic crisis", "displayZh": "甲狀腺亢進" },
+            { "code": "E11.9", "display": "Type 2 diabetes mellitus without complications", "displayZh": "第二型糖尿病" },
+            { "code": "E11.65", "display": "Type 2 diabetes mellitus with hyperglycemia", "displayZh": "第二型糖尿病合併高血糖" },
+            { "code": "E24.9", "display": "Cushing's syndrome, unspecified", "displayZh": "庫欣症候群" },
+            { "code": "E27.40", "display": "Unspecified adrenocortical insufficiency", "displayZh": "腎上腺功能不全" },
+            { "code": "E28.2", "display": "Polycystic ovarian syndrome", "displayZh": "多囊性卵巢症候群" },
+            { "code": "E66.9", "display": "Obesity, unspecified", "displayZh": "肥胖症" },
+            { "code": "E88.81", "display": "Metabolic syndrome", "displayZh": "代謝症候群" }
+          ]
+        },
+        {
+          "name": "泌尿生殖疾病 (Genitourinary)",
+          "codes": [
+            { "code": "D25.9", "display": "Leiomyoma of uterus, unspecified", "displayZh": "子宮肌瘤" },
+            { "code": "N18.9", "display": "Chronic kidney disease, unspecified", "displayZh": "慢性腎臟病" },
+            { "code": "N20.0", "display": "Calculus of kidney", "displayZh": "腎結石" },
+            { "code": "N21.0", "display": "Calculus in bladder", "displayZh": "膀胱結石" },
+            { "code": "N30.90", "display": "Cystitis, unspecified without hematuria", "displayZh": "膀胱炎" },
+            { "code": "N40.0", "display": "Benign prostatic hyperplasia", "displayZh": "攝護腺肥大" },
+            { "code": "N41.9", "display": "Inflammatory disease of prostate, unspecified", "displayZh": "攝護腺炎" },
+            { "code": "N92.6", "display": "Irregular menstruation, unspecified", "displayZh": "月經不規則" },
+            { "code": "N94.6", "display": "Dysmenorrhea, unspecified", "displayZh": "經痛" },
+            { "code": "N95.1", "display": "Menopausal and female climacteric states", "displayZh": "更年期" }
+          ]
+        },
+        {
+          "name": "皮膚疾病 (Dermatological)",
+          "codes": [
+            { "code": "B07.9", "display": "Viral wart, unspecified", "displayZh": "疣" },
+            { "code": "C43.9", "display": "Malignant melanoma of skin, unspecified", "displayZh": "黑色素瘤" },
+            { "code": "C44.90", "display": "Unspecified malignant neoplasm of skin", "displayZh": "皮膚惡性腫瘤" },
+            { "code": "D18.01", "display": "Hemangioma of skin and subcutaneous tissue", "displayZh": "血管瘤" },
+            { "code": "L29.9", "display": "Pruritus, unspecified", "displayZh": "搔癢" },
+            { "code": "L30.9", "display": "Dermatitis, unspecified", "displayZh": "濕疹" },
+            { "code": "L40.9", "display": "Psoriasis, unspecified", "displayZh": "乾癬" },
+            { "code": "L53.9", "display": "Erythematous condition, unspecified", "displayZh": "紅斑" },
+            { "code": "L70.0", "display": "Acne vulgaris", "displayZh": "痤瘡" },
+            { "code": "R21", "display": "Rash and other nonspecific skin eruption", "displayZh": "皮疹" }
+          ]
+        },
+        {
+          "name": "眼科疾病 (Ophthalmological)",
+          "codes": [
+            { "code": "H04.129", "display": "Dry eye syndrome of unspecified lacrimal gland", "displayZh": "乾眼症" },
+            { "code": "H10.9", "display": "Unspecified conjunctivitis", "displayZh": "結膜炎" },
+            { "code": "H16.9", "display": "Unspecified keratitis", "displayZh": "角膜炎" },
+            { "code": "H26.9", "display": "Unspecified cataract", "displayZh": "白內障" },
+            { "code": "H35.9", "display": "Unspecified retinal disorder", "displayZh": "視網膜疾病" },
+            { "code": "H40.9", "display": "Unspecified glaucoma", "displayZh": "青光眼" },
+            { "code": "H52.00", "display": "Hypermetropia, unspecified eye", "displayZh": "遠視" },
+            { "code": "H52.10", "display": "Myopia, unspecified eye", "displayZh": "近視" },
+            { "code": "H52.209", "display": "Unspecified astigmatism, unspecified eye", "displayZh": "散光" },
+            { "code": "H52.4", "display": "Presbyopia", "displayZh": "老花眼" }
+          ]
+        },
+        {
+          "name": "耳鼻喉科疾病 (Otolaryngological)",
+          "codes": [
+            { "code": "H66.90", "display": "Otitis media, unspecified, unspecified ear", "displayZh": "中耳炎" },
+            { "code": "H91.90", "display": "Unspecified hearing loss, unspecified ear", "displayZh": "聽力損失" },
+            { "code": "H93.19", "display": "Tinnitus, unspecified ear", "displayZh": "耳鳴" },
+            { "code": "J02.9", "display": "Acute pharyngitis, unspecified", "displayZh": "咽喉炎" },
+            { "code": "J03.90", "display": "Acute tonsillitis, unspecified", "displayZh": "扁桃腺炎" },
+            { "code": "J30.9", "display": "Allergic rhinitis, unspecified", "displayZh": "過敏性鼻炎" },
+            { "code": "J31.0", "display": "Chronic rhinitis", "displayZh": "慢性鼻炎" },
+            { "code": "J32.9", "display": "Chronic sinusitis, unspecified", "displayZh": "鼻竇炎" },
+            { "code": "J33.9", "display": "Nasal polyp, unspecified", "displayZh": "鼻息肉" },
+            { "code": "J06.9", "display": "Acute upper respiratory infection, unspecified", "displayZh": "急性上呼吸道感染" }
+          ]
+        },
+        {
+          "name": "血液疾病 (Hematological)",
+          "codes": [
+            { "code": "C85.90", "display": "Non-Hodgkin lymphoma, unspecified", "displayZh": "非何杰金氏淋巴瘤" },
+            { "code": "C95.90", "display": "Leukemia, unspecified not having achieved remission", "displayZh": "白血病" },
+            { "code": "D50.9", "display": "Iron deficiency anemia, unspecified", "displayZh": "缺鐵性貧血" },
+            { "code": "D56.9", "display": "Thalassemia, unspecified", "displayZh": "地中海型貧血" },
+            { "code": "D64.9", "display": "Anemia, unspecified", "displayZh": "貧血" },
+            { "code": "D66", "display": "Hereditary factor VIII deficiency", "displayZh": "血友病" },
+            { "code": "D69.6", "display": "Thrombocytopenia, unspecified", "displayZh": "血小板低下" },
+            { "code": "D75.9", "display": "Disease of blood and blood-forming organs, unspecified", "displayZh": "血液疾病" },
+            { "code": "E78.01", "display": "Familial hypercholesterolemia", "displayZh": "家族性高膽固醇血症" },
+            { "code": "E78.5", "display": "Hyperlipidemia, unspecified", "displayZh": "高脂血症" }
+          ]
+        }
+      ]
+    },
+    {
       "resourceType": "Observation",
       "name": "TWCORE Observation Codes (LOINC)",
       "url": "http://loinc.org",
@@ -798,6 +986,11 @@
               "displayZh": "血糖"
             },
             {
+              "code": "2345-7",
+              "display": "Glucose [Mass/volume] in Serum or Plasma",
+              "displayZh": "血清/血漿葡萄糖"
+            },
+            {
               "code": "1558-6",
               "display": "Fasting glucose",
               "displayZh": "空腹血糖"
@@ -806,6 +999,11 @@
               "code": "33747-0",
               "display": "Random glucose",
               "displayZh": "隨機血糖"
+            },
+            {
+              "code": "4548-4",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood",
+              "displayZh": "糖化血色素 (HbA1c)"
             },
             {
               "code": "17856-6",
@@ -1480,6 +1678,55 @@
       ]
     },
     {
+      "resourceType": "MedicationRequest",
+      "name": "TWCORE Medication Codes (ATC)",
+      "url": "http://www.whocc.no/atc",
+      "system": "http://www.whocc.no/atc",
+      "categories": [
+        {
+          "name": "心血管藥物 (Cardiovascular)",
+          "codes": [
+            { "code": "C09AA", "display": "ACE inhibitors, plain", "displayZh": "ACE 抑制劑" },
+            { "code": "C09CA", "display": "Angiotensin II receptor blockers", "displayZh": "ARB 類降壓藥" },
+            { "code": "C07AB", "display": "Beta blocking agents, selective", "displayZh": "選擇性乙型阻斷劑" },
+            { "code": "C08CA", "display": "Dihydropyridine derivatives", "displayZh": "鈣離子阻斷劑" },
+            { "code": "C10AA", "display": "HMG CoA reductase inhibitors", "displayZh": "他汀類降血脂藥" },
+            { "code": "B01AC", "display": "Platelet aggregation inhibitors", "displayZh": "抗血小板藥" }
+          ]
+        },
+        {
+          "name": "降血糖藥物 (Antidiabetics)",
+          "codes": [
+            { "code": "A10BA", "display": "Biguanides", "displayZh": "雙胍類" },
+            { "code": "A10BB", "display": "Sulfonylureas", "displayZh": "磺醯脲類" },
+            { "code": "A10BH", "display": "DPP-4 inhibitors", "displayZh": "DPP-4 抑制劑" },
+            { "code": "A10BK", "display": "SGLT2 inhibitors", "displayZh": "SGLT2 抑制劑" },
+            { "code": "A10BJ", "display": "GLP-1 receptor agonists", "displayZh": "GLP-1 受體促效劑" },
+            { "code": "A10AE", "display": "Insulins and analogues, long-acting", "displayZh": "長效胰島素" }
+          ]
+        },
+        {
+          "name": "抗生素 (Antibiotics)",
+          "codes": [
+            { "code": "J01CA", "display": "Penicillins with extended spectrum", "displayZh": "廣效盤尼西林" },
+            { "code": "J01DB", "display": "First-generation cephalosporins", "displayZh": "第一代頭孢菌素" },
+            { "code": "J01DD", "display": "Third-generation cephalosporins", "displayZh": "第三代頭孢菌素" },
+            { "code": "J01FA", "display": "Macrolides", "displayZh": "巨環類抗生素" },
+            { "code": "J01MA", "display": "Fluoroquinolones", "displayZh": "氟喹諾酮類" }
+          ]
+        },
+        {
+          "name": "呼吸系統藥物 (Respiratory)",
+          "codes": [
+            { "code": "R03AC", "display": "Selective beta-2-adrenoreceptor agonists", "displayZh": "短效乙二型促效劑" },
+            { "code": "R03AK", "display": "Adrenergics with corticosteroids", "displayZh": "複方吸入劑" },
+            { "code": "R03BA", "display": "Glucocorticoids", "displayZh": "吸入型類固醇" },
+            { "code": "R03BB", "display": "Anticholinergics", "displayZh": "抗膽鹼藥物" }
+          ]
+        }
+      ]
+    },
+    {
       "resourceType": "MedicationStatement",
       "name": "TWCORE Medication Codes (RxNorm)",
       "url": "http://www.nlm.nih.gov/research/umls/rxnorm",
@@ -1964,6 +2211,29 @@
       ]
     },
     {
+      "resourceType": "Procedure",
+      "name": "TWCORE Procedure Codes (ICD-10-PCS-TW)",
+      "url": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw",
+      "system": "https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw",
+      "categories": [
+        {
+          "name": "常見處置 - 台灣 (Common Procedures - TW)",
+          "codes": [
+            { "code": "0BJ08ZZ", "display": "Inspection of Tracheobronchial Tree", "displayZh": "支氣管鏡檢查" },
+            { "code": "0DJ08ZZ", "display": "Inspection of Upper Intestinal Tract", "displayZh": "上消化道內視鏡" },
+            { "code": "0DJD8ZZ", "display": "Inspection of Lower Intestinal Tract", "displayZh": "下消化道內視鏡" },
+            { "code": "0FT44ZZ", "display": "Resection of Gallbladder", "displayZh": "膽囊切除術 (腹腔鏡)" },
+            { "code": "0UT90ZZ", "display": "Resection of Uterus", "displayZh": "子宮切除術" },
+            { "code": "0SRC0JZ", "display": "Replacement of Right Knee Joint", "displayZh": "膝關節置換術" },
+            { "code": "0SRB0JZ", "display": "Replacement of Right Hip Joint", "displayZh": "髖關節置換術" },
+            { "code": "02100Z9", "display": "Bypass Coronary Artery", "displayZh": "冠狀動脈繞道手術" },
+            { "code": "027034Z", "display": "Dilation of Coronary Artery with Stent", "displayZh": "冠狀動脈支架置放" },
+            { "code": "0T9B70Z", "display": "Drainage of Bladder, Via Natural Opening", "displayZh": "膀胱引流" }
+          ]
+        }
+      ]
+    },
+    {
       "resourceType": "AllergyIntolerance",
       "name": "TWCORE AllergyIntolerance Codes (SNOMED CT)",
       "url": "http://snomed.info/sct",
@@ -2022,6 +2292,18 @@
               "display": "Allergy to mold",
               "displayZh": "黴菌過敏"
             }
+          ]
+        },
+        {
+          "name": "藥物過敏 (Drug Allergies)",
+          "codes": [
+            { "code": "294306001", "display": "Cephalosporin allergy", "displayZh": "頭孢菌素過敏" },
+            { "code": "293963004", "display": "NSAID allergy", "displayZh": "非類固醇消炎藥過敏" },
+            { "code": "294464002", "display": "Fluoroquinolone allergy", "displayZh": "氟喹諾酮類過敏" },
+            { "code": "417532002", "display": "Allergy to iodine", "displayZh": "碘過敏" },
+            { "code": "293586001", "display": "Tetracycline allergy", "displayZh": "四環黴素過敏" },
+            { "code": "294920004", "display": "Metformin allergy", "displayZh": "二甲雙胍過敏" },
+            { "code": "293698001", "display": "Erythromycin allergy", "displayZh": "紅黴素過敏" }
           ]
         }
       ]

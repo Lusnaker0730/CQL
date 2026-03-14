@@ -1,5 +1,5 @@
+import { useTranslation } from 'react-i18next'
 import {
-  Box,
   Paper,
   Typography,
   Stack,
@@ -19,7 +19,6 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material'
 import HelpTooltip from '../common/HelpTooltip'
-import { getPopulationLabel, getPopulationConfig } from '../../constants/populationConfig'
 import type { PopulationDefinition } from '../../types'
 
 export interface CqlExpression {
@@ -40,8 +39,8 @@ interface PopulationCardProps {
   populationBasis?: string
 }
 
-function resultTypeLabel(rt: string | null): string {
-  if (!rt) return 'unknown'
+function resultTypeLabel(rt: string | null, fallback: string = 'unknown'): string {
+  if (!rt) return fallback
   const last = rt.split('.').pop() || rt
   return last.replace(/^System\./, '')
 }
@@ -56,8 +55,9 @@ export default function PopulationCard({
   showAssociationType,
   populationBasis,
 }: PopulationCardProps) {
-  const config = getPopulationConfig(population.populationType)
-  const label = getPopulationLabel(population.populationType)
+  const { t } = useTranslation('measures')
+  const label = t(`populationCard.types.${population.populationType}`, population.populationType)
+  const description = t(`populationCard.descriptions.${population.populationType}`, '')
   const missingExpression = isRequired && !population.criteriaExpression
 
   const selectedExpr = expressions.find((e) => e.name === population.criteriaExpression)
@@ -81,27 +81,27 @@ export default function PopulationCard({
             {label}
           </Typography>
           <Chip
-            label={isRequired ? 'Required' : 'Optional'}
+            label={isRequired ? t('populationCard.required') : t('populationCard.optional')}
             size="small"
             color={isRequired ? 'primary' : 'default'}
             variant={isRequired ? 'filled' : 'outlined'}
             sx={{ height: 20, fontSize: '0.7rem' }}
           />
-          {config?.description && <HelpTooltip text={config.description} />}
+          {description && <HelpTooltip text={description} />}
           {missingExpression && (
-            <Tooltip title="Required population is missing an expression">
+            <Tooltip title={t('populationCard.missingExpression')}>
               <WarningIcon color="warning" sx={{ fontSize: 18 }} />
             </Tooltip>
           )}
           {nonBooleanSelected && (
-            <Tooltip title={`Expression returns ${resultTypeLabel(selectedExpr.resultType)} — Boolean expected for most populations`}>
+            <Tooltip title={t('populationCard.nonBooleanWarning', { type: resultTypeLabel(selectedExpr.resultType, t('populationCard.unknown')) })}>
               <WarningIcon color="info" sx={{ fontSize: 18 }} />
             </Tooltip>
           )}
         </Stack>
-        <Tooltip title={canRemove ? 'Remove population' : 'Required populations cannot be removed'}>
+        <Tooltip title={canRemove ? t('populationCard.removePopulation') : t('populationCard.cannotRemove')}>
           <span>
-            <IconButton size="small" color="error" onClick={onRemove} disabled={!canRemove} aria-label="Remove population">
+            <IconButton size="small" color="error" onClick={onRemove} disabled={!canRemove} aria-label={t('populationCard.removePopulation')}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </span>
@@ -110,29 +110,29 @@ export default function PopulationCard({
 
       {showAssociationType && (
         <FormControl sx={{ mb: 1.5 }}>
-          <FormLabel sx={{ fontSize: '0.75rem' }}>Association</FormLabel>
+          <FormLabel sx={{ fontSize: '0.75rem' }}>{t('populationCard.association')}</FormLabel>
           <RadioGroup
             row
             value={population.associationType || ''}
             onChange={(e) => onChange('associationType', e.target.value)}
           >
-            <FormControlLabel value="Denominator" control={<Radio size="small" />} label="Denominator" />
-            <FormControlLabel value="Numerator" control={<Radio size="small" />} label="Numerator" />
+            <FormControlLabel value="Denominator" control={<Radio size="small" />} label={t('populationCard.denominator')} />
+            <FormControlLabel value="Numerator" control={<Radio size="small" />} label={t('populationCard.numerator')} />
           </RadioGroup>
         </FormControl>
       )}
 
-      <Box>
+      <Stack spacing={1.5}>
         <TextField
           select={expressions.length > 0}
-          label="CQL Expression"
+          label={t('populationCard.cqlExpression')}
           size="small"
           fullWidth
           value={population.criteriaExpression}
           onChange={(e) => onChange('criteriaExpression', e.target.value)}
         >
           <MenuItem value="">
-            <em>None</em>
+            <em>{t('populationCard.none')}</em>
           </MenuItem>
           {expressions.map((expr) => (
             <MenuItem key={expr.name} value={expr.name}>
@@ -151,7 +151,18 @@ export default function PopulationCard({
             </MenuItem>
           ))}
         </TextField>
-      </Box>
+        <TextField
+          label={t('populationCard.description')}
+          size="small"
+          fullWidth
+          multiline
+          minRows={1}
+          maxRows={3}
+          value={population.description || ''}
+          onChange={(e) => onChange('description', e.target.value)}
+          placeholder={t('populationCard.descriptionPlaceholder')}
+        />
+      </Stack>
     </Paper>
   )
 }

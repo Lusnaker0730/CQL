@@ -1,6 +1,7 @@
 package com.cqlplatform.service.cql;
 
 import com.cqlplatform.exception.CqlExecutionException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.CqlExecutionResponse.DebugTrace;
@@ -17,6 +18,9 @@ import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
 import org.opencds.cqf.cql.engine.data.CompositeDataProvider;
+import org.opencds.cqf.cql.engine.debug.Location;
+import org.opencds.cqf.cql.engine.debug.SourceLocator;
+import org.opencds.cqf.cql.engine.exception.CqlException;
 import org.opencds.cqf.cql.engine.execution.CqlEngine;
 import org.opencds.cqf.cql.engine.execution.Environment;
 import org.opencds.cqf.cql.engine.execution.EvaluationResult;
@@ -39,9 +43,12 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 public class CqlExecutionService {
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper ELM_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
-    private final Executor cqlExecutionExecutor;
+    private final ExecutorService executorService;
     private final CqlLibraryRepository libraryRepository;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -59,14 +66,20 @@ public class CqlExecutionService {
     @Value("${cql.execution.timeout-seconds:30}")
     private int timeoutSeconds;
 
+    @Value("${cql.execution.max-retrieve-count:10000}")
+    private int maxRetrieveCount;
+
+    @Value("${cql.execution.max-collection-size:1000}")
+    private int maxCollectionSize;
+
     public CqlExecutionService(
             FhirDataProviderService dataProviderService,
             FhirTerminologyService terminologyService,
-            @Qualifier("cqlExecutionExecutor") Executor cqlExecutionExecutor,
+            @Qualifier("cqlExecutionExecutor") ExecutorService executorService,
             CqlLibraryRepository libraryRepository) {
         this.dataProviderService = dataProviderService;
         this.terminologyService = terminologyService;
-        this.cqlExecutionExecutor = cqlExecutionExecutor;
+        this.executorService = executorService;
         this.libraryRepository = libraryRepository;
     }
 
@@ -80,15 +93,23 @@ public class CqlExecutionService {
         Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
+        Future<CqlExecutionResponse> future;
         try {
-            CompletableFuture<CqlExecutionResponse> future = CompletableFuture.supplyAsync(
-                    () -> doExecute(request, prefetchProvider, startTime), cqlExecutionExecutor);
+            future = executorService.submit(
+                    () -> doExecute(request, prefetchProvider, startTime));
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("CQL execution pool exhausted — please retry later");
+        }
 
+        try {
             CqlExecutionResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             return response;
 
         } catch (TimeoutException e) {
+            future.cancel(true);
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             throw new CqlExecutionException("CQL execution timed out after " + timeoutSeconds + "s");
@@ -96,11 +117,16 @@ public class CqlExecutionService {
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
             Throwable cause = e.getCause();
+            if (cause instanceof CallNotPermittedException) {
+                throw new CqlExecutionException(
+                        "FHIR server circuit breaker is open — server temporarily unavailable");
+            }
             if (cause instanceof CqlExecutionException) {
                 throw (CqlExecutionException) cause;
             }
             throw new CqlExecutionException("Execution failed: " + cause.getMessage(), cause);
         } catch (InterruptedException e) {
+            future.cancel(true);
             Thread.currentThread().interrupt();
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
@@ -111,23 +137,28 @@ public class CqlExecutionService {
     private CqlExecutionResponse doExecute(CqlExecutionRequest request, RetrieveProvider prefetchProvider, long startTime) {
         try {
             // Translate CQL to ELM
-            ModelManager modelManager = new ModelManager();
-            LibraryManager libraryManager = new LibraryManager(modelManager);
-
-            // Register database provider first so user libraries take precedence
-            if (libraryRepository != null) {
-                libraryManager.getLibrarySourceLoader()
-                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
-            }
-
-            // Register Library Source Provider to load FHIRHelpers from classpath resources
-            libraryManager.getLibrarySourceLoader()
-                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
+            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
 
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
 
             org.hl7.elm.r1.Library elmLibrary = translator.toELM();
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
+
+            // Extract source locators and dependencies for debug mode
+            Map<String, String> sourceLocators = new HashMap<>();
+            Map<String, List<String>> expressionDependencies = new HashMap<>();
+            String elmJson = null;
+            if (request.isDebugMode()) {
+                if (elmLibrary.getStatements() != null && elmLibrary.getStatements().getDef() != null) {
+                    for (org.hl7.elm.r1.ExpressionDef def : elmLibrary.getStatements().getDef()) {
+                        if (def.getLocator() != null) {
+                            sourceLocators.put(def.getName(), def.getLocator());
+                        }
+                    }
+                }
+                elmJson = translator.toJson();
+                expressionDependencies = extractExpressionDependencies(elmJson);
+            }
 
             // Register the source of the translated library so the engine can find it
             if (libraryId != null) {
@@ -145,12 +176,22 @@ public class CqlExecutionService {
             // Setup terminology provider
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
 
-            // Setup data provider - use prefetch if available, otherwise REST
+            // Setup data provider - use prefetch if available, auto-prefetch for patient context, otherwise REST
             ComparableR4FhirModelResolver modelResolver = new ComparableR4FhirModelResolver();
             RetrieveProvider retrieveProvider;
             if (prefetchProvider != null) {
                 log.info("Using prefetch data provider for CQL execution");
+                // Wire up TerminologyProvider so PrefetchRetrieveProvider can expand ValueSets
+                if (prefetchProvider instanceof com.cqlplatform.service.cds.PrefetchRetrieveProvider pfp) {
+                    pfp.setTerminologyProvider(terminologyProvider);
+                }
                 retrieveProvider = prefetchProvider;
+            } else if (request.getPatientId() != null) {
+                // Auto-prefetch: batch-fetch all needed resource types in one FHIR request
+                retrieveProvider = tryAutoPrefetch(request, fhirServerUrl, terminologyProvider, translator, elmJson);
+                if (retrieveProvider == null) {
+                    retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
+                }
             } else {
                 retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
             }
@@ -161,6 +202,9 @@ public class CqlExecutionService {
                 tracingProvider = new TracingRetrieveProvider(retrieveProvider);
                 retrieveProvider = tracingProvider;
             }
+
+            // Outermost wrapper: check interrupt flag + cap result size before every retrieve()
+            retrieveProvider = new InterruptAwareRetrieveProvider(retrieveProvider, maxRetrieveCount);
 
             CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
 
@@ -208,7 +252,7 @@ public class CqlExecutionService {
 
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName)
-                                .value(value)
+                                .value(toSerializable(value))
                                 .valueType(valueType)
                                 .displayValue(formatDisplayValue(value))
                                 .build());
@@ -219,67 +263,135 @@ public class CqlExecutionService {
                                 .resultDisplay(formatDisplayValue(value))
                                 .evaluationTimeMs(exprTime)
                                 .order(traceOrder++)
+                                .sourceLocator(sourceLocators.get(expressionName))
+                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
                                 .build());
                     } catch (Exception e) {
                         long exprTime = System.currentTimeMillis() - exprStart;
                         log.warn("Failed to evaluate expression in debug mode: {}", expressionName, e);
+                        // Try to extract runtime source locator from CqlException
+                        String runtimeLocator = extractRuntimeLocator(e);
+                        String errorLocator = runtimeLocator != null
+                                ? runtimeLocator : sourceLocators.get(expressionName);
+                        String errorDisplay = runtimeLocator != null
+                                ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                : "Error: " + e.getMessage();
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName)
                                 .value(null)
                                 .valueType("Error")
-                                .displayValue("Error: " + e.getMessage())
+                                .displayValue(errorDisplay)
                                 .build());
                         expressionTraces.add(ExpressionTrace.builder()
                                 .name(expressionName)
                                 .resultType("Error")
-                                .resultDisplay("Error: " + e.getMessage())
+                                .resultDisplay(errorDisplay)
                                 .evaluationTimeMs(exprTime)
                                 .order(traceOrder++)
+                                .sourceLocator(errorLocator)
+                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
                                 .build());
                     }
                 }
             } else {
                 // Normal mode: evaluate all expressions at once
-                EvaluationResult evaluationResult;
-                if (request.getPatientId() != null) {
-                    String patientId = request.getPatientId();
-                    if (!patientId.startsWith("Patient/")) {
-                        patientId = "Patient/" + patientId;
+                EvaluationResult evaluationResult = null;
+                boolean batchFailed = false;
+
+                try {
+                    if (request.getPatientId() != null) {
+                        String patientId = request.getPatientId();
+                        if (!patientId.startsWith("Patient/")) {
+                            patientId = "Patient/" + patientId;
+                        }
+                        evaluationResult = engine.evaluate(
+                                elmLibrary.getIdentifier(),
+                                expressions,
+                                org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
+                                request.getParameters(),
+                                null);
+                    } else {
+                        evaluationResult = engine.evaluate(
+                                elmLibrary.getIdentifier(),
+                                expressions,
+                                null,
+                                request.getParameters(),
+                                null);
                     }
-                    evaluationResult = engine.evaluate(
-                            elmLibrary.getIdentifier(),
-                            expressions,
-                            org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
-                            request.getParameters(),
-                            null);
-                } else {
-                    evaluationResult = engine.evaluate(
-                            elmLibrary.getIdentifier(),
-                            expressions,
-                            null,
-                            request.getParameters(),
-                            null);
+                } catch (Exception batchEx) {
+                    // Batch evaluation failed (e.g. ambiguous overload in FHIRHelpers).
+                    // Fall back to per-expression evaluation so only the failing
+                    // expression(s) return errors while the rest succeed.
+                    log.warn("Batch CQL evaluation failed, falling back to per-expression evaluation: {}",
+                            batchEx.getMessage());
+                    batchFailed = true;
                 }
 
-                for (String expressionName : expressions) {
-                    try {
-                        org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
-                                .get(expressionName);
-                        Object value = exprResult != null ? exprResult.value() : null;
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(value)
-                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
-                                .displayValue(formatDisplayValue(value))
-                                .build());
-                    } catch (Exception e) {
-                        log.warn("Failed to get result for expression: {}", expressionName, e);
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(null)
-                                .valueType("Error")
-                                .displayValue("Error: " + e.getMessage())
-                                .build());
+                if (batchFailed) {
+                    for (String expressionName : expressions) {
+                        try {
+                            EvaluationResult singleResult;
+                            Set<String> singleExpr = Set.of(expressionName);
+                            if (request.getPatientId() != null) {
+                                String pid = request.getPatientId();
+                                if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
+                                singleResult = engine.evaluate(
+                                        elmLibrary.getIdentifier(), singleExpr,
+                                        org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), pid),
+                                        request.getParameters(), null);
+                            } else {
+                                singleResult = engine.evaluate(
+                                        elmLibrary.getIdentifier(), singleExpr,
+                                        null, request.getParameters(), null);
+                            }
+                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                                    singleResult.expressionResults.get(expressionName);
+                            Object value = exprResult != null ? exprResult.value() : null;
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(toSerializable(value))
+                                    .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                    .displayValue(formatDisplayValue(value))
+                                    .build());
+                        } catch (Exception e) {
+                            log.warn("Expression evaluation failed: {}", expressionName, e);
+                            String runtimeLocator = extractRuntimeLocator(e);
+                            String errorDisplay = runtimeLocator != null
+                                    ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                    : "Error: " + e.getMessage();
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(null)
+                                    .valueType("Error")
+                                    .displayValue(errorDisplay)
+                                    .build());
+                        }
+                    }
+                } else {
+                    for (String expressionName : expressions) {
+                        try {
+                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
+                                    .get(expressionName);
+                            Object value = exprResult != null ? exprResult.value() : null;
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(toSerializable(value))
+                                    .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                    .displayValue(formatDisplayValue(value))
+                                    .build());
+                        } catch (Exception e) {
+                            log.warn("Failed to get result for expression: {}", expressionName, e);
+                            String runtimeLocator = extractRuntimeLocator(e);
+                            String errorDisplay = runtimeLocator != null
+                                    ? "Error at " + runtimeLocator + ": " + e.getMessage()
+                                    : "Error: " + e.getMessage();
+                            results.put(expressionName, ExpressionResult.builder()
+                                    .name(expressionName)
+                                    .value(null)
+                                    .valueType("Error")
+                                    .displayValue(errorDisplay)
+                                    .build());
+                        }
                     }
                 }
             }
@@ -293,6 +405,7 @@ public class CqlExecutionService {
                         .expressionTraces(expressionTraces)
                         .retrieveTraces(tracingProvider != null ? tracingProvider.getTraces() : List.of())
                         .totalTimeMs(executionTime)
+                        .sourceLocators(sourceLocators)
                         .build();
             }
 
@@ -332,6 +445,42 @@ public class CqlExecutionService {
         return expressions;
     }
 
+    /**
+     * Convert CQL engine result objects to JSON-safe types.
+     * Raw CQL objects (Tuple, Code, etc.) contain internal engine state that
+     * Jackson cannot serialize, so we convert them to primitives/Maps/Lists.
+     */
+    private Object toSerializable(Object value) {
+        if (value == null) return null;
+        if (value instanceof Boolean || value instanceof Number || value instanceof String) return value;
+        if (value instanceof java.time.ZonedDateTime) return value.toString();
+        if (value instanceof java.time.LocalDate) return value.toString();
+        if (value instanceof java.time.LocalDateTime) return value.toString();
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Quantity q) {
+            return q.getValue() + (q.getUnit() != null ? " '" + q.getUnit() + "'" : "");
+        }
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Tuple t) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            for (String key : t.getElements().keySet()) {
+                map.put(key, toSerializable(t.getElements().get(key)));
+            }
+            return map;
+        }
+        if (value instanceof Iterable<?> iter) {
+            List<Object> list = new ArrayList<>();
+            for (Object item : iter) {
+                if (list.size() >= maxCollectionSize) {
+                    list.add("[... truncated at " + maxCollectionSize + " items]");
+                    break;
+                }
+                list.add(toSerializable(item));
+            }
+            return list;
+        }
+        // Fallback: use display string
+        return formatDisplayValue(value);
+    }
+
     private String formatDisplayValue(Object value) {
         if (value == null) {
             return "null";
@@ -355,6 +504,145 @@ public class CqlExecutionService {
             return ((ZonedDateTime) value).toString();
         }
         return value.getClass().getSimpleName() + ": " + value.toString();
+    }
+
+    private Map<String, List<String>> extractExpressionDependencies(String elmJson) {
+        Map<String, List<String>> result = new HashMap<>();
+        if (elmJson == null) return result;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = ELM_MAPPER.readTree(elmJson);
+            com.fasterxml.jackson.databind.JsonNode statements = root.path("library").path("statements").path("def");
+            if (statements.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode def : statements) {
+                    String name = def.path("name").asText(null);
+                    if (name == null) continue;
+                    List<String> deps = new ArrayList<>();
+                    collectExpressionRefNodes(def, deps);
+                    deps.remove(name);
+                    if (!deps.isEmpty()) {
+                        result.put(name, deps);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract expression dependencies: {}", e.getMessage());
+        }
+        return result;
+    }
+
+    private void collectExpressionRefNodes(com.fasterxml.jackson.databind.JsonNode node, List<String> refs) {
+        if (node == null) return;
+        if (node.isObject()) {
+            if ("ExpressionRef".equals(node.path("type").asText(""))) {
+                String refName = node.path("name").asText(null);
+                if (refName != null && !refs.contains(refName)) {
+                    refs.add(refName);
+                }
+            }
+            for (java.util.Iterator<com.fasterxml.jackson.databind.JsonNode> it = node.elements(); it.hasNext(); ) {
+                collectExpressionRefNodes(it.next(), refs);
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode child : node) {
+                collectExpressionRefNodes(child, refs);
+            }
+        }
+    }
+
+    /**
+     * Walk the exception cause chain looking for a CqlException with a SourceLocator.
+     * Returns a locator string like "5:1-5:42" or null if none found.
+     */
+    private String extractRuntimeLocator(Throwable e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current instanceof CqlException cqlEx) {
+                SourceLocator sl = cqlEx.getSourceLocator();
+                if (sl != null && sl.getSourceLocation() != null) {
+                    Location loc = sl.getSourceLocation();
+                    return loc.toLocator();
+                }
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    /**
+     * Attempt to auto-prefetch all needed FHIR resources for the patient in a single batch request.
+     * Parses ELM to find Retrieve data types, then batch-fetches them.
+     * Returns null if prefetch fails (caller should fall back to REST provider).
+     */
+    private RetrieveProvider tryAutoPrefetch(CqlExecutionRequest request, String fhirServerUrl,
+            TerminologyProvider terminologyProvider, CqlTranslator translator, String elmJson) {
+        try {
+            if (elmJson == null) {
+                elmJson = translator.toJson();
+            }
+            Set<String> retrieveTypes = extractRetrieveTypes(elmJson);
+            retrieveTypes.add("Patient");
+
+            String patientId = request.getPatientId();
+            if (patientId.startsWith("Patient/")) {
+                patientId = patientId.substring("Patient/".length());
+            }
+            com.cqlplatform.security.InputValidator.requireValidResourceId(patientId);
+
+            log.debug("Auto-prefetch: batch-fetching resource types {} for patient {}", retrieveTypes, patientId);
+            long prefetchStart = System.currentTimeMillis();
+            java.util.List<org.hl7.fhir.r4.model.Resource> resources =
+                    dataProviderService.batchFetchPatientResources(fhirServerUrl, patientId, retrieveTypes);
+            long prefetchTime = System.currentTimeMillis() - prefetchStart;
+            log.info("Auto-prefetch: {} resources fetched in {}ms", resources.size(), prefetchTime);
+
+            com.cqlplatform.service.cds.PrefetchRetrieveProvider provider =
+                    new com.cqlplatform.service.cds.PrefetchRetrieveProvider(resources, patientId);
+            provider.setTerminologyProvider(terminologyProvider);
+            return provider;
+        } catch (Exception e) {
+            log.warn("Auto-prefetch failed, falling back to REST provider: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract FHIR resource types from ELM Retrieve nodes.
+     * E.g. finds "Observation", "Condition" from Retrieve dataType="{http://hl7.org/fhir}Observation".
+     */
+    private Set<String> extractRetrieveTypes(String elmJson) {
+        Set<String> types = new HashSet<>();
+        if (elmJson == null) return types;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root =
+                    ELM_MAPPER.readTree(elmJson);
+            collectRetrieveTypeNodes(root, types);
+        } catch (Exception e) {
+            log.warn("Failed to extract retrieve types from ELM: {}", e.getMessage());
+        }
+        return types;
+    }
+
+    private void collectRetrieveTypeNodes(com.fasterxml.jackson.databind.JsonNode node, Set<String> types) {
+        if (node == null) return;
+        if (node.isObject()) {
+            if ("Retrieve".equals(node.path("type").asText(""))) {
+                String dataType = node.path("dataType").asText("");
+                int braceIdx = dataType.lastIndexOf('}');
+                if (braceIdx >= 0) {
+                    String type = dataType.substring(braceIdx + 1);
+                    if (com.cqlplatform.security.InputValidator.isValidFhirResourceType(type)) {
+                        types.add(type);
+                    }
+                }
+            }
+            for (java.util.Iterator<com.fasterxml.jackson.databind.JsonNode> it = node.elements(); it.hasNext(); ) {
+                collectRetrieveTypeNodes(it.next(), types);
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode child : node) {
+                collectRetrieveTypeNodes(child, types);
+            }
+        }
     }
 
     private static class InMemoryLibrarySourceProvider implements LibrarySourceProvider {

@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { getScoreChipColor } from '../utils/scoreColors'
 import {
   Paper,
   Typography,
@@ -16,26 +19,23 @@ import {
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
-  Assessment as AssessmentIcon,
-  RateReview as ReviewIcon,
   TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material'
 import { measureApi } from '../api'
 import type { DashboardSummary } from '../types'
 import StatusChip from '../components/common/StatusChip'
 import DashboardSkeleton from '../components/common/DashboardSkeleton'
+import DashboardFilterBar from '../components/dashboard/DashboardFilterBar'
+import ScoreTrendChart from '../components/dashboard/ScoreTrendChart'
+import DepartmentDrilldownChart from '../components/dashboard/DepartmentDrilldownChart'
+import ScoreDistributionChart from '../components/dashboard/ScoreDistributionChart'
+import ThresholdAlertPanel from '../components/dashboard/ThresholdAlertPanel'
+import QualityReportPanel from '../components/dashboard/QualityReportPanel'
+import { STALE_30S, STALE_1M } from '../constants/queryConstants'
 
 const TEAL = '#0D7377'
-const TEAL_LIGHT = '#14A3A8'
 
 const STATUS_ORDER = ['active', 'draft', 'retired', 'in-review'] as const
-
-function getScoreColor(score: number | undefined): 'success' | 'warning' | 'error' {
-  if (score == null) return 'error'
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'error'
-}
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '--'
@@ -50,19 +50,13 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-function formatScoreLabel(score?: number): string {
-  if (score == null) return 'N/A'
+function formatScoreLabel(score?: number, naLabel = 'N/A'): string {
+  if (score == null) return naLabel
   return `${score.toFixed(1)}%`
 }
 
-function formatScoringLabel(key: string): string {
-  return key
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatStatusLabel(key: string): string {
-  if (key === 'in-review') return 'In Review'
+function formatStatusLabel(key: string, inReviewLabel = 'In Review'): string {
+  if (key === 'in-review') return inReviewLabel
   return key.charAt(0).toUpperCase() + key.slice(1)
 }
 
@@ -71,10 +65,11 @@ function formatStatusLabel(key: string): string {
 // ---------------------------------------------------------------------------
 
 function OverviewCards({ data }: { data: DashboardSummary }) {
+  const { t } = useTranslation('measures')
   const cards = [
-    { label: 'Total Measures', value: data.totalMeasures, color: TEAL },
+    { label: t('dashboard.totalMeasures'), value: data.totalMeasures, color: TEAL },
     ...STATUS_ORDER.map((status) => ({
-      label: formatStatusLabel(status),
+      label: formatStatusLabel(status, t('dashboard.inReview')),
       value: data.byStatus[status] ?? 0,
       color:
         status === 'active'
@@ -119,80 +114,12 @@ function OverviewCards({ data }: { data: DashboardSummary }) {
   )
 }
 
-function ScoringDistribution({ byScoring }: { byScoring: Record<string, number> }) {
-  const entries = Object.entries(byScoring).sort((a, b) => b[1] - a[1])
-  const maxCount = Math.max(...entries.map(([, v]) => v), 1)
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-        height: '100%',
-      }}
-    >
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
-        <AssessmentIcon sx={{ color: TEAL, fontSize: 22 }} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Scoring Type Distribution
-        </Typography>
-      </Stack>
-
-      {entries.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          No scoring data available.
-        </Typography>
-      ) : (
-        <Stack spacing={2}>
-          {entries.map(([type, count]) => (
-            <Box key={type}>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                sx={{ mb: 0.5 }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {formatScoringLabel(type)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {count}
-                </Typography>
-              </Stack>
-              <Box
-                sx={{
-                  width: '100%',
-                  height: 10,
-                  borderRadius: 5,
-                  bgcolor: 'grey.100',
-                  overflow: 'hidden',
-                }}
-              >
-                <Box
-                  sx={{
-                    width: `${(count / maxCount) * 100}%`,
-                    height: '100%',
-                    borderRadius: 5,
-                    background: `linear-gradient(90deg, ${TEAL} 0%, ${TEAL_LIGHT} 100%)`,
-                    transition: 'width 0.6s ease-in-out',
-                  }}
-                />
-              </Box>
-            </Box>
-          ))}
-        </Stack>
-      )}
-    </Paper>
-  )
-}
-
 function RecentEvaluationsTable({
   evaluations,
 }: {
   evaluations: DashboardSummary['recentEvaluations']
 }) {
+  const { t } = useTranslation('measures')
   const rows = evaluations.slice(0, 10)
 
   return (
@@ -213,14 +140,14 @@ function RecentEvaluationsTable({
       >
         <TrendingUpIcon sx={{ color: TEAL, fontSize: 22 }} />
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Recent Evaluations
+          {t('dashboard.recentEvaluations')}
         </Typography>
       </Stack>
 
       {rows.length === 0 ? (
         <Box sx={{ px: 3, pb: 3 }}>
           <Typography variant="body2" color="text.secondary">
-            No recent evaluations found.
+            {t('dashboard.noRecentEvaluations')}
           </Typography>
         </Box>
       ) : (
@@ -228,12 +155,12 @@ function RecentEvaluationsTable({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell scope="col" sx={{ fontWeight: 600 }}>Measure</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('dashboard.tableHeaders.measure')}</TableCell>
                 <TableCell scope="col" sx={{ fontWeight: 600 }} align="right">
-                  Score
+                  {t('dashboard.tableHeaders.score')}
                 </TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell scope="col" sx={{ fontWeight: 600 }}>Date</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('dashboard.tableHeaders.status')}</TableCell>
+                <TableCell scope="col" sx={{ fontWeight: 600 }}>{t('dashboard.tableHeaders.date')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -249,9 +176,9 @@ function RecentEvaluationsTable({
                   </TableCell>
                   <TableCell align="right">
                     <Chip
-                      label={formatScoreLabel(ev.score)}
+                      label={formatScoreLabel(ev.score, t('dashboard.na'))}
                       size="small"
-                      color={getScoreColor(ev.score)}
+                      color={getScoreChipColor(ev.score)}
                       variant="outlined"
                       sx={{ fontWeight: 600, minWidth: 64 }}
                     />
@@ -280,90 +207,16 @@ function RecentEvaluationsTable({
   )
 }
 
-function PendingReviewList({
-  items,
-}: {
-  items: DashboardSummary['pendingReview']
-}) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-        height: '100%',
-      }}
-    >
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
-        <ReviewIcon sx={{ color: TEAL, fontSize: 22 }} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Pending Review
-        </Typography>
-        {items.length > 0 && (
-          <Chip
-            label={items.length}
-            size="small"
-            sx={{
-              bgcolor: TEAL,
-              color: '#fff',
-              fontWeight: 600,
-              height: 22,
-              fontSize: 12,
-            }}
-          />
-        )}
-      </Stack>
-
-      {items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          No measures pending review.
-        </Typography>
-      ) : (
-        <Stack spacing={1.5}>
-          {items.map((item) => (
-            <Box
-              key={item.id}
-              sx={{
-                p: 1.5,
-                borderRadius: 1.5,
-                bgcolor: 'grey.50',
-                border: '1px solid',
-                borderColor: 'grey.200',
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>
-                {item.name}
-              </Typography>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="caption" color="text.secondary">
-                  v{item.version}
-                </Typography>
-                {item.owner && (
-                  <>
-                    <Typography variant="caption" color="text.disabled">
-                      |
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {item.owner}
-                    </Typography>
-                  </>
-                )}
-              </Stack>
-            </Box>
-          ))}
-        </Stack>
-      )}
-    </Paper>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
 export default function MeasureDashboardPage() {
+  const { t } = useTranslation('measures')
+  const [department, setDepartment] = useState('')
+  const [periodType, setPeriodType] = useState('monthly')
+
+  // Original dashboard data
   const {
     data,
     isLoading,
@@ -372,7 +225,35 @@ export default function MeasureDashboardPage() {
   } = useQuery<DashboardSummary>({
     queryKey: ['measure-dashboard'],
     queryFn: measureApi.getDashboard,
-    staleTime: 30_000,
+    staleTime: STALE_30S,
+  })
+
+  // Enhanced dashboard data
+  const { data: enhancedData } = useQuery({
+    queryKey: ['enhanced-dashboard', department],
+    queryFn: () => measureApi.getEnhancedDashboard(department || undefined),
+    staleTime: STALE_30S,
+  })
+
+  // Trends
+  const { data: trendData = [] } = useQuery({
+    queryKey: ['dashboard-trends', periodType],
+    queryFn: () => measureApi.getDashboardTrends(undefined, periodType, 12),
+    staleTime: STALE_1M,
+  })
+
+  // Alerts
+  const { data: alerts = [] } = useQuery({
+    queryKey: ['dashboard-alerts', department],
+    queryFn: () => measureApi.getDashboardAlerts(department || undefined),
+    staleTime: STALE_30S,
+  })
+
+  // Quality report
+  const { data: qualityReport = null } = useQuery({
+    queryKey: ['quality-report', periodType, department],
+    queryFn: () => measureApi.getQualityReport(periodType, department || undefined),
+    staleTime: STALE_1M,
   })
 
   if (isLoading) {
@@ -383,8 +264,7 @@ export default function MeasureDashboardPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">
-          Failed to load dashboard data.{' '}
-          {error instanceof Error ? error.message : 'Unknown error'}
+          {t('dashboard.loadError', { error: error instanceof Error ? error.message : t('dashboard.unknownError') })}
         </Alert>
       </Box>
     )
@@ -393,7 +273,7 @@ export default function MeasureDashboardPage() {
   if (!data) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="info">No dashboard data available.</Alert>
+        <Alert severity="info">{t('dashboard.noData')}</Alert>
       </Box>
     )
   }
@@ -401,30 +281,63 @@ export default function MeasureDashboardPage() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: 'auto' }}>
       {/* Header */}
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
         <DashboardIcon sx={{ color: TEAL, fontSize: 28 }} />
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          eCQM Dashboard
+          {t('dashboard.title')}
         </Typography>
       </Stack>
 
-      {/* Overview cards */}
-      <Box sx={{ mb: 3 }}>
-        <OverviewCards data={data} />
-      </Box>
+      {/* Filter bar */}
+      <DashboardFilterBar
+        department={department}
+        onDepartmentChange={setDepartment}
+        periodType={periodType}
+        onPeriodTypeChange={setPeriodType}
+      />
 
-      {/* Middle row: Scoring distribution + Pending review */}
+      {/* Overview cards + Alerts */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={7}>
-          <ScoringDistribution byScoring={data.byScoring} />
+        <Grid item xs={12} md={9}>
+          <OverviewCards data={data} />
         </Grid>
-        <Grid item xs={12} md={5}>
-          <PendingReviewList items={data.pendingReview} />
+        <Grid item xs={12} md={3}>
+          <ThresholdAlertPanel alerts={alerts} />
         </Grid>
       </Grid>
 
-      {/* Recent evaluations table */}
-      <RecentEvaluationsTable evaluations={data.recentEvaluations} />
+      {/* Score Trend Chart (full width) */}
+      {trendData.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <ScoreTrendChart data={trendData} title={t('dashboard.scoreTrend')} />
+        </Box>
+      )}
+
+      {/* Department drill-down + Score distribution */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          {enhancedData?.departmentScores && Object.keys(enhancedData.departmentScores).length > 0 ? (
+            <DepartmentDrilldownChart data={enhancedData.departmentScores} />
+          ) : (
+            <Paper variant="outlined" sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography color="text.secondary">{t('dashboard.noDepartmentData')}</Typography>
+            </Paper>
+          )}
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <ScoreDistributionChart data={data.byScoring} />
+        </Grid>
+      </Grid>
+
+      {/* Recent evaluations + Quality report */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <RecentEvaluationsTable evaluations={data.recentEvaluations} />
+        </Grid>
+        <Grid item xs={12} md={5}>
+          <QualityReportPanel report={qualityReport} />
+        </Grid>
+      </Grid>
     </Box>
   )
 }

@@ -8,10 +8,10 @@ import com.cqlplatform.repository.CqlLibraryRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
+import org.cqframework.cql.cql2elm.CqlCompilerOptions;
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.LibraryManager;
-import org.cqframework.cql.cql2elm.ModelManager;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.hl7.elm.r1.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +39,16 @@ public class CqlTranslationService {
     @Autowired(required = false)
     private Counter cqlTranslationErrorCounter;
 
+    @org.springframework.beans.factory.annotation.Value("${cql.execution.translation-timeout-seconds:30}")
+    private int translationTimeoutSeconds;
+
+    private static final ExecutorService TRANSLATION_EXECUTOR =
+            Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "cql-translate");
+                t.setDaemon(true);
+                return t;
+            });
+
     public CqlTranslationResponse translate(CqlTranslationRequest request) {
         if (request.getCql() == null || request.getCql().isBlank()) {
             throw new IllegalArgumentException("CQL content must not be null or empty");
@@ -46,19 +57,40 @@ public class CqlTranslationService {
         if (cqlTranslationCounter != null) cqlTranslationCounter.increment();
         Timer.Sample sample = cqlTranslationTimer != null ? Timer.start() : null;
 
+        Future<CqlTranslationResponse> future = TRANSLATION_EXECUTOR.submit(
+                () -> doTranslate(request));
         try {
-            ModelManager modelManager = new ModelManager();
-            LibraryManager libraryManager = new LibraryManager(modelManager);
+            CqlTranslationResponse response = future.get(translationTimeoutSeconds, TimeUnit.SECONDS);
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            return response;
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            throw new CqlTranslationException("Translation timed out after " + translationTimeoutSeconds + "s");
+        } catch (ExecutionException e) {
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            Throwable cause = e.getCause();
+            if (cause instanceof CqlTranslationException cte) throw cte;
+            throw new CqlTranslationException("Translation failed: " + cause.getMessage());
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
+            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
+            throw new CqlTranslationException("Translation was interrupted");
+        }
+    }
 
-            // Register database provider first so user libraries take precedence
-            if (libraryRepository != null) {
-                libraryManager.getLibrarySourceLoader()
-                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
-            }
-
-            // Register Library Source Provider to load FHIRHelpers from classpath resources
-            libraryManager.getLibrarySourceLoader()
-                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
+    private CqlTranslationResponse doTranslate(CqlTranslationRequest request) {
+        try {
+            CqlCompilerOptions options = LibraryManagerFactory.buildOptions(
+                    request.isEnableLocators(),
+                    request.isEnableAnnotations(),
+                    request.isEnableResultTypes(),
+                    request.isValidateUnits());
+            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository, options);
 
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
             Library library = translator.toELM();
@@ -75,57 +107,50 @@ public class CqlTranslationService {
                 }
             }
 
+            TranslationMetadata metadata = extractMetadata(library);
+
             if (!errors.isEmpty()) {
                 return CqlTranslationResponse.builder()
                         .success(false)
                         .errors(errors)
                         .warnings(warnings)
+                        .metadata(metadata)
                         .build();
             }
 
             String elmJson = translator.toJson();
-            TranslationMetadata metadata = extractMetadata(library);
-
-            CqlTranslationResponse response = CqlTranslationResponse.builder()
+            return CqlTranslationResponse.builder()
                     .success(true)
                     .elmJson(elmJson)
                     .errors(errors)
                     .warnings(warnings)
                     .metadata(metadata)
                     .build();
-            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
-            return response;
-
         } catch (Exception e) {
-            if (cqlTranslationErrorCounter != null) cqlTranslationErrorCounter.increment();
-            if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);
             log.error("Translation failed", e);
             throw new CqlTranslationException("Translation failed: " + e.getMessage());
         }
     }
 
-    @Cacheable(value = "cqlValidation", key = "#cql.hashCode()")
+    @Cacheable(value = "cqlValidation", key = "T(com.cqlplatform.service.cql.CqlTranslationService).normalizeCacheKey(#cql)")
     public CqlTranslationResponse validate(String cql) {
         CqlTranslationRequest request = new CqlTranslationRequest();
         request.setCql(cql);
         return translate(request);
     }
 
+    /**
+     * Normalize CQL content for cache key generation.
+     * Collapses whitespace to avoid cache misses on formatting-only changes.
+     */
+    public static String normalizeCacheKey(String cql) {
+        if (cql == null) return "";
+        return String.valueOf(cql.replaceAll("\\s+", " ").trim().hashCode());
+    }
+
     public CompiledLibrary compile(String cql) {
         try {
-            ModelManager modelManager = new ModelManager();
-            LibraryManager libraryManager = new LibraryManager(modelManager);
-
-            // Register database provider first so user libraries take precedence
-            if (libraryRepository != null) {
-                libraryManager.getLibrarySourceLoader()
-                        .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
-            }
-
-            // Register Library Source Provider to load FHIRHelpers from classpath resources
-            libraryManager.getLibrarySourceLoader()
-                    .registerProvider(new ClasspathLibrarySourceProvider("cql"));
-
+            LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
             CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
 
             if (translator.getExceptions().stream()

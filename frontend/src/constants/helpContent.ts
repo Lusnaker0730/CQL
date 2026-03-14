@@ -1,60 +1,43 @@
+// Help content keys mapped to i18n translation keys in common.json under "help.*"
+// Components should use t('help.editor.translate') etc. directly.
+// This file is kept for backward compatibility with components that import helpContent.
+// They should migrate to useTranslation() over time.
+
 export const helpContent = {
   editor: {
-    translate: 'Translate CQL to ELM (Expression Logical Model). Validates syntax and semantics. Shortcut: Ctrl+S',
-    save: 'Save the current CQL content as a versioned library in the platform database.',
-    export: 'Export the library as a FHIR Library resource (JSON format) for interoperability.',
-    import: 'Import a FHIR Library resource (JSON) and load its CQL content into the editor.',
+    translate: 'help.editor.translate',
+    save: 'help.editor.save',
+    export: 'help.editor.export',
+    import: 'help.editor.import',
   },
   cds: {
-    hookType: 'The CDS hook defines when this service is triggered in the clinical workflow. "patient-view" fires when a patient chart is opened, "order-select" fires during order entry.',
-    prefetch: 'Prefetch templates define FHIR queries the EHR should execute before calling your service. Use FHIR search URLs with {{context.patientId}} placeholders.',
+    hookType: 'help.cds.hookType',
+    prefetch: 'help.cds.prefetch',
   },
   measures: {
-    scoringType: 'Proportion: ratio of numerator/denominator. Continuous Variable: statistical measure of population values. Cohort: simple count of population members.',
-    details: 'Define the measure metadata: name, version, status, and scoring type. These fields map to FHIR Measure resource attributes.',
-    cql: 'Write or edit the CQL logic that powers this measure. Translate to validate syntax, then save to persist changes.',
-    populationCriteria: 'Map CQL expressions to measure populations (Initial Population, Denominator, Numerator, etc.). Each population references a CQL expression that returns true/false for patient membership.',
-    evaluate: 'Run this measure against patient data from a FHIR server. Results show population counts, individual patient membership, and optional stratifiers.',
-    testCases: 'Create patient test cases with expected population outcomes. Run tests to verify your measure logic produces correct results before deployment.',
-    reports: 'View historical evaluation reports for this measure. Compare results across runs to track changes over time.',
-    riskAdjustment: 'Risk Adjustment Variables are CQL definitions used to describe risk factors for the measure. Select expressions from your CQL and add descriptions for each.',
-    supplementalData: 'Supplemental Data Elements are CQL definitions that capture additional data points for reporting. These are not used in scoring but are included in measure reports.',
-    observations: 'Observation Criteria define how continuous variable and ratio measures compute their observation values. Select a CQL expression and an aggregate method (Count, Sum, Average, etc.).',
-    versionManagement: 'Create versioned snapshots of your library or measure. Use Major for breaking changes, Minor for new features, Patch for fixes. Compare versions side-by-side to see CQL changes.',
+    scoringType: 'help.measures.scoringType',
+    details: 'help.measures.details',
+    cql: 'help.measures.cql',
+    populationCriteria: 'help.measures.populationCriteria',
+    evaluate: 'help.measures.evaluate',
+    testCases: 'help.measures.testCases',
+    reports: 'help.measures.reports',
+    riskAdjustment: 'help.measures.riskAdjustment',
+    supplementalData: 'help.measures.supplementalData',
+    observations: 'help.measures.observations',
+    dataRequirements: 'help.measures.dataRequirements',
+    versionManagement: 'help.measures.versionManagement',
   },
   fhir: {
-    serverUrl: 'The base URL of a FHIR R4 server. Default is the public HAPI FHIR server. You can point to your own server for testing.',
-    bulkExport: 'Initiate a FHIR Bulk Data Export ($export). System exports all resources; Patient/Group exports scope to a compartment. Results are NDJSON files.',
+    serverUrl: 'help.fhir.serverUrl',
+    bulkExport: 'help.fhir.bulkExport',
   },
   quickStart: [
-    {
-      title: 'Getting Started',
-      content:
-        'Write CQL (Clinical Quality Language) in the editor, click "Translate" to validate, then "Execute" to run against patient data from a FHIR server.',
-    },
-    {
-      title: 'CQL Basics',
-      content:
-        'CQL libraries start with a library declaration and FHIR model. Define value sets, patient context, and expressions to compute clinical logic.',
-    },
-    {
-      title: 'CDS Hooks',
-      content:
-        'Create CDS services that trigger at clinical decision points. Your CQL logic runs automatically and returns advisory cards to clinicians.',
-    },
-    {
-      title: 'Quality Measures',
-      content:
-        'Define eCQM (electronic Clinical Quality Measures) using CQL. Evaluate measure populations against patient data and generate reports.',
-    },
-    {
-      title: 'FHIR Browser',
-      content:
-        'Browse resources on any FHIR R4 server. Search by resource type and parameters, or read individual resources by ID.',
-    },
-    {
-      title: 'Keyboard Shortcuts',
-      content: 'Ctrl+S: Translate CQL | Ctrl+Enter: Execute CQL | Standard Monaco editor shortcuts available.',
-    },
+    { title: 'help.quickStart.gettingStarted.title', content: 'help.quickStart.gettingStarted.content' },
+    { title: 'help.quickStart.cqlBasics.title', content: 'help.quickStart.cqlBasics.content' },
+    { title: 'help.quickStart.cdsHooks.title', content: 'help.quickStart.cdsHooks.content' },
+    { title: 'help.quickStart.qualityMeasures.title', content: 'help.quickStart.qualityMeasures.content' },
+    { title: 'help.quickStart.fhirBrowser.title', content: 'help.quickStart.fhirBrowser.content' },
+    { title: 'help.quickStart.keyboardShortcuts.title', content: 'help.quickStart.keyboardShortcuts.content' },
   ],
 }

@@ -1,20 +1,19 @@
 import { useState } from 'react'
 import { Button, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material'
-import { Add as AddIcon, Person, LocalHospital, MedicalServices } from '@mui/icons-material'
+import { Add as AddIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useFhirResourceTypes } from '../../hooks/useFhirMetadata'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
-
-const RESOURCE_ICONS: Record<string, React.ReactNode> = {
-  Patient: <Person fontSize="small" />,
-  Encounter: <LocalHospital fontSize="small" />,
-}
-const DEFAULT_ICON = <MedicalServices fontSize="small" />
+import { getResourceIcon } from './constants'
+import { generateId } from '../../utils/validation'
+import { TWCORE_RESOURCE_DEFAULTS } from '../../constants/twcoreResourceDefaults'
 
 interface AddResourceButtonProps {
   onDirty: () => void
 }
 
 export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
+  const { t } = useTranslation('measures')
   const { data: resourceTypes } = useFhirResourceTypes()
   const { state, dispatch } = useBundleBuilder()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -22,13 +21,14 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
   const hasPatient = state.entries.some((e) => e.resourceType === 'Patient')
 
   const handleAdd = (resourceType: string) => {
-    const id = resourceType.toLowerCase() + '-' + crypto.randomUUID().slice(0, 8)
+    const id = resourceType.toLowerCase() + '-' + generateId().slice(0, 8)
+    const defaults = TWCORE_RESOURCE_DEFAULTS[resourceType]
     dispatch({
       type: 'ADD_ENTRY',
       payload: {
         id,
         resourceType,
-        resourceData: { id },
+        resourceData: { id, ...defaults },
       },
     })
     onDirty()
@@ -44,7 +44,7 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
         onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{ textTransform: 'none' }}
       >
-        Add Resource
+        {t('testCaseBuilder.addResource')}
       </Button>
       <Menu
         anchorEl={anchorEl}
@@ -59,7 +59,7 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
             disabled={type === 'Patient' && hasPatient}
           >
             <ListItemIcon>
-              {RESOURCE_ICONS[type] || DEFAULT_ICON}
+              {getResourceIcon(type)}
             </ListItemIcon>
             <ListItemText>{type}</ListItemText>
           </MenuItem>

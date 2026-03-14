@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Stack,
   TextField,
@@ -9,7 +10,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
-import ConfirmDeleteDialog from './ConfirmDeleteDialog'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
 
 interface FunctionsSectionProps {
@@ -33,6 +34,7 @@ const ARG_TYPES = [
 ]
 
 export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo, onEdit }: FunctionsSectionProps) {
+  const { t } = useTranslation('builder')
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [args, setArgs] = useState<FunctionArg[]>([{ name: '', type: 'String' }])
@@ -115,29 +117,29 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
         ))
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          No functions found
+          {t('common.noItemsFound', { type: t('sections.functions').toLowerCase() })}
         </Typography>
       )}
 
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
-          Add Function
+          {t('common.addItem', { type: 'Function' })}
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
           <TextField
             size="small"
-            label="Function Name"
+            label={t('functions.name')}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
 
-          <Typography variant="caption" color="text.secondary">Arguments</Typography>
+          <Typography variant="caption" color="text.secondary">{t('functions.arguments')}</Typography>
           {args.map((arg, idx) => (
             <Stack key={idx} direction="row" spacing={0.5} alignItems="center">
               <TextField
                 size="small"
-                label="Name"
+                label={t('functions.argName')}
                 value={arg.name}
                 onChange={(e) => updateArg(idx, 'name', e.target.value)}
                 sx={{ flex: 1 }}
@@ -145,7 +147,7 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
               <TextField
                 select
                 size="small"
-                label="Type"
+                label={t('functions.argType')}
                 value={arg.type}
                 onChange={(e) => updateArg(idx, 'type', e.target.value)}
                 sx={{ flex: 1 }}
@@ -162,12 +164,12 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
             </Stack>
           ))}
           <Button size="small" startIcon={<AddIcon />} onClick={addArg} sx={{ alignSelf: 'flex-start' }}>
-            Add Argument
+            {t('functions.addArgument')}
           </Button>
 
           <TextField
             size="small"
-            label="Function Body"
+            label={t('functions.body')}
             multiline
             rows={3}
             value={body}
@@ -180,15 +182,15 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
               snippet={previewSnippet}
               onInsert={handleConfirmInsert}
               onCancel={() => setPreviewSnippet('')}
-              insertLabel={editingItem ? 'Update' : 'Insert'}
+              insertLabel={editingItem ? t('common.update') : t('common.insert')}
             />
           ) : (
             <Stack direction="row" spacing={1}>
               <Button size="small" variant="outlined" onClick={handleAdd}
                 disabled={!name.trim() || !body.trim()}>
-                Preview {editingItem ? 'Update' : 'Insert'}
+                {editingItem ? t('common.previewUpdate') : t('common.previewInsert')}
               </Button>
-              <Button size="small" onClick={resetForm}>Cancel</Button>
+              <Button size="small" onClick={resetForm}>{t('common.cancel')}</Button>
             </Stack>
           )}
         </Stack>
@@ -196,7 +198,9 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
-        name={deleteTarget || ''}
+        title={t('common.deleteElement')}
+        itemName={deleteTarget || ''}
+        message={t('common.deleteConfirm', { name: deleteTarget })}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />

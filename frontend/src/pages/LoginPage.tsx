@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Card,
@@ -9,10 +9,12 @@ import {
   Alert,
   Link,
   CircularProgress,
+  Divider,
 } from '@mui/material'
 import { LocalHospital as MedicalIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '../api'
 import { setCredentials } from '../store/authSlice'
 import { validateUsername, validatePassword } from '../utils/validation'
@@ -20,6 +22,7 @@ import { validateUsername, validatePassword } from '../utils/validation'
 export default function LoginPage() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
+  const { t } = useTranslation()
 
   const [isRegister, setIsRegister] = useState(false)
   const [username, setUsername] = useState('')
@@ -28,6 +31,19 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({})
+  const [oktaEnabled, setOktaEnabled] = useState(false)
+  const [oktaConfig, setOktaConfig] = useState<{ authorizationEndpoint?: string; clientId?: string; scopes?: string } | null>(null)
+
+  useEffect(() => {
+    authApi.getOktaConfig().then((config) => {
+      if (config.enabled) {
+        setOktaEnabled(true)
+        setOktaConfig(config)
+      }
+    }).catch(() => {
+      // Okta not available, ignore
+    })
+  }, [])
 
   const validateFields = (): boolean => {
     const errors: { username?: string; password?: string } = {}
@@ -37,7 +53,7 @@ export default function LoginPage() {
       const passwordErr = validatePassword(password)
       if (passwordErr) errors.password = passwordErr
     } else {
-      if (!password) errors.password = 'Password is required'
+      if (!password) errors.password = t('validation:password.required')
     }
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -48,9 +64,28 @@ export default function LoginPage() {
       const err = validateUsername(username)
       setFieldErrors((prev) => ({ ...prev, username: err || undefined }))
     } else {
-      const err = isRegister ? validatePassword(password) : (!password ? 'Password is required' : null)
+      const err = isRegister ? validatePassword(password) : (!password ? t('validation:password.required') : null)
       setFieldErrors((prev) => ({ ...prev, password: err || undefined }))
     }
+  }
+
+  const handleOktaLogin = () => {
+    if (!oktaConfig) return
+    const state = crypto.randomUUID()
+    const nonce = crypto.randomUUID()
+    const redirectUri = window.location.origin + '/auth/okta/callback'
+    sessionStorage.setItem('okta_state', state)
+    sessionStorage.setItem('okta_nonce', nonce)
+    sessionStorage.setItem('okta_redirect_uri', redirectUri)
+    const params = new URLSearchParams({
+      client_id: oktaConfig.clientId || '',
+      response_type: 'code',
+      scope: oktaConfig.scopes || 'openid profile email',
+      redirect_uri: redirectUri,
+      state,
+      nonce,
+    })
+    window.location.href = `${oktaConfig.authorizationEndpoint}?${params.toString()}`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,7 +113,7 @@ export default function LoginPage() {
       setError(
         axiosErr.response?.data?.error ||
         axiosErr.response?.data?.message ||
-        (isRegister ? 'Registration failed' : 'Invalid username or password')
+        (isRegister ? t('auth.registrationFailed') : t('auth.invalidCredentials'))
       )
     } finally {
       setLoading(false)
@@ -113,10 +148,10 @@ export default function LoginPage() {
               <MedicalIcon sx={{ fontSize: 32, color: 'white' }} />
             </Box>
             <Typography variant="h5" fontWeight={700} color="text.primary">
-              TWCORE CQL Platform
+              {t('app.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {isRegister ? 'Create your account' : 'Sign in to continue'}
+              {isRegister ? t('auth.createAccount') : t('auth.signInSubtitle')}
             </Typography>
           </Box>
 
@@ -129,7 +164,7 @@ export default function LoginPage() {
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
               fullWidth
-              label="Username"
+              label={t('auth.username')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onBlur={() => handleBlur('username')}
@@ -142,7 +177,7 @@ export default function LoginPage() {
             />
             <TextField
               fullWidth
-              label="Password"
+              label={t('auth.password')}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -156,7 +191,7 @@ export default function LoginPage() {
             {isRegister && (
               <TextField
                 fullWidth
-                label="Email (optional)"
+                label={t('auth.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -175,9 +210,9 @@ export default function LoginPage() {
               {loading ? (
                 <CircularProgress size={24} color="inherit" />
               ) : isRegister ? (
-                'Register'
+                t('auth.register')
               ) : (
-                'Sign In'
+                t('auth.signIn')
               )}
             </Button>
             {!isRegister && (
@@ -188,7 +223,7 @@ export default function LoginPage() {
                   variant="body2"
                   onClick={() => navigate('/forgot-password')}
                 >
-                  Forgot your password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </Box>
             )}
@@ -204,10 +239,24 @@ export default function LoginPage() {
                 }}
               >
                 {isRegister
-                  ? 'Already have an account? Sign in'
-                  : "Don't have an account? Register"}
+                  ? t('auth.alreadyHaveAccount')
+                  : t('auth.noAccount')}
               </Link>
             </Box>
+          {oktaEnabled && (
+            <>
+              <Divider sx={{ my: 2 }}>{t('auth.or')}</Divider>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="large"
+                onClick={handleOktaLogin}
+                sx={{ py: 1.5, borderRadius: 2 }}
+              >
+                {t('auth.loginWithOkta')}
+              </Button>
+            </>
+          )}
           </Box>
         </CardContent>
       </Card>

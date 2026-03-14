@@ -1,6 +1,7 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { Paper, Typography, Button, Stack, Box } from '@mui/material'
 import { ErrorOutline as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material'
+import { Translation } from 'react-i18next'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -35,6 +36,8 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   render() {
     if (this.state.hasError) {
       return (
+        <Translation>
+          {(t) => (
         <Paper
           sx={{
             p: 4,
@@ -48,10 +51,10 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           <Stack spacing={2} alignItems="center">
             <ErrorIcon sx={{ fontSize: 48, color: 'error.main' }} />
             <Typography variant="h6" color="error.main">
-              {this.props.fallbackTitle || 'Something went wrong'}
+              {this.props.fallbackTitle || t('errors.somethingWentWrong')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              An unexpected error occurred. Try refreshing this section.
+              {t('errors.unexpectedError')}
             </Typography>
             <Button
               variant="contained"
@@ -59,7 +62,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
               onClick={this.handleReset}
               color="primary"
             >
-              Try Again
+              {t('actions.tryAgain')}
             </Button>
             {import.meta.env.DEV && this.state.error && (
               <Box
@@ -84,6 +87,8 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             )}
           </Stack>
         </Paper>
+          )}
+        </Translation>
       )
     }
 

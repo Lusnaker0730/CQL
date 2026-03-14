@@ -1,0 +1,80 @@
+name: "[需求] 軟體需求"
+description: "記錄軟體需求規格，符合 IEC 62304 要求"
+title: "[需求] "
+labels: ["IEC62304:需求"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 軟體需求規格
+        請填寫以下欄位，此內容將自動彙整至 TFDA 軟體需求規格書 (SRS)。
+
+  - type: textarea
+    id: requirement_description
+    attributes:
+      label: 需求描述
+      description: 清楚描述此軟體需求的功能或非功能性要求
+      placeholder: "例：系統應能在 3 秒內完成 CQL 翻譯並回傳結果"
+    validations:
+      required: true
+
+  - type: textarea
+    id: clinical_context
+    attributes:
+      label: 臨床情境
+      description: 說明此需求的臨床使用場景與預期使用者
+      placeholder: "例：臨床品質管理師在評估醫療品質指標時，需要即時執行 CQL 查詢"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: 驗收條件
+      description: 列出可驗證的驗收條件（建議使用清單格式）
+      placeholder: |
+        - [ ] 條件 1
+        - [ ] 條件 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk_level
+    attributes:
+      label: 風險等級
+      description: 依據 ISO 14971 評估此需求相關的風險等級
+      options:
+        - 低 (Low)
+        - 中 (Medium)
+        - 高 (High)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: safety_class
+    attributes:
+      label: 安全性等級
+      description: 依據 IEC 62304 分類此需求的軟體安全性等級
+      options:
+        - A - 不會造成傷害
+        - B - 可能造成非嚴重傷害
+        - C - 可能造成死亡或嚴重傷害
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_issues
+    attributes:
+      label: 關聯項目
+      description: 相關的設計、風險、驗證 Issue 編號
+      placeholder: "例：設計 #12、風險 #15"
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 備註
+      description: 其他補充說明
+    validations:
+      required: false

@@ -14,6 +14,8 @@ public record ElementMetadata(
         List<String> choiceTypes,
         String bindingStrength,
         String bindingValueSetUrl,
+        String bindingCodeSystemUrl,
+        List<String> boundCodes,
         List<ElementMetadata> children,
         String description,
         List<String> referenceTargets

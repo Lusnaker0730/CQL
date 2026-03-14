@@ -21,11 +21,15 @@ import {
   ExpandMore as ExpandMoreIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 
 export default function TerminologyTab() {
+  const { t } = useTranslation('fhir')
+  const { t: tc } = useTranslation('common')
+
   // ValueSet Expand
   const [vsUrl, setVsUrl] = useState('')
   const [vsFilter, setVsFilter] = useState('')
@@ -57,31 +61,31 @@ export default function TerminologyTab() {
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ '& .MuiAlert-message': { fontSize: '0.8rem' } }}>
-        Terminology operations are routed through the platform&apos;s terminology server. Use this as a quick lookup tool. For comprehensive terminology browsing, visit the dedicated Terminology page.
+        {t('terminology.info')}
       </Alert>
 
       {/* ValueSet Expand */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle2">ValueSet $expand</Typography>
+          <Typography variant="subtitle2">{t('terminology.vsExpand')}</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={1.5}>
             <TextField
-              label="ValueSet URL"
+              label={t('terminology.vsUrlLabel')}
               value={vsUrl}
               onChange={(e) => setVsUrl(e.target.value)}
               size="small"
               fullWidth
-              placeholder="e.g., http://hl7.org/fhir/ValueSet/administrative-gender"
+              placeholder={t('terminology.vsUrlPlaceholder')}
             />
             <TextField
-              label="Filter (optional)"
+              label={t('terminology.filterLabel')}
               value={vsFilter}
               onChange={(e) => setVsFilter(e.target.value)}
               size="small"
               fullWidth
-              placeholder="Text filter for codes"
+              placeholder={t('terminology.filterPlaceholder')}
             />
             <GradientButton
               onClick={() => expandMutation.mutate()}
@@ -89,7 +93,7 @@ export default function TerminologyTab() {
               startIcon={expandMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <SearchIcon />}
               sx={{ alignSelf: 'flex-start', '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
             >
-              Expand
+              {t('terminology.expand')}
             </GradientButton>
             {expandMutation.isError && (
               <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
@@ -101,9 +105,9 @@ export default function TerminologyTab() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>System</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Display</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('terminology.colSystem')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('terminology.colCode')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('terminology.colDisplay')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -125,25 +129,25 @@ export default function TerminologyTab() {
       {/* Code Lookup */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle2">Code $lookup</Typography>
+          <Typography variant="subtitle2">{t('terminology.codeLookup')}</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={1.5}>
             <TextField
-              label="System"
+              label={t('terminology.systemLabel')}
               value={lookupSystem}
               onChange={(e) => setLookupSystem(e.target.value)}
               size="small"
               fullWidth
-              placeholder="e.g., http://loinc.org"
+              placeholder={t('terminology.systemPlaceholder')}
             />
             <TextField
-              label="Code"
+              label={t('terminology.codeLabel')}
               value={lookupCode}
               onChange={(e) => setLookupCode(e.target.value)}
               size="small"
               fullWidth
-              placeholder="e.g., 8302-2"
+              placeholder={t('terminology.codePlaceholder')}
             />
             <GradientButton
               onClick={() => lookupMutation.mutate()}
@@ -151,7 +155,7 @@ export default function TerminologyTab() {
               startIcon={lookupMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <SearchIcon />}
               sx={{ alignSelf: 'flex-start', '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
             >
-              Lookup
+              {t('terminology.lookup')}
             </GradientButton>
             {lookupMutation.isError && (
               <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
@@ -162,15 +166,16 @@ export default function TerminologyTab() {
               <Box
                 sx={{
                   p: 2,
-                  bgcolor: '#F8FAFB',
+                  bgcolor: 'action.hover',
                   borderRadius: '8px',
-                  border: '1px solid rgba(13,115,119,0.1)',
+                  border: '1px solid',
+                  borderColor: 'divider',
                 }}
               >
-                <Typography variant="body2"><strong>Display:</strong> {lookupData.display || '-'}</Typography>
+                <Typography variant="body2"><strong>{t('terminology.displayLabel')}</strong> {lookupData.display || '-'}</Typography>
                 {lookupData.designations && lookupData.designations.length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary">Designations:</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('terminology.designations')}</Typography>
                     {lookupData.designations.map((d, idx) => (
                       <Typography key={idx} variant="body2" sx={{ ml: 1, fontSize: '0.8rem' }}>
                         {d}
@@ -187,25 +192,25 @@ export default function TerminologyTab() {
       {/* Code Search */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle2">Code Search</Typography>
+          <Typography variant="subtitle2">{t('terminology.codeSearch')}</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={1.5}>
             <TextField
-              label="System"
+              label={t('terminology.systemLabel')}
               value={searchSystem}
               onChange={(e) => setSearchSystem(e.target.value)}
               size="small"
               fullWidth
-              placeholder="e.g., http://loinc.org"
+              placeholder={t('terminology.systemPlaceholder')}
             />
             <TextField
-              label="Search Text"
+              label={t('terminology.searchTextLabel')}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               size="small"
               fullWidth
-              placeholder="e.g., blood pressure"
+              placeholder={t('terminology.searchTextPlaceholder')}
             />
             <GradientButton
               onClick={() => searchMutation.mutate()}
@@ -213,7 +218,7 @@ export default function TerminologyTab() {
               startIcon={searchMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <SearchIcon />}
               sx={{ alignSelf: 'flex-start', '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
             >
-              Search
+              {tc('actions.search')}
             </GradientButton>
             {searchMutation.isError && (
               <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
@@ -225,9 +230,9 @@ export default function TerminologyTab() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Display</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>System</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('terminology.colCode')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('terminology.colDisplay')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('terminology.colSystem')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

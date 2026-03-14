@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,8 +42,9 @@ public class CqlLibraryEntity {
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "active";
+    private String status = com.cqlplatform.model.measure.MeasureStatusConstants.ACTIVE;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "owner_username", length = 100)
     private String ownerUsername;
 
@@ -65,9 +67,11 @@ public class CqlLibraryEntity {
     @Builder.Default
     private List<String> sharedWithList = new ArrayList<>();
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 

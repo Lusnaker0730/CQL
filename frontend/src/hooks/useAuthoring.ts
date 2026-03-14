@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authoringApi } from '../api'
 import type { ArtifactRequest } from '../types/authoring'
+import { useInvalidatingMutation } from './useInvalidatingMutation'
+
+const ARTIFACTS_KEY = ['authoring', 'artifacts'] as const
 
 export function useArtifacts() {
   return useQuery({
-    queryKey: ['authoring', 'artifacts'],
+    queryKey: ARTIFACTS_KEY,
     queryFn: () => authoringApi.listArtifacts(),
   })
 }
@@ -17,13 +20,11 @@ export function useArtifact(id: number | undefined) {
   })
 }
 
-export function useCreateArtifact() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (request: ArtifactRequest) => authoringApi.createArtifact(request),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authoring', 'artifacts'] }),
-  })
-}
+export const useCreateArtifact = () =>
+  useInvalidatingMutation(
+    (request: ArtifactRequest) => authoringApi.createArtifact(request),
+    ARTIFACTS_KEY,
+  )
 
 export function useUpdateArtifact() {
   const queryClient = useQueryClient()
@@ -31,24 +32,14 @@ export function useUpdateArtifact() {
     mutationFn: ({ id, request }: { id: number; request: ArtifactRequest }) =>
       authoringApi.updateArtifact(id, request),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['authoring', 'artifacts'] })
+      queryClient.invalidateQueries({ queryKey: ARTIFACTS_KEY })
       queryClient.invalidateQueries({ queryKey: ['authoring', 'artifact', variables.id] })
     },
   })
 }
 
-export function useDeleteArtifact() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => authoringApi.deleteArtifact(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authoring', 'artifacts'] }),
-  })
-}
+export const useDeleteArtifact = () =>
+  useInvalidatingMutation((id: number) => authoringApi.deleteArtifact(id), ARTIFACTS_KEY)
 
-export function useDuplicateArtifact() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => authoringApi.duplicateArtifact(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authoring', 'artifacts'] }),
-  })
-}
+export const useDuplicateArtifact = () =>
+  useInvalidatingMutation((id: number) => authoringApi.duplicateArtifact(id), ARTIFACTS_KEY)

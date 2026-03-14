@@ -1,21 +1,21 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Popover } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementSelectDropdown from './ElementSelectDropdown'
 import type { DynamicEntry } from './ElementSelectDropdown'
 import type { FormTemplateCategory, FormTemplate, ElementInstance } from '../../../types/authoring'
-
-function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
+import { generateId } from '../../../utils/validation'
 
 interface ElementSelectProps {
   templates: FormTemplateCategory[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   onSelect: (element: ElementInstance) => void
 }
 
-export default function ElementSelect({ templates, dynamicEntries, onSelect }: ElementSelectProps) {
+export default function ElementSelect({ templates, dynamicEntries, twcoreMode, onSelect }: ElementSelectProps) {
+  const { t } = useTranslation('authoring')
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
 
   const handleSelect = (template: FormTemplate) => {
@@ -28,8 +28,11 @@ export default function ElementSelect({ templates, dynamicEntries, onSelect }: E
         id: f.id,
         type: f.type,
         name: f.name,
-        value: f.value ?? undefined,
+        value: f.id === 'element_name' && !f.value ? template.name : (f.value ?? undefined),
         static: f.static,
+        select: f.select,
+        codes: f.codes,
+        valueSets: f.valueSets,
       })),
       modifiers: [],
       suppressedModifiers: template.suppressedModifiers,
@@ -69,7 +72,7 @@ export default function ElementSelect({ templates, dynamicEntries, onSelect }: E
         startIcon={<AddIcon />}
         onClick={(e) => setAnchorEl(e.currentTarget)}
       >
-        Add Element
+        {t('elementSelect.addElement')}
       </Button>
       <Popover
         open={Boolean(anchorEl)}
@@ -81,6 +84,7 @@ export default function ElementSelect({ templates, dynamicEntries, onSelect }: E
         <ElementSelectDropdown
           templates={templates}
           dynamicEntries={dynamicEntries}
+          twcoreMode={twcoreMode}
           onSelect={handleSelect}
           onSelectDynamic={handleSelectDynamic}
         />

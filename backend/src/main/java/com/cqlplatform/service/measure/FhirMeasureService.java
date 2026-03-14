@@ -1,6 +1,10 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.model.CqlTranslationRequest;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.*;
+import com.cqlplatform.service.cql.CqlTranslationService;
+import com.cqlplatform.service.cql.DataRequirementExtractor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -12,12 +16,16 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class FhirMeasureService {
 
     private final MeasureDefinitionService definitionService;
+    private final CqlTranslationService translationService;
+    private final DataRequirementExtractor dataRequirementExtractor;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public MeasureDefinition importFhirMeasure(JsonNode fhirMeasureJson) {
@@ -30,13 +38,13 @@ public class FhirMeasureService {
         String version = fhirMeasureJson.path("version").asText("1.0.0");
         String title = fhirMeasureJson.path("title").asText(null);
         String description = fhirMeasureJson.path("description").asText(null);
-        String status = fhirMeasureJson.path("status").asText("draft");
+        String status = fhirMeasureJson.path("status").asText(com.cqlplatform.model.measure.MeasureStatusConstants.DRAFT);
 
         // Extract scoring
-        String scoringType = "proportion";
+        String scoringType = ScoringTypeConstants.PROPORTION;
         JsonNode scoring = fhirMeasureJson.path("scoring");
         if (scoring.has("coding") && scoring.get("coding").isArray() && scoring.get("coding").size() > 0) {
-            scoringType = scoring.get("coding").get(0).path("code").asText("proportion");
+            scoringType = scoring.get("coding").get(0).path("code").asText(ScoringTypeConstants.PROPORTION);
         }
 
         // Extract groups
@@ -50,11 +58,11 @@ public class FhirMeasureService {
                 JsonNode populationNode = groupNode.path("population");
                 if (populationNode.isArray()) {
                     for (JsonNode popNode : populationNode) {
-                        String popType = "initial-population";
+                        String popType = INITIAL_POPULATION;
                         JsonNode codePop = popNode.path("code");
                         if (codePop.has("coding") && codePop.get("coding").isArray()
                                 && codePop.get("coding").size() > 0) {
-                            popType = codePop.get("coding").get(0).path("code").asText("initial-population");
+                            popType = codePop.get("coding").get(0).path("code").asText(INITIAL_POPULATION);
                         }
 
                         String criteria = popNode.path("criteria").path("expression").asText("");
@@ -95,6 +103,27 @@ public class FhirMeasureService {
             }
         }
 
+        // Extract identifiers (NQF Number and CMS Measure ID)
+        String nqfNumber = null;
+        String cmsMeasureId = null;
+        JsonNode identifiers = fhirMeasureJson.path("identifier");
+        if (identifiers.isArray()) {
+            for (JsonNode idNode : identifiers) {
+                String idValue = idNode.path("value").asText(null);
+                JsonNode typeCoding = idNode.path("type").path("coding");
+                if (typeCoding.isArray()) {
+                    for (JsonNode coding : typeCoding) {
+                        String code = coding.path("code").asText("");
+                        if ("NQF".equals(code)) {
+                            nqfNumber = idValue;
+                        } else if ("CMS".equals(code)) {
+                            cmsMeasureId = idValue;
+                        }
+                    }
+                }
+            }
+        }
+
         // Store raw FHIR JSON for round-trip fidelity
         String rawJson;
         try {
@@ -110,6 +139,8 @@ public class FhirMeasureService {
                 .description(description)
                 .status(status)
                 .scoringType(scoringType)
+                .nqfNumber(nqfNumber)
+                .cmsMeasureId(cmsMeasureId)
                 .fhirMeasureJson(rawJson)
                 .groupDefinitions(groups)
                 .build();
@@ -136,7 +167,7 @@ public class FhirMeasureService {
         measure.put("id", definition.getId().toString());
         measure.put("name", definition.getName());
         measure.put("version", definition.getVersion());
-        measure.put("status", definition.getStatus() != null ? definition.getStatus() : "draft");
+        measure.put("status", definition.getStatus() != null ? definition.getStatus() : com.cqlplatform.model.measure.MeasureStatusConstants.DRAFT);
 
         if (definition.getTitle() != null) {
             measure.put("title", definition.getTitle());
@@ -145,12 +176,15 @@ public class FhirMeasureService {
             measure.put("description", definition.getDescription());
         }
 
+        // Identifiers (NQF Number and CMS Measure ID)
+        addIdentifiers(measure, definition);
+
         // Scoring
         ObjectNode scoring = measure.putObject("scoring");
         ArrayNode scoringCoding = scoring.putArray("coding");
         ObjectNode scoringCode = scoringCoding.addObject();
-        scoringCode.put("system", "http://terminology.hl7.org/CodeSystem/measure-scoring");
-        scoringCode.put("code", definition.getScoringType() != null ? definition.getScoringType() : "proportion");
+        scoringCode.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_SCORING);
+        scoringCode.put("code", definition.getScoringType() != null ? definition.getScoringType() : ScoringTypeConstants.PROPORTION);
 
         // Groups
         if (definition.getGroupDefinitions() != null && !definition.getGroupDefinitions().isEmpty()) {
@@ -169,7 +203,7 @@ public class FhirMeasureService {
                         ObjectNode code = popNode.putObject("code");
                         ArrayNode coding = code.putArray("coding");
                         ObjectNode codeEntry = coding.addObject();
-                        codeEntry.put("system", "http://terminology.hl7.org/CodeSystem/measure-population");
+                        codeEntry.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_POPULATION);
                         codeEntry.put("code", pop.getPopulationType());
 
                         if (pop.getDescription() != null) {
@@ -202,6 +236,107 @@ public class FhirMeasureService {
             }
         }
 
+        // Data Requirements
+        addDataRequirements(measure, definition);
+
         return measure;
+    }
+
+    private void addIdentifiers(ObjectNode measure, MeasureDefinition definition) {
+        boolean hasNqf = definition.getNqfNumber() != null && !definition.getNqfNumber().isBlank();
+        boolean hasCms = definition.getCmsMeasureId() != null && !definition.getCmsMeasureId().isBlank();
+        if (!hasNqf && !hasCms) {
+            return;
+        }
+
+        ArrayNode identifiers = measure.putArray("identifier");
+        if (hasNqf) {
+            ObjectNode nqfId = identifiers.addObject();
+            nqfId.put("system", "urn:oid:2.16.840.1.113883.3.560");
+            nqfId.put("value", definition.getNqfNumber());
+            ObjectNode nqfType = nqfId.putObject("type");
+            ArrayNode nqfCoding = nqfType.putArray("coding");
+            ObjectNode nqfCode = nqfCoding.addObject();
+            nqfCode.put("system", "http://terminology.hl7.org/CodeSystem/v2-0203");
+            nqfCode.put("code", "NQF");
+            nqfCode.put("display", "NQF Number");
+        }
+        if (hasCms) {
+            ObjectNode cmsId = identifiers.addObject();
+            cmsId.put("system", "https://madie.cms.gov/measure/id");
+            cmsId.put("value", definition.getCmsMeasureId());
+            ObjectNode cmsType = cmsId.putObject("type");
+            ArrayNode cmsCoding = cmsType.putArray("coding");
+            ObjectNode cmsCode = cmsCoding.addObject();
+            cmsCode.put("system", "http://terminology.hl7.org/CodeSystem/v2-0203");
+            cmsCode.put("code", "CMS");
+            cmsCode.put("display", "CMS Measure ID");
+        }
+    }
+
+    private void addDataRequirements(ObjectNode measure, MeasureDefinition definition) {
+        if (definition.getCqlContent() == null || definition.getCqlContent().isBlank()) {
+            return;
+        }
+        try {
+            CqlTranslationRequest request = new CqlTranslationRequest();
+            request.setCql(definition.getCqlContent());
+            CqlTranslationResponse response = translationService.translate(request);
+            if (!response.isSuccess() || response.getElmJson() == null) {
+                return;
+            }
+
+            List<DataRequirementInfo> requirements = dataRequirementExtractor.extract(response.getElmJson());
+            if (requirements.isEmpty()) {
+                return;
+            }
+
+            ArrayNode drArray = measure.putArray("dataRequirement");
+            for (DataRequirementInfo dr : requirements) {
+                ObjectNode drNode = drArray.addObject();
+                drNode.put("type", dr.getType());
+
+                if (dr.getProfile() != null && !dr.getProfile().isEmpty()) {
+                    ArrayNode profileArray = drNode.putArray("profile");
+                    for (String p : dr.getProfile()) {
+                        profileArray.add(p);
+                    }
+                }
+
+                if (dr.getCodeFilter() != null && !dr.getCodeFilter().isEmpty()) {
+                    ArrayNode cfArray = drNode.putArray("codeFilter");
+                    for (DataRequirementInfo.CodeFilterInfo cf : dr.getCodeFilter()) {
+                        ObjectNode cfNode = cfArray.addObject();
+                        if (cf.getPath() != null) {
+                            cfNode.put("path", cf.getPath());
+                        }
+                        if (cf.getValueSet() != null) {
+                            cfNode.put("valueSet", cf.getValueSet());
+                        }
+                        if (cf.getCode() != null && !cf.getCode().isEmpty()) {
+                            ArrayNode codeArray = cfNode.putArray("code");
+                            for (DataRequirementInfo.CodingInfo coding : cf.getCode()) {
+                                ObjectNode codeNode = codeArray.addObject();
+                                if (coding.getSystem() != null) codeNode.put("system", coding.getSystem());
+                                if (coding.getCode() != null) codeNode.put("code", coding.getCode());
+                                if (coding.getDisplay() != null) codeNode.put("display", coding.getDisplay());
+                            }
+                        }
+                    }
+                }
+
+                if (dr.getDateFilter() != null && !dr.getDateFilter().isEmpty()) {
+                    ArrayNode dfArray = drNode.putArray("dateFilter");
+                    for (DataRequirementInfo.DateFilterInfo df : dr.getDateFilter()) {
+                        ObjectNode dfNode = dfArray.addObject();
+                        if (df.getPath() != null) {
+                            dfNode.put("path", df.getPath());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to add data requirements to FHIR Measure export: {}", e.getMessage());
+        }
     }
 }

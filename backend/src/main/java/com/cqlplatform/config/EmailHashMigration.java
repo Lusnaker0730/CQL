@@ -23,19 +23,23 @@ public class EmailHashMigration implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        List<UserEntity> users = userRepository.findAll();
-        int updated = 0;
+        try {
+            List<UserEntity> users = userRepository.findAll();
+            int updated = 0;
 
-        for (UserEntity user : users) {
-            if (user.getEmail() != null && !user.getEmail().isBlank() && user.getEmailHash() == null) {
-                user.setEmailHash(UserEntity.computeEmailHash(user.getEmail()));
-                userRepository.save(user);
-                updated++;
+            for (UserEntity user : users) {
+                if (user.getEmail() != null && !user.getEmail().isBlank() && user.getEmailHash() == null) {
+                    user.setEmailHash(UserEntity.computeEmailHash(user.getEmail()));
+                    userRepository.save(user);
+                    updated++;
+                }
             }
-        }
 
-        if (updated > 0) {
-            log.info("Backfilled email_hash for {} existing users", updated);
+            if (updated > 0) {
+                log.info("Backfilled email_hash for {} existing users", updated);
+            }
+        } catch (Exception e) {
+            log.warn("EmailHashMigration skipped due to error (e.g. encryption key mismatch): {}", e.getMessage());
         }
     }
 }

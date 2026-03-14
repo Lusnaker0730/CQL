@@ -5,14 +5,20 @@ import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.security.InputValidator;
+import com.cqlplatform.service.NotificationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import static com.cqlplatform.model.measure.MeasureStatusConstants.*;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +27,10 @@ public class MeasureDefinitionService {
 
     private final MeasureDefinitionRepository repository;
     private final MeasureAuditRepository auditRepository;
+    private final NotificationService notificationService;
+
+    @Value("${measure.locking.timeout-minutes:30}")
+    private int lockTimeoutMinutes;
 
     @Transactional
     public MeasureDefinition create(MeasureDefinition definition) {
@@ -72,10 +82,21 @@ public class MeasureDefinitionService {
         entity.setDisclaimer(definition.getDisclaimer());
         entity.setCopyright(definition.getCopyright());
         entity.setMeasureSet(definition.getMeasureSet());
+        entity.setNqfNumber(definition.getNqfNumber());
+        entity.setCmsMeasureId(definition.getCmsMeasureId());
         entity.setSupplementalDataGuidance(definition.getSupplementalDataGuidance());
         entity.setRiskAdjustmentDescription(definition.getRiskAdjustmentDescription());
         entity.setRiskAdjustmentList(definition.getRiskAdjustments());
         entity.setSupplementalDataList(definition.getSupplementalData());
+        entity.setImprovementNotation(definition.getImprovementNotation());
+        entity.setRateAggregation(definition.getRateAggregation());
+
+        // Indicator code mapping
+        entity.setMohIndicatorCode(definition.getMohIndicatorCode());
+        entity.setNhiaP4pCode(definition.getNhiaP4pCode());
+        entity.setDrgIndicatorCode(definition.getDrgIndicatorCode());
+        entity.setIndicatorCategory(definition.getIndicatorCategory());
+        entity.setDepartment(definition.getDepartment());
 
         // Sharing fields from update
         if (definition.getOwnerUsername() != null) {
@@ -113,11 +134,25 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> search(String searchTerm) {
-        if (searchTerm == null || searchTerm.isBlank()) {
-            return getAll();
+        return search(searchTerm, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> search(String searchTerm, String department) {
+        boolean hasSearch = searchTerm != null && !searchTerm.isBlank();
+        boolean hasDept = department != null && !department.isBlank();
+
+        List<MeasureDefinitionEntity> entities;
+        if (hasSearch && hasDept) {
+            entities = repository.findByDepartmentAndSearchTerm(department, InputValidator.escapeLikeWildcards(searchTerm));
+        } else if (hasDept) {
+            entities = repository.findByDepartment(department);
+        } else if (hasSearch) {
+            entities = repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm);
+        } else {
+            entities = repository.findAll();
         }
-        return repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm)
-                .stream()
+        return entities.stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -143,14 +178,14 @@ public class MeasureDefinitionService {
         }
 
         // Set current to active
-        existing.setStatus("active");
+        existing.setStatus(ACTIVE);
         repository.save(existing);
 
         // Create new draft copy
         MeasureDefinitionEntity newEntity = modelToEntity(entityToModel(existing));
         newEntity.setId(null);
         newEntity.setVersion(newVersion);
-        newEntity.setStatus("draft");
+        newEntity.setStatus(DRAFT);
         newEntity = repository.save(newEntity);
 
         log.info("Created version {} for measure {}", newVersion, existing.getName());
@@ -273,6 +308,10 @@ public class MeasureDefinitionService {
                 .updatedAt(entity.getUpdatedAt())
                 .lockedBy(entity.getLockedBy())
                 .lockedAt(entity.getLockedAt())
+                .reviewedBy(entity.getReviewedBy())
+                .approvedBy(entity.getApprovedBy())
+                .reviewComment(entity.getReviewComment())
+                .reviewedAt(entity.getReviewedAt())
                 .setting(entity.getSetting())
                 // Enhanced metadata
                 .rationale(entity.getRationale())
@@ -283,10 +322,20 @@ public class MeasureDefinitionService {
                 .disclaimer(entity.getDisclaimer())
                 .copyright(entity.getCopyright())
                 .measureSet(entity.getMeasureSet())
+                .nqfNumber(entity.getNqfNumber())
+                .cmsMeasureId(entity.getCmsMeasureId())
                 .supplementalDataGuidance(entity.getSupplementalDataGuidance())
                 .riskAdjustmentDescription(entity.getRiskAdjustmentDescription())
                 .riskAdjustments(entity.getRiskAdjustmentList())
                 .supplementalData(entity.getSupplementalDataList())
+                .improvementNotation(entity.getImprovementNotation())
+                .rateAggregation(entity.getRateAggregation())
+                // Indicator code mapping
+                .mohIndicatorCode(entity.getMohIndicatorCode())
+                .nhiaP4pCode(entity.getNhiaP4pCode())
+                .drgIndicatorCode(entity.getDrgIndicatorCode())
+                .indicatorCategory(entity.getIndicatorCategory())
+                .department(entity.getDepartment())
                 .build();
     }
 
@@ -309,6 +358,10 @@ public class MeasureDefinitionService {
         entity = repository.save(entity);
         recordAudit(id, "SHARE", currentUser, "Shared with " + targetUsername, null, null);
         log.info("Shared measure {} with user {}", id, targetUsername);
+
+        // Notify the target user
+        notificationService.notifyMeasureShared(currentUser, targetUsername, entity.getName(), id);
+
         return entityToModel(entity);
     }
 
@@ -402,7 +455,7 @@ public class MeasureDefinitionService {
 
     private boolean isLockExpired(MeasureDefinitionEntity entity) {
         if (entity.getLockedAt() == null) return true;
-        return entity.getLockedAt().plusMinutes(30).isBefore(java.time.LocalDateTime.now());
+        return entity.getLockedAt().plusMinutes(lockTimeoutMinutes).isBefore(java.time.LocalDateTime.now());
     }
 
     @Transactional(readOnly = true)
@@ -414,32 +467,39 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findAll().stream()
-                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+        return repository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
 
-    // ===== Workflow =====
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> getAccessibleMeasures(String username) {
+        List<MeasureDefinition> owned = getMeasuresByOwner(username);
+        List<MeasureDefinition> shared = getSharedMeasures(username);
+        Map<Long, MeasureDefinition> merged = new LinkedHashMap<>();
+        owned.forEach(m -> merged.put(m.getId(), m));
+        shared.forEach(m -> merged.putIfAbsent(m.getId(), m));
+        return new ArrayList<>(merged.values());
+    }
 
-    private static final Map<String, List<String>> VALID_TRANSITIONS = Map.of(
-            "draft", List.of("in-review"),
-            "in-review", List.of("active", "draft"),
-            "active", List.of("retired")
-    );
+    // ===== Workflow =====
 
     @Transactional
     public MeasureDefinition submitForReview(Long id, String currentUser) {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-        validateTransition(entity.getStatus(), "in-review");
+        validateTransition(entity.getStatus(), IN_REVIEW);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("in-review");
+        entity.setStatus(IN_REVIEW);
         entity = repository.save(entity);
-        recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, "in-review");
+        recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, IN_REVIEW);
         log.info("Measure {} submitted for review by {}", id, currentUser);
+
+        // Notify shared users (reviewers)
+        notificationService.notifyMeasureSubmitted(currentUser, entity.getSharedWithList(), entity.getName(), id);
+
         return entityToModel(entity);
     }
 
@@ -448,13 +508,21 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
-        validateTransition(entity.getStatus(), "active");
+        validateTransition(entity.getStatus(), ACTIVE);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("active");
+        entity.setStatus(ACTIVE);
+        entity.setApprovedBy(currentUser);
+        entity.setReviewedBy(currentUser);
+        entity.setReviewedAt(java.time.LocalDateTime.now());
+        entity.setReviewComment(null);
         entity = repository.save(entity);
-        recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, "active");
+        recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, ACTIVE);
         log.info("Measure {} approved by {}", id, currentUser);
+
+        // Notify the measure owner
+        notificationService.notifyMeasureApproved(currentUser, entity.getOwnerUsername(), entity.getName(), id);
+
         return entityToModel(entity);
     }
 
@@ -463,13 +531,21 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
-        validateTransition(entity.getStatus(), "draft");
+        validateTransition(entity.getStatus(), DRAFT);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("draft");
+        entity.setStatus(DRAFT);
+        entity.setReviewedBy(currentUser);
+        entity.setReviewedAt(java.time.LocalDateTime.now());
+        entity.setReviewComment(reason);
+        entity.setApprovedBy(null);
         entity = repository.save(entity);
-        recordAudit(id, "REJECT", currentUser, "Rejected: " + (reason != null ? reason : "no reason"), oldStatus, "draft");
+        recordAudit(id, "REJECT", currentUser, "Rejected: " + (reason != null ? reason : "no reason"), oldStatus, DRAFT);
         log.info("Measure {} rejected by {}: {}", id, currentUser, reason);
+
+        // Notify the measure owner
+        notificationService.notifyMeasureRejected(currentUser, entity.getOwnerUsername(), entity.getName(), id, reason);
+
         return entityToModel(entity);
     }
 
@@ -478,12 +554,12 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-        validateTransition(entity.getStatus(), "retired");
+        validateTransition(entity.getStatus(), RETIRED);
 
         String oldStatus = entity.getStatus();
-        entity.setStatus("retired");
+        entity.setStatus(RETIRED);
         entity = repository.save(entity);
-        recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, "retired");
+        recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, RETIRED);
         log.info("Measure {} retired by {}", id, currentUser);
         return entityToModel(entity);
     }
@@ -537,8 +613,8 @@ public class MeasureDefinitionService {
                 .version(model.getVersion() != null ? model.getVersion() : "1.0.0")
                 .title(model.getTitle())
                 .description(model.getDescription())
-                .status(model.getStatus() != null ? model.getStatus() : "draft")
-                .scoringType(model.getScoringType() != null ? model.getScoringType() : "proportion")
+                .status(model.getStatus() != null ? model.getStatus() : DRAFT)
+                .scoringType(model.getScoringType() != null ? model.getScoringType() : ScoringTypeConstants.PROPORTION)
                 .cqlLibraryId(model.getCqlLibraryId())
                 .cqlContent(model.getCqlContent())
                 .fhirMeasureJson(model.getFhirMeasureJson())
@@ -559,10 +635,20 @@ public class MeasureDefinitionService {
                 .disclaimer(model.getDisclaimer())
                 .copyright(model.getCopyright())
                 .measureSet(model.getMeasureSet())
+                .nqfNumber(model.getNqfNumber())
+                .cmsMeasureId(model.getCmsMeasureId())
                 .supplementalDataGuidance(model.getSupplementalDataGuidance())
                 .riskAdjustmentDescription(model.getRiskAdjustmentDescription())
                 .riskAdjustmentList(model.getRiskAdjustments())
                 .supplementalDataList(model.getSupplementalData())
+                .improvementNotation(model.getImprovementNotation())
+                .rateAggregation(model.getRateAggregation())
+                // Indicator code mapping
+                .mohIndicatorCode(model.getMohIndicatorCode())
+                .nhiaP4pCode(model.getNhiaP4pCode())
+                .drgIndicatorCode(model.getDrgIndicatorCode())
+                .indicatorCategory(model.getIndicatorCategory())
+                .department(model.getDepartment())
                 .build();
     }
 }

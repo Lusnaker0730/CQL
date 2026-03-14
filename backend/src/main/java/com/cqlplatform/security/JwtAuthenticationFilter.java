@@ -1,11 +1,13 @@
 package com.cqlplatform.security;
 
+import com.cqlplatform.service.TokenVersionService;
 import com.cqlplatform.service.UserApiKeyService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,11 +19,14 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final SseTicketService sseTicketService;
+    private final TokenVersionService tokenVersionService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private UserApiKeyService userApiKeyService;
@@ -33,6 +38,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
         String requestPath = request.getRequestURI();
+
+        // For SSE endpoints, redeem a one-time ticket instead of exposing
+        // the long-lived JWT in a query parameter (which leaks into logs)
+        if (header == null && request.getParameter("ticket") != null) {
+            var principal = sseTicketService.redeem(request.getParameter("ticket"));
+            if (principal.isPresent()) {
+                var p = principal.get();
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + p.role()));
+                var authentication = new UsernamePasswordAuthenticationToken(
+                        p.username(), null, authorities);
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
 
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
@@ -55,6 +76,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtTokenProvider.validateToken(token)) {
                 String username = jwtTokenProvider.getUsername(token);
                 String role = jwtTokenProvider.getRole(token);
+                int claimVersion = jwtTokenProvider.getTokenVersion(token);
+                int currentVersion = tokenVersionService.getCurrentVersion(username);
+
+                if (claimVersion < currentVersion) {
+                    log.debug("Rejected stale JWT for user {} (claim tv={}, current tv={})",
+                            username, claimVersion, currentVersion);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
                 var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);

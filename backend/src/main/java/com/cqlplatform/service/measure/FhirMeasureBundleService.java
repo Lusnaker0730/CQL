@@ -123,7 +123,8 @@ public class FhirMeasureBundleService {
         if (!measure.has("effectivePeriod")) {
             ObjectNode effectivePeriod = measure.putObject("effectivePeriod");
             effectivePeriod.put("start", definition.getCreatedAt() != null
-                    ? definition.getCreatedAt().toString().substring(0, 10) : "2024-01-01");
+                    ? definition.getCreatedAt().toString().substring(0, 10)
+                    : java.time.LocalDate.now().withDayOfYear(1).toString());
         }
 
         // Add relatedArtifact references
@@ -148,7 +149,7 @@ public class FhirMeasureBundleService {
         ObjectNode type = library.putObject("type");
         ArrayNode typeCoding = type.putArray("coding");
         ObjectNode typeCode = typeCoding.addObject();
-        typeCode.put("system", "http://terminology.hl7.org/CodeSystem/library-type");
+        typeCode.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_LIBRARY_TYPE);
         typeCode.put("code", "logic-library");
 
         ArrayNode content = library.putArray("content");

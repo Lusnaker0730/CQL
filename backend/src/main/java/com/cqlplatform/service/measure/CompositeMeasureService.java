@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.cqlplatform.model.measure.EvaluationStatusConstants;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -27,7 +31,7 @@ public class CompositeMeasureService {
         }
 
         String compositeScoringType = composite.getCompositeScoring() != null
-                ? composite.getCompositeScoring() : "opportunity";
+                ? composite.getCompositeScoring() : ScoringTypeConstants.COMPOSITE_OPPORTUNITY;
 
         List<MeasureEvaluationResult> componentResults = new ArrayList<>();
         for (Long componentId : componentIds) {
@@ -59,7 +63,7 @@ public class CompositeMeasureService {
         Double compositeScore;
         List<GroupResult> allGroups = new ArrayList<>();
 
-        if ("linear".equalsIgnoreCase(scoringType)) {
+        if (ScoringTypeConstants.COMPOSITE_LINEAR.equalsIgnoreCase(scoringType)) {
             // Linear: average of component scores
             double sum = 0;
             int count = 0;
@@ -84,10 +88,10 @@ public class CompositeMeasureService {
                     for (GroupResult group : result.getGroups()) {
                         if (group.getPopulations() != null) {
                             for (PopulationResult pop : group.getPopulations()) {
-                                if ("numerator".equals(pop.getPopulationType()) && pop.getCount() != null) {
+                                if (NUMERATOR.equals(pop.getPopulationType()) && pop.getCount() != null) {
                                     totalNumerator += pop.getCount();
                                 }
-                                if ("denominator".equals(pop.getPopulationType()) && pop.getCount() != null) {
+                                if (DENOMINATOR.equals(pop.getPopulationType()) && pop.getCount() != null) {
                                     totalDenominator += pop.getCount();
                                 }
                             }
@@ -117,7 +121,7 @@ public class CompositeMeasureService {
         return MeasureEvaluationResult.builder()
                 .measureId(composite.getId() != null ? composite.getId().toString() : composite.getName())
                 .measureName(composite.getName())
-                .status("complete")
+                .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(firstResult != null ? firstResult.getPeriodStart() : null)
                 .periodEnd(firstResult != null ? firstResult.getPeriodEnd() : null)
                 .reportType(firstResult != null ? firstResult.getReportType() : "summary")

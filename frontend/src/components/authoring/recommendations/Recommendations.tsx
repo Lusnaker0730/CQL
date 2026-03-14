@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
   MenuItem, Select, FormControl, InputLabel, Chip, Divider, Collapse, Switch, FormControlLabel,
@@ -11,19 +12,12 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import type { Recommendation, Subpopulation, Suggestion, SuggestionAction } from '../../../types/authoring'
-
-function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
-
-const GRADES = [
-  { value: '', label: 'None' },
-  { value: 'A', label: 'Grade A — Strong recommendation' },
-  { value: 'B', label: 'Grade B — Moderate recommendation' },
-  { value: 'C', label: 'Grade C — Optional' },
-  { value: 'D', label: 'Grade D — Against recommendation' },
-  { value: 'I', label: 'Grade I — Insufficient evidence' },
-]
+import { generateId } from '../../../utils/validation'
+import { SPECIAL_SUBPOPS } from '../../../constants/authoringConstants'
+import {
+  CDS_INDICATOR_TYPES, CDS_SELECTION_BEHAVIORS, CDS_ACTION_RESOURCE_TYPES,
+  CDS_LINK_TYPES, DEFAULT_INDICATOR,
+} from '../../../constants/cdsHooks'
 
 interface RecommendationsProps {
   recommendations: Recommendation[]
@@ -32,7 +26,17 @@ interface RecommendationsProps {
 }
 
 export default function Recommendations({ recommendations, subpopulations, onChange }: RecommendationsProps) {
+  const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const GRADES = [
+    { value: '', label: t('recommendations.gradeNone') },
+    { value: 'A', label: t('recommendations.gradeA') },
+    { value: 'B', label: t('recommendations.gradeB') },
+    { value: 'C', label: t('recommendations.gradeC') },
+    { value: 'D', label: t('recommendations.gradeD') },
+    { value: 'I', label: t('recommendations.gradeI') },
+  ]
   const pendingDeleteIndex = pendingDeleteId
     ? recommendations.findIndex((r) => r.uid === pendingDeleteId)
     : -1
@@ -138,7 +142,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
     if (!rec) return
     const suggestions = [...(rec.suggestions || [])]
     const sug = { ...suggestions[sugIdx] }
-    sug.actions = [...(sug.actions || []), { type: 'create', description: '', resource: { resourceType: 'MedicationRequest' } }]
+    sug.actions = [...(sug.actions || []), { type: 'create', description: '', resource: { resourceType: CDS_ACTION_RESOURCE_TYPES[0].value } }]
     suggestions[sugIdx] = sug
     handleUpdate(uid, { suggestions })
   }
@@ -165,27 +169,22 @@ export default function Recommendations({ recommendations, subpopulations, onCha
     handleUpdate(uid, { suggestions })
   }
 
-  const SPECIAL_SUBPOPS: Subpopulation[] = [
-    { uniqueId: '__doesnt_meet_inclusion__', subpopulationName: "Doesn't Meet Inclusion Criteria", special: true },
-    { uniqueId: '__meets_exclusion__', subpopulationName: 'Meets Exclusion Criteria', special: true },
-  ]
-
   const nonSpecialSubpops = subpopulations.filter((sp) => !sp.special)
   const allSubpopsForRec = [...nonSpecialSubpops, ...SPECIAL_SUBPOPS]
 
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Recommendations</Typography>
+        <Typography variant="h6">{t('recommendations.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={handleAdd}>
-          Add Recommendation
+          {t('recommendations.add')}
         </GradientButton>
       </Stack>
 
       {recommendations.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
-            No recommendations defined. Add recommendations that will be shown when the CDS rule triggers.
+            {t('recommendations.emptyState')}
           </Typography>
         </Box>
       ) : (
@@ -195,25 +194,25 @@ export default function Recommendations({ recommendations, subpopulations, onCha
               <CardContent>
                 <Stack direction="row" alignItems="center" spacing={1} mb={2}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    Recommendation {index + 1}
+                    {t('recommendations.recNumber', { index: index + 1 })}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
-                  <Tooltip title="Move up">
+                  <Tooltip title={t('recommendations.moveUp')}>
                     <span>
-                      <IconButton size="small" disabled={index === 0} onClick={() => handleMoveUp(index)}>
+                      <IconButton size="small" disabled={index === 0} onClick={() => handleMoveUp(index)} aria-label={t('recommendations.moveUp')}>
                         <ArrowUpward fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Move down">
+                  <Tooltip title={t('recommendations.moveDown')}>
                     <span>
-                      <IconButton size="small" disabled={index >= recommendations.length - 1} onClick={() => handleMoveDown(index)}>
+                      <IconButton size="small" disabled={index >= recommendations.length - 1} onClick={() => handleMoveDown(index)} aria-label={t('recommendations.moveDown')}>
                         <ArrowDownward fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Remove recommendation">
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(rec.uid)}>
+                  <Tooltip title={t('recommendations.removeTooltip')}>
+                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(rec.uid)} aria-label={t('recommendations.removeTooltip')}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -227,12 +226,12 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                       size="small"
                     />
                   }
-                  label={<Typography variant="body2">CDS Card Mode</Typography>}
+                  label={<Typography variant="body2">{t('recommendations.cdsCardMode')}</Typography>}
                   sx={{ mb: 1 }}
                 />
 
                 <TextField
-                  label={rec.cdsCardMode ? 'Summary (Card Headline)' : 'Recommendation Text'}
+                  label={rec.cdsCardMode ? t('recommendations.summaryLabel') : t('recommendations.textLabel')}
                   value={rec.text}
                   onChange={(e) => handleUpdate(rec.uid, { text: e.target.value })}
                   fullWidth
@@ -241,52 +240,52 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   size="small"
                   sx={{ mb: 2 }}
                   error={!rec.text.trim()}
-                  helperText={!rec.text.trim() ? 'Recommendation text is required' : undefined}
+                  helperText={!rec.text.trim() ? t('recommendations.textRequired') : undefined}
                 />
 
                 <Collapse in={!!rec.cdsCardMode}>
                   <Stack spacing={2} sx={{ mb: 2 }}>
                     <TextField
-                      label="Detail (Card Body)"
+                      label={t('recommendations.detailLabel')}
                       value={rec.detail || ''}
                       onChange={(e) => handleUpdate(rec.uid, { detail: e.target.value })}
                       fullWidth
                       multiline
                       minRows={2}
                       size="small"
-                      placeholder="Markdown-formatted body text for the card..."
+                      placeholder={t('recommendations.detailPlaceholder')}
                     />
                     <Stack direction="row" spacing={2}>
                       <FormControl size="small" sx={{ minWidth: 160 }}>
-                        <InputLabel>Indicator</InputLabel>
+                        <InputLabel>{t('recommendations.indicatorLabel')}</InputLabel>
                         <Select
-                          value={rec.indicator || 'info'}
-                          label="Indicator"
+                          value={rec.indicator || DEFAULT_INDICATOR}
+                          label={t('recommendations.indicatorLabel')}
                           onChange={(e) => handleUpdate(rec.uid, { indicator: e.target.value })}
                         >
-                          <MenuItem value="info">Info</MenuItem>
-                          <MenuItem value="warning">Warning</MenuItem>
-                          <MenuItem value="critical">Critical</MenuItem>
+                          {CDS_INDICATOR_TYPES.map((ind) => (
+                            <MenuItem key={ind} value={ind}>{ind.charAt(0).toUpperCase() + ind.slice(1)}</MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                       <TextField
-                        label="Source Label"
+                        label={t('recommendations.sourceLabelLabel')}
                         value={rec.sourceLabel || ''}
                         onChange={(e) => handleUpdate(rec.uid, { sourceLabel: e.target.value })}
                         size="small"
                         sx={{ flex: 1 }}
-                        placeholder="e.g. CDS Connect"
+                        placeholder={t('recommendations.sourcePlaceholder')}
                       />
                       <FormControl size="small" sx={{ minWidth: 180 }}>
-                        <InputLabel>Selection Behavior</InputLabel>
+                        <InputLabel>{t('recommendations.selectionBehavior')}</InputLabel>
                         <Select
                           value={rec.selectionBehavior || ''}
-                          label="Selection Behavior"
+                          label={t('recommendations.selectionBehavior')}
                           onChange={(e) => handleUpdate(rec.uid, { selectionBehavior: e.target.value })}
                         >
-                          <MenuItem value="">(None)</MenuItem>
-                          <MenuItem value="at-most-one">At Most One</MenuItem>
-                          <MenuItem value="any">Any</MenuItem>
+                          {CDS_SELECTION_BEHAVIORS.map((sb) => (
+                            <MenuItem key={sb.value} value={sb.value}>{sb.label}</MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Stack>
@@ -295,10 +294,10 @@ export default function Recommendations({ recommendations, subpopulations, onCha
 
                 <Stack direction="row" spacing={2} mb={2} alignItems="center">
                   <FormControl size="small" sx={{ minWidth: 260 }}>
-                    <InputLabel>Strength of Recommendation</InputLabel>
+                    <InputLabel>{t('recommendations.strengthLabel')}</InputLabel>
                     <Select
                       value={rec.grade || ''}
-                      label="Strength of Recommendation"
+                      label={t('recommendations.strengthLabel')}
                       onChange={(e) => handleUpdate(rec.uid, { grade: e.target.value })}
                     >
                       {GRADES.map((g) => (
@@ -307,7 +306,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                     </Select>
                   </FormControl>
                   <Tooltip
-                    title="Grade A: Strong evidence supports the recommendation. Grade B: Moderate evidence. Grade C: Optional, weak evidence. Grade D: Evidence suggests against. Grade I: Insufficient evidence to recommend."
+                    title={t('recommendations.gradeHelp')}
                     placement="right"
                   >
                     <HelpIcon fontSize="small" sx={{ color: 'text.secondary', cursor: 'help' }} />
@@ -315,7 +314,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 </Stack>
 
                 <TextField
-                  label="Rationale"
+                  label={t('recommendations.rationaleLabel')}
                   value={rec.rationale || ''}
                   onChange={(e) => handleUpdate(rec.uid, { rationale: e.target.value })}
                   fullWidth
@@ -326,7 +325,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 />
 
                 <TextField
-                  label="Comment"
+                  label={t('recommendations.commentLabel')}
                   value={rec.comment || ''}
                   onChange={(e) => handleUpdate(rec.uid, { comment: e.target.value })}
                   fullWidth
@@ -337,7 +336,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 {/* Subpopulation assignment */}
                 <Divider sx={{ my: 1.5 }} />
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                  Apply to Subpopulations
+                  {t('recommendations.applyToSubpops')}
                 </Typography>
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mb: 2 }}>
                   {allSubpopsForRec.map((sp) => {
@@ -359,37 +358,38 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 {/* Links */}
                 <Divider sx={{ my: 1.5 }} />
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                  <Typography variant="caption" color="text.secondary">Links</Typography>
-                  <IconButton size="small" onClick={() => handleAddLink(rec.uid)}>
+                  <Typography variant="caption" color="text.secondary">{t('recommendations.links')}</Typography>
+                  <IconButton size="small" onClick={() => handleAddLink(rec.uid)} aria-label={t('recommendations.addLink')}>
                     <LinkOutlined fontSize="small" />
                   </IconButton>
                 </Stack>
                 {(rec.links || []).map((link, li) => (
-                  <Stack key={li} direction="row" spacing={1} mb={1} alignItems="center">
+                  <Stack key={`link-${rec.uid}-${li}`} direction="row" spacing={1} mb={1} alignItems="center">
                     <FormControl size="small" sx={{ minWidth: 100 }}>
                       <Select
                         value={link.type}
                         onChange={(e) => handleUpdateLink(rec.uid, li, 'type', e.target.value)}
                       >
-                        <MenuItem value="absolute">Link</MenuItem>
-                        <MenuItem value="smart">SMART App</MenuItem>
+                        {CDS_LINK_TYPES.map((lt) => (
+                          <MenuItem key={lt.value} value={lt.value}>{lt.label}</MenuItem>
+                        ))}
                       </Select>
                     </FormControl>
                     <TextField
                       size="small"
-                      label="Label"
+                      label={t('recommendations.linkLabel')}
                       value={link.label}
                       onChange={(e) => handleUpdateLink(rec.uid, li, 'label', e.target.value)}
                       sx={{ flex: 1 }}
                     />
                     <TextField
                       size="small"
-                      label="URL"
+                      label={t('recommendations.linkUrl')}
                       value={link.url}
                       onChange={(e) => handleUpdateLink(rec.uid, li, 'url', e.target.value)}
                       sx={{ flex: 2 }}
                     />
-                    <IconButton size="small" color="error" onClick={() => handleRemoveLink(rec.uid, li)}>
+                    <IconButton size="small" color="error" onClick={() => handleRemoveLink(rec.uid, li)} aria-label={t('recommendations.removeLink')}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Stack>
@@ -398,8 +398,8 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 {/* Suggestions */}
                 <Divider sx={{ my: 1.5 }} />
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                  <Typography variant="caption" color="text.secondary">Suggestions</Typography>
-                  <IconButton size="small" onClick={() => handleAddSuggestion(rec.uid)}>
+                  <Typography variant="caption" color="text.secondary">{t('recommendations.suggestions')}</Typography>
+                  <IconButton size="small" onClick={() => handleAddSuggestion(rec.uid)} aria-label={t('recommendations.addSuggestion')}>
                     <AddIcon fontSize="small" />
                   </IconButton>
                 </Stack>
@@ -409,7 +409,7 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                       <Stack direction="row" spacing={1} alignItems="center" mb={1}>
                         <TextField
                           size="small"
-                          label="Suggestion Label"
+                          label={t('recommendations.suggestionLabel')}
                           value={sug.label}
                           onChange={(e) => handleUpdateSuggestion(rec.uid, si, { label: e.target.value })}
                           sx={{ flex: 1 }}
@@ -423,43 +423,44 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                                 size="small"
                               />
                             }
-                            label={<Typography variant="caption">Recommended</Typography>}
+                            label={<Typography variant="caption">{t('recommendations.recommended')}</Typography>}
                           />
                         )}
                         <Button size="small" startIcon={<AddIcon />} onClick={() => handleAddAction(rec.uid, si)}>
-                          Add Action
+                          {t('recommendations.addAction')}
                         </Button>
-                        <IconButton size="small" color="error" onClick={() => handleRemoveSuggestion(rec.uid, si)}>
+                        <IconButton size="small" color="error" onClick={() => handleRemoveSuggestion(rec.uid, si)} aria-label={t('recommendations.removeSuggestion')}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Stack>
                       {(sug.actions || []).map((act, ai) => (
-                        <Stack key={ai} direction="row" spacing={1} alignItems="center" mb={0.5}>
+                        <Stack key={`action-${sug.uid}-${ai}`} direction="row" spacing={1} alignItems="center" mb={0.5}>
                           <Chip
                             icon={act.resource?.resourceType === 'MedicationRequest' ? <MedIcon /> : <ServiceIcon />}
-                            label="Create"
+                            label={t('recommendations.create')}
                             size="small"
                             variant="outlined"
                           />
                           <FormControl size="small" sx={{ minWidth: 180 }}>
                             <Select
-                              value={(act.resource?.resourceType as string) || 'MedicationRequest'}
+                              value={(act.resource?.resourceType as string) || CDS_ACTION_RESOURCE_TYPES[0].value}
                               onChange={(e) => handleUpdateAction(rec.uid, si, ai, {
                                 resource: { ...act.resource, resourceType: e.target.value },
                               })}
                             >
-                              <MenuItem value="MedicationRequest">MedicationRequest</MenuItem>
-                              <MenuItem value="ServiceRequest">ServiceRequest</MenuItem>
+                              {CDS_ACTION_RESOURCE_TYPES.map((rt) => (
+                                <MenuItem key={rt.value} value={rt.value}>{rt.label}</MenuItem>
+                              ))}
                             </Select>
                           </FormControl>
                           <TextField
                             size="small"
-                            label="Description"
+                            label={t('recommendations.descriptionLabel')}
                             value={act.description || ''}
                             onChange={(e) => handleUpdateAction(rec.uid, si, ai, { description: e.target.value })}
                             sx={{ flex: 1 }}
                           />
-                          <IconButton size="small" color="error" onClick={() => handleRemoveAction(rec.uid, si, ai)}>
+                          <IconButton size="small" color="error" onClick={() => handleRemoveAction(rec.uid, si, ai)} aria-label={t('recommendations.removeAction')}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Stack>
@@ -474,19 +475,19 @@ export default function Recommendations({ recommendations, subpopulations, onCha
       )}
 
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
-        <DialogTitle>Delete Recommendation</DialogTitle>
+        <DialogTitle>{t('recommendations.deleteTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete Recommendation {pendingDeleteIndex + 1}? This action cannot be undone.
+            {t('recommendations.deleteConfirm', { index: pendingDeleteIndex + 1 })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+          <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>
           <Button
             color="error"
             onClick={() => { if (pendingDeleteId) handleRemove(pendingDeleteId); setPendingDeleteId(null) }}
           >
-            Delete
+            {t('actions.delete', { ns: 'common' })}
           </Button>
         </DialogActions>
       </Dialog>

@@ -9,32 +9,12 @@ import {
   Build as ModIcon, Warning as WarningIcon,
   FormatIndentIncrease as IndentIcon, FormatIndentDecrease as OutdentIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
 import type { ElementInstance, ModifierDefinition } from '../../../types/authoring'
-
-const RETURN_TYPE_COLORS: Record<string, string> = {
-  boolean: '#2196F3',
-  list_of_conditions: '#4CAF50',
-  list_of_observations: '#4CAF50',
-  list_of_medications: '#4CAF50',
-  list_of_procedures: '#4CAF50',
-  list_of_encounters: '#4CAF50',
-  list_of_immunizations: '#4CAF50',
-  list_of_allergy_intolerances: '#4CAF50',
-  list_of_devices: '#4CAF50',
-  list_of_service_requests: '#4CAF50',
-  list_of_medication_statements: '#4CAF50',
-  list_of_medication_requests: '#4CAF50',
-  list_of_any: '#4CAF50',
-  observation: '#FF9800',
-  condition: '#FF9800',
-  procedure: '#FF9800',
-  integer: '#9C27B0',
-  decimal: '#9C27B0',
-  system_quantity: '#9C27B0',
-  string: '#795548',
-}
+import { getEffectiveReturnType } from '../../../utils/modifierUtils'
+import { RETURN_TYPE_COLORS, RETURN_TYPE_COLOR_DEFAULT, ELEMENT_REF_BACKGROUNDS } from '../../../constants/authoringConstants'
 
 const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
   AgeRange: ViewIcon,
@@ -44,6 +24,7 @@ const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
 interface ArtifactElementProps {
   element: ElementInstance
   modifiers: ModifierDefinition[]
+  hideElementName?: boolean
   onUpdate: (updates: Partial<ElementInstance>) => void
   onRemove: () => void
   onIndent?: () => void
@@ -53,18 +34,20 @@ interface ArtifactElementProps {
 const ArtifactElement = memo(function ArtifactElement({
   element,
   modifiers,
+  hideElementName,
   onUpdate,
   onRemove,
   onIndent,
   onOutdent,
 }: ArtifactElementProps) {
+  const { t } = useTranslation('authoring')
   const [expanded, setExpanded] = useState(true)
 
   const elementName = element.fields?.find((f) => f.id === 'element_name')?.value as string
   const displayName = elementName || element.name
-  const effectiveReturnType = getEffectiveReturnType(element)
+  const effectiveReturnType = getElementEffectiveReturnType(element)
   const chainError = getModifierChainError(element)
-  const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || '#757575'
+  const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || RETURN_TYPE_COLOR_DEFAULT
   const IconComp = ELEMENT_ICONS[element.type] || (element.type?.startsWith('Generic') ? ListIcon : ListIcon)
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -81,9 +64,7 @@ const ArtifactElement = memo(function ArtifactElement({
         borderLeftColor: rtColor,
         '&:hover': { boxShadow: 1 },
         transition: 'box-shadow 0.2s',
-        ...(element.type === 'baseElementRef' && { backgroundColor: '#E3F2FD' }),
-        ...(element.type === 'parameterRef' && { backgroundColor: '#F3E5F5' }),
-        ...(element.type === 'externalCqlRef' && { backgroundColor: '#E8F5E9' }),
+        ...(ELEMENT_REF_BACKGROUNDS[element.type] && { backgroundColor: ELEMENT_REF_BACKGROUNDS[element.type] }),
       }}
     >
       <Stack
@@ -93,7 +74,7 @@ const ArtifactElement = memo(function ArtifactElement({
         sx={{ px: 2, py: 1, cursor: 'pointer' }}
         onClick={() => setExpanded(!expanded)}
       >
-        <IconButton size="small">
+        <IconButton size="small" aria-label={expanded ? t('element.collapse') : t('element.expand')}>
           {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
         </IconButton>
 
@@ -126,10 +107,10 @@ const ArtifactElement = memo(function ArtifactElement({
         )}
 
         {chainError && (
-          <Tooltip title={chainError}>
+          <Tooltip title={t('element.modifierChainError', chainError)}>
             <Chip
               icon={<WarningIcon sx={{ fontSize: '0.85rem !important' }} />}
-              label="Chain Error"
+              label={t('element.chainError')}
               size="small"
               color="warning"
               sx={{ fontSize: '0.7rem' }}
@@ -138,32 +119,33 @@ const ArtifactElement = memo(function ArtifactElement({
         )}
 
         {onIndent && (
-          <Tooltip title="Indent into new group">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+          <Tooltip title={t('element.indent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.indent')}>
               <IndentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
 
         {onOutdent && (
-          <Tooltip title="Outdent to parent group">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+          <Tooltip title={t('element.outdent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.outdent')}>
               <OutdentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
 
-        <Tooltip title="Copy element info">
-          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+        <Tooltip title={t('element.copyInfo')}>
+          <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label={t('element.copyInfo')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="Remove element">
+        <Tooltip title={t('element.remove')}>
           <IconButton
             size="small"
             color="error"
             onClick={(e) => { e.stopPropagation(); onRemove() }}
+            aria-label={t('element.remove')}
           >
             <DeleteIcon fontSize="small" />
           </IconButton>
@@ -181,6 +163,7 @@ const ArtifactElement = memo(function ArtifactElement({
           <ArtifactElementBody
             element={element}
             modifiers={modifiers}
+            hideElementName={hideElementName}
             onUpdate={onUpdate}
           />
         </CardContent>
@@ -191,20 +174,17 @@ const ArtifactElement = memo(function ArtifactElement({
 
 export default ArtifactElement
 
-function getEffectiveReturnType(element: ElementInstance): string {
-  if (element.modifiers && element.modifiers.length > 0) {
-    return element.modifiers[element.modifiers.length - 1].returnType
-  }
-  return element.returnType
+function getElementEffectiveReturnType(element: ElementInstance): string {
+  return getEffectiveReturnType(element.returnType, element.modifiers)
 }
 
-function getModifierChainError(element: ElementInstance): string | null {
+function getModifierChainError(element: ElementInstance): { name: string; expected: string; actual: string } | null {
   if (!element.modifiers || element.modifiers.length === 0) return null
   let currentType = element.returnType
   for (let i = 0; i < element.modifiers.length; i++) {
     const mod = element.modifiers[i]
     if (!mod.inputTypes.includes(currentType)) {
-      return `Modifier "${mod.name}" expects ${mod.inputTypes.join('/')} but receives ${currentType.replace(/_/g, ' ')}`
+      return { name: mod.name, expected: mod.inputTypes.join('/'), actual: currentType.replace(/_/g, ' ') }
     }
     currentType = mod.returnType
   }

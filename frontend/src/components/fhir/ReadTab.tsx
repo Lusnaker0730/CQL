@@ -6,6 +6,7 @@ import {
   Alert,
 } from '@mui/material'
 import { Search as SearchIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
@@ -17,6 +18,7 @@ interface ReadTabProps {
 }
 
 export default function ReadTab({ fhirServer, resourceType }: ReadTabProps) {
+  const { t } = useTranslation('fhir')
   const [resourceId, setResourceId] = useState('')
   const [readResult, setReadResult] = useState<object | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -44,13 +46,13 @@ export default function ReadTab({ fhirServer, resourceType }: ReadTabProps) {
   return (
     <Stack spacing={2}>
       <TextField
-        label="Resource ID"
+        label={t('read.resourceIdLabel')}
         value={resourceId}
         onChange={(e) => setResourceId(e.target.value)}
         onKeyDown={handleKeyDown}
         size="small"
         fullWidth
-        placeholder="e.g., example-patient-1"
+        placeholder={t('read.resourceIdPlaceholder')}
       />
 
       <GradientButton
@@ -59,12 +61,12 @@ export default function ReadTab({ fhirServer, resourceType }: ReadTabProps) {
         startIcon={readMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
         sx={{ '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' } }}
       >
-        {readMutation.isPending ? 'Loading...' : 'Read Resource'}
+        {readMutation.isPending ? t('read.loading') : t('read.readButton')}
       </GradientButton>
 
       {readMutation.isError && (
         <Alert severity="error">
-          Read failed: {(readMutation.error as Error).message}
+          {t('read.readFailed', { error: (readMutation.error as Error).message })}
         </Alert>
       )}
 

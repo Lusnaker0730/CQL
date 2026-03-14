@@ -1,11 +1,15 @@
 import { useState, useCallback, useMemo, memo } from 'react'
-import { Box, Typography, Stack, TextField, InputAdornment, Chip } from '@mui/material'
-import { FilterList as FilterIcon, RemoveCircleOutline as ExcludeIcon, Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material'
-import ConjunctionTypeSelect from './ConjunctionTypeSelect'
+import { Box, Typography, Stack, TextField, InputAdornment, Chip, Button, Tooltip } from '@mui/material'
+import { FilterList as FilterIcon, RemoveCircleOutline as ExcludeIcon, Search as SearchIcon, Clear as ClearIcon, AccountTree as SubGroupIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
+import ConjunctionConnector from './ConjunctionConnector'
 import ArtifactElement from './ArtifactElement'
 import ElementSelect from '../element-select/ElementSelect'
-import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
+import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition, ConjunctionKind } from '../../../types/authoring'
+import { elementToConjunctionGroup, createConjunctionElement } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
+import { generateId } from '../../../utils/validation'
+import { changeConnectorAt, addSubGroup, resolveKind, nextConjunction, conjColor } from '../../../utils/conjunctionTreeUtils'
 
 function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   const name = element.fields?.find((f) => f.id === 'element_name')?.value as string
@@ -19,10 +23,6 @@ function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   return false
 }
 
-function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
-
 interface ConjunctionGroupProps {
   group: ConjunctionGroupType
   treeName: string
@@ -30,6 +30,8 @@ interface ConjunctionGroupProps {
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
+  hideElementName?: boolean
   searchFilter?: string
   onUpdateGroup: (updated: ConjunctionGroupType) => void
   onAddElement: (element: ElementInstance) => void
@@ -45,6 +47,8 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   templates,
   modifiers,
   dynamicEntries,
+  twcoreMode,
+  hideElementName,
   searchFilter,
   onUpdateGroup,
   onAddElement,
@@ -52,7 +56,21 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
   onUpdateElement,
   onOutdentElement,
 }: ConjunctionGroupProps) {
+  const { t } = useTranslation('authoring')
   const [localSearch, setLocalSearch] = useState('')
+
+  const isRoot = depth === 0
+  const conjunctionId: ConjunctionKind = resolveKind(group.id)
+  const borderColor = conjColor(conjunctionId)
+
+  const activeFilter = isRoot ? localSearch.trim().toLowerCase() : (searchFilter || '')
+  const filteredChildren = useMemo(() => {
+    if (!activeFilter) return group.childInstances
+    return group.childInstances.filter((child) => elementMatchesFilter(child, activeFilter))
+  }, [group.childInstances, activeFilter])
+
+  const isFiltering = activeFilter.length > 0
+  const hiddenCount = group.childInstances.length - filteredChildren.length
 
   const handleConjunctionChange = useCallback(
     (conjType: string) => {
@@ -65,30 +83,13 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
     [group, onUpdateGroup]
   )
 
-  const handleAddElement = useCallback(
-    (element: ElementInstance) => {
-      onAddElement(element)
-    },
-    [onAddElement]
-  )
-
   const handleIndent = useCallback(
     (uniqueId: string) => {
       const idx = group.childInstances.findIndex((c) => c.uniqueId === uniqueId)
       if (idx === -1) return
       const element = group.childInstances[idx]
-      const newGroup: ElementInstance = {
-        uniqueId: generateId(),
-        type: 'And',
-        name: 'And',
-        conjunction: true,
-        returnType: 'boolean',
-        fields: [],
-        modifiers: [],
-        childInstances: [element],
-      }
       const newChildren = [...group.childInstances]
-      newChildren[idx] = newGroup
+      newChildren[idx] = createConjunctionElement('And', [element], generateId())
       onUpdateGroup({ ...group, childInstances: newChildren })
     },
     [group, onUpdateGroup]
@@ -103,7 +104,6 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
 
       const newChildren = [...group.childInstances]
       if (updatedChildInstances.length === 0) {
-        // Replace the now-empty group with the element
         newChildren.splice(groupIdx, 1, element)
       } else {
         newChildren[groupIdx] = { ...childGroup, childInstances: updatedChildInstances }
@@ -114,18 +114,24 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
     [group, onUpdateGroup]
   )
 
-  const isRoot = depth === 0
-  const conjunctionLabel = group.id === 'Or' ? 'Or' : 'And'
-  const borderColor = group.id === 'Or' ? '#E67E22' : '#0D7377'
+  const handleConnectorChange = useCallback(
+    (filteredIndex: number, newConj: ConjunctionKind) => {
+      // Map filtered index → real index via uniqueId lookup against current children
+      const leftUniqueId = filteredChildren[filteredIndex]?.uniqueId
+      if (!leftUniqueId) return
+      const realIndex = group.childInstances.findIndex((c) => c.uniqueId === leftUniqueId)
+      if (realIndex === -1) return
 
-  const activeFilter = isRoot ? localSearch.trim().toLowerCase() : (searchFilter || '')
-  const filteredChildren = useMemo(() => {
-    if (!activeFilter) return group.childInstances
-    return group.childInstances.filter((child) => elementMatchesFilter(child, activeFilter))
-  }, [group.childInstances, activeFilter])
+      onUpdateGroup(changeConnectorAt(group, realIndex, newConj))
+    },
+    [group, filteredChildren, onUpdateGroup]
+  )
 
-  const isFiltering = activeFilter.length > 0
-  const hiddenCount = group.childInstances.length - filteredChildren.length
+  const handleAddSubGroup = useCallback(() => {
+    // Default to opposite boolean conjunction; Union/Intersect users can toggle via badge
+    const oppositeConj: ConjunctionKind = conjunctionId === 'And' ? 'Or' : 'And'
+    onUpdateGroup(addSubGroup(group, oppositeConj))
+  }, [group, conjunctionId, onUpdateGroup])
 
   return (
     <Box
@@ -135,27 +141,40 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
         p: isRoot ? 0 : 2,
         ml: isRoot ? 0 : 2,
         position: 'relative',
-        backgroundColor: isRoot ? 'transparent' : 'action.hover',
+        backgroundColor: isRoot ? 'transparent' : `${borderColor}08`,
       }}
     >
-      {/* Header */}
-      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-        <ConjunctionTypeSelect
-          value={conjunctionLabel}
-          onChange={handleConjunctionChange}
-        />
-        {group.childInstances.length > 0 && (
+      {/* Nested group: clickable badge chip to toggle conjunction type */}
+      {!isRoot && (
+        <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+          <Tooltip title={t(`conjunction.clickToChange${nextConjunction(conjunctionId)}`)}>
+            <Chip
+              label={conjunctionId.toUpperCase()}
+              size="small"
+              onClick={() => handleConjunctionChange(nextConjunction(conjunctionId))}
+              sx={{
+                height: 22,
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                backgroundColor: borderColor,
+                color: 'white',
+                cursor: 'pointer',
+                '& .MuiChip-label': { px: 1 },
+                '&:hover': { opacity: 0.85 },
+              }}
+            />
+          </Tooltip>
           <Typography variant="caption" color="text.secondary">
-            {group.childInstances.length} element{group.childInstances.length !== 1 ? 's' : ''}
+            {t('conjunction.elementCount', { count: group.childInstances.length })}
           </Typography>
-        )}
-      </Stack>
+        </Stack>
+      )}
 
       {/* Search bar — root level only, when there are 3+ elements */}
       {isRoot && group.childInstances.length >= 3 && (
         <TextField
           size="small"
-          placeholder="Filter elements by name, type..."
+          placeholder={t('conjunction.filterPlaceholder')}
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           fullWidth
@@ -182,7 +201,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
       {/* Filter result indicator */}
       {isFiltering && hiddenCount > 0 && (
         <Chip
-          label={`${filteredChildren.length} of ${group.childInstances.length} elements shown`}
+          label={t('conjunction.filterResult', { shown: filteredChildren.length, total: group.childInstances.length })}
           size="small"
           variant="outlined"
           sx={{ mb: 1, fontSize: '0.75rem' }}
@@ -211,20 +230,20 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
             ) : null
           )}
           <Typography variant="body2" color="text.secondary" fontWeight={500} mb={0.5}>
-            No elements in {treeName.toLowerCase()}
+            {t('conjunction.noElements', { treeName: treeName.toLowerCase() })}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
             {treeName === 'Inclusions'
-              ? 'Define who this artifact applies to. Add demographics, conditions, observations, or other criteria.'
+              ? t('conjunction.inclusionHint')
               : treeName === 'Exclusions'
-                ? 'Define who should be excluded. Patients matching these criteria will be removed from the population.'
-                : 'Click "Add Element" below to start building logic for this group.'}
+                ? t('conjunction.exclusionHint')
+                : t('conjunction.genericHint')}
           </Typography>
         </Box>
       ) : filteredChildren.length === 0 ? (
         <Box sx={{ py: 2, textAlign: 'center', mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            No elements match "{isRoot ? localSearch : searchFilter}"
+            {t('conjunction.noFilterMatch', { filter: isRoot ? localSearch : searchFilter })}
           </Typography>
         </Box>
       ) : (
@@ -233,18 +252,13 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
             <Box key={child.uniqueId}>
               {child.conjunction ? (
                 <ConjunctionGroup
-                  group={{
-                    id: child.type || child.name,
-                    name: child.name,
-                    conjunction: true,
-                    returnType: child.returnType,
-                    childInstances: child.childInstances || [],
-                  }}
+                  group={elementToConjunctionGroup(child)}
                   treeName={child.name}
                   depth={depth + 1}
                   templates={templates}
                   modifiers={modifiers}
                   dynamicEntries={dynamicEntries}
+                  hideElementName={hideElementName}
                   searchFilter={activeFilter}
                   onUpdateGroup={(updated) =>
                     onUpdateElement(child.uniqueId, {
@@ -273,6 +287,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                 <ArtifactElement
                   element={child}
                   modifiers={modifiers}
+                  hideElementName={hideElementName}
                   onUpdate={(updates) => onUpdateElement(child.uniqueId, updates)}
                   onRemove={() => onRemoveElement(child.uniqueId)}
                   onIndent={() => handleIndent(child.uniqueId)}
@@ -280,34 +295,34 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                 />
               )}
               {index < filteredChildren.length - 1 && (
-                <Box sx={{ textAlign: 'center', py: 0.5 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      px: 1.5,
-                      py: 0.25,
-                      borderRadius: 1,
-                      backgroundColor: borderColor,
-                      color: 'white',
-                      fontWeight: 600,
-                      fontSize: '0.7rem',
-                    }}
-                  >
-                    {conjunctionLabel.toUpperCase()}
-                  </Typography>
-                </Box>
+                <ConjunctionConnector
+                  value={conjunctionId}
+                  onChange={(newConj) => handleConnectorChange(index, newConj)}
+                />
               )}
             </Box>
           ))}
         </Stack>
       )}
 
-      {/* Add Element */}
-      <ElementSelect
-        templates={templates}
-        dynamicEntries={dynamicEntries}
-        onSelect={handleAddElement}
-      />
+      {/* Add Element + Add Sub-Group */}
+      <Stack direction="row" spacing={1} alignItems="center">
+        <ElementSelect
+          templates={templates}
+          dynamicEntries={dynamicEntries}
+          twcoreMode={twcoreMode}
+          onSelect={onAddElement}
+        />
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SubGroupIcon />}
+          onClick={handleAddSubGroup}
+          sx={{ textTransform: 'none', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+        >
+          {t('conjunction.addSubGroup')}
+        </Button>
+      </Stack>
     </Box>
   )
 })

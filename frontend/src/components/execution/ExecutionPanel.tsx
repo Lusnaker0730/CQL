@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Paper,
@@ -36,9 +37,15 @@ import DebugPanel from './DebugPanel'
 import { usePreferences } from '../../hooks/usePreferences'
 import FhirServerUrlField from '../common/FhirServerUrlField'
 
-export default function ExecutionPanel() {
+interface ExecutionPanelProps {
+  /** Returns the latest CQL content from the editor, flushing to Redux if needed */
+  getLatestCql?: () => string
+}
+
+export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
+  const { t } = useTranslation('editor')
   const dispatch = useDispatch()
-  const { cqlContent } = useSelector((state: RootState) => state.editor)
+  const cqlContentFromRedux = useSelector((state: RootState) => state.editor.cqlContent)
   const { patientId, fhirServerUrl, isExecuting, results, errors, executionTimeMs, debugTrace } = useSelector(
     (state: RootState) => state.execution
   )
@@ -49,14 +56,15 @@ export default function ExecutionPanel() {
     if (!fhirServerUrl && preferences.defaultFhirServerUrl) {
       dispatch(setFhirServerUrl(preferences.defaultFhirServerUrl))
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fhirServerUrl, preferences.defaultFhirServerUrl, dispatch])
   const executeMutation = useExecute()
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set())
   const [debugMode, setDebugMode] = useState(false)
 
   const handleExecute = () => {
+    const cql = getLatestCql ? getLatestCql() : cqlContentFromRedux
     executeMutation.mutate({
-      cql: cqlContent,
+      cql,
       patientId: patientId || undefined,
       fhirServerUrl: fhirServerUrl || undefined,
       debugMode,
@@ -75,12 +83,12 @@ export default function ExecutionPanel() {
 
   const renderValue = (value: unknown): React.ReactNode => {
     if (value === null || value === undefined) {
-      return <Chip label="null" size="small" sx={{ bgcolor: 'rgba(84,110,122,0.1)', color: 'text.secondary' }} />
+      return <Chip label={t('execution.nullValue')} size="small" sx={{ bgcolor: 'rgba(84,110,122,0.1)', color: 'text.secondary' }} />
     }
     if (typeof value === 'boolean') {
       return (
         <Chip
-          label={value ? 'true' : 'false'}
+          label={value ? t('execution.trueValue') : t('execution.falseValue')}
           color={value ? 'success' : 'default'}
           size="small"
         />
@@ -95,7 +103,7 @@ export default function ExecutionPanel() {
     if (Array.isArray(value)) {
       return (
         <Typography variant="body2" color="text.secondary">
-          List [{value.length} items]
+          {t('execution.listItems', { count: value.length })}
         </Typography>
       )
     }
@@ -112,7 +120,7 @@ export default function ExecutionPanel() {
   return (
     <Paper sx={{ p: 2, height: '100%' }}>
       <Typography variant="h6" gutterBottom>
-        CQL Execution
+        {t('execution.title')}
       </Typography>
 
       <Stack spacing={2}>
@@ -123,19 +131,19 @@ export default function ExecutionPanel() {
         />
 
         <TextField
-          label="Patient ID"
+          label={t('execution.patientId')}
           value={patientId}
           onChange={(e) => dispatch(setPatientId(e.target.value))}
           size="small"
           fullWidth
-          placeholder="e.g., example-patient-1"
+          placeholder={t('execution.patientIdPlaceholder')}
         />
 
         <Stack direction="row" spacing={2} alignItems="center">
           <GradientButton
             startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
             onClick={handleExecute}
-            disabled={isExecuting || !cqlContent}
+            disabled={isExecuting || !(getLatestCql ? getLatestCql() : cqlContentFromRedux)}
             fullWidth
             sx={{
               py: 1.2,
@@ -145,7 +153,7 @@ export default function ExecutionPanel() {
               },
             }}
           >
-            {isExecuting ? 'Executing...' : 'Execute CQL'}
+            {isExecuting ? t('execution.executing') : t('execution.executeCql')}
           </GradientButton>
         </Stack>
 
@@ -169,7 +177,7 @@ export default function ExecutionPanel() {
             <Stack direction="row" spacing={0.5} alignItems="center">
               <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
               <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
-                Debug Mode
+                {t('execution.debugMode')}
               </Typography>
             </Stack>
           }
@@ -202,16 +210,16 @@ export default function ExecutionPanel() {
         {Object.keys(results).length > 0 && (
           <Box>
             <Typography variant="subtitle1" gutterBottom>
-              Results
+              {t('execution.results')}
             </Typography>
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
                     <TableCell scope="col" width={40}></TableCell>
-                    <TableCell scope="col">Expression</TableCell>
-                    <TableCell scope="col">Type</TableCell>
-                    <TableCell scope="col">Value</TableCell>
+                    <TableCell scope="col">{t('execution.expression')}</TableCell>
+                    <TableCell scope="col">{t('execution.type')}</TableCell>
+                    <TableCell scope="col">{t('execution.value')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -224,7 +232,7 @@ export default function ExecutionPanel() {
                               size="small"
                               onClick={() => toggleExpanded(name)}
                               sx={{ color: 'primary.main' }}
-                              aria-label="Toggle result details"
+                              aria-label={t('execution.toggleDetails')}
                             >
                               {expandedResults.has(name) ? (
                                 <ExpandLessIcon />
@@ -261,9 +269,10 @@ export default function ExecutionPanel() {
                                 component="pre"
                                 sx={{
                                   p: 2,
-                                  bgcolor: '#F8FAFB',
+                                  bgcolor: 'action.hover',
                                   borderRadius: '8px',
-                                  border: '1px solid rgba(13,115,119,0.1)',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
                                   fontSize: '0.75rem',
                                   overflow: 'auto',
                                   maxHeight: 200,

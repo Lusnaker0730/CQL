@@ -1,8 +1,0 @@
- Bash(cd /d/CQL/docker && docker-compose build frontend && docker-compose up -d frontend
-
-User: admin
-Pass: admin
-
-cd /d/CQL/docker && docker compose build --no-cache 2>&1
-
-cd "D:\CQL\docker" && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d hapi-fhir

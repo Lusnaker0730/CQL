@@ -11,6 +11,7 @@ import {
   StarBorder as StarBorderIcon,
   DeleteSweep as ClearIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import type { HistoryEntry } from '../../hooks/useFhirQueryHistory'
 
 interface QueryHistoryProps {
@@ -30,6 +31,8 @@ export default function QueryHistory({
   onRemove,
   onClearHistory,
 }: QueryHistoryProps) {
+  const { t } = useTranslation('fhir')
+
   if (recent.length === 0 && favorites.length === 0) return null
 
   const formatLabel = (entry: HistoryEntry) => {
@@ -43,7 +46,7 @@ export default function QueryHistory({
       {favorites.length > 0 && (
         <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ mb: 0.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-            Favorites:
+            {t('history.favorites')}
           </Typography>
           {favorites.map(entry => (
             <Chip
@@ -54,7 +57,7 @@ export default function QueryHistory({
               onClick={() => onSelect(entry)}
               onDelete={() => onToggleFavorite(entry.id)}
               deleteIcon={
-                <Tooltip title="Remove from favorites">
+                <Tooltip title={t('history.removeFromFavorites')}>
                   <StarIcon sx={{ fontSize: 14, color: '#f59e0b !important' }} />
                 </Tooltip>
               }
@@ -72,7 +75,7 @@ export default function QueryHistory({
       {recent.length > 0 && (
         <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
           <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-            Recent:
+            {t('history.recent')}
           </Typography>
           {recent.map(entry => (
             <Chip
@@ -83,11 +86,12 @@ export default function QueryHistory({
               onDelete={() => onRemove(entry.id)}
               sx={{ fontSize: '0.7rem', height: 24 }}
               icon={
-                <Tooltip title="Add to favorites">
+                <Tooltip title={t('history.addToFavorites')}>
                   <IconButton
                     size="small"
                     onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id) }}
                     sx={{ p: 0 }}
+                    aria-label={t('history.toggleFavorite')}
                   >
                     <StarBorderIcon sx={{ fontSize: 14 }} />
                   </IconButton>
@@ -95,8 +99,8 @@ export default function QueryHistory({
               }
             />
           ))}
-          <Tooltip title="Clear history">
-            <IconButton size="small" onClick={onClearHistory} sx={{ ml: 0.5 }}>
+          <Tooltip title={t('history.clearHistory')}>
+            <IconButton size="small" onClick={onClearHistory} sx={{ ml: 0.5 }} aria-label={t('history.clearHistory')}>
               <ClearIcon fontSize="small" />
             </IconButton>
           </Tooltip>

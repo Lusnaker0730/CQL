@@ -1,0 +1,259 @@
+{
+  "app": {
+    "title": "Taiwan CQL Concept Platform",
+    "subtitle": "Clinical Quality Language"
+  },
+  "nav": {
+    "editor": "Editor",
+    "cdsHooks": "CDS Hooks",
+    "measures": "Measures",
+    "authoring": "Authoring",
+    "ecqm": "eCQM",
+    "fhirBrowser": "FHIR Browser",
+    "terminology": "Terminology",
+    "users": "Users",
+    "auditLog": "Audit Log",
+    "mainNavigation": "Main navigation",
+    "goToHome": "Go to home page"
+  },
+  "toolbar": {
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode",
+    "settings": "Settings",
+    "help": "Help",
+    "github": "GitHub",
+    "logout": "Logout",
+    "terminologyLookup": "Terminology Lookup"
+  },
+  "footer": {
+    "line": "Ln {{line}}, Col {{column}}",
+    "errorsCount": "{{count}} errors",
+    "errorsCount_one": "{{count}} error",
+    "noErrors": "No errors",
+    "warningsCount": "{{count}} warnings",
+    "warningsCount_one": "{{count}} warning",
+    "noWarnings": "No warnings",
+    "cqlSpec": "CQL Specification",
+    "cdsHooks": "CDS Hooks",
+    "fhir": "FHIR"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "confirm": "Confirm",
+    "close": "Close",
+    "done": "Done",
+    "reset": "Reset",
+    "add": "Add",
+    "edit": "Edit",
+    "remove": "Remove",
+    "search": "Search",
+    "tryAgain": "Try Again",
+    "resetToDefaults": "Reset to Defaults"
+  },
+  "status": {
+    "draft": "Draft",
+    "active": "Active",
+    "retired": "Retired",
+    "inReview": "In Review",
+    "loading": "Loading..."
+  },
+  "preferences": {
+    "title": "Preferences",
+    "editorSettings": "Editor Settings",
+    "fontSize": "Font Size: {{size}}px",
+    "tabSize": "Tab Size",
+    "tabSizeSpaces": "{{count}} spaces",
+    "wordWrap": "Word Wrap",
+    "wordWrapOn": "On",
+    "wordWrapOff": "Off",
+    "wordWrapColumn": "Word Wrap Column",
+    "showMinimap": "Show Minimap",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "defaults": "Defaults",
+    "defaultFhirServerUrl": "Default FHIR Server URL",
+    "terminology": "Terminology",
+    "vsacStatus": "VSAC Status:",
+    "vsacConfigured": "Configured",
+    "vsacNotConfigured": "Not Configured",
+    "vsacUnavailable": "Unavailable",
+    "vsacUrl": "Server URL",
+    "vsacApiKey": "VSAC API Key",
+    "vsacApiKeyPlaceholder": "Enter your UMLS/VSAC API key",
+    "vsacApiKeyHelp": "Required for resolving VSAC ValueSets (e.g. NLM OID-based). Get a key at https://uts.nlm.nih.gov/uts/",
+    "vsacKeySave": "Update API Key",
+    "vsacKeySaving": "Saving...",
+    "vsacKeySaved": "VSAC API key updated successfully",
+    "vsacKeySaveFailed": "Failed to update VSAC API key",
+    "aiFixSuggestion": "AI Fix Suggestion",
+    "aiStatus": "AI Status:",
+    "aiDisabled": "Disabled",
+    "aiUnavailable": "Unavailable",
+    "aiApiKeyStatus": "API Key:",
+    "aiKeyConfigured": "Configured",
+    "aiKeyNotConfigured": "Not Configured",
+    "aiApiKey": "Cloud AI API Key",
+    "aiApiKeyPlaceholder": "Enter your API key (OpenAI, DeepSeek, etc.)",
+    "aiApiKeyHelp": "Required for Cloud AI provider. Key is stored in server memory only.",
+    "aiKeySave": "Update API Key",
+    "aiKeySaving": "Saving...",
+    "aiKeySaved": "AI API key updated successfully",
+    "aiKeySaveFailed": "Failed to update AI API key"
+  },
+  "errors": {
+    "applicationError": "Application Error",
+    "editorError": "Editor Error",
+    "cdsHooksError": "CDS Hooks Error",
+    "measuresError": "Measures Error",
+    "fhirBrowserError": "FHIR Browser Error",
+    "terminologyError": "Terminology Error",
+    "cdsAuthoringError": "CDS Authoring Error",
+    "adminError": "Admin Error",
+    "auditDashboardError": "Audit Dashboard Error",
+    "somethingWentWrong": "Something went wrong",
+    "unexpectedError": "An unexpected error occurred. Try refreshing this section."
+  },
+  "mutationErrors": {
+    "createFailed": "Failed to create: {{error}}",
+    "updateFailed": "Failed to update: {{error}}",
+    "deleteFailed": "Failed to delete: {{error}}",
+    "importFailed": "Failed to import: {{error}}",
+    "exportFailed": "Failed to export: {{error}}",
+    "operationFailed": "Operation failed: {{error}}",
+    "runFailed": "Failed to run: {{error}}"
+  },
+  "dialogs": {
+    "deleteConfirm": {
+      "title": "Delete",
+      "message": "Are you sure you want to delete {{itemName}}? This action cannot be undone."
+    },
+    "closeHelp": "Close help drawer"
+  },
+  "help": {
+    "quickStartGuide": "Quick Start Guide",
+    "quickStart": {
+      "gettingStarted": {
+        "title": "Getting Started",
+        "content": "Write CQL (Clinical Quality Language) in the editor, click \"Translate\" to validate, then \"Execute\" to run against patient data from a FHIR server."
+      },
+      "cqlBasics": {
+        "title": "CQL Basics",
+        "content": "CQL libraries start with a library declaration and FHIR model. Define value sets, patient context, and expressions to compute clinical logic."
+      },
+      "cdsHooks": {
+        "title": "CDS Hooks",
+        "content": "Create CDS services that trigger at clinical decision points. Your CQL logic runs automatically and returns advisory cards to clinicians."
+      },
+      "qualityMeasures": {
+        "title": "Quality Measures",
+        "content": "Define eCQM (electronic Clinical Quality Measures) using CQL. Evaluate measure populations against patient data and generate reports."
+      },
+      "fhirBrowser": {
+        "title": "FHIR Browser",
+        "content": "Browse resources on any FHIR R4 server. Search by resource type and parameters, or read individual resources by ID."
+      },
+      "keyboardShortcuts": {
+        "title": "Keyboard Shortcuts",
+        "content": "Ctrl+S: Translate CQL | Ctrl+Enter: Execute CQL | Standard Monaco editor shortcuts available."
+      }
+    },
+    "editor": {
+      "translate": "Translate CQL to ELM (Expression Logical Model). Validates syntax and semantics. Shortcut: Ctrl+S",
+      "save": "Save the current CQL content as a versioned library in the platform database.",
+      "export": "Export the library as a FHIR Library resource (JSON format) for interoperability.",
+      "import": "Import a FHIR Library resource (JSON) and load its CQL content into the editor."
+    },
+    "cds": {
+      "hookType": "The CDS hook defines when this service is triggered in the clinical workflow. \"patient-view\" fires when a patient chart is opened, \"order-select\" fires during order entry.",
+      "prefetch": "Prefetch templates define FHIR queries the EHR should execute before calling your service. Use FHIR search URLs with {{context.patientId}} placeholders."
+    },
+    "measures": {
+      "scoringType": "Proportion: ratio of numerator/denominator. Continuous Variable: statistical measure of population values. Cohort: simple count of population members.",
+      "details": "Define the measure metadata: name, version, status, and scoring type. These fields map to FHIR Measure resource attributes.",
+      "cql": "Write or edit the CQL logic that powers this measure. Translate to validate syntax, then save to persist changes.",
+      "populationCriteria": "Map CQL expressions to measure populations (Initial Population, Denominator, Numerator, etc.). Each population references a CQL expression that returns true/false for patient membership.",
+      "evaluate": "Run this measure against patient data from a FHIR server. Results show population counts, individual patient membership, and optional stratifiers.",
+      "testCases": "Create patient test cases with expected population outcomes. Run tests to verify your measure logic produces correct results before deployment.",
+      "reports": "View historical evaluation reports for this measure. Compare results across runs to track changes over time.",
+      "riskAdjustment": "Risk Adjustment Variables are CQL definitions used to describe risk factors for the measure. Select expressions from your CQL and add descriptions for each.",
+      "supplementalData": "Supplemental Data Elements are CQL definitions that capture additional data points for reporting. These are not used in scoring but are included in measure reports.",
+      "observations": "Observation Criteria define how continuous variable and ratio measures compute their observation values. Select a CQL expression and an aggregate method (Count, Sum, Average, etc.).",
+      "dataRequirements": "Data Requirements declare which FHIR resources and value sets your measure CQL logic needs. They are automatically extracted from the ELM translation and are critical for eCQM portability and EHR integration.",
+      "versionManagement": "Create versioned snapshots of your library or measure. Use Major for breaking changes, Minor for new features, Patch for fixes. Compare versions side-by-side to see CQL changes."
+    },
+    "fhir": {
+      "serverUrl": "The base URL of a FHIR R4 server. Default is the public HAPI FHIR server. You can point to your own server for testing.",
+      "bulkExport": "Initiate a FHIR Bulk Data Export ($export). System exports all resources; Patient/Group exports scope to a compartment. Results are NDJSON files."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "department": {
+    "label": "Department",
+    "all": "All Departments",
+    "assign": "Assign Department",
+    "filter": "Filter by Department",
+    "none": "No Department"
+  },
+  "language": {
+    "english": "English",
+    "traditionalChinese": "繁體中文",
+    "switchLanguage": "Switch language"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signInSubtitle": "Sign in to continue",
+    "register": "Register",
+    "createAccount": "Create your account",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email (optional)",
+    "emailAddress": "Email Address",
+    "forgotPassword": "Forgot your password?",
+    "alreadyHaveAccount": "Already have an account? Sign in",
+    "noAccount": "Don't have an account? Register",
+    "registrationFailed": "Registration failed",
+    "invalidCredentials": "Invalid username or password",
+    "resetPassword": "Reset Password",
+    "resetPasswordSubtitle": "Enter your email to receive a reset link",
+    "sendResetLink": "Send Reset Link",
+    "backToSignIn": "Back to Sign In",
+    "resetEmailSent": "If an account with that email exists, a password reset link has been sent. Please check your inbox.",
+    "setNewPassword": "Set New Password",
+    "enterNewPassword": "Enter your new password below",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "confirmNewPassword": "Confirm New Password",
+    "resetPasswordButton": "Reset Password",
+    "goToSignIn": "Go to Sign In",
+    "passwordResetSuccess": "Your password has been reset successfully!",
+    "invalidResetLink": "Invalid reset link. Please request a new password reset.",
+    "requestNewResetLink": "Request New Reset Link",
+    "resetFailed": "Failed to reset password. The link may be expired.",
+    "passwordChangeRequired": "Password Change Required",
+    "passwordChangeDescription": "Your password has been reset by an administrator. You must set a new password before continuing.",
+    "currentPassword": "Current / Temporary Password",
+    "changePassword": "Change Password",
+    "changePasswordFailed": "Failed to change password",
+    "or": "OR",
+    "loginWithOkta": "Login with Okta",
+    "ssoProcessing": "Processing SSO login...",
+    "ssoFailed": "SSO authentication failed. Please try again.",
+    "ssoMissingCode": "Missing authorization code from identity provider.",
+    "ssoStateMismatch": "Security validation failed. Please try logging in again.",
+    "authProviderLocal": "Local",
+    "authProviderOkta": "Okta SSO"
+  }
+}

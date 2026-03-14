@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   TextField,
   Stack,
@@ -10,6 +11,7 @@ import GradientButton from '../common/GradientButton'
 import { useValidateCode } from '../../hooks/useTerminology'
 
 export default function CodeValidationTab() {
+  const { t } = useTranslation('terminology')
   const [system, setSystem] = useState('')
   const [code, setCode] = useState('')
   const [valueSetUrl, setValueSetUrl] = useState('')
@@ -24,30 +26,30 @@ export default function CodeValidationTab() {
   return (
     <Stack spacing={2}>
       <TextField
-        label="Code System URL"
+        label={t('codeValidation.systemLabel')}
         value={system}
         onChange={(e) => setSystem(e.target.value)}
         size="small"
         fullWidth
-        placeholder="http://loinc.org"
+        placeholder={t('codeValidation.systemPlaceholder')}
       />
 
       <TextField
-        label="Code"
+        label={t('codeValidation.codeLabel')}
         value={code}
         onChange={(e) => setCode(e.target.value)}
         size="small"
         fullWidth
-        placeholder="e.g., 4548-4"
+        placeholder={t('codeValidation.codePlaceholder')}
       />
 
       <TextField
-        label="ValueSet URL"
+        label={t('codeValidation.valueSetUrlLabel')}
         value={valueSetUrl}
         onChange={(e) => setValueSetUrl(e.target.value)}
         size="small"
         fullWidth
-        placeholder="http://cts.nlm.nih.gov/fhir/ValueSet/..."
+        placeholder={t('codeValidation.valueSetUrlPlaceholder')}
       />
 
       <GradientButton
@@ -58,12 +60,12 @@ export default function CodeValidationTab() {
           '&.Mui-disabled': { background: 'rgba(0,0,0,0.12)' },
         }}
       >
-        {validateMutation.isPending ? 'Validating...' : 'Validate Code'}
+        {validateMutation.isPending ? t('codeValidation.validating') : t('codeValidation.validateCode')}
       </GradientButton>
 
       {validateMutation.isError && (
         <Alert severity="error">
-          Validation failed: {(validateMutation.error as Error).message}
+          {t('codeValidation.validationFailed', { error: (validateMutation.error as Error).message })}
         </Alert>
       )}
 
@@ -73,8 +75,8 @@ export default function CodeValidationTab() {
           variant="filled"
         >
           {validateMutation.data.result
-            ? `Code "${validateMutation.data.code}" is valid in the specified ValueSet.`
-            : `Code "${validateMutation.data.code}" is NOT valid in the specified ValueSet.`}
+            ? t('codeValidation.codeValid', { code: validateMutation.data.code })
+            : t('codeValidation.codeInvalid', { code: validateMutation.data.code })}
         </Alert>
       )}
     </Stack>

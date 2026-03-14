@@ -1,6 +1,7 @@
 package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.entity.CdsArtifactEntity;
+import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.authoring.ArtifactRequest;
 import com.cqlplatform.model.authoring.ArtifactResponse;
 import com.cqlplatform.model.authoring.ArtifactSummary;
@@ -21,6 +22,7 @@ public class ArtifactService {
 
     private final CdsArtifactRepository artifactRepository;
     private final CdsExternalCqlLibraryRepository externalCqlRepository;
+    private final ExpressionTreeValidator expressionTreeValidator;
 
     @Transactional(readOnly = true)
     public List<ArtifactSummary> listByOwner(String ownerUsername) {
@@ -36,6 +38,7 @@ public class ArtifactService {
 
     @Transactional
     public ArtifactResponse create(ArtifactRequest request, String ownerUsername) {
+        expressionTreeValidator.validate(request);
         CdsArtifactEntity entity = requestToEntity(request);
         entity.setOwnerUsername(ownerUsername);
         entity = artifactRepository.save(entity);
@@ -49,13 +52,15 @@ public class ArtifactService {
                 .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
 
         checkOwner(entity, currentUser);
+        expressionTreeValidator.validate(request);
 
         // Update fields
         entity.setName(request.getName());
         if (request.getVersion() != null) entity.setVersion(request.getVersion());
         entity.setDescription(request.getDescription());
         if (request.getStatus() != null) entity.setStatus(request.getStatus());
-        if (request.getFhirVersion() != null) entity.setFhirVersion(request.getFhirVersion());
+        // FHIR version locked to R4 — ignore client value
+        entity.setFhirVersion(AuthoringConstants.DEFAULT_FHIR_VERSION);
 
         // CPG Metadata
         entity.setUrl(request.getUrl());
@@ -87,6 +92,12 @@ public class ArtifactService {
         if (request.getBaseElements() != null) entity.setBaseElementsList(request.getBaseElements());
         if (request.getParameters() != null) entity.setParametersList(request.getParameters());
         entity.setErrorStatementMap(request.getErrorStatement());
+
+        // Optimistic locking: set the client's lockVersion so Hibernate's @Version
+        // WHERE clause detects stale writes (ObjectOptimisticLockingFailureException).
+        if (request.getLockVersion() != null) {
+            entity.setLockVersion(request.getLockVersion());
+        }
 
         // Explicitly serialize transient fields to persistent JSON columns before save.
         // Hibernate dirty-checking does not track @Transient fields, so @PreUpdate may
@@ -120,8 +131,8 @@ public class ArtifactService {
                 .name(original.getName() + " (Copy)")
                 .version(original.getVersion())
                 .description(original.getDescription())
-                .status("draft")
-                .fhirVersion(original.getFhirVersion())
+                .status(AuthoringConstants.DEFAULT_STATUS)
+                .fhirVersion(AuthoringConstants.DEFAULT_FHIR_VERSION)
                 .url(original.getUrl())
                 .publisher(original.getPublisher())
                 .purpose(original.getPurpose())
@@ -197,6 +208,7 @@ public class ArtifactService {
                 .ownerUsername(entity.getOwnerUsername())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .lockVersion(entity.getLockVersion())
                 .build();
     }
 
@@ -217,16 +229,16 @@ public class ArtifactService {
     private CdsArtifactEntity requestToEntity(ArtifactRequest request) {
         return CdsArtifactEntity.builder()
                 .name(request.getName())
-                .version(request.getVersion() != null ? request.getVersion() : "1.0.0")
+                .version(request.getVersion() != null ? request.getVersion() : AuthoringConstants.DEFAULT_VERSION)
                 .description(request.getDescription())
-                .status(request.getStatus() != null ? request.getStatus() : "draft")
-                .fhirVersion(request.getFhirVersion() != null ? request.getFhirVersion() : "4.0.1")
+                .status(request.getStatus() != null ? request.getStatus() : AuthoringConstants.DEFAULT_STATUS)
+                .fhirVersion(AuthoringConstants.DEFAULT_FHIR_VERSION)
                 .url(request.getUrl())
                 .publisher(request.getPublisher())
                 .purpose(request.getPurpose())
                 .usageInfo(request.getUsageInfo())
                 .copyright(request.getCopyright())
-                .experimental(request.getExperimental() != null ? request.getExperimental() : false)
+                .experimental(request.getExperimental() != null ? request.getExperimental() : AuthoringConstants.DEFAULT_EXPERIMENTAL)
                 .approvalDate(request.getApprovalDate())
                 .lastReviewDate(request.getLastReviewDate())
                 .effectivePeriodStart(request.getEffectivePeriodStart())

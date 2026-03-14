@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import DOMPurify from 'dompurify'
+import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
 import { WarningAmber as StaleIcon } from '@mui/icons-material'
+import { useMonaco } from '@monaco-editor/react'
 import GradientButton from '../../common/GradientButton'
-import { useGenerateArtifactCql, useValidateArtifactCql } from '../../../hooks/useArtifactCql'
+import { useGenerateArtifactCql, useValidateArtifactCql, useFormatCql } from '../../../hooks/useArtifactCql'
+import { usePreferences } from '../../../hooks/usePreferences'
+import { registerCqlLanguage } from '../../../utils/cqlSyntax'
 import type { CqlTranslationResponse } from '../../../types'
+import { codeBlockSx } from '../../../constants/authoringConstants'
+import { extractApiError, extractApiErrorDetails } from '../../../utils/errorUtils'
 
 interface CqlPreviewPanelProps {
   artifactId: number
@@ -12,13 +19,44 @@ interface CqlPreviewPanelProps {
 }
 
 export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDirty }: CqlPreviewPanelProps) {
+  const { t } = useTranslation('authoring')
   const [cql, setCql] = useState<string | null>(null)
   const [validation, setValidation] = useState<CqlTranslationResponse | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveErrorDetails, setSaveErrorDetails] = useState<string[]>([])
   const [cqlIsStale, setCqlIsStale] = useState(false)
+  const [colorizedHtml, setColorizedHtml] = useState<string>('')
 
   const generateMutation = useGenerateArtifactCql()
   const validateMutation = useValidateArtifactCql()
+  const formatMutation = useFormatCql()
+  const monaco = useMonaco()
+  const { preferences } = usePreferences()
+  const isDark = preferences.themeMode === 'dark'
+
+  // Register CQL language and colorize when cql or theme changes
+  const cqlRegistered = useRef(false)
+  useEffect(() => {
+    if (!cql || !monaco) {
+      setColorizedHtml('')
+      return
+    }
+    let cancelled = false
+    if (!cqlRegistered.current) {
+      registerCqlLanguage(monaco)
+      cqlRegistered.current = true
+    }
+    const themeName = isDark ? 'cql-theme-dark' : 'cql-theme'
+    monaco.editor.setTheme(themeName)
+
+    monaco.editor.colorize(cql, 'cql', { tabSize: 2 }).then((html) => {
+      if (!cancelled) setColorizedHtml(html)
+    }).catch(() => {
+      if (!cancelled) setColorizedHtml('')
+    })
+    return () => { cancelled = true }
+  }, [cql, monaco, isDark])
 
   // Mark CQL as stale when artifact has been modified after generation
   useEffect(() => {
@@ -30,8 +68,13 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   const saveFirst = async () => {
     if (isDirty && onSaveBeforeGenerate) {
       setSaving(true)
+      setSaveError(null)
       try {
         await onSaveBeforeGenerate()
+      } catch (err) {
+        setSaveError(extractApiError(err))
+        setSaveErrorDetails(extractApiErrorDetails(err) || [])
+        throw err
       } finally {
         setSaving(false)
       }
@@ -39,8 +82,8 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   }
 
   const handleGenerate = async () => {
-    await saveFirst()
-    generateMutation.mutate({ id: artifactId }, {
+    try { await saveFirst() } catch { return }
+    generateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setCql(data.cql)
         setValidation(null)
@@ -50,16 +93,23 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   }
 
   const handleValidate = async () => {
-    await saveFirst()
+    try { await saveFirst() } catch { return }
     validateMutation.mutate(artifactId, {
       onSuccess: (data) => {
         setValidation(data)
         if (!cql) {
-          generateMutation.mutate({ id: artifactId }, {
+          generateMutation.mutate(artifactId, {
             onSuccess: (genData) => setCql(genData.cql),
           })
         }
       },
+    })
+  }
+
+  const handleFormat = () => {
+    if (!cql) return
+    formatMutation.mutate(cql, {
+      onSuccess: (data) => setCql(data.cql),
     })
   }
 
@@ -72,7 +122,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {isDirty && (
         <Alert severity="info" sx={{ mb: 1 }} icon={false}>
           <Typography variant="caption">
-            You have unsaved changes. They will be auto-saved when you generate or validate.
+            {t('cqlPreview.unsavedAutoSave')}
           </Typography>
         </Alert>
       )}
@@ -80,29 +130,53 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {cqlIsStale && !isDirty && (
         <Alert severity="warning" sx={{ mb: 1 }} icon={<StaleIcon fontSize="small" />}>
           <Typography variant="caption">
-            The artifact has been modified since this CQL was generated. Click &quot;Generate CQL&quot; to update.
+            {t('cqlPreview.staleWarning')}
           </Typography>
         </Alert>
       )}
 
       <Stack direction="row" spacing={1} mb={2}>
         <GradientButton onClick={handleGenerate} disabled={isLoading}>
-          {saving ? 'Saving...' : 'Generate CQL'}
+          {saving ? t('cqlPreview.saving') : t('cqlPreview.generateCql')}
         </GradientButton>
         <GradientButton onClick={handleValidate} disabled={isLoading}>
-          {saving ? 'Saving...' : 'Validate'}
+          {saving ? t('cqlPreview.saving') : t('cqlPreview.validate')}
         </GradientButton>
-        {isLoading && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
+        <GradientButton onClick={handleFormat} disabled={!cql || isLoading || formatMutation.isPending}>
+          {t('cqlPreview.format')}
+        </GradientButton>
+        {(isLoading || formatMutation.isPending) && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
       </Stack>
+
+      {saveError && (
+        <Alert severity="error" onClose={() => { setSaveError(null); setSaveErrorDetails([]) }} sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">{t('header.saveFailed')}</Typography>
+          <Typography variant="body2">{saveError}</Typography>
+          {saveErrorDetails.map((detail, i) => (
+            <Typography key={i} variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+              • {detail}
+            </Typography>
+          ))}
+        </Alert>
+      )}
 
       {generateMutation.isError && (
         <Alert severity="error" onClose={() => generateMutation.reset()} sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">CQL Generation Failed</Typography>
+          <Typography variant="subtitle2">{t('cqlPreview.genFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(generateMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Common causes: empty element fields, missing value sets, or incompatible modifier chains. Check the Inclusions and Exclusions tabs for incomplete elements.
+            {t('cqlPreview.genFailedHint')}
+          </Typography>
+        </Alert>
+      )}
+
+      {formatMutation.isError && (
+        <Alert severity="error" onClose={() => formatMutation.reset()} sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">{t('cqlPreview.formatFailed')}</Typography>
+          <Typography variant="body2">
+            {(formatMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
         </Alert>
       )}
@@ -110,14 +184,14 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {validation && (
         <Box sx={{ mb: 2 }}>
           {validation.success ? (
-            <Alert severity="success">CQL is valid — no errors found. Ready for testing or deployment.</Alert>
+            <Alert severity="success">{t('cqlPreview.validSuccess')}</Alert>
           ) : (
             <Alert severity="error">
               <Typography variant="subtitle2">
-                Validation found {errors.length} error{errors.length !== 1 ? 's' : ''}
+                {t('cqlPreview.validationErrors', { count: errors.length })}
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                Review the errors below. Line numbers indicate where the issue occurs in the generated CQL.
+                {t('cqlPreview.validationReview')}
               </Typography>
             </Alert>
           )}
@@ -141,26 +215,28 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
       {cql ? (
         <Box
           sx={{
+            ...codeBlockSx,
             flex: 1,
             minHeight: 0,
             overflow: 'auto',
             p: 2,
-            borderRadius: 1,
-            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
-            fontFamily: '"Fira Code", "Consolas", monospace',
+            fontFamily: 'monospace',
             fontSize: '0.85rem',
             whiteSpace: 'pre-wrap',
-            lineHeight: 1.6,
-            border: 1,
-            borderColor: 'divider',
+            wordBreak: 'break-all',
+            '& .mtk1': { color: isDark ? '#D4D4D4' : '#1B3A5C' },
           }}
         >
-          {cql}
+          {colorizedHtml ? (
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(colorizedHtml) }} />
+          ) : (
+            cql
+          )}
         </Box>
       ) : (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography variant="body2">
-            Click &quot;Generate CQL&quot; to preview the generated CQL code from your artifact.
+            {t('cqlPreview.emptyState')}
           </Typography>
         </Box>
       )}

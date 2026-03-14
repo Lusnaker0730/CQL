@@ -9,6 +9,11 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import com.cqlplatform.util.IdGenerator;
+
+import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+import com.cqlplatform.model.measure.MeasureStatusConstants;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
 
 /**
  * Generates HQMF R2.1 XML (Health Quality Measure Format) for CMS submission.
@@ -21,21 +26,21 @@ public class HqmfExportService {
     private final MeasureDefinitionService definitionService;
 
     private static final Map<String, String> SCORING_OIDS = Map.of(
-            "proportion", "PROPOR",
-            "ratio", "RATIO",
-            "continuous-variable", "CONTVAR",
-            "cohort", "COHORT"
+            ScoringTypeConstants.PROPORTION, "PROPOR",
+            ScoringTypeConstants.RATIO, "RATIO",
+            ScoringTypeConstants.CONTINUOUS_VARIABLE, "CONTVAR",
+            ScoringTypeConstants.COHORT, "COHORT"
     );
 
     private static final Map<String, String> POPULATION_CODES = Map.of(
-            "initial-population", "IPP",
-            "denominator", "DENOM",
-            "denominator-exclusion", "DENEX",
-            "denominator-exception", "DENEXCEP",
-            "numerator", "NUMER",
-            "numerator-exclusion", "NUMEX",
-            "measure-population", "MSRPOPL",
-            "measure-population-exclusion", "MSRPOPLEX"
+            INITIAL_POPULATION, "IPP",
+            DENOMINATOR, "DENOM",
+            DENOMINATOR_EXCLUSION, "DENEX",
+            DENOMINATOR_EXCEPTION, "DENEXCEP",
+            NUMERATOR, "NUMER",
+            NUMERATOR_EXCLUSION, "NUMEX",
+            MEASURE_POPULATION, "MSRPOPL",
+            MEASURE_POPULATION_EXCLUSION, "MSRPOPLEX"
     );
 
     public String exportHqmf(Long measureId) {
@@ -49,12 +54,12 @@ public class HqmfExportService {
         // Header
         xml.append("  <typeId root=\"2.16.840.1.113883.1.3\" extension=\"POQM_HD000001UV02\"/>\n");
         xml.append("  <templateId root=\"2.16.840.1.113883.10.20.28.1.2\"/>\n");
-        xml.append("  <id root=\"").append(esc(UUID.randomUUID().toString())).append("\"/>\n");
+        xml.append("  <id root=\"").append(esc(IdGenerator.uuid())).append("\"/>\n");
         xml.append("  <code code=\"57024-2\" codeSystem=\"2.16.840.1.113883.6.1\" displayName=\"Health Quality Measure Document\"/>\n");
         xml.append("  <title>").append(esc(def.getTitle() != null ? def.getTitle() : def.getName())).append("</title>\n");
         xml.append("  <text>").append(esc(def.getDescription() != null ? def.getDescription() : "")).append("</text>\n");
-        xml.append("  <statusCode code=\"").append(esc(def.getStatus() != null ? def.getStatus() : "draft")).append("\"/>\n");
-        xml.append("  <setId root=\"").append(esc(def.getMeasureSet() != null ? def.getMeasureSet() : UUID.randomUUID().toString())).append("\"/>\n");
+        xml.append("  <statusCode code=\"").append(esc(def.getStatus() != null ? def.getStatus() : MeasureStatusConstants.DRAFT)).append("\"/>\n");
+        xml.append("  <setId root=\"").append(esc(def.getMeasureSet() != null ? def.getMeasureSet() : IdGenerator.uuid())).append("\"/>\n");
         xml.append("  <versionNumber value=\"").append(esc(def.getVersion())).append("\"/>\n");
 
         // Measure attributes (scoring)
@@ -90,7 +95,7 @@ public class HqmfExportService {
             if (group.getPopulations() == null) continue;
             for (PopulationDefinition pop : group.getPopulations()) {
                 String popCode = POPULATION_CODES.getOrDefault(pop.getPopulationType(), "IPP");
-                String popUuid = UUID.randomUUID().toString();
+                String popUuid = IdGenerator.uuid();
                 xml.append("      <component>\n");
                 xml.append("        <").append(getHqmfPopulationElement(pop.getPopulationType())).append(">\n");
                 xml.append("          <id root=\"").append(popUuid).append("\" extension=\"").append(popCode).append("\"/>\n");
@@ -126,14 +131,14 @@ public class HqmfExportService {
 
     private String getHqmfPopulationElement(String populationType) {
         return switch (populationType) {
-            case "initial-population" -> "initialPopulationCriteria";
-            case "denominator" -> "denominatorCriteria";
-            case "denominator-exclusion" -> "denominatorExclusionCriteria";
-            case "denominator-exception" -> "denominatorExceptionCriteria";
-            case "numerator" -> "numeratorCriteria";
-            case "numerator-exclusion" -> "numeratorExclusionCriteria";
-            case "measure-population" -> "measurePopulationCriteria";
-            case "measure-population-exclusion" -> "measurePopulationExclusionCriteria";
+            case INITIAL_POPULATION -> "initialPopulationCriteria";
+            case DENOMINATOR -> "denominatorCriteria";
+            case DENOMINATOR_EXCLUSION -> "denominatorExclusionCriteria";
+            case DENOMINATOR_EXCEPTION -> "denominatorExceptionCriteria";
+            case NUMERATOR -> "numeratorCriteria";
+            case NUMERATOR_EXCLUSION -> "numeratorExclusionCriteria";
+            case MEASURE_POPULATION -> "measurePopulationCriteria";
+            case MEASURE_POPULATION_EXCLUSION -> "measurePopulationExclusionCriteria";
             default -> "initialPopulationCriteria";
         };
     }

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
   Stack, Typography, Alert, CircularProgress, Box, Chip, Table, TableBody,
@@ -6,8 +7,12 @@ import {
 } from '@mui/material'
 import { useImportCql } from '../../../hooks/useCqlImport'
 import { useCreateArtifact } from '../../../hooks/useAuthoring'
+import { useNotification } from '../../../hooks/useNotification'
 import { authoringApi } from '../../../api'
 import type { CqlImportResult } from '../../../types/authoring'
+import { SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION } from '../../../constants/authoringConstants'
+import { generateId } from '../../../utils/validation'
+import { extractApiError } from '../../../utils/errorUtils'
 
 interface ImportCqlDialogProps {
   open: boolean
@@ -16,6 +21,7 @@ interface ImportCqlDialogProps {
 }
 
 export default function ImportCqlDialog({ open, onClose, onImported }: ImportCqlDialogProps) {
+  const { t } = useTranslation('authoring')
   const [cqlInput, setCqlInput] = useState('')
   const [importResult, setImportResult] = useState<CqlImportResult | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -23,6 +29,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
   const importMutation = useImportCql()
   const createMutation = useCreateArtifact()
+  const { showNotification } = useNotification()
 
   const handleParse = () => {
     if (!cqlInput.trim()) return
@@ -44,11 +51,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // System definitions that should NOT be mapped as base elements
-  const SYSTEM_DEFINITIONS = new Set([
-    'MeetsInclusionCriteria', 'MeetsExclusionCriteria', 'InPopulation',
-    'Recommendation', 'Errors', 'Patient',
-  ])
+  // System definitions imported from authoringConstants
 
   /** Create an externalCqlRef element pointing to a definition in an external library */
   const makeExternalCqlRef = (
@@ -58,7 +61,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
     libVersion?: string,
     returnType = 'System.Any'
   ) => ({
-    uniqueId: crypto.randomUUID(),
+    uniqueId: generateId(),
     type: 'externalCqlRef',
     name: defName,
     returnType,
@@ -119,8 +122,8 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
             const libVersion = extLib.version
 
             // Find key definitions
-            const inclusionDef = defs.find((d) => d.name === 'MeetsInclusionCriteria')
-            const exclusionDef = defs.find((d) => d.name === 'MeetsExclusionCriteria')
+            const inclusionDef = defs.find((d) => d.name === DEF_MEETS_INCLUSION)
+            const exclusionDef = defs.find((d) => d.name === DEF_MEETS_EXCLUSION)
 
             // Build expression tree elements
             const inclusionElements = inclusionDef
@@ -134,7 +137,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
             const baseElements = defs
               .filter((d) => !SYSTEM_DEFINITIONS.has(d.name))
               .map((d) => ({
-                uniqueId: crypto.randomUUID(),
+                uniqueId: generateId(),
                 name: d.name,
                 type: 'externalCqlRef',
                 returnType: d.resultType || 'System.Any',
@@ -154,19 +157,19 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                 await authoringApi.updateArtifact(artifact.id, {
                   name: artifact.name,
                   ...(inclusionElements.length > 0 && {
-                    expTreeInclude: wrapInConjunction('MeetsInclusionCriteria', inclusionElements),
+                    expTreeInclude: wrapInConjunction(DEF_MEETS_INCLUSION, inclusionElements),
                   }),
                   ...(exclusionElements.length > 0 && {
-                    expTreeExclude: wrapInConjunction('MeetsExclusionCriteria', exclusionElements),
+                    expTreeExclude: wrapInConjunction(DEF_MEETS_EXCLUSION, exclusionElements),
                   }),
                   ...(baseElements.length > 0 && { baseElements }),
                 })
               } catch (err) {
-                console.warn('Failed to auto-populate expression trees:', err)
+                showNotification(t('importCql.populateError', { error: extractApiError(err) }), 'warning')
               }
             }
           } catch (err) {
-            console.warn('Failed to upload CQL as external library:', err)
+            showNotification(t('importCql.uploadError', { error: extractApiError(err) }), 'warning')
           } finally {
             setIsUploading(false)
           }
@@ -186,14 +189,13 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>Import CQL</DialogTitle>
+      <DialogTitle>{t('importCql.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {!importResult ? (
             <>
               <Typography variant="body2" color="text.secondary">
-                Paste CQL code below or upload a .cql file. The parser will extract library metadata,
-                value sets, parameters, and define statements.
+                {t('importCql.description')}
               </Typography>
 
               <Button
@@ -202,7 +204,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                 onClick={() => fileInputRef.current?.click()}
                 sx={{ alignSelf: 'flex-start' }}
               >
-                Upload .cql File
+                {t('importCql.uploadFile')}
               </Button>
               <input
                 ref={fileInputRef}
@@ -213,7 +215,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
               />
 
               <TextField
-                label="CQL Source Code"
+                label={t('importCql.cqlSourceLabel')}
                 value={cqlInput}
                 onChange={(e) => setCqlInput(e.target.value)}
                 multiline
@@ -231,12 +233,12 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
               {importMutation.isError && (
                 <Alert severity="error">
-                  <Typography variant="subtitle2">Parse Failed</Typography>
+                  <Typography variant="subtitle2">{t('importCql.parseFailed')}</Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
                     {(importMutation.error as Error)?.message || 'Unknown error'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Ensure the CQL starts with a library declaration and uses valid CQL syntax.
+                    {t('importCql.parseFailedHint')}
                   </Typography>
                 </Alert>
               )}
@@ -246,8 +248,8 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
               {/* Import Preview */}
               <Alert severity={importResult.valid ? 'success' : 'warning'}>
                 {importResult.valid
-                  ? 'CQL parsed successfully. Review the extracted structure below.'
-                  : 'CQL parsed with errors. The artifact will be created but may need corrections.'}
+                  ? t('importCql.parseSuccess')
+                  : t('importCql.parseWarning')}
               </Alert>
 
               <Stack direction="row" spacing={2} flexWrap="wrap">
@@ -258,7 +260,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
               {importResult.errors && importResult.errors.length > 0 && (
                 <Alert severity="error">
-                  <Typography variant="subtitle2">{importResult.errors.length} error(s) found</Typography>
+                  <Typography variant="subtitle2">{t('importCql.errorsFound', { count: importResult.errors.length })}</Typography>
                   <Box sx={{ maxHeight: 150, overflow: 'auto', mt: 0.5 }}>
                     {importResult.errors.map((err, i) => (
                       <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace', mb: 0.25 }}>
@@ -267,7 +269,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                     ))}
                   </Box>
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                    The artifact will be created but you may need to fix these issues manually.
+                    {t('importCql.errorsHint')}
                   </Typography>
                 </Alert>
               )}
@@ -275,7 +277,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
               {importResult.valueSets.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                    Value Sets ({importResult.valueSets.length})
+                    {t('importCql.valueSets', { count: importResult.valueSets.length })}
                   </Typography>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap">
                     {importResult.valueSets.map((vs) => (
@@ -288,14 +290,14 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
               {importResult.parameters.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                    Parameters ({importResult.parameters.length})
+                    {t('importCql.parameters', { count: importResult.parameters.length })}
                   </Typography>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Name</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell>Default</TableCell>
+                        <TableCell>{t('importCql.colName')}</TableCell>
+                        <TableCell>{t('importCql.colType')}</TableCell>
+                        <TableCell>{t('importCql.colDefault')}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -314,7 +316,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
               {importResult.definitions.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                    Define Statements ({importResult.definitions.length})
+                    {t('importCql.defineStatements', { count: importResult.definitions.length })}
                   </Typography>
                   {importResult.definitions.map((def, i) => (
                     <Box key={i} sx={{ mb: 1 }}>
@@ -342,14 +344,14 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
 
               <Divider />
               <Button variant="outlined" size="small" onClick={() => setImportResult(null)} sx={{ alignSelf: 'flex-start' }}>
-                Back to Editor
+                {t('importCql.backToEditor')}
               </Button>
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose}>{t('actions.cancel', { ns: 'common' })}</Button>
         {!importResult ? (
           <Button
             onClick={handleParse}
@@ -357,7 +359,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
             disabled={!cqlInput.trim() || importMutation.isPending}
           >
             {importMutation.isPending ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-            Parse CQL
+            {t('importCql.parseCql')}
           </Button>
         ) : (
           <Button
@@ -366,7 +368,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
             disabled={createMutation.isPending || isUploading}
           >
             {(createMutation.isPending || isUploading) ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-            {isUploading ? 'Uploading CQL...' : 'Create Artifact'}
+            {isUploading ? t('importCql.uploadingCql') : t('importCql.createArtifact')}
           </Button>
         )}
       </DialogActions>

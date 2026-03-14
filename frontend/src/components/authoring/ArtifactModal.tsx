@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -10,6 +11,7 @@ import {
 } from '@mui/material'
 import GradientButton from '../common/GradientButton'
 import type { ArtifactRequest } from '../../types/authoring'
+import { ARTIFACT } from '../../constants/fieldConstraints'
 
 interface ArtifactModalProps {
   open: boolean
@@ -24,8 +26,10 @@ export default function ArtifactModal({
   onClose,
   onSubmit,
   initialValues,
-  title = 'New CDS Artifact',
+  title,
 }: ArtifactModalProps) {
+  const { t } = useTranslation('authoring')
+  const { t: tc } = useTranslation('common')
   const [name, setName] = useState(initialValues?.name || '')
   const [version, setVersion] = useState(initialValues?.version || '1.0.0')
   const [description, setDescription] = useState(initialValues?.description || '')
@@ -51,43 +55,47 @@ export default function ArtifactModal({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle>{title || t('modal.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Artifact Name"
+            label={t('modal.nameLabel')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             fullWidth
             autoFocus
             size="small"
-            placeholder="e.g., Statin Use for ASCVD Prevention"
+            placeholder={t('modal.namePlaceholder')}
+            inputProps={{ maxLength: ARTIFACT.name.maxLength }}
           />
           <TextField
-            label="Version"
+            label={t('modal.versionLabel')}
             value={version}
             onChange={(e) => setVersion(e.target.value)}
             fullWidth
             size="small"
             placeholder="1.0.0"
+            inputProps={{ maxLength: ARTIFACT.version.maxLength }}
           />
           <TextField
-            label="Description"
+            label={t('modal.descriptionLabel')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             fullWidth
             multiline
             rows={3}
             size="small"
-            placeholder="Describe the purpose of this CDS artifact..."
+            placeholder={t('modal.descriptionPlaceholder')}
+            inputProps={{ maxLength: ARTIFACT.description.maxLength }}
+            helperText={`${description.length} / ${ARTIFACT.description.maxLength}`}
           />
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose}>{tc('actions.cancel')}</Button>
         <GradientButton onClick={handleSubmit} disabled={!name.trim()}>
-          Create
+          {t('modal.create')}
         </GradientButton>
       </DialogActions>
     </Dialog>

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +72,7 @@ public class ScheduledMeasureEvaluationService {
         evaluationService.evaluateMeasure(request, definition.getId(), definition);
 
         schedule.setLastRunAt(LocalDateTime.now());
-        schedule.setLastRunStatus("complete");
+        schedule.setLastRunStatus(com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
         updateNextRunTime(schedule);
         scheduleRepository.save(schedule);
     }
@@ -115,6 +116,10 @@ public class ScheduledMeasureEvaluationService {
 
     public List<MeasureScheduleEntity> getSchedulesForMeasure(Long measureDefinitionId) {
         return scheduleRepository.findByMeasureDefinitionId(measureDefinitionId);
+    }
+
+    public Optional<MeasureScheduleEntity> getScheduleById(Long scheduleId) {
+        return scheduleRepository.findById(scheduleId);
     }
 
     @Transactional

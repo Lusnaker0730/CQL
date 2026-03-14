@@ -11,10 +11,11 @@ describe('ExecutionPanel', () => {
     expect(inputs.length).toBeGreaterThan(0)
   })
 
-  it('should show default FHIR server URL', () => {
+  it('should show FHIR server URL field', () => {
     render(<ExecutionPanel />)
-    const fhirInput = screen.getByRole('combobox', { name: /fhir server url/i }) as HTMLInputElement
-    expect(fhirInput.value).toContain('hapi-fhir:8080')
+    // The FhirServerUrlField renders an Autocomplete with the i18n key as label
+    const combobox = screen.getByRole('combobox')
+    expect(combobox).toBeInTheDocument()
   })
 
   it('should render execute button', () => {

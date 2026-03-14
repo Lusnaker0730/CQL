@@ -21,12 +21,19 @@ import {
   ExpandLess as ExpandLessIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureReport } from '../../types'
+import { getScoreChipColor } from '../../utils/scoreColors'
+import { downloadBlob } from '../../utils/download'
+import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 
 export default function MeasureReportHistory() {
+  const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
+  const { showNotification } = useNotification()
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [exportAnchor, setExportAnchor] = useState<{ el: HTMLElement; id: number } | null>(null)
 
@@ -45,42 +52,30 @@ export default function MeasureReportHistory() {
     try {
       const blob = await measureApi.exportReport(reportId, format)
       const ext = format === 'csv' ? 'csv' : format === 'excel' ? 'xlsx' : format === 'qrda3' ? 'xml' : 'json'
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `measure-report-${reportId}.${ext}`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `measure-report-${reportId}.${ext}`)
     } catch (err) {
-      console.error('Export failed', err)
+      showNotification(t('reports.exportFailed') + ': ' + extractApiError(err), 'error')
     }
-  }
-
-  const getScoreColor = (score: number | undefined): 'success' | 'warning' | 'error' | 'default' => {
-    if (score == null) return 'default'
-    if (score >= 80) return 'success'
-    if (score >= 60) return 'warning'
-    return 'error'
   }
 
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-      <Typography variant="h6" gutterBottom>Report History</Typography>
+      <Typography variant="h6" gutterBottom>{t('reports.title')}</Typography>
 
-      {isLoading && <Typography variant="body2" color="text.secondary">Loading reports...</Typography>}
+      {isLoading && <Typography variant="body2" color="text.secondary">{t('reports.loading')}</Typography>}
 
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell scope="col" width={40} />
-              <TableCell scope="col">Measure</TableCell>
-              <TableCell scope="col">Period</TableCell>
-              <TableCell scope="col" align="right">Score</TableCell>
-              <TableCell scope="col">Status</TableCell>
-              <TableCell scope="col">Date</TableCell>
-              <TableCell scope="col" align="right">Duration</TableCell>
-              <TableCell scope="col" align="right">Actions</TableCell>
+              <TableCell scope="col">{t('reports.tableHeaders.measure')}</TableCell>
+              <TableCell scope="col">{t('reports.tableHeaders.period')}</TableCell>
+              <TableCell scope="col" align="right">{t('reports.tableHeaders.score')}</TableCell>
+              <TableCell scope="col">{t('reports.tableHeaders.status')}</TableCell>
+              <TableCell scope="col">{t('reports.tableHeaders.date')}</TableCell>
+              <TableCell scope="col" align="right">{t('reports.tableHeaders.duration')}</TableCell>
+              <TableCell scope="col" align="right">{t('reports.tableHeaders.actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -88,7 +83,7 @@ export default function MeasureReportHistory() {
               <Box component="tbody" key={report.id}>
                 <TableRow hover>
                   <TableCell>
-                    <IconButton size="small" aria-label="Toggle report details" onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
+                    <IconButton size="small" aria-label={t('reports.toggleDetails')} onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
                       {expandedId === report.id ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                     </IconButton>
                   </TableCell>
@@ -103,12 +98,12 @@ export default function MeasureReportHistory() {
                       <Chip
                         label={`${report.measureScore.toFixed(1)}%`}
                         size="small"
-                        color={getScoreColor(report.measureScore)}
+                        color={getScoreChipColor(report.measureScore)}
                       />
                     )}
                   </TableCell>
                   <TableCell>
-                    <Chip label={report.status || 'complete'} size="small"
+                    <Chip label={report.status || t('reports.defaultStatus')} size="small"
                       color={report.status === 'complete' ? 'success' : 'warning'} />
                   </TableCell>
                   <TableCell>
@@ -122,10 +117,10 @@ export default function MeasureReportHistory() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" aria-label="Download report" onClick={(e) => setExportAnchor({ el: e.currentTarget, id: report.id })}>
+                    <IconButton size="small" aria-label={t('reports.downloadReport')} onClick={(e) => setExportAnchor({ el: e.currentTarget, id: report.id })}>
                       <DownloadIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" aria-label="Delete report" color="error" onClick={() => deleteMutation.mutate(report.id)}>
+                    <IconButton size="small" aria-label={t('reports.deleteReport')} color="error" onClick={() => deleteMutation.mutate(report.id)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
@@ -137,9 +132,10 @@ export default function MeasureReportHistory() {
                         {report.evaluationResult && (
                           <Box component="pre" sx={{
                             p: 2,
-                            bgcolor: '#F8FAFB',
+                            bgcolor: 'action.hover',
                             borderRadius: '8px',
-                            border: '1px solid rgba(13,115,119,0.1)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             fontSize: '0.7rem',
                             overflow: 'auto',
                             maxHeight: 300,
@@ -151,9 +147,10 @@ export default function MeasureReportHistory() {
                         {!report.evaluationResult && report.resultJson && (
                           <Box component="pre" sx={{
                             p: 2,
-                            bgcolor: '#F8FAFB',
+                            bgcolor: 'action.hover',
                             borderRadius: '8px',
-                            border: '1px solid rgba(13,115,119,0.1)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             fontSize: '0.7rem',
                             overflow: 'auto',
                             maxHeight: 300,
@@ -172,7 +169,7 @@ export default function MeasureReportHistory() {
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    No reports yet. Evaluate a measure to generate reports.
+                    {t('reports.emptyState')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -188,16 +185,16 @@ export default function MeasureReportHistory() {
         onClose={() => setExportAnchor(null)}
       >
         <MenuItem onClick={() => exportAnchor && handleExport(exportAnchor.id, 'fhir')}>
-          FHIR MeasureReport (JSON)
+          {t('reports.exportFormats.fhirJson')}
         </MenuItem>
         <MenuItem onClick={() => exportAnchor && handleExport(exportAnchor.id, 'csv')}>
-          CSV
+          {t('reports.exportFormats.csv')}
         </MenuItem>
         <MenuItem onClick={() => exportAnchor && handleExport(exportAnchor.id, 'excel')}>
-          Excel (XLSX)
+          {t('reports.exportFormats.excel')}
         </MenuItem>
         <MenuItem onClick={() => exportAnchor && handleExport(exportAnchor.id, 'qrda3')}>
-          QRDA III (XML)
+          {t('reports.exportFormats.qrda')}
         </MenuItem>
       </Menu>
     </Paper>

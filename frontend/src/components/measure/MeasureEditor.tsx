@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { downloadBlob } from '../../utils/download'
 import {
   Box,
   Tabs,
@@ -10,6 +12,11 @@ import {
   Divider,
   Alert,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material'
 import {
   History as HistoryIcon,
@@ -31,6 +38,7 @@ import type { MeasureDefinition } from '../../types'
 import { measureApi } from '../../api'
 import MeasureDetailsTab from './MeasureDetailsTab'
 import MeasureCqlTab from './MeasureCqlTab'
+import DataRequirementsTab from './DataRequirementsTab'
 import PopulationCriteriaTab from './PopulationCriteriaTab'
 import MeasureEvaluationTab from './MeasureEvaluationTab'
 import MeasureReportHistory from './MeasureReportHistory'
@@ -51,6 +59,11 @@ import {
   useLockMeasure,
   useUnlockMeasure,
 } from '../../hooks/useMeasures'
+import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
+import { getStoredUsername } from '../../utils/validation'
+import { MEASURE_STATUS } from '../../constants/measureConstants'
+import { ALERT_DISMISS_MS, ALERT_DISMISS_ERROR_MS } from '../../constants/timing'
 
 interface MeasureEditorProps {
   measure: MeasureDefinition
@@ -58,6 +71,7 @@ interface MeasureEditorProps {
 }
 
 export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEditorProps) {
+  const { t } = useTranslation('measures')
   const [tab, setTab] = useState(0)
   const [versionDialogOpen, setVersionDialogOpen] = useState(false)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
@@ -67,9 +81,12 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
   const queryClient = useQueryClient()
 
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}').username
+  const { showNotification } = useNotification()
+  const currentUser = getStoredUsername()
   const isOwner = measure.ownerUsername === currentUser || !measure.ownerUsername
   const isReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
 
@@ -93,11 +110,11 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         onMeasureUpdate(updated)
         setWorkflowAlert({ severity: 'success', message: successMsg })
         queryClient.invalidateQueries({ queryKey: ['measures'] })
-        setTimeout(() => setWorkflowAlert(null), 5000)
+        setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
       },
       onError: (err) => {
-        setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Action failed' })
-        setTimeout(() => setWorkflowAlert(null), 8000)
+        setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.actionFailed') })
+        setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
       },
     })
   }
@@ -122,6 +139,8 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
     measureApi.getMeasure(numId).then((m) => {
       onMeasureUpdate(m)
       setHistoryDialogOpen(false)
+    }).catch((err) => {
+      showNotification(t('editor.errors.loadVersionFailed', { error: extractApiError(err) }), 'error')
     })
   }
 
@@ -158,33 +177,40 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           blob = await measureApi.exportHqmf(measure.id)
           filename = `${measure.name}-hqmf.xml`
           break
+        case 'human-readable':
+          blob = await measureApi.exportHumanReadable(measure.id)
+          filename = `${measure.name}-narrative.html`
+          break
         default:
           return
       }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, filename)
     } catch (err) {
-      setWorkflowAlert({ severity: 'error', message: 'Export failed: ' + (err as Error).message })
-      setTimeout(() => setWorkflowAlert(null), 5000)
+      setWorkflowAlert({ severity: 'error', message: t('editor.errors.exportFailed', { error: extractApiError(err) }) })
+      setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
     }
   }
 
-  const historyVersions = historyData.map((m) => ({
-    id: m.id!,
-    version: m.version,
-    status: m.status,
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-  }))
+  const historyVersions = useMemo(
+    () =>
+      historyData.map((m) => ({
+        id: m.id!,
+        version: m.version,
+        status: m.status,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      })),
+    [historyData]
+  )
 
-  const diffVersions = historyData.map((m) => ({
-    id: m.id!,
-    version: m.version,
-  }))
+  const diffVersions = useMemo(
+    () =>
+      historyData.map((m) => ({
+        id: m.id!,
+        version: m.version,
+      })),
+    [historyData]
+  )
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -199,9 +225,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       )}
       {isLockedByOther && (
         <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }}>
-          Locked by {measure.lockedBy}
+          {t('editor.lockedWarning', { user: measure.lockedBy })}
           {measure.lockedAt && ` at ${new Date(measure.lockedAt).toLocaleString()}`}
-          . Editing disabled.
+        </Alert>
+      )}
+      {measure.reviewComment && measure.status === 'draft' && (
+        <Alert severity="info" sx={{ borderRadius: 0 }}>
+          {t('editor.rejectionNotice', { reviewer: measure.reviewedBy || '—', comment: measure.reviewComment })}
         </Alert>
       )}
       <Stack
@@ -224,7 +254,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             onClick={(e) => setVersionAnchor(e.currentTarget)}
             sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary', minWidth: 'auto' }}
           >
-            Versioning
+            {t('editor.buttons.versioning')}
           </Button>
         </Stack>
         <Stack direction="row" spacing={0.5} alignItems="center">
@@ -240,15 +270,15 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
                     queryClient.invalidateQueries({ queryKey: ['measures'] })
                   },
                   onError: (err) => {
-                    setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Lock failed' })
-                    setTimeout(() => setWorkflowAlert(null), 5000)
+                    setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.lockFailed') })
+                    setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
                   },
                 })
               }}
               disabled={lockMutation.isPending}
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
             >
-              Lock
+              {t('editor.buttons.lock')}
             </Button>
           )}
           {isLockedByMe && (
@@ -263,8 +293,8 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
                     queryClient.invalidateQueries({ queryKey: ['measures'] })
                   },
                   onError: (err) => {
-                    setWorkflowAlert({ severity: 'error', message: (err as Error).message || 'Unlock failed' })
-                    setTimeout(() => setWorkflowAlert(null), 5000)
+                    setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.unlockFailed') })
+                    setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
                   },
                 })
               }}
@@ -272,13 +302,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               color="warning"
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
             >
-              Unlock
+              {t('editor.buttons.unlock')}
             </Button>
           )}
           {isLockedByOther && (
             <Chip
               icon={<LockIcon />}
-              label={`Locked by ${measure.lockedBy}`}
+              label={t('editor.lockedBy', { user: measure.lockedBy })}
               size="small"
               color="warning"
               variant="outlined"
@@ -291,7 +321,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             onClick={() => setShareDialogOpen(true)}
             sx={{ textTransform: 'none', fontSize: '0.75rem' }}
           >
-            Share
+            {t('editor.buttons.share')}
           </Button>
           <Button
             size="small"
@@ -299,7 +329,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             onClick={() => setAuditDialogOpen(true)}
             sx={{ textTransform: 'none', fontSize: '0.75rem' }}
           >
-            Audit
+            {t('editor.buttons.audit')}
           </Button>
           <Button
             size="small"
@@ -307,60 +337,60 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             onClick={(e) => setExportAnchor(e.currentTarget)}
             sx={{ textTransform: 'none', fontSize: '0.75rem' }}
           >
-            Export
+            {t('editor.buttons.export')}
           </Button>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           {/* Workflow actions based on current status */}
-          {measure.status === 'draft' && isOwner && (
+          {measure.status === MEASURE_STATUS.DRAFT && isOwner && (
             <Button
               size="small"
               startIcon={<SubmitIcon />}
-              onClick={() => handleWorkflowAction(submitMutation, 'Measure submitted for review')}
+              onClick={() => handleWorkflowAction(submitMutation, t('editor.workflowMessages.submitted'))}
               disabled={submitMutation.isPending}
               color="info"
               variant="outlined"
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
             >
-              Submit for Review
+              {t('editor.buttons.submitForReview')}
             </Button>
           )}
-          {measure.status === 'in-review' && isReviewer && (
+          {measure.status === MEASURE_STATUS.IN_REVIEW && isReviewer && (
             <>
               <Button
                 size="small"
                 startIcon={<ApproveIcon />}
-                onClick={() => handleWorkflowAction(approveMutation, 'Measure approved and set to active')}
+                onClick={() => handleWorkflowAction(approveMutation, t('editor.workflowMessages.approved'))}
                 disabled={approveMutation.isPending}
                 color="success"
                 variant="outlined"
                 sx={{ textTransform: 'none', fontSize: '0.75rem' }}
               >
-                Approve
+                {t('editor.buttons.approve')}
               </Button>
               <Button
                 size="small"
                 startIcon={<RejectIcon />}
-                onClick={() => handleWorkflowAction(rejectMutation, 'Measure rejected, returned to draft')}
+                onClick={() => { setRejectReason(''); setRejectDialogOpen(true) }}
                 disabled={rejectMutation.isPending}
                 color="error"
                 variant="outlined"
                 sx={{ textTransform: 'none', fontSize: '0.75rem' }}
               >
-                Reject
+                {t('editor.buttons.reject')}
               </Button>
             </>
           )}
-          {measure.status === 'active' && isOwner && (
+          {measure.status === MEASURE_STATUS.ACTIVE && isOwner && (
             <Button
               size="small"
               startIcon={<RetireIcon />}
-              onClick={() => handleWorkflowAction(retireMutation, 'Measure retired')}
+              onClick={() => handleWorkflowAction(retireMutation, t('editor.workflowMessages.retired'))}
               disabled={retireMutation.isPending}
               color="warning"
               variant="outlined"
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
             >
-              Retire
+              {t('editor.buttons.retire')}
             </Button>
           )}
           <WorkflowIndicator measure={measure} />
@@ -376,13 +406,14 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             '& .MuiTab-root': { textTransform: 'none', minHeight: 42, fontSize: '0.85rem' },
           }}
         >
-          <Tab label="Details" />
-          <Tab label="CQL" />
-          <Tab label="Population Criteria" />
-          <Tab label="Evaluate" />
-          <Tab label="Test Cases" />
-          <Tab label="Reports" />
-          <Tab label="Validate" />
+          <Tab label={t('editor.tabs.details')} />
+          <Tab label={t('editor.tabs.cql')} />
+          <Tab label={t('editor.tabs.dataRequirements')} />
+          <Tab label={t('editor.tabs.populationCriteria')} />
+          <Tab label={t('editor.tabs.evaluate')} />
+          <Tab label={t('editor.tabs.testCases')} />
+          <Tab label={t('editor.tabs.reports')} />
+          <Tab label={t('editor.tabs.validate')} />
         </Tabs>
       </Box>
 
@@ -394,20 +425,23 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 2 && (
-          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <DataRequirementsTab measure={measure} />
         )}
         {tab === 3 && (
-          <MeasureEvaluationTab measure={measure} />
+          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
         )}
         {tab === 4 && (
-          <TestCasesTab measure={measure} readOnly={isLockedByOther} />
+          <MeasureEvaluationTab measure={measure} />
         )}
         {tab === 5 && (
+          <TestCasesTab measure={measure} readOnly={isLockedByOther} />
+        )}
+        {tab === 6 && (
           <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
             <MeasureReportHistory />
           </Box>
         )}
-        {tab === 6 && (
+        {tab === 7 && (
           <MeasureValidationPanel
             measureId={measure.id}
             onNavigateToTab={(tabIndex) => setTab(tabIndex)}
@@ -453,16 +487,59 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         measureName={measure.title || measure.name}
       />
 
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('editor.rejectDialog.title')}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label={t('editor.rejectDialog.reasonLabel')}
+            placeholder={t('editor.rejectDialog.reasonPlaceholder')}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setRejectDialogOpen(false)
+              if (!measure.id) return
+              rejectMutation.mutate({ id: measure.id, reason: rejectReason || undefined }, {
+                onSuccess: (updated) => {
+                  onMeasureUpdate(updated)
+                  setWorkflowAlert({ severity: 'success', message: t('editor.workflowMessages.rejected') })
+                  queryClient.invalidateQueries({ queryKey: ['measures'] })
+                  setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
+                },
+                onError: (err) => {
+                  setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.actionFailed') })
+                  setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
+                },
+              })
+            }}
+          >
+            {t('editor.buttons.reject')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Menu
         anchorEl={exportAnchor}
         open={Boolean(exportAnchor)}
         onClose={() => setExportAnchor(null)}
       >
-        <MenuItem onClick={() => handleExport('bundle-json')}>FHIR Bundle (JSON)</MenuItem>
-        <MenuItem onClick={() => handleExport('bundle-xml')}>FHIR Bundle (XML)</MenuItem>
-        <MenuItem onClick={() => handleExport('cql')}>CQL Only</MenuItem>
-        <MenuItem onClick={() => handleExport('elm')}>ELM Only</MenuItem>
-        <MenuItem onClick={() => handleExport('hqmf')}>HQMF (XML)</MenuItem>
+        <MenuItem onClick={() => handleExport('bundle-json')}>{t('editor.exportFormats.fhirJson')}</MenuItem>
+        <MenuItem onClick={() => handleExport('bundle-xml')}>{t('editor.exportFormats.fhirXml')}</MenuItem>
+        <MenuItem onClick={() => handleExport('cql')}>{t('editor.exportFormats.cqlOnly')}</MenuItem>
+        <MenuItem onClick={() => handleExport('elm')}>{t('editor.exportFormats.elmOnly')}</MenuItem>
+        <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
+        <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>
 
       <Menu
@@ -471,13 +548,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         onClose={() => setVersionAnchor(null)}
       >
         <MenuItem onClick={() => { setVersionAnchor(null); setVersionDialogOpen(true) }}>
-          <VersionIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> Create Version
+          <VersionIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> {t('editor.versionMenu.createVersion')}
         </MenuItem>
         <MenuItem onClick={() => { setVersionAnchor(null); setHistoryDialogOpen(true) }}>
-          <HistoryIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> Version History
+          <HistoryIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> {t('editor.versionMenu.versionHistory')}
         </MenuItem>
         <MenuItem onClick={() => { setVersionAnchor(null); setDiffDialogOpen(true) }}>
-          <CompareIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> Compare Versions
+          <CompareIcon sx={{ mr: 1, fontSize: '1.1rem' }} /> {t('editor.versionMenu.compareVersions')}
         </MenuItem>
       </Menu>
     </Paper>

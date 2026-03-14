@@ -1,0 +1,1 @@
+ALTER TABLE cds_artifact ADD COLUMN lock_version BIGINT NOT NULL DEFAULT 0;

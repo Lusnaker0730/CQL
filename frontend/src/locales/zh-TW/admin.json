@@ -1,0 +1,113 @@
+{
+  "users": {
+    "title": "使用者管理",
+    "createUser": "建立使用者",
+    "noUsersFound": "未找到使用者",
+    "youChip": "您",
+    "columns": {
+      "username": "使用者名稱",
+      "email": "電子郵件",
+      "role": "角色",
+      "status": "狀態",
+      "created": "建立時間",
+      "actions": "操作"
+    },
+    "roles": {
+      "admin": "管理員",
+      "user": "使用者"
+    },
+    "status": {
+      "forceChange": "強制變更",
+      "active": "啟用",
+      "disabled": "停用"
+    },
+    "tooltips": {
+      "cannotDisableSelf": "無法停用自己",
+      "disableUser": "停用使用者",
+      "enableUser": "啟用使用者",
+      "resetPassword": "重設使用者密碼"
+    },
+    "resetPasswordButton": "重設密碼",
+    "createDialog": {
+      "title": "建立使用者",
+      "usernameLabel": "使用者名稱",
+      "passwordLabel": "密碼",
+      "passwordHelperText": "至少 8 個字元，須包含大寫、小寫字母及數字",
+      "emailLabel": "電子郵件",
+      "roleLabel": "角色",
+      "createButton": "建立"
+    },
+    "resetDialog": {
+      "title": "密碼重設成功",
+      "userLabel": "使用者：<strong>{{username}}</strong>",
+      "temporaryPasswordLabel": "臨時密碼：",
+      "copiedTooltip": "已複製！",
+      "copyTooltip": "複製到剪貼簿",
+      "copyAriaLabel": "複製到剪貼簿",
+      "shareWarning": "請安全地將此密碼分享給使用者。他們下次登入時將被要求變更密碼。"
+    },
+    "confirmDialog": {
+      "changeRoleTitle": "變更使用者角色",
+      "changeRoleMessage": "將 {{username}} 的角色變更為 {{role}}？",
+      "disableUserTitle": "停用使用者",
+      "enableUserTitle": "啟用使用者",
+      "toggleEnabledMessage": "您確定要{{action}} {{username}} 嗎？"
+    },
+    "success": {
+      "userCreated": "使用者建立成功",
+      "roleUpdated": "{{username}} 的角色已更新為 {{role}}",
+      "userToggled": "{{username}} 已被{{action}}"
+    },
+    "errors": {
+      "usernameExists": "使用者名稱已存在或輸入無效",
+      "createFailed": "建立使用者失敗",
+      "resetFailed": "重設密碼失敗",
+      "updateRoleFailed": "更新角色失敗",
+      "toggleFailed": "{{action}}使用者失敗"
+    }
+  },
+  "audit": {
+    "title": "HIPAA 稽核儀表板",
+    "stats": {
+      "eventsToday": "今日事件",
+      "phiAccessesToday": "今日 PHI 存取",
+      "failedLoginsToday": "今日登入失敗",
+      "activeUsersToday": "今日活躍使用者"
+    },
+    "activityTimeline": "活動時間軸（14 天）",
+    "activityTooltip": "{{date}}：{{count}} 個事件",
+    "actionDistribution": "操作分布",
+    "topUsers": {
+      "title": "最活躍使用者（過去 30 天）",
+      "username": "使用者名稱",
+      "events": "事件數",
+      "lastActivity": "最後活動"
+    },
+    "tabs": {
+      "allLogs": "所有日誌",
+      "phiAccess": "PHI 存取",
+      "loginActivity": "登入活動",
+      "securityEvents": "安全事件"
+    },
+    "filters": {
+      "username": "使用者名稱",
+      "action": "操作",
+      "actionAll": "全部",
+      "startDate": "開始日期",
+      "endDate": "結束日期",
+      "statusCode": "狀態碼"
+    },
+    "exportCsv": "匯出 CSV",
+    "table": {
+      "timestamp": "時間戳記",
+      "user": "使用者",
+      "action": "操作",
+      "method": "方法",
+      "path": "路徑",
+      "status": "狀態",
+      "ipAddress": "IP 位址",
+      "timeMs": "時間 (毫秒)",
+      "noEntries": "未找到稽核日誌記錄"
+    }
+  }
+}

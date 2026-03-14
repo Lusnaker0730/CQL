@@ -16,7 +16,10 @@ Thumbs.db
 # Docker volumes and data
 docker/postgres-backup/
 
+# Regulatory doc snapshots (generated artifacts — stored as CI artifacts, not in git)
+regulatory_docs/snapshots/
+
 
 bug1.png
 CQL1.png
-null.txt
+nul
