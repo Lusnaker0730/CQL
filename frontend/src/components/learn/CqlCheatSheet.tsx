@@ -14,6 +14,16 @@ import {
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 
+const BASIC_STRUCTURE_KEYS = [
+  'library', 'using', 'include', 'codesystem', 'valueset', 'code',
+  'parameter', 'context', 'define', 'function', 'commentSingle', 'commentMulti',
+] as const
+
+const DATA_ACCESS_KEYS = [
+  'retrieve', 'retrieveCode', 'alias', 'where', 'exists', 'notExists',
+  'codeIn', 'sort', 'first', 'with', 'without', 'return', 'distinct',
+] as const
+
 const DATA_TYPE_KEYS = [
   'boolean', 'integer', 'decimal', 'string', 'dateTime',
   'time', 'quantity', 'interval', 'list', 'tuple',
@@ -42,8 +52,78 @@ export default function CqlCheatSheet() {
         {t('learn.cheatSheet.subtitle')}
       </Typography>
 
-      {/* Data Types */}
+      {/* Basic Structure */}
       <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6" fontWeight={700} color="primary.main">
+            {t('learn.cheatSheet.basicStructure.title')}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '25%' }}>{t('learn.cheatSheet.basicStructure.element')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>{t('learn.cheatSheet.basicStructure.syntax')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {BASIC_STRUCTURE_KEYS.map((key) => (
+                  <TableRow key={key}>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.basicStructure.${key}`)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', whiteSpace: 'pre-wrap' }}>
+                        {t(`learn.cheatSheet.basicStructure.${key}Ex`)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Data Access & Filtering */}
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6" fontWeight={700} color="primary.main">
+            {t('learn.cheatSheet.dataAccess.title')}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: '25%' }}>{t('learn.cheatSheet.dataAccess.pattern')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>{t('learn.cheatSheet.dataAccess.syntax')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {DATA_ACCESS_KEYS.map((key) => (
+                  <TableRow key={key}>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.dataAccess.${key}`)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', whiteSpace: 'pre-wrap' }}>
+                        {t(`learn.cheatSheet.dataAccess.${key}Ex`)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Data Types */}
+      <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6" fontWeight={700} color="primary.main">
             {t('learn.cheatSheet.dataTypes.title')}
