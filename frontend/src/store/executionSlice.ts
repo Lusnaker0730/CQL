@@ -1,4 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import type { DebugTrace } from '../types'
+import { DEFAULT_FHIR_SERVER_URL } from '../config/env'
 
 interface ExecutionResult {
   name: string
@@ -14,15 +16,17 @@ interface ExecutionState {
   results: Record<string, ExecutionResult>
   errors: string[]
   executionTimeMs: number | null
+  debugTrace: DebugTrace | null
 }
 
 const initialState: ExecutionState = {
   patientId: '',
-  fhirServerUrl: 'http://hapi.fhir.org/baseR4',
+  fhirServerUrl: DEFAULT_FHIR_SERVER_URL,
   isExecuting: false,
   results: {},
   errors: [],
   executionTimeMs: null,
+  debugTrace: null,
 }
 
 const executionSlice = createSlice({
@@ -47,10 +51,14 @@ const executionSlice = createSlice({
     setExecutionTimeMs: (state, action: PayloadAction<number | null>) => {
       state.executionTimeMs = action.payload
     },
+    setDebugTrace: (state, action: PayloadAction<DebugTrace | null>) => {
+      state.debugTrace = action.payload
+    },
     clearResults: (state) => {
       state.results = {}
       state.errors = []
       state.executionTimeMs = null
+      state.debugTrace = null
     },
   },
 })
@@ -62,6 +70,7 @@ export const {
   setResults,
   setExecutionErrors,
   setExecutionTimeMs,
+  setDebugTrace,
   clearResults,
 } = executionSlice.actions
 

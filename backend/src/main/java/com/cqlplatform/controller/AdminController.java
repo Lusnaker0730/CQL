@@ -1,0 +1,146 @@
+package com.cqlplatform.controller;
+
+import com.cqlplatform.entity.UserEntity;
+import com.cqlplatform.exception.DuplicateResourceException;
+import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.exception.ValidationException;
+import com.cqlplatform.model.auth.*;
+import com.cqlplatform.repository.UserRepository;
+import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.RefreshTokenService;
+import com.cqlplatform.service.TokenVersionService;
+import com.cqlplatform.service.UserApiKeyService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/admin")
+@RequiredArgsConstructor
+public class AdminController {
+
+    private final UserRepository userRepository;
+    private final PasswordResetService passwordResetService;
+    private final PasswordEncoder passwordEncoder;
+    private final UserApiKeyService userApiKeyService;
+    private final TokenVersionService tokenVersionService;
+    private final RefreshTokenService refreshTokenService;
+
+    @GetMapping("/users")
+    public ResponseEntity<List<UserSummary>> listUsers() {
+        List<UserSummary> users = userRepository.findAll().stream()
+                .map(this::toUserSummary)
+                .toList();
+        return ResponseEntity.ok(users);
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<UserSummary> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new DuplicateResourceException("User", "username", request.getUsername());
+        }
+
+        UserEntity user = UserEntity.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(UserEntity.Role.valueOf(request.getRole()))
+                .build();
+
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            user.setEmailWithHash(request.getEmail());
+        }
+
+        UserEntity saved = userRepository.save(user);
+        return ResponseEntity.ok(toUserSummary(saved));
+    }
+
+    @PutMapping("/users/{userId}/role")
+    public ResponseEntity<UserSummary> updateUserRole(
+            @PathVariable Long userId,
+            @Valid @RequestBody RoleUpdateRequest request) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        if (user.getUsername().equals(currentUsername)) {
+            throw new ValidationException("Cannot modify your own account");
+        }
+
+        user.setRole(UserEntity.Role.valueOf(request.getRole()));
+        UserEntity saved = userRepository.save(user);
+
+        // Invalidate existing access tokens — the old role is stale
+        tokenVersionService.bumpVersion(user.getUsername());
+        refreshTokenService.revokeAllForUser(user.getId());
+
+        return ResponseEntity.ok(toUserSummary(saved));
+    }
+
+    @PutMapping("/users/{userId}/enabled")
+    public ResponseEntity<UserSummary> updateUserEnabled(
+            @PathVariable Long userId,
+            @Valid @RequestBody EnabledUpdateRequest request) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        if (user.getUsername().equals(currentUsername)) {
+            throw new ValidationException("Cannot modify your own account");
+        }
+
+        user.setEnabled(request.getEnabled());
+        UserEntity saved = userRepository.save(user);
+
+        // When disabling a user, immediately invalidate all sessions
+        if (Boolean.FALSE.equals(request.getEnabled())) {
+            tokenVersionService.bumpVersion(user.getUsername());
+            refreshTokenService.revokeAllForUser(user.getId());
+            userApiKeyService.deactivateAllKeys(user.getUsername());
+        }
+
+        return ResponseEntity.ok(toUserSummary(saved));
+    }
+
+    @PostMapping("/users/{userId}/reset-password")
+    public ResponseEntity<?> resetUserPassword(@PathVariable Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        if (user.getAuthProvider() == UserEntity.AuthProvider.OKTA) {
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of("error", "Cannot reset password for SSO users"));
+        }
+
+        // Security (H8): adminResetPassword no longer returns the plaintext password.
+        // The temporary password is delivered to the user via email only.
+        passwordResetService.adminResetPassword(userId);
+
+        return ResponseEntity.ok()
+                // Prevent any intermediate proxy or browser from caching this response.
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(AdminResetPasswordResponse.builder()
+                        .username(user.getUsername())
+                        .message("Temporary password has been sent to the user's registered email address. " +
+                                 "User will be required to change it on next login.")
+                        .build());
+    }
+
+    private UserSummary toUserSummary(UserEntity user) {
+        return UserSummary.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail() != null ? user.getEmail() : "")
+                .role(user.getRole().name())
+                .enabled(user.getEnabled())
+                .forcePasswordChange(Boolean.TRUE.equals(user.getForcePasswordChange()))
+                .authProvider(user.getAuthProvider() != null ? user.getAuthProvider().name() : "LOCAL")
+                .createdAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : "")
+                .build();
+    }
+}

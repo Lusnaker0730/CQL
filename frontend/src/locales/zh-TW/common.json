@@ -1,0 +1,259 @@
+{
+  "app": {
+    "title": "台灣CQL概念平台",
+    "subtitle": "臨床品質語言"
+  },
+  "nav": {
+    "editor": "編輯器",
+    "cdsHooks": "CDS Hooks",
+    "measures": "品質指標",
+    "authoring": "規則撰寫",
+    "ecqm": "eCQM 撰寫",
+    "fhirBrowser": "FHIR 瀏覽器",
+    "terminology": "術語管理",
+    "users": "使用者管理",
+    "auditLog": "稽核日誌",
+    "mainNavigation": "主導覽列",
+    "goToHome": "前往首頁"
+  },
+  "toolbar": {
+    "switchToLight": "切換至淺色模式",
+    "switchToDark": "切換至深色模式",
+    "settings": "設定",
+    "help": "說明",
+    "github": "GitHub",
+    "logout": "登出",
+    "terminologyLookup": "術語查詢"
+  },
+  "footer": {
+    "line": "行 {{line}}, 欄 {{column}}",
+    "errorsCount": "{{count}} 個錯誤",
+    "errorsCount_one": "{{count}} 個錯誤",
+    "noErrors": "無錯誤",
+    "warningsCount": "{{count}} 個警告",
+    "warningsCount_one": "{{count}} 個警告",
+    "noWarnings": "無警告",
+    "cqlSpec": "CQL 規範",
+    "cdsHooks": "CDS Hooks",
+    "fhir": "FHIR"
+  },
+  "actions": {
+    "save": "儲存",
+    "cancel": "取消",
+    "delete": "刪除",
+    "deleting": "刪除中...",
+    "confirm": "確認",
+    "close": "關閉",
+    "done": "完成",
+    "reset": "重設",
+    "add": "新增",
+    "edit": "編輯",
+    "remove": "移除",
+    "search": "搜尋",
+    "tryAgain": "重試",
+    "resetToDefaults": "重設為預設值"
+  },
+  "status": {
+    "draft": "草稿",
+    "active": "啟用",
+    "retired": "已停用",
+    "inReview": "審核中",
+    "loading": "載入中..."
+  },
+  "preferences": {
+    "title": "偏好設定",
+    "editorSettings": "編輯器設定",
+    "fontSize": "字型大小：{{size}}px",
+    "tabSize": "Tab 大小",
+    "tabSizeSpaces": "{{count}} 個空格",
+    "wordWrap": "自動換行",
+    "wordWrapOn": "開啟",
+    "wordWrapOff": "關閉",
+    "wordWrapColumn": "依欄位換行",
+    "showMinimap": "顯示縮圖",
+    "appearance": "外觀",
+    "theme": "佈景主題",
+    "themeLight": "淺色",
+    "themeDark": "深色",
+    "defaults": "預設值",
+    "defaultFhirServerUrl": "預設 FHIR 伺服器 URL",
+    "terminology": "術語服務",
+    "vsacStatus": "VSAC 狀態：",
+    "vsacConfigured": "已設定",
+    "vsacNotConfigured": "未設定",
+    "vsacUnavailable": "無法連線",
+    "vsacUrl": "伺服器網址",
+    "vsacApiKey": "VSAC API Key",
+    "vsacApiKeyPlaceholder": "輸入您的 UMLS/VSAC API Key",
+    "vsacApiKeyHelp": "解析 VSAC ValueSet（如 NLM OID）時必須提供。請至 https://uts.nlm.nih.gov/uts/ 申請",
+    "vsacKeySave": "更新 API Key",
+    "vsacKeySaving": "儲存中...",
+    "vsacKeySaved": "VSAC API Key 更新成功",
+    "vsacKeySaveFailed": "VSAC API Key 更新失敗",
+    "aiFixSuggestion": "AI 修正建議",
+    "aiStatus": "AI 狀態：",
+    "aiDisabled": "已停用",
+    "aiUnavailable": "無法連線",
+    "aiApiKeyStatus": "API Key：",
+    "aiKeyConfigured": "已設定",
+    "aiKeyNotConfigured": "未設定",
+    "aiApiKey": "雲端 AI API Key",
+    "aiApiKeyPlaceholder": "輸入您的 API Key（OpenAI、DeepSeek 等）",
+    "aiApiKeyHelp": "使用雲端 AI 時必須提供。Key 僅存於伺服器記憶體中。",
+    "aiKeySave": "更新 API Key",
+    "aiKeySaving": "儲存中...",
+    "aiKeySaved": "AI API Key 更新成功",
+    "aiKeySaveFailed": "AI API Key 更新失敗"
+  },
+  "errors": {
+    "applicationError": "應用程式錯誤",
+    "editorError": "編輯器錯誤",
+    "cdsHooksError": "CDS Hooks 錯誤",
+    "measuresError": "品質指標錯誤",
+    "fhirBrowserError": "FHIR 瀏覽器錯誤",
+    "terminologyError": "術語管理錯誤",
+    "cdsAuthoringError": "CDS 規則撰寫錯誤",
+    "adminError": "管理員錯誤",
+    "auditDashboardError": "稽核儀表板錯誤",
+    "somethingWentWrong": "發生錯誤",
+    "unexpectedError": "發生未預期的錯誤，請嘗試重新整理此區段。"
+  },
+  "mutationErrors": {
+    "createFailed": "建立失敗：{{error}}",
+    "updateFailed": "更新失敗：{{error}}",
+    "deleteFailed": "刪除失敗：{{error}}",
+    "importFailed": "匯入失敗：{{error}}",
+    "exportFailed": "匯出失敗：{{error}}",
+    "operationFailed": "操作失敗：{{error}}",
+    "runFailed": "執行失敗：{{error}}"
+  },
+  "dialogs": {
+    "deleteConfirm": {
+      "title": "刪除",
+      "message": "確定要刪除 {{itemName}} 嗎？此操作無法復原。"
+    },
+    "closeHelp": "關閉說明面板"
+  },
+  "help": {
+    "quickStartGuide": "快速入門指南",
+    "quickStart": {
+      "gettingStarted": {
+        "title": "開始使用",
+        "content": "在編輯器中撰寫 CQL（臨床品質語言），點擊「翻譯」進行驗證，然後點擊「執行」對 FHIR 伺服器上的病患資料執行查詢。"
+      },
+      "cqlBasics": {
+        "title": "CQL 基礎",
+        "content": "CQL 函式庫以函式庫宣告和 FHIR 模型開始。定義值集、病患上下文和運算式來計算臨床邏輯。"
+      },
+      "cdsHooks": {
+        "title": "CDS Hooks",
+        "content": "建立在臨床決策點觸發的 CDS 服務。您的 CQL 邏輯會自動執行並向臨床醫師回傳建議卡片。"
+      },
+      "qualityMeasures": {
+        "title": "品質指標",
+        "content": "使用 CQL 定義 eCQM（電子臨床品質指標）。針對病患資料評估指標母群體並產生報告。"
+      },
+      "fhirBrowser": {
+        "title": "FHIR 瀏覽器",
+        "content": "瀏覽任何 FHIR R4 伺服器上的資源。依資源類型和參數搜尋，或依 ID 讀取個別資源。"
+      },
+      "keyboardShortcuts": {
+        "title": "鍵盤快捷鍵",
+        "content": "Ctrl+S：翻譯 CQL | Ctrl+Enter：執行 CQL | 支援標準 Monaco 編輯器快捷鍵。"
+      }
+    },
+    "editor": {
+      "translate": "將 CQL 翻譯為 ELM（運算式邏輯模型）。驗證語法和語意。快捷鍵：Ctrl+S",
+      "save": "將目前的 CQL 內容儲存為平台資料庫中的版本化函式庫。",
+      "export": "將函式庫匯出為 FHIR Library 資源（JSON 格式）以供互通性使用。",
+      "import": "匯入 FHIR Library 資源（JSON）並將其 CQL 內容載入編輯器。"
+    },
+    "cds": {
+      "hookType": "CDS hook 定義此服務在臨床工作流程中何時觸發。「patient-view」在開啟病患圖表時觸發，「order-select」在醫令輸入時觸發。",
+      "prefetch": "預取範本定義 EHR 在呼叫您的服務前應執行的 FHIR 查詢。使用包含 {{context.patientId}} 佔位符的 FHIR 搜尋 URL。"
+    },
+    "measures": {
+      "scoringType": "比例型：分子/分母的比率。連續變數型：母群體值的統計量測。世代型：母群體成員的簡單計數。",
+      "details": "定義指標的中繼資料：名稱、版本、狀態和評分類型。這些欄位對應到 FHIR Measure 資源屬性。",
+      "cql": "撰寫或編輯驅動此指標的 CQL 邏輯。翻譯以驗證語法，然後儲存以保留變更。",
+      "populationCriteria": "將 CQL 運算式對應到指標母群體（初始母群體、分母、分子等）。每個母群體參考一個回傳 true/false 的 CQL 運算式，用於判斷病患是否屬於該群體。",
+      "evaluate": "對 FHIR 伺服器上的病患資料執行此指標。結果顯示母群體計數、個別病患成員資格和選用的分層器。",
+      "testCases": "建立具有預期母群體結果的病患測試案例。執行測試以驗證您的指標邏輯在部署前產生正確結果。",
+      "reports": "檢視此指標的歷史評估報告。比較不同次執行的結果以追蹤隨時間的變化。",
+      "riskAdjustment": "風險校正變數是用於描述指標風險因子的 CQL 定義。從您的 CQL 中選擇運算式並為每個運算式新增說明。",
+      "supplementalData": "補充資料元素是擷取額外資料點供報告使用的 CQL 定義。這些不用於評分，但會包含在指標報告中。",
+      "observations": "觀測準則定義連續變數和比率指標如何計算其觀測值。選擇 CQL 運算式和聚合方法（計數、總和、平均等）。",
+      "dataRequirements": "資料需求宣告您的指標 CQL 邏輯所需的 FHIR 資源和值集。它們會從 ELM 翻譯中自動擷取，對於 eCQM 可攜性和 EHR 整合至關重要。",
+      "versionManagement": "建立函式庫或指標的版本快照。重大變更使用主版本號，新功能使用次版本號，修正使用修補版本號。並排比較版本以查看 CQL 變更。"
+    },
+    "fhir": {
+      "serverUrl": "FHIR R4 伺服器的基本 URL。預設為公開的 HAPI FHIR 伺服器。您可以指向自己的伺服器進行測試。",
+      "bulkExport": "啟動 FHIR 批次資料匯出（$export）。系統匯出所有資源；病患/群組匯出範圍限定為特定區室。結果為 NDJSON 檔案。"
+    }
+  },
+  "notifications": {
+    "title": "通知",
+    "markAllRead": "全部標為已讀",
+    "empty": "沒有通知",
+    "justNow": "剛剛",
+    "minutesAgo": "{{count}} 分鐘前",
+    "hoursAgo": "{{count}} 小時前",
+    "daysAgo": "{{count}} 天前"
+  },
+  "department": {
+    "label": "部門",
+    "all": "所有部門",
+    "assign": "指定部門",
+    "filter": "依部門篩選",
+    "none": "無部門"
+  },
+  "language": {
+    "english": "English",
+    "traditionalChinese": "繁體中文",
+    "switchLanguage": "切換語言"
+  },
+  "auth": {
+    "signIn": "登入",
+    "signInSubtitle": "請登入以繼續",
+    "register": "註冊",
+    "createAccount": "建立您的帳號",
+    "username": "使用者名稱",
+    "password": "密碼",
+    "email": "電子郵件（選填）",
+    "emailAddress": "電子郵件地址",
+    "forgotPassword": "忘記密碼？",
+    "alreadyHaveAccount": "已有帳號？登入",
+    "noAccount": "還沒有帳號？註冊",
+    "registrationFailed": "註冊失敗",
+    "invalidCredentials": "使用者名稱或密碼錯誤",
+    "resetPassword": "重設密碼",
+    "resetPasswordSubtitle": "輸入您的電子郵件以接收重設連結",
+    "sendResetLink": "傳送重設連結",
+    "backToSignIn": "返回登入",
+    "resetEmailSent": "若該電子郵件已註冊帳號，密碼重設連結已寄出。請檢查您的收件匣。",
+    "setNewPassword": "設定新密碼",
+    "enterNewPassword": "請在下方輸入您的新密碼",
+    "newPassword": "新密碼",
+    "confirmPassword": "確認密碼",
+    "confirmNewPassword": "確認新密碼",
+    "resetPasswordButton": "重設密碼",
+    "goToSignIn": "前往登入",
+    "passwordResetSuccess": "您的密碼已成功重設！",
+    "invalidResetLink": "無效的重設連結。請重新申請密碼重設。",
+    "requestNewResetLink": "申請新的重設連結",
+    "resetFailed": "密碼重設失敗。連結可能已過期。",
+    "passwordChangeRequired": "必須變更密碼",
+    "passwordChangeDescription": "您的密碼已被管理員重設。您必須設定新密碼才能繼續使用。",
+    "currentPassword": "目前 / 臨時密碼",
+    "changePassword": "變更密碼",
+    "changePasswordFailed": "密碼變更失敗",
+    "or": "或",
+    "loginWithOkta": "使用 Okta 登入",
+    "ssoProcessing": "正在處理 SSO 登入...",
+    "ssoFailed": "SSO 驗證失敗，請重試。",
+    "ssoMissingCode": "缺少身分提供者的授權碼。",
+    "ssoStateMismatch": "安全驗證失敗，請重新登入。",
+    "authProviderLocal": "本機",
+    "authProviderOkta": "Okta SSO"
+  }
+}

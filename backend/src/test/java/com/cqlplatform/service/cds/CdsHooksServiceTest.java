@@ -1,11 +1,7 @@
 package com.cqlplatform.service.cds;
 
-import com.cqlplatform.model.CqlExecutionResponse;
-import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
 import com.cqlplatform.model.cds.*;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
-import com.cqlplatform.service.cql.CqlExecutionService;
-import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,25 +19,24 @@ import static org.mockito.Mockito.*;
 class CdsHooksServiceTest {
 
     @Mock
-    private CqlExecutionService executionService;
-    @Mock
     private CdsServiceConfigRepository repository;
+    @Mock
+    private CdsInvocationService invocationService;
+    @Mock
+    private CqlTupleCardStrategy tupleStrategy;
 
     private CdsHooksService cdsHooksService;
 
     @BeforeEach
     void setUp() {
-        FhirContext fhirContext = FhirContext.forR4();
         ObjectMapper objectMapper = new ObjectMapper();
-        cdsHooksService = new CdsHooksService(executionService, repository, fhirContext, objectMapper);
+        cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy);
     }
 
     @Test
-    void getServiceDefinitions_empty_shouldReturnDefaults() {
+    void getServiceDefinitions_empty_shouldReturnEmptyList() {
         List<CdsServiceDefinition> definitions = cdsHooksService.getServiceDefinitions();
-        assertThat(definitions).isNotEmpty();
-        assertThat(definitions).extracting("id")
-                .contains("diabetes-management", "medication-check");
+        assertThat(definitions).isEmpty();
     }
 
     @Test
@@ -82,39 +77,20 @@ class CdsHooksServiceTest {
         cdsHooksService.registerService(config);
         cdsHooksService.unregisterService("temp-service");
 
-        // After unregister, the temp service should not be in definitions
-        // (may still show defaults if empty)
         List<CdsServiceDefinition> definitions = cdsHooksService.getServiceDefinitions();
         assertThat(definitions).extracting("id").doesNotContain("temp-service");
     }
 
     @Test
-    void invokeService_defaultDiabetes_shouldReturnCards() {
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("diabetes-management", request);
-
-        assertThat(response.getCards()).isNotEmpty();
-        assertThat(response.getCards().get(0).getSummary()).contains("Diabetes");
-    }
-
-    @Test
-    void invokeService_defaultMedication_shouldReturnCards() {
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("medication-check", request);
-
-        assertThat(response.getCards()).isNotEmpty();
-    }
-
-    @Test
     void invokeService_unknownService_shouldReturnNotFoundCard() {
+        CdsResponse.Card notFoundCard = CdsResponse.Card.builder()
+                .summary("Service not found")
+                .detail("The requested CDS service 'nonexistent' is not available.")
+                .indicator("info")
+                .build();
+        when(tupleStrategy.createInfoCard(eq("Service not found"), contains("nonexistent")))
+                .thenReturn(notFoundCard);
+
         CdsRequest request = new CdsRequest();
         CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
         ctx.setPatientId("p1");
@@ -127,7 +103,7 @@ class CdsHooksServiceTest {
     }
 
     @Test
-    void invokeService_registeredService_shouldExecuteCql() {
+    void invokeService_registeredService_shouldDelegateToInvocationService() {
         CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
                 .id("test-cql-service")
                 .hook("patient-view")
@@ -137,15 +113,14 @@ class CdsHooksServiceTest {
                 .build();
         cdsHooksService.registerService(config);
 
-        Map<String, ExpressionResult> results = new LinkedHashMap<>();
-        results.put("IsTrue", ExpressionResult.builder()
-                .name("IsTrue").value(true).valueType("Boolean").build());
-
-        when(executionService.execute(any())).thenReturn(
-                CqlExecutionResponse.builder()
-                        .success(true)
-                        .results(results)
-                        .build());
+        CdsResponse expectedResponse = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder()
+                        .summary("Test CQL Service")
+                        .detail("**IsTrue**: Yes")
+                        .indicator("warning")
+                        .build()))
+                .build();
+        when(invocationService.invoke(any(), any())).thenReturn(expectedResponse);
 
         CdsRequest request = new CdsRequest();
         CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
@@ -155,81 +130,58 @@ class CdsHooksServiceTest {
         CdsResponse response = cdsHooksService.invokeService("test-cql-service", request);
 
         assertThat(response.getCards()).isNotEmpty();
-        verify(executionService).execute(any());
-    }
-
-    @Test
-    void invokeService_cqlExecutionFails_shouldReturnErrorCard() {
-        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
-                .id("failing-service")
-                .hook("patient-view")
-                .title("Failing Service")
-                .cqlContent("bad cql")
-                .build();
-        cdsHooksService.registerService(config);
-
-        when(executionService.execute(any())).thenThrow(new RuntimeException("CQL failed"));
-
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("failing-service", request);
-
-        assertThat(response.getCards()).isNotEmpty();
-        assertThat(response.getCards().get(0).getSummary()).contains("Error");
-    }
-
-    @Test
-    void invokeService_noTrueResults_shouldReturnInfoCard() {
-        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
-                .id("no-results-service")
-                .hook("patient-view")
-                .title("No Results")
-                .cqlContent("library Test version '1.0'\ndefine Check: false")
-                .build();
-        cdsHooksService.registerService(config);
-
-        Map<String, ExpressionResult> results = new LinkedHashMap<>();
-        results.put("Check", ExpressionResult.builder()
-                .name("Check").value(false).valueType("Boolean").build());
-
-        when(executionService.execute(any())).thenReturn(
-                CqlExecutionResponse.builder()
-                        .success(true)
-                        .results(results)
-                        .build());
-
-        CdsRequest request = new CdsRequest();
-        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
-        ctx.setPatientId("p1");
-        request.setContext(ctx);
-
-        CdsResponse response = cdsHooksService.invokeService("no-results-service", request);
-
-        assertThat(response.getCards()).isNotEmpty();
-        assertThat(response.getCards().get(0).getDetail()).contains("No recommendations");
+        verify(invocationService).invoke(any(), any());
     }
 
     @Test
     void invokeService_nullContext_shouldHandleGracefully() {
+        CdsResponse.Card notFoundCard = CdsResponse.Card.builder()
+                .summary("Service not found")
+                .detail("The requested CDS service 'nonexistent' is not available.")
+                .indicator("info")
+                .build();
+        when(tupleStrategy.createInfoCard(eq("Service not found"), contains("nonexistent")))
+                .thenReturn(notFoundCard);
+
         CdsRequest request = new CdsRequest();
         request.setContext(null);
 
-        CdsResponse response = cdsHooksService.invokeService("diabetes-management", request);
+        CdsResponse response = cdsHooksService.invokeService("nonexistent", request);
         assertThat(response.getCards()).isNotEmpty();
     }
 
     @Test
-    void invokeService_diabetesDefault_shouldHaveSuggestions() {
+    void invokeService_hookMismatch_shouldThrow() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("patient-view-service")
+                .hook("patient-view")
+                .title("Patient View Service")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .build();
+        cdsHooksService.registerService(config);
+
         CdsRequest request = new CdsRequest();
+        request.setHook("order-select"); // mismatch
         CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
         ctx.setPatientId("p1");
         request.setContext(ctx);
 
-        CdsResponse response = cdsHooksService.invokeService("diabetes-management", request);
+        assertThatThrownBy(() -> cdsHooksService.invokeService("patient-view-service", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Hook type mismatch");
+    }
 
-        assertThat(response.getCards().get(0).getSuggestions()).isNotEmpty();
+    @Test
+    void createService_invalidHookType_shouldThrow() {
+        CdsServiceConfigRequest request =
+                CdsServiceConfigRequest.builder()
+                        .id("bad-hook-svc")
+                        .hook("invalid-hook")
+                        .title("Bad Hook Service")
+                        .build();
+
+        assertThatThrownBy(() -> cdsHooksService.createService(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid hook type");
     }
 }

@@ -1,0 +1,37 @@
+{
+  "username": {
+    "required": "Username is required",
+    "minLength": "Username must be at least 3 characters",
+    "maxLength": "Username must be at most 50 characters",
+    "pattern": "Username can only contain letters, numbers, hyphens, and underscores"
+  },
+  "password": {
+    "required": "Password is required",
+    "minLength": "Password must be at least 8 characters",
+    "uppercase": "Password must contain at least one uppercase letter",
+    "lowercase": "Password must contain at least one lowercase letter",
+    "number": "Password must contain at least one number",
+    "mismatch": "Passwords do not match",
+    "sameasCurrent": "New password must be different from current password"
+  },
+  "email": {
+    "required": "Email is required"
+  },
+  "fhirUrl": {
+    "required": "FHIR server URL is required",
+    "protocol": "URL must start with http:// or https://",
+    "invalid": "Invalid URL format"
+  },
+  "json": {
+    "invalid": "Invalid JSON format"
+  },
+  "dateRange": {
+    "startBeforeEnd": "Start date must be before end date"
+  },
+  "hookType": {
+    "required": "Hook type is required",
+    "invalid": "Invalid hook type"
+  },
+  "required": "{{field}} is required",
+  "charCount": "{{current}} / {{max}}"
+}

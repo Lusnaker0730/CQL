@@ -11,17 +11,35 @@ import java.util.Optional;
 @Repository
 public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConfigEntity, String> {
 
-    List<CdsServiceConfigEntity> findByEnabledTrue();
-
-    List<CdsServiceConfigEntity> findByHook(String hook);
-
-    List<CdsServiceConfigEntity> findByHookAndEnabledTrue(String hook);
-
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems WHERE c.id = :id")
     Optional<CdsServiceConfigEntity> findByIdWithPrefetch(String id);
 
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems WHERE c.enabled = true")
     List<CdsServiceConfigEntity> findAllEnabledWithPrefetch();
 
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems")
+    List<CdsServiceConfigEntity> findAllWithPrefetch();
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.ownerUsername = :username")
+    List<CdsServiceConfigEntity> findByOwnerUsernameWithPrefetch(String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.ownerUsername = :username OR c.shared = true")
+    List<CdsServiceConfigEntity> findByOwnerUsernameOrSharedTrue(String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.ownerUsername = :username AND c.enabled = true")
+    List<CdsServiceConfigEntity> findByOwnerUsernameAndEnabledTrue(String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.shared = true AND c.enabled = true")
+    List<CdsServiceConfigEntity> findBySharedTrueAndEnabledTrue();
+
     boolean existsById(String id);
+
+    List<CdsServiceConfigEntity> findByServiceNameOrderByVersionDesc(String serviceName);
+
+    @Query("SELECT MAX(c.version) FROM CdsServiceConfigEntity c WHERE c.serviceName = :serviceName")
+    Optional<Integer> findMaxVersionByServiceName(String serviceName);
 }

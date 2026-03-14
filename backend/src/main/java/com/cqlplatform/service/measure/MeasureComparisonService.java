@@ -1,0 +1,135 @@
+package com.cqlplatform.service.measure;
+
+import com.cqlplatform.entity.MeasureReportEntity;
+import com.cqlplatform.model.measure.MeasureComparisonResult;
+import com.cqlplatform.model.measure.MeasureComparisonResult.PeriodSummary;
+import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import com.cqlplatform.model.measure.MeasureEvaluationResult.GroupResult;
+import com.cqlplatform.model.measure.MeasureEvaluationResult.PopulationResult;
+import com.cqlplatform.model.measure.MeasureTrendResult;
+import com.cqlplatform.model.measure.MeasureTrendResult.TrendDataPoint;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class MeasureComparisonService {
+
+    private final MeasureReportService reportService;
+
+    public MeasureComparisonResult comparePeriods(String measureName,
+                                                   LocalDate p1Start, LocalDate p1End,
+                                                   LocalDate p2Start, LocalDate p2End) {
+        List<MeasureReportEntity> p1Reports = reportService.getReportsForPeriod(measureName, p1Start, p1End);
+        List<MeasureReportEntity> p2Reports = reportService.getReportsForPeriod(measureName, p2Start, p2End);
+
+        PeriodSummary period1 = buildPeriodSummary(p1Start, p1End, p1Reports);
+        PeriodSummary period2 = buildPeriodSummary(p2Start, p2End, p2Reports);
+
+        Double scoreDelta = null;
+        Double scorePercentChange = null;
+        String trend = "stable";
+
+        if (period1.getMeasureScore() != null && period2.getMeasureScore() != null) {
+            scoreDelta = period2.getMeasureScore() - period1.getMeasureScore();
+            if (period1.getMeasureScore() != 0) {
+                scorePercentChange = (scoreDelta / period1.getMeasureScore()) * 100;
+            }
+            if (scoreDelta > 1.0) {
+                trend = "improving";
+            } else if (scoreDelta < -1.0) {
+                trend = "declining";
+            }
+        }
+
+        Map<String, Integer> populationDeltas = new HashMap<>();
+        if (period1.getPopulationCounts() != null && period2.getPopulationCounts() != null) {
+            Set<String> allPops = new HashSet<>();
+            allPops.addAll(period1.getPopulationCounts().keySet());
+            allPops.addAll(period2.getPopulationCounts().keySet());
+            for (String pop : allPops) {
+                int count1 = period1.getPopulationCounts().getOrDefault(pop, 0);
+                int count2 = period2.getPopulationCounts().getOrDefault(pop, 0);
+                populationDeltas.put(pop, count2 - count1);
+            }
+        }
+
+        return MeasureComparisonResult.builder()
+                .measureName(measureName)
+                .period1(period1)
+                .period2(period2)
+                .scoreDelta(scoreDelta)
+                .scorePercentChange(scorePercentChange)
+                .populationDeltas(populationDeltas)
+                .trend(trend)
+                .build();
+    }
+
+    public MeasureTrendResult getTrend(String measureName, int periodCount) {
+        List<MeasureReportEntity> reports = reportService.getReportsByMeasureNameOrderByPeriod(measureName);
+
+        // Take the last N reports
+        int start = Math.max(0, reports.size() - periodCount);
+        List<MeasureReportEntity> recentReports = reports.subList(start, reports.size());
+
+        List<TrendDataPoint> dataPoints = recentReports.stream()
+                .map(report -> {
+                    Map<String, Integer> popCounts = extractPopulationCounts(report);
+                    return TrendDataPoint.builder()
+                            .periodStart(report.getPeriodStart())
+                            .periodEnd(report.getPeriodEnd())
+                            .score(report.getMeasureScore())
+                            .populationCounts(popCounts)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return MeasureTrendResult.builder()
+                .measureName(measureName)
+                .dataPoints(dataPoints)
+                .build();
+    }
+
+    private PeriodSummary buildPeriodSummary(LocalDate periodStart, LocalDate periodEnd,
+                                              List<MeasureReportEntity> reports) {
+        if (reports.isEmpty()) {
+            return PeriodSummary.builder()
+                    .periodStart(periodStart)
+                    .periodEnd(periodEnd)
+                    .build();
+        }
+
+        // Use the most recent report for this period
+        MeasureReportEntity report = reports.get(0);
+        Map<String, Integer> popCounts = extractPopulationCounts(report);
+
+        return PeriodSummary.builder()
+                .periodStart(periodStart)
+                .periodEnd(periodEnd)
+                .measureScore(report.getMeasureScore())
+                .totalPatients(report.getTotalPatients())
+                .populationCounts(popCounts)
+                .build();
+    }
+
+    private Map<String, Integer> extractPopulationCounts(MeasureReportEntity report) {
+        Map<String, Integer> counts = new HashMap<>();
+        MeasureEvaluationResult result = report.getEvaluationResult();
+        if (result != null && result.getGroups() != null) {
+            for (GroupResult group : result.getGroups()) {
+                if (group.getPopulations() != null) {
+                    for (PopulationResult pop : group.getPopulations()) {
+                        counts.put(pop.getPopulationType(), pop.getCount() != null ? pop.getCount() : 0);
+                    }
+                }
+            }
+        }
+        return counts;
+    }
+}

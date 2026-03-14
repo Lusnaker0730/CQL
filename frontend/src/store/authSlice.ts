@@ -1,20 +1,35 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 interface AuthState {
-  user: { username: string; role: string } | null
+  user: { username: string; role: string; forcePasswordChange?: boolean; department?: string } | null
   token: string | null
   isAuthenticated: boolean
   loading: boolean
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp ? payload.exp * 1000 < Date.now() : false
+  } catch {
+    return true
+  }
+}
+
 const token = localStorage.getItem('token')
 const userStr = localStorage.getItem('user')
 const user = userStr ? JSON.parse(userStr) : null
+const isExpired = token ? isTokenExpired(token) : true
+
+if (isExpired && token) {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+}
 
 const initialState: AuthState = {
-  user: user,
-  token: token,
-  isAuthenticated: !!token,
+  user: isExpired ? null : user,
+  token: isExpired ? null : token,
+  isAuthenticated: !isExpired,
   loading: false,
 }
 
@@ -24,15 +39,25 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string; username: string; role: string }>
+      action: PayloadAction<{ token: string; username: string; role: string; forcePasswordChange?: boolean; department?: string }>
     ) => {
-      const { token, username, role } = action.payload
+      const { token, username, role, forcePasswordChange, department } = action.payload
       state.token = token
-      state.user = { username, role }
+      state.user = { username, role, forcePasswordChange, department }
       state.isAuthenticated = true
       state.loading = false
       localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify({ username, role }))
+      localStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange, department }))
+    },
+    clearForcePasswordChange: (state) => {
+      if (state.user) {
+        state.user.forcePasswordChange = false
+        localStorage.setItem('user', JSON.stringify(state.user))
+      }
+    },
+    updateToken: (state, action: PayloadAction<string>) => {
+      state.token = action.payload
+      localStorage.setItem('token', action.payload)
     },
     logout: (state) => {
       state.token = null
@@ -48,5 +73,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { setCredentials, logout, setLoading } = authSlice.actions
+export const { setCredentials, clearForcePasswordChange, updateToken, logout, setLoading } = authSlice.actions
 export default authSlice.reducer

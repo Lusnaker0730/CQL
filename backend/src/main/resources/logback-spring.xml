@@ -5,7 +5,7 @@
     <springProfile name="dev,test">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] [%X{requestId:-}] %-5level %logger{36} - %msg%n</pattern>
             </encoder>
         </appender>
 
@@ -20,6 +20,7 @@
     <springProfile name="docker,prod">
         <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeMdcKeyName>requestId</includeMdcKeyName>
                 <includeMdcKeyName>traceId</includeMdcKeyName>
                 <includeMdcKeyName>spanId</includeMdcKeyName>
                 <includeMdcKeyName>userId</includeMdcKeyName>
