@@ -16,6 +16,7 @@ export default defineConfig({
           'vendor-monaco': ['monaco-editor'],
           'vendor-mui': ['@mui/material', '@mui/icons-material'],
           'vendor-state': ['@tanstack/react-query', 'react-redux', '@reduxjs/toolkit'],
+          'vendor-recharts': ['recharts'],
         },
       },
     },

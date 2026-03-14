@@ -14,6 +14,4 @@ public class UsernameRequest {
     @Size(max = 100)
     @NoXss
     private String targetUsername;
-
-    private String currentUser;
 }

@@ -21,13 +21,29 @@
       "measure": "指標",
       "score": "分數",
       "status": "狀態",
-      "date": "日期"
+      "date": "日期",
+      "target": "目標"
     },
     "loadError": "無法載入儀表板資料。{{error}}",
     "noData": "無儀表板資料。",
     "na": "N/A",
     "unknownError": "未知錯誤",
-    "inReview": "審核中"
+    "inReview": "審核中",
+    "scoreTrend": "分數趨勢",
+    "noDepartmentData": "無部門資料",
+    "periodType": "期間",
+    "monthly": "月度",
+    "quarterly": "季度",
+    "yearly": "年度",
+    "departmentScores": "部門分數",
+    "qualityReport": "品質報告",
+    "noReportData": "無報告資料",
+    "averageScore": "平均分數",
+    "aboveTarget": "達標",
+    "belowTarget": "未達標",
+    "alerts": "警示",
+    "noAlerts": "無閾值警示",
+    "score": "分數"
   },
   "library": {
     "title": "指標庫",
@@ -47,6 +63,7 @@
       "status": "狀態",
       "scoring": "評分",
       "setting": "情境",
+      "department": "科別",
       "owner": "擁有者",
       "actions": "操作"
     },
@@ -95,11 +112,19 @@
       "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過，{{valueSets}} 個值集已找到。",
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
-      "exportError": "匯出失敗：{{error}}"
+      "exportError": "匯出失敗：{{error}}",
+      "uploadFile": "上傳檔案",
+      "orPaste": "或在下方貼上 JSON"
     }
   },
   "editor": {
     "lockedWarning": "已被 {{user}} 鎖定，無法編輯。",
+    "rejectionNotice": "此指標已被 {{reviewer}} 駁回：「{{comment}}」。請處理回饋意見後重新提交。",
+    "rejectDialog": {
+      "title": "駁回指標",
+      "reasonLabel": "駁回原因",
+      "reasonPlaceholder": "請提供駁回此指標的原因..."
+    },
     "lockedBy": "已被 {{user}} 鎖定",
     "buttons": {
       "versioning": "版本管理",
@@ -128,7 +153,8 @@
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "僅 CQL",
       "elmOnly": "僅 ELM",
-      "hqmfXml": "HQMF (XML)"
+      "hqmfXml": "HQMF (XML)",
+      "humanReadable": "人類可讀文件 (HTML)"
     },
     "versionMenu": {
       "createVersion": "建立版本",
@@ -168,6 +194,8 @@
       "cmsMeasureIdPlaceholder": "例如 CMS122v12",
       "setting": "情境",
       "settingHelper": "此指標適用的照護情境",
+      "department": "科別",
+      "departmentHelper": "將此指標指派至科別以進行篩選和報告",
       "none": "無",
       "compositeScoring": "複合評分"
     },
@@ -405,6 +433,25 @@
       "edit": "編輯測試案例",
       "delete": "刪除測試案例"
     }
+  },
+  "importDialog": {
+    "title": "匯入測試案例",
+    "dropHint": "點擊或拖曳 JSON 檔案至此處以匯入測試案例",
+    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、或原始 FHIR Bundle",
+    "noValidCases": "檔案中未找到有效的測試案例。每個項目必須包含病人 Bundle。",
+    "parseError": "檔案解析失敗：{{error}}",
+    "preview": "在 {{file}} 中找到 {{count}} 個測試案例",
+    "removeFromImport": "從匯入中移除",
+    "enableDateShift": "啟用日期平移（調整病人 Bundle 中的所有日期）",
+    "shiftDays": "平移天數",
+    "shiftDaysHelp": "正數 = 往後、負數 = 往前",
+    "shiftExplanation": "病人 Bundle 中所有的日期、日期時間和期間欄位都將按指定天數平移。適用於將歷史資料對齊至評估期間。",
+    "importing": "正在匯入 {{count}} 個測試案例...",
+    "importError": "匯入失敗：{{error}}",
+    "resultSummary": "成功匯入 {{success}}/{{total}} 個測試案例",
+    "done": "完成",
+    "cancel": "取消",
+    "importCount": "匯入 {{count}} 個測試案例"
   },
   "testCaseEditor": {
     "newTitle": "新增測試案例",
@@ -759,6 +806,26 @@
       "na": "NA"
     }
   },
+  "indicators": {
+    "title": "指標代碼對應",
+    "mapped": "已對應",
+    "mohCode": "衛福部指標代碼",
+    "nhiaCode": "健保署 P4P 代碼",
+    "drgCode": "DRG 指標代碼",
+    "category": "指標類別",
+    "noCategory": "無",
+    "browse": "瀏覽目錄",
+    "hint": "將此指標對應至國家指標代碼（衛福部、健保署 P4P、DRG），以符合報告要求。",
+    "catalogTitle": "指標目錄",
+    "search": "搜尋指標...",
+    "source": "來源",
+    "allSources": "所有來源",
+    "noResults": "未找到指標。",
+    "code": "代碼",
+    "name": "名稱",
+    "select": "選擇",
+    "close": "關閉"
+  },
   "testCaseBuilder": {
     "bundleEntries": "BUNDLE 項目",
     "buildTestBundle": "建構您的測試病患 Bundle",
@@ -790,6 +857,25 @@
       "noTerminology": "無可用的 TWCORE 術語。",
       "use": "使用"
     },
+    "identifierPresets": {
+      "label": "識別碼類型",
+      "nationalId": "身分證字號",
+      "nationalIdHint": "格式：英文字母 + 9位數字",
+      "passport": "護照號碼",
+      "residentCert": "居留證號碼",
+      "medicalRecord": "病歷號"
+    },
+    "twAddress": {
+      "title": "台灣地址詳細",
+      "section": "段",
+      "village": "村里",
+      "neighborhood": "鄰",
+      "lane": "巷",
+      "alley": "弄",
+      "number": "號",
+      "floor": "樓",
+      "room": "室"
+    },
     "fields": {
       "system": "系統",
       "code": "代碼",
@@ -812,6 +898,8 @@
       "browseTwcoreAria": "瀏覽 TWCORE",
       "removeCoding": "移除編碼",
       "addCoding": "新增編碼",
+      "nameText": "姓名全文",
+      "nameTextPlaceholder": "例如：王大明",
       "givenNames": "名字",
       "addGivenName": "新增名字",
       "addressLines": "地址行",

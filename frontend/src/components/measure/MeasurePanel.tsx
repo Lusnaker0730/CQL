@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getScoreChipColor, getScoreThemeColor } from '../../utils/scoreColors'
 import {
   Box,
   Paper,
@@ -43,6 +44,7 @@ import { getDefaultMeasurePeriod } from '../../utils/dateDefaults'
 import { DEFAULT_FHIR_SERVER_URL } from '../../config/env'
 import { useNotification } from '../../hooks/useNotification'
 import FhirServerUrlField from '../common/FhirServerUrlField'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface MeasurePanelProps {
   selectedMeasure?: MeasureDefinition | null
@@ -84,11 +86,11 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             dispatch(setCqlContent(full.cqlContent))
           }
         }).catch((err) => {
-          showNotification(t('panel.loadError', { error: (err as Error).message }), 'error')
+          showNotification(t('panel.loadError', { error: extractApiError(err) }), 'error')
         })
       }
     }
-  }, [selectedMeasure, dispatch, showNotification])
+  }, [selectedMeasure, dispatch, showNotification, t])
 
   const evaluateMutation = useMutation({
     mutationFn: () => {
@@ -130,17 +132,6 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
     return translated === key ? type : translated
   }
 
-  const getScoreColor = (score: number): string => {
-    if (score >= 80) return 'success'
-    if (score >= 60) return 'warning'
-    return 'error'
-  }
-
-  const getScoreHex = (score: number): string => {
-    if (score >= 80) return 'success.main'
-    if (score >= 60) return 'warning.main'
-    return 'error.main'
-  }
 
   if (showSchedules && selectedDef) {
     return <MeasureScheduleManager measure={selectedDef} onClose={() => setShowSchedules(false)} />
@@ -270,7 +261,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
 
         {evaluateMutation.isError && (
           <Alert severity="error">
-            {t('panel.evaluationFailed', { error: (evaluateMutation.error as Error).message })}
+            {t('panel.evaluationFailed', { error: extractApiError(evaluateMutation.error) })}
           </Alert>
         )}
 
@@ -311,7 +302,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                           sx={{
                             fontSize: '3rem',
                             fontWeight: 700,
-                            color: getScoreHex(group.measureScore),
+                            color: getScoreThemeColor(group.measureScore),
                             lineHeight: 1.1,
                           }}
                         >
@@ -323,7 +314,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                         <LinearProgress
                           variant="determinate"
                           value={Math.min(group.measureScore, 100)}
-                          color={getScoreColor(group.measureScore) as 'success' | 'warning' | 'error'}
+                          color={getScoreChipColor(group.measureScore) as 'success' | 'warning' | 'error'}
                           sx={{
                             height: 10,
                             borderRadius: 5,
@@ -406,7 +397,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                     <TableCell align="right">
                                       {strat.measureScore != null && (
                                         <Typography variant="body2" sx={{
-                                          color: getScoreHex(strat.measureScore),
+                                          color: getScoreThemeColor(strat.measureScore),
                                           fontWeight: 600,
                                         }}>
                                           {strat.measureScore.toFixed(1)}%
@@ -445,9 +436,10 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                       component="pre"
                       sx={{
                         p: 2,
-                        bgcolor: '#F8FAFB',
+                        bgcolor: 'action.hover',
                         borderRadius: '8px',
-                        border: '1px solid rgba(13,115,119,0.1)',
+                        border: '1px solid',
+                        borderColor: 'divider',
                         fontSize: '0.75rem',
                         overflow: 'auto',
                         fontFamily: '"Consolas", monospace',

@@ -12,6 +12,7 @@ import { authoringApi } from '../../../api'
 import type { CqlImportResult } from '../../../types/authoring'
 import { SYSTEM_DEFINITIONS, DEF_MEETS_INCLUSION, DEF_MEETS_EXCLUSION } from '../../../constants/authoringConstants'
 import { generateId } from '../../../utils/validation'
+import { extractApiError } from '../../../utils/errorUtils'
 
 interface ImportCqlDialogProps {
   open: boolean
@@ -164,11 +165,11 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                   ...(baseElements.length > 0 && { baseElements }),
                 })
               } catch (err) {
-                showNotification(t('importCql.populateError', { error: (err as Error).message }), 'warning')
+                showNotification(t('importCql.populateError', { error: extractApiError(err) }), 'warning')
               }
             }
           } catch (err) {
-            showNotification(t('importCql.uploadError', { error: (err as Error).message }), 'warning')
+            showNotification(t('importCql.uploadError', { error: extractApiError(err) }), 'warning')
           } finally {
             setIsUploading(false)
           }

@@ -1,8 +1,11 @@
 package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.entity.CdsArtifactEntity;
+import com.cqlplatform.exception.CqlGenerationException;
+import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
+import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.repository.CdsArtifactRepository;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import lombok.RequiredArgsConstructor;
@@ -26,34 +29,49 @@ public class CqlGenerationService {
 
     @Transactional(readOnly = true)
     public String generateCql(Long artifactId, String fhirVersion) {
-        CdsArtifactEntity entity = artifactRepository.findById(artifactId)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + artifactId));
+        return doBuildCql(artifactId, fhirVersion).cql();
+    }
 
-        String version = fhirVersion != null ? fhirVersion : entity.getFhirVersion();
-        if (version == null || version.isEmpty()) {
-            version = "R4";
-        }
+    @Transactional(readOnly = true)
+    public CqlBuildResult generateCqlWithWarnings(Long artifactId, String fhirVersion) {
+        return doBuildCql(artifactId, fhirVersion);
+    }
+
+    private CqlBuildResult doBuildCql(Long artifactId, String fhirVersion) {
+        CdsArtifactEntity entity = artifactRepository.findById(artifactId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", artifactId));
+
+        // Authoring currently supports R4 only — ignore fhirVersion override
+        String version = "R4";
 
         log.debug("expTreeInclude raw JSON: {}", entity.getExpTreeInclude());
         log.debug("expTreeIncludeMap keys: {}", entity.getExpTreeIncludeMap() != null ? entity.getExpTreeIncludeMap().keySet() : "null");
         log.debug("expTreeIncludeMap childInstances: {}",
                 entity.getExpTreeIncludeMap() != null ? entity.getExpTreeIncludeMap().get("childInstances") : "null");
 
-        String cql = cqlBuilder.buildCql(
-                entity.getName(),
-                entity.getVersion(),
-                entity.getExpTreeIncludeMap(),
-                entity.getExpTreeExcludeMap(),
-                entity.getSubpopulationsList(),
-                entity.getBaseElementsList(),
-                entity.getParametersList(),
-                entity.getErrorStatementMap(),
-                entity.getRecommendationsList(),
-                version
-        );
+        CqlBuildResult result;
+        try {
+            result = cqlBuilder.buildCql(
+                    entity.getName(),
+                    entity.getVersion(),
+                    entity.getExpTreeIncludeMap(),
+                    entity.getExpTreeExcludeMap(),
+                    entity.getSubpopulationsList(),
+                    entity.getBaseElementsList(),
+                    entity.getParametersList(),
+                    entity.getErrorStatementMap(),
+                    entity.getRecommendationsList(),
+                    version
+            );
+        } catch (CqlGenerationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CqlGenerationException(
+                    "Failed to generate CQL for artifact " + artifactId + ": " + e.getMessage(), e);
+        }
 
         log.info("Generated CQL for artifact {} ({}) with FHIR version {}", entity.getName(), artifactId, version);
-        return cql;
+        return result;
     }
 
     @Transactional(readOnly = true)

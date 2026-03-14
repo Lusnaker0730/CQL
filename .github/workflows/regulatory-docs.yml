@@ -1,0 +1,144 @@
+name: Regulatory Documents
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '文件版本號 (例如 1.0.0)'
+        required: true
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  generate-docs:
+    name: Generate TFDA Regulatory Documents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Backend tests (for Surefire XML) ---
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run backend tests
+        working-directory: backend
+        run: mvn verify -B -Dspring.profiles.active=test
+
+      # --- Frontend tests (for Vitest JSON) ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests with JSON reporter
+        working-directory: frontend
+        run: npx vitest run --reporter=json --outputFile=test-results.json
+
+      # --- Generate regulatory documents ---
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r regulatory_docs/scripts/requirements.txt
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "version=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate test report
+        run: |
+          python regulatory_docs/scripts/generate_test_report.py \
+            --backend-reports backend/target/surefire-reports \
+            --frontend-report frontend/test-results.json \
+            --output regulatory_docs/output \
+            --version "${{ steps.version.outputs.version }}"
+
+      - name: Generate regulatory documents
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python regulatory_docs/scripts/generate_regulatory_docs.py \
+            --repo "${{ github.repository }}" \
+            --version "${{ steps.version.outputs.version }}" \
+            --output regulatory_docs/output
+
+      # --- Issue snapshot (tamper-proof backup) ---
+      - name: Snapshot regulatory Issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python regulatory_docs/scripts/snapshot_issues.py \
+            --repo "${{ github.repository }}" \
+            --version "${{ steps.version.outputs.version }}" \
+            --output regulatory_docs/output/snapshots
+
+      # --- SHA-256 integrity manifest ---
+      - name: Generate SHA-256 manifest
+        run: |
+          python regulatory_docs/scripts/generate_manifest.py \
+            --dir regulatory_docs/output \
+            --version "${{ steps.version.outputs.version }}" \
+            --commit "${{ github.sha }}"
+
+      # --- Upload artifacts ---
+      - name: Upload regulatory documents
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-docs-${{ steps.version.outputs.version }}
+          path: regulatory_docs/output/
+          retention-days: 365
+
+      # --- Attach to release ---
+      - name: Package documents for release
+        if: github.event_name == 'release'
+        run: |
+          cd regulatory_docs/output
+          tar -czf "../../regulatory-docs-${{ steps.version.outputs.version }}.tar.gz" .
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "regulatory-docs-${{ steps.version.outputs.version }}.tar.gz" \
+            --clobber
+
+      - name: Print manifest summary
+        run: |
+          echo "=== 法規文件完整性清單 ==="
+          cat regulatory_docs/output/MANIFEST.sha256
+          echo ""
+          echo "=== Issue 快照摘要 ==="
+          python -c "
+          import json, pathlib
+          snap = json.loads(pathlib.Path('regulatory_docs/output/snapshots/latest-snapshot.json').read_text())
+          meta = snap['metadata']
+          print(f'  版本: {meta[\"version\"]}')
+          print(f'  Commit: {meta[\"commit_sha\"]}')
+          print(f'  Issues: {meta[\"total_issues\"]}')
+          for label, count in meta['counts'].items():
+              print(f'    {label}: {count}')
+          print(f'  SHA-256: {meta[\"sha256\"]}')
+          "

@@ -4,6 +4,8 @@ import type {
   CqlExecutionRequest,
   CqlExecutionResponse,
   CqlLibrary,
+  CqlError,
+  CqlFixSuggestionResponse,
   LibraryMetadata,
   VersionComparison,
   RepositoryLibrary,
@@ -20,6 +22,11 @@ export const cqlApi = {
 
   validate: async (cql: string): Promise<CqlTranslationResponse> => {
     const response = await api.post<CqlTranslationResponse>('/cql/validate', { cql })
+    return response.data
+  },
+
+  fixSuggestion: async (cql: string, error: CqlError): Promise<CqlFixSuggestionResponse> => {
+    const response = await api.post<CqlFixSuggestionResponse>('/cql/fix-suggestion', { cql, error })
     return response.data
   },
 

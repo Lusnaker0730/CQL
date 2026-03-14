@@ -192,8 +192,8 @@ function ModifierValueEditor({
     )
   }
 
-  // WithUnit
-  if (modType === 'WithUnit') {
+  // ConvertUnits / WithUnit
+  if (modType === 'ConvertUnits' || modType === 'WithUnit') {
     return (
       <Stack direction="row" spacing={1} mt={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">{t('modifier.unit')}:</Typography>
@@ -391,8 +391,8 @@ function getMissingRequiredFields(modifier: Modifier): string[] {
     return missing
   }
 
-  // WithUnit requires unit
-  if (modifier.cqlTemplate === 'WithUnit') {
+  // ConvertUnits / WithUnit requires unit
+  if (modifier.cqlTemplate === 'ConvertUnits' || modifier.cqlTemplate === 'WithUnit') {
     return modifier.values?.unit ? [] : ['unit']
   }
 

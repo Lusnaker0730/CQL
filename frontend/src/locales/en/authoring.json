@@ -3,7 +3,8 @@
     "title": "CDS Authoring Tool",
     "subtitle": "Build clinical decision support rules visually and generate CQL automatically.",
     "deleteTitle": "Delete Artifact",
-    "deleteConfirm": "Are you sure you want to delete this artifact? This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete this artifact? This action cannot be undone.",
+    "deleteError": "Failed to delete artifact. Please try again later."
   },
   "list": {
     "title": "CDS Artifacts",
@@ -42,10 +43,27 @@
     "tabReviewCql": "Review CQL",
     "tabTesting": "Testing",
     "tabSummary": "Summary",
+    "validation": {
+      "elementMissingName": "Element #{{index}}: missing element name",
+      "elementModifierTypeMismatch": "\"{{element}}\": modifier \"{{modifier}}\" expects {{expected}}, got {{actual}}",
+      "elementModifierMissingFields": "\"{{element}}\": modifier \"{{modifier}}\" missing: {{fields}}",
+      "recommendationMissingText": "Recommendation #{{index}}: missing text",
+      "parameterMissingName": "Parameter #{{index}}: missing name",
+      "parameterMissingType": "\"{{name}}\": missing type",
+      "subpopulationMissingName": "Subpopulation #{{index}}: missing name",
+      "baseElementMissingName": "Base Element #{{index}}: missing name",
+      "errorsFound": "{{count}} issue(s) found:"
+    },
     "unsavedTitle": "Unsaved Changes",
     "unsavedMessage": "You have unsaved changes. Are you sure you want to leave? Your changes will be lost.",
     "discardChanges": "Discard Changes",
-    "shortcutsTitle": "Keyboard Shortcuts"
+    "shortcutsTitle": "Keyboard Shortcuts",
+    "conflict": {
+      "title": "Save Conflict",
+      "message": "This artifact was modified in another tab or session. You can reload the latest version (your unsaved changes will be lost) or keep editing your current version.",
+      "reload": "Reload",
+      "keepEditing": "Keep Editing"
+    }
   },
   "header": {
     "backToList": "Back to artifact list",
@@ -61,6 +79,7 @@
     "hookTypeLabel": "Hook Type",
     "deploying": "Deploying...",
     "deploy": "Deploy",
+    "saveFailed": "Save Failed",
     "deployFailed": "Deploy Failed",
     "deployHint": "Ensure your artifact has valid inclusion criteria and at least one recommendation before deploying.",
     "saveLibFailed": "Save as Library Failed",
@@ -72,7 +91,10 @@
     "regenerating": "Regenerating...",
     "regenerate": "Regenerate",
     "noCqlGenerated": "No CQL generated.",
-    "download": "Download"
+    "download": "Download",
+    "exportZip": "Export ZIP",
+    "exportZipFailed": "ZIP export failed",
+    "exporting": "Exporting..."
   },
   "cpg": {
     "title": "CPG on FHIR Metadata",
@@ -120,7 +142,12 @@
     "inclusionHint": "Define who this artifact applies to. Add demographics, conditions, observations, or other criteria.",
     "exclusionHint": "Define who should be excluded. Patients matching these criteria will be removed from the population.",
     "genericHint": "Click \"Add Element\" below to start building logic for this group.",
-    "noFilterMatch": "No elements match \"{{filter}}\""
+    "noFilterMatch": "No elements match \"{{filter}}\"",
+    "addSubGroup": "Add Sub-Group",
+    "clickToChangeAnd": "Click to change to AND",
+    "clickToChangeOr": "Click to change to OR",
+    "clickToChangeUnion": "Click to change to UNION",
+    "clickToChangeIntersect": "Click to change to INTERSECT"
   },
   "element": {
     "collapse": "Collapse element",
@@ -140,6 +167,7 @@
     "selectModifiersTitle": "Select Modifiers",
     "withModifiers": "WITH MODIFIERS",
     "filterModifiers": "Filter modifiers...",
+    "noMoreModifiers": "No more applicable modifiers for the current return type.",
     "selectModifierLabel": "Select modifier...",
     "modAccepts": "Accepts <strong>{{input}}</strong> and returns <strong>{{output}}</strong>.",
     "modCqlLabel": "CQL: {{fn}}(expression)",
@@ -185,7 +213,9 @@
   },
   "conjunctionType": {
     "and": "And",
-    "or": "Or"
+    "or": "Or",
+    "union": "Union",
+    "intersect": "Intersect"
   },
   "customModifier": {
     "title": "Build Custom Modifier",
@@ -277,7 +307,9 @@
     "colCodeSystem": "Code System",
     "colDisplayHeader": "Display",
     "validationSuccess": "Validation Successful!",
-    "selectButton": "SELECT"
+    "selectButton": "SELECT",
+    "quickSelect": "Quick Select",
+    "orManual": "OR ENTER MANUALLY"
   },
   "subpopulations": {
     "title": "Subpopulations",
@@ -365,6 +397,19 @@
     "nameRequired": "Name is required",
     "duplicateName": "Duplicate base element name"
   },
+  "arithmetic": {
+    "logicElement": "Logic Element",
+    "arithmeticElement": "Arithmetic Element",
+    "leftOperand": "Left Operand",
+    "rightOperand": "Right Operand",
+    "operator": "Operator",
+    "selectElement": "Select element...",
+    "namePlaceholder": "Calculated Value Name",
+    "cqlPreview": "CQL Preview:",
+    "literalValue": "Value",
+    "modeElement": "Element",
+    "modeLiteral": "Literal"
+  },
   "parameters": {
     "title": "Parameters",
     "add": "Add Parameter",
@@ -408,7 +453,12 @@
     "typeIntervalInt": "Interval<Integer>",
     "typeIntervalIntHint": "Range of integers (e.g., 18-65)",
     "typeIntervalDt": "Interval<DateTime>",
-    "typeIntervalDtHint": "Date range (e.g., reporting period)"
+    "typeIntervalDtHint": "Date range (e.g., reporting period)",
+    "searchCode": "Search code",
+    "intervalLow": "Low",
+    "intervalHigh": "High",
+    "intervalStart": "Start",
+    "intervalEnd": "End"
   },
   "externalCql": {
     "title": "External CQL Libraries",
@@ -447,7 +497,9 @@
     "validationErrors": "Validation found {{count}} error",
     "validationErrors_other": "Validation found {{count}} errors",
     "validationReview": "Review the errors below. Line numbers indicate where the issue occurs in the generated CQL.",
-    "emptyState": "Click \"Generate CQL\" to preview the generated CQL code from your artifact."
+    "emptyState": "Click \"Generate CQL\" to preview the generated CQL code from your artifact.",
+    "format": "Format",
+    "formatFailed": "Formatting failed"
   },
   "testing": {
     "title": "Test Artifact",

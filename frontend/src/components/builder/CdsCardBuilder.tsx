@@ -14,7 +14,9 @@ import {
 import { ContentCopy as CopyIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
+import { formatFieldValue } from '../../utils/cqlString'
+import type { FieldState } from '../../utils/cqlString'
 
 interface CdsCardBuilderProps {
   expressions: string[]
@@ -22,29 +24,11 @@ interface CdsCardBuilderProps {
   onCancel: () => void
 }
 
-type FieldMode = 'literal' | 'expression'
-
-interface FieldState {
-  value: string
-  mode: FieldMode
-}
-
 const INDICATORS = ['info', 'warning', 'critical'] as const
-
-function escapeCqlString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-}
-
-function formatFieldValue(field: FieldState): string {
-  if (!field.value) return ''
-  return field.mode === 'literal'
-    ? `'${escapeCqlString(field.value)}'`
-    : field.value
-}
 
 export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsCardBuilderProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
   const [name, setName] = useState('Card')
   const [summary, setSummary] = useState<FieldState>({ value: '', mode: 'literal' })
   const [detail, setDetail] = useState<FieldState>({ value: '', mode: 'literal' })
@@ -237,14 +221,7 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           <Tooltip title={t('common.copyToClipboard')}>
             <IconButton
               size="small"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(cqlPreview)
-                  showNotification(t('common.copiedToClipboard'), 'success', 2000)
-                } catch {
-                  showNotification(t('common.copyFailed'), 'error', 2000)
-                }
-              }}
+              onClick={() => copyToClipboard(cqlPreview)}
             >
               <CopyIcon fontSize="small" />
             </IconButton>

@@ -44,6 +44,7 @@ import { fhirApi } from '../../api'
 import type { ProfileSummary, ValueSetSummary, CodeSystemSummary } from '../../types'
 import StatusChip from '../common/StatusChip'
 import CardListSkeleton from '../common/CardListSkeleton'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface DetailDialogState {
   open: boolean
@@ -83,7 +84,7 @@ function PackagesTab() {
   const { data: packages, isLoading, error } = useIgPackages()
 
   if (isLoading) return <CardListSkeleton />
-  if (error) return <Alert severity="error">{t('ig.packageLoadError', { error: (error as Error).message })}</Alert>
+  if (error) return <Alert severity="error">{t('ig.packageLoadError', { error: extractApiError(error) })}</Alert>
   if (!packages || packages.length === 0) {
     return <Alert severity="info">{t('ig.noPackages')}</Alert>
   }
@@ -191,7 +192,7 @@ function ProfilesTab() {
       </Stack>
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">{t('ig.profileLoadError', { error: (error as Error).message })}</Alert>}
+      {error && <Alert severity="error">{t('ig.profileLoadError', { error: extractApiError(error) })}</Alert>}
 
       {profiles && (
         <>
@@ -292,7 +293,7 @@ function ValueSetsTab() {
       />
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">{t('ig.valueSetLoadError', { error: (error as Error).message })}</Alert>}
+      {error && <Alert severity="error">{t('ig.valueSetLoadError', { error: extractApiError(error) })}</Alert>}
 
       {valueSets && (
         <>
@@ -395,7 +396,7 @@ function CodeSystemsTab() {
       />
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">{t('ig.codeSystemLoadError', { error: (error as Error).message })}</Alert>}
+      {error && <Alert severity="error">{t('ig.codeSystemLoadError', { error: extractApiError(error) })}</Alert>}
 
       {codeSystems && (
         <>

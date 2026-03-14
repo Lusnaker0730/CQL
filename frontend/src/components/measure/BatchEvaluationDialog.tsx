@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getScoreChipColor } from '../../utils/scoreColors'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Dialog,
   DialogTitle,
@@ -31,12 +33,6 @@ interface BatchEvaluationDialogProps {
   open: boolean
   onClose: () => void
   measureIds: number[]
-}
-
-function getScoreColor(score: number): 'success' | 'warning' | 'error' {
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'error'
 }
 
 function formatDuration(ms: number): string {
@@ -137,7 +133,7 @@ export default function BatchEvaluationDialog({
 
           {batchMutation.isError && (
             <Alert severity="error">
-              {t('batch.evaluationFailed', { error: (batchMutation.error as Error).message })}
+              {t('batch.evaluationFailed', { error: extractApiError(batchMutation.error) })}
             </Alert>
           )}
 
@@ -190,7 +186,7 @@ export default function BatchEvaluationDialog({
                               <Chip
                                 label={`${(score * 100).toFixed(1)}%`}
                                 size="small"
-                                color={getScoreColor(score * 100)}
+                                color={getScoreChipColor(score * 100)}
                               />
                             ) : (
                               <Typography variant="body2" color="text.secondary">

@@ -1,0 +1,71 @@
+name: Regulatory Issue Snapshot
+
+# Weekly backup of all regulatory Issues — guards against
+# accidental edits/deletions that would break TFDA document consistency.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # Every Monday 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '快照版本標記 (選填)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    name: Snapshot Regulatory Issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r regulatory_docs/scripts/requirements.txt
+
+      - name: Determine version label
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=weekly-$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Snapshot regulatory Issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python regulatory_docs/scripts/snapshot_issues.py \
+            --repo "${{ github.repository }}" \
+            --version "${{ steps.version.outputs.version }}" \
+            --output regulatory_docs/snapshots
+
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-issue-snapshot-${{ steps.version.outputs.version }}
+          path: regulatory_docs/snapshots/
+          retention-days: 365
+
+      - name: Print snapshot summary
+        run: |
+          python -c "
+          import json, pathlib
+          snap = json.loads(pathlib.Path('regulatory_docs/snapshots/latest-snapshot.json').read_text())
+          meta = snap['metadata']
+          print(f'版本: {meta[\"version\"]}')
+          print(f'Commit: {meta[\"commit_sha\"]}')
+          print(f'共 {meta[\"total_issues\"]} 筆法規 Issues')
+          for label, count in meta['counts'].items():
+              print(f'  {label}: {count}')
+          print(f'SHA-256: {meta[\"sha256\"]}')
+          "

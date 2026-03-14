@@ -9,10 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -30,6 +30,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final TokenVersionService tokenVersionService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -65,9 +66,20 @@ public class PasswordResetService {
                 .build();
         tokenRepository.save(tokenEntity);
 
-        // Send email with raw token
+        // Send email after transaction commits (avoid holding DB connection during SMTP I/O)
         String resetLink = baseUrl + "/reset-password?token=" + rawToken;
-        emailService.sendPasswordResetEmail(user.getEmail(), user.getUsername(), resetLink);
+        String userEmail = user.getEmail();
+        String username = user.getUsername();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    emailService.sendPasswordResetEmail(userEmail, username, resetLink);
+                } catch (Exception e) {
+                    log.warn("Failed to send password reset email for user: {}", username, e);
+                }
+            }
+        });
 
         log.info("Password reset token generated for user: {}", user.getUsername());
     }
@@ -112,15 +124,20 @@ public class PasswordResetService {
         tokenEntity.setUsed(true);
         tokenRepository.save(tokenEntity);
 
+        // Invalidate all existing sessions after password reset
+        tokenVersionService.bumpVersion(user.getUsername());
+
         log.info("Password reset successful for user: {}", user.getUsername());
         return true;
     }
 
     /**
      * Admin resets a user's password, generating a temporary one.
+     * The temporary password is sent to the user's registered email address and is
+     * never returned in the API response to prevent plaintext exposure.
      */
     @Transactional
-    public String adminResetPassword(Long userId) {
+    public void adminResetPassword(Long userId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -133,8 +150,30 @@ public class PasswordResetService {
         user.setForcePasswordChange(true);
         userRepository.save(user);
 
+        // Invalidate all existing sessions after admin password reset
+        tokenVersionService.bumpVersion(user.getUsername());
+
         log.info("Admin reset password for user: {}", user.getUsername());
-        return temporaryPassword;
+
+        // Deliver the temporary password via email after the transaction commits so that
+        // the plaintext credential is never returned through the API (H8 fix).
+        String userEmail = user.getEmail();
+        String username = user.getUsername();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (userEmail != null && !userEmail.isBlank()) {
+                    try {
+                        emailService.sendTemporaryPasswordEmail(userEmail, username, temporaryPassword);
+                    } catch (Exception e) {
+                        log.warn("Failed to send temporary password email for user: {}", username, e);
+                    }
+                } else {
+                    log.warn("Admin reset password for user {} who has no registered email; " +
+                             "temporary password could not be delivered.", username);
+                }
+            }
+        });
     }
 
     /**
@@ -153,21 +192,14 @@ public class PasswordResetService {
         user.setForcePasswordChange(false);
         userRepository.save(user);
 
+        // Invalidate all other sessions after password change
+        tokenVersionService.bumpVersion(username);
+
         log.info("Password changed for user: {}", username);
         return true;
     }
 
     private String sha256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
+        return com.cqlplatform.util.DigestUtils.sha256Hex(input);
     }
 }

@@ -7,38 +7,38 @@ import LoginPage from '../LoginPage'
 describe('LoginPage', () => {
   it('should render login form', () => {
     render(<LoginPage />, { route: '/login' })
-    expect(screen.getByText('TWCORE CQL Platform')).toBeInTheDocument()
-    expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+    expect(screen.getByText('app.title')).toBeInTheDocument()
+    expect(screen.getByLabelText(/auth.username/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/auth.password/i)).toBeInTheDocument()
   })
 
   it('should render sign in button', () => {
     render(<LoginPage />, { route: '/login' })
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /auth.signIn/i })).toBeInTheDocument()
   })
 
   it('should have register toggle link', () => {
     render(<LoginPage />, { route: '/login' })
-    expect(screen.getByText(/don't have an account/i)).toBeInTheDocument()
+    expect(screen.getByText('auth.noAccount')).toBeInTheDocument()
   })
 
   it('should switch to register mode', async () => {
     const user = userEvent.setup()
     render(<LoginPage />, { route: '/login' })
 
-    await user.click(screen.getByText(/don't have an account/i))
+    await user.click(screen.getByText('auth.noAccount'))
 
-    expect(screen.getByRole('button', { name: /register/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /auth.register/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/auth.email/i)).toBeInTheDocument()
   })
 
   it('should switch back to login mode', async () => {
     const user = userEvent.setup()
     render(<LoginPage />, { route: '/login' })
 
-    await user.click(screen.getByText(/don't have an account/i))
-    await user.click(screen.getByText(/already have an account/i))
+    await user.click(screen.getByText('auth.noAccount'))
+    await user.click(screen.getByText('auth.alreadyHaveAccount'))
 
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /auth.signIn/i })).toBeInTheDocument()
   })
 })

@@ -5,6 +5,7 @@ import type { ElementMetadata } from '../../types'
 
 interface HumanName {
   use?: string
+  text?: string
   family?: string
   given?: string[]
   prefix?: string[]
@@ -42,6 +43,15 @@ export default function HumanNameField({ element, value, onChange }: HumanNameFi
       <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
         {element.name} {element.isRequired && '*'}
       </Typography>
+      <TextField
+        label={t('testCaseBuilder.fields.nameText')}
+        size="small"
+        fullWidth
+        value={name.text || ''}
+        onChange={(e) => onChange({ ...name, text: e.target.value || undefined })}
+        placeholder={t('testCaseBuilder.fields.nameTextPlaceholder')}
+        sx={{ mb: 1 }}
+      />
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
         <TextField
           select

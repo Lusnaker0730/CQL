@@ -99,7 +99,7 @@ public class MeasureValidationService {
         // 9. Test case sufficiency
         validateTestCases(measureId, report);
 
-        report.finalize(System.currentTimeMillis() - start);
+        report.complete(System.currentTimeMillis() - start);
         return report;
     }
 
@@ -117,7 +117,7 @@ public class MeasureValidationService {
         CqlTranslationResponse cqlResult = validateCql(measure, report);
         validatePopulations(measure, cqlResult, report);
 
-        report.finalize(System.currentTimeMillis() - start);
+        report.complete(System.currentTimeMillis() - start);
         return report;
     }
 

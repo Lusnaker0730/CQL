@@ -108,9 +108,10 @@ export default function ValidateTab() {
       {issues.length > 0 && (
         <TableContainer
           sx={{
-            bgcolor: '#F8FAFB',
+            bgcolor: 'action.hover',
             borderRadius: '8px',
-            border: '1px solid rgba(13,115,119,0.1)',
+            border: '1px solid',
+            borderColor: 'divider',
           }}
         >
           <Table size="small">

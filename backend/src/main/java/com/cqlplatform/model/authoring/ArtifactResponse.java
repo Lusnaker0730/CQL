@@ -58,4 +58,5 @@ public class ArtifactResponse {
     private String ownerUsername;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long lockVersion;
 }

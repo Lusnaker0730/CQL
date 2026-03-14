@@ -47,6 +47,9 @@ public class CdsInvocationService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private CdsAnalyticsService analyticsService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PrefetchResolver prefetchResolver;
+
     /**
      * Invoke a CDS service: execute CQL and generate cards.
      */
@@ -64,6 +67,31 @@ public class CdsInvocationService {
             execRequest.setPatientId(request.getContext() != null ? request.getContext().getPatientId() : null);
 
             RetrieveProvider prefetchProvider = buildPrefetchProvider(request);
+
+            // If no prefetch data, try dynamic resolution from prefetch templates
+            if (prefetchProvider == null && prefetchResolver != null
+                    && config.getPrefetch() != null && !config.getPrefetch().isEmpty()
+                    && request.getFhirServer() != null && !request.getFhirServer().isBlank()) {
+                log.info("Attempting dynamic prefetch template resolution for service: {}", config.getId());
+                try {
+                    Map<String, Resource> resolvedResources = prefetchResolver.resolve(config.getPrefetch(), request);
+                    if (!resolvedResources.isEmpty()) {
+                        String pid = request.getContext() != null ? request.getContext().getPatientId() : null;
+                        List<Resource> resources = new ArrayList<>(resolvedResources.values());
+                        // Auto-populate subject references
+                        if (pid != null) {
+                            Reference patRef = new Reference("Patient/" + pid);
+                            for (Resource r : resources) {
+                                ensureSubjectReference(r, patRef);
+                            }
+                        }
+                        prefetchProvider = new PrefetchRetrieveProvider(resources, pid);
+                        log.info("Built prefetch provider from {} resolved templates", resolvedResources.size());
+                    }
+                } catch (Exception e) {
+                    log.warn("Prefetch template resolution failed, falling back to FHIR server: {}", e.getMessage());
+                }
+            }
 
             if (prefetchProvider == null) {
                 String fhirServer = request.getFhirServer();
@@ -171,8 +199,56 @@ public class CdsInvocationService {
             }
         }
 
+        // Parse draftOrders from context and merge into resources
+        List<Resource> draftResources = parseDraftOrders(request);
+        if (!draftResources.isEmpty()) {
+            if (patientId != null) {
+                Reference patRef = new Reference("Patient/" + patientId);
+                for (Resource r : draftResources) {
+                    ensureSubjectReference(r, patRef);
+                }
+            }
+            resources.addAll(draftResources);
+            log.info("Merged {} resources from draftOrders", draftResources.size());
+        }
+
         log.info("Built prefetch provider with {} resources", resources.size());
         return new PrefetchRetrieveProvider(resources, patientId);
+    }
+
+    /**
+     * Parses draftOrders from the CDS request context.
+     * draftOrders is expected to be a FHIR Bundle containing draft resources
+     * (e.g. MedicationRequest, ServiceRequest) for order-select/order-sign hooks.
+     */
+    private List<Resource> parseDraftOrders(CdsRequest request) {
+        List<Resource> resources = new ArrayList<>();
+        if (request.getContext() == null || request.getContext().getDraftOrders() == null) {
+            return resources;
+        }
+
+        try {
+            String json = objectMapper.writeValueAsString(request.getContext().getDraftOrders());
+            IParser jsonParser = fhirContext.newJsonParser();
+            Resource parsed = (Resource) jsonParser.parseResource(json);
+
+            if (parsed instanceof Bundle bundle) {
+                if (bundle.hasEntry()) {
+                    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                        if (entry.hasResource()) {
+                            resources.add(entry.getResource());
+                        }
+                    }
+                }
+            } else {
+                resources.add(parsed);
+            }
+            log.info("Parsed {} resources from draftOrders", resources.size());
+        } catch (Exception e) {
+            log.warn("Failed to parse draftOrders: {}", e.getMessage());
+        }
+
+        return resources;
     }
 
     /**

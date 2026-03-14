@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Card,
@@ -9,6 +9,7 @@ import {
   Alert,
   Link,
   CircularProgress,
+  Divider,
 } from '@mui/material'
 import { LocalHospital as MedicalIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
@@ -30,6 +31,19 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({})
+  const [oktaEnabled, setOktaEnabled] = useState(false)
+  const [oktaConfig, setOktaConfig] = useState<{ authorizationEndpoint?: string; clientId?: string; scopes?: string } | null>(null)
+
+  useEffect(() => {
+    authApi.getOktaConfig().then((config) => {
+      if (config.enabled) {
+        setOktaEnabled(true)
+        setOktaConfig(config)
+      }
+    }).catch(() => {
+      // Okta not available, ignore
+    })
+  }, [])
 
   const validateFields = (): boolean => {
     const errors: { username?: string; password?: string } = {}
@@ -53,6 +67,25 @@ export default function LoginPage() {
       const err = isRegister ? validatePassword(password) : (!password ? t('validation:password.required') : null)
       setFieldErrors((prev) => ({ ...prev, password: err || undefined }))
     }
+  }
+
+  const handleOktaLogin = () => {
+    if (!oktaConfig) return
+    const state = crypto.randomUUID()
+    const nonce = crypto.randomUUID()
+    const redirectUri = window.location.origin + '/auth/okta/callback'
+    sessionStorage.setItem('okta_state', state)
+    sessionStorage.setItem('okta_nonce', nonce)
+    sessionStorage.setItem('okta_redirect_uri', redirectUri)
+    const params = new URLSearchParams({
+      client_id: oktaConfig.clientId || '',
+      response_type: 'code',
+      scope: oktaConfig.scopes || 'openid profile email',
+      redirect_uri: redirectUri,
+      state,
+      nonce,
+    })
+    window.location.href = `${oktaConfig.authorizationEndpoint}?${params.toString()}`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,6 +243,20 @@ export default function LoginPage() {
                   : t('auth.noAccount')}
               </Link>
             </Box>
+          {oktaEnabled && (
+            <>
+              <Divider sx={{ my: 2 }}>{t('auth.or')}</Divider>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="large"
+                onClick={handleOktaLogin}
+                sx={{ py: 1.5, borderRadius: 2 }}
+              >
+                {t('auth.loginWithOkta')}
+              </Button>
+            </>
+          )}
           </Box>
         </CardContent>
       </Card>

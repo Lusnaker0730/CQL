@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
@@ -16,10 +16,11 @@ interface SubpopulationsProps {
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   onChange: (subpopulations: Subpopulation[]) => void
 }
 
-export default function Subpopulations({ subpopulations, templates, modifiers, dynamicEntries, onChange }: SubpopulationsProps) {
+export default function Subpopulations({ subpopulations, templates, modifiers, dynamicEntries, twcoreMode, onChange }: SubpopulationsProps) {
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
@@ -112,6 +113,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
                   templates={templates}
                   modifiers={modifiers}
                   dynamicEntries={dynamicEntries}
+                  twcoreMode={twcoreMode}
                   onUpdateGroup={(updated) => handleUpdateTree(sp.uniqueId, updated.childInstances)}
                   onAddElement={(el) => handleUpdateTree(sp.uniqueId, [...(sp.childInstances || []), el])}
                   onRemoveElement={(uid) => handleUpdateTree(sp.uniqueId, (sp.childInstances || []).filter((c) => c.uniqueId !== uid))}
@@ -128,9 +130,9 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('subpopulations.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('subpopulations.deleteConfirm', { name: pendingDeleteName }) }}
-          />
+          <DialogContentText>
+            <Trans i18nKey="subpopulations.deleteConfirm" ns="authoring" values={{ name: pendingDeleteName }} components={{ strong: <strong /> }} />
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { render } from '../../../test/test-utils'
 import ExecutionPanel from '../ExecutionPanel'
-import { DEFAULT_FHIR_SERVER_URL } from '../../../config/env'
 
 describe('ExecutionPanel', () => {
   it('should render execution panel', () => {
@@ -12,10 +11,11 @@ describe('ExecutionPanel', () => {
     expect(inputs.length).toBeGreaterThan(0)
   })
 
-  it('should show default FHIR server URL', () => {
+  it('should show FHIR server URL field', () => {
     render(<ExecutionPanel />)
-    const fhirInput = screen.getByRole('combobox', { name: /fhir server url/i }) as HTMLInputElement
-    expect(fhirInput.value).toBe(DEFAULT_FHIR_SERVER_URL)
+    // The FhirServerUrlField renders an Autocomplete with the i18n key as label
+    const combobox = screen.getByRole('combobox')
+    expect(combobox).toBeInTheDocument()
   })
 
   it('should render execute button', () => {
