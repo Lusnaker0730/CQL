@@ -15,5 +15,11 @@ module.exports = {
       { allowConstantExport: true },
     ],
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    // Disable React Compiler rules — codebase does not use React Compiler
+    'react-hooks/set-state-in-effect': 'off',
+    'react-hooks/refs': 'off',
+    'react-hooks/purity': 'off',
+    'react-hooks/preserve-manual-memoization': 'off',
+    'react-hooks/immutability': 'off',
   },
 }

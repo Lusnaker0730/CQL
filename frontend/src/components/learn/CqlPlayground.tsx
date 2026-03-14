@@ -79,8 +79,8 @@ export default function CqlPlayground() {
         {t('learn.playground.subtitle')}
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
+      <Grid spacing={3}>
+        <Grid size={12}>
           <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             {/* Toolbar */}
             <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -168,12 +168,12 @@ export default function CqlPlayground() {
 
         {/* Result */}
         {!isAuthenticated && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Alert severity="info">{t('learn.playground.loginRequired')}</Alert>
           </Grid>
         )}
         {result && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Alert severity={result.success ? 'success' : 'error'} sx={{ whiteSpace: 'pre-line' }}>
               {result.message}
             </Alert>
