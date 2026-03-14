@@ -1,12 +1,13 @@
 package com.cqlplatform.controller;
 
-import com.cqlplatform.model.authoring.AuthoringConstants;
 import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.*;
-import com.cqlplatform.model.authoring.TwcoreCatalogEntry;
 import com.cqlplatform.model.cds.CdsServiceConfigRequest;
+import com.cqlplatform.exception.ResourceNotFoundException;
+import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.security.OwnershipVerifier;
+import com.cqlplatform.service.authoring.ArtifactExportService;
 import com.cqlplatform.service.authoring.ArtifactService;
 import com.cqlplatform.service.authoring.ArtifactTestingService;
 import com.cqlplatform.service.authoring.CqlGenerationService;
@@ -14,15 +15,20 @@ import com.cqlplatform.service.authoring.CqlImportService;
 import com.cqlplatform.service.authoring.ExternalCqlLibraryService;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.QueryBuilderService;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.authoring.TemplateService;
 import com.cqlplatform.service.authoring.TwcoreCatalogService;
 import com.cqlplatform.service.cds.CdsHooksService;
+import com.cqlplatform.service.cql.CqlFormatterService;
 import com.cqlplatform.service.cql.CqlLibraryService;
+import com.cqlplatform.validation.HookTypeValidator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +47,7 @@ import java.util.Map;
 public class AuthoringController {
 
     private final ArtifactService artifactService;
+    private final ArtifactExportService artifactExportService;
     private final TemplateService templateService;
     private final ModifierService modifierService;
     private final CqlGenerationService cqlGenerationService;
@@ -49,13 +56,14 @@ public class AuthoringController {
     private final CdsHooksService cdsHooksService;
     private final CqlLibraryService cqlLibraryService;
     private final CqlImportService cqlImportService;
+    private final CqlFormatterService cqlFormatterService;
     private final QueryBuilderService queryBuilderService;
     private final TwcoreCatalogService twcoreCatalogService;
     private final OwnershipVerifier ownershipVerifier;
 
     private void verifyArtifactOwnership(Long artifactId) {
         ArtifactResponse artifact = artifactService.getById(artifactId)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + artifactId));
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", artifactId));
         ownershipVerifier.verifyOwnership(artifact.getOwnerUsername());
     }
 
@@ -138,12 +146,16 @@ public class AuthoringController {
 
     @PostMapping("/artifacts/{id}/cql")
     @Operation(summary = "Generate CQL", description = "Generate CQL from artifact expression trees")
-    public ResponseEntity<Map<String, String>> generateCql(
-            @PathVariable Long id,
-            @RequestParam(required = false) String fhirVersion) {
+    public ResponseEntity<Map<String, Object>> generateCql(
+            @PathVariable Long id) {
         verifyArtifactOwnership(id);
-        String cql = cqlGenerationService.generateCql(id, fhirVersion);
-        return ResponseEntity.ok(Map.of("cql", cql));
+        CqlBuildResult result = cqlGenerationService.generateCqlWithWarnings(id, null);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("cql", result.cql());
+        if (result.hasWarnings()) {
+            body.put("warnings", result.warnings());
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/artifacts/{id}/elm")
@@ -177,7 +189,7 @@ public class AuthoringController {
             @PathVariable Long artifactId,
             @PathVariable Long libId) {
         verifyArtifactOwnership(artifactId);
-        return externalCqlLibraryService.getById(libId)
+        return externalCqlLibraryService.getByIdAndArtifactId(libId, artifactId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -195,7 +207,7 @@ public class AuthoringController {
             return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds 1MB limit"));
         }
         String filename = file.getOriginalFilename();
-        if (filename != null && !filename.toLowerCase().endsWith(".cql")) {
+        if (filename == null || !filename.toLowerCase().endsWith(".cql")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Only .cql files are accepted"));
         }
         // Validate CQL content is parseable text (not a binary masquerading as .cql)
@@ -217,6 +229,9 @@ public class AuthoringController {
         if (cqlContent == null || cqlContent.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "CQL content is required"));
         }
+        if (cqlContent.length() > 1_048_576) {
+            return ResponseEntity.badRequest().body(Map.of("error", "CQL content exceeds 1MB limit"));
+        }
         Map<String, Object> result = externalCqlLibraryService.uploadLibraryFromContent(id, cqlContent);
         return ResponseEntity.ok(result);
     }
@@ -227,7 +242,9 @@ public class AuthoringController {
             @PathVariable Long artifactId,
             @PathVariable Long libId) {
         verifyArtifactOwnership(artifactId);
-        externalCqlLibraryService.deleteLibrary(libId);
+        if (!externalCqlLibraryService.deleteLibraryIfOwnedByArtifact(libId, artifactId)) {
+            return ResponseEntity.notFound().build();
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -242,9 +259,13 @@ public class AuthoringController {
         @SuppressWarnings("unchecked")
         List<String> patientIds = (List<String>) request.getOrDefault("patientIds", List.of());
         String fhirServerUrl = (String) request.get("fhirServerUrl");
+        if (fhirServerUrl != null) {
+            InputValidator.requireValidUrl(fhirServerUrl);
+        }
         Map<String, Object> result = artifactTestingService.testArtifact(id, patientIds, fhirServerUrl);
         return ResponseEntity.ok(result);
     }
+
 
     @PostMapping("/artifacts/{id}/deploy-cds")
     @Operation(summary = "Deploy as CDS Service", description = "Deploy artifact as a CDS Hooks service")
@@ -258,11 +279,15 @@ public class AuthoringController {
 
         // Get artifact for metadata
         ArtifactResponse artifact = artifactService.getById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", id));
 
         String serviceId = request.getOrDefault("serviceId",
                 artifact.getName().replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase());
+        if (serviceId.length() > 100) {
+            throw new IllegalArgumentException("Service ID must not exceed 100 characters");
+        }
         String hook = request.getOrDefault("hook", "patient-view");
+        HookTypeValidator.validate(hook);
 
         CdsServiceConfigRequest configRequest = CdsServiceConfigRequest.builder()
                 .id(serviceId)
@@ -291,7 +316,7 @@ public class AuthoringController {
         verifyArtifactOwnership(id);
         String cql = cqlGenerationService.generateCql(id);
         ArtifactResponse artifact = artifactService.getById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", id));
 
         CqlLibrary library = cqlLibraryService.saveLibrary(cql, artifact.getDescription());
 
@@ -321,6 +346,9 @@ public class AuthoringController {
         if (cqlContent == null || cqlContent.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "CQL content is required"));
         }
+        if (cqlContent.length() > 1_048_576) {
+            return ResponseEntity.badRequest().body(Map.of("error", "CQL content exceeds 1MB limit"));
+        }
         Map<String, Object> result = cqlImportService.importCql(cqlContent);
         return ResponseEntity.ok(result);
     }
@@ -341,6 +369,38 @@ public class AuthoringController {
             return ResponseEntity.ok(queryBuilderService.getOperatorsForType(type));
         }
         return ResponseEntity.ok(queryBuilderService.getOperators());
+    }
+
+    // ===== ZIP Export =====
+
+    @GetMapping("/artifacts/{id}/export/zip")
+    @Operation(summary = "Export ZIP", description = "Export artifact as ZIP with CQL, ELM, FHIRHelpers, and CPG Library")
+    public ResponseEntity<byte[]> exportZip(@PathVariable Long id) {
+        verifyArtifactOwnership(id);
+        ArtifactResponse artifact = artifactService.getById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact", id));
+        byte[] zip = artifactExportService.exportAsZip(artifact);
+        String filename = artifact.getName().replaceAll("[^a-zA-Z0-9_-]", "_") + ".zip";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .body(zip);
+    }
+
+    // ===== CQL Formatter =====
+
+    @PostMapping("/format-cql")
+    @Operation(summary = "Format CQL", description = "Format CQL source code")
+    public ResponseEntity<Map<String, String>> formatCql(@RequestBody Map<String, String> request) {
+        String cql = request.get("cql");
+        if (cql == null || cql.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (cql.length() > 1_048_576) {
+            return ResponseEntity.badRequest().build();
+        }
+        String formatted = cqlFormatterService.format(cql);
+        return ResponseEntity.ok(Map.of("cql", formatted));
     }
 
     // ===== TWCORE Catalog =====

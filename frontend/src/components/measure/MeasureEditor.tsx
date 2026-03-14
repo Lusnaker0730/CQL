@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { downloadBlob } from '../../utils/download'
 import {
   Box,
   Tabs,
@@ -183,12 +184,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         default:
           return
       }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, filename)
     } catch (err) {
       setWorkflowAlert({ severity: 'error', message: t('editor.errors.exportFailed', { error: extractApiError(err) }) })
       setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)

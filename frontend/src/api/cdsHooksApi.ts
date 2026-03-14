@@ -8,6 +8,8 @@ import type {
   CdsFeedbackRequest,
   CdsServiceAnalytics,
   CdsSandboxRequest,
+  SandboxPresetRequest,
+  SandboxPresetResponse,
 } from '../types'
 import { api } from './client'
 
@@ -109,5 +111,25 @@ export const cdsHooksApi = {
   sandboxInvoke: async (serviceId: string, request: CdsSandboxRequest): Promise<CdsResponse> => {
     const response = await cdsApi.post<CdsResponse>(`/${serviceId}/sandbox`, request)
     return response.data
+  },
+
+  // Sandbox Presets
+  listPresets: async (): Promise<SandboxPresetResponse[]> => {
+    const response = await api.get<SandboxPresetResponse[]>('/sandbox/presets')
+    return response.data
+  },
+
+  createPreset: async (request: SandboxPresetRequest): Promise<SandboxPresetResponse> => {
+    const response = await api.post<SandboxPresetResponse>('/sandbox/presets', request)
+    return response.data
+  },
+
+  updatePreset: async (id: number, request: SandboxPresetRequest): Promise<SandboxPresetResponse> => {
+    const response = await api.put<SandboxPresetResponse>(`/sandbox/presets/${id}`, request)
+    return response.data
+  },
+
+  deletePreset: async (id: number): Promise<void> => {
+    await api.delete(`/sandbox/presets/${id}`)
   },
 }

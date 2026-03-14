@@ -1,0 +1,1 @@
+<#if gender?has_content>Patient.gender = '${gender}'<#else>true</#if>

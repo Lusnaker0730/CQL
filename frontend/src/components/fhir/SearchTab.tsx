@@ -169,7 +169,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
               <Chip
                 label={t('search.resourceCount', { count: getResourceCount(searchResult) })}
                 size="small"
-                sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }}
+                sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.main', fontWeight: 600 }}
               />
             </Stack>
             <Stack direction="row" spacing={0.5}>
@@ -199,9 +199,10 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           {entries.length > 0 ? (
             <TableContainer
               sx={{
-                bgcolor: '#F8FAFB',
+                bgcolor: 'action.hover',
                 borderRadius: '8px',
-                border: '1px solid rgba(13,115,119,0.1)',
+                border: '1px solid',
+                borderColor: 'divider',
               }}
             >
               <Table size="small">

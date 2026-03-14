@@ -2,6 +2,7 @@ package com.cqlplatform.repository;
 
 import com.cqlplatform.entity.AuditLogEntity;
 import com.cqlplatform.model.audit.AuditLogSearchRequest;
+import com.cqlplatform.security.InputValidator;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
@@ -39,12 +40,8 @@ public class AuditLogSpecification {
         return spec;
     }
 
-    private static String escapeLikeWildcards(String input) {
-        return input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
     private static Specification<AuditLogEntity> usernameContains(String username) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + escapeLikeWildcards(username.toLowerCase()) + "%");
+        return (root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + InputValidator.escapeLikeWildcards(username.toLowerCase()) + "%");
     }
 
     private static Specification<AuditLogEntity> actionEquals(String action) {
@@ -52,7 +49,7 @@ public class AuditLogSpecification {
     }
 
     private static Specification<AuditLogEntity> resourceTypeEquals(String resourceType) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("resourceType")), "%" + escapeLikeWildcards(resourceType.toLowerCase()) + "%");
+        return (root, query, cb) -> cb.like(cb.lower(root.get("resourceType")), "%" + InputValidator.escapeLikeWildcards(resourceType.toLowerCase()) + "%");
     }
 
     private static Specification<AuditLogEntity> statusCodeEquals(Integer statusCode) {

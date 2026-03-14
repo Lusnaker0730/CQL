@@ -1,0 +1,1 @@
+<#if value?has_content>${cqlLibraryFunction}(${expression}, ${value} ${unit})<#else>${cqlLibraryFunction}(${expression})</#if>

@@ -1,7 +1,10 @@
 package com.cqlplatform.service;
 
 import com.cqlplatform.entity.UserApiKeyEntity;
+import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserApiKeyRepository;
+import com.cqlplatform.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +16,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -20,6 +24,12 @@ class UserApiKeyServiceTest {
 
     @Mock
     private UserApiKeyRepository repository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private UserApiKeyService service;
@@ -53,27 +63,73 @@ class UserApiKeyServiceTest {
     }
 
     @Test
-    void validateApiKey_validKey_shouldReturnUsername() {
+    void validateApiKey_validKey_enabledUser_shouldReturnUsername() {
+        String plainKey = "cql_abc123";
+        String keyHash = UserApiKeyService.hashApiKey(plainKey);
         UserApiKeyEntity entity = UserApiKeyEntity.builder()
                 .id(1L)
                 .username("testuser")
-                .apiKey("cql_abc123")
+                .apiKey(keyHash)
                 .active(true)
                 .build();
-        when(repository.findByApiKeyAndActiveTrue("cql_abc123")).thenReturn(Optional.of(entity));
+        UserEntity user = UserEntity.builder().username("testuser").enabled(true).build();
+        when(repository.findByApiKeyAndActiveTrue(keyHash)).thenReturn(Optional.of(entity));
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
         when(repository.save(any())).thenReturn(entity);
 
-        Optional<String> result = service.validateApiKey("cql_abc123");
+        Optional<String> result = service.validateApiKey(plainKey);
 
         assertThat(result).isPresent().contains("testuser");
         verify(repository).save(any()); // lastUsedAt updated
     }
 
     @Test
-    void validateApiKey_invalidKey_shouldReturnEmpty() {
-        when(repository.findByApiKeyAndActiveTrue("bad_key")).thenReturn(Optional.empty());
+    void validateApiKey_validKey_disabledUser_shouldReturnEmpty() {
+        String plainKey = "cql_abc123";
+        String keyHash = UserApiKeyService.hashApiKey(plainKey);
+        UserApiKeyEntity entity = UserApiKeyEntity.builder()
+                .id(1L)
+                .username("disableduser")
+                .apiKey(keyHash)
+                .active(true)
+                .build();
+        UserEntity user = UserEntity.builder().username("disableduser").enabled(false).build();
+        when(repository.findByApiKeyAndActiveTrue(keyHash)).thenReturn(Optional.of(entity));
+        when(userRepository.findByUsername("disableduser")).thenReturn(Optional.of(user));
 
-        Optional<String> result = service.validateApiKey("bad_key");
+        Optional<String> result = service.validateApiKey(plainKey);
+
+        assertThat(result).isEmpty();
+        verify(repository, never()).save(any()); // should not update lastUsedAt
+    }
+
+    @Test
+    void validateApiKey_validKey_deletedUser_shouldReturnEmpty() {
+        String plainKey = "cql_abc123";
+        String keyHash = UserApiKeyService.hashApiKey(plainKey);
+        UserApiKeyEntity entity = UserApiKeyEntity.builder()
+                .id(1L)
+                .username("ghost")
+                .apiKey(keyHash)
+                .active(true)
+                .build();
+        when(repository.findByApiKeyAndActiveTrue(keyHash)).thenReturn(Optional.of(entity));
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        Optional<String> result = service.validateApiKey(plainKey);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void validateApiKey_invalidKey_shouldReturnEmpty() {
+        String plainKey = "bad_key";
+        String keyHash = UserApiKeyService.hashApiKey(plainKey);
+        // Hash lookup returns empty, then legacy plaintext fallback also returns empty
+        when(repository.findByApiKeyAndActiveTrue(keyHash)).thenReturn(Optional.empty());
+        when(repository.findByApiKeyAndActiveTrue(plainKey)).thenReturn(Optional.empty());
+
+        Optional<String> result = service.validateApiKey(plainKey);
 
         assertThat(result).isEmpty();
     }
@@ -127,5 +183,24 @@ class UserApiKeyServiceTest {
         boolean result = service.revokeKey(999L, "user");
 
         assertThat(result).isFalse();
+    }
+
+    @Test
+    void deactivateAllKeys_shouldDelegateToRepository() {
+        when(repository.deactivateAllByUsername("disableduser")).thenReturn(3);
+
+        int count = service.deactivateAllKeys("disableduser");
+
+        assertThat(count).isEqualTo(3);
+        verify(repository).deactivateAllByUsername("disableduser");
+    }
+
+    @Test
+    void deactivateAllKeys_noKeys_shouldReturnZero() {
+        when(repository.deactivateAllByUsername("nokeys")).thenReturn(0);
+
+        int count = service.deactivateAllKeys("nokeys");
+
+        assertThat(count).isZero();
     }
 }

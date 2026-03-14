@@ -11,7 +11,7 @@ import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
-import { useLibrariesMetadata } from '../../hooks/useCql'
+import { useRepositoryLibraries } from '../../hooks/useCql'
 import { cqlApi } from '../../api'
 
 interface IncludesSectionProps {
@@ -52,7 +52,7 @@ function getIncludeIdentifier(raw: string): string {
 
 export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, onEdit }: IncludesSectionProps) {
   const { t } = useTranslation('builder')
-  const { data: metadata = [] } = useLibrariesMetadata()
+  const { data: repoLibraries = [] } = useRepositoryLibraries()
   const [showForm, setShowForm] = useState(false)
   const [selectedLib, setSelectedLib] = useState<LibraryOption | null>(null)
   const [versions, setVersions] = useState<string[]>([])
@@ -63,14 +63,10 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
-  const libraryOptions: LibraryOption[] = metadata.map((m) => ({
-    name: m.name,
-    version: m.version,
+  const uniqueLibs: LibraryOption[] = repoLibraries.map((r) => ({
+    name: r.name,
+    version: r.version,
   }))
-
-  const uniqueLibs = libraryOptions.filter(
-    (lib, idx, arr) => arr.findIndex((l) => l.name === lib.name) === idx
-  )
 
   const handleSelectLibrary = async (lib: LibraryOption | null) => {
     setSelectedLib(lib)

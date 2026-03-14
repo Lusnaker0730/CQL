@@ -1,4 +1,6 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
+import { downloadBlob } from '../../utils/download'
 import {
   Paper,
   Typography,
@@ -45,7 +47,6 @@ import GradientButton from '../common/GradientButton'
 import StatusChip from '../common/StatusChip'
 import TableSkeleton from '../common/TableSkeleton'
 import BatchEvaluationDialog from './BatchEvaluationDialog'
-import { FixedSizeList } from 'react-window'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useNotification } from '../../hooks/useNotification'
@@ -100,7 +101,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -211,19 +212,14 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     try {
       const data = await measureApi.exportFhirMeasure(id)
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `measure-${id}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `measure-${id}.json`)
     } catch (err) {
       showNotification(t('library.importDialog.exportError', { error: extractApiError(err) }), 'error')
     }
   }
 
   return (
-    <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
+    <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Typography variant="h6">{t('library.title')}</Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -278,7 +274,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
       {isLoading && <TableSkeleton columns={6} hasCheckbox />}
 
-      <Box sx={{ overflowX: 'auto' }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" sx={{ minWidth: TABLE_MIN_WIDTH, ...TABLE_LAYOUT }}>
           <TableHead>
             <TableRow>
@@ -297,38 +293,39 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 />
               </TableCell>
               <TableCell scope="col" sx={{ width: COL_W.name }}>{t('library.tableHeaders.name')}</TableCell>
-              <TableCell scope="col" sx={{ width: COL_W.version }}>{t('library.tableHeaders.version')}</TableCell>
               <TableCell scope="col" sx={{ width: COL_W.status }}>{t('library.tableHeaders.status')}</TableCell>
               <TableCell scope="col" sx={{ width: COL_W.scoring }}>{t('library.tableHeaders.scoring')}</TableCell>
               <TableCell scope="col" sx={{ width: COL_W.department }}>{t('library.tableHeaders.department')}</TableCell>
-              <TableCell scope="col" sx={{ width: COL_W.owner }}>{t('library.tableHeaders.owner')}</TableCell>
               <TableCell scope="col" align="right" sx={{ width: COL_W.actions }}>{t('library.tableHeaders.actions')}</TableCell>
             </TableRow>
           </TableHead>
+          {!isLoading && measures.length > 0 && (
+            <TableBody>
+              {measures.map((m) => (
+                <MeasureRow
+                  key={m.id}
+                  measure={m}
+                  selected={selectedMeasureIds.has(m.id!)}
+                  onSelect={onSelectMeasure}
+                  onToggleSelect={(checked) => {
+                    const next = new Set(selectedMeasureIds)
+                    if (checked) next.add(m.id!)
+                    else next.delete(m.id!)
+                    setSelectedMeasureIds(next)
+                  }}
+                  onEdit={handleEdit}
+                  onExport={handleExport}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  t={t}
+                />
+              ))}
+            </TableBody>
+          )}
         </Table>
-
         {!isLoading && measures.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
             {t('library.emptyState')}
           </Typography>
-        )}
-
-        {measures.length > 0 && (
-          <MeasureVirtualList
-            measures={measures}
-            selectedMeasureIds={selectedMeasureIds}
-            onSelectMeasure={onSelectMeasure}
-            onToggleSelect={(id, checked) => {
-              const next = new Set(selectedMeasureIds)
-              if (checked) next.add(id)
-              else next.delete(id)
-              setSelectedMeasureIds(next)
-            }}
-            onEdit={handleEdit}
-            onExport={handleExport}
-            onDelete={(id) => deleteMutation.mutate(id)}
-            t={t}
-          />
         )}
       </Box>
 
@@ -526,130 +523,92 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   )
 }
 
-const TABLE_MIN_WIDTH = 860
+const TABLE_MIN_WIDTH = 560
 const TABLE_LAYOUT = { tableLayout: 'fixed' as const }
 const COL_W = {
-  checkbox: '4%',
-  name: '28%',
-  version: '7%',
-  status: '9%',
-  scoring: '12%',
-  department: '12%',
-  owner: '10%',
-  actions: '10%',
+  checkbox: '5%',
+  name: '40%',
+  status: '13%',
+  scoring: '16%',
+  department: '14%',
+  actions: '12%',
 }
 
-const ROW_HEIGHT = 52
-
-interface MeasureVirtualListProps {
-  measures: MeasureDefinition[]
-  selectedMeasureIds: Set<number>
-  onSelectMeasure?: (measure: MeasureDefinition) => void
-  onToggleSelect: (id: number, checked: boolean) => void
+interface MeasureRowProps {
+  measure: MeasureDefinition
+  selected: boolean
+  onSelect?: (measure: MeasureDefinition) => void
+  onToggleSelect: (checked: boolean) => void
   onEdit: (id: number, e: React.MouseEvent) => void
   onExport: (id: number) => void
   onDelete: (id: number) => void
   t: (key: string, opts?: Record<string, unknown>) => string
 }
 
-function MeasureVirtualList({
-  measures,
-  selectedMeasureIds,
-  onSelectMeasure,
+const MeasureRow = React.memo(function MeasureRow({
+  measure: m,
+  selected,
+  onSelect,
   onToggleSelect,
   onEdit,
   onExport,
   onDelete,
   t,
-}: MeasureVirtualListProps) {
-  const renderRow = useCallback(
-    ({ index, style }: { index: number; style: React.CSSProperties }) => {
-      const m = measures[index]
-      return (
-        <Table size="small" style={style} key={m.id} sx={{ minWidth: TABLE_MIN_WIDTH, ...TABLE_LAYOUT }}>
-          <TableBody>
-            <TableRow
-              hover
-              sx={{ cursor: 'pointer' }}
-              onClick={() => onSelectMeasure?.(m)}
-            >
-              <TableCell padding="checkbox" sx={{ width: COL_W.checkbox }}>
-                <Checkbox
-                  size="small"
-                  checked={selectedMeasureIds.has(m.id!)}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => onToggleSelect(m.id!, e.target.checked)}
-                />
-              </TableCell>
-              <TableCell sx={{ width: COL_W.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
-                  <Tooltip title={m.accessLevel || 'private'}>
-                    {ACCESS_ICONS[m.accessLevel || 'private'] || ACCESS_ICONS.private}
-                  </Tooltip>
-                  <Box sx={{ minWidth: 0, overflow: 'hidden' }}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Typography variant="body2" fontWeight={500} noWrap>{m.title || m.name}</Typography>
-                      {m.lockedBy && (
-                        <Tooltip title={t('library.lockedBy', { user: m.lockedBy })}>
-                          <LockClockIcon sx={{ fontSize: 14, color: 'warning.main' }} />
-                        </Tooltip>
-                      )}
-                    </Stack>
-                    {m.title && (
-                      <Typography variant="caption" color="text.secondary" noWrap display="block">{m.name}</Typography>
-                    )}
-                  </Box>
-                </Stack>
-              </TableCell>
-              <TableCell sx={{ width: COL_W.version }}>{m.version}</TableCell>
-              <TableCell sx={{ width: COL_W.status }}>
-                <StatusChip status={m.status || 'draft'} />
-              </TableCell>
-              <TableCell sx={{ width: COL_W.scoring }}>{m.scoringType}</TableCell>
-              <TableCell sx={{ width: COL_W.department }}>
-                {m.department ? (
-                  <Chip label={m.department} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
-                ) : (
-                  <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
-                )}
-              </TableCell>
-              <TableCell sx={{ width: COL_W.owner }}>
-                {m.ownerUsername ? (
-                  <Chip label={m.ownerUsername} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
-                ) : (
-                  <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
-                )}
-              </TableCell>
-              <TableCell align="right" sx={{ width: COL_W.actions }}>
-                <Stack direction="row" spacing={0} justifyContent="flex-end" flexWrap="nowrap">
-                  <IconButton size="small" aria-label={t('library.editMeasure')} onClick={(e) => onEdit(m.id!, e)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" aria-label={t('library.exportMeasure')} onClick={(e) => { e.stopPropagation(); onExport(m.id!) }}>
-                    <DownloadIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" aria-label={t('library.deleteMeasure')} color="error" onClick={(e) => { e.stopPropagation(); onDelete(m.id!) }}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      )
-    },
-    [measures, selectedMeasureIds, onSelectMeasure, onToggleSelect, onEdit, onExport, onDelete, t]
-  )
-
+}: MeasureRowProps) {
   return (
-    <FixedSizeList
-      height={Math.min(measures.length * ROW_HEIGHT, 500)}
-      width="100%"
-      itemCount={measures.length}
-      itemSize={ROW_HEIGHT}
-      overscanCount={5}
-    >
-      {renderRow}
-    </FixedSizeList>
+    <TableRow hover sx={{ cursor: 'pointer' }} onClick={() => onSelect?.(m)}>
+      <TableCell padding="checkbox" sx={{ width: COL_W.checkbox }}>
+        <Checkbox
+          size="small"
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onToggleSelect(e.target.checked)}
+        />
+      </TableCell>
+      <TableCell sx={{ width: COL_W.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+          <Tooltip title={m.accessLevel || 'private'}>
+            {ACCESS_ICONS[m.accessLevel || 'private'] || ACCESS_ICONS.private}
+          </Tooltip>
+          <Box sx={{ minWidth: 0, overflow: 'hidden' }}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Typography variant="body2" fontWeight={500} noWrap>{m.title || m.name}</Typography>
+              {m.lockedBy && (
+                <Tooltip title={t('library.lockedBy', { user: m.lockedBy })}>
+                  <LockClockIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                </Tooltip>
+              )}
+            </Stack>
+            <Typography variant="caption" color="text.secondary" noWrap display="block">
+              {m.name}{m.version ? ` v${m.version}` : ''}{m.ownerUsername ? ` · ${m.ownerUsername}` : ''}
+            </Typography>
+          </Box>
+        </Stack>
+      </TableCell>
+      <TableCell sx={{ width: COL_W.status }}>
+        <StatusChip status={m.status || 'draft'} />
+      </TableCell>
+      <TableCell sx={{ width: COL_W.scoring, fontSize: '0.8rem' }}>{m.scoringType}</TableCell>
+      <TableCell sx={{ width: COL_W.department }}>
+        {m.department ? (
+          <Chip label={m.department} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
+        ) : (
+          <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
+        )}
+      </TableCell>
+      <TableCell align="right" sx={{ width: COL_W.actions }}>
+        <Stack direction="row" spacing={0} justifyContent="flex-end" flexWrap="nowrap">
+          <IconButton size="small" aria-label={t('library.editMeasure')} onClick={(e) => onEdit(m.id!, e)}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" aria-label={t('library.exportMeasure')} onClick={(e) => { e.stopPropagation(); onExport(m.id!) }}>
+            <DownloadIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" aria-label={t('library.deleteMeasure')} color="error" onClick={(e) => { e.stopPropagation(); onDelete(m.id!) }}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      </TableCell>
+    </TableRow>
   )
-}
+})

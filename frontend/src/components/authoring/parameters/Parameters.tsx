@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
   MenuItem, Select, FormControl, InputLabel,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import UcumUnitField from '../fields/UcumUnitField'
+import ChooseCodeDialog from '../fields/ChooseCodeDialog'
 import type { Parameter } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
 
@@ -19,6 +20,7 @@ interface ParametersProps {
 export default function Parameters({ parameters, onChange }: ParametersProps) {
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [codeDialogParamId, setCodeDialogParamId] = useState<string | null>(null)
 
   const PARAMETER_TYPES = [
     { value: 'boolean', label: t('parameters.typeBoolean'), hint: t('parameters.typeBooleanHint') },
@@ -112,10 +114,34 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
             sx={{ minWidth: 200 }}
           />
         )
+      case 'datetime':
+        return (
+          <TextField
+            size="small"
+            label={t('parameters.defaultValue')}
+            type="datetime-local"
+            value={(param.value as string) || ''}
+            onChange={(e) => handleUpdate(param.uniqueId, { value: e.target.value || undefined })}
+            sx={{ minWidth: 220 }}
+            InputLabelProps={{ shrink: true }}
+          />
+        )
+      case 'time':
+        return (
+          <TextField
+            size="small"
+            label={t('parameters.defaultValue')}
+            type="time"
+            value={(param.value as string) || ''}
+            onChange={(e) => handleUpdate(param.uniqueId, { value: e.target.value || undefined })}
+            sx={{ minWidth: 150 }}
+            InputLabelProps={{ shrink: true }}
+          />
+        )
       case 'code': {
         const codeVal = (param.value as { system?: string; code?: string }) || {}
         return (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
             <TextField
               size="small"
               label={t('parameters.codeSystemUri')}
@@ -136,6 +162,11 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
               sx={{ minWidth: 120 }}
               placeholder="12345-6"
             />
+            <Tooltip title={t('parameters.searchCode')}>
+              <IconButton size="small" onClick={() => setCodeDialogParamId(param.uniqueId)}>
+                <SearchIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         )
       }
@@ -201,17 +232,66 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
           </Stack>
         )
       }
-      default:
+      case 'interval<integer>': {
+        const intVal = (param.value as { low?: number; high?: number }) || {}
         return (
-          <TextField
-            size="small"
-            label={t('parameters.defaultValue')}
-            value={(param.value as string) || ''}
-            onChange={(e) => handleUpdate(param.uniqueId, { value: e.target.value || undefined })}
-            sx={{ minWidth: 200 }}
-            placeholder={t('parameters.enterTypeValue', { type: param.type })}
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              label={t('parameters.intervalLow')}
+              type="number"
+              value={intVal.low ?? ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...intVal, low: e.target.value === '' ? undefined : parseInt(e.target.value) },
+              })}
+              sx={{ width: 120 }}
+            />
+            <Typography variant="body2" color="text.secondary">–</Typography>
+            <TextField
+              size="small"
+              label={t('parameters.intervalHigh')}
+              type="number"
+              value={intVal.high ?? ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...intVal, high: e.target.value === '' ? undefined : parseInt(e.target.value) },
+              })}
+              sx={{ width: 120 }}
+            />
+          </Stack>
         )
+      }
+      case 'interval<datetime>': {
+        const dtVal = (param.value as { low?: string; high?: string }) || {}
+        return (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              label={t('parameters.intervalStart')}
+              type="datetime-local"
+              value={dtVal.low || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...dtVal, low: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 200 }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Typography variant="body2" color="text.secondary">–</Typography>
+            <TextField
+              size="small"
+              label={t('parameters.intervalEnd')}
+              type="datetime-local"
+              value={dtVal.high || ''}
+              onChange={(e) => handleUpdate(param.uniqueId, {
+                value: { ...dtVal, high: e.target.value || undefined },
+              })}
+              sx={{ minWidth: 200 }}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        )
+      }
+      default:
+        return null
     }
   }
 
@@ -290,12 +370,25 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
         </Stack>
       )}
 
+      <ChooseCodeDialog
+        open={!!codeDialogParamId}
+        onClose={() => setCodeDialogParamId(null)}
+        onSelect={(codeRef) => {
+          if (codeDialogParamId) {
+            handleUpdate(codeDialogParamId, {
+              value: { system: codeRef.codeSystem?.id, code: codeRef.code },
+            })
+          }
+          setCodeDialogParamId(null)
+        }}
+      />
+
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('parameters.deleteTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText
-            dangerouslySetInnerHTML={{ __html: t('parameters.deleteConfirm', { name: pendingDeleteName }) }}
-          />
+          <DialogContentText>
+            <Trans i18nKey="parameters.deleteConfirm" ns="authoring" values={{ name: pendingDeleteName }} components={{ strong: <strong /> }} />
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDeleteId(null)}>{t('actions.cancel', { ns: 'common' })}</Button>

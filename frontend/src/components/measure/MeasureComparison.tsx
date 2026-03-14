@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getScoreThemeColor } from '../../utils/scoreColors'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Paper,
@@ -60,12 +62,6 @@ export default function MeasureComparison() {
     return 'text.secondary'
   }
 
-  const getScoreColor = (score: number | undefined): string => {
-    if (score == null) return 'text.disabled'
-    if (score >= 80) return 'success.main'
-    if (score >= 60) return 'warning.main'
-    return 'error.main'
-  }
 
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
@@ -108,7 +104,7 @@ export default function MeasureComparison() {
       </GradientButton>
 
       {compareMutation.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>{(compareMutation.error as Error).message}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(compareMutation.error)}</Alert>
       )}
 
       {comparison && (
@@ -128,14 +124,14 @@ export default function MeasureComparison() {
               <Card variant="outlined" sx={{ flex: 1, p: 1.5 }}>
                 <Typography variant="caption" color="text.secondary">{t('comparison.period1')}</Typography>
                 <Typography variant="body2">{comparison.period1.periodStart} - {comparison.period1.periodEnd}</Typography>
-                <Typography variant="h5" sx={{ color: getScoreColor(comparison.period1.measureScore), fontWeight: 700 }}>
+                <Typography variant="h5" sx={{ color: getScoreThemeColor(comparison.period1.measureScore), fontWeight: 700 }}>
                   {comparison.period1.measureScore != null ? `${comparison.period1.measureScore.toFixed(1)}%` : t('comparison.na')}
                 </Typography>
               </Card>
               <Card variant="outlined" sx={{ flex: 1, p: 1.5 }}>
                 <Typography variant="caption" color="text.secondary">{t('comparison.period2')}</Typography>
                 <Typography variant="body2">{comparison.period2.periodStart} - {comparison.period2.periodEnd}</Typography>
-                <Typography variant="h5" sx={{ color: getScoreColor(comparison.period2.measureScore), fontWeight: 700 }}>
+                <Typography variant="h5" sx={{ color: getScoreThemeColor(comparison.period2.measureScore), fontWeight: 700 }}>
                   {comparison.period2.measureScore != null ? `${comparison.period2.measureScore.toFixed(1)}%` : t('comparison.na')}
                 </Typography>
               </Card>
@@ -188,7 +184,7 @@ export default function MeasureComparison() {
       </Stack>
 
       {trendMutation.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>{(trendMutation.error as Error).message}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(trendMutation.error)}</Alert>
       )}
 
       {trend && trend.dataPoints.length > 0 && (
@@ -196,14 +192,14 @@ export default function MeasureComparison() {
           <CardContent>
             <Typography variant="subtitle2" gutterBottom>{t('comparison.scoreProgression', { name: trend.measureName })}</Typography>
             <Stack spacing={1.5}>
-              {trend.dataPoints.map((dp, idx) => {
+              {(() => {
                 const maxScore = Math.max(...trend.dataPoints.filter(d => d.score != null).map(d => d.score!), 100)
-                return (
+                return trend.dataPoints.map((dp, idx) => (
                   <Box key={idx}>
                     <Stack direction="row" justifyContent="space-between" mb={0.5}>
                       <Typography variant="caption">{dp.periodStart} - {dp.periodEnd}</Typography>
                       <Typography variant="caption" fontWeight={600}
-                        sx={{ color: getScoreColor(dp.score) }}>
+                        sx={{ color: getScoreThemeColor(dp.score) }}>
                         {dp.score != null ? `${dp.score.toFixed(1)}%` : t('comparison.na')}
                       </Typography>
                     </Stack>
@@ -215,14 +211,14 @@ export default function MeasureComparison() {
                         borderRadius: 4,
                         bgcolor: (theme) => `${theme.palette.primary.main}14`,
                         '& .MuiLinearProgress-bar': {
-                          bgcolor: getScoreColor(dp.score),
+                          bgcolor: getScoreThemeColor(dp.score),
                           borderRadius: 4,
                         },
                       }}
                     />
                   </Box>
-                )
-              })}
+                ))
+              })()}
             </Stack>
           </CardContent>
         </Card>

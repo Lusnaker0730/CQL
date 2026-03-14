@@ -135,6 +135,37 @@ class CdsFeedbackTest {
     }
 
     @Test
+    void processFeedback_withHtmlInDisplay_shouldEscapeBeforePersist() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc").hook("patient-view").title("Test").build();
+        cdsHooksService.registerService(config);
+
+        CdsFeedbackRequest request = CdsFeedbackRequest.builder()
+                .feedback(List.of(
+                        CdsFeedbackRequest.FeedbackItem.builder()
+                                .card("<img src=x>")
+                                .outcome("overridden")
+                                .overrideReason(CdsFeedbackRequest.OverrideReason.builder()
+                                        .code("<b>bold</b>")
+                                        .display("<img src=x onerror=alert(1)>")
+                                        .build())
+                                .build()
+                ))
+                .build();
+
+        cdsHooksService.processFeedback("test-svc", request);
+
+        ArgumentCaptor<CdsFeedbackEntity> captor = ArgumentCaptor.forClass(CdsFeedbackEntity.class);
+        verify(feedbackRepository).save(captor.capture());
+
+        CdsFeedbackEntity saved = captor.getValue();
+        // All free-text fields must be HTML-escaped
+        assertThat(saved.getCardUuid()).isEqualTo("&lt;img src=x&gt;");
+        assertThat(saved.getOverrideReasonCode()).isEqualTo("&lt;b&gt;bold&lt;/b&gt;");
+        assertThat(saved.getOverrideReasonDisplay()).isEqualTo("&lt;img src=x onerror=alert(1)&gt;");
+    }
+
+    @Test
     void getFeedback_shouldReturnResults() {
         CdsFeedbackEntity entity = CdsFeedbackEntity.builder()
                 .serviceId("test-svc").cardUuid("card-1").outcome("accepted").build();

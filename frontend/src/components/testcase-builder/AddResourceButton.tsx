@@ -6,6 +6,7 @@ import { useFhirResourceTypes } from '../../hooks/useFhirMetadata'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { getResourceIcon } from './constants'
 import { generateId } from '../../utils/validation'
+import { TWCORE_RESOURCE_DEFAULTS } from '../../constants/twcoreResourceDefaults'
 
 interface AddResourceButtonProps {
   onDirty: () => void
@@ -21,12 +22,13 @@ export default function AddResourceButton({ onDirty }: AddResourceButtonProps) {
 
   const handleAdd = (resourceType: string) => {
     const id = resourceType.toLowerCase() + '-' + generateId().slice(0, 8)
+    const defaults = TWCORE_RESOURCE_DEFAULTS[resourceType]
     dispatch({
       type: 'ADD_ENTRY',
       payload: {
         id,
         resourceType,
-        resourceData: { id },
+        resourceData: { id, ...defaults },
       },
     })
     onDirty()

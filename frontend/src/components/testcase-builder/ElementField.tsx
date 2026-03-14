@@ -1,6 +1,8 @@
-import { Box, Typography, useTheme } from '@mui/material'
-import Editor from '@monaco-editor/react'
+import { lazy, Suspense } from 'react'
+import { Box, Typography, useTheme, CircularProgress } from '@mui/material'
 import PrimitiveField from './PrimitiveField'
+
+const Editor = lazy(() => import('@monaco-editor/react'))
 import CodeField from './CodeField'
 import CodeableConceptField from './CodeableConceptField'
 import PeriodField from './PeriodField'
@@ -39,27 +41,29 @@ export default function ElementField({ element, path, value, onChange, initialCh
           {element.name} (JSON)
         </Typography>
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-          <Editor
-            height="100px"
-            language="json"
-            theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
-            value={value !== undefined ? JSON.stringify(value, null, 2) : ''}
-            onChange={(v) => {
-              try {
-                onChange(v ? JSON.parse(v) : undefined)
-              } catch {
-                // Don't update on invalid JSON
-              }
-            }}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 12,
-              lineNumbers: 'off',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              automaticLayout: true,
-            }}
-          />
+          <Suspense fallback={<Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress size={20} /></Box>}>
+            <Editor
+              height="100px"
+              language="json"
+              theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+              value={value !== undefined ? JSON.stringify(value, null, 2) : ''}
+              onChange={(v) => {
+                try {
+                  onChange(v ? JSON.parse(v) : undefined)
+                } catch {
+                  // Don't update on invalid JSON
+                }
+              }}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 12,
+                lineNumbers: 'off',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                automaticLayout: true,
+              }}
+            />
+          </Suspense>
         </Box>
       </Box>
     )
@@ -162,7 +166,8 @@ export default function ElementField({ element, path, value, onChange, initialCh
   return <PrimitiveField element={element} value={value} onChange={onChange} />
 }
 
-function getDefaultValue(element: ElementMetadata): unknown {
+// eslint-disable-next-line react-refresh/only-export-components -- utility function co-located with component
+export function getDefaultValue(element: ElementMetadata): unknown {
   const type = element.type
   if (type === 'boolean') return false
   // Specialized complex types

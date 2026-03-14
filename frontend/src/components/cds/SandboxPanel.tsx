@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { AUTOSAVE_NORMAL_MS, AUTOSAVE_FAST_MS } from '../../constants/timing'
+import { EDITOR_HEIGHT_MEDIUM, EDITOR_HEIGHT_SMALL } from '../../constants/layout'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -18,13 +20,35 @@ import {
   Tabs,
   Tab,
   useTheme,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Checkbox,
+  ListSubheader,
+  IconButton,
+  Tooltip,
 } from '@mui/material'
 import {
   ViewModule as BuilderIcon,
   Code as JsonIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+  RestartAlt as ResetIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material'
-import { useCdsServices, useSandboxInvoke } from '../../hooks/useCdsHooks'
-import type { CdsServiceDefinition, CdsCard, CdsResponse } from '../../types'
+import {
+  useCdsServices,
+  useSandboxInvoke,
+  useSandboxPresets,
+  useCreateSandboxPreset,
+  useUpdateSandboxPreset,
+  useDeleteSandboxPreset,
+} from '../../hooks/useCdsHooks'
+import type { CdsServiceDefinition, CdsCard, CdsResponse, SandboxPresetResponse } from '../../types'
+import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
 import {
@@ -40,6 +64,8 @@ import GradientButton from '../common/GradientButton'
 import { DEFAULT_PATIENT_ID, DEFAULT_PREFETCH } from '../../constants/sandboxDefaults'
 import { generateId } from '../../utils/validation'
 
+const LOCALSTORAGE_KEY = 'cds-sandbox-draft'
+
 function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
   switch (indicator) {
     case 'critical':
@@ -50,6 +76,18 @@ function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
     default:
       return 'info'
   }
+}
+
+function loadDraft(): { patientId: string; testDataJson: string } | null {
+  try {
+    const raw = localStorage.getItem(LOCALSTORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed.patientId && parsed.testDataJson) return parsed
+  } catch {
+    // ignore
+  }
+  return null
 }
 
 export default function SandboxPanel() {
@@ -68,26 +106,74 @@ function SandboxPanelInner() {
   const { showNotification } = useNotification()
   const { t } = useTranslation('cds')
 
+  // Presets hooks
+  const { data: presets } = useSandboxPresets()
+  const createPresetMutation = useCreateSandboxPreset()
+  const updatePresetMutation = useUpdateSandboxPreset()
+  const deletePresetMutation = useDeleteSandboxPreset()
+
+  // Phase 1: localStorage draft restore
+  const draft = useMemo(() => loadDraft(), [])
+  const defaultJson = JSON.stringify(DEFAULT_PREFETCH, null, 2)
+
   const [selectedService, setSelectedService] = useState('')
-  const [patientId, setPatientId] = useState(DEFAULT_PATIENT_ID)
-  const [testDataJson, setTestDataJson] = useState(JSON.stringify(DEFAULT_PREFETCH, null, 2))
+  const [patientId, setPatientId] = useState(draft?.patientId ?? DEFAULT_PATIENT_ID)
+  const [testDataJson, setTestDataJson] = useState(draft?.testDataJson ?? defaultJson)
   const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
   const [dataTab, setDataTab] = useState(0)
+  const [draftOrdersJson, setDraftOrdersJson] = useState('{"resourceType":"Bundle","type":"collection","entry":[]}')
+
+  // Critical card queue state
+  const [criticalQueue, setCriticalQueue] = useState<CdsCard[]>([])
+  const [currentCritical, setCurrentCritical] = useState<CdsCard | null>(null)
+  const [normalCards, setNormalCards] = useState<CdsCard[]>([])
+
+  // Preset UI state
+  const [activePreset, setActivePreset] = useState<SandboxPresetResponse | null>(null)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [presetName, setPresetName] = useState('')
+  const [presetDescription, setPresetDescription] = useState('')
+  const [presetShared, setPresetShared] = useState(false)
 
   const syncingRef = useRef(false)
   const initializedRef = useRef(false)
+
+  // Phase 1: localStorage debounced save
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
+    draftTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ patientId, testDataJson }))
+      } catch {
+        // storage full or unavailable
+      }
+    }, AUTOSAVE_NORMAL_MS)
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
+    }
+  }, [patientId, testDataJson])
 
   const services = useMemo(
     () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
     [servicesData?.services]
   )
 
-  // Initialize: convert default prefetch to bundle entries and load into builder
+  const selectedHook = useMemo(() => {
+    const svc = services.find((s) => s.id === selectedService)
+    return svc?.hook ?? ''
+  }, [services, selectedService])
+
+  const isOrderHook = selectedHook === 'order-select' || selectedHook === 'order-sign'
+
+  // Initialize: convert initial prefetch to bundle entries and load into builder
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true
       try {
-        const bundleJson = prefetchToBundle(DEFAULT_PREFETCH)
+        const prefetchData = JSON.parse(testDataJson)
+        const bundleJson = prefetchToBundle(prefetchData)
         const entries = parseFromBundle(bundleJson)
         if (entries.length > 0) {
           dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
@@ -96,7 +182,7 @@ function SandboxPanelInner() {
         // ignore
       }
     }
-  }, [dispatch])
+  }, [dispatch, testDataJson])
 
   // Sync: Visual Builder -> JSON (prefetch)
   useEffect(() => {
@@ -142,9 +228,110 @@ function SandboxPanelInner() {
         } catch {
           // Invalid JSON -- don't sync
         }
-      }, 500)
+      }, AUTOSAVE_FAST_MS)
     },
     [dispatch]
+  )
+
+  const loadPrefetchIntoBuilder = useCallback(
+    (json: string) => {
+      try {
+        const prefetch = JSON.parse(json)
+        const bundleJson = prefetchToBundle(prefetch)
+        const entries = parseFromBundle(bundleJson)
+        if (entries.length > 0) {
+          syncingRef.current = true
+          dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+          syncingRef.current = false
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [dispatch]
+  )
+
+  // Preset handlers
+  const handleLoadPreset = useCallback(
+    (preset: SandboxPresetResponse) => {
+      setTestDataJson(preset.prefetchJson)
+      if (preset.patientId) setPatientId(preset.patientId)
+      if (preset.serviceId) setSelectedService(preset.serviceId)
+      setActivePreset(preset)
+      loadPrefetchIntoBuilder(preset.prefetchJson)
+    },
+    [loadPrefetchIntoBuilder]
+  )
+
+  const handleResetDefault = useCallback(() => {
+    setTestDataJson(defaultJson)
+    setPatientId(DEFAULT_PATIENT_ID)
+    setActivePreset(null)
+    loadPrefetchIntoBuilder(defaultJson)
+    localStorage.removeItem(LOCALSTORAGE_KEY)
+  }, [defaultJson, loadPrefetchIntoBuilder])
+
+  const handleOpenSaveDialog = useCallback(() => {
+    if (activePreset) {
+      setPresetName(activePreset.name)
+      setPresetDescription(activePreset.description || '')
+      setPresetShared(activePreset.shared)
+    } else {
+      setPresetName('')
+      setPresetDescription('')
+      setPresetShared(false)
+    }
+    setSaveDialogOpen(true)
+  }, [activePreset])
+
+  const handleSavePreset = useCallback(async () => {
+    const request = {
+      name: presetName,
+      description: presetDescription || undefined,
+      serviceId: selectedService || undefined,
+      patientId,
+      prefetchJson: testDataJson,
+      shared: presetShared,
+    }
+    try {
+      if (activePreset) {
+        const updated = await updatePresetMutation.mutateAsync({ id: activePreset.id, request })
+        setActivePreset(updated)
+      } else {
+        const created = await createPresetMutation.mutateAsync(request)
+        setActivePreset(created)
+      }
+      showNotification(t('sandbox.presets.saveSuccess'), 'success')
+      setSaveDialogOpen(false)
+    } catch (error) {
+      showNotification(t('sandbox.presets.saveFailed', { error: extractApiError(error) }), 'error')
+    }
+  }, [
+    presetName,
+    presetDescription,
+    selectedService,
+    patientId,
+    testDataJson,
+    presetShared,
+    activePreset,
+    updatePresetMutation,
+    createPresetMutation,
+    showNotification,
+    t,
+  ])
+
+  const handleDeletePreset = useCallback(
+    async (id: number, e: React.MouseEvent) => {
+      e.stopPropagation()
+      try {
+        await deletePresetMutation.mutateAsync(id)
+        if (activePreset?.id === id) setActivePreset(null)
+        showNotification(t('sandbox.presets.deleteSuccess'), 'success')
+      } catch (error) {
+        showNotification(t('sandbox.presets.deleteFailed', { error: extractApiError(error) }), 'error')
+      }
+    },
+    [deletePresetMutation, activePreset, showNotification, t]
   )
 
   const handleSandboxInvoke = async () => {
@@ -164,6 +351,17 @@ function SandboxPanelInner() {
       }
 
       const testData = JSON.parse(testDataJson)
+
+      // Parse draftOrders for order-select/order-sign hooks
+      let draftOrders: unknown = undefined
+      if (isOrderHook && draftOrdersJson.trim()) {
+        try {
+          draftOrders = JSON.parse(draftOrdersJson)
+        } catch {
+          // Invalid JSON, skip draftOrders
+        }
+      }
+
       const response = await sandboxMutation.mutateAsync({
         serviceId: selectedService,
         request: {
@@ -172,13 +370,71 @@ function SandboxPanelInner() {
           hookInstance: generateId(),
           context: { patientId },
           testData,
+          ...(draftOrders ? { draftOrders } : {}),
         },
       })
       setSandboxResponse(response)
+
+      // Partition cards: critical vs normal
+      if (response.cards && response.cards.length > 0) {
+        const critical = response.cards.filter((c) => c.indicator === 'critical')
+        const normal = response.cards.filter((c) => c.indicator !== 'critical')
+        setNormalCards(normal)
+        if (critical.length > 0) {
+          setCurrentCritical(critical[0])
+          setCriticalQueue(critical.slice(1))
+        } else {
+          setCurrentCritical(null)
+          setCriticalQueue([])
+        }
+      } else {
+        setNormalCards([])
+        setCurrentCritical(null)
+        setCriticalQueue([])
+      }
     } catch (error) {
       showNotification(t('sandbox.invokeFailed', { error: extractApiError(error) }), 'error')
     }
   }
+
+  const handleAcceptCritical = () => {
+    if (criticalQueue.length > 0) {
+      setCurrentCritical(criticalQueue[0])
+      setCriticalQueue(criticalQueue.slice(1))
+    } else {
+      setCurrentCritical(null)
+    }
+  }
+
+  const handleOverrideCritical = (_reason: string) => {
+    if (criticalQueue.length > 0) {
+      setCurrentCritical(criticalQueue[0])
+      setCriticalQueue(criticalQueue.slice(1))
+    } else {
+      setCurrentCritical(null)
+    }
+  }
+
+  // Group presets: mine vs shared
+  const currentUsername = useMemo(() => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return ''
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.sub || ''
+    } catch {
+      return ''
+    }
+  }, [])
+
+  const myPresets = useMemo(
+    () => (presets || []).filter((p) => p.ownerUsername === currentUsername),
+    [presets, currentUsername]
+  )
+  const sharedPresets = useMemo(
+    () => (presets || []).filter((p) => p.ownerUsername !== currentUsername && p.shared),
+    [presets, currentUsername]
+  )
 
   return (
     <Stack spacing={2}>
@@ -205,10 +461,91 @@ function SandboxPanelInner() {
         fullWidth
       />
 
+      {/* Preset toolbar */}
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>{t('sandbox.presets.loadPreset')}</InputLabel>
+          <Select
+            value=""
+            onChange={(e) => {
+              const preset = (presets || []).find((p) => p.id === Number(e.target.value))
+              if (preset) handleLoadPreset(preset)
+            }}
+            label={t('sandbox.presets.loadPreset')}
+            startAdornment={<LoadIcon sx={{ mr: 0.5, color: 'action.active' }} />}
+          >
+            {myPresets.length > 0 && <ListSubheader>{t('sandbox.presets.myPresets')}</ListSubheader>}
+            {myPresets.map((p) => (
+              <MenuItem key={p.id} value={p.id}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" width="100%">
+                  <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                    {p.name}
+                  </Typography>
+                  <Tooltip title={t('common:delete')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleDeletePreset(p.id, e)}
+                      sx={{ ml: 1 }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </MenuItem>
+            ))}
+            {sharedPresets.length > 0 && <ListSubheader>{t('sandbox.presets.sharedPresets')}</ListSubheader>}
+            {sharedPresets.map((p) => (
+              <MenuItem key={p.id} value={p.id}>
+                <Typography variant="body2" noWrap>
+                  {p.name}
+                  <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                    ({p.ownerUsername})
+                  </Typography>
+                </Typography>
+              </MenuItem>
+            ))}
+            {myPresets.length === 0 && sharedPresets.length === 0 && (
+              <MenuItem disabled>{t('sandbox.presets.noPresets')}</MenuItem>
+            )}
+          </Select>
+        </FormControl>
+
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<SaveIcon />}
+          onClick={handleOpenSaveDialog}
+        >
+          {activePreset ? t('sandbox.presets.overwrite') : t('sandbox.presets.savePreset')}
+        </Button>
+
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<ResetIcon />}
+          onClick={handleResetDefault}
+        >
+          {t('sandbox.presets.resetDefault')}
+        </Button>
+
+        {activePreset && (
+          <Chip
+            label={t('sandbox.presets.loadedChip', { name: activePreset.name })}
+            size="small"
+            color="primary"
+            variant="outlined"
+            onDelete={() => setActivePreset(null)}
+          />
+        )}
+      </Stack>
+
       <Box>
         <Tabs value={dataTab} onChange={(_, v) => setDataTab(v)} sx={{ mb: 1 }}>
           <Tab icon={<BuilderIcon />} iconPosition="start" label={t('sandbox.tabVisualBuilder')} sx={{ textTransform: 'none', minHeight: 42 }} />
           <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabJsonPrefetch')} sx={{ textTransform: 'none', minHeight: 42 }} />
+          {isOrderHook && (
+            <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabDraftOrders')} sx={{ textTransform: 'none', minHeight: 42 }} />
+          )}
         </Tabs>
 
         {dataTab === 0 && (
@@ -218,7 +555,7 @@ function SandboxPanelInner() {
         {dataTab === 1 && (
           <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
             <Editor
-              height="350px"
+              height={EDITOR_HEIGHT_MEDIUM}
               language="json"
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
               value={testDataJson}
@@ -231,6 +568,30 @@ function SandboxPanelInner() {
                 tabSize: 2,
               }}
             />
+          </Box>
+        )}
+
+        {dataTab === 2 && isOrderHook && (
+          <Box>
+            <Alert severity="info" sx={{ mb: 1 }}>
+              {t('sandbox.draftOrdersDescription')}
+            </Alert>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+              <Editor
+                height={EDITOR_HEIGHT_SMALL}
+                language="json"
+                theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+                value={draftOrdersJson}
+                onChange={(v) => setDraftOrdersJson(v || '')}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                }}
+              />
+            </Box>
           </Box>
         )}
       </Box>
@@ -252,13 +613,23 @@ function SandboxPanelInner() {
         <Alert severity="error">{t('sandbox.invokeError', { error: extractApiError(sandboxMutation.error) })}</Alert>
       )}
 
-      {sandboxResponse && sandboxResponse.cards && sandboxResponse.cards.length > 0 && (
+      {/* Critical Card Dialog */}
+      {currentCritical && (
+        <CriticalCardDialog
+          open={!!currentCritical}
+          card={currentCritical}
+          onAccept={handleAcceptCritical}
+          onOverride={handleOverrideCritical}
+        />
+      )}
+
+      {sandboxResponse && normalCards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
             {t('sandbox.results', { count: sandboxResponse.cards.length })}
           </Typography>
           <Stack spacing={2}>
-            {sandboxResponse.cards.map((card: CdsCard) => (
+            {normalCards.map((card: CdsCard) => (
               <Card
                 key={card.uuid}
                 variant="outlined"
@@ -283,10 +654,11 @@ function SandboxPanelInner() {
                       variant="body2"
                       color="text.secondary"
                       sx={{ whiteSpace: 'pre-line' }}
-                      dangerouslySetInnerHTML={{
-                        __html: card.detail.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
-                      }}
-                    />
+                    >
+                      {card.detail.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+                        i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
+                      )}
+                    </Typography>
                   )}
                   {card.suggestions && card.suggestions.length > 0 && (
                     <Box mt={1}>
@@ -315,6 +687,57 @@ function SandboxPanelInner() {
           ))}
         </Alert>
       )}
+
+      {/* Save Preset Dialog */}
+      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('sandbox.presets.saveDialogTitle')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label={t('sandbox.presets.nameLabel')}
+              placeholder={t('sandbox.presets.namePlaceholder')}
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              size="small"
+              fullWidth
+              required
+              autoFocus
+            />
+            <TextField
+              label={t('sandbox.presets.descriptionLabel')}
+              placeholder={t('sandbox.presets.descriptionPlaceholder')}
+              value={presetDescription}
+              onChange={(e) => setPresetDescription(e.target.value)}
+              size="small"
+              fullWidth
+              multiline
+              rows={2}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={presetShared}
+                  onChange={(e) => setPresetShared(e.target.checked)}
+                />
+              }
+              label={t('sandbox.presets.sharedLabel')}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveDialogOpen(false)}>{t('common:cancel')}</Button>
+          <GradientButton
+            onClick={handleSavePreset}
+            disabled={!presetName.trim() || createPresetMutation.isPending || updatePresetMutation.isPending}
+          >
+            {createPresetMutation.isPending || updatePresetMutation.isPending
+              ? t('sandbox.presets.saving')
+              : activePreset
+                ? t('sandbox.presets.update')
+                : t('sandbox.presets.save')}
+          </GradientButton>
+        </DialogActions>
+      </Dialog>
     </Stack>
   )
 }

@@ -1,0 +1,123 @@
+import { Box, Typography, Paper, Grid, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import CodeBlock from './CodeBlock'
+import { CQL_EXAMPLE_DIABETES } from '../../constants/cqlExamples'
+
+const PROFILES = [
+  { resource: 'Patient', profile: 'Patient-twcore', descKey: 'patientDesc' },
+  { resource: 'Condition', profile: 'Condition-twcore', descKey: 'conditionDesc' },
+  { resource: 'Observation', profile: 'Observation-laboratoryResult-twcore', descKey: 'observationDesc' },
+  { resource: 'MedicationRequest', profile: 'MedicationRequest-twcore', descKey: 'medicationDesc' },
+  { resource: 'Encounter', profile: 'Encounter-twcore', descKey: 'encounterDesc' },
+  { resource: 'Procedure', profile: 'Procedure-twcore', descKey: 'procedureDesc' },
+] as const
+
+const CODE_SYSTEMS = [
+  { key: 'icd10cm', url: 'https://twcore.mohw.gov.tw/.../icd-10-cm-2023-tw' },
+  { key: 'icd10pcs', url: 'https://twcore.mohw.gov.tw/.../icd-10-pcs-2023-tw' },
+  { key: 'nhiMed', url: 'https://twcore.mohw.gov.tw/.../medication-nhi-tw' },
+  { key: 'nhiProc', url: 'https://twcore.mohw.gov.tw/.../medical-service-payment-tw' },
+  { key: 'dept', url: 'https://twcore.mohw.gov.tw/.../department-tw' },
+] as const
+
+export default function TwcoreGuide() {
+  const { t } = useTranslation('landing')
+
+  return (
+    <Box>
+      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+        {t('learn.twcore.title')}
+      </Typography>
+
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        {/* Overview */}
+        <Grid item xs={12}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+              {t('learn.twcore.overview.title')}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+              {t('learn.twcore.overview.content')}
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* Profiles Table */}
+        <Grid item xs={12} md={7}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+              {t('learn.twcore.profiles.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+              {t('learn.twcore.profiles.content')}
+            </Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>FHIR Resource</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>TWCORE Profile</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {PROFILES.map(({ resource, profile, descKey }) => (
+                    <TableRow key={resource}>
+                      <TableCell>
+                        <Chip label={resource} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>
+                          {profile}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {t(`learn.twcore.profiles.${descKey}`)}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+
+        {/* Code Systems */}
+        <Grid item xs={12} md={5}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+              {t('learn.twcore.codeSystems.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+              {t('learn.twcore.codeSystems.content')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {CODE_SYSTEMS.map(({ key }) => (
+                <Box key={key} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
+                  <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                    {t(`learn.twcore.codeSystems.${key}`)}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Full Example */}
+        <Grid item xs={12}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+              {t('learn.twcore.example.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+              {t('learn.twcore.example.description')}
+            </Typography>
+            <CodeBlock code={CQL_EXAMPLE_DIABETES} maxHeight={500} />
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  )
+}
