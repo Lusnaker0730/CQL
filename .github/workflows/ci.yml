@@ -110,8 +110,8 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_DB: cqlplatform_test
-          POSTGRES_USER: cqltest
-          POSTGRES_PASSWORD: cqltest
+          POSTGRES_USER: ${{ secrets.CI_PG_USER || 'cqltest' }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_PG_PASSWORD || 'cqltest' }}
         ports:
           - 5432:5432
         options: >-
@@ -144,8 +144,8 @@ jobs:
         run: |
           mvn flyway:validate -B \
             -Dflyway.url=jdbc:postgresql://localhost:5432/cqlplatform_test \
-            -Dflyway.user=cqltest \
-            -Dflyway.password=cqltest \
+            -Dflyway.user=${{ secrets.CI_PG_USER || 'cqltest' }} \
+            -Dflyway.password=${{ secrets.CI_PG_PASSWORD || 'cqltest' }} \
             -Dflyway.locations=classpath:db/migration
 
       - name: Verify rollback scripts exist
