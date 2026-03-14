@@ -65,15 +65,15 @@ export default function MeasuresPage() {
         )}
 
         {topTab === 1 && (
-          <Grid container spacing={2} sx={{ height: '100%' }}>
+          <Grid spacing={2} sx={{ height: '100%' }}>
             {/* Left panel: Measure Library */}
-            <Grid item xs={12} md={selectedMeasure ? 4 : 12} sx={{ height: '100%' }}>
+            <Grid size={{ xs: 12, md: selectedMeasure ? 4 : 12 }} sx={{ height: '100%' }}>
               <MeasureLibrary onSelectMeasure={handleSelectMeasure} />
             </Grid>
 
             {/* Right panel: Measure Editor */}
             {selectedMeasure && (
-              <Grid item xs={12} md={8} sx={{ height: '100%' }}>
+              <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
                 <MeasureEditor
                   measure={selectedMeasure}
                   onMeasureUpdate={handleMeasureUpdate}

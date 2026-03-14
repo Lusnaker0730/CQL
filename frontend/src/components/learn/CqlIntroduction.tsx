@@ -16,9 +16,9 @@ export default function CqlIntroduction() {
         {t('learn.introduction.title')}
       </Typography>
 
-      <Grid container spacing={3} sx={{ mt: 1 }}>
+      <Grid spacing={3} sx={{ mt: 1 }}>
         {/* What is CQL */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               {t('learn.introduction.what.title')}
@@ -30,7 +30,7 @@ export default function CqlIntroduction() {
         </Grid>
 
         {/* Why CQL */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               {t('learn.introduction.why.title')}
@@ -58,7 +58,7 @@ export default function CqlIntroduction() {
         </Grid>
 
         {/* CQL + FHIR Relationship */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               <RelationIcon sx={{ mr: 1, verticalAlign: 'middle', fontSize: 22 }} />
@@ -79,15 +79,15 @@ export default function CqlIntroduction() {
         </Grid>
 
         {/* Application Scenarios */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               <AppIcon sx={{ mr: 1, verticalAlign: 'middle', fontSize: 22 }} />
               {t('learn.introduction.applications.title')}
             </Typography>
-            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid spacing={2} sx={{ mt: 0.5 }}>
               {(['ecqm', 'cds', 'phenotyping', 'research'] as const).map((key) => (
-                <Grid item xs={12} sm={6} key={key}>
+                <Grid size={{ xs: 12, sm: 6 }} key={key}>
                   <Box
                     sx={{
                       p: 2,

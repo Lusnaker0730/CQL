@@ -27,11 +27,11 @@ export default function CdsPage() {
         </Typography>
       </Box>
 
-      <Grid container spacing={2} sx={{ height: 'calc(100% - 90px)' }}>
-        <Grid item xs={12} md={6}>
+      <Grid spacing={2} sx={{ height: 'calc(100% - 90px)' }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <CqlEditor height="100%" />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <CdsPanel />
         </Grid>
       </Grid>

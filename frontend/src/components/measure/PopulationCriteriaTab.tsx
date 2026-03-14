@@ -748,9 +748,9 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   ))}
                 </TextField>
 
-                <Grid container spacing={2}>
+                <Grid spacing={2}>
                   {/* Left column: standard populations */}
-                  <Grid item xs={12} md={hasExclusions ? 6 : 12}>
+                  <Grid size={{ xs: 12, md: hasExclusions ? 6 : 12 }}>
                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                       {t('populationCriteria.populations')}
                     </Typography>
@@ -780,7 +780,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
                   {/* Right column: exclusion / exception populations */}
                   {hasExclusions && (
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                         {t('populationCriteria.exclusions')}
                       </Typography>

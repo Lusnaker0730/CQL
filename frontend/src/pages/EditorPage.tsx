@@ -306,12 +306,12 @@ export default function EditorPage() {
         accept=".json,.cql"
         style={{ display: 'none' }}
       />
-      <Grid container spacing={2} sx={{ height: '100%' }}>
-        <Grid item xs={12} md={2} sx={{ height: '100%', display: { xs: 'none', md: 'block' } }}>
+      <Grid spacing={2} sx={{ height: '100%' }}>
+        <Grid size={{ xs: 12, md: 2 }} sx={{ height: '100%', display: { xs: 'none', md: 'block' } }}>
           <LibraryQuickAccess />
         </Grid>
 
-        <Grid item xs={12} md={5.5} sx={{ height: '100%' }}>
+        <Grid size={{ xs: 12, md: 5.5 }} sx={{ height: '100%' }}>
           <Paper
             sx={{
               height: '100%',
@@ -550,7 +550,7 @@ export default function EditorPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={4.5} sx={{ height: '100%' }}>
+        <Grid size={{ xs: 12, md: 4.5 }} sx={{ height: '100%' }}>
           <Paper
             sx={{
               height: '100%',
