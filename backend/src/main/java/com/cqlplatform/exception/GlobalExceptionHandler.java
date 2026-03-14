@@ -4,6 +4,9 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -18,6 +21,26 @@ import java.util.List;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResourceException(DuplicateResourceException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", ex.getMessage(), ex.getDetails());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", "A database constraint was violated");
+    }
+
     @ExceptionHandler(CqlTranslationException.class)
     public ResponseEntity<ErrorResponse> handleCqlTranslationException(CqlTranslationException ex) {
         List<String> details = ex.getErrors().stream()
@@ -26,9 +49,23 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "CQL Translation Error", ex.getMessage(), details);
     }
 
+    @ExceptionHandler(CqlGenerationException.class)
+    public ResponseEntity<ErrorResponse> handleCqlGenerationException(CqlGenerationException ex) {
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "CQL Generation Error", ex.getMessage(), ex.getDetails());
+    }
+
     @ExceptionHandler(CqlExecutionException.class)
     public ResponseEntity<ErrorResponse> handleCqlExecutionException(CqlExecutionException ex) {
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "CQL Execution Error", ex.getMessage());
+        String msg = ex.getMessage();
+        HttpStatus status;
+        if (msg != null && msg.contains("timed out")) {
+            status = HttpStatus.GATEWAY_TIMEOUT;
+        } else if (msg != null && msg.contains("pool exhausted")) {
+            status = HttpStatus.SERVICE_UNAVAILABLE;
+        } else {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        return buildResponse(status, "CQL Execution Error", msg);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -58,6 +95,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, "Access Denied", message);
     }
 
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockException(ObjectOptimisticLockingFailureException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict",
+                "This record was modified by another session. Please reload and try again.");
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
@@ -82,6 +125,7 @@ public class GlobalExceptionHandler {
                 .error(error)
                 .message(message)
                 .details(details)
+                .requestId(MDC.get("requestId"))
                 .build();
         return ResponseEntity.status(status).body(response);
     }
@@ -94,5 +138,6 @@ public class GlobalExceptionHandler {
         private String error;
         private String message;
         private List<String> details;
+        private String requestId;
     }
 }

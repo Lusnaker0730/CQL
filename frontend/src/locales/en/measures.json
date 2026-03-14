@@ -21,13 +21,29 @@
       "measure": "Measure",
       "score": "Score",
       "status": "Status",
-      "date": "Date"
+      "date": "Date",
+      "target": "Target"
     },
     "loadError": "Failed to load dashboard data. {{error}}",
     "noData": "No dashboard data available.",
     "na": "N/A",
     "unknownError": "Unknown error",
-    "inReview": "In Review"
+    "inReview": "In Review",
+    "scoreTrend": "Score Trend",
+    "noDepartmentData": "No department data available",
+    "periodType": "Period",
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly",
+    "departmentScores": "Department Scores",
+    "qualityReport": "Quality Report",
+    "noReportData": "No report data available",
+    "averageScore": "Average Score",
+    "aboveTarget": "Above Target",
+    "belowTarget": "Below Target",
+    "alerts": "Alerts",
+    "noAlerts": "No threshold alerts",
+    "score": "Score"
   },
   "library": {
     "title": "Measure Library",
@@ -47,6 +63,7 @@
       "status": "Status",
       "scoring": "Scoring",
       "setting": "Setting",
+      "department": "Department",
       "owner": "Owner",
       "actions": "Actions"
     },
@@ -95,12 +112,20 @@
       "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped, {{valueSets}} value sets found.",
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
-      "exportError": "Export failed: {{error}}"
+      "exportError": "Export failed: {{error}}",
+      "uploadFile": "Upload File",
+      "orPaste": "or paste JSON below"
     }
   },
   "editor": {
     "lockedWarning": "Locked by {{user}}. Editing disabled.",
     "lockedBy": "Locked by {{user}}",
+    "rejectionNotice": "This measure was rejected by {{reviewer}}: \"{{comment}}\". Please address the feedback and resubmit.",
+    "rejectDialog": {
+      "title": "Reject Measure",
+      "reasonLabel": "Rejection Reason",
+      "reasonPlaceholder": "Please provide feedback on why this measure is being rejected..."
+    },
     "buttons": {
       "versioning": "Versioning",
       "lock": "Lock",
@@ -128,7 +153,8 @@
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "CQL Only",
       "elmOnly": "ELM Only",
-      "hqmfXml": "HQMF (XML)"
+      "hqmfXml": "HQMF (XML)",
+      "humanReadable": "Human Readable (HTML)"
     },
     "versionMenu": {
       "createVersion": "Create Version",
@@ -168,6 +194,8 @@
       "cmsMeasureIdPlaceholder": "e.g. CMS122v12",
       "setting": "Setting",
       "settingHelper": "Care setting where this measure applies",
+      "department": "Department",
+      "departmentHelper": "Assign this measure to a department for filtering and reporting",
       "none": "None",
       "compositeScoring": "Composite Scoring"
     },
@@ -405,6 +433,25 @@
       "edit": "Edit test case",
       "delete": "Delete test case"
     }
+  },
+  "importDialog": {
+    "title": "Import Test Cases",
+    "dropHint": "Click or drag a JSON file here to import test cases",
+    "formatHint": "Supports: JSON array, single test case, MADiE format, or bare FHIR Bundle",
+    "noValidCases": "No valid test cases found in the file. Each item must contain a patient Bundle.",
+    "parseError": "Failed to parse file: {{error}}",
+    "preview": "{{count}} test case(s) found in {{file}}",
+    "removeFromImport": "Remove from import",
+    "enableDateShift": "Enable date shifting (adjust all dates in patient bundles)",
+    "shiftDays": "Shift days",
+    "shiftDaysHelp": "Positive = forward, negative = backward",
+    "shiftExplanation": "All date, dateTime, and period fields in patient bundles will be shifted by the specified number of days. Useful for aligning historical data with the measurement period.",
+    "importing": "Importing {{count}} test case(s)...",
+    "importError": "Import failed: {{error}}",
+    "resultSummary": "{{success}} of {{total}} test case(s) imported successfully",
+    "done": "Done",
+    "cancel": "Cancel",
+    "importCount": "Import {{count}} test case(s)"
   },
   "testCaseEditor": {
     "newTitle": "New Test Case",
@@ -759,6 +806,26 @@
       "na": "NA"
     }
   },
+  "indicators": {
+    "title": "Indicator Code Mapping",
+    "mapped": "Mapped",
+    "mohCode": "MOH Indicator Code",
+    "nhiaCode": "NHIA P4P Code",
+    "drgCode": "DRG Indicator Code",
+    "category": "Indicator Category",
+    "noCategory": "None",
+    "browse": "Browse Catalog",
+    "hint": "Map this measure to national indicator codes (MOH, NHIA P4P, DRG) for reporting compliance.",
+    "catalogTitle": "Indicator Catalog",
+    "search": "Search indicators...",
+    "source": "Source",
+    "allSources": "All Sources",
+    "noResults": "No indicators found.",
+    "code": "Code",
+    "name": "Name",
+    "select": "Select",
+    "close": "Close"
+  },
   "testCaseBuilder": {
     "bundleEntries": "BUNDLE ENTRIES",
     "buildTestBundle": "Build your test patient bundle",
@@ -790,6 +857,25 @@
       "noTerminology": "No TWCORE terminology available.",
       "use": "Use"
     },
+    "identifierPresets": {
+      "label": "Identifier Type",
+      "nationalId": "National ID",
+      "nationalIdHint": "Format: 1 letter + 9 digits",
+      "passport": "Passport",
+      "residentCert": "Resident Certificate",
+      "medicalRecord": "Medical Record No."
+    },
+    "twAddress": {
+      "title": "Taiwan Address Details",
+      "section": "Section",
+      "village": "Village",
+      "neighborhood": "Neighborhood",
+      "lane": "Lane",
+      "alley": "Alley",
+      "number": "Number",
+      "floor": "Floor",
+      "room": "Room"
+    },
     "fields": {
       "system": "system",
       "code": "code",
@@ -812,6 +898,8 @@
       "browseTwcoreAria": "Browse TWCORE",
       "removeCoding": "Remove coding",
       "addCoding": "Add Coding",
+      "nameText": "Full Name Text",
+      "nameTextPlaceholder": "e.g. John Smith",
       "givenNames": "given names",
       "addGivenName": "Add given name",
       "addressLines": "address lines",

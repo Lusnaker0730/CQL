@@ -22,5 +22,6 @@ public class StratifierDefinition {
     @Size(max = 2000)
     private String description;
 
+    @Size(max = 20)
     private List<String> associations;
 }

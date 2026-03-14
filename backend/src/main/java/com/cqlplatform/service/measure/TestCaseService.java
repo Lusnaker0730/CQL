@@ -5,15 +5,21 @@ import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
 import com.cqlplatform.repository.TestCaseRepository;
+import com.cqlplatform.service.cds.PrefetchRetrieveProvider;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import ca.uhn.fhir.context.FhirContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
+import org.opencds.cqf.cql.engine.runtime.DateTime;
+import org.opencds.cqf.cql.engine.runtime.Interval;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,6 +31,8 @@ public class TestCaseService {
     private final TestCaseRepository repository;
     private final MeasureDefinitionService definitionService;
     private final CqlExecutionService cqlExecutionService;
+    private final DateShiftService dateShiftService;
+    private final FhirContext fhirContext;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -79,6 +87,44 @@ public class TestCaseService {
     public void delete(Long id) {
         repository.deleteById(id);
         log.info("Deleted test case {}", id);
+    }
+
+    // ===== Batch Import =====
+
+    @Transactional
+    public BatchTestCaseImportResult batchImport(Long measureDefinitionId, List<TestCase> testCases, int dateShiftDays) {
+        definitionService.getById(measureDefinitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+
+        List<TestCase> imported = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < testCases.size(); i++) {
+            try {
+                TestCase tc = testCases.get(i);
+                // Apply date shifting if requested
+                if (dateShiftDays != 0 && tc.getPatientBundleJson() != null && !tc.getPatientBundleJson().isBlank()) {
+                    tc.setPatientBundleJson(dateShiftService.shiftDates(tc.getPatientBundleJson(), dateShiftDays));
+                }
+                TestCase created = create(measureDefinitionId, tc);
+                imported.add(created);
+            } catch (Exception e) {
+                String title = testCases.get(i).getTitle();
+                errors.add(String.format("Item %d (%s): %s", i + 1, title != null ? title : "untitled", e.getMessage()));
+                log.warn("Failed to import test case {} for measure {}", i, measureDefinitionId, e);
+            }
+        }
+
+        log.info("Batch imported {}/{} test cases for measure {} (dateShift={})",
+                imported.size(), testCases.size(), measureDefinitionId, dateShiftDays);
+
+        return BatchTestCaseImportResult.builder()
+                .totalReceived(testCases.size())
+                .successCount(imported.size())
+                .failureCount(errors.size())
+                .imported(imported)
+                .errors(errors)
+                .build();
     }
 
     // ===== Execution =====
@@ -158,12 +204,16 @@ public class TestCaseService {
         }
 
         try {
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
+            PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
+
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
-            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
             execRequest.setPatientId(patientId);
+            execRequest.setParameters(buildMeasurementPeriodParams(measure));
 
-            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+            CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
             List<CoverageResult.ExpressionCoverage> definitions = new ArrayList<>();
             List<CoverageResult.ExpressionCoverage> functions = new ArrayList<>();
@@ -215,14 +265,17 @@ public class TestCaseService {
         }
 
         try {
-            // Execute CQL with the test case's patient context
+            // Parse the test case bundle and create an in-memory data provider
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
+            PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
+
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
-
-            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
             execRequest.setPatientId(patientId);
+            execRequest.setParameters(buildMeasurementPeriodParams(measure));
 
-            CqlExecutionResponse execResponse = cqlExecutionService.execute(execRequest);
+            CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
             if (!execResponse.isSuccess()) {
                 return TestCaseRunResult.builder()
@@ -326,6 +379,35 @@ public class TestCaseService {
                     .build());
         }
         return comparisons;
+    }
+
+    private List<Resource> parseBundleResources(String bundleJson) {
+        List<Resource> resources = new ArrayList<>();
+        if (bundleJson == null || bundleJson.isBlank()) return resources;
+        try {
+            Bundle bundle = fhirContext.newJsonParser().parseResource(Bundle.class, bundleJson);
+            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                if (entry.hasResource()) {
+                    resources.add(entry.getResource());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse test case bundle: {}", e.getMessage());
+        }
+        return resources;
+    }
+
+    private Map<String, Object> buildMeasurementPeriodParams(MeasureDefinition measure) {
+        // Use current year as default measurement period (Jan 1 – Dec 31)
+        int year = Year.now().getValue();
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("Measurement Period",
+                new Interval(
+                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 1, 1), LocalTime.MIN, ZoneOffset.UTC)),
+                        true,
+                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 12, 31), LocalTime.MAX, ZoneOffset.UTC)),
+                        true));
+        return parameters;
     }
 
     private String extractPatientIdFromBundle(String bundleJson) {

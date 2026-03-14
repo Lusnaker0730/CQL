@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "TWCORE CQL 平台",
+    "title": "台灣CQL概念平台",
     "subtitle": "臨床品質語言"
   },
   "nav": {
@@ -8,6 +8,7 @@
     "cdsHooks": "CDS Hooks",
     "measures": "品質指標",
     "authoring": "規則撰寫",
+    "ecqm": "eCQM 撰寫",
     "fhirBrowser": "FHIR 瀏覽器",
     "terminology": "術語管理",
     "users": "使用者管理",
@@ -88,7 +89,21 @@
     "vsacKeySave": "更新 API Key",
     "vsacKeySaving": "儲存中...",
     "vsacKeySaved": "VSAC API Key 更新成功",
-    "vsacKeySaveFailed": "VSAC API Key 更新失敗"
+    "vsacKeySaveFailed": "VSAC API Key 更新失敗",
+    "aiFixSuggestion": "AI 修正建議",
+    "aiStatus": "AI 狀態：",
+    "aiDisabled": "已停用",
+    "aiUnavailable": "無法連線",
+    "aiApiKeyStatus": "API Key：",
+    "aiKeyConfigured": "已設定",
+    "aiKeyNotConfigured": "未設定",
+    "aiApiKey": "雲端 AI API Key",
+    "aiApiKeyPlaceholder": "輸入您的 API Key（OpenAI、DeepSeek 等）",
+    "aiApiKeyHelp": "使用雲端 AI 時必須提供。Key 僅存於伺服器記憶體中。",
+    "aiKeySave": "更新 API Key",
+    "aiKeySaving": "儲存中...",
+    "aiKeySaved": "AI API Key 更新成功",
+    "aiKeySaveFailed": "AI API Key 更新失敗"
   },
   "errors": {
     "applicationError": "應用程式錯誤",
@@ -102,6 +117,15 @@
     "auditDashboardError": "稽核儀表板錯誤",
     "somethingWentWrong": "發生錯誤",
     "unexpectedError": "發生未預期的錯誤，請嘗試重新整理此區段。"
+  },
+  "mutationErrors": {
+    "createFailed": "建立失敗：{{error}}",
+    "updateFailed": "更新失敗：{{error}}",
+    "deleteFailed": "刪除失敗：{{error}}",
+    "importFailed": "匯入失敗：{{error}}",
+    "exportFailed": "匯出失敗：{{error}}",
+    "operationFailed": "操作失敗：{{error}}",
+    "runFailed": "執行失敗：{{error}}"
   },
   "dialogs": {
     "deleteConfirm": {
@@ -167,6 +191,22 @@
       "bulkExport": "啟動 FHIR 批次資料匯出（$export）。系統匯出所有資源；病患/群組匯出範圍限定為特定區室。結果為 NDJSON 檔案。"
     }
   },
+  "notifications": {
+    "title": "通知",
+    "markAllRead": "全部標為已讀",
+    "empty": "沒有通知",
+    "justNow": "剛剛",
+    "minutesAgo": "{{count}} 分鐘前",
+    "hoursAgo": "{{count}} 小時前",
+    "daysAgo": "{{count}} 天前"
+  },
+  "department": {
+    "label": "部門",
+    "all": "所有部門",
+    "assign": "指定部門",
+    "filter": "依部門篩選",
+    "none": "無部門"
+  },
   "language": {
     "english": "English",
     "traditionalChinese": "繁體中文",
@@ -206,6 +246,14 @@
     "passwordChangeDescription": "您的密碼已被管理員重設。您必須設定新密碼才能繼續使用。",
     "currentPassword": "目前 / 臨時密碼",
     "changePassword": "變更密碼",
-    "changePasswordFailed": "密碼變更失敗"
+    "changePasswordFailed": "密碼變更失敗",
+    "or": "或",
+    "loginWithOkta": "使用 Okta 登入",
+    "ssoProcessing": "正在處理 SSO 登入...",
+    "ssoFailed": "SSO 驗證失敗，請重試。",
+    "ssoMissingCode": "缺少身分提供者的授權碼。",
+    "ssoStateMismatch": "安全驗證失敗，請重新登入。",
+    "authProviderLocal": "本機",
+    "authProviderOkta": "Okta SSO"
   }
 }

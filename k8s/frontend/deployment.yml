@@ -21,11 +21,16 @@ spec:
       labels:
         app: frontend
     spec:
+      terminationGracePeriodSeconds: 15
       containers:
         - name: frontend
           image: ghcr.io/OWNER/cql-platform/frontend:latest
           ports:
             - containerPort: 80
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 3"]
           resources:
             requests:
               cpu: 100m

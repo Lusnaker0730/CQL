@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { AUTOSAVE_FAST_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -21,6 +23,7 @@ import {
   Close as CloseIcon,
   ViewModule as BuilderIcon,
   Code as JsonIcon,
+  CloudDownload as EhrImportIcon,
 } from '@mui/icons-material'
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
@@ -36,6 +39,8 @@ import {
 } from '../../contexts/BundleBuilderContext'
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import type { TestCase, MeasureDefinition } from '../../types'
+import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
+import { TEST_CASE } from '../../constants/fieldConstraints'
 
 interface TestCaseEditorProps {
   measure: MeasureDefinition
@@ -62,6 +67,35 @@ const DEFAULT_BUNDLE = `{
       "resource": {
         "resourceType": "Patient",
         "id": "test-patient-1",
+        "meta": {
+          "profile": [
+            "https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/Patient-twcore"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "official",
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "NNxxx",
+                  "display": "National Person Identifier"
+                }
+              ]
+            },
+            "system": "http://www.moi.gov.tw/",
+            "value": "A123456789"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "text": "Test Patient",
+            "family": "Patient",
+            "given": ["Test"]
+          }
+        ],
         "gender": "female",
         "birthDate": "1960-01-01"
       }
@@ -92,6 +126,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
   const [isDirty, setIsDirty] = useState(false)
   const [bundleTab, setBundleTab] = useState(0) // 0 = Visual, 1 = JSON
   const [showDraftAlert, setShowDraftAlert] = useState(false)
+  const [ehrImportOpen, setEhrImportOpen] = useState(false)
   useUnsavedChangesGuard(isDirty)
 
   // Draft auto-save
@@ -151,14 +186,19 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     }
   }, [dispatch])
 
+  // Only reset editor state when switching to a DIFFERENT test case, not on
+  // same-test-case reference changes (e.g. React Query refetch).
+  const prevTestCaseIdRef = useRef(testCase?.id)
   useEffect(() => {
-    if (testCase) {
+    if (testCase && testCase.id !== prevTestCaseIdRef.current) {
+      prevTestCaseIdRef.current = testCase.id
       setTitle(testCase.title)
       setDescription(testCase.description || '')
       const json = testCase.patientBundleJson || DEFAULT_BUNDLE
       setBundleJson(json)
       setExpectedPops(testCase.expectedPopulations || {})
       setSeries(testCase.series || '')
+      setIsDirty(false)
       try {
         const entries = parseFromBundle(json)
         dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
@@ -181,7 +221,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     }
   }, [state.entries])
 
-  const validateBundle = (json: string): boolean => {
+  const validateBundle = useCallback((json: string): boolean => {
     try {
       const parsed = JSON.parse(json)
       if (parsed.resourceType !== 'Bundle') {
@@ -194,7 +234,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       setBundleError(t('testCaseEditor.validation.invalidJson'))
       return false
     }
-  }
+  }, [t])
 
   // Debounced sync: JSON → Visual Builder
   const jsonSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -219,9 +259,9 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         } catch {
           // Invalid JSON — don't sync
         }
-      }, 500)
+      }, AUTOSAVE_FAST_MS)
     },
-    [dispatch]
+    [dispatch, validateBundle]
   )
 
   const togglePopulation = (key: string) => {
@@ -266,6 +306,14 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           {isNew ? t('testCaseEditor.newTitle') : t('testCaseEditor.editTitle', { name: testCase?.title })}
         </Typography>
         <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            startIcon={<EhrImportIcon />}
+            onClick={() => setEhrImportOpen(true)}
+            disabled={readOnly}
+          >
+            {t('ehr.importFromEhr', { ns: 'fhir' })}
+          </Button>
           <Button size="small" startIcon={<CloseIcon />} onClick={onClose}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
@@ -281,7 +329,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
 
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(saveMutation.error as Error).message}
+          {extractApiError(saveMutation.error)}
         </Alert>
       )}
 
@@ -328,6 +376,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           value={title}
           onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
           placeholder={t('testCaseEditor.fields.titlePlaceholder')}
+          inputProps={{ maxLength: TEST_CASE.title.maxLength }}
         />
 
         <TextField
@@ -338,6 +387,8 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           rows={2}
           value={description}
           onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
+          inputProps={{ maxLength: TEST_CASE.description.maxLength }}
+          helperText={`${description.length} / ${TEST_CASE.description.maxLength}`}
         />
 
         <Autocomplete
@@ -352,7 +403,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
               size="small"
               fullWidth
               placeholder={t('testCaseEditor.fields.seriesPlaceholder')}
-              inputProps={{ ...params.inputProps, maxLength: 250 }}
+              inputProps={{ ...params.inputProps, maxLength: TEST_CASE.series.maxLength }}
             />
           )}
         />
@@ -437,6 +488,23 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           )}
         </Box>
       </Stack>
+
+      {ehrImportOpen && (
+        <EhrImportForTestCase
+          open={ehrImportOpen}
+          measureId={measure.id}
+          onClose={() => setEhrImportOpen(false)}
+          onImported={(json) => {
+            setBundleJson(json)
+            setIsDirty(true)
+            try {
+              const entries = parseFromBundle(json)
+              dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
+            } catch { /* ignore parse errors */ }
+            setEhrImportOpen(false)
+          }}
+        />
+      )}
     </Box>
   )
 }

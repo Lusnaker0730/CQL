@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class CdsArtifactEntity {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -141,6 +143,10 @@ public class CdsArtifactEntity {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    private Long lockVersion;
 
     // Transient fields for deserialized JSON
     @Transient
@@ -266,6 +272,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.writeValueAsString(list);
         } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize list for entity id={}: {}", id, e.getMessage());
             return "[]";
         }
     }
@@ -275,6 +282,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.readValue(json, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize list for entity id={}: {}", id, e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -284,6 +292,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.writeValueAsString(map);
         } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize map for entity id={}: {}", id, e.getMessage());
             return defaultVal;
         }
     }
@@ -293,6 +302,7 @@ public class CdsArtifactEntity {
         try {
             return MAPPER.readValue(json, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize map for entity id={}: {}", id, e.getMessage());
             return new LinkedHashMap<>();
         }
     }

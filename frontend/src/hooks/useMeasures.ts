@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../api'
 import { useInvalidatingMutation } from './useInvalidatingMutation'
+import { STALE_30S } from '../constants/queryConstants'
 
 const MEASURES_KEY = ['measures'] as const
 
@@ -61,7 +62,7 @@ export const useApproveMeasure = () =>
   useInvalidatingMutation((id: number) => measureApi.approveMeasure(id), MEASURES_KEY)
 
 export const useRejectMeasure = () =>
-  useInvalidatingMutation((id: number) => measureApi.rejectMeasure(id), MEASURES_KEY)
+  useInvalidatingMutation(({ id, reason }: { id: number; reason?: string }) => measureApi.rejectMeasure(id, reason), MEASURES_KEY)
 
 export const useRetireMeasure = () =>
   useInvalidatingMutation((id: number) => measureApi.retireMeasure(id), MEASURES_KEY)
@@ -90,7 +91,7 @@ export function useDashboard() {
   return useQuery({
     queryKey: ['measure-dashboard'],
     queryFn: () => measureApi.getDashboard(),
-    staleTime: 30000,
+    staleTime: STALE_30S,
   })
 }
 

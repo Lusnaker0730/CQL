@@ -58,9 +58,8 @@ export const authoringApi = {
     return response.data
   },
 
-  generateCql: async (id: number, fhirVersion?: string): Promise<{ cql: string }> => {
-    const params = fhirVersion ? `?fhirVersion=${encodeURIComponent(fhirVersion)}` : ''
-    const response = await api.post<{ cql: string }>(`/authoring/artifacts/${id}/cql${params}`)
+  generateCql: async (id: number): Promise<{ cql: string }> => {
+    const response = await api.post<{ cql: string }>(`/authoring/artifacts/${id}/cql`)
     return response.data
   },
 
@@ -127,6 +126,20 @@ export const authoringApi = {
 
   saveAsLibrary: async (id: number): Promise<SaveLibraryResult> => {
     const response = await api.post<SaveLibraryResult>(`/authoring/artifacts/${id}/save-library`)
+    return response.data
+  },
+
+  // ZIP Export
+  exportZip: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/authoring/artifacts/${id}/export/zip`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  // CQL Formatter
+  formatCql: async (cql: string): Promise<{ cql: string }> => {
+    const response = await api.post<{ cql: string }>('/authoring/format-cql', { cql })
     return response.data
   },
 

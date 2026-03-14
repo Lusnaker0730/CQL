@@ -29,14 +29,20 @@ import ConceptsSection from './ConceptsSection'
 import ParametersSection from './ParametersSection'
 import DefinitionsSection from './DefinitionsSection'
 import FunctionsSection from './FunctionsSection'
+import ValidationPanel from './ValidationPanel'
+import BaseElementsPanel from './BaseElementsPanel'
+import ExpressionTreeView from './ExpressionTreeView'
 
 import type { CqlElementType } from '../../utils/cqlElementLocator'
+import { extractCqlName } from '../../utils/cqlNames'
 
 interface CqlBuilderPanelProps {
   onInsertSnippet: (snippet: string) => void
   onDeleteElement?: (type: CqlElementType, identifier: string) => void
   onGoToElement?: (type: CqlElementType, identifier: string) => void
   onEditElement?: (type: CqlElementType, identifier: string, newSnippet: string) => void
+  /** Called on every editor content change — drives debounced CQL structure parsing */
+  editorContent?: string
 }
 
 export default function CqlBuilderPanel({
@@ -44,9 +50,17 @@ export default function CqlBuilderPanel({
   onDeleteElement,
   onGoToElement,
   onEditElement,
+  editorContent,
 }: CqlBuilderPanelProps) {
   const { t } = useTranslation('builder')
-  const { structure, isParsing, parseError, parse } = useCqlStructure()
+  const { structure, isParsing, parseError, parse, notifyContentChanged } = useCqlStructure()
+
+  // Feed editor content changes into the debounced parser
+  useEffect(() => {
+    if (editorContent !== undefined) {
+      notifyContentChanged(editorContent)
+    }
+  }, [editorContent, notifyContentChanged])
   const [expanded, setExpanded] = useState<string | false>('includes')
   const [duplicateWarning, setDuplicateWarning] = useState<{ name: string; snippet: string } | null>(null)
 
@@ -65,26 +79,14 @@ export default function CqlBuilderPanel({
 
   // Collect all known names from the current structure
   const getAllNames = useCallback((): string[] => {
-    const extract = (raw: string) => { const m = raw.match(/^"([^"]+)"/); return m?.[1] ?? '' }
     return [
       ...structure.expressions.map((e) => e.name),
       ...structure.functions.map((f) => f.name),
-      ...structure.parameters.map(extract),
-      ...structure.valueSets.map(extract),
-      ...structure.codes.map(extract),
+      ...structure.parameters.map(extractCqlName),
+      ...structure.valueSets.map(extractCqlName),
+      ...structure.codes.map(extractCqlName),
     ]
   }, [structure])
-
-  const handleAutoIncludeC3F = (snippet: string) => {
-    if (snippet.includes('C3F.') && !structure.includes.some((inc) => inc.includes('called C3F'))) {
-      const c3fInclude = `include CDS_Connect_Commons_for_FHIRv401 version '1.1.1' called C3F`
-      onInsertSnippet(c3fInclude)
-      // Small delay to avoid race with content update
-      setTimeout(() => onInsertSnippet(snippet), 50)
-    } else {
-      onInsertSnippet(snippet)
-    }
-  }
 
   // Wrap insert with duplicate name check
   const handleInsertWithCheck = useCallback((snippet: string) => {
@@ -95,16 +97,6 @@ export default function CqlBuilderPanel({
     }
     onInsertSnippet(snippet)
   }, [extractSnippetName, getAllNames, onInsertSnippet])
-
-  // Same check but routes through C3F auto-include
-  const handleInsertWithCheckC3F = useCallback((snippet: string) => {
-    const name = extractSnippetName(snippet)
-    if (name && getAllNames().includes(name)) {
-      setDuplicateWarning({ name, snippet })
-      return
-    }
-    handleAutoIncludeC3F(snippet)
-  }, [extractSnippetName, getAllNames, handleAutoIncludeC3F])
 
   const sections = [
     {
@@ -185,7 +177,7 @@ export default function CqlBuilderPanel({
       content: (
         <DefinitionsSection
           expressions={structure.expressions}
-          onInsert={handleInsertWithCheckC3F}
+          onInsert={handleInsertWithCheck}
           valueSets={structure.valueSets}
           codes={structure.codes}
           parameters={structure.parameters}
@@ -207,6 +199,36 @@ export default function CqlBuilderPanel({
           onGoTo={(id) => onGoToElement?.('function', id)}
           onEdit={(id, snippet) => onEditElement?.('function', id, snippet)}
         />
+      ),
+    },
+    {
+      id: 'baseElements',
+      label: t('sections.baseElements'),
+      count: 0,
+      content: (
+        <BaseElementsPanel
+          structure={structure}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+        />
+      ),
+    },
+    {
+      id: 'expressionTree',
+      label: t('sections.expressionTree'),
+      count: 0,
+      content: (
+        <ExpressionTreeView
+          structure={structure}
+          onGoTo={(id) => onGoToElement?.('define', id)}
+        />
+      ),
+    },
+    {
+      id: 'validation',
+      label: t('sections.validation'),
+      count: 0,
+      content: (
+        <ValidationPanel structure={structure} parseError={parseError} />
       ),
     },
   ]
@@ -257,6 +279,7 @@ export default function CqlBuilderPanel({
             onChange={handleAccordion(section.id)}
             disableGutters
             elevation={0}
+            TransitionProps={{ unmountOnExit: true }}
             sx={{
               '&:before': { display: 'none' },
               border: '1px solid',

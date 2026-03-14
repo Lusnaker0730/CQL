@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -163,7 +164,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
 
         {evaluateMutation.isError && (
           <Alert severity="error">
-            {t('evaluation.evaluationFailed', { error: (evaluateMutation.error as Error).message })}
+            {t('evaluation.evaluationFailed', { error: extractApiError(evaluateMutation.error) })}
           </Alert>
         )}
 

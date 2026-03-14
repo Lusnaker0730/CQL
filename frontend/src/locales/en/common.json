@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "TWCORE CQL Platform",
+    "title": "Taiwan CQL Concept Platform",
     "subtitle": "Clinical Quality Language"
   },
   "nav": {
@@ -8,6 +8,7 @@
     "cdsHooks": "CDS Hooks",
     "measures": "Measures",
     "authoring": "Authoring",
+    "ecqm": "eCQM",
     "fhirBrowser": "FHIR Browser",
     "terminology": "Terminology",
     "users": "Users",
@@ -88,7 +89,21 @@
     "vsacKeySave": "Update API Key",
     "vsacKeySaving": "Saving...",
     "vsacKeySaved": "VSAC API key updated successfully",
-    "vsacKeySaveFailed": "Failed to update VSAC API key"
+    "vsacKeySaveFailed": "Failed to update VSAC API key",
+    "aiFixSuggestion": "AI Fix Suggestion",
+    "aiStatus": "AI Status:",
+    "aiDisabled": "Disabled",
+    "aiUnavailable": "Unavailable",
+    "aiApiKeyStatus": "API Key:",
+    "aiKeyConfigured": "Configured",
+    "aiKeyNotConfigured": "Not Configured",
+    "aiApiKey": "Cloud AI API Key",
+    "aiApiKeyPlaceholder": "Enter your API key (OpenAI, DeepSeek, etc.)",
+    "aiApiKeyHelp": "Required for Cloud AI provider. Key is stored in server memory only.",
+    "aiKeySave": "Update API Key",
+    "aiKeySaving": "Saving...",
+    "aiKeySaved": "AI API key updated successfully",
+    "aiKeySaveFailed": "Failed to update AI API key"
   },
   "errors": {
     "applicationError": "Application Error",
@@ -102,6 +117,15 @@
     "auditDashboardError": "Audit Dashboard Error",
     "somethingWentWrong": "Something went wrong",
     "unexpectedError": "An unexpected error occurred. Try refreshing this section."
+  },
+  "mutationErrors": {
+    "createFailed": "Failed to create: {{error}}",
+    "updateFailed": "Failed to update: {{error}}",
+    "deleteFailed": "Failed to delete: {{error}}",
+    "importFailed": "Failed to import: {{error}}",
+    "exportFailed": "Failed to export: {{error}}",
+    "operationFailed": "Operation failed: {{error}}",
+    "runFailed": "Failed to run: {{error}}"
   },
   "dialogs": {
     "deleteConfirm": {
@@ -167,6 +191,22 @@
       "bulkExport": "Initiate a FHIR Bulk Data Export ($export). System exports all resources; Patient/Group exports scope to a compartment. Results are NDJSON files."
     }
   },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "department": {
+    "label": "Department",
+    "all": "All Departments",
+    "assign": "Assign Department",
+    "filter": "Filter by Department",
+    "none": "No Department"
+  },
   "language": {
     "english": "English",
     "traditionalChinese": "繁體中文",
@@ -206,6 +246,14 @@
     "passwordChangeDescription": "Your password has been reset by an administrator. You must set a new password before continuing.",
     "currentPassword": "Current / Temporary Password",
     "changePassword": "Change Password",
-    "changePasswordFailed": "Failed to change password"
+    "changePasswordFailed": "Failed to change password",
+    "or": "OR",
+    "loginWithOkta": "Login with Okta",
+    "ssoProcessing": "Processing SSO login...",
+    "ssoFailed": "SSO authentication failed. Please try again.",
+    "ssoMissingCode": "Missing authorization code from identity provider.",
+    "ssoStateMismatch": "Security validation failed. Please try logging in again.",
+    "authProviderLocal": "Local",
+    "authProviderOkta": "Okta SSO"
   }
 }

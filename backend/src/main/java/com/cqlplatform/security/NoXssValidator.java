@@ -12,11 +12,20 @@ import java.util.regex.Pattern;
 public class NoXssValidator implements ConstraintValidator<NoXss, String> {
 
     private static final Pattern[] XSS_PATTERNS = {
-            Pattern.compile("<script>(.*?)</script>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("<script[^>]*>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("</script>", Pattern.CASE_INSENSITIVE),
             Pattern.compile("javascript:", Pattern.CASE_INSENSITIVE),
             Pattern.compile("on\\w+\\s*=", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("<iframe(.*?)>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
+            Pattern.compile("<iframe[^>]*>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
+            Pattern.compile("<svg[^>]*>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("<math[^>]*>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("<object[^>]*>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("<embed[^>]*>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("<base[^>]*>", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("<form[^>]*>", Pattern.CASE_INSENSITIVE),
             Pattern.compile("eval\\s*\\(", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("data:text/html", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("vbscript:", Pattern.CASE_INSENSITIVE),
     };
 
     @Override

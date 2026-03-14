@@ -1,7 +1,13 @@
-import { Box, TextField, Typography, MenuItem, Chip } from '@mui/material'
+import { Box, TextField, Typography, MenuItem, Chip, Collapse, IconButton } from '@mui/material'
 import { useState } from 'react'
+import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
+
+interface FhirExtension {
+  url: string
+  valueString?: string
+}
 
 interface Address {
   use?: string
@@ -12,6 +18,7 @@ interface Address {
   state?: string
   postalCode?: string
   country?: string
+  extension?: FhirExtension[]
 }
 
 interface AddressFieldProps {
@@ -23,10 +30,43 @@ interface AddressFieldProps {
 const USE_FALLBACK = ['home', 'work', 'temp', 'old', 'billing']
 const TYPE_FALLBACK = ['postal', 'physical', 'both']
 
+const TW_EXT_BASE = 'https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/tw-'
+
+interface TwAddressField {
+  key: string
+  extSuffix: string
+  labelKey: string
+}
+
+const TW_ADDRESS_FIELDS: TwAddressField[] = [
+  { key: 'section', extSuffix: 'section', labelKey: 'testCaseBuilder.twAddress.section' },
+  { key: 'village', extSuffix: 'village', labelKey: 'testCaseBuilder.twAddress.village' },
+  { key: 'neighborhood', extSuffix: 'neighborhood', labelKey: 'testCaseBuilder.twAddress.neighborhood' },
+  { key: 'lane', extSuffix: 'lane', labelKey: 'testCaseBuilder.twAddress.lane' },
+  { key: 'alley', extSuffix: 'alley', labelKey: 'testCaseBuilder.twAddress.alley' },
+  { key: 'number', extSuffix: 'number', labelKey: 'testCaseBuilder.twAddress.number' },
+  { key: 'floor', extSuffix: 'floor', labelKey: 'testCaseBuilder.twAddress.floor' },
+  { key: 'room', extSuffix: 'room', labelKey: 'testCaseBuilder.twAddress.room' },
+]
+
+function getExtValue(extensions: FhirExtension[] | undefined, suffix: string): string {
+  return extensions?.find((e) => e.url === TW_EXT_BASE + suffix)?.valueString || ''
+}
+
+function setExtValue(extensions: FhirExtension[] | undefined, suffix: string, val: string): FhirExtension[] | undefined {
+  const url = TW_EXT_BASE + suffix
+  const existing = (extensions || []).filter((e) => e.url !== url)
+  if (val) {
+    existing.push({ url, valueString: val })
+  }
+  return existing.length > 0 ? existing : undefined
+}
+
 export default function AddressField({ element, value, onChange }: AddressFieldProps) {
   const { t } = useTranslation('measures')
-  const addr = (value as Address) || {}
+  const addr = (value as Address) || { country: 'TW' }
   const [lineInput, setLineInput] = useState('')
+  const [twExpanded, setTwExpanded] = useState(false)
   const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
   const typeOptions = element.children?.find(c => c.name === 'type')?.boundCodes ?? TYPE_FALLBACK
 
@@ -40,6 +80,10 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
   const removeLine = (index: number) => {
     const next = (addr.line || []).filter((_, i) => i !== index)
     onChange({ ...addr, line: next.length > 0 ? next : undefined })
+  }
+
+  const handleTwFieldChange = (suffix: string, val: string) => {
+    onChange({ ...addr, extension: setExtValue(addr.extension, suffix, val) })
   }
 
   return (
@@ -89,12 +133,40 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
         />
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
         <TextField label={t('testCaseBuilder.fields.city')} size="small" value={addr.city || ''} onChange={(e) => onChange({ ...addr, city: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
         <TextField label={t('testCaseBuilder.fields.district')} size="small" value={addr.district || ''} onChange={(e) => onChange({ ...addr, district: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
         <TextField label={t('testCaseBuilder.fields.state')} size="small" value={addr.state || ''} onChange={(e) => onChange({ ...addr, state: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
         <TextField label={t('testCaseBuilder.fields.postalCode')} size="small" value={addr.postalCode || ''} onChange={(e) => onChange({ ...addr, postalCode: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
         <TextField label={t('testCaseBuilder.fields.country')} size="small" value={addr.country || ''} onChange={(e) => onChange({ ...addr, country: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
+      </Box>
+
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, px: 1, py: 0.5 }}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          onClick={() => setTwExpanded(!twExpanded)}
+        >
+          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
+            {t('testCaseBuilder.twAddress.title')}
+          </Typography>
+          <IconButton size="small">
+            {twExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+          </IconButton>
+        </Box>
+        <Collapse in={twExpanded}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1, mb: 0.5 }}>
+            {TW_ADDRESS_FIELDS.map((field) => (
+              <TextField
+                key={field.key}
+                label={t(field.labelKey)}
+                size="small"
+                value={getExtValue(addr.extension, field.extSuffix)}
+                onChange={(e) => handleTwFieldChange(field.extSuffix, e.target.value)}
+                sx={{ flex: 1, minWidth: 80 }}
+              />
+            ))}
+          </Box>
+        </Collapse>
       </Box>
     </Box>
   )

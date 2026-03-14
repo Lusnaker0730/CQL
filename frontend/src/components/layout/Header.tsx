@@ -26,10 +26,12 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import type { RootState } from '../../store'
 import { logout } from '../../store/authSlice'
+import { authApi } from '../../api/authApi'
 import { usePreferences } from '../../hooks/usePreferences'
 import PreferencesDialog from '../common/PreferencesDialog'
 import HelpDrawer from '../common/HelpDrawer'
 import LanguageSwitcher from '../common/LanguageSwitcher'
+import NotificationBell from './NotificationBell'
 import TerminologyLookupDrawer from '../terminology/TerminologyLookupDrawer'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 
@@ -38,6 +40,7 @@ const baseNavItems = [
   { labelKey: 'nav.cdsHooks', path: '/cds' },
   { labelKey: 'nav.measures', path: '/measures' },
   { labelKey: 'nav.authoring', path: '/authoring' },
+  { labelKey: 'nav.ecqm', path: '/ecqm' },
   { labelKey: 'nav.fhirBrowser', path: '/fhir' },
   { labelKey: 'nav.terminology', path: '/terminology' },
 ]
@@ -58,6 +61,7 @@ export default function Header() {
     : baseNavItems
 
   const handleLogout = () => {
+    authApi.logout().catch(() => {})
     dispatch(logout())
     navigate('/login')
   }
@@ -177,6 +181,7 @@ export default function Header() {
                 }}
               />
             )}
+            <NotificationBell />
             <LanguageSwitcher />
             <IconButton
               color="inherit"

@@ -28,5 +28,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-XX:+UseG1GC", "-jar", "app.jar"]
+# Run the application — set heap to 70% of container memory limit (1G → 716m)
+# to prevent OOM during CQL execution while leaving room for metaspace/threads.
+ENTRYPOINT ["java", "-Xmx716m", "-Xms256m", "-jar", "app.jar"]

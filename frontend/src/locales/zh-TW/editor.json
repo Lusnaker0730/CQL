@@ -17,7 +17,8 @@
     "removeFavorite": "從收藏中移除",
     "addFavorite": "加入收藏",
     "undo": "復原",
-    "redo": "重做"
+    "redo": "重做",
+    "newLibrary": "新增 CQL"
   },
   "tabs": {
     "elmErrors": "ELM / 錯誤",
@@ -47,7 +48,14 @@
     "terminologyType": "類型",
     "terminologyName": "名稱",
     "terminologyReference": "參考",
-    "terminologyDetail": "詳細資訊"
+    "terminologyDetail": "詳細資訊",
+    "aiFix": "AI 修正",
+    "aiFixLoading": "正在取得 AI 建議...",
+    "aiExplanation": "說明",
+    "suggestedFix": "建議修正",
+    "applyFix": "套用修正",
+    "dismiss": "關閉",
+    "aiFixUnavailable": "AI 建議服務目前無法使用，請稍後再試。"
   },
   "execution": {
     "title": "CQL 執行",

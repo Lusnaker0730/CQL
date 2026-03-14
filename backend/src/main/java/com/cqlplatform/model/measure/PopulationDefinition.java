@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PopulationDefinition {
     @NotBlank
+    @Size(max = 50)
     private String populationType;
 
     @Size(max = 500)
@@ -21,5 +22,6 @@ public class PopulationDefinition {
     @Size(max = 2000)
     private String description;
 
+    @Size(max = 50)
     private String associationType;
 }

@@ -2,6 +2,8 @@ package com.cqlplatform.repository;
 
 import com.cqlplatform.entity.MeasureReportEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -20,4 +22,20 @@ public interface MeasureReportRepository extends JpaRepository<MeasureReportEnti
             String measureName, LocalDate periodStart, LocalDate periodEnd);
 
     List<MeasureReportEntity> findTop50ByOrderByCreatedAtDesc();
+
+    List<MeasureReportEntity> findTop10ByOrderByCreatedAtDesc();
+
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.createdAt IS NOT NULL " +
+            "AND (:measureId IS NULL OR r.measureDefinitionId = :measureId) " +
+            "ORDER BY r.createdAt DESC")
+    List<MeasureReportEntity> findRecentByOptionalMeasure(
+            @Param("measureId") Long measureId,
+            org.springframework.data.domain.Pageable pageable);
+
+    List<MeasureReportEntity> findByDepartmentOrderByCreatedAtDesc(String department);
+
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.measureDefinitionId = :measureId " +
+            "AND r.createdAt = (SELECT MAX(r2.createdAt) FROM MeasureReportEntity r2 " +
+            "WHERE r2.measureDefinitionId = :measureId)")
+    List<MeasureReportEntity> findLatestByMeasureDefinitionId(@Param("measureId") Long measureId);
 }

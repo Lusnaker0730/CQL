@@ -25,6 +25,8 @@ export default function ConjunctionTypeSelect({ value, onChange }: ConjunctionTy
       >
         <MenuItem value="And">{t('conjunctionType.and')}</MenuItem>
         <MenuItem value="Or">{t('conjunctionType.or')}</MenuItem>
+        <MenuItem value="Union">{t('conjunctionType.union')}</MenuItem>
+        <MenuItem value="Intersect">{t('conjunctionType.intersect')}</MenuItem>
       </Select>
     </FormControl>
   )

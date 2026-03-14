@@ -17,9 +17,27 @@ import type {
   BatchEvaluationRequest,
   BatchEvaluationResult,
   DataRequirementInfo,
+  BatchTestCaseImportResult,
+  EnhancedDashboardData,
+  TrendSeriesPoint,
+  ThresholdAlert,
+  MeasureThreshold,
+  QualityReportData,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
+
+const exportBlob = async (
+  id: number,
+  type: string,
+  params?: Record<string, string>
+): Promise<Blob> => {
+  const response = await api.get(`/measures/${id}/export/${type}`, {
+    params,
+    responseType: 'blob',
+  })
+  return response.data
+}
 
 export const measureApi = {
   // Evaluation
@@ -48,8 +66,10 @@ export const measureApi = {
   },
 
   // Measure Definition CRUD
-  getMeasures: async (search?: string): Promise<MeasureDefinition[]> => {
-    const params = search ? { search } : {}
+  getMeasures: async (search?: string, department?: string): Promise<MeasureDefinition[]> => {
+    const params: Record<string, string> = {}
+    if (search) params.search = search
+    if (department) params.department = department
     const response = await api.get<MeasureDefinition[]>('/measures', { params })
     return response.data
   },
@@ -208,6 +228,18 @@ export const measureApi = {
     return response.data
   },
 
+  batchImportTestCases: async (
+    measureId: number,
+    testCases: TestCase[],
+    dateShiftDays: number = 0
+  ): Promise<BatchTestCaseImportResult> => {
+    const response = await api.post<BatchTestCaseImportResult>(
+      `/measures/${measureId}/test-cases/batch-import`,
+      { testCases, dateShiftDays }
+    )
+    return response.data
+  },
+
   // Version Management
   createMeasureVersion: async (id: number, type: string = 'minor'): Promise<MeasureDefinition> => {
     const response = await api.post<MeasureDefinition>(`/measures/${id}/version?type=${type}`)
@@ -272,9 +304,9 @@ export const measureApi = {
     return response.data
   },
 
-  rejectMeasure: async (id: number): Promise<MeasureDefinition> => {
+  rejectMeasure: async (id: number, reason?: string): Promise<MeasureDefinition> => {
     const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser, reason })
     return response.data
   },
 
@@ -315,34 +347,12 @@ export const measureApi = {
   },
 
   // Bundle Export/Import
-  exportBundle: async (id: number, format: string = 'json'): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/bundle`, {
-      params: { format },
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportCql: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/cql`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportElm: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/elm`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportHqmf: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/hqmf`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
+  exportBundle: (id: number, format: string = 'json'): Promise<Blob> =>
+    exportBlob(id, 'bundle', { format }),
+  exportCql: (id: number): Promise<Blob> => exportBlob(id, 'cql'),
+  exportElm: (id: number): Promise<Blob> => exportBlob(id, 'elm'),
+  exportHqmf: (id: number): Promise<Blob> => exportBlob(id, 'hqmf'),
+  exportHumanReadable: (id: number): Promise<Blob> => exportBlob(id, 'human-readable'),
 
   importBundle: async (json: unknown): Promise<BundleImportResult> => {
     const response = await api.post<BundleImportResult>('/measures/import/bundle', json)
@@ -358,6 +368,50 @@ export const measureApi = {
   // Batch Evaluation
   batchEvaluate: async (request: BatchEvaluationRequest): Promise<BatchEvaluationResult> => {
     const response = await api.post<BatchEvaluationResult>('/measures/batch-evaluate', request)
+    return response.data
+  },
+
+  // Enhanced Dashboard
+  getEnhancedDashboard: async (department?: string): Promise<EnhancedDashboardData> => {
+    const response = await api.get<EnhancedDashboardData>('/measures/dashboard/enhanced', {
+      params: department ? { department } : undefined,
+    })
+    return response.data
+  },
+
+  getDashboardTrends: async (measureId?: number, periodType = 'monthly', count = 12): Promise<TrendSeriesPoint[]> => {
+    const response = await api.get<TrendSeriesPoint[]>('/measures/dashboard/trends', {
+      params: { measureId, periodType, count },
+    })
+    return response.data
+  },
+
+  getDepartmentDrilldown: async (code: string): Promise<Record<string, unknown>> => {
+    const response = await api.get<Record<string, unknown>>(`/measures/dashboard/department/${code}`)
+    return response.data
+  },
+
+  getDashboardAlerts: async (department?: string): Promise<ThresholdAlert[]> => {
+    const response = await api.get<ThresholdAlert[]>('/measures/dashboard/alerts', {
+      params: department ? { department } : undefined,
+    })
+    return response.data
+  },
+
+  setThreshold: async (measureId: number, threshold: MeasureThreshold): Promise<MeasureThreshold> => {
+    const response = await api.post<MeasureThreshold>(`/measures/${measureId}/thresholds`, threshold)
+    return response.data
+  },
+
+  getThresholds: async (measureId: number): Promise<MeasureThreshold[]> => {
+    const response = await api.get<MeasureThreshold[]>(`/measures/${measureId}/thresholds`)
+    return response.data
+  },
+
+  getQualityReport: async (type = 'monthly', department?: string): Promise<QualityReportData> => {
+    const response = await api.get<QualityReportData>('/measures/dashboard/report', {
+      params: { type, department },
+    })
     return response.data
   },
 }

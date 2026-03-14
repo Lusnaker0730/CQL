@@ -1,12 +1,11 @@
 package com.cqlplatform.entity;
 
 import com.cqlplatform.security.EncryptionConverter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,13 +23,26 @@ public class UserEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false)
+    @JsonIgnore
+    @Column
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20)
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    @Column(name = "external_id")
+    private String externalId;
+
+    @Column(name = "display_name", length = 200)
+    private String displayName;
 
     @Column(length = 500)
     @Convert(converter = EncryptionConverter.class)
     private String email;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -39,6 +51,7 @@ public class UserEntity {
     @Column(name = "email_hash", length = 64)
     private String emailHash;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(nullable = false)
     @Builder.Default
     private Boolean enabled = true;
@@ -53,8 +66,19 @@ public class UserEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "department", length = 100)
+    private String department;
+
+    @Column(name = "token_version", nullable = false)
+    @Builder.Default
+    private Integer tokenVersion = 0;
+
     public enum Role {
-        ADMIN, USER
+        ADMIN, USER, DEPARTMENT_ADMIN
+    }
+
+    public enum AuthProvider {
+        LOCAL, OKTA
     }
 
     @PrePersist
@@ -77,16 +101,6 @@ public class UserEntity {
     }
 
     public static String computeEmailHash(String email) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(email.toLowerCase().trim().getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
+        return com.cqlplatform.util.DigestUtils.sha256Hex(email.toLowerCase().trim());
     }
 }

@@ -13,17 +13,23 @@ import GradientButton from '../../common/GradientButton'
 import { useExternalCqlList, useUploadExternalCql, useDeleteExternalCql } from '../../../hooks/useExternalCql'
 import type { ExternalCqlLibrary } from '../../../types/authoring'
 import { codeBlockSx } from '../../../constants/authoringConstants'
+import type { UseMutationResult } from '@tanstack/react-query'
 
-interface ExternalCqlProps {
-  artifactId: number
+/** Props for the presentational view (no hooks — parent provides data) */
+export interface ExternalCqlViewProps {
+  libraries: ExternalCqlLibrary[]
+  isLoading: boolean
+  error: unknown
+  uploadMutation: UseMutationResult<ExternalCqlLibrary, Error, File>
+  deleteMutation: UseMutationResult<unknown, Error, number>
   onApplyToArtifact?: (lib: ExternalCqlLibrary) => void
 }
 
-export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalCqlProps) {
+/** Reusable presentational component — works for both CDS and eCQM */
+export function ExternalCqlView({
+  libraries, isLoading, error, uploadMutation, deleteMutation, onApplyToArtifact,
+}: ExternalCqlViewProps) {
   const { t } = useTranslation('authoring')
-  const { data: libraries = [], isLoading, error } = useExternalCqlList(artifactId)
-  const uploadMutation = useUploadExternalCql(artifactId)
-  const deleteMutation = useDeleteExternalCql(artifactId)
   const [detailsLib, setDetailsLib] = useState<ExternalCqlLibrary | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ExternalCqlLibrary | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -300,5 +306,28 @@ export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalC
         </DialogActions>
       </Dialog>
     </Box>
+  )
+}
+
+/** CDS authoring wrapper — default export for backward compatibility */
+interface ExternalCqlProps {
+  artifactId: number
+  onApplyToArtifact?: (lib: ExternalCqlLibrary) => void
+}
+
+export default function ExternalCql({ artifactId, onApplyToArtifact }: ExternalCqlProps) {
+  const { data: libraries = [], isLoading, error } = useExternalCqlList(artifactId)
+  const uploadMutation = useUploadExternalCql(artifactId)
+  const deleteMutation = useDeleteExternalCql(artifactId)
+
+  return (
+    <ExternalCqlView
+      libraries={libraries}
+      isLoading={isLoading}
+      error={error}
+      uploadMutation={uploadMutation}
+      deleteMutation={deleteMutation}
+      onApplyToArtifact={onApplyToArtifact}
+    />
   )
 }

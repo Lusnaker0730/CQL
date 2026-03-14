@@ -17,7 +17,8 @@
     "removeFavorite": "Remove from favorites",
     "addFavorite": "Add to favorites",
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "newLibrary": "New CQL"
   },
   "tabs": {
     "elmErrors": "ELM / Errors",
@@ -47,7 +48,14 @@
     "terminologyType": "Type",
     "terminologyName": "Name",
     "terminologyReference": "Reference",
-    "terminologyDetail": "Detail"
+    "terminologyDetail": "Detail",
+    "aiFix": "AI Fix",
+    "aiFixLoading": "Getting AI suggestion...",
+    "aiExplanation": "Explanation",
+    "suggestedFix": "Suggested Fix",
+    "applyFix": "Apply Fix",
+    "dismiss": "Dismiss",
+    "aiFixUnavailable": "AI suggestion service is currently unavailable. Please try again later."
   },
   "execution": {
     "title": "CQL Execution",

@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useInvalidatingMutation } from './useInvalidatingMutation'
 import { useDispatch, useSelector } from 'react-redux'
@@ -15,7 +16,7 @@ import {
   setExecutionErrors,
   setExecutionTimeMs,
 } from '../store/executionSlice'
-import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse } from '../types'
+import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse, CqlError } from '../types'
 import { setDebugTrace } from '../store/executionSlice'
 
 export function useTranslate() {
@@ -96,6 +97,13 @@ export function useExecute() {
   })
 }
 
+export function useFixSuggestion() {
+  return useMutation({
+    mutationFn: ({ cql, error }: { cql: string; error: CqlError }) =>
+      cqlApi.fixSuggestion(cql, error),
+  })
+}
+
 export function useLibraries(search?: string) {
   return useQuery({
     queryKey: ['libraries', search],
@@ -138,6 +146,14 @@ export function useLibrariesMetadata() {
   return useQuery({
     queryKey: ['libraries-metadata'],
     queryFn: () => cqlApi.getLibrariesMetadata(),
+  })
+}
+
+export function useRepositoryLibraries() {
+  return useQuery({
+    queryKey: ['repository-libraries'],
+    queryFn: () => cqlApi.getRepositoryLibraries(),
+    staleTime: Infinity,
   })
 }
 
@@ -213,21 +229,21 @@ export function useCqlEditor() {
   const validateMutation = useValidate()
   const executeMutation = useExecute()
 
-  const translate = (cql: string) => {
+  const translate = useCallback((cql: string) => {
     translateMutation.mutate({ cql })
-  }
+  }, [translateMutation])
 
-  const validate = (cql: string) => {
+  const validate = useCallback((cql: string) => {
     validateMutation.mutate(cql)
-  }
+  }, [validateMutation])
 
-  const execute = (cql: string, patientId?: string, fhirServerUrl?: string) => {
+  const execute = useCallback((cql: string, patientId?: string, fhirServerUrl?: string) => {
     executeMutation.mutate({
       cql,
       patientId,
       fhirServerUrl,
     })
-  }
+  }, [executeMutation])
 
   return {
     ...editor,

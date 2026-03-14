@@ -68,10 +68,13 @@ export default function DrawerCodeSearchPanel({
         }
         value={selectedEntry}
         inputValue={system}
-        onInputChange={(_, v) => setSystem(v)}
+        onInputChange={(_, v, reason) => {
+          if (reason === 'input' || reason === 'clear') setSystem(v)
+        }}
         onChange={(_, newVal) => {
           if (typeof newVal === 'string') setSystem(newVal)
           else if (newVal) setSystem((newVal as CodeSystemEntry).url)
+          else setSystem('')
         }}
         renderInput={(params) => (
           <TextField

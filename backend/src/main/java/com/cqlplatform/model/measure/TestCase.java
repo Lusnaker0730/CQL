@@ -30,6 +30,7 @@ public class TestCase {
     private String description;
 
     /** FHIR Patient Bundle JSON — exempt from XSS sanitization. */
+    @Size(max = 2_097_152, message = "Patient bundle JSON must be at most 2 MB")
     @JsonDeserialize(using = JsonDeserializer.None.class)
     private String patientBundleJson;
 

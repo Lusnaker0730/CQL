@@ -10,10 +10,11 @@ import { generateId } from '../../../utils/validation'
 interface ElementSelectProps {
   templates: FormTemplateCategory[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   onSelect: (element: ElementInstance) => void
 }
 
-export default function ElementSelect({ templates, dynamicEntries, onSelect }: ElementSelectProps) {
+export default function ElementSelect({ templates, dynamicEntries, twcoreMode, onSelect }: ElementSelectProps) {
   const { t } = useTranslation('authoring')
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
 
@@ -27,8 +28,11 @@ export default function ElementSelect({ templates, dynamicEntries, onSelect }: E
         id: f.id,
         type: f.type,
         name: f.name,
-        value: f.value ?? undefined,
+        value: f.id === 'element_name' && !f.value ? template.name : (f.value ?? undefined),
         static: f.static,
+        select: f.select,
+        codes: f.codes,
+        valueSets: f.valueSets,
       })),
       modifiers: [],
       suppressedModifiers: template.suppressedModifiers,
@@ -80,6 +84,7 @@ export default function ElementSelect({ templates, dynamicEntries, onSelect }: E
         <ElementSelectDropdown
           templates={templates}
           dynamicEntries={dynamicEntries}
+          twcoreMode={twcoreMode}
           onSelect={handleSelect}
           onSelectDynamic={handleSelectDynamic}
         />

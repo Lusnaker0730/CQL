@@ -20,7 +20,11 @@ public interface CqlLibraryRepository extends JpaRepository<CqlLibraryEntity, Lo
 
     List<CqlLibraryEntity> findByOwnerUsername(String ownerUsername);
 
-    List<CqlLibraryEntity> findByAccessLevel(String accessLevel);
-
     List<CqlLibraryEntity> findByDependenciesContaining(String libraryName);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT e FROM CqlLibraryEntity e WHERE e.accessLevel = 'public' " +
+        "OR e.sharedWith LIKE :pattern")
+    List<CqlLibraryEntity> findSharedWithUser(
+        @org.springframework.data.repository.query.Param("pattern") String pattern);
 }

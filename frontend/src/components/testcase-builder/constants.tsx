@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- constants file, no components */
 import {
   Person,
   LocalHospital,

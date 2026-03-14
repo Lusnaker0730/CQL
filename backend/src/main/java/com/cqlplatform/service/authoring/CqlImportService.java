@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.cqlplatform.util.CqlParsingUtils;
 import com.cqlplatform.util.IdGenerator;
 
 /**
@@ -25,10 +26,8 @@ public class CqlImportService {
 
     private final CqlTranslationService translationService;
 
-    private static final Pattern LIBRARY_PATTERN =
-            Pattern.compile("library\\s+\"?([\\w_]+)\"?(?:\\s+version\\s+'([^']*)')?");
-    private static final Pattern USING_PATTERN =
-            Pattern.compile("using\\s+FHIR\\s+version\\s+'([^']*)'");
+    private static final Pattern LIBRARY_PATTERN = CqlParsingUtils.LIBRARY_PATTERN;
+    private static final Pattern USING_PATTERN = CqlParsingUtils.FHIR_VERSION_PATTERN;
     private static final Pattern VALUESET_PATTERN =
             Pattern.compile("valueset\\s+\"([^\"]+)\"\\s*:\\s*'([^']*)'");
     private static final Pattern PARAMETER_PATTERN =

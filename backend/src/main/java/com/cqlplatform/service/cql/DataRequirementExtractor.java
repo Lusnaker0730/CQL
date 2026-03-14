@@ -511,6 +511,38 @@ public class DataRequirementExtractor {
     }
 
     /**
+     * Unwrap ToConcept/FunctionRef/As nodes to reach an underlying CodeRef node.
+     * CQL-to-ELM translator wraps CodeRef in ToConcept when comparing CodeableConcept ~ Code,
+     * producing: ToConcept(CodeRef) or FunctionRef("ToConcept", CodeRef) instead of bare CodeRef.
+     */
+    private JsonNode unwrapToCodeRef(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        String type = node.path("type").asText("");
+        if ("CodeRef".equals(type)) {
+            return node;
+        }
+        if ("ToConcept".equals(type) || "ToCode".equals(type)) {
+            // ToConcept has a single "operand" field (not array)
+            JsonNode operand = node.get("operand");
+            if (operand != null) {
+                return unwrapToCodeRef(operand);
+            }
+        }
+        if ("FunctionRef".equals(type)) {
+            JsonNode ops = node.get("operand");
+            if (ops != null && ops.isArray() && !ops.isEmpty()) {
+                return unwrapToCodeRef(ops.get(0));
+            }
+        }
+        if ("As".equals(type) || "Convert".equals(type)) {
+            return unwrapToCodeRef(node.get("operand"));
+        }
+        return null;
+    }
+
+    /**
      * Handle InValueSet pattern: operand[0] is a property, operand[1] or "valueset" is a ValueSetRef.
      */
     private void handleInValueSetPattern(JsonNode node, RetrieveInfo info, String alias) {
@@ -567,13 +599,13 @@ public class DataRequirementExtractor {
             return false;
         }
 
-        // Check if codeRefNode is a CodeRef
-        String codeRefType = codeRefNode.path("type").asText("");
-        if (!"CodeRef".equals(codeRefType)) {
+        // Check if codeRefNode is a CodeRef (may be wrapped in ToConcept/FunctionRef)
+        JsonNode actualCodeRef = unwrapToCodeRef(codeRefNode);
+        if (actualCodeRef == null) {
             return false;
         }
 
-        String codeRefName = codeRefNode.path("name").asText(null);
+        String codeRefName = actualCodeRef.path("name").asText(null);
         if (codeRefName == null) {
             return false;
         }
@@ -650,15 +682,58 @@ public class DataRequirementExtractor {
             return path;
         }
 
-        // FunctionRef wrapping: NormalizeInterval(P.performed)
-        String fnType = propertyNode.path("type").asText("");
-        if ("FunctionRef".equals(fnType)) {
-            JsonNode fnOps = propertyNode.get("operand");
+        // Unwrap FunctionRef/As/Convert/Case to find the underlying property
+        path = extractDatePropertyFromExpression(propertyNode, alias);
+        return path;
+    }
+
+    /**
+     * Extract a date property path from a potentially wrapped expression.
+     * Handles: FunctionRef(Property), As(Property), Case(... Property ...),
+     * and combinations thereof.
+     * FHIR choice types like effective[x] produce Case expressions in ELM:
+     *   Case(when Is(dateTime) then ToDateTime(As(Property("effective"))),
+     *        when Is(instant) then ToDateTime(As(Property("effective"))))
+     */
+    private String extractDatePropertyFromExpression(JsonNode node, String alias) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        String type = node.path("type").asText("");
+
+        // FunctionRef wrapping: NormalizeInterval(P.performed) or ToDateTime(As(Property))
+        if ("FunctionRef".equals(type)) {
+            JsonNode fnOps = node.get("operand");
             if (fnOps != null && fnOps.isArray()) {
                 for (JsonNode fnOp : fnOps) {
-                    path = extractPropertyPath(fnOp, alias);
-                    if (path != null) {
-                        return path;
+                    String path = extractPropertyPath(fnOp, alias);
+                    if (path != null) return path;
+                    // Recurse for nested wrappers
+                    path = extractDatePropertyFromExpression(fnOp, alias);
+                    if (path != null) return path;
+                }
+            }
+        }
+
+        // As/Convert wrapping
+        if ("As".equals(type) || "Convert".equals(type)) {
+            JsonNode operand = node.get("operand");
+            String path = extractPropertyPath(operand, alias);
+            if (path != null) return path;
+            return extractDatePropertyFromExpression(operand, alias);
+        }
+
+        // Case expression from FHIR choice types (effective[x], onset[x], etc.)
+        if ("Case".equals(type)) {
+            JsonNode caseItems = node.get("caseItem");
+            if (caseItems != null && caseItems.isArray()) {
+                for (JsonNode caseItem : caseItems) {
+                    JsonNode then = caseItem.get("then");
+                    if (then != null) {
+                        String path = extractPropertyPath(then, alias);
+                        if (path != null) return path;
+                        path = extractDatePropertyFromExpression(then, alias);
+                        if (path != null) return path;
                     }
                 }
             }

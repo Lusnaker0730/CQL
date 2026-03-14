@@ -36,11 +36,12 @@ export interface DynamicEntry {
 interface ElementSelectDropdownProps {
   templates: FormTemplateCategory[]
   dynamicEntries?: DynamicEntry[]
+  twcoreMode?: boolean
   onSelect: (template: FormTemplate) => void
   onSelectDynamic?: (entry: DynamicEntry) => void
 }
 
-export default function ElementSelectDropdown({ templates, dynamicEntries, onSelect, onSelectDynamic }: ElementSelectDropdownProps) {
+export default function ElementSelectDropdown({ templates, dynamicEntries, twcoreMode, onSelect, onSelectDynamic }: ElementSelectDropdownProps) {
   const { t } = useTranslation('authoring')
   const [search, setSearch] = useState('')
 
@@ -50,6 +51,8 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, onSel
       ...cat,
       entries: cat.entries.filter((entry) => {
         if (entry.suppress) return false
+        // Hide twcoreOnly templates when TWCORE mode is off
+        if (entry.twcoreOnly && !twcoreMode) return false
         if (!search) return true
         return entry.name.toLowerCase().includes(search.toLowerCase())
       }),
@@ -117,7 +120,14 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, onSel
                       sx={{ pl: 4 }}
                     >
                       <ListItemText
-                        primary={entry.name}
+                        primary={
+                          entry.twcoreOnly ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <span>{entry.name}</span>
+                              <Chip label="TW" size="small" color="info" sx={{ fontSize: '0.6rem', height: 18 }} />
+                            </Box>
+                          ) : entry.name
+                        }
                         secondary={t(`elementDescriptions.${entry.id}`, { defaultValue: '' }) || ELEMENT_DESCRIPTIONS[entry.id] || entry.returnType?.replace(/_/g, ' ') || category.name}
                         primaryTypographyProps={{ variant: 'body2' }}
                         secondaryTypographyProps={{ variant: 'caption' }}
@@ -188,5 +198,25 @@ const ELEMENT_DESCRIPTIONS: Record<string, string> = {
   GenericServiceRequest_vsac: 'Diagnostic or service requests',
   GenericDevice_vsac: 'Medical devices',
   BooleanParameter: 'Configurable true/false parameter',
+  // TWCORE templates
+  TwcoreBMI_vsac: 'TWCORE BMI observation (LOINC 39156-5)',
+  TwcoreBloodPressure_vsac: 'TWCORE blood pressure panel (LOINC 85354-9)',
+  TwcoreBodyWeight_vsac: 'TWCORE body weight (LOINC 29463-7)',
+  TwcoreBodyHeight_vsac: 'TWCORE body height (LOINC 8302-2)',
+  TwcoreBodyTemperature_vsac: 'TWCORE body temperature (LOINC 8310-5)',
+  TwcoreHeartRate_vsac: 'TWCORE heart rate (LOINC 8867-4)',
+  TwcoreBloodGlucose_vsac: 'TWCORE blood glucose (LOINC 2345-7)',
+  TwcoreHbA1c_vsac: 'TWCORE HbA1c (LOINC 4548-4)',
+  TwcoreLabResult_vsac: 'TWCORE lab result — pick code from catalog',
+  TwcoreDiabetes_vsac: 'TWCORE diabetes mellitus (SNOMED 44054006)',
+  TwcoreHypertension_vsac: 'TWCORE hypertension (SNOMED 38341003)',
+  TwcoreHeartFailure_vsac: 'TWCORE heart failure (SNOMED 84114007)',
+  TwcoreCKD_vsac: 'TWCORE chronic kidney disease (SNOMED 709044004)',
+  TwcoreAsthma_vsac: 'TWCORE asthma (SNOMED 195967001)',
+  TwcoreCOPD_vsac: 'TWCORE COPD (SNOMED 13645005)',
+  TwcoreCondition_vsac: 'TWCORE condition — pick code from catalog',
+  TwcoreMedicationRequest_vsac: 'TWCORE medication prescription',
+  TwcoreMedicationStatement_vsac: 'TWCORE medication usage record',
+  TwcoreAllergyIntolerance_vsac: 'TWCORE allergy or intolerance',
 }
 

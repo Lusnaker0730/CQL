@@ -1,0 +1,297 @@
+{
+  "hero": {
+    "tagline": "A CQL development platform designed for Taiwan's healthcare systems",
+    "description": "Integrated with TWCORE IG specifications, providing visual CQL editing, quality measures, CDS decision support, and more to help healthcare organizations improve care quality.",
+    "learnMore": "Start Learning",
+    "tryDemo": "Browse Tutorials"
+  },
+  "features": {
+    "title": "Platform Features",
+    "subtitle": "A complete Clinical Quality Language development toolchain",
+    "editor": {
+      "title": "CQL Smart Editor",
+      "description": "Monaco editor with syntax highlighting, auto-completion, real-time validation, TWCORE IG code snippets, and FHIR resource property suggestions."
+    },
+    "measures": {
+      "title": "Quality Measures (eCQM)",
+      "description": "Define electronic clinical quality measures, evaluate populations against patient data, and generate HL7 FHIR Measure compliant quality reports."
+    },
+    "cds": {
+      "title": "CDS Decision Support",
+      "description": "Build CDS Hooks services and clinical decision rules that trigger automatically in healthcare workflows, providing real-time recommendations."
+    },
+    "fhir": {
+      "title": "FHIR Browser",
+      "description": "Browse and query FHIR R4 server resources, with support for TW Core IG structure definitions and terminology system lookups."
+    }
+  },
+  "showcase": {
+    "title": "TWCORE IG Integration",
+    "subtitle": "Native support for Taiwan Core Implementation Guide — CQL examples directly aligned with local healthcare data standards",
+    "whatIsCql": "What is CQL?",
+    "whatIsCqlContent": "CQL (Clinical Quality Language) is a standardized language defined by HL7, specifically designed for expressing clinical knowledge and quality measure logic. It enables healthcare informaticists to write clinical decision rules and quality indicators in a readable, executable way.",
+    "whyTwcore": "Why TWCORE?",
+    "whyTwcoreContent": "TWCORE IG (Taiwan Core Implementation Guide) is a localized standard developed by the Ministry of Health and Welfare based on HL7 FHIR R4. It defines the structure and terminology mappings for Taiwan's healthcare data. All CQL examples in this platform conform to TWCORE specifications, ensuring interoperability with domestic healthcare systems."
+  },
+  "stats": {
+    "resources": "FHIR Resource Types",
+    "profiles": "TWCORE Profiles",
+    "codeSystems": "Taiwan Code Systems",
+    "templates": "CQL Templates"
+  },
+  "learn": {
+    "nav": {
+      "introduction": "CQL Introduction",
+      "concepts": "Core Concepts",
+      "twcore": "TWCORE IG",
+      "examples": "Interactive Examples",
+      "quickStart": "Quick Start",
+      "playground": "Playground",
+      "quiz": "Self Quiz"
+    },
+    "backToHome": "Back to Home",
+    "introduction": {
+      "title": "Introduction to CQL",
+      "what": {
+        "title": "What is CQL?",
+        "content": "CQL (Clinical Quality Language) is a standardized language developed by HL7 International, specifically designed for expressing clinical decision logic and quality measure criteria. It is a high-level, human-readable language that can be compiled into ELM (Expression Logical Model) for computer execution."
+      },
+      "why": {
+        "title": "Why CQL?",
+        "problems": "Before CQL, clinical quality measures and decision rules were mostly written in natural language, causing:",
+        "problem1": "Inconsistent interpretation of the same measure across systems",
+        "problem2": "Inability to automatically compute quality measures",
+        "problem3": "Difficult rule maintenance, prone to errors",
+        "solution": "CQL solves these problems: it is standardized, executable, and maintains human readability."
+      },
+      "relationship": {
+        "title": "CQL and FHIR Relationship",
+        "content": "CQL is a query language built on top of the FHIR (Fast Healthcare Interoperability Resources) data model. CQL accesses clinical data through FHIR resource types (such as Patient, Condition, Observation) and performs logical operations on this data.",
+        "fhirModel": "FHIR provides the data model (describes data structure)",
+        "cqlLogic": "CQL provides the query logic (describes how to operate on data)",
+        "together": "Together, they form a complete clinical knowledge expression framework"
+      },
+      "applications": {
+        "title": "CQL Application Scenarios",
+        "ecqm": "Electronic Clinical Quality Measures (eCQM) — Automatically compute healthcare quality indicators",
+        "cds": "Clinical Decision Support (CDS) — Real-time medication alerts and diagnostic recommendations",
+        "phenotyping": "Electronic Phenotyping (ePhenotyping) — Identify specific patient populations from EHR data",
+        "research": "Clinical Research — Define inclusion/exclusion criteria for study populations"
+      }
+    },
+    "concepts": {
+      "title": "CQL Core Concepts",
+      "library": {
+        "title": "Library Declaration",
+        "content": "Every CQL file is a library that must begin with a library declaration, followed by a reference to the FHIR data model.",
+        "explanation": "The library declaration specifies the library name and version, while 'using' designates the data model."
+      },
+      "valueset": {
+        "title": "ValueSet & Code",
+        "content": "A ValueSet is a collection of medical terminology codes used to filter specific clinical concepts.",
+        "explanation": "ValueSets can reference external terminology server definitions (e.g., VSAC), or directly define codes."
+      },
+      "context": {
+        "title": "Context",
+        "content": "Context defines the scope of CQL operations. The most common is the Patient context.",
+        "explanation": "In Patient context, all queries are automatically scoped to the currently evaluated patient."
+      },
+      "retrieve": {
+        "title": "Data Retrieval (Retrieve)",
+        "content": "Retrieve is CQL's core operation for querying data from a FHIR server.",
+        "explanation": "The bracket syntax [ResourceType: terminology] queries FHIR resources matching the criteria."
+      },
+      "query": {
+        "title": "Query Expressions",
+        "content": "CQL supports rich query syntax including where filters, sort ordering, and return projections.",
+        "explanation": "Query syntax is similar to SQL but designed for clinical data, supporting date intervals, terminology matching, etc."
+      },
+      "define": {
+        "title": "Definitions (Define)",
+        "content": "Define creates named expressions that can be referenced by other definitions, forming logic chains.",
+        "explanation": "Definitions are CQL's core building blocks — each quality measure population corresponds to a define statement."
+      }
+    },
+    "twcore": {
+      "title": "TWCORE IG & CQL",
+      "overview": {
+        "title": "Taiwan Core Implementation Guide Overview",
+        "content": "TWCORE IG is a localized implementation guide developed by Taiwan's Ministry of Health and Welfare based on HL7 FHIR R4, defining standardized data formats, terminology systems, and interoperability rules for Taiwan's healthcare information exchange."
+      },
+      "profiles": {
+        "title": "TWCORE Profiles & CQL",
+        "content": "TWCORE defines multiple FHIR Profiles, each adapted for Taiwan's healthcare environment. When writing CQL, we use the resource types corresponding to these Profiles to query data.",
+        "patientDesc": "Patient demographics (with national ID)",
+        "conditionDesc": "Clinical diagnoses (ICD-10-CM-TW support)",
+        "observationDesc": "Lab results (LOINC mapping)",
+        "medicationDesc": "Medication orders (NHI drug codes)",
+        "encounterDesc": "Healthcare encounters",
+        "procedureDesc": "Clinical procedures (NHI procedure codes)"
+      },
+      "codeSystems": {
+        "title": "Taiwan Code Systems",
+        "content": "TWCORE defines several Taiwan-specific terminology systems for encoding local healthcare concepts:",
+        "icd10cm": "ICD-10-CM-TW — Taiwan International Classification of Diseases (diagnoses)",
+        "icd10pcs": "ICD-10-PCS-TW — Taiwan Procedure Coding System",
+        "nhiMed": "NHI Medication — National Health Insurance drug codes",
+        "nhiProc": "Medical Service Payment — NHI medical service payment codes",
+        "dept": "Department — Taiwan healthcare department codes"
+      },
+      "example": {
+        "title": "Full Example: Diabetes Care Quality Measure",
+        "description": "The following example demonstrates how to use CQL + TWCORE IG to define a diabetes care quality measure calculating HbA1c screening completion rate."
+      }
+    },
+    "examples": {
+      "title": "Interactive Examples",
+      "subtitle": "Click an example to view CQL code and detailed explanation",
+      "tryInEditor": "Open in Editor",
+      "copyCode": "Copy Code",
+      "copied": "Copied!",
+      "diabetes": {
+        "title": "Diabetes Care Quality",
+        "description": "Query diabetic patients' HbA1c test results using TWCORE Profiles to calculate control rates.",
+        "explanation": "This example demonstrates typical quality measure logic: defining population (diabetic patients), denominator (those who should be tested), numerator (patients with HbA1c < 7%). Uses LOINC code 4548-4 for HbA1c results."
+      },
+      "hypertension": {
+        "title": "Hypertension Screening",
+        "description": "Query blood pressure measurements, identify patients with abnormal readings, and track medication usage.",
+        "explanation": "This example uses LOINC code 85354-9 (Blood Pressure Panel) to query BP records and compare systolic/diastolic thresholds. It also queries antihypertensive medications via MedicationRequest."
+      },
+      "medication": {
+        "title": "Medication Safety Monitoring",
+        "description": "Monitor prescriptions, identify high-risk drug combinations and dose adjustment needs for renal impairment.",
+        "explanation": "This example combines MedicationRequest with Observation (eGFR) data to identify patients needing dose adjustments. Uses the NHI Medication code system."
+      },
+      "encounter": {
+        "title": "Outpatient Visit Analysis",
+        "description": "Analyze patient encounter records, calculate follow-up rates and ED-to-inpatient conversion ratios.",
+        "explanation": "This example uses Encounter resources to query outpatient, emergency, and inpatient records, filtering by time intervals to compute visit statistics."
+      }
+    },
+    "quickStart": {
+      "title": "Quick Start",
+      "subtitle": "Start your first CQL program in just five steps",
+      "step1": {
+        "title": "Step 1: Create an Account",
+        "content": "Click \"Register\" on the login page and fill in your username and password to create an account."
+      },
+      "step2": {
+        "title": "Step 2: Meet the Editor",
+        "content": "After login, you'll enter the CQL Editor page. The left side is the code editor; the right side toggles between ELM output, execution results, or CQL Builder."
+      },
+      "step3": {
+        "title": "Step 3: Write Your First CQL",
+        "content": "Type CQL code in the editor. Use auto-complete (Ctrl+Space) to insert TWCORE templates."
+      },
+      "step4": {
+        "title": "Step 4: Translate & Validate",
+        "content": "Press Ctrl+S or click \"Translate\" to compile CQL to ELM and see validation results. Fix any errors and retranslate."
+      },
+      "step5": {
+        "title": "Step 5: Execute Query",
+        "content": "Set the FHIR server URL, select a Patient ID, then click \"Execute\" (Ctrl+Enter). Results show computed values for each definition."
+      },
+      "nextSteps": "Next Steps",
+      "nextStepsContent": "Congratulations! You've completed your first CQL query. Next you can:",
+      "next1": "Explore CQL Builder to visually construct more complex queries",
+      "next2": "Go to Quality Measures to create your first eCQM indicator",
+      "next3": "Browse the FHIR Browser to discover available data on the server"
+    },
+    "playground": {
+      "title": "CQL Playground",
+      "subtitle": "Edit CQL code here, practice syntax, and see translation results in real-time",
+      "instructions": "Write CQL code in the editor, then click \"Translate\" to validate syntax.",
+      "loadTemplate": "Load Template",
+      "translate": "Translate",
+      "translating": "Translating...",
+      "result": "Translation Result",
+      "success": "Translation successful! CQL syntax is correct.",
+      "errors": "Translation found {{count}} issue(s):",
+      "loginRequired": "Login to use full translation features",
+      "loginToTranslate": "Login to Translate"
+    },
+    "quiz": {
+      "title": "CQL Self Quiz",
+      "subtitle": "Test your understanding of CQL core concepts",
+      "question": "Question {{current}} of {{total}}",
+      "checkAnswer": "Check Answer",
+      "next": "Next",
+      "restart": "Restart Quiz",
+      "score": "Your score: {{score}} / {{total}}",
+      "perfect": "Perfect score! You've mastered CQL core concepts.",
+      "good": "Well done! Consider reviewing the questions you missed.",
+      "needsWork": "Keep learning! Review the Introduction and Core Concepts sections.",
+      "correct": "Correct!",
+      "incorrect": "Incorrect.",
+      "q1": {
+        "question": "What does CQL stand for?",
+        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
+        "answer": 1,
+        "explanation": "CQL stands for Clinical Quality Language, developed by HL7 International."
+      },
+      "q2": {
+        "question": "Which data model does CQL use to access clinical data?",
+        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
+        "answer": 2,
+        "explanation": "CQL is built on top of the FHIR (Fast Healthcare Interoperability Resources) data model."
+      },
+      "q3": {
+        "question": "How do you query all Condition resources in CQL?",
+        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
+        "answer": 1,
+        "explanation": "CQL uses bracket syntax [ResourceType] to query FHIR resources, e.g., [Condition] retrieves all Condition resources."
+      },
+      "q4": {
+        "question": "What is the compiled intermediate format of CQL called?",
+        "options": ["AST", "ELM", "XML", "JSON-LD"],
+        "answer": 1,
+        "explanation": "CQL is compiled to ELM (Expression Logical Model), a machine-executable logical model."
+      },
+      "q5": {
+        "question": "Which organization developed the TWCORE IG?",
+        "options": ["HL7 International", "WHO", "Ministry of Health and Welfare (Taiwan)", "National Health Insurance Administration"],
+        "answer": 2,
+        "explanation": "TWCORE IG is developed by Taiwan's Ministry of Health and Welfare based on HL7 FHIR R4."
+      },
+      "q6": {
+        "question": "What does 'context Patient' do in CQL?",
+        "options": ["Declares a patient variable", "Scopes queries to the currently evaluated patient", "Defines patient data structure", "Imports patient database"],
+        "answer": 1,
+        "explanation": "'context Patient' scopes all subsequent queries to the currently evaluated patient."
+      },
+      "q7": {
+        "question": "Which terminology system is primarily used for diagnoses in Taiwan?",
+        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
+        "answer": 2,
+        "explanation": "Taiwan primarily uses ICD-10-CM-TW for diagnosis coding."
+      },
+      "q8": {
+        "question": "What does the 'define' keyword do in CQL?",
+        "options": ["Defines a variable", "Creates a named reusable expression", "Declares a library", "Defines a data type"],
+        "answer": 1,
+        "explanation": "'define' creates named expressions that can be referenced by other definitions — CQL's core building blocks."
+      },
+      "q9": {
+        "question": "What lab test does LOINC code 4548-4 correspond to?",
+        "options": ["Glucose", "Creatinine", "HbA1c", "Cholesterol"],
+        "answer": 2,
+        "explanation": "LOINC 4548-4 corresponds to Hemoglobin A1c/Hemoglobin.total in Blood (HbA1c)."
+      },
+      "q10": {
+        "question": "What does eCQM stand for?",
+        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
+        "answer": 1,
+        "explanation": "eCQM stands for electronic Clinical Quality Measure, using CQL for measure logic definition."
+      }
+    },
+    "progress": {
+      "title": "Learning Progress",
+      "completed": "Completed",
+      "notStarted": "Not Started",
+      "inProgress": "In Progress",
+      "reset": "Reset Progress",
+      "resetConfirm": "Are you sure you want to reset all learning progress?"
+    }
+  }
+}
