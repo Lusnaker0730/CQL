@@ -90,7 +90,7 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
         })
       }
     }
-  }, [selectedMeasure, dispatch, showNotification])
+  }, [selectedMeasure, dispatch, showNotification, t])
 
   const evaluateMutation = useMutation({
     mutationFn: () => {

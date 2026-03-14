@@ -4,6 +4,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
@@ -124,6 +125,7 @@ public class GlobalExceptionHandler {
                 .error(error)
                 .message(message)
                 .details(details)
+                .requestId(MDC.get("requestId"))
                 .build();
         return ResponseEntity.status(status).body(response);
     }
@@ -136,5 +138,6 @@ public class GlobalExceptionHandler {
         private String error;
         private String message;
         private List<String> details;
+        private String requestId;
     }
 }

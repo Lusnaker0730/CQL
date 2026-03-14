@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cdsHooksApi, apiKeyApi } from '../api'
 import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest, SandboxPresetRequest } from '../types'
+import { REFETCH_30S } from '../constants/queryConstants'
 
 export function useCdsServices() {
   return useQuery({
@@ -101,7 +102,7 @@ export function useCdsAnalytics() {
   return useQuery({
     queryKey: ['cds-analytics'],
     queryFn: () => cdsHooksApi.getAllAnalytics(),
-    refetchInterval: 30000,
+    refetchInterval: REFETCH_30S,
   })
 }
 

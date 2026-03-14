@@ -93,7 +93,7 @@ Key 前綴對照：
 
 ## 注意事項
 
-- `escapeCqlString()` 在 CdsCardBuilder 和 RecommendationBuilder 各有一份（待統一）
+- `escapeCqlString()` / `formatFieldValue()` 統一定義在 `utils/cqlString.ts`，兩個 Builder 均從此 import
 - QueryBuilder 的 `generateQueryCql` 是純函數，CQL 子句順序：`let → with/without → where → return → sort`
 - ModifierChainBuilder 支援算術運算（+−×÷）和巢狀修飾器
 - 新增 Builder 時：建立元件 → 加到 DefinitionsSection 的模式切換 → 加 i18n keys (en + zh-TW)

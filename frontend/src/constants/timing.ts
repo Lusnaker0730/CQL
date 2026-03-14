@@ -22,3 +22,21 @@ export const POLL_INTERVAL_MS = 5000
 
 /** Timeout for copy-to-clipboard feedback (ms) */
 export const COPY_FEEDBACK_TIMEOUT_MS = 2000
+
+/** Debounce for fast autosave (JSON sync, draft save) (ms) */
+export const AUTOSAVE_FAST_MS = 500
+
+/** Debounce for normal autosave (localStorage persist) (ms) */
+export const AUTOSAVE_NORMAL_MS = 1000
+
+/** Debounce for slow/expensive operations (CQL parse, artifact save) (ms) */
+export const AUTOSAVE_SLOW_MS = 1500
+
+/** Debounce for very slow operations (CQL structure analysis) (ms) */
+export const AUTOSAVE_HEAVY_MS = 2000
+
+/** Default notification auto-dismiss duration (ms) */
+export const NOTIFICATION_DURATION_MS = 4000
+
+/** Delay for UI state reset transitions (ms) */
+export const UI_TRANSITION_DELAY_MS = 300

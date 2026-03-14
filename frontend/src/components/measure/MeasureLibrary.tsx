@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import { downloadBlob } from '../../utils/download'
 import {
   Paper,
@@ -100,7 +101,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 

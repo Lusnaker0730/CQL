@@ -35,6 +35,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { adminApi } from '../api'
 import type { AuditLogEntry, AuditLogSearchParams, AuditStatsResponse } from '../types'
+import { REFETCH_30S } from '../constants/queryConstants'
 
 function StatCard({ title, value, icon, color }: { title: string; value: number; icon: React.ReactNode; color: string }) {
   return (
@@ -301,7 +302,7 @@ export default function AuditDashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['audit', 'stats'],
     queryFn: adminApi.getAuditStats,
-    refetchInterval: 30000,
+    refetchInterval: REFETCH_30S,
   })
 
   // All logs query

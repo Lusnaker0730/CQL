@@ -9,6 +9,18 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-053 | ✨ feature | 2026-03-14 | 前端（Landing/Learn） | CQL 學習中心與 Landing Page 改造 — 新首頁（Hero+功能卡片+TWCORE 範例展示）+ /learn 學習中心（CQL 入門/核心概念/TWCORE IG/互動範例/快速開始/練習場/自我測驗）+ landing i18n namespace (EN+zh-TW) | 16 新檔案、所有 CQL 範例符合 TWCORE IG | [`cec2f1f`](../../commit/cec2f1f) |
+| PAT-052 | 🔧 refactor | 2026-03-13 | 前端（常數管理） | 硬編碼常數提取 — 新增 queryConstants.ts + 擴充 timing.ts / layout.ts，22 檔 magic number 改為集中常數 (debounce/staleTime/尺寸) | 消除重複、統一維護 | [`8307c67`](../../commit/8307c67) |
+| BUG-091 | 🐛 bugfix | 2026-03-13 | 後端（測試） | 修復 6 個預存測試失敗 — GEH timeout 504 斷言、VSAC OID 驗證、ApiKey name 可選、TestCase mock 方法名 | 821 tests 全過 | [`b78de09`](../../commit/b78de09) |
+| PAT-051 | ✨ patch | 2026-03-13 | 全端（Observability） | X-Request-ID 端對端追蹤 — 前端 UUID 產生 + RequestTracingFilter MDC + 結構化日誌 + 稽核紀錄 request_id + Error Response requestId | TFDA 稽核軌跡 + 除錯效率 | [`7fc2e86`](../../commit/7fc2e86) |
+| PAT-050 | 🔒 security | 2026-03-13 | 後端（Auth/JWT） | JWT 即時撤銷 — token_version + Caffeine 快取 (30s TTL)，登出/停用/角色變更/密碼重設觸發 bump，撤銷窗口從 15 分鐘縮至 ~30 秒 | 醫療稽核必備：無 Redis 依賴 | [`16fa19c`](../../commit/16fa19c) |
+| PAT-049 | ✨ patch | 2026-03-13 | 前端（表單驗證） | 前後端欄位約束對齊 — fieldConstraints.ts 共用常數 + 6 表單元件 maxLength 對齊後端 @Size + 長文字欄位字數計數 + StringField/TextAreaField maxLength prop | 防止前端超長輸入導致 400 | [`726085f`](../../commit/726085f) |
+| PAT-048 | ✨ patch | 2026-03-13 | 法規自動化（CI/CD） | 法規文件完整性防護 — Issue 快照 + SHA-256 清單 + 每週排程備份 | 防 Issue 竄改破壞 TFDA 文件 | [`356430c`](../../commit/356430c) |
+| BUG-090 | 🔒 security | 2026-03-13 | 後端（CQL Engine） | CQL 執行資源耗盡防護 — Translation timeout + Retrieve 結果上限 + 回應集合截斷 + Prefetch 資源上限 + Patient 分頁上限 + Fallback cache 有界 | 防 DoS / OOM | [`9fe7b27`](../../commit/9fe7b27) |
+| BUG-089 | 🐛 bugfix | 2026-03-13 | 前端（TestCase Builder） | TWCORE 術語瀏覽器代碼欄位同步修復 — CodingField/CodeField 本地狀態未隨外部更新同步 | useState 初始化只執行一次 | [`fd879a3`](../../commit/fd879a3) |
+| PAT-047 | 🔧 refactor | 2026-03-13 | 後端（DB） | Flyway 安全強化 — 41 份 rollback 腳本 + baseline-on-migrate 生產關閉 + lock-retry-count + CI validate 步驟 | 叢集環境 + 緊急回退能力 | [`85cb768`](../../commit/85cb768) |
+| PAT-046 | 🔧 refactor | 2026-03-13 | 前端（Builder） | escapeCqlString 技術債清除 — 提取共用 utils/cqlString.ts，消除 CdsCardBuilder / RecommendationBuilder 重複定義 | 含 formatFieldValue + FieldState type | [`c3cec5a`](../../commit/c3cec5a) |
+| PAT-044 | ✨ patch | 2026-03-13 | 前端（Editor） | CQL Monarch 語法自動產生 — 從官方 ANTLR grammar 提取關鍵字 + CI drift 檢查 | 修正 15 缺漏 + 14 多餘關鍵字 | [`8ac2917`](../../commit/8ac2917) |
 | PAT-043 | ✨ patch | 2026-03-13 | CI/CD（法規） | TFDA 法規追溯 CI 強制檢查 — PR 必須引用 Issue + B/C 等級完整追溯鏈驗證 | 防止法規文件遺漏 | [`8a77dc2`](../../commit/8a77dc2) |
 | PAT-042 | ⚡ perf | 2026-03-13 | 前端（Editor） | Monaco-Redux 解耦 — 移除每次按鍵 dispatch，改為 blur/save 同步 + editor ref 架構 | 消除 per-keystroke re-render | [`a1a1caf`](../../commit/a1a1caf) |
 | PAT-041 | ✨ patch | 2026-03-13 | CI/CD（後端） | PostgreSQL Migration CI 防護 — Flyway + JPA validate 對 PG service container 驗證 | 防止 H2/PG schema drift | [`4edcd3b`](../../commit/4edcd3b) |
@@ -166,6 +178,37 @@
 ---
 
 ## 詳細記錄 — 🌐 i18n / ✨ Patch（PAT-027+）
+
+## PAT-044 — CQL Monarch 語法從 ANTLR Grammar 自動產生
+
+- **日期**: 2026-03-13
+- **範圍**: 前端（Editor — Monaco CQL 語法高亮）
+
+### 問題
+
+`cqlSyntax.ts` 的 116 個 CQL 關鍵字是手動維護，與官方 CQL ANTLR grammar（v1.5）存在偏差：
+- **15 個官方關鍵字缺漏**：`div`, `mod`, `implies`, `fluent`, `maximum`, `minimum`, `of`, `starting`, `timezoneoffset`, `codesystems`, `Code`, `Concept`, `Interval`, `List`, `Tuple`
+- **14 個非標準關鍵字被誤加**：`combine`, `first`, `last`, `indexof`, `skip`, `take`, `tail`（這些是系統函式，不是語言關鍵字）、`datetime`, `interval`（小寫，語法用大寫 `DateTime`/`Interval`）、`returns`, `external`, `such`, `that`, `included`
+
+### 修正方案
+
+1. **Codegen 腳本**（`scripts/generate-monarch-tokens.py`）：從 `cql.g4` 的 `keyword`、`reservedWord`、`typeNameIdentifier` 規則自動提取 token 列表
+2. **產出檔案**（`src/utils/cqlTokens.generated.ts`）：匯出 `CQL_KEYWORDS`（115）、`CQL_TYPE_KEYWORDS`（18）、`CQL_MULTI_WORD_KEYWORDS`（8）、`CQL_RESERVED_WORDS`（67）、`CQL_DATETIME_PRECISIONS`（16）
+3. **`cqlSyntax.ts`**：import 產出檔案取代手寫陣列；TWCDI 片段、FHIR 屬性表、theme 等專案特有部分保留手寫
+4. **CI drift 檢查**：`ci.yml` 的 frontend-lint job 新增 `--check` 步驟，grammar 更新但未重新產生時 CI 失敗
+
+### 影響的檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `frontend/scripts/grammar/cql.g4` | 新增：官方 ANTLR grammar v1.5 |
+| `frontend/scripts/grammar/fhirpath.g4` | 新增：FHIRPath grammar |
+| `frontend/scripts/generate-monarch-tokens.py` | 新增：codegen 腳本 |
+| `frontend/src/utils/cqlTokens.generated.ts` | 新增：自動產生的 token 列表 |
+| `frontend/src/utils/cqlSyntax.ts` | 改用 import 產出檔案 |
+| `.github/workflows/ci.yml` | 新增 grammar drift check 步驟 |
+
+---
 
 ## PAT-043 — TFDA 法規追溯 CI 強制檢查
 

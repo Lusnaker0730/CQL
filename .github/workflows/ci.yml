@@ -61,6 +61,14 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit
 
+      - name: i18n locale sync check
+        working-directory: frontend
+        run: python scripts/check-i18n-sync.py
+
+      - name: CQL grammar token drift check
+        working-directory: frontend
+        run: python scripts/generate-monarch-tokens.py --check
+
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
@@ -102,8 +110,8 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_DB: cqlplatform_test
-          POSTGRES_USER: cqltest
-          POSTGRES_PASSWORD: cqltest
+          POSTGRES_USER: ${{ secrets.CI_PG_USER || 'cqltest' }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_PG_PASSWORD || 'cqltest' }}
         ports:
           - 5432:5432
         options: >-
@@ -130,6 +138,27 @@ jobs:
             -Dspring.profiles.active=ci-pg \
             -Dtest=com.cqlplatform.CqlPlatformApplicationTest \
             -DfailIfNoTests=false
+
+      - name: Flyway validate (standalone)
+        working-directory: backend
+        run: |
+          mvn flyway:validate -B \
+            -Dflyway.url=jdbc:postgresql://localhost:5432/cqlplatform_test \
+            -Dflyway.user=${{ secrets.CI_PG_USER || 'cqltest' }} \
+            -Dflyway.password=${{ secrets.CI_PG_PASSWORD || 'cqltest' }} \
+            -Dflyway.locations=classpath:db/migration
+
+      - name: Verify rollback scripts exist
+        run: |
+          MIGRATION_COUNT=$(ls -1 backend/src/main/resources/db/migration/V*.sql | wc -l)
+          ROLLBACK_COUNT=$(ls -1 backend/src/main/resources/db/rollback/rollback_V*.sql | wc -l)
+          echo "Forward migrations: $MIGRATION_COUNT"
+          echo "Rollback scripts:   $ROLLBACK_COUNT"
+          if [ "$MIGRATION_COUNT" -ne "$ROLLBACK_COUNT" ]; then
+            echo "::error::Missing rollback scripts! $MIGRATION_COUNT migrations but only $ROLLBACK_COUNT rollback scripts."
+            exit 1
+          fi
+          echo "All migrations have corresponding rollback scripts."
 
   docker-build:
     name: Docker Build

@@ -38,6 +38,9 @@ class PasswordResetServiceTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private TokenVersionService tokenVersionService;
+
     @InjectMocks
     private PasswordResetService service;
 

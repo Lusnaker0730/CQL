@@ -20,7 +20,7 @@ spring:
 
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    baseline-on-migrate: true  # Docker: allow first-time setup on existing DB
 
   h2:
     console:

@@ -66,6 +66,12 @@ public class CqlExecutionService {
     @Value("${cql.execution.timeout-seconds:30}")
     private int timeoutSeconds;
 
+    @Value("${cql.execution.max-retrieve-count:10000}")
+    private int maxRetrieveCount;
+
+    @Value("${cql.execution.max-collection-size:1000}")
+    private int maxCollectionSize;
+
     public CqlExecutionService(
             FhirDataProviderService dataProviderService,
             FhirTerminologyService terminologyService,
@@ -197,8 +203,8 @@ public class CqlExecutionService {
                 retrieveProvider = tracingProvider;
             }
 
-            // Outermost wrapper: check interrupt flag before every retrieve()
-            retrieveProvider = new InterruptAwareRetrieveProvider(retrieveProvider);
+            // Outermost wrapper: check interrupt flag + cap result size before every retrieve()
+            retrieveProvider = new InterruptAwareRetrieveProvider(retrieveProvider, maxRetrieveCount);
 
             CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
 
@@ -462,7 +468,13 @@ public class CqlExecutionService {
         }
         if (value instanceof Iterable<?> iter) {
             List<Object> list = new ArrayList<>();
-            iter.forEach(item -> list.add(toSerializable(item)));
+            for (Object item : iter) {
+                if (list.size() >= maxCollectionSize) {
+                    list.add("[... truncated at " + maxCollectionSize + " items]");
+                    break;
+                }
+                list.add(toSerializable(item));
+            }
             return list;
         }
         // Fallback: use display string

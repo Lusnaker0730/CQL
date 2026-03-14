@@ -8,12 +8,13 @@ const api = axios.create({
   withCredentials: true,
 })
 
-// Request interceptor: attach JWT token
+// Request interceptor: attach JWT token + X-Request-ID for tracing
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  config.headers['X-Request-ID'] = crypto.randomUUID()
   return config
 })
 

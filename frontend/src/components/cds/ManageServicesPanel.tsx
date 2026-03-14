@@ -59,6 +59,7 @@ import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
 import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES } from '../../constants/cdsHooks'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
+import { CDS_SERVICE } from '../../constants/fieldConstraints'
 
 export default function ManageServicesPanel() {
   const dispatch = useDispatch()
@@ -369,6 +370,7 @@ export default function ManageServicesPanel() {
               disabled={!!editingService}
               helperText={formErrors.id || t('manage.serviceIdHelperText')}
               error={!!formErrors.id}
+              inputProps={{ maxLength: CDS_SERVICE.id.maxLength }}
             />
 
             <TextField
@@ -383,6 +385,7 @@ export default function ManageServicesPanel() {
               required
               error={!!formErrors.title}
               helperText={formErrors.title}
+              inputProps={{ maxLength: CDS_SERVICE.title.maxLength }}
             />
 
             <Stack direction="row" spacing={1} alignItems="center">
@@ -411,6 +414,8 @@ export default function ManageServicesPanel() {
               fullWidth
               multiline
               rows={2}
+              inputProps={{ maxLength: CDS_SERVICE.description.maxLength }}
+              helperText={`${(formData.description || '').length} / ${CDS_SERVICE.description.maxLength}`}
             />
 
             <FormControl fullWidth size="small">

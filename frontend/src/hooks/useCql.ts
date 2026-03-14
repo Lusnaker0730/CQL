@@ -231,11 +231,11 @@ export function useCqlEditor() {
 
   const translate = useCallback((cql: string) => {
     translateMutation.mutate({ cql })
-  }, [translateMutation.mutate])
+  }, [translateMutation])
 
   const validate = useCallback((cql: string) => {
     validateMutation.mutate(cql)
-  }, [validateMutation.mutate])
+  }, [validateMutation])
 
   const execute = useCallback((cql: string, patientId?: string, fhirServerUrl?: string) => {
     executeMutation.mutate({
@@ -243,7 +243,7 @@ export function useCqlEditor() {
       patientId,
       fhirServerUrl,
     })
-  }, [executeMutation.mutate])
+  }, [executeMutation])
 
   return {
     ...editor,

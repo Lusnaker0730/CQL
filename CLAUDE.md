@@ -13,6 +13,7 @@
 | State | Redux Toolkit + TanStack React Query | 2.0 / 5.8 |
 | i18n | i18next + react-i18next | 25 / 16 |
 | DB | PostgreSQL (prod) / H2 (dev) | — |
+| Cache | Caffeine (in-process) | — |
 | CQL Engine | CQL Framework + HAPI FHIR | 3.29 / 7.0 |
 | Templates | FreeMarker (.ftl) | — |
 
@@ -21,12 +22,12 @@
 ```
 backend/src/main/java/com/cqlplatform/
   config/          — Spring 配置 (Security, CORS, Cache, Async)
-  controller/      — REST API (18 controllers)
-  entity/          — JPA 實體 (28 entities)
+  controller/      — REST API (19 controllers)
+  entity/          — JPA 實體 (29 entities)
   exception/       — 自訂例外 + GlobalExceptionHandler
   model/           — DTO / Request / Response
   repository/      — Spring Data JPA
-  security/        — JWT 認證、API Key
+  security/        — JWT 認證、API Key、Token Version 即時撤銷
   service/
     authoring/     — CQL 產生引擎 (★ 核心)
     cds/           — CDS Hooks
@@ -38,7 +39,7 @@ backend/src/main/java/com/cqlplatform/
   validation/      — 輸入驗證
 
 frontend/src/
-  api/             — Axios API 模組 (12 modules)
+  api/             — Axios API 模組 (17 modules)
   components/
     auth/          — 登入 / 密碼重設
     authoring/     — CDS Authoring 視覺化
@@ -52,19 +53,21 @@ frontend/src/
     measure/       — 品質量測
     terminology/   — 術語瀏覽器
   contexts/        — React Context (6 providers)
-  hooks/           — 自訂 Hooks (10+)
+  hooks/           — 自訂 Hooks (54 files)
   locales/{en,zh-TW}/ — i18n JSON (11 namespaces)
-  pages/           — 路由頁面 (14 routes, lazy-loaded)
+  constants/       — 集中常數 (17 modules: timing, layout, queryConstants 等)
+  pages/           — 路由頁面 (26 pages, 10 lazy-loaded routes)
   store/           — Redux slices (editor, execution, auth, artifact)
-  utils/           — 共用工具 (13 modules)
+  utils/           — 共用工具 (20 modules)
 
 backend/src/main/resources/
-  templates/cql/   — FreeMarker 模板 (30 files)
+  templates/cql/   — FreeMarker 模板 (31 files)
     artifact.ftl, ecqm-artifact.ftl    — 主模板
     modifiers/     — 19 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway SQL (V1~V19)
+  db/migration/    — Flyway forward migrations (V1~V42)
+  db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理）
   application.yml  — 主配置
 ```
 
@@ -72,8 +75,8 @@ backend/src/main/resources/
 
 ```bash
 # Backend
-/c/Users/alumi/apache-maven-3.9.12/bin/mvn -f backend/pom.xml test     # 執行測試
-/c/Users/alumi/apache-maven-3.9.12/bin/mvn -f backend/pom.xml compile  # 編譯
+"/c/Program Files/apache-maven-3.9.9/bin/mvn" -f backend/pom.xml test     # 執行測試
+"/c/Program Files/apache-maven-3.9.9/bin/mvn" -f backend/pom.xml compile  # 編譯
 
 # Frontend
 cd frontend && npm run dev          # 開發伺服器 (port 5173)
@@ -111,9 +114,21 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 - Context 用於功能性狀態（preferences, notifications, terminology drawer）
 - 效能：善用 `useMemo` / `useCallback`，大列表用 `react-window`
 
+### 安全機制
+- JWT Token Version 即時撤銷：`TokenVersionService` + Caffeine cache (30s TTL)
+- 登出/改密碼/改角色/停用帳號 → `bumpVersion()` → 舊 JWT 30 秒內失效
+- JWT claim `"tv"` 攜帶 token version，`JwtAuthenticationFilter` 驗證時比對 DB 版本
+- V41 migration: `app_user.token_version` 欄位
+
+### 前端常數集中管理
+- `constants/timing.ts` — 防抖、自動儲存、通知延遲時間
+- `constants/layout.ts` — 編輯器高度、圖表尺寸、列表最大高度
+- `constants/queryConstants.ts` — React Query staleTime / refetchInterval
+- 禁止在元件中硬編碼 magic number，統一從 `constants/` import
+
 ### 測試
-- Backend: JUnit 5 + Mockito，79 個測試檔案
-- Frontend: Vitest + React Testing Library
+- Backend: JUnit 5 + Mockito，83 個測試檔案
+- Frontend: Vitest + React Testing Library，56 個測試檔案
 - 型別安全: 修改 tsx 後執行 `npx tsc --noEmit` 驗證
 
 ## 關鍵檔案速查
@@ -125,12 +140,14 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 | FreeMarker 引擎 | `service/authoring/CqlTemplateEngine.java` |
 | CQL 翻譯 | `service/cql/CqlTranslationService.java` |
 | 例外處理 | `exception/GlobalExceptionHandler.java` |
-| CQL Builder UI | `components/builder/` (28 元件) |
+| JWT Token Version | `service/TokenVersionService.java` |
+| CQL Builder UI | `components/builder/` (27 元件) |
 | CDS Authoring UI | `components/authoring/` |
 | eCQM UI | `components/ecqm/` |
 | Monaco CQL 語法 | `utils/cqlSyntax.ts` (48KB) |
 | API 客戶端 | `api/client.ts` (Axios instance) |
-| 路由 | `App.tsx` (14 routes, lazy-loaded) |
+| 前端常數 | `constants/timing.ts`, `layout.ts`, `queryConstants.ts` |
+| 路由 | `App.tsx` (10 routes, lazy-loaded) |
 | 主配置 | `backend/src/main/resources/application.yml` |
 | Flyway 遷移 | `backend/src/main/resources/db/migration/` |
 | Docker | `docker/docker-compose.yml` |
@@ -213,6 +230,8 @@ regulatory_docs/
 
 - FHIR resource properties 定義在 `frontend/src/utils/cqlSyntax.ts` 的 `fhirResourceProperties`
 - CQL 字面值正則: `CQL_LITERAL_RE` 在 `QueryBuilder.tsx`，用於自動引號判斷
-- `escapeCqlString()` 目前各自定義在 `CdsCardBuilder.tsx` 和 `RecommendationBuilder.tsx`（待統一）
+- `escapeCqlString()` / `formatFieldValue()` 統一定義在 `utils/cqlString.ts`
 - Monaco Editor 整合: `useCqlEditor` hook 管理編輯器生命週期
 - 前端 dev server proxy: `/api/*` → `localhost:8080`
+- 前端時間/尺寸常數統一在 `constants/` 目錄，禁止在元件中寫 magic number
+- Docker 部署: `docker/docker-compose.yml`（postgres, backend, frontend, hapi-fhir, monitoring stack）

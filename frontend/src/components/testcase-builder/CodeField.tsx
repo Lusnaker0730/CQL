@@ -24,6 +24,11 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   const [inputValue, setInputValue] = useState(String(value || ''))
   const [debouncedInput, setDebouncedInput] = useState(inputValue)
   const [twcoreOpen, setTwcoreOpen] = useState(false)
+
+  // Sync local input when value changes externally
+  useEffect(() => {
+    setInputValue(String(value || ''))
+  }, [value])
   const resourceType = useCurrentResourceType()
   const { openDrawer } = useTerminologyDrawer()
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()

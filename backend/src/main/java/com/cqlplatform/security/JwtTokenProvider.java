@@ -41,10 +41,14 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String username, String role) {
-        return generateToken(username, role, null);
+        return generateToken(username, role, null, 0);
     }
 
     public String generateToken(String username, String role, String department) {
+        return generateToken(username, role, department, 0);
+    }
+
+    public String generateToken(String username, String role, String department, int tokenVersion) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessExpirationMs);
 
@@ -53,6 +57,7 @@ public class JwtTokenProvider {
                 .audience().add(AUDIENCE).and()
                 .subject(username)
                 .claim("role", role)
+                .claim("tv", tokenVersion)
                 .issuedAt(now)
                 .expiration(expiry);
 
@@ -73,6 +78,11 @@ public class JwtTokenProvider {
 
     public String getDepartment(String token) {
         return getClaims(token).getPayload().get("department", String.class);
+    }
+
+    public int getTokenVersion(String token) {
+        Integer tv = getClaims(token).getPayload().get("tv", Integer.class);
+        return tv != null ? tv : 0;
     }
 
     public boolean validateToken(String token) {

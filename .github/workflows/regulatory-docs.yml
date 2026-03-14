@@ -10,6 +10,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   generate-docs:
     name: Generate TFDA Regulatory Documents
@@ -80,13 +83,31 @@ jobs:
             --version "${{ steps.version.outputs.version }}" \
             --output regulatory_docs/output
 
+      # --- Issue snapshot (tamper-proof backup) ---
+      - name: Snapshot regulatory Issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python regulatory_docs/scripts/snapshot_issues.py \
+            --repo "${{ github.repository }}" \
+            --version "${{ steps.version.outputs.version }}" \
+            --output regulatory_docs/output/snapshots
+
+      # --- SHA-256 integrity manifest ---
+      - name: Generate SHA-256 manifest
+        run: |
+          python regulatory_docs/scripts/generate_manifest.py \
+            --dir regulatory_docs/output \
+            --version "${{ steps.version.outputs.version }}" \
+            --commit "${{ github.sha }}"
+
       # --- Upload artifacts ---
       - name: Upload regulatory documents
         uses: actions/upload-artifact@v4
         with:
           name: regulatory-docs-${{ steps.version.outputs.version }}
           path: regulatory_docs/output/
-          retention-days: 90
+          retention-days: 365
 
       # --- Attach to release ---
       - name: Package documents for release
@@ -103,3 +124,21 @@ jobs:
           gh release upload "${{ github.event.release.tag_name }}" \
             "regulatory-docs-${{ steps.version.outputs.version }}.tar.gz" \
             --clobber
+
+      - name: Print manifest summary
+        run: |
+          echo "=== 法規文件完整性清單 ==="
+          cat regulatory_docs/output/MANIFEST.sha256
+          echo ""
+          echo "=== Issue 快照摘要 ==="
+          python -c "
+          import json, pathlib
+          snap = json.loads(pathlib.Path('regulatory_docs/output/snapshots/latest-snapshot.json').read_text())
+          meta = snap['metadata']
+          print(f'  版本: {meta[\"version\"]}')
+          print(f'  Commit: {meta[\"commit_sha\"]}')
+          print(f'  Issues: {meta[\"total_issues\"]}')
+          for label, count in meta['counts'].items():
+              print(f'    {label}: {count}')
+          print(f'  SHA-256: {meta[\"sha256\"]}')
+          "

@@ -55,6 +55,7 @@ import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
+import { STALE_5M } from '../constants/queryConstants'
 import { extractApiError } from '../utils/errorUtils'
 import { useNotification } from '../hooks/useNotification'
 import TabPanel, { a11yProps } from '../components/common/TabPanel'
@@ -166,7 +167,7 @@ export default function EditorPage() {
   const { data: aiStatus } = useQuery({
     queryKey: ['ai-status'],
     queryFn: () => settingsApi.getAiStatus(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_5M,
   })
 
   const handleNewLibrary = useCallback(() => {

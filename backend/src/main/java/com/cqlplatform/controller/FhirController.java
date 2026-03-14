@@ -278,7 +278,7 @@ public class FhirController {
     @GetMapping("/vsac/ValueSet/{oid}")
     @Operation(summary = "Get VSAC ValueSet", description = "Fetch a ValueSet from VSAC by OID")
     public ResponseEntity<String> getVsacValueSet(@PathVariable String oid) {
-        InputValidator.requireValidResourceId(oid);
+        InputValidator.requireValidOid(oid);
 
         ValueSet valueSet = vsacService.getValueSetByOid(oid);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(valueSet);

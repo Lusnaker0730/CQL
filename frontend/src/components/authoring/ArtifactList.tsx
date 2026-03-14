@@ -30,6 +30,7 @@ import { FixedSizeList } from 'react-window'
 import StatusChip from '../common/StatusChip'
 import GradientButton from '../common/GradientButton'
 import type { ArtifactSummary } from '../../types/authoring'
+import { ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT } from '../../constants/layout'
 
 type SortField = 'name' | 'version' | 'status' | 'updatedAt'
 type SortDir = 'asc' | 'desc'
@@ -220,8 +221,6 @@ export default function ArtifactList({
   )
 }
 
-const ARTIFACT_ROW_HEIGHT = 52
-
 interface ArtifactVirtualListProps {
   artifacts: ArtifactSummary[]
   onSelect: (artifact: ArtifactSummary) => void
@@ -317,7 +316,7 @@ function ArtifactVirtualList({
 
   return (
     <FixedSizeList
-      height={Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, 500)}
+      height={Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT)}
       width="100%"
       itemCount={artifacts.length}
       itemSize={ARTIFACT_ROW_HEIGHT}

@@ -38,7 +38,7 @@ export default function EcqmSdeTab({
       name: t('sde.defaultName', { number: supplementalData.length + 1 }),
       criteria: createEmptyConjunctionGroup() as ConjunctionGroupType,
     }])
-  }, [supplementalData, onChange])
+  }, [supplementalData, onChange, t])
 
   const updateCustom = useCallback((idx: number, updated: SupplementalDataElement) => {
     const copy = [...supplementalData]

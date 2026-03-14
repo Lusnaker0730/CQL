@@ -70,8 +70,9 @@ spring:
   # Flyway Configuration
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    baseline-on-migrate: false
     locations: classpath:db/migration
+    lock-retry-count: ${FLYWAY_LOCK_RETRY_COUNT:10}
 
 # JWT Configuration
 jwt:
@@ -148,10 +149,14 @@ cql:
     debug-mode: false
     enable-expression-caching: true
     timeout-seconds: 120
+    translation-timeout-seconds: 30
     measure-timeout-seconds: 120
     thread-pool-size: 10
     max-pool-size: 20
     queue-capacity: 50
+    max-retrieve-count: 10000
+    max-collection-size: 1000
+    max-patient-count: 50000
 
 # FHIR Configuration
 fhir:

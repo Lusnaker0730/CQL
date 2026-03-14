@@ -7,6 +7,8 @@ import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.RefreshTokenService;
+import com.cqlplatform.service.TokenVersionService;
 import com.cqlplatform.service.UserApiKeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,8 @@ public class AdminController {
     private final PasswordResetService passwordResetService;
     private final PasswordEncoder passwordEncoder;
     private final UserApiKeyService userApiKeyService;
+    private final TokenVersionService tokenVersionService;
+    private final RefreshTokenService refreshTokenService;
 
     @GetMapping("/users")
     public ResponseEntity<List<UserSummary>> listUsers() {
@@ -70,6 +74,11 @@ public class AdminController {
 
         user.setRole(UserEntity.Role.valueOf(request.getRole()));
         UserEntity saved = userRepository.save(user);
+
+        // Invalidate existing access tokens — the old role is stale
+        tokenVersionService.bumpVersion(user.getUsername());
+        refreshTokenService.revokeAllForUser(user.getId());
+
         return ResponseEntity.ok(toUserSummary(saved));
     }
 
@@ -88,8 +97,10 @@ public class AdminController {
         user.setEnabled(request.getEnabled());
         UserEntity saved = userRepository.save(user);
 
-        // When disabling a user, immediately deactivate all their API keys
+        // When disabling a user, immediately invalidate all sessions
         if (Boolean.FALSE.equals(request.getEnabled())) {
+            tokenVersionService.bumpVersion(user.getUsername());
+            refreshTokenService.revokeAllForUser(user.getId());
             userApiKeyService.deactivateAllKeys(user.getUsername());
         }
 

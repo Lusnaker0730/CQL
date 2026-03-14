@@ -69,6 +69,10 @@ public class UserEntity {
     @Column(name = "department", length = 100)
     private String department;
 
+    @Column(name = "token_version", nullable = false)
+    @Builder.Default
+    private Integer tokenVersion = 0;
+
     public enum Role {
         ADMIN, USER, DEPARTMENT_ADMIN
     }

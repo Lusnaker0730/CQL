@@ -19,10 +19,22 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PrefetchRetrieveProvider implements RetrieveProvider {
 
+    /** Default cap: reject prefetch payloads with more resources than this. */
+    private static final int DEFAULT_MAX_RESOURCES = 10_000;
+
     private final Map<String, List<Resource>> resourcesByType = new HashMap<>();
     private TerminologyProvider terminologyProvider;
 
     public PrefetchRetrieveProvider(List<Resource> resources, String patientId) {
+        this(resources, patientId, DEFAULT_MAX_RESOURCES);
+    }
+
+    public PrefetchRetrieveProvider(List<Resource> resources, String patientId, int maxResources) {
+        if (resources.size() > maxResources) {
+            log.warn("Prefetch for patient {} contains {} resources (max {}). Truncating to prevent OOM.",
+                    patientId, resources.size(), maxResources);
+            resources = resources.subList(0, maxResources);
+        }
         for (Resource resource : resources) {
             resourcesByType
                     .computeIfAbsent(resource.fhirType(), k -> new ArrayList<>())

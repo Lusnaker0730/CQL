@@ -80,8 +80,11 @@ ecqm/        (1 file)              — standard-sde
 
 - PostgreSQL (prod) / H2 (dev)
 - Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V40）
+- 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份）
 - JPA `ddl-auto=validate`（不會自動建表）
-- 新增表/欄位：建立 `V{N+1}__description.sql` 遷移檔
+- 新增表/欄位：建立 `V{N+1}__description.sql` 遷移檔 + 對應 `rollback_V{N+1}__description.sql`
+- Production `baseline-on-migrate: false`，Docker/dev 環境才為 `true`
+- `lock-retry-count: 10`：叢集環境下 Flyway lock 重試（避免 CrashLoopBackOff）
 
 ## 測試模式
 

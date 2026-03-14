@@ -39,6 +39,9 @@ public class FhirDataProviderService {
     @Value("${fhir.patient.batch-size:100}")
     private int patientBatchSize;
 
+    @Value("${cql.execution.max-patient-count:50000}")
+    private int maxPatientCount;
+
     private final AtomicInteger retrieveCount = new AtomicInteger(0);
 
     public IGenericClient createClient(String fhirServerUrl) {
@@ -252,7 +255,10 @@ public class FhirDataProviderService {
                     }
                 }
 
-                if (bundle.getLink(Bundle.LINK_NEXT) != null) {
+                if (patientIds.size() >= maxPatientCount) {
+                    log.warn("Patient ID fetch reached max count ({}). Stopping pagination.", maxPatientCount);
+                    bundle = null;
+                } else if (bundle.getLink(Bundle.LINK_NEXT) != null) {
                     bundle = client.loadPage().next(bundle).execute();
                 } else {
                     bundle = null;
@@ -379,6 +385,8 @@ public class FhirDataProviderService {
         private final AtomicInteger counter;
         private final FhirClientFactory clientFactory;
         private final String fhirServerUrl;
+        /** Bounded fallback cache — evicts oldest entries when full to prevent unbounded memory growth. */
+        private static final int MAX_FALLBACK_CACHE_SIZE = 200;
         private final java.util.concurrent.ConcurrentHashMap<String, List<Object>> fallbackCache =
                 new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -488,8 +496,10 @@ public class FhirDataProviderService {
                         codePath, codeList);
             }
 
-            // Cache results (including empty) to avoid repeat queries
-            fallbackCache.put(cacheKey, results);
+            // Cache results (including empty) to avoid repeat queries; evict if too large
+            if (fallbackCache.size() < MAX_FALLBACK_CACHE_SIZE) {
+                fallbackCache.put(cacheKey, results);
+            }
 
             if (!results.isEmpty()) {
                 log.debug("Fallback found {} {} resources for patient {}", results.size(), dataType, patientId);

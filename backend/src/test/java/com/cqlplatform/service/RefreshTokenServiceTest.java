@@ -53,7 +53,7 @@ class RefreshTokenServiceTest {
         when(jwtTokenProvider.getRefreshExpirationMs()).thenReturn(604800000L);
         when(jwtTokenProvider.getAbsoluteSessionMs()).thenReturn(2592000000L);
         when(jwtTokenProvider.getAccessExpirationMs()).thenReturn(900000L);
-        when(jwtTokenProvider.generateToken("testuser", "USER")).thenReturn("access-jwt");
+        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), anyInt())).thenReturn("access-jwt");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RefreshTokenService.TokenPair pair = refreshTokenService.createTokenPair(testUser);
@@ -90,7 +90,7 @@ class RefreshTokenServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(jwtTokenProvider.getRefreshExpirationMs()).thenReturn(604800000L);
         when(jwtTokenProvider.getAccessExpirationMs()).thenReturn(900000L);
-        when(jwtTokenProvider.generateToken("testuser", "USER")).thenReturn("new-access-jwt");
+        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), anyInt())).thenReturn("new-access-jwt");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RefreshTokenService.TokenPair pair = refreshTokenService.refreshTokens(rawToken);
@@ -233,7 +233,7 @@ class RefreshTokenServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(jwtTokenProvider.getRefreshExpirationMs()).thenReturn(604800000L); // 7 days
         when(jwtTokenProvider.getAccessExpirationMs()).thenReturn(900000L);
-        when(jwtTokenProvider.generateToken("testuser", "USER")).thenReturn("jwt");
+        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), anyInt())).thenReturn("jwt");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         refreshTokenService.refreshTokens(rawToken);

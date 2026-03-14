@@ -1,5 +1,6 @@
 import { createContext, useState, useCallback, type ReactNode } from 'react'
 import type { AlertColor } from '@mui/material'
+import { NOTIFICATION_DURATION_MS } from '../constants/timing'
 
 export interface Notification {
   id: number
@@ -27,7 +28,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const showNotification = useCallback(
-    (message: string, severity: AlertColor = 'info', duration = 4000) => {
+    (message: string, severity: AlertColor = 'info', duration = NOTIFICATION_DURATION_MS) => {
       const id = nextId++
       setNotifications((prev) => [...prev, { id, message, severity, duration }])
     },

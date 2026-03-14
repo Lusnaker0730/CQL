@@ -6,6 +6,7 @@ import com.cqlplatform.security.JwtTokenProvider;
 import com.cqlplatform.security.RefreshTokenCookieUtil;
 import com.cqlplatform.service.RefreshTokenService;
 import com.cqlplatform.service.RefreshTokenService.TokenPair;
+import com.cqlplatform.service.TokenVersionService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,9 @@ class AuthControllerTest {
 
     @MockBean
     private RefreshTokenCookieUtil cookieUtil;
+
+    @MockBean
+    private TokenVersionService tokenVersionService;
 
     @Test
     void login_validCredentials_shouldReturnToken() throws Exception {

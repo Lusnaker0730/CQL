@@ -16,11 +16,12 @@ import { LibraryHistoryProvider } from './contexts/LibraryHistoryContext'
 import { TerminologyDrawerProvider } from './contexts/TerminologyDrawerContext'
 import GlobalNotification from './components/common/GlobalNotification'
 import { usePreferences } from './hooks/usePreferences'
+import { STALE_5M } from './constants/queryConstants'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
+      staleTime: STALE_5M,
       retry: 1,
       refetchOnWindowFocus: false,
     },
