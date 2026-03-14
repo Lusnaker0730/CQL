@@ -130,6 +130,72 @@ export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
       }
     })
 
+    // Ctrl+X: cut selected text (or current line if no selection) to clipboard
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, async () => {
+      try {
+        const selection = editor.getSelection()
+        if (!selection) return
+        const model = editor.getModel()
+        if (!model) return
+
+        let textToCut: string
+        let range: import('monaco-editor').IRange
+
+        if (selection.isEmpty()) {
+          // No selection: cut entire line (standard editor behavior)
+          const line = selection.startLineNumber
+          textToCut = model.getLineContent(line) + model.getEOL()
+          range = {
+            startLineNumber: line,
+            startColumn: 1,
+            endLineNumber: line + 1,
+            endColumn: 1,
+          }
+          // If last line, adjust range
+          if (line === model.getLineCount()) {
+            const prevLineEnd = line > 1 ? model.getLineMaxColumn(line - 1) : 1
+            const prevLine = line > 1 ? line - 1 : line
+            textToCut = model.getLineContent(line)
+            range = {
+              startLineNumber: prevLine,
+              startColumn: line > 1 ? prevLineEnd : 1,
+              endLineNumber: line,
+              endColumn: model.getLineMaxColumn(line),
+            }
+          }
+        } else {
+          textToCut = model.getValueInRange(selection)
+          range = selection
+        }
+
+        await navigator.clipboard.writeText(textToCut)
+        editor.executeEdits('clipboard-cut', [{ range, text: '' }])
+      } catch {
+        // Clipboard API unavailable
+      }
+    })
+
+    // Ctrl+C: copy selected text to clipboard
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, async () => {
+      try {
+        const selection = editor.getSelection()
+        if (!selection) return
+        const model = editor.getModel()
+        if (!model) return
+
+        let textToCopy: string
+        if (selection.isEmpty()) {
+          // No selection: copy entire line
+          textToCopy = model.getLineContent(selection.startLineNumber) + model.getEOL()
+        } else {
+          textToCopy = model.getValueInRange(selection)
+        }
+        await navigator.clipboard.writeText(textToCopy)
+      } catch {
+        // Clipboard API unavailable
+      }
+    })
+
     // Ctrl+S: sync content to Redux, then translate
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       const value = editor.getModel()?.getValue() ?? ''
@@ -322,7 +388,7 @@ export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
           bracketPairColorization: { enabled: true },
           formatOnPaste: false,
           formatOnType: true,
-          contextmenu: false,
+          contextmenu: true,
         }}
       />
     </Box>
