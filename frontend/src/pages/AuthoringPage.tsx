@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
+import { Alert, Box, Snackbar, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import ArtifactList from '../components/authoring/ArtifactList'
 import ArtifactModal from '../components/authoring/ArtifactModal'
@@ -16,6 +16,7 @@ export default function AuthoringPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState(false)
 
   const { data: artifacts = [], isLoading, error } = useArtifacts()
   const { data: fullArtifact } = useArtifact(selectedId ?? undefined)
@@ -42,6 +43,10 @@ export default function AuthoringPage() {
       onSuccess: () => {
         if (selectedId === deleteTarget) setSelectedId(null)
         setDeleteTarget(null)
+      },
+      onError: () => {
+        setDeleteTarget(null)
+        setDeleteError(true)
       },
     })
   }
@@ -152,12 +157,25 @@ export default function AuthoringPage() {
           {t('page.deleteConfirm')}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>{tc('actions.cancel')}</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
-            {tc('actions.delete')}
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+            {tc('actions.cancel')}
+          </Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? tc('actions.deleting') : tc('actions.delete')}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar open={deleteError} autoHideDuration={5000} onClose={() => setDeleteError(false)}>
+        <Alert severity="error" onClose={() => setDeleteError(false)}>
+          {t('page.deleteError')}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

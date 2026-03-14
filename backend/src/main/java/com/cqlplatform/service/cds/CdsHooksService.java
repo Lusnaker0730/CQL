@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -338,9 +339,11 @@ public class CdsHooksService {
         }
 
         for (CdsFeedbackRequest.FeedbackItem item : request.getFeedback()) {
+            // Defense-in-depth: HTML-escape all free-text fields before persistence
+            // to prevent stored XSS even if @NoXss validation is bypassed
             CdsFeedbackEntity entity = CdsFeedbackEntity.builder()
                     .serviceId(serviceId)
-                    .cardUuid(item.getCard())
+                    .cardUuid(escapeHtml(item.getCard()))
                     .outcome(item.getOutcome())
                     .outcomeTimestamp(item.getOutcomeTimestamp() != null
                             ? LocalDateTime.parse(item.getOutcomeTimestamp())
@@ -351,8 +354,8 @@ public class CdsHooksService {
                     .build();
 
             if (item.getOverrideReason() != null) {
-                entity.setOverrideReasonCode(item.getOverrideReason().getCode());
-                entity.setOverrideReasonDisplay(item.getOverrideReason().getDisplay());
+                entity.setOverrideReasonCode(escapeHtml(item.getOverrideReason().getCode()));
+                entity.setOverrideReasonDisplay(escapeHtml(item.getOverrideReason().getDisplay()));
             }
 
             feedbackRepository.save(entity);
@@ -367,6 +370,10 @@ public class CdsHooksService {
             return List.of();
         }
         return feedbackRepository.findByServiceIdOrderByCreatedAtDesc(serviceId);
+    }
+
+    private static String escapeHtml(String value) {
+        return value == null ? null : HtmlUtils.htmlEscape(value);
     }
 
     private String serializeToJson(Object obj) {

@@ -14,6 +14,4 @@ public class TransferOwnershipRequest {
     @Size(max = 100)
     @NoXss
     private String newOwner;
-
-    private String currentUser;
 }

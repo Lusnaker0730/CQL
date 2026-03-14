@@ -45,13 +45,18 @@ public final class AuthoringConstants {
 
     // --- Code system URI → display name ---
 
-    public static final Map<String, String> CODE_SYSTEM_NAMES = Map.of(
-            "http://loinc.org", "LOINC",
-            "http://snomed.info/sct", "SNOMED",
-            "http://hl7.org/fhir/sid/icd-10-cm", "ICD-10-CM",
-            "http://hl7.org/fhir/sid/icd-9-cm", "ICD-9-CM",
-            "http://www.nlm.nih.gov/research/umls/rxnorm", "RXNORM",
-            "http://ncimeta.nci.nih.gov", "NCI");
+    public static final Map<String, String> CODE_SYSTEM_NAMES = Map.ofEntries(
+            Map.entry("http://loinc.org", "LOINC"),
+            Map.entry("http://snomed.info/sct", "SNOMED"),
+            Map.entry("http://hl7.org/fhir/sid/icd-10-cm", "ICD-10-CM"),
+            Map.entry("http://hl7.org/fhir/sid/icd-9-cm", "ICD-9-CM"),
+            Map.entry("http://www.nlm.nih.gov/research/umls/rxnorm", "RXNORM"),
+            Map.entry("http://ncimeta.nci.nih.gov", "NCI"),
+            Map.entry("https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw", "ICD-10-CM-TW"),
+            Map.entry("https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw", "ICD-10-PCS-TW"),
+            Map.entry("http://www.whocc.no/atc", "ATC"),
+            Map.entry("https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-fda-tw", "FDA-TW")
+    );
 
     /**
      * Look up the display name for a code system URL, falling back to the URL itself.

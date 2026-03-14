@@ -5,6 +5,7 @@ import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.security.InputValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -319,7 +320,7 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getSharedLibraries(String username) {
-        return libraryRepository.findSharedWithUser("%\"" + username + "\"%").stream()
+        return libraryRepository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }

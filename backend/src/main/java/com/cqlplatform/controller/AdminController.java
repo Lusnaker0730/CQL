@@ -7,8 +7,12 @@ import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.auth.*;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.RefreshTokenService;
+import com.cqlplatform.service.TokenVersionService;
+import com.cqlplatform.service.UserApiKeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +28,9 @@ public class AdminController {
     private final UserRepository userRepository;
     private final PasswordResetService passwordResetService;
     private final PasswordEncoder passwordEncoder;
+    private final UserApiKeyService userApiKeyService;
+    private final TokenVersionService tokenVersionService;
+    private final RefreshTokenService refreshTokenService;
 
     @GetMapping("/users")
     public ResponseEntity<List<UserSummary>> listUsers() {
@@ -67,6 +74,11 @@ public class AdminController {
 
         user.setRole(UserEntity.Role.valueOf(request.getRole()));
         UserEntity saved = userRepository.save(user);
+
+        // Invalidate existing access tokens — the old role is stale
+        tokenVersionService.bumpVersion(user.getUsername());
+        refreshTokenService.revokeAllForUser(user.getId());
+
         return ResponseEntity.ok(toUserSummary(saved));
     }
 
@@ -84,6 +96,14 @@ public class AdminController {
 
         user.setEnabled(request.getEnabled());
         UserEntity saved = userRepository.save(user);
+
+        // When disabling a user, immediately invalidate all sessions
+        if (Boolean.FALSE.equals(request.getEnabled())) {
+            tokenVersionService.bumpVersion(user.getUsername());
+            refreshTokenService.revokeAllForUser(user.getId());
+            userApiKeyService.deactivateAllKeys(user.getUsername());
+        }
+
         return ResponseEntity.ok(toUserSummary(saved));
     }
 
@@ -97,13 +117,18 @@ public class AdminController {
                     .body(java.util.Map.of("error", "Cannot reset password for SSO users"));
         }
 
-        String temporaryPassword = passwordResetService.adminResetPassword(userId);
+        // Security (H8): adminResetPassword no longer returns the plaintext password.
+        // The temporary password is delivered to the user via email only.
+        passwordResetService.adminResetPassword(userId);
 
-        return ResponseEntity.ok(AdminResetPasswordResponse.builder()
-                .temporaryPassword(temporaryPassword)
-                .username(user.getUsername())
-                .message("Temporary password generated. User will be required to change it on next login.")
-                .build());
+        return ResponseEntity.ok()
+                // Prevent any intermediate proxy or browser from caching this response.
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(AdminResetPasswordResponse.builder()
+                        .username(user.getUsername())
+                        .message("Temporary password has been sent to the user's registered email address. " +
+                                 "User will be required to change it on next login.")
+                        .build());
     }
 
     private UserSummary toUserSummary(UserEntity user) {

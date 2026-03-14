@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../api'
 import { useInvalidatingMutation } from './useInvalidatingMutation'
+import { STALE_30S } from '../constants/queryConstants'
 
 const MEASURES_KEY = ['measures'] as const
 
@@ -90,7 +91,7 @@ export function useDashboard() {
   return useQuery({
     queryKey: ['measure-dashboard'],
     queryFn: () => measureApi.getDashboard(),
-    staleTime: 30000,
+    staleTime: STALE_30S,
   })
 }
 

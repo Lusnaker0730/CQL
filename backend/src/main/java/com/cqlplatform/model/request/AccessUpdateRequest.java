@@ -9,6 +9,4 @@ public class AccessUpdateRequest {
     @NotBlank
     @Pattern(regexp = "private|shared|public")
     private String accessLevel;
-
-    private String currentUser;
 }

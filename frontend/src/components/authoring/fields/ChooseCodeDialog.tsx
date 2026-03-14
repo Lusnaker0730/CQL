@@ -9,16 +9,17 @@ import {
 import { Close as CloseIcon, CheckCircle as ValidIcon, Search as SearchIcon } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../../hooks/useTerminology'
-import { ALL_CODE_SYSTEMS, findCodeSystemByUrl } from '../../../constants/codeSystems'
+import { ALL_CODE_SYSTEMS, findCodeSystemByUrl, RESOURCE_SUGGESTED_CODES } from '../../../constants/codeSystems'
 import type { CodeReference } from '../../../types/authoring'
 
 interface ChooseCodeDialogProps {
   open: boolean
   onClose: () => void
   onSelect: (code: CodeReference) => void
+  resourceType?: string
 }
 
-export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCodeDialogProps) {
+export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType }: ChooseCodeDialogProps) {
   const { t } = useTranslation('authoring')
   const [code, setCode] = useState('')
   const [systemUrl, setSystemUrl] = useState('')
@@ -35,6 +36,20 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
 
   const lookupMutation = useLookupCode()
   const effectiveSystemUrl = isOther ? customSystemUrl : systemUrl
+  const suggestedCodes = resourceType ? RESOURCE_SUGGESTED_CODES[resourceType] : undefined
+
+  const handleQuickSelect = (entry: { code: string; display: string; displayZh: string; system: string; systemLabel: string }) => {
+    setCode(entry.code)
+    setSystemUrl(entry.system)
+    setSystemLabel(entry.systemLabel)
+    setIsOther(false)
+    setValidated(true)
+    setValidationResult({
+      code: entry.code,
+      codeSystem: entry.systemLabel,
+      display: `${entry.display} (${entry.displayZh})`,
+    })
+  }
 
   // Live search
   const { data: searchResults, isLoading: isSearching } = useSearchCodes(
@@ -133,6 +148,30 @@ export default function ChooseCodeDialog({ open, onClose, onSelect }: ChooseCode
       </DialogTitle>
 
       <DialogContent>
+        {/* Quick select for resource-specific codes */}
+        {suggestedCodes && suggestedCodes.length > 0 && (
+          <>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
+              {t('chooseCode.quickSelect')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+              {suggestedCodes.map((sc) => (
+                <Chip
+                  key={sc.code}
+                  label={`${sc.code} ${sc.displayZh}`}
+                  onClick={() => handleQuickSelect(sc)}
+                  color={validationResult?.code === sc.code ? 'primary' : 'default'}
+                  variant={validationResult?.code === sc.code ? 'filled' : 'outlined'}
+                  clickable
+                />
+              ))}
+            </Box>
+            <Divider sx={{ my: 1.5 }}>
+              <Chip label={t('chooseCode.orManual')} size="small" />
+            </Divider>
+          </>
+        )}
+
         {/* Manual code entry */}
         <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 1 }}>
           <TextField

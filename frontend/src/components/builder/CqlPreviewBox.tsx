@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import DOMPurify from 'dompurify'
 import { Box } from '@mui/material'
+import { PREVIEW_MAX_HEIGHT } from '../../constants/layout'
 import { useMonaco } from '@monaco-editor/react'
 import { usePreferences } from '../../hooks/usePreferences'
 
@@ -8,7 +10,7 @@ interface CqlPreviewBoxProps {
   maxHeight?: number
 }
 
-export default function CqlPreviewBox({ code, maxHeight = 120 }: CqlPreviewBoxProps) {
+export default function CqlPreviewBox({ code, maxHeight = PREVIEW_MAX_HEIGHT }: CqlPreviewBoxProps) {
   const [colorizedHtml, setColorizedHtml] = useState<string>('')
   const monaco = useMonaco()
   const { preferences } = usePreferences()
@@ -52,7 +54,7 @@ export default function CqlPreviewBox({ code, maxHeight = 120 }: CqlPreviewBoxPr
       }}
     >
       {colorizedHtml ? (
-        <div dangerouslySetInnerHTML={{ __html: colorizedHtml }} />
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(colorizedHtml) }} />
       ) : (
         code
       )}

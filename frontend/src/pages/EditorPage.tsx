@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -15,6 +15,7 @@ import {
   ToggleButton,
 } from '@mui/material'
 import {
+  NoteAdd as NewIcon,
   Translate as TranslateIcon,
   Save as SaveIcon,
   FileDownload as ExportIcon,
@@ -32,7 +33,9 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cqlApi } from '../api'
+import { settingsApi } from '../api/settingsApi'
 import CqlEditor from '../components/editor/CqlEditor'
+import type { CqlEditorHandle } from '../components/editor/CqlEditor'
 import ElmViewer from '../components/editor/ElmViewer'
 import ExecutionPanel from '../components/execution/ExecutionPanel'
 import LibraryQuickAccess from '../components/editor/LibraryQuickAccess'
@@ -52,6 +55,7 @@ import { useTerminologyValidation } from '../hooks/useTerminologyValidation'
 import { useLibraryHistory } from '../hooks/useLibraryHistory'
 import { helpContent } from '../constants/helpContent'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
+import { STALE_5M } from '../constants/queryConstants'
 import { extractApiError } from '../utils/errorUtils'
 import { useNotification } from '../hooks/useNotification'
 import TabPanel, { a11yProps } from '../components/common/TabPanel'
@@ -59,12 +63,14 @@ import TabPanel, { a11yProps } from '../components/common/TabPanel'
 export default function EditorPage() {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
-  const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const isTranslating = useSelector((state: RootState) => state.editor.isTranslating)
   const errors = useSelector((state: RootState) => state.editor.errors)
   const elmJson = useSelector((state: RootState) => state.editor.elmJson)
   const cursorPosition = useSelector((state: RootState) => state.editor.cursorPosition)
+  const cqlEditorRef = useRef<CqlEditorHandle>(null)
   const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
+  // Local mirror of editor content for UI that needs it (e.g. libraryMatch, disabled checks)
+  const [localContent, setLocalContent] = useState('')
   const [rightPanelTab, setRightPanelTab] = useState(0)
   const [showBuilder, setShowBuilder] = useState(false)
   const [lastSavedLibraryId, setLastSavedLibraryId] = useState<string | null>(null)
@@ -78,9 +84,29 @@ export default function EditorPage() {
   const [diffDialogOpen, setDiffDialogOpen] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
 
-  const libraryMatch = cqlContent.match(/library\s+(\S+)(?:\s+version\s+'([^']+)')?/)
+  const libraryMatch = localContent.match(/library\s+(\S+)(?:\s+version\s+'([^']+)')?/)
   const libraryName = libraryMatch?.[1] || ''
   const libraryVersion = libraryMatch?.[2] || '0.0.0'
+
+  // Sync localContent from Redux on external loads (e.g. loading a library)
+  const cqlContentFromRedux = useSelector((state: RootState) => state.editor.cqlContent)
+  useEffect(() => {
+    setLocalContent(cqlContentFromRedux)
+  }, [cqlContentFromRedux])
+
+  // Called on every keystroke from Monaco — updates local mirror only
+  const handleContentChanged = useCallback((content: string) => {
+    setLocalContent(content)
+  }, [])
+
+  // Flush editor content to Redux and return it — call before any action that needs current content
+  const syncAndGetContent = useCallback(() => {
+    if (cqlEditorRef.current) {
+      cqlEditorRef.current.flushContent()
+      return cqlEditorRef.current.getContent()
+    }
+    return localContent
+  }, [localContent])
 
   const versionMutation = useMutation({
     mutationFn: (type: string) => cqlApi.createLibraryVersion(libraryName, type),
@@ -138,14 +164,27 @@ export default function EditorPage() {
   const { data: libraryMetadata } = useLibrariesMetadata()
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
   const { data: currentLibrary } = useLibrary(lastSavedLibraryId)
+  const { data: aiStatus } = useQuery({
+    queryKey: ['ai-status'],
+    queryFn: () => settingsApi.getAiStatus(),
+    staleTime: STALE_5M,
+  })
+
+  const handleNewLibrary = useCallback(() => {
+    const template = `library NewLibrary version '1.0.0'\n\nusing FHIR version '4.0.1'\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\ncontext Patient\n\n`
+    dispatch(setCqlContent(template))
+    setLastSavedLibraryId(null)
+  }, [dispatch])
 
   const handleTranslate = useCallback(() => {
-    translateMutation.mutate({ cql: cqlContent })
-  }, [cqlContent, translateMutation])
+    const content = syncAndGetContent()
+    translateMutation.mutate({ cql: content })
+  }, [syncAndGetContent, translateMutation])
 
   const handleSaveLibrary = useCallback(() => {
+    const content = syncAndGetContent()
     saveLibraryMutation.mutate(
-      { cql: cqlContent },
+      { cql: content },
       {
         onSuccess: (library) => {
           setLastSavedLibraryId(library.id)
@@ -153,11 +192,12 @@ export default function EditorPage() {
         },
       }
     )
-  }, [cqlContent, saveLibraryMutation, addToRecent])
+  }, [syncAndGetContent, saveLibraryMutation, addToRecent])
 
   const handleExport = useCallback(() => {
+    const content = syncAndGetContent()
     saveLibraryMutation.mutate(
-      { cql: cqlContent },
+      { cql: content },
       {
         onSuccess: (library) => {
           addToRecent({ id: library.id, name: library.name, version: library.version })
@@ -175,7 +215,7 @@ export default function EditorPage() {
         },
       }
     )
-  }, [cqlContent, saveLibraryMutation, addToRecent, exportMutation])
+  }, [syncAndGetContent, saveLibraryMutation, addToRecent, exportMutation])
 
   const handleImport = useCallback(() => {
     fileInputRef.current?.click()
@@ -207,30 +247,33 @@ export default function EditorPage() {
 
   const handleInsertSnippet = useCallback(
     (snippet: string) => {
-      const lines = cqlContent.split('\n')
+      const content = cqlEditorRef.current?.getContent() ?? localContent
+      const lines = content.split('\n')
       const lineIdx = Math.min(cursorPosition.line - 1, lines.length)
       // Insert the snippet at the end of the current line, with blank line separation
       lines.splice(lineIdx + 1, 0, '', snippet, '')
       dispatch(setCqlContentWithHistory(lines.join('\n')))
     },
-    [cqlContent, cursorPosition, dispatch]
+    [localContent, cursorPosition, dispatch]
   )
 
   const handleGoToElement = useCallback(
     (type: CqlElementType, identifier: string) => {
-      const range = findElementLineRange(cqlContent, type, identifier)
+      const content = cqlEditorRef.current?.getContent() ?? localContent
+      const range = findElementLineRange(content, type, identifier)
       if (range) {
         dispatch(setGoToLine(range.startLine))
       }
     },
-    [cqlContent, dispatch]
+    [localContent, dispatch]
   )
 
   const handleDeleteElement = useCallback(
     (type: CqlElementType, identifier: string) => {
-      const range = findElementLineRange(cqlContent, type, identifier)
+      const content = cqlEditorRef.current?.getContent() ?? localContent
+      const range = findElementLineRange(content, type, identifier)
       if (!range) return
-      const lines = cqlContent.split('\n')
+      const lines = content.split('\n')
       // Remove the element lines, plus trailing blank line if present
       let endIdx = range.endLine - 1
       if (endIdx + 1 < lines.length && lines[endIdx + 1].trim() === '') {
@@ -239,18 +282,19 @@ export default function EditorPage() {
       lines.splice(range.startLine - 1, endIdx - range.startLine + 2)
       dispatch(setCqlContentWithHistory(lines.join('\n')))
     },
-    [cqlContent, dispatch]
+    [localContent, dispatch]
   )
 
   const handleEditElement = useCallback(
     (type: CqlElementType, identifier: string, newSnippet: string) => {
-      const range = findElementLineRange(cqlContent, type, identifier)
+      const content = cqlEditorRef.current?.getContent() ?? localContent
+      const range = findElementLineRange(content, type, identifier)
       if (!range) return
-      const lines = cqlContent.split('\n')
+      const lines = content.split('\n')
       lines.splice(range.startLine - 1, range.endLine - range.startLine + 1, newSnippet)
       dispatch(setCqlContentWithHistory(lines.join('\n')))
     },
-    [cqlContent, dispatch]
+    [localContent, dispatch]
   )
 
   return (
@@ -292,6 +336,11 @@ export default function EditorPage() {
                   {t('title')}
                 </Typography>
                 <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+                  <Tooltip title={t('toolbar.newLibrary')}>
+                    <IconButton size="small" onClick={handleNewLibrary}>
+                      <NewIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title={t('toolbar.undo')}>
                     <span>
                       <IconButton size="small" onClick={() => { monacoEditorRef.current?.trigger('toolbar', 'undo', null); monacoEditorRef.current?.focus() }}>
@@ -313,7 +362,7 @@ export default function EditorPage() {
                       isTranslating ? <CircularProgress size={16} color="inherit" /> : <TranslateIcon />
                     }
                     onClick={handleTranslate}
-                    disabled={isTranslating || !cqlContent}
+                    disabled={isTranslating || !localContent}
                     sx={{
                       background: 'linear-gradient(135deg, #1B3A5C 0%, #2D5F8A 100%)',
                       '&:hover': {
@@ -362,7 +411,7 @@ export default function EditorPage() {
                     variant="outlined"
                     startIcon={<ExportIcon />}
                     onClick={handleExport}
-                    disabled={!cqlContent || errors.length > 0}
+                    disabled={!localContent || errors.length > 0}
                     sx={{
                       borderColor: 'rgba(27,58,92,0.3)',
                       color: 'secondary.main',
@@ -489,11 +538,13 @@ export default function EditorPage() {
             </Box>
             <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
               <CqlEditor
+                ref={cqlEditorRef}
                 height="100%"
                 onTranslate={handleTranslate}
                 terminologyIssues={terminologyResults.filter((r) => r.status !== 'valid')}
                 libraryMetadata={libraryMetadata}
                 onEditorRef={(editor) => { monacoEditorRef.current = editor }}
+                onContentChanged={handleContentChanged}
               />
             </Box>
           </Paper>
@@ -516,6 +567,7 @@ export default function EditorPage() {
                 onDeleteElement={handleDeleteElement}
                 onGoToElement={handleGoToElement}
                 onEditElement={handleEditElement}
+                editorContent={localContent}
               />
             ) : (
               <>
@@ -537,10 +589,14 @@ export default function EditorPage() {
                     <ElmViewer
                       terminologyResults={terminologyResults}
                       isTermValidating={isTermValidating}
+                      aiEnabled={aiStatus?.enabled ?? false}
+                      onApplyFix={(suggestedCql) => {
+                        dispatch(setCqlContentWithHistory(suggestedCql))
+                      }}
                     />
                   </TabPanel>
                   <TabPanel value={rightPanelTab} index={1} prefix="editor" sx={{ height: '100%' }}>
-                    <ExecutionPanel />
+                    <ExecutionPanel getLatestCql={syncAndGetContent} />
                   </TabPanel>
                   <TabPanel value={rightPanelTab} index={2} prefix="editor" sx={{ height: '100%' }}>
                     <LibraryDependencyPanel

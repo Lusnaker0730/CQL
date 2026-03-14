@@ -33,7 +33,7 @@ public class VsacService {
         if (vsacApiKey == null || vsacApiKey.isBlank()) {
             log.warn("VSAC API key is not configured. VSAC ValueSet operations will fail. Set VSAC_API_KEY environment variable.");
         } else {
-            log.info("VSAC API key configured ({}...)", vsacApiKey.substring(0, Math.min(8, vsacApiKey.length())));
+            log.info("VSAC API key configured (length={})", vsacApiKey.length());
         }
     }
 
@@ -48,7 +48,7 @@ public class VsacService {
     public void updateApiKey(String newApiKey) {
         this.vsacApiKey = newApiKey;
         if (newApiKey != null && !newApiKey.isBlank()) {
-            log.info("VSAC API key updated at runtime ({}...)", newApiKey.substring(0, Math.min(8, newApiKey.length())));
+            log.info("VSAC API key updated at runtime (length={})", newApiKey.length());
         } else {
             log.warn("VSAC API key cleared at runtime");
         }

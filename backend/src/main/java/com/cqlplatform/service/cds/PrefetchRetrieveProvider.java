@@ -19,10 +19,22 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PrefetchRetrieveProvider implements RetrieveProvider {
 
+    /** Default cap: reject prefetch payloads with more resources than this. */
+    private static final int DEFAULT_MAX_RESOURCES = 10_000;
+
     private final Map<String, List<Resource>> resourcesByType = new HashMap<>();
     private TerminologyProvider terminologyProvider;
 
     public PrefetchRetrieveProvider(List<Resource> resources, String patientId) {
+        this(resources, patientId, DEFAULT_MAX_RESOURCES);
+    }
+
+    public PrefetchRetrieveProvider(List<Resource> resources, String patientId, int maxResources) {
+        if (resources.size() > maxResources) {
+            log.warn("Prefetch for patient {} contains {} resources (max {}). Truncating to prevent OOM.",
+                    patientId, resources.size(), maxResources);
+            resources = resources.subList(0, maxResources);
+        }
         for (Resource resource : resources) {
             resourcesByType
                     .computeIfAbsent(resource.fhirType(), k -> new ArrayList<>())
@@ -32,6 +44,19 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
                 resources.size(), patientId);
         resourcesByType.forEach((type, list) ->
                 log.debug("  {} {} resource(s)", list.size(), type));
+    }
+
+    /**
+     * Merge additional resources (e.g. from draftOrders or resolved prefetch templates)
+     * into the existing resource map.
+     */
+    public void addResources(List<Resource> newResources) {
+        for (Resource resource : newResources) {
+            resourcesByType
+                    .computeIfAbsent(resource.fhirType(), k -> new ArrayList<>())
+                    .add(resource);
+        }
+        log.info("Added {} resources to PrefetchRetrieveProvider", newResources.size());
     }
 
     /**
@@ -104,6 +129,14 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
         } else if (resource instanceof MedicationRequest medReq) {
             if ("medication".equals(codePath) && medReq.hasMedicationCodeableConcept()) {
                 for (Coding coding : medReq.getMedicationCodeableConcept().getCoding()) {
+                    if (codes.contains(coding.getCode())) {
+                        return true;
+                    }
+                }
+            }
+        } else if (resource instanceof ServiceRequest svcReq) {
+            if ("code".equals(codePath) && svcReq.hasCode()) {
+                for (Coding coding : svcReq.getCode().getCoding()) {
                     if (codes.contains(coding.getCode())) {
                         return true;
                     }

@@ -30,10 +30,9 @@ export const SPECIAL_SUBPOPS = [
 
 // --- FHIR version options (must match backend AuthoringConstants.FHIR_VERSION_MAP) ---
 
+// Authoring currently supports R4 only
 export const FHIR_VERSION_OPTIONS = [
   { key: 'R4', label: 'R4 (4.0.1)' },
-  { key: 'STU3', label: 'STU3 (3.0.2)' },
-  { key: 'DSTU2', label: 'DSTU2 (1.0.2)' },
 ] as const
 
 // --- Default artifact values ---
@@ -65,6 +64,7 @@ export const RETURN_TYPE_COLORS: Record<string, string> = {
   integer: '#9C27B0',
   decimal: '#9C27B0',
   system_quantity: '#9C27B0', // purple – numeric types
+  system_decimal: '#9C27B0',
   string: '#795548',          // brown – string
 }
 
@@ -72,9 +72,9 @@ export const RETURN_TYPE_COLOR_DEFAULT = '#757575'
 
 /** Background tints for special element reference types */
 export const ELEMENT_REF_BACKGROUNDS: Record<string, string> = {
-  baseElementRef: '#E3F2FD',
-  parameterRef: '#F3E5F5',
-  externalCqlRef: '#E8F5E9',
+  baseElementRef: 'rgba(33,150,243,0.08)',
+  parameterRef: 'rgba(156,39,176,0.08)',
+  externalCqlRef: 'rgba(76,175,80,0.08)',
 }
 
 // --- Conjunction (And/Or) colors ---
@@ -83,6 +83,10 @@ export const ELEMENT_REF_BACKGROUNDS: Record<string, string> = {
 export const CONJUNCTION_COLOR_AND = '#0D7377'
 /** Color for OR conjunction borders/chips (orange accent) */
 export const CONJUNCTION_COLOR_OR = '#E67E22'
+/** Color for UNION conjunction borders/chips (purple) */
+export const CONJUNCTION_COLOR_UNION = '#7B1FA2'
+/** Color for INTERSECT conjunction borders/chips (blue) */
+export const CONJUNCTION_COLOR_INTERSECT = '#1565C0'
 
 // --- Code block styling ---
 

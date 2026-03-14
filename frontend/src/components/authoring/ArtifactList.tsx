@@ -30,9 +30,13 @@ import { FixedSizeList } from 'react-window'
 import StatusChip from '../common/StatusChip'
 import GradientButton from '../common/GradientButton'
 import type { ArtifactSummary } from '../../types/authoring'
+import { ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT } from '../../constants/layout'
 
 type SortField = 'name' | 'version' | 'status' | 'updatedAt'
 type SortDir = 'asc' | 'desc'
+
+/** Fixed column widths so the header table and virtualised body rows stay aligned. */
+const COL_WIDTHS = { name: '40%', version: '12%', status: '12%', updated: '20%', actions: '16%' } as const
 
 interface ArtifactListProps {
   artifacts: ArtifactSummary[]
@@ -158,10 +162,10 @@ export default function ArtifactList({
         ) : (
           <>
             <TableContainer>
-              <Table size="small" stickyHeader>
+              <Table size="small" stickyHeader sx={{ tableLayout: 'fixed' }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>
+                    <TableCell sx={{ width: COL_WIDTHS.name }}>
                       <TableSortLabel
                         active={sortField === 'name'}
                         direction={sortField === 'name' ? sortDir : 'asc'}
@@ -170,7 +174,7 @@ export default function ArtifactList({
                         {t('list.colName')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: COL_WIDTHS.version }}>
                       <TableSortLabel
                         active={sortField === 'version'}
                         direction={sortField === 'version' ? sortDir : 'asc'}
@@ -179,7 +183,7 @@ export default function ArtifactList({
                         {t('list.colVersion')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: COL_WIDTHS.status }}>
                       <TableSortLabel
                         active={sortField === 'status'}
                         direction={sortField === 'status' ? sortDir : 'asc'}
@@ -188,7 +192,7 @@ export default function ArtifactList({
                         {t('list.colStatus')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: COL_WIDTHS.updated }}>
                       <TableSortLabel
                         active={sortField === 'updatedAt'}
                         direction={sortField === 'updatedAt' ? sortDir : 'asc'}
@@ -197,7 +201,7 @@ export default function ArtifactList({
                         {t('list.colUpdated')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell align="right">{t('list.colActions')}</TableCell>
+                    <TableCell sx={{ width: COL_WIDTHS.actions }} align="right">{t('list.colActions')}</TableCell>
                   </TableRow>
                 </TableHead>
               </Table>
@@ -216,8 +220,6 @@ export default function ArtifactList({
     </Card>
   )
 }
-
-const ARTIFACT_ROW_HEIGHT = 52
 
 interface ArtifactVirtualListProps {
   artifacts: ArtifactSummary[]
@@ -240,33 +242,33 @@ function ArtifactVirtualList({
     ({ index, style }: { index: number; style: React.CSSProperties }) => {
       const artifact = artifacts[index]
       return (
-        <Table size="small" style={style} key={artifact.id}>
+        <Table size="small" style={style} key={artifact.id} sx={{ tableLayout: 'fixed' }}>
           <TableBody>
             <TableRow
               hover
               sx={{ cursor: 'pointer' }}
               onClick={() => onSelect(artifact)}
             >
-              <TableCell>
-                <Typography variant="body2" fontWeight={500}>
+              <TableCell sx={{ width: COL_WIDTHS.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <Typography variant="body2" fontWeight={500} noWrap>
                   {artifact.name}
                 </Typography>
                 {artifact.description && (
-                  <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 300, display: 'block' }}>
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
                     {artifact.description}
                   </Typography>
                 )}
               </TableCell>
-              <TableCell>{artifact.version}</TableCell>
-              <TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.version }}>{artifact.version}</TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.status }}>
                 <StatusChip status={artifact.status} />
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: COL_WIDTHS.updated }}>
                 <Typography variant="caption">
                   {new Date(artifact.updatedAt).toLocaleDateString()}
                 </Typography>
               </TableCell>
-              <TableCell align="right">
+              <TableCell sx={{ width: COL_WIDTHS.actions }} align="right">
                 <Stack direction="row" spacing={0} justifyContent="flex-end">
                   <Tooltip title={t('list.edit')}>
                     <IconButton
@@ -314,7 +316,7 @@ function ArtifactVirtualList({
 
   return (
     <FixedSizeList
-      height={Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, 500)}
+      height={Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT)}
       width="100%"
       itemCount={artifacts.length}
       itemSize={ARTIFACT_ROW_HEIGHT}

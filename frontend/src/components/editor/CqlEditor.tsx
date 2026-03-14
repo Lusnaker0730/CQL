@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import Editor, { BeforeMount, OnMount, OnChange } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
+import { EDITOR_HEIGHT } from '../../constants/layout'
 import { useDispatch, useSelector } from 'react-redux'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'
 import type { LibraryInfo } from '../../utils/cqlSyntax'
@@ -9,6 +10,13 @@ import { setCqlContent, setCursorPosition, setGoToLine } from '../../store/edito
 import type { RootState } from '../../store'
 import type { TerminologyValidationItem, LibraryMetadata } from '../../types'
 import { usePreferences } from '../../hooks/usePreferences'
+
+export interface CqlEditorHandle {
+  getContent: () => string
+  getEditor: () => editor.IStandaloneCodeEditor | null
+  /** Flush current editor content to Redux store */
+  flushContent: () => void
+}
 
 interface CqlEditorProps {
   height?: string | number
@@ -18,17 +26,20 @@ interface CqlEditorProps {
   terminologyIssues?: TerminologyValidationItem[]
   libraryMetadata?: LibraryMetadata[]
   onEditorRef?: (editor: editor.IStandaloneCodeEditor) => void
+  /** Called on every content change (keystroke). Use for debounced consumers. */
+  onContentChanged?: (content: string) => void
 }
 
-export default function CqlEditor({
-  height = '500px',
+export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
+  height = EDITOR_HEIGHT,
   readOnly = false,
   onTranslate,
   onExecute,
   terminologyIssues,
   libraryMetadata,
   onEditorRef,
-}: CqlEditorProps) {
+  onContentChanged,
+}, ref) {
   const dispatch = useDispatch()
   const { cqlContent, errors, warnings, goToLine } = useSelector((state: RootState) => state.editor)
   const { preferences } = usePreferences()
@@ -36,6 +47,19 @@ export default function CqlEditor({
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
   const lastExternalContent = useRef(cqlContent)
   const librariesRef = useRef<LibraryInfo[]>([])
+  const disposablesRef = useRef<Array<{ dispose: () => void }>>([])
+  const cursorRafRef = useRef(0)
+
+  // Expose imperative handle for parent components
+  useImperativeHandle(ref, () => ({
+    getContent: () => editorRef.current?.getModel()?.getValue() ?? '',
+    getEditor: () => editorRef.current,
+    flushContent: () => {
+      const value = editorRef.current?.getModel()?.getValue() ?? ''
+      lastExternalContent.current = value
+      dispatch(setCqlContent(value))
+    },
+  }), [dispatch])
 
   // Keep libraries ref in sync
   useEffect(() => {
@@ -49,16 +73,18 @@ export default function CqlEditor({
     }
   }, [libraryMetadata])
 
-  // Clean smart quotes, zero-width chars, and non-breaking spaces from pasted text
+  // Clean invisible chars, bidi controls, smart quotes from pasted text (Trojan Source prevention)
   const sanitizePastedText = (text: string): string => {
     return text
-      .replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')    // zero-width chars
-      .replace(/\u00A0/g, ' ')                        // non-breaking space → space
-      .replace(/[\u2018\u2019\u201A]/g, "'")           // smart single quotes → '
-      .replace(/[\u201C\u201D\u201E]/g, '"')           // smart double quotes → "
-      .replace(/\u2013/g, '-')                         // en-dash → -
-      .replace(/\u2014/g, '--')                        // em-dash → --
-      .replace(/\u2026/g, '...')                       // ellipsis → ...
+      // Strip zero-width, bidi controls, soft hyphen, word joiner, and other invisible chars
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u061C\u00AD\u180E\uFEFF\uFFF9-\uFFFB]/g, '')
+      .replace(/[\u2028\u2029]/g, '\n')                // line/paragraph separator → newline
+      .replace(/\u00A0/g, ' ')                         // non-breaking space → space
+      .replace(/[\u2018\u2019\u201A]/g, "'")            // smart single quotes → '
+      .replace(/[\u201C\u201D\u201E]/g, '"')            // smart double quotes → "
+      .replace(/\u2013/g, '-')                          // en-dash → -
+      .replace(/\u2014/g, '--')                         // em-dash → --
+      .replace(/\u2026/g, '...')                        // ellipsis → ...
   }
 
   const handleEditorWillMount: BeforeMount = (monaco) => {
@@ -70,61 +96,166 @@ export default function CqlEditor({
     monacoRef.current = monaco
     onEditorRef?.(editor)
 
-    // Sanitize pasted content from ChatGPT/LLM outputs
-    editor.onDidPaste(() => {
+    // Sanitize only the pasted range, preserving undo stack
+    const pasteDisposable = editor.onDidPaste((e) => {
       const model = editor.getModel()
       if (!model) return
-      const content = model.getValue()
-      const cleaned = sanitizePastedText(content)
-      if (cleaned !== content) {
+      const pastedText = model.getValueInRange(e.range)
+      const cleaned = sanitizePastedText(pastedText)
+      if (cleaned !== pastedText) {
+        editor.executeEdits('paste-sanitize', [{
+          range: e.range,
+          text: cleaned,
+        }])
+      }
+    })
+    disposablesRef.current.push(pasteDisposable)
+
+    // Override Ctrl+V to use Clipboard API directly (Monaco's built-in paste
+    // relies on the hidden textarea receiving the event, which can fail in
+    // certain browser / CSP configurations).
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, async () => {
+      try {
+        const text = await navigator.clipboard.readText()
+        const cleaned = sanitizePastedText(text)
         const selections = editor.getSelections()
-        model.setValue(cleaned)
-        if (selections) editor.setSelections(selections)
+        if (selections && selections.length > 0) {
+          editor.executeEdits('clipboard-paste', selections.map(sel => ({
+            range: sel,
+            text: cleaned,
+          })))
+        }
+      } catch {
+        // Clipboard API unavailable — no-op, user can try native context menu
       }
     })
 
-    // Fallback paste handler using Clipboard API for browsers that block execCommand('paste')
-    const domNode = editor.getDomNode()
-    if (domNode) {
-      domNode.addEventListener('paste', (e: ClipboardEvent) => {
-        const clipboardData = e.clipboardData?.getData('text/plain')
-        if (clipboardData && editor.getModel()) {
-          const cleaned = sanitizePastedText(clipboardData)
-          const selections = editor.getSelections()
-          if (selections && selections.length > 0) {
-            editor.executeEdits('paste', selections.map(sel => ({
-              range: sel,
-              text: cleaned,
-            })))
-          }
-        }
-      })
-    }
+    // Ctrl+X: cut selected text (or current line if no selection) to clipboard
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, async () => {
+      try {
+        const selection = editor.getSelection()
+        if (!selection) return
+        const model = editor.getModel()
+        if (!model) return
 
+        let textToCut: string
+        let range: import('monaco-editor').IRange
+
+        if (selection.isEmpty()) {
+          // No selection: cut entire line (standard editor behavior)
+          const line = selection.startLineNumber
+          textToCut = model.getLineContent(line) + model.getEOL()
+          range = {
+            startLineNumber: line,
+            startColumn: 1,
+            endLineNumber: line + 1,
+            endColumn: 1,
+          }
+          // If last line, adjust range
+          if (line === model.getLineCount()) {
+            const prevLineEnd = line > 1 ? model.getLineMaxColumn(line - 1) : 1
+            const prevLine = line > 1 ? line - 1 : line
+            textToCut = model.getLineContent(line)
+            range = {
+              startLineNumber: prevLine,
+              startColumn: line > 1 ? prevLineEnd : 1,
+              endLineNumber: line,
+              endColumn: model.getLineMaxColumn(line),
+            }
+          }
+        } else {
+          textToCut = model.getValueInRange(selection)
+          range = selection
+        }
+
+        await navigator.clipboard.writeText(textToCut)
+        editor.executeEdits('clipboard-cut', [{ range, text: '' }])
+      } catch {
+        // Clipboard API unavailable
+      }
+    })
+
+    // Ctrl+C: copy selected text to clipboard
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, async () => {
+      try {
+        const selection = editor.getSelection()
+        if (!selection) return
+        const model = editor.getModel()
+        if (!model) return
+
+        let textToCopy: string
+        if (selection.isEmpty()) {
+          // No selection: copy entire line
+          textToCopy = model.getLineContent(selection.startLineNumber) + model.getEOL()
+        } else {
+          textToCopy = model.getValueInRange(selection)
+        }
+        await navigator.clipboard.writeText(textToCopy)
+      } catch {
+        // Clipboard API unavailable
+      }
+    })
+
+    // Ctrl+S: sync content to Redux, then translate
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      const value = editor.getModel()?.getValue() ?? ''
+      lastExternalContent.current = value
+      dispatch(setCqlContent(value))
       onTranslate?.()
     })
 
+    // Ctrl+Enter: sync content to Redux, then execute
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      const value = editor.getModel()?.getValue() ?? ''
+      lastExternalContent.current = value
+      dispatch(setCqlContent(value))
       onExecute?.()
     })
 
-    editor.onDidChangeCursorPosition((e) => {
-      dispatch(setCursorPosition({
-        line: e.position.lineNumber,
-        column: e.position.column,
-      }))
+    // Sync to Redux on blur (covers button-click scenarios)
+    const blurDisposable = editor.onDidBlurEditorText(() => {
+      const value = editor.getModel()?.getValue() ?? ''
+      if (value !== lastExternalContent.current) {
+        lastExternalContent.current = value
+        dispatch(setCqlContent(value))
+      }
     })
+    disposablesRef.current.push(blurDisposable)
+
+    // Throttle cursor position dispatch via requestAnimationFrame
+    const cursorDisposable = editor.onDidChangeCursorPosition((e) => {
+      cancelAnimationFrame(cursorRafRef.current)
+      cursorRafRef.current = requestAnimationFrame(() => {
+        dispatch(setCursorPosition({
+          line: e.position.lineNumber,
+          column: e.position.column,
+        }))
+      })
+    })
+    disposablesRef.current.push(cursorDisposable)
   }
 
+  // Cleanup Monaco subscriptions and DOM listeners on unmount
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(cursorRafRef.current)
+      disposablesRef.current.forEach(d => d.dispose())
+      disposablesRef.current = []
+      editorRef.current = null
+      monacoRef.current = null
+    }
+  }, [])
+
+  // onChange: notify parent for debounced consumers (e.g. useCqlStructure),
+  // but do NOT dispatch to Redux on every keystroke.
   const handleChange: OnChange = useCallback(
     (value) => {
       if (value !== undefined) {
         lastExternalContent.current = value
-        dispatch(setCqlContent(value))
+        onContentChanged?.(value)
       }
     },
-    [dispatch]
+    [onContentChanged]
   )
 
   // Sync content from Redux only when it changes externally (e.g., loading a library)
@@ -257,8 +388,9 @@ export default function CqlEditor({
           bracketPairColorization: { enabled: true },
           formatOnPaste: false,
           formatOnType: true,
+          contextmenu: true,
         }}
       />
     </Box>
   )
-}
+})

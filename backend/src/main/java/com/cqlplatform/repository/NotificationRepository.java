@@ -11,8 +11,6 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<NotificationEntity, Long> {
 
-    List<NotificationEntity> findByRecipientOrderByCreatedAtDesc(String recipient);
-
     List<NotificationEntity> findTop50ByRecipientOrderByCreatedAtDesc(String recipient);
 
     long countByRecipientAndReadFalse(String recipient);

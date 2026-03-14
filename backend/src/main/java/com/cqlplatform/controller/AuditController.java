@@ -2,6 +2,7 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.model.audit.*;
 import com.cqlplatform.service.AuditService;
+import com.cqlplatform.util.CsvUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -65,16 +66,16 @@ public class AuditController {
         for (AuditLogEntry log : logs) {
             csv.append(String.format("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
                     log.getId(),
-                    escapeCsv(log.getUsername()),
-                    escapeCsv(log.getMethod()),
-                    escapeCsv(log.getPath()),
-                    escapeCsv(log.getResourceType()),
-                    escapeCsv(log.getResourceId()),
-                    escapeCsv(log.getAction()),
+                    CsvUtils.escapeCsv(log.getUsername()),
+                    CsvUtils.escapeCsv(log.getMethod()),
+                    CsvUtils.escapeCsv(log.getPath()),
+                    CsvUtils.escapeCsv(log.getResourceType()),
+                    CsvUtils.escapeCsv(log.getResourceId()),
+                    CsvUtils.escapeCsv(log.getAction()),
                     log.getStatusCode() != null ? log.getStatusCode() : "",
-                    escapeCsv(log.getIpAddress()),
+                    CsvUtils.escapeCsv(log.getIpAddress()),
                     log.getResponseTimeMs() != null ? log.getResponseTimeMs() : "",
-                    escapeCsv(log.getCreatedAt())));
+                    CsvUtils.escapeCsv(log.getCreatedAt())));
         }
 
         byte[] csvBytes = csv.toString().getBytes();
@@ -114,19 +115,4 @@ public class AuditController {
         return ResponseEntity.ok(auditService.getSecurityEvents(page, size, startDate));
     }
 
-    private String escapeCsv(String value) {
-        if (value == null) return "";
-        // Prevent CSV formula injection
-        if (!value.isEmpty()) {
-            char first = value.charAt(0);
-            if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
-                value = "'" + value;
-            }
-        }
-        // Escape values containing special CSV characters
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
-    }
 }

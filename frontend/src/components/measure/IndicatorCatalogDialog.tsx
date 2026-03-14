@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Dialog,
   DialogTitle,
@@ -42,14 +43,20 @@ export default function IndicatorCatalogDialog({
 }: IndicatorCatalogDialogProps) {
   const { t } = useTranslation('measures')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [source, setSource] = useState(sourceFilter || '')
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
+    return () => clearTimeout(timer)
+  }, [search])
+
   const { data: indicators = [], isLoading } = useQuery({
-    queryKey: ['indicators', source, search],
+    queryKey: ['indicators', source, debouncedSearch],
     queryFn: () =>
       indicatorApi.search({
         source: source || undefined,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
       }),
     enabled: open,
   })

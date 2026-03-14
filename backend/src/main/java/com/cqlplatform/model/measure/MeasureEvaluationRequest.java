@@ -10,12 +10,15 @@ import java.time.LocalDate;
 
 @Data
 public class MeasureEvaluationRequest {
+    @Size(max = 128)
     private String measureId;
 
     /** CQL content — exempt from XSS sanitization. */
+    @Size(max = 512_000, message = "CQL content must be at most 512 KB")
     @JsonDeserialize(using = JsonDeserializer.None.class)
     private String measureCql;
 
+    @Size(max = 128)
     private String patientId;
 
     @Pattern(regexp = "Patient|Group")

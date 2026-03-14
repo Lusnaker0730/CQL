@@ -16,9 +16,17 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +40,9 @@ public class FhirTerminologyService {
             "https://r4.ontoserver.csiro.au/fhir"
     );
 
+    private static final String RXNORM_SYSTEM = "http://www.nlm.nih.gov/research/umls/rxnorm";
+    private static final String RXNAV_APPROX_URL = "https://rxnav.nlm.nih.gov/REST/approximateTerm.json";
+
     private static final Map<String, String> IMPLICIT_VALUESET_URLS = Map.of(
             "http://loinc.org", "http://loinc.org/vs",
             "http://snomed.info/sct", "http://snomed.info/sct?fhir_vs",
@@ -44,6 +55,8 @@ public class FhirTerminologyService {
     private final CacheManager cacheManager;
     private final FhirImplementationGuideService igService;
     private final VsacService vsacService;
+    private final RestTemplate restTemplate = createRestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${fhir.terminology.url:https://tx.fhir.org/r4}")
     private String defaultTerminologyServerUrl;
@@ -58,6 +71,13 @@ public class FhirTerminologyService {
         this.cacheManager = cacheManager;
         this.igService = igService;
         this.vsacService = vsacService;
+    }
+
+    private static RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(10_000);
+        return new RestTemplate(factory);
     }
 
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
@@ -200,7 +220,7 @@ public class FhirTerminologyService {
 
     private CodeLookupResult lookupCodeFromLocalIg(String system, String code) {
         try {
-            // Search in CodeSystems
+            // Search in CodeSystems (authoritative — have display names)
             CodeSystem cs = igService.getCodeSystemByUrl(system);
             if (cs != null && cs.hasConcept()) {
                 for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
@@ -208,7 +228,9 @@ public class FhirTerminologyService {
                     if (result != null) return result;
                 }
             }
-            // Also search in ValueSets that reference this system
+            // Also search in ValueSets that reference this system.
+            // Only return if the ValueSet entry has a non-empty display;
+            // otherwise fall through to the remote server for richer metadata.
             for (var vsSummary : igService.getValueSets(null)) {
                 ValueSet vs = igService.getValueSetByUrl(vsSummary.url());
                 if (vs != null && vs.hasCompose()) {
@@ -216,8 +238,12 @@ public class FhirTerminologyService {
                         if (system.equals(include.getSystem()) && include.hasConcept()) {
                             for (var conceptRef : include.getConcept()) {
                                 if (code.equals(conceptRef.getCode())) {
-                                    return new CodeLookupResult(system, code, vs.getName(),
-                                            conceptRef.getDisplay(), new ArrayList<>());
+                                    String display = conceptRef.getDisplay();
+                                    if (display != null && !display.isBlank()) {
+                                        return new CodeLookupResult(system, code, null,
+                                                display, new ArrayList<>());
+                                    }
+                                    // display is empty — skip, let remote server provide it
                                 }
                             }
                         }
@@ -360,6 +386,17 @@ public class FhirTerminologyService {
                     results.add(remote);
                 }
             }
+
+            // Fallback: For RxNorm, use NLM RxNav API when FHIR servers have no data
+            if (remoteResults.isEmpty() && RXNORM_SYSTEM.equals(system)) {
+                log.info("FHIR servers returned no RxNorm results, falling back to RxNav API");
+                List<CodeSearchResult> rxNavResults = tryRxNavSearch(text, needed);
+                for (CodeSearchResult r : rxNavResults) {
+                    if (!results.contains(r)) {
+                        results.add(r);
+                    }
+                }
+            }
         }
 
         // Boost: sort codes that appear in any TW Core IG ValueSet to the top
@@ -470,6 +507,42 @@ public class FhirTerminologyService {
             log.info("Server {} returned {} results (after filtering) for '{}' in {}", serverUrl, results.size(), text, system);
         } catch (Exception e) {
             log.warn("Code search failed on server {} for system {}: {}", serverUrl, system, e.getMessage());
+        }
+        return results;
+    }
+
+    /**
+     * Fallback search using NLM RxNav REST API for RxNorm codes.
+     * RxNav is a free, public API that does not require authentication.
+     */
+    private List<CodeSearchResult> tryRxNavSearch(String text, int maxResults) {
+        List<CodeSearchResult> results = new ArrayList<>();
+        try {
+            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
+            String url = RXNAV_APPROX_URL + "?term=" + encoded + "&maxEntries=" + maxResults;
+            String json = restTemplate.getForObject(url, String.class);
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode groups = root.path("approximateGroup").path("candidate");
+
+            // Deduplicate by rxcui — the API returns multiple entries per concept from different sources
+            Map<String, String> seen = new LinkedHashMap<>();
+            if (groups.isArray()) {
+                for (JsonNode candidate : groups) {
+                    String rxcui = candidate.path("rxcui").asText("");
+                    String name = candidate.path("name").asText("");
+                    if (!rxcui.isEmpty() && !name.isEmpty() && !seen.containsKey(rxcui)) {
+                        seen.put(rxcui, name);
+                    }
+                }
+            }
+
+            for (var entry : seen.entrySet()) {
+                results.add(new CodeSearchResult(RXNORM_SYSTEM, entry.getKey(), entry.getValue()));
+                if (results.size() >= maxResults) break;
+            }
+            log.info("RxNav API returned {} unique results for '{}'", results.size(), text);
+        } catch (Exception e) {
+            log.warn("RxNav API search failed for '{}': {}", text, e.getMessage());
         }
         return results;
     }

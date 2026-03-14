@@ -31,22 +31,31 @@ public class CqlRepositoryService {
             String filename
     ) {}
 
+    private static final String[] CQL_RESOURCE_PATTERNS = {
+            "classpath:cql-repository/*.cql",
+            "classpath:cql/*.cql"
+    };
+
     public List<RepositoryLibrary> listRepositoryLibraries() {
         List<RepositoryLibrary> libraries = new ArrayList<>();
-        try {
-            PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-            Resource[] resources = resolver.getResources("classpath:cql-repository/*.cql");
-            for (Resource resource : resources) {
-                String filename = resource.getFilename();
-                if (filename == null) continue;
-                String content = resource.getContentAsString(StandardCharsets.UTF_8);
-                String name = extractLibraryName(content, filename);
-                String version = extractLibraryVersion(content);
-                String description = extractDescription(content);
-                libraries.add(new RepositoryLibrary(name, version, description, filename));
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        for (String pattern : CQL_RESOURCE_PATTERNS) {
+            try {
+                Resource[] resources = resolver.getResources(pattern);
+                for (Resource resource : resources) {
+                    String filename = resource.getFilename();
+                    if (filename == null) continue;
+                    String content = resource.getContentAsString(StandardCharsets.UTF_8);
+                    String name = extractLibraryName(content, filename);
+                    // Skip if already added (same library in multiple directories)
+                    if (libraries.stream().anyMatch(l -> l.name().equals(name))) continue;
+                    String version = extractLibraryVersion(content);
+                    String description = extractDescription(content);
+                    libraries.add(new RepositoryLibrary(name, version, description, filename));
+                }
+            } catch (IOException e) {
+                log.warn("Failed to scan {}: {}", pattern, e.getMessage());
             }
-        } catch (IOException e) {
-            log.warn("Failed to list repository libraries: {}", e.getMessage());
         }
         return libraries;
     }

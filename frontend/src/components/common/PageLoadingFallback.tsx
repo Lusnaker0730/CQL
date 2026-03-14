@@ -19,7 +19,7 @@ function PageLoadingFallback() {
       }}
     >
       <Stack alignItems="center" spacing={2}>
-        <CircularProgress sx={{ color: '#0D7377' }} />
+        <CircularProgress sx={{ color: 'primary.main' }} />
         <Typography variant="body2" color="text.secondary">
           {t('status.loading')}
         </Typography>

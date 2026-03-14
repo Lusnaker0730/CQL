@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -79,14 +79,17 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
   const isLoading = validateMutation.isPending || quickValidateMutation.isPending
 
   // Group issues by category
-  const groupedIssues: Record<string, ValidationIssue[]> = {}
-  if (report) {
-    for (const issue of report.issues) {
-      const cat = issue.category || 'OTHER'
-      if (!groupedIssues[cat]) groupedIssues[cat] = []
-      groupedIssues[cat].push(issue)
+  const groupedIssues = useMemo(() => {
+    const groups: Record<string, ValidationIssue[]> = {}
+    if (report) {
+      for (const issue of report.issues) {
+        const cat = issue.category || 'OTHER'
+        if (!groups[cat]) groups[cat] = []
+        groups[cat].push(issue)
+      }
     }
-  }
+    return groups
+  }, [report])
 
   const handleFix = (issue: ValidationIssue) => {
     if (!onNavigateToTab) return

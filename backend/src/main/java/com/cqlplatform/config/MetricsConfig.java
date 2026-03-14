@@ -7,7 +7,9 @@ import io.micrometer.core.instrument.Timer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 public class MetricsConfig {
@@ -110,27 +112,27 @@ public class MetricsConfig {
 
     @Bean
     public Gauge cqlExecutionQueueSize(MeterRegistry registry,
-            @Qualifier("cqlExecutionExecutor") ThreadPoolTaskExecutor executor) {
+            @Qualifier("cqlExecutionExecutor") ExecutorService executor) {
         return Gauge.builder("cql.execution.queue.size", executor,
-                e -> e.getThreadPoolExecutor().getQueue().size())
+                e -> ((ThreadPoolExecutor) e).getQueue().size())
                 .description("Current CQL execution queue depth")
                 .register(registry);
     }
 
     @Bean
     public Gauge cqlExecutionPoolActive(MeterRegistry registry,
-            @Qualifier("cqlExecutionExecutor") ThreadPoolTaskExecutor executor) {
+            @Qualifier("cqlExecutionExecutor") ExecutorService executor) {
         return Gauge.builder("cql.execution.pool.active", executor,
-                e -> e.getThreadPoolExecutor().getActiveCount())
+                e -> ((ThreadPoolExecutor) e).getActiveCount())
                 .description("Active CQL execution threads")
                 .register(registry);
     }
 
     @Bean
     public Gauge cqlExecutionPoolSize(MeterRegistry registry,
-            @Qualifier("cqlExecutionExecutor") ThreadPoolTaskExecutor executor) {
+            @Qualifier("cqlExecutionExecutor") ExecutorService executor) {
         return Gauge.builder("cql.execution.pool.size", executor,
-                e -> e.getThreadPoolExecutor().getPoolSize())
+                e -> ((ThreadPoolExecutor) e).getPoolSize())
                 .description("Current CQL execution pool size")
                 .register(registry);
     }

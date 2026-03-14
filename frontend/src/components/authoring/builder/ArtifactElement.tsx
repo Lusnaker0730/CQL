@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import ArtifactElementBody from './ArtifactElementBody'
 import ExpressionPhrase from './ExpressionPhrase'
 import type { ElementInstance, ModifierDefinition } from '../../../types/authoring'
+import { getEffectiveReturnType } from '../../../utils/modifierUtils'
 import { RETURN_TYPE_COLORS, RETURN_TYPE_COLOR_DEFAULT, ELEMENT_REF_BACKGROUNDS } from '../../../constants/authoringConstants'
 
 const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
@@ -23,6 +24,7 @@ const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
 interface ArtifactElementProps {
   element: ElementInstance
   modifiers: ModifierDefinition[]
+  hideElementName?: boolean
   onUpdate: (updates: Partial<ElementInstance>) => void
   onRemove: () => void
   onIndent?: () => void
@@ -32,6 +34,7 @@ interface ArtifactElementProps {
 const ArtifactElement = memo(function ArtifactElement({
   element,
   modifiers,
+  hideElementName,
   onUpdate,
   onRemove,
   onIndent,
@@ -42,7 +45,7 @@ const ArtifactElement = memo(function ArtifactElement({
 
   const elementName = element.fields?.find((f) => f.id === 'element_name')?.value as string
   const displayName = elementName || element.name
-  const effectiveReturnType = getEffectiveReturnType(element)
+  const effectiveReturnType = getElementEffectiveReturnType(element)
   const chainError = getModifierChainError(element)
   const rtColor = RETURN_TYPE_COLORS[effectiveReturnType] || RETURN_TYPE_COLOR_DEFAULT
   const IconComp = ELEMENT_ICONS[element.type] || (element.type?.startsWith('Generic') ? ListIcon : ListIcon)
@@ -117,7 +120,7 @@ const ArtifactElement = memo(function ArtifactElement({
 
         {onIndent && (
           <Tooltip title={t('element.indent')}>
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label={t('element.indent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.indent')}>
               <IndentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -125,7 +128,7 @@ const ArtifactElement = memo(function ArtifactElement({
 
         {onOutdent && (
           <Tooltip title={t('element.outdent')}>
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }} aria-label={t('element.outdent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.outdent')}>
               <OutdentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -160,6 +163,7 @@ const ArtifactElement = memo(function ArtifactElement({
           <ArtifactElementBody
             element={element}
             modifiers={modifiers}
+            hideElementName={hideElementName}
             onUpdate={onUpdate}
           />
         </CardContent>
@@ -170,11 +174,8 @@ const ArtifactElement = memo(function ArtifactElement({
 
 export default ArtifactElement
 
-function getEffectiveReturnType(element: ElementInstance): string {
-  if (element.modifiers && element.modifiers.length > 0) {
-    return element.modifiers[element.modifiers.length - 1].returnType
-  }
-  return element.returnType
+function getElementEffectiveReturnType(element: ElementInstance): string {
+  return getEffectiveReturnType(element.returnType, element.modifiers)
 }
 
 function getModifierChainError(element: ElementInstance): { name: string; expected: string; actual: string } | null {

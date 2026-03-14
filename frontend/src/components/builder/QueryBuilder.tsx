@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { FHIR_RESOURCE_TYPES } from '../../constants/fhirResources'
+import { extractCqlName } from '../../utils/cqlNames'
 import {
   Stack,
   TextField,
@@ -12,6 +14,7 @@ import {
   ToggleButton,
   FormControlLabel,
   Checkbox,
+  Divider,
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
@@ -20,7 +23,7 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import CqlPreviewBox from './CqlPreviewBox'
-import { useNotification } from '../../hooks/useNotification'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import { fhirResourceProperties } from '../../utils/cqlSyntax'
 
 interface QueryBuilderProps {
@@ -38,28 +41,26 @@ interface WhereClause {
   conjunction: 'and' | 'or'
 }
 
-const RESOURCE_TYPES = [
-  'Observation',
-  'Condition',
-  'Procedure',
-  'MedicationRequest',
-  'MedicationStatement',
-  'Encounter',
-  'Immunization',
-  'AllergyIntolerance',
-  'Device',
-  'ServiceRequest',
-] as const
+interface WithClause {
+  id: string
+  mode: 'with' | 'without'
+  resourceType: string
+  alias: string
+  suchThat: string
+}
+
+interface LetBinding {
+  id: string
+  name: string
+  expression: string
+}
 
 const OPERATORS = [
-  '=', '!=', '~', 'in', 'during', 'before', 'after',
+  '=', '!=', '~', 'in', 'includes concept', 'during', 'before', 'after',
   'contains', '>', '<', '>=', '<=', 'is not null', 'is null',
 ]
 
-function extractName(raw: string): string {
-  const m = raw.match(/^"([^"]+)"/)
-  return m ? m[1] : raw
-}
+const CQL_LITERAL_RE = /^("[^"]*"|'[^']*'|true|false|null|-?\d+(\.\d+)?|@\S+|Interval\b.*)$/
 
 let clauseIdCounter = 0
 function nextClauseId(): string {
@@ -72,7 +73,7 @@ function generateAlias(resourceType: string): string {
 
 function generateDefName(resourceType: string, terminology: string): string {
   if (!terminology) return resourceType + ' Query'
-  const termName = extractName(terminology)
+  const termName = extractCqlName(terminology)
   return `${termName} ${resourceType}s`
 }
 
@@ -82,29 +83,57 @@ function generateQueryCql(
   alias: string,
   definitionName: string,
   whereClauses: WhereClause[],
+  withClauses: WithClause[],
+  letBindings: LetBinding[],
   enableSort: boolean,
   sortField: string,
   sortDir: 'asc' | 'desc',
   enableReturn: boolean,
   returnExpr: string,
+  enableDistinct: boolean,
 ): string {
-  const termPart = terminology ? `: "${extractName(terminology)}"` : ''
+  const termPart = terminology ? `: "${extractCqlName(terminology)}"` : ''
   let cql = `define "${definitionName}":\n  [${resourceType}${termPart}] ${alias}`
 
+  // let bindings
+  const validLets = letBindings.filter((b) => b.name.trim() && b.expression.trim())
+  validLets.forEach((binding) => {
+    cql += `\n    let ${binding.name.trim()}: ${binding.expression.trim()}`
+  })
+
+  // with / without clauses
+  const validWiths = withClauses.filter((w) => w.resourceType && w.suchThat.trim())
+  validWiths.forEach((w) => {
+    cql += `\n    ${w.mode} [${w.resourceType}] ${w.alias}`
+    cql += `\n      such that ${w.suchThat.trim()}`
+  })
+
+  // where clauses
   const validClauses = whereClauses.filter((c) => c.field && c.operator)
   if (validClauses.length > 0) {
     validClauses.forEach((clause, idx) => {
       const prefix = idx === 0 ? '\n    where ' : `\n      ${clause.conjunction} `
-      let condition = `${alias}.${clause.field} ${clause.operator}`
-      if (clause.operator !== 'is null' && clause.operator !== 'is not null') {
-        condition += ` ${clause.value || "'...'"}`
+      let condition: string
+      if (clause.operator === 'includes concept') {
+        const val = clause.value?.trim() || '"..."'
+        condition = `exists (${alias}.${clause.field} C where C ~ ${val})`
+      } else {
+        condition = `${alias}.${clause.field} ${clause.operator}`
+        if (clause.operator !== 'is null' && clause.operator !== 'is not null') {
+          const raw = clause.value?.trim() || ''
+          const isLiteral = CQL_LITERAL_RE.test(raw)
+          condition += ` ${raw ? (isLiteral ? raw : `'${raw}'`) : "'...'"}`
+        }
       }
       cql += `${prefix}${condition}`
     })
   }
 
+  // return (with optional distinct)
   if (enableReturn && returnExpr.trim()) {
-    cql += `\n    return ${returnExpr}`
+    cql += `\n    return ${enableDistinct ? 'distinct ' : ''}${returnExpr}`
+  } else if (enableDistinct) {
+    cql += `\n    return distinct ${alias}`
   }
 
   if (enableSort && sortField) {
@@ -116,7 +145,7 @@ function generateQueryCql(
 
 export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: QueryBuilderProps) {
   const { t } = useTranslation('builder')
-  const { showNotification } = useNotification()
+  const copyToClipboard = useCopyToClipboard()
   const [resourceType, setResourceType] = useState<string>('Observation')
   const [terminology, setTerminology] = useState('')
   const [alias, setAlias] = useState('O')
@@ -124,15 +153,18 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
   const [definitionName, setDefinitionName] = useState('Observation Query')
   const [nameEdited, setNameEdited] = useState(false)
   const [whereClauses, setWhereClauses] = useState<WhereClause[]>([])
+  const [withClauses, setWithClauses] = useState<WithClause[]>([])
+  const [letBindings, setLetBindings] = useState<LetBinding[]>([])
   const [enableSort, setEnableSort] = useState(false)
   const [sortField, setSortField] = useState('')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [enableReturn, setEnableReturn] = useState(false)
   const [returnExpr, setReturnExpr] = useState('')
+  const [enableDistinct, setEnableDistinct] = useState(false)
 
   const terminologyOptions = useMemo(() => {
-    const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractName(vs)}` }))
-    const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractName(c)}` }))
+    const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractCqlName(vs)}` }))
+    const codeOptions = codes.map((c) => ({ raw: c, label: `Code: ${extractCqlName(c)}` }))
     return [{ raw: '', label: '(No filter)' }, ...vsOptions, ...codeOptions]
   }, [valueSets, codes])
 
@@ -151,6 +183,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
     if (!nameEdited) setDefinitionName(generateDefName(resourceType, raw))
   }
 
+  // Where clause helpers
   const addWhereClause = () => {
     setWhereClauses((prev) => [
       ...prev,
@@ -168,31 +201,69 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
     setWhereClauses((prev) => prev.filter((c) => c.id !== id))
   }
 
-  const cqlPreview = generateQueryCql(
+  // With/without clause helpers
+  const addWithClause = () => {
+    setWithClauses((prev) => [
+      ...prev,
+      { id: nextClauseId(), mode: 'with', resourceType: 'Condition', alias: 'C', suchThat: '' },
+    ])
+  }
+
+  const updateWithClause = (id: string, updates: Partial<WithClause>) => {
+    setWithClauses((prev) =>
+      prev.map((w) => {
+        if (w.id !== id) return w
+        const updated = { ...w, ...updates }
+        // Auto-update alias when resource type changes (unless user set suchThat already)
+        if (updates.resourceType && !w.suchThat.trim()) {
+          updated.alias = generateAlias(updates.resourceType)
+        }
+        return updated
+      })
+    )
+  }
+
+  const removeWithClause = (id: string) => {
+    setWithClauses((prev) => prev.filter((w) => w.id !== id))
+  }
+
+  // Let binding helpers
+  const addLetBinding = () => {
+    setLetBindings((prev) => [
+      ...prev,
+      { id: nextClauseId(), name: '', expression: '' },
+    ])
+  }
+
+  const updateLetBinding = (id: string, updates: Partial<LetBinding>) => {
+    setLetBindings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, ...updates } : b))
+    )
+  }
+
+  const removeLetBinding = (id: string) => {
+    setLetBindings((prev) => prev.filter((b) => b.id !== id))
+  }
+
+  const cqlPreview = useMemo(() => generateQueryCql(
     resourceType,
     terminology,
     alias,
     definitionName || 'Untitled',
     whereClauses,
+    withClauses,
+    letBindings,
     enableSort,
     sortField,
     sortDir,
     enableReturn,
     returnExpr,
-  )
+    enableDistinct,
+  ), [resourceType, terminology, alias, definitionName, whereClauses, withClauses, letBindings, enableSort, sortField, sortDir, enableReturn, returnExpr, enableDistinct])
 
   const handleInsert = () => {
     if (!definitionName.trim()) return
     onInsert(cqlPreview)
-  }
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(cqlPreview)
-      showNotification(t('common.copiedToClipboard'), 'success', 2000)
-    } catch {
-      showNotification(t('common.copyFailed'), 'error', 2000)
-    }
   }
 
   return (
@@ -204,7 +275,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
         value={resourceType}
         onChange={(e) => handleResourceChange(e.target.value)}
       >
-        {RESOURCE_TYPES.map((rt) => (
+        {FHIR_RESOURCE_TYPES.map((rt) => (
           <MenuItem key={rt} value={rt}>{rt}</MenuItem>
         ))}
       </TextField>
@@ -241,6 +312,97 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           sx={{ flex: 1 }}
         />
       </Stack>
+
+      {/* Let Bindings */}
+      <Typography variant="caption" fontWeight={600} color="text.secondary">
+        {t('query.letBindings')}
+      </Typography>
+      {letBindings.map((binding) => (
+        <Stack key={binding.id} direction="row" spacing={0.5} alignItems="center">
+          <TextField
+            size="small"
+            label={t('query.letName')}
+            value={binding.name}
+            onChange={(e) => updateLetBinding(binding.id, { name: e.target.value })}
+            sx={{ flex: 1 }}
+            placeholder="varName"
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>:</Typography>
+          <TextField
+            size="small"
+            label={t('query.letExpression')}
+            value={binding.expression}
+            onChange={(e) => updateLetBinding(binding.id, { expression: e.target.value })}
+            sx={{ flex: 3, '& input': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
+            placeholder={t('query.letExpressionPlaceholder', { alias })}
+          />
+          <IconButton size="small" onClick={() => removeLetBinding(binding.id)} aria-label="Remove let">
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      ))}
+      <Button size="small" startIcon={<AddIcon />} onClick={addLetBinding} sx={{ alignSelf: 'flex-start' }}>
+        {t('query.addLetBinding')}
+      </Button>
+
+      {/* With / Without Clauses */}
+      <Typography variant="caption" fontWeight={600} color="text.secondary">
+        {t('query.withClauses')}
+      </Typography>
+      {withClauses.map((wc) => (
+        <Stack key={wc.id} spacing={0.5}>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={wc.mode}
+              onChange={(_, v) => { if (v) updateWithClause(wc.id, { mode: v }) }}
+            >
+              <ToggleButton value="with" sx={{ textTransform: 'none', px: 1, py: 0, fontSize: '0.7rem' }}>
+                with
+              </ToggleButton>
+              <ToggleButton value="without" sx={{ textTransform: 'none', px: 1, py: 0, fontSize: '0.7rem' }}>
+                without
+              </ToggleButton>
+            </ToggleButtonGroup>
+            <TextField
+              select
+              size="small"
+              label={t('query.resourceType')}
+              value={wc.resourceType}
+              onChange={(e) => updateWithClause(wc.id, { resourceType: e.target.value, alias: generateAlias(e.target.value) })}
+              sx={{ flex: 2 }}
+            >
+              {FHIR_RESOURCE_TYPES.map((rt) => (
+                <MenuItem key={rt} value={rt}>{rt}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              size="small"
+              label={t('query.alias')}
+              value={wc.alias}
+              onChange={(e) => updateWithClause(wc.id, { alias: e.target.value })}
+              sx={{ width: 60 }}
+            />
+            <IconButton size="small" onClick={() => removeWithClause(wc.id)} aria-label="Remove with">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+          <TextField
+            size="small"
+            label={t('query.suchThat')}
+            value={wc.suchThat}
+            onChange={(e) => updateWithClause(wc.id, { suchThat: e.target.value })}
+            placeholder={t('query.suchThatPlaceholder', { alias, withAlias: wc.alias })}
+            sx={{ ml: 2, '& input': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
+          />
+        </Stack>
+      ))}
+      <Button size="small" startIcon={<AddIcon />} onClick={addWithClause} sx={{ alignSelf: 'flex-start' }}>
+        {t('query.addWithClause')}
+      </Button>
+
+      <Divider />
 
       {/* Where Clauses */}
       <Typography variant="caption" fontWeight={600} color="text.secondary">
@@ -290,7 +452,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
               ))}
             </TextField>
             {clause.operator !== 'is null' && clause.operator !== 'is not null' && (
-              clause.operator === 'in' ? (
+              clause.operator === 'in' || clause.operator === 'includes concept' ? (
                 <TextField
                   select
                   size="small"
@@ -305,7 +467,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
                     <em>{t('query.selectOp')}</em>
                   </MenuItem>
                   {terminologyOptions.filter((o) => o.raw).map((opt) => (
-                    <MenuItem key={opt.raw} value={`"${extractName(opt.raw)}"`}>
+                    <MenuItem key={opt.raw} value={`"${extractCqlName(opt.raw)}"`}>
                       {opt.label}
                     </MenuItem>
                   ))}
@@ -366,11 +528,17 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
         </Stack>
       )}
 
-      {/* Return */}
-      <FormControlLabel
-        control={<Checkbox size="small" checked={enableReturn} onChange={(e) => setEnableReturn(e.target.checked)} />}
-        label={<Typography variant="body2">{t('query.returnExpression')}</Typography>}
-      />
+      {/* Return + Distinct */}
+      <Stack direction="row" spacing={1} alignItems="center">
+        <FormControlLabel
+          control={<Checkbox size="small" checked={enableReturn} onChange={(e) => setEnableReturn(e.target.checked)} />}
+          label={<Typography variant="body2">{t('query.returnExpression')}</Typography>}
+        />
+        <FormControlLabel
+          control={<Checkbox size="small" checked={enableDistinct} onChange={(e) => setEnableDistinct(e.target.checked)} />}
+          label={<Typography variant="body2">{t('query.distinct')}</Typography>}
+        />
+      </Stack>
       {enableReturn && (
         <TextField
           size="small"
@@ -391,7 +559,7 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           {t('common.insert')}
         </GradientButton>
         <Tooltip title={t('common.copyToClipboard')}>
-          <IconButton size="small" onClick={handleCopy} aria-label={t('common.copyToClipboard')}>
+          <IconButton size="small" onClick={() => copyToClipboard(cqlPreview)} aria-label={t('common.copyToClipboard')}>
             <CopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>

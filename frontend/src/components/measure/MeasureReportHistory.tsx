@@ -25,10 +25,15 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureReport } from '../../types'
+import { getScoreChipColor } from '../../utils/scoreColors'
+import { downloadBlob } from '../../utils/download'
+import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 
 export default function MeasureReportHistory() {
   const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
+  const { showNotification } = useNotification()
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [exportAnchor, setExportAnchor] = useState<{ el: HTMLElement; id: number } | null>(null)
 
@@ -47,22 +52,10 @@ export default function MeasureReportHistory() {
     try {
       const blob = await measureApi.exportReport(reportId, format)
       const ext = format === 'csv' ? 'csv' : format === 'excel' ? 'xlsx' : format === 'qrda3' ? 'xml' : 'json'
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `measure-report-${reportId}.${ext}`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `measure-report-${reportId}.${ext}`)
     } catch (err) {
-      console.error(t('reports.exportFailed'), err)
+      showNotification(t('reports.exportFailed') + ': ' + extractApiError(err), 'error')
     }
-  }
-
-  const getScoreColor = (score: number | undefined): 'success' | 'warning' | 'error' | 'default' => {
-    if (score == null) return 'default'
-    if (score >= 80) return 'success'
-    if (score >= 60) return 'warning'
-    return 'error'
   }
 
   return (
@@ -105,7 +98,7 @@ export default function MeasureReportHistory() {
                       <Chip
                         label={`${report.measureScore.toFixed(1)}%`}
                         size="small"
-                        color={getScoreColor(report.measureScore)}
+                        color={getScoreChipColor(report.measureScore)}
                       />
                     )}
                   </TableCell>
@@ -139,9 +132,10 @@ export default function MeasureReportHistory() {
                         {report.evaluationResult && (
                           <Box component="pre" sx={{
                             p: 2,
-                            bgcolor: '#F8FAFB',
+                            bgcolor: 'action.hover',
                             borderRadius: '8px',
-                            border: '1px solid rgba(13,115,119,0.1)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             fontSize: '0.7rem',
                             overflow: 'auto',
                             maxHeight: 300,
@@ -153,9 +147,10 @@ export default function MeasureReportHistory() {
                         {!report.evaluationResult && report.resultJson && (
                           <Box component="pre" sx={{
                             p: 2,
-                            bgcolor: '#F8FAFB',
+                            bgcolor: 'action.hover',
                             borderRadius: '8px',
-                            border: '1px solid rgba(13,115,119,0.1)',
+                            border: '1px solid',
+                            borderColor: 'divider',
                             fontSize: '0.7rem',
                             overflow: 'auto',
                             maxHeight: 300,

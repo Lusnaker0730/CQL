@@ -82,8 +82,14 @@ class InputValidatorTest {
     }
 
     @Test
-    void isValidUrl_shouldAcceptNull() {
-        assertThat(InputValidator.isValidUrl(null)).isTrue();
+    void isValidUrl_shouldRejectNull() {
+        assertThat(InputValidator.isValidUrl(null)).isFalse();
+    }
+
+    @Test
+    void isValidUrl_shouldRejectBlank() {
+        assertThat(InputValidator.isValidUrl("")).isFalse();
+        assertThat(InputValidator.isValidUrl("   ")).isFalse();
     }
 
     // --- Search Params Validation ---

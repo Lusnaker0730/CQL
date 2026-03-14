@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   Box,
   Typography,
@@ -39,6 +40,7 @@ import {
 import type { MeasureDefinition, MeasureReference } from '../../types'
 import DepartmentSelector from '../common/DepartmentSelector'
 import IndicatorMappingSection from './IndicatorMappingSection'
+import { MEASURE } from '../../constants/fieldConstraints'
 
 interface MeasureDetailsTabProps {
   measure: MeasureDefinition
@@ -142,7 +144,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
 
       {updateMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {(updateMutation.error as Error).message}
+          {extractApiError(updateMutation.error)}
         </Alert>
       )}
 
@@ -170,6 +172,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 fullWidth
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
+                inputProps={{ maxLength: MEASURE.name.maxLength }}
               />
               <Stack direction="row" spacing={2}>
                 <TextField
@@ -178,6 +181,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   fullWidth
                   value={form.version}
                   onChange={(e) => updateField('version', e.target.value)}
+                  inputProps={{ maxLength: MEASURE.version.maxLength }}
                 />
                 <TextField
                   label={t('details.fields.status')}
@@ -212,6 +216,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.measureSet || ''}
                   onChange={(e) => updateField('measureSet', e.target.value)}
                   placeholder={t('details.fields.measureSetPlaceholder')}
+                  inputProps={{ maxLength: MEASURE.measureSet.maxLength }}
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
@@ -222,6 +227,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.nqfNumber || ''}
                   onChange={(e) => updateField('nqfNumber', e.target.value)}
                   placeholder={t('details.fields.nqfNumberPlaceholder')}
+                  inputProps={{ maxLength: MEASURE.nqfNumber.maxLength }}
                 />
                 <TextField
                   label={t('details.fields.cmsMeasureId')}
@@ -230,6 +236,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.cmsMeasureId || ''}
                   onChange={(e) => updateField('cmsMeasureId', e.target.value)}
                   placeholder={t('details.fields.cmsMeasureIdPlaceholder')}
+                  inputProps={{ maxLength: MEASURE.cmsMeasureId.maxLength }}
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
@@ -290,6 +297,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 fullWidth
                 value={form.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
+                inputProps={{ maxLength: MEASURE.title.maxLength }}
               />
               <TextField
                 label={t('details.overviewFields.description')}
@@ -299,6 +307,8 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 rows={3}
                 value={form.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
+                inputProps={{ maxLength: MEASURE.description.maxLength }}
+                helperText={`${(form.description || '').length} / ${MEASURE.description.maxLength}`}
               />
               <TextField
                 label={t('details.overviewFields.rationale')}
@@ -309,6 +319,8 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 value={form.rationale || ''}
                 onChange={(e) => updateField('rationale', e.target.value)}
                 placeholder={t('details.overviewFields.rationalePlaceholder')}
+                inputProps={{ maxLength: MEASURE.rationale.maxLength }}
+                helperText={`${(form.rationale || '').length} / ${MEASURE.rationale.maxLength}`}
               />
               <TextField
                 label={t('details.overviewFields.clinicalGuidance')}
@@ -319,6 +331,8 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 value={form.clinicalGuidance || ''}
                 onChange={(e) => updateField('clinicalGuidance', e.target.value)}
                 placeholder={t('details.overviewFields.clinicalGuidancePlaceholder')}
+                inputProps={{ maxLength: MEASURE.clinicalGuidance.maxLength }}
+                helperText={`${(form.clinicalGuidance || '').length} / ${MEASURE.clinicalGuidance.maxLength}`}
               />
             </Stack>
           </AccordionDetails>
@@ -341,6 +355,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 value={form.steward || ''}
                 onChange={(e) => updateField('steward', e.target.value)}
                 placeholder={t('details.stewardFields.stewardPlaceholder')}
+                inputProps={{ maxLength: MEASURE.steward.maxLength }}
               />
               <Divider />
               <Typography variant="caption" color="text.secondary">{t('details.stewardFields.developers')}</Typography>
@@ -352,6 +367,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                     value={dev}
                     onChange={(e) => updateDeveloper(i, e.target.value)}
                     placeholder={t('details.stewardFields.developerPlaceholder')}
+                    inputProps={{ maxLength: MEASURE.developer.maxLength }}
                   />
                   <IconButton size="small" aria-label={t('details.stewardFields.removeDeveloper')} color="error" onClick={() => removeDeveloper(i)}>
                     <DeleteIcon fontSize="small" />
@@ -399,6 +415,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                     value={ref.reference}
                     onChange={(e) => updateReference(i, 'reference', e.target.value)}
                     placeholder={t('details.referenceFields.referencePlaceholder')}
+                    inputProps={{ maxLength: MEASURE.reference.maxLength }}
                   />
                   <IconButton size="small" aria-label={t('details.referenceFields.removeReference')} color="error" onClick={() => removeReference(i)}>
                     <DeleteIcon fontSize="small" />
@@ -440,6 +457,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 rows={2}
                 value={form.copyright || ''}
                 onChange={(e) => updateField('copyright', e.target.value)}
+                inputProps={{ maxLength: MEASURE.copyright.maxLength }}
               />
               <TextField
                 label={t('details.legalFields.disclaimer')}
@@ -449,6 +467,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 rows={2}
                 value={form.disclaimer || ''}
                 onChange={(e) => updateField('disclaimer', e.target.value)}
+                inputProps={{ maxLength: MEASURE.disclaimer.maxLength }}
               />
             </Stack>
           </AccordionDetails>
