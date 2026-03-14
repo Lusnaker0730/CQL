@@ -163,6 +163,13 @@ def main():
         print("docs-only PR — skipping regulatory checks")
         sys.exit(0)
 
+    # Skip dependency update PRs (Dependabot, renovate, etc.)
+    dep_prefixes = ("chore(deps):", "chore(deps-dev):", "Bump ", "bump ")
+    pr_labels = [l["name"] for l in pr.get("labels", [])]
+    if pr_title.startswith(dep_prefixes) or "dependencies" in pr_labels:
+        print("dependency update PR — skipping regulatory checks")
+        sys.exit(0)
+
     # 2. Extract issue references from PR body
     pr_refs = extract_issue_refs(pr_body)
     if not pr_refs:
