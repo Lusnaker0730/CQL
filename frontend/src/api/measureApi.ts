@@ -27,6 +27,18 @@ import type {
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
 
+const exportBlob = async (
+  id: number,
+  type: string,
+  params?: Record<string, string>
+): Promise<Blob> => {
+  const response = await api.get(`/measures/${id}/export/${type}`, {
+    params,
+    responseType: 'blob',
+  })
+  return response.data
+}
+
 export const measureApi = {
   // Evaluation
   evaluate: async (request: MeasureEvaluationRequest): Promise<MeasureEvaluationResult> => {
@@ -54,8 +66,10 @@ export const measureApi = {
   },
 
   // Measure Definition CRUD
-  getMeasures: async (search?: string): Promise<MeasureDefinition[]> => {
-    const params = search ? { search } : {}
+  getMeasures: async (search?: string, department?: string): Promise<MeasureDefinition[]> => {
+    const params: Record<string, string> = {}
+    if (search) params.search = search
+    if (department) params.department = department
     const response = await api.get<MeasureDefinition[]>('/measures', { params })
     return response.data
   },
@@ -333,41 +347,12 @@ export const measureApi = {
   },
 
   // Bundle Export/Import
-  exportBundle: async (id: number, format: string = 'json'): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/bundle`, {
-      params: { format },
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportCql: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/cql`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportElm: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/elm`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportHqmf: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/hqmf`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
-
-  exportHumanReadable: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/measures/${id}/export/human-readable`, {
-      responseType: 'blob',
-    })
-    return response.data
-  },
+  exportBundle: (id: number, format: string = 'json'): Promise<Blob> =>
+    exportBlob(id, 'bundle', { format }),
+  exportCql: (id: number): Promise<Blob> => exportBlob(id, 'cql'),
+  exportElm: (id: number): Promise<Blob> => exportBlob(id, 'elm'),
+  exportHqmf: (id: number): Promise<Blob> => exportBlob(id, 'hqmf'),
+  exportHumanReadable: (id: number): Promise<Blob> => exportBlob(id, 'human-readable'),
 
   importBundle: async (json: unknown): Promise<BundleImportResult> => {
     const response = await api.post<BundleImportResult>('/measures/import/bundle', json)

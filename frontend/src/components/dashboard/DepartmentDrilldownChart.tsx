@@ -1,4 +1,5 @@
 import { Box, Typography, Paper } from '@mui/material'
+import { getScoreHex } from '../../utils/scoreColors'
 import {
   BarChart,
   Bar,
@@ -16,12 +17,6 @@ interface DepartmentDrilldownChartProps {
   title?: string
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#4CAF50'
-  if (score >= 60) return '#FF9800'
-  return '#D32F2F'
-}
-
 export default function DepartmentDrilldownChart({ data, title }: DepartmentDrilldownChartProps) {
   const { t } = useTranslation('measures')
 
@@ -36,7 +31,7 @@ export default function DepartmentDrilldownChart({ data, title }: DepartmentDril
         {title || t('dashboard.departmentScores')}
       </Typography>
       <Box sx={{ width: '100%', height: 300 }}>
-        <ResponsiveContainer>
+        <ResponsiveContainer minWidth={0} minHeight={0}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="department" fontSize={11} />
@@ -44,7 +39,7 @@ export default function DepartmentDrilldownChart({ data, title }: DepartmentDril
             <Tooltip />
             <Bar dataKey="score" radius={[4, 4, 0, 0]}>
               {chartData.map((entry, i) => (
-                <Cell key={i} fill={getScoreColor(entry.score)} />
+                <Cell key={i} fill={getScoreHex(entry.score)} />
               ))}
             </Bar>
           </BarChart>

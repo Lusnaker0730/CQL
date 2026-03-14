@@ -14,5 +14,6 @@ public class UserSummary {
     private String role;
     private Boolean enabled;
     private Boolean forcePasswordChange;
+    private String authProvider;
     private String createdAt;
 }

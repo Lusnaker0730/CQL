@@ -15,6 +15,7 @@ import {
 import { ehrApi } from '../../api'
 import type { EhrConnection } from '../../types'
 import DepartmentSelector from '../common/DepartmentSelector'
+import { EHR_CONNECTION } from '../../constants/fieldConstraints'
 
 interface EhrConnectionFormProps {
   open: boolean
@@ -108,6 +109,7 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             required
             fullWidth
             size="small"
+            inputProps={{ maxLength: EHR_CONNECTION.name.maxLength }}
           />
 
           <TextField
@@ -118,6 +120,7 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             fullWidth
             size="small"
             placeholder="https://fhir.example.com/fhir"
+            inputProps={{ maxLength: EHR_CONNECTION.fhirServerUrl.maxLength }}
           />
 
           <TextField

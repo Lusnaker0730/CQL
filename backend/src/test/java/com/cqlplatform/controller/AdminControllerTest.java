@@ -3,6 +3,9 @@ package com.cqlplatform.controller;
 import com.cqlplatform.entity.UserEntity;
 import com.cqlplatform.repository.UserRepository;
 import com.cqlplatform.service.PasswordResetService;
+import com.cqlplatform.service.RefreshTokenService;
+import com.cqlplatform.service.TokenVersionService;
+import com.cqlplatform.service.UserApiKeyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -38,6 +41,15 @@ class AdminControllerTest {
 
     @MockBean
     private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private UserApiKeyService userApiKeyService;
+
+    @MockBean
+    private TokenVersionService tokenVersionService;
+
+    @MockBean
+    private RefreshTokenService refreshTokenService;
 
     private UserEntity createUser(Long id, String username, UserEntity.Role role) {
         return UserEntity.builder()
@@ -88,13 +100,13 @@ class AdminControllerTest {
 
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
-    void createUser_duplicateUsername_shouldReturn400() throws Exception {
+    void createUser_duplicateUsername_shouldReturn409() throws Exception {
         when(userRepository.existsByUsername("existing")).thenReturn(true);
 
         mockMvc.perform(post("/api/admin/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"existing\",\"password\":\"password123\",\"role\":\"USER\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -139,6 +151,37 @@ class AdminControllerTest {
 
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateUserEnabled_disable_shouldDeactivateApiKeys() throws Exception {
+        UserEntity user = createUser(2L, "otheruser", UserEntity.Role.USER);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(put("/api/admin/users/2/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isOk());
+
+        verify(userApiKeyService).deactivateAllKeys("otheruser");
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateUserEnabled_enable_shouldNotDeactivateApiKeys() throws Exception {
+        UserEntity user = createUser(2L, "otheruser", UserEntity.Role.USER);
+        user.setEnabled(false);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(put("/api/admin/users/2/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":true}"))
+                .andExpect(status().isOk());
+
+        verify(userApiKeyService, never()).deactivateAllKeys(any());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
     void updateUserEnabled_selfDisable_shouldReturn400() throws Exception {
         UserEntity user = createUser(1L, "admin", UserEntity.Role.ADMIN);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -151,14 +194,19 @@ class AdminControllerTest {
 
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
-    void resetUserPassword_shouldReturnTempPassword() throws Exception {
+    void resetUserPassword_shouldReturnSuccessWithoutPassword() throws Exception {
         UserEntity user = createUser(2L, "otheruser", UserEntity.Role.USER);
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
-        when(passwordResetService.adminResetPassword(2L)).thenReturn("TempPass123!");
+        // adminResetPassword is now void; the temp password is emailed, not returned in the response
+        doNothing().when(passwordResetService).adminResetPassword(2L);
 
         mockMvc.perform(post("/api/admin/users/2/reset-password"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.temporaryPassword").value("TempPass123!"))
-                .andExpect(jsonPath("$.username").value("otheruser"));
+                // Security (H8): temporary password must NOT appear in the response body
+                .andExpect(jsonPath("$.temporaryPassword").doesNotExist())
+                .andExpect(jsonPath("$.username").value("otheruser"))
+                .andExpect(jsonPath("$.message").exists())
+                // Response must carry Cache-Control: no-store to prevent credential caching
+                .andExpect(header().string("Cache-Control", "no-store"));
     }
 }

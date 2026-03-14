@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { getScoreChipColor } from '../utils/scoreColors'
 import {
   Paper,
   Typography,
@@ -30,17 +31,11 @@ import DepartmentDrilldownChart from '../components/dashboard/DepartmentDrilldow
 import ScoreDistributionChart from '../components/dashboard/ScoreDistributionChart'
 import ThresholdAlertPanel from '../components/dashboard/ThresholdAlertPanel'
 import QualityReportPanel from '../components/dashboard/QualityReportPanel'
+import { STALE_30S, STALE_1M } from '../constants/queryConstants'
 
 const TEAL = '#0D7377'
 
 const STATUS_ORDER = ['active', 'draft', 'retired', 'in-review'] as const
-
-function getScoreColor(score: number | undefined): 'success' | 'warning' | 'error' {
-  if (score == null) return 'error'
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'error'
-}
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '--'
@@ -183,7 +178,7 @@ function RecentEvaluationsTable({
                     <Chip
                       label={formatScoreLabel(ev.score, t('dashboard.na'))}
                       size="small"
-                      color={getScoreColor(ev.score)}
+                      color={getScoreChipColor(ev.score)}
                       variant="outlined"
                       sx={{ fontWeight: 600, minWidth: 64 }}
                     />
@@ -230,35 +225,35 @@ export default function MeasureDashboardPage() {
   } = useQuery<DashboardSummary>({
     queryKey: ['measure-dashboard'],
     queryFn: measureApi.getDashboard,
-    staleTime: 30_000,
+    staleTime: STALE_30S,
   })
 
   // Enhanced dashboard data
   const { data: enhancedData } = useQuery({
     queryKey: ['enhanced-dashboard', department],
     queryFn: () => measureApi.getEnhancedDashboard(department || undefined),
-    staleTime: 30_000,
+    staleTime: STALE_30S,
   })
 
   // Trends
   const { data: trendData = [] } = useQuery({
     queryKey: ['dashboard-trends', periodType],
     queryFn: () => measureApi.getDashboardTrends(undefined, periodType, 12),
-    staleTime: 60_000,
+    staleTime: STALE_1M,
   })
 
   // Alerts
   const { data: alerts = [] } = useQuery({
     queryKey: ['dashboard-alerts', department],
     queryFn: () => measureApi.getDashboardAlerts(department || undefined),
-    staleTime: 30_000,
+    staleTime: STALE_30S,
   })
 
   // Quality report
   const { data: qualityReport = null } = useQuery({
     queryKey: ['quality-report', periodType, department],
     queryFn: () => measureApi.getQualityReport(periodType, department || undefined),
-    staleTime: 60_000,
+    staleTime: STALE_1M,
   })
 
   if (isLoading) {

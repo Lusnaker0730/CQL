@@ -9,8 +9,6 @@ import java.util.List;
 @Repository
 public interface CdsFeedbackRepository extends JpaRepository<CdsFeedbackEntity, Long> {
 
-    List<CdsFeedbackEntity> findByServiceId(String serviceId);
-
     List<CdsFeedbackEntity> findByServiceIdOrderByCreatedAtDesc(String serviceId);
 
     long countByServiceIdAndOutcome(String serviceId, String outcome);

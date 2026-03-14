@@ -63,6 +63,7 @@
       "status": "狀態",
       "scoring": "評分",
       "setting": "情境",
+      "department": "科別",
       "owner": "擁有者",
       "actions": "操作"
     },
@@ -193,6 +194,8 @@
       "cmsMeasureIdPlaceholder": "例如 CMS122v12",
       "setting": "情境",
       "settingHelper": "此指標適用的照護情境",
+      "department": "科別",
+      "departmentHelper": "將此指標指派至科別以進行篩選和報告",
       "none": "無",
       "compositeScoring": "複合評分"
     },
@@ -854,6 +857,25 @@
       "noTerminology": "無可用的 TWCORE 術語。",
       "use": "使用"
     },
+    "identifierPresets": {
+      "label": "識別碼類型",
+      "nationalId": "身分證字號",
+      "nationalIdHint": "格式：英文字母 + 9位數字",
+      "passport": "護照號碼",
+      "residentCert": "居留證號碼",
+      "medicalRecord": "病歷號"
+    },
+    "twAddress": {
+      "title": "台灣地址詳細",
+      "section": "段",
+      "village": "村里",
+      "neighborhood": "鄰",
+      "lane": "巷",
+      "alley": "弄",
+      "number": "號",
+      "floor": "樓",
+      "room": "室"
+    },
     "fields": {
       "system": "系統",
       "code": "代碼",
@@ -876,6 +898,8 @@
       "browseTwcoreAria": "瀏覽 TWCORE",
       "removeCoding": "移除編碼",
       "addCoding": "新增編碼",
+      "nameText": "姓名全文",
+      "nameTextPlaceholder": "例如：王大明",
       "givenNames": "名字",
       "addGivenName": "新增名字",
       "addressLines": "地址行",

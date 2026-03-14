@@ -63,6 +63,7 @@
       "status": "Status",
       "scoring": "Scoring",
       "setting": "Setting",
+      "department": "Department",
       "owner": "Owner",
       "actions": "Actions"
     },
@@ -193,6 +194,8 @@
       "cmsMeasureIdPlaceholder": "e.g. CMS122v12",
       "setting": "Setting",
       "settingHelper": "Care setting where this measure applies",
+      "department": "Department",
+      "departmentHelper": "Assign this measure to a department for filtering and reporting",
       "none": "None",
       "compositeScoring": "Composite Scoring"
     },
@@ -854,6 +857,25 @@
       "noTerminology": "No TWCORE terminology available.",
       "use": "Use"
     },
+    "identifierPresets": {
+      "label": "Identifier Type",
+      "nationalId": "National ID",
+      "nationalIdHint": "Format: 1 letter + 9 digits",
+      "passport": "Passport",
+      "residentCert": "Resident Certificate",
+      "medicalRecord": "Medical Record No."
+    },
+    "twAddress": {
+      "title": "Taiwan Address Details",
+      "section": "Section",
+      "village": "Village",
+      "neighborhood": "Neighborhood",
+      "lane": "Lane",
+      "alley": "Alley",
+      "number": "Number",
+      "floor": "Floor",
+      "room": "Room"
+    },
     "fields": {
       "system": "system",
       "code": "code",
@@ -876,6 +898,8 @@
       "browseTwcoreAria": "Browse TWCORE",
       "removeCoding": "Remove coding",
       "addCoding": "Add Coding",
+      "nameText": "Full Name Text",
+      "nameTextPlaceholder": "e.g. John Smith",
       "givenNames": "given names",
       "addGivenName": "Add given name",
       "addressLines": "address lines",

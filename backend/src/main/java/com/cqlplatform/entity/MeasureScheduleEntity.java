@@ -1,6 +1,7 @@
 package com.cqlplatform.entity;
 
 import com.cqlplatform.security.NoXss;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -44,21 +45,27 @@ public class MeasureScheduleEntity {
     @Builder.Default
     private Boolean enabled = true;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "last_run_at")
     private LocalDateTime lastRunAt;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "last_run_status", length = 20)
     private String lastRunStatus;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "next_run_at")
     private LocalDateTime nextRunAt;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_by", length = 100)
     private String createdBy;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 

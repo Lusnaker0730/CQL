@@ -1,6 +1,7 @@
 package com.cqlplatform.service.fhir;
 
 import ca.uhn.fhir.context.FhirContext;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +20,8 @@ class FhirDataProviderServiceTest {
         FhirContext fhirContext = FhirContext.forR4();
         FhirClientFactory clientFactory = new FhirClientFactory(fhirContext);
         ReflectionTestUtils.setField(clientFactory, "defaultFhirServerUrl", "http://localhost:9999/fhir");
-        service = new FhirDataProviderService(fhirContext, clientFactory);
+        CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
+        service = new FhirDataProviderService(fhirContext, clientFactory, cbRegistry);
         ReflectionTestUtils.setField(service, "defaultFhirServerUrl", "http://localhost:9999/fhir");
     }
 

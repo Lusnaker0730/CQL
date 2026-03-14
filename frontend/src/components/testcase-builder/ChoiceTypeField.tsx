@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, TextField, Typography, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
@@ -17,6 +17,13 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
   const { t } = useTranslation('measures')
   const choiceTypes = element.choiceTypes || []
   const [selectedType, setSelectedType] = useState<string>(initialChoiceType || choiceTypes[0] || '')
+
+  // Sync selectedType when switching between entries with different initialChoiceType
+  useEffect(() => {
+    if (initialChoiceType) {
+      setSelectedType(initialChoiceType)
+    }
+  }, [initialChoiceType])
 
   const handleTypeChange = (newType: string) => {
     setSelectedType(newType)
@@ -57,8 +64,8 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
           onChange={(e) => handleTypeChange(e.target.value)}
           sx={{ width: 150 }}
         >
-          {choiceTypes.map((t) => (
-            <MenuItem key={t} value={t}>{t}</MenuItem>
+          {choiceTypes.map((ct) => (
+            <MenuItem key={ct} value={ct}>{ct}</MenuItem>
           ))}
         </TextField>
         <Box sx={{ flex: 1 }}>

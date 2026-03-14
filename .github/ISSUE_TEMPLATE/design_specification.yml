@@ -1,0 +1,65 @@
+name: "[設計] 軟體設計規格"
+description: "記錄軟體設計規格，符合 IEC 62304 要求"
+title: "[設計] "
+labels: ["IEC62304:設計"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 軟體設計規格
+        請填寫以下欄位，此內容將自動彙整至 TFDA 軟體設計規格書 (SDS)。
+
+  - type: textarea
+    id: design_description
+    attributes:
+      label: 設計方案
+      description: 描述此設計的技術方案、演算法、資料結構等
+      placeholder: "例：採用 FreeMarker 模板引擎，將 CQL Builder 視覺化元件對應到 CQL 語法結構"
+    validations:
+      required: true
+
+  - type: textarea
+    id: architecture_impact
+    attributes:
+      label: 架構影響
+      description: 說明此設計對系統架構的影響範圍（元件、模組、介面）
+      placeholder: |
+        影響模組：
+        - service/authoring/CqlArtifactBuilder.java
+        - components/builder/
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_requirements
+    attributes:
+      label: 關聯需求
+      description: 對應的軟體需求 Issue 編號
+      placeholder: "例：需求 #10、需求 #11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: safety_considerations
+    attributes:
+      label: 安全考量
+      description: 此設計的安全性分析與防護措施
+      placeholder: "例：輸入驗證防止 CQL 注入、錯誤處理確保不會產生錯誤的臨床建議"
+    validations:
+      required: true
+
+  - type: textarea
+    id: interface_description
+    attributes:
+      label: 介面描述
+      description: API 介面、資料格式、元件互動等
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 備註
+      description: 其他補充說明
+    validations:
+      required: false

@@ -11,6 +11,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -33,8 +38,23 @@ class PasswordResetServiceTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private TokenVersionService tokenVersionService;
+
     @InjectMocks
     private PasswordResetService service;
+
+    @BeforeEach
+    void setUp() {
+        TransactionSynchronizationManager.initSynchronization();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
 
     // ===== requestPasswordReset =====
 
@@ -52,6 +72,10 @@ class PasswordResetServiceTest {
         when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.requestPasswordReset("test@example.com", "http://localhost:3000");
+
+        // Simulate transaction commit to trigger afterCommit callbacks
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
 
         verify(tokenRepository).deleteByUserId(1L);
         verify(tokenRepository).save(any(PasswordResetTokenEntity.class));
@@ -196,10 +220,11 @@ class PasswordResetServiceTest {
     // ===== adminResetPassword =====
 
     @Test
-    void adminResetPassword_shouldReturnTempPassword() {
+    void adminResetPassword_shouldResetPasswordAndScheduleEmail() {
         UserEntity user = UserEntity.builder()
                 .id(1L)
                 .username("testuser")
+                .email("testuser@example.com")
                 .password("old")
                 .build();
 
@@ -207,11 +232,15 @@ class PasswordResetServiceTest {
         when(passwordEncoder.encode(any())).thenReturn("encodedTemp");
         when(userRepository.save(any())).thenReturn(user);
 
-        String tempPass = service.adminResetPassword(1L);
+        // Security (H8): adminResetPassword is now void — password delivered via email only
+        service.adminResetPassword(1L);
 
-        assertThat(tempPass).isNotNull().isNotEmpty();
         assertThat(user.getForcePasswordChange()).isTrue();
-        verify(passwordEncoder).encode(tempPass);
+        verify(passwordEncoder).encode(any()); // password was encoded before storing
+        // Trigger afterCommit to verify the email is sent
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
+        verify(emailService).sendTemporaryPasswordEmail(eq("testuser@example.com"), eq("testuser"), any());
     }
 
     @Test

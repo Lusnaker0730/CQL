@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cql-platform-staging
+  labels:
+    app.kubernetes.io/part-of: cql-platform
+    environment: staging

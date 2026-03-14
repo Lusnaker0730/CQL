@@ -1,6 +1,8 @@
 # CQL Platform
 
-A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, CDS authoring, electronic quality measure (eCQM) management, FHIR resource browsing, internationalization (i18n), and an admin dashboard with audit logging.
+> **Version 2.4.0** | Updated 2026-03-04
+
+A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, CDS authoring, eCQM visual authoring with CQL generation, electronic quality measure (eCQM) evaluation, FHIR resource browsing, internationalization (i18n), and an admin dashboard with audit logging.
 
 ## Features
 
@@ -30,7 +32,10 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Drag-and-drop element tree with conjunction groups (AND/OR) and nested conditions
 - Template-based element selection with form-driven configuration
 - Modifier system: age range, gender, look back, most recent, active/confirmed, etc.
-- Automatic CQL generation from visual artifact tree
+- Automatic CQL generation from visual artifact tree (R4 FHIR only)
+- Save-time expression tree validation: unknown template/modifier ID rejection with 400 error details
+- Duplicate `define` name detection: same-category duplicates, cross-category collisions, reserved system name conflicts
+- CQL three-valued logic correctness: empty exclusion produces `false` instead of `null`
 - External CQL library upload, parsing, and integration
 - Artifact testing against FHIR patient data with result visualization
 - One-click deployment as CDS Hooks service
@@ -40,6 +45,22 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - TWCore catalog integration for Taiwan-specific code systems
 - CPG metadata editing for Clinical Practice Guideline compliance
 - Artifact duplication and version management
+
+### eCQM Authoring Tool
+- Visual eCQM artifact authoring with 8-tab workspace: Summary, Population Groups, Base Elements, Parameters, Supplemental Data, Stratifiers, External CQL, Review CQL
+- Four scoring types: Proportion, Ratio, Continuous Variable, Cohort (per CMS 2026 eCQM Logic and Implementation Guidance v9.0)
+- Drag-and-drop expression tree builder for each population criterion (reuses CDS ConjunctionGroup engine)
+- Automatic eCQM CQL generation with FHIR R4 retrieve patterns and `Measurement Period` parameter
+- Ratio dual Initial Population support: separate IP for denominator and numerator paths
+- Episode-based measures: population basis selection (Patient/Encounter/Procedure/MedicationRequest/Observation)
+- Continuous Variable observation functions with configurable aggregate methods (Count, Sum, Average, Median, Max, Min, Percentile)
+- Multi-group support with automatic define name suffixes to prevent collisions
+- Supplemental Data Elements: standard CDC SDEs (Ethnicity, Race, Sex, Payer) with checkbox toggle + custom SDE expression trees
+- Stratifier expression trees per population group (auto-disabled for ratio dual-IP per CMS rules)
+- One-click publish to MeasureDefinition for evaluation pipeline integration
+- CQL preview with ELM translation and validation
+- Expression tree validation: XSS filtering, template/modifier ID verification, required population checks
+- Debounced auto-save with optimistic UI updates
 
 ### CDS Hooks
 - Clinical Decision Support Hooks integration with service discovery and invocation
@@ -116,6 +137,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - JWT authentication with RBAC (admin/user roles)
 - AES-256-GCM encryption at rest, TLS in transit, hardened HTTP headers
 - Audit logging of all API access with full context and retention policy
+- CSV injection prevention in all export endpoints (audit logs, measure reports)
 - Rate limiting, XSS sanitization, FHIR resource type whitelisting
 - Prometheus + Grafana monitoring with custom CQL/CDS/measure metrics
 - Resilience4j circuit breakers, connection pooling, execution thread pool with queuing
@@ -134,6 +156,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   ├── CdsHooksController      # CDS service discovery and invocation
 │       │   ├── CdsServiceConfigController  # CDS service management
 │       │   ├── AuthoringController     # CDS artifact CRUD, CQL generation, testing, deploy
+│       │   ├── EcqmController          # eCQM artifact CRUD, CQL generation, publish
 │       │   ├── MeasureController       # Measures, test cases, reports, schedules
 │       │   ├── FhirController          # FHIR resources, terminology, structure defs
 │       │   ├── AdminController         # User management
@@ -148,13 +171,16 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   ├── fhir/           # FHIR data provider, validation, bulk export, VSAC, structure defs
 │       │   ├── cds/            # CDS Hooks: CRUD, invocation, card strategies, analytics, feedback
 │       │   ├── measure/        # eCQM evaluation, reports, scheduling, comparison
-│       │   └── authoring/      # CDS authoring: artifact CRUD, CQL generation, testing, import
+│       │   ├── authoring/      # CDS authoring: artifact CRUD, CQL generation, testing, import, validation
+│       │   └── ecqm/           # eCQM authoring: artifact CRUD, CQL builder, publish, validation
 │       ├── model/              # DTOs and request/response models
 │       │   ├── auth/           # Auth and admin DTOs
 │       │   ├── audit/          # Audit log DTOs
 │       │   ├── authoring/      # Authoring DTOs (templates, modifiers, artifacts)
 │       │   ├── fhir/           # FHIR structure definition DTOs
+│       │   ├── ecqm/           # eCQM DTOs (request, response, summary, constants, publish result)
 │       │   └── measure/        # Measure-specific DTOs
+│       ├── util/               # Shared utilities (CsvUtils)
 │       └── exception/          # Global exception handling
 │
 ├── frontend/                   # React + TypeScript frontend
@@ -187,6 +213,11 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   │   ├── summary/           # Artifact summary view
 │       │   │   ├── import/            # CQL import dialog
 │       │   │   └── query-builder/     # Visual FHIR query builder
+│       │   ├── ecqm/           # eCQM Authoring Tool
+│       │   │   ├── EcqmArtifactList, EcqmArtifactModal, EcqmArtifactWorkspace
+│       │   │   ├── EcqmPopulationGroupsTab, EcqmPopulationGroupEditor, EcqmPopulationTreeEditor
+│       │   │   ├── EcqmObservationEditor, EcqmSdeTab, EcqmStratifiersTab
+│       │   │   └── EcqmSummaryTab, EcqmCqlPreviewTab
 │       │   ├── cds/            # CdsPanel (invoke, manage, analytics, sandbox)
 │       │   ├── measure/        # MeasureEditor, MeasureLibrary, WorkflowIndicator, PopulationCriteriaTab, etc.
 │       │   ├── testcase-builder/  # VisualBundleBuilder, ResourceForm, ElementField, FHIR field components
@@ -199,17 +230,17 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       ├── hooks/              # useCql, useCdsHooks, useMeasures, useCqlStructure, useFhirMetadata,
 │       │                       # useAuthoring, useArtifactCql, useArtifactTesting, useExternalCql,
 │       │                       # useCqlImport, useModifiers, useTemplates, useTwcoreCatalog,
-│       │                       # useLibraryPrefs, useTerminology, useUnsavedChangesGuard, etc.
-│       ├── pages/              # EditorPage, CdsPage, AuthoringPage, MeasuresPage, MeasureDashboardPage,
-│       │                       # FhirPage, TerminologyPage, AdminUsersPage, AuditDashboardPage,
-│       │                       # LoginPage, ForgotPasswordPage, ResetPasswordPage
+│       │                       # useLibraryPrefs, useTerminology, useUnsavedChangesGuard, useEcqm, etc.
+│       ├── pages/              # EditorPage, CdsPage, AuthoringPage, EcqmPage, MeasuresPage,
+│       │                       # MeasureDashboardPage, FhirPage, TerminologyPage, AdminUsersPage,
+│       │                       # AuditDashboardPage, LoginPage, ForgotPasswordPage, ResetPasswordPage
 │       ├── locales/            # i18n translation files
 │       │   ├── en/             # English (common, validation, editor, builder)
 │       │   └── zh-TW/          # Traditional Chinese (common, validation, editor, builder)
 │       ├── api/                # Axios API clients (configurable base URLs)
 │       ├── store/              # Redux slices (auth, editor, execution, artifact)
 │       ├── utils/              # CQL syntax, validation utilities
-│       ├── constants/          # Help content
+│       ├── constants/          # Help content, eCQM scoring/population constants
 │       ├── theme.ts            # MUI theme with light/dark mode and locale support
 │       └── types/              # TypeScript interfaces
 │
@@ -345,6 +376,21 @@ This starts all services with exposed ports:
 | `/api/authoring/query-builder/operators` | GET | Operators for query builder |
 | `/api/authoring/twcore-catalog` | GET | TWCore catalog entries |
 | `/api/authoring/twcore-catalog/code-systems` | GET | TWCore code systems |
+
+### eCQM Authoring
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ecqm/artifacts` | GET/POST | List / create eCQM artifacts |
+| `/api/ecqm/artifacts/{id}` | GET/PUT/DELETE | Single eCQM artifact CRUD |
+| `/api/ecqm/artifacts/{id}/duplicate` | POST | Duplicate eCQM artifact |
+| `/api/ecqm/artifacts/{id}/cql` | POST | Generate CQL from eCQM artifact |
+| `/api/ecqm/artifacts/{id}/elm` | POST | Generate CQL and translate to ELM |
+| `/api/ecqm/artifacts/{id}/validate` | POST | Validate eCQM CQL |
+| `/api/ecqm/artifacts/{id}/publish` | POST | Publish to MeasureDefinition |
+| `/api/ecqm/templates` | GET | Element templates (delegated) |
+| `/api/ecqm/modifiers` | GET | Available modifiers (delegated) |
+| `/api/ecqm/scoring-types` | GET | Scoring type configurations with required populations |
 
 ### Quality Measures
 
@@ -568,3 +614,4 @@ MIT License
 - [CDS Hooks](https://cds-hooks.org/)
 - [FHIR](https://www.hl7.org/fhir/)
 - [HAPI FHIR](https://hapifhir.io/)
+- [CMS 2026 eCQM Logic and Implementation Guidance v9.0](https://ecqi.healthit.gov/)

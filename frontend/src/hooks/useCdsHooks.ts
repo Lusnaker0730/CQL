@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cdsHooksApi, apiKeyApi } from '../api'
-import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest } from '../types'
+import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest, SandboxPresetRequest } from '../types'
+import { REFETCH_30S } from '../constants/queryConstants'
 
 export function useCdsServices() {
   return useQuery({
@@ -101,7 +102,7 @@ export function useCdsAnalytics() {
   return useQuery({
     queryKey: ['cds-analytics'],
     queryFn: () => cdsHooksApi.getAllAnalytics(),
-    refetchInterval: 30000,
+    refetchInterval: REFETCH_30S,
   })
 }
 
@@ -109,6 +110,44 @@ export function useSandboxInvoke() {
   return useMutation({
     mutationFn: ({ serviceId, request }: { serviceId: string; request: CdsSandboxRequest }) =>
       cdsHooksApi.sandboxInvoke(serviceId, request),
+  })
+}
+
+export function useSandboxPresets() {
+  return useQuery({
+    queryKey: ['sandbox-presets'],
+    queryFn: () => cdsHooksApi.listPresets(),
+  })
+}
+
+export function useCreateSandboxPreset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: SandboxPresetRequest) => cdsHooksApi.createPreset(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandbox-presets'] })
+    },
+  })
+}
+
+export function useUpdateSandboxPreset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: SandboxPresetRequest }) =>
+      cdsHooksApi.updatePreset(id, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandbox-presets'] })
+    },
+  })
+}
+
+export function useDeleteSandboxPreset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => cdsHooksApi.deletePreset(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandbox-presets'] })
+    },
   })
 }
 

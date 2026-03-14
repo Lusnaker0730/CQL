@@ -5,6 +5,7 @@ import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.NotificationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
@@ -133,11 +134,25 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> search(String searchTerm) {
-        if (searchTerm == null || searchTerm.isBlank()) {
-            return getAll();
+        return search(searchTerm, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> search(String searchTerm, String department) {
+        boolean hasSearch = searchTerm != null && !searchTerm.isBlank();
+        boolean hasDept = department != null && !department.isBlank();
+
+        List<MeasureDefinitionEntity> entities;
+        if (hasSearch && hasDept) {
+            entities = repository.findByDepartmentAndSearchTerm(department, InputValidator.escapeLikeWildcards(searchTerm));
+        } else if (hasDept) {
+            entities = repository.findByDepartment(department);
+        } else if (hasSearch) {
+            entities = repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm);
+        } else {
+            entities = repository.findAll();
         }
-        return repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm)
-                .stream()
+        return entities.stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -452,10 +467,19 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findAll().stream()
-                .filter(e -> e.getSharedWithList().contains(username) || "public".equals(e.getAccessLevel()))
+        return repository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureDefinition> getAccessibleMeasures(String username) {
+        List<MeasureDefinition> owned = getMeasuresByOwner(username);
+        List<MeasureDefinition> shared = getSharedMeasures(username);
+        Map<Long, MeasureDefinition> merged = new LinkedHashMap<>();
+        owned.forEach(m -> merged.put(m.getId(), m));
+        shared.forEach(m -> merged.putIfAbsent(m.getId(), m));
+        return new ArrayList<>(merged.values());
     }
 
     // ===== Workflow =====

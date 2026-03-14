@@ -2,9 +2,11 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.DepartmentEntity;
 import com.cqlplatform.service.DepartmentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,14 +36,23 @@ public class DepartmentController {
     }
 
     @PostMapping
-    public ResponseEntity<DepartmentEntity> create(@RequestBody DepartmentEntity entity) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<DepartmentEntity> create(@Valid @RequestBody DepartmentEntity entity) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(entity));
     }
 
     @PutMapping("/{code}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DepartmentEntity> update(
             @PathVariable String code,
-            @RequestBody DepartmentEntity entity) {
+            @Valid @RequestBody DepartmentEntity entity) {
         return ResponseEntity.ok(service.update(code, entity));
+    }
+
+    @DeleteMapping("/{code}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable String code) {
+        service.delete(code);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -41,6 +41,9 @@ const CQL_TYPES = [
   'List<Code>',
 ]
 
+const INTERVAL_DATE_RE = /^Interval\[@([^,]+),\s*@([^\]]+)\]$/
+const INTERVAL_NUM_RE = /^Interval\[([^,]+),\s*([^\]]+)\]$/
+
 /**
  * Parse a parameter string like: "Measurement Period" Interval<DateTime>
  *   default Interval[@2024-01-01T00:00:00.0, @2024-12-31T23:59:59.999]
@@ -49,6 +52,21 @@ function parseParameter(raw: string): { name: string; type: string; defaultValue
   const m = raw.match(/^"([^"]+)"\s+(\S+)(?:\s+default\s+(.+))?/)
   if (m) return { name: m[1], type: m[2], defaultValue: m[3] || '' }
   return null
+}
+
+function formatDateTimeForCql(dateStr: string, isEnd: boolean): string {
+  if (!dateStr) return ''
+  // Input from date input: YYYY-MM-DD, from datetime-local: YYYY-MM-DDTHH:mm
+  if (dateStr.includes('T')) return dateStr + ':00.0'
+  return isEnd ? dateStr + 'T23:59:59.999' : dateStr + 'T00:00:00.0'
+}
+
+function parseDateTimeFromCql(cqlDate: string): string {
+  if (!cqlDate) return ''
+  // Strip trailing seconds/ms for datetime-local input: YYYY-MM-DDTHH:mm:ss.s → YYYY-MM-DDTHH:mm
+  const m = cqlDate.match(/^(\d{4}-\d{2}-\d{2})(T(\d{2}:\d{2}))?/)
+  if (m) return m[3] ? `${m[1]}T${m[3]}` : m[1]
+  return cqlDate
 }
 
 export default function ParametersSection({ parameters, onInsert, onDelete, onGoTo, onEdit }: ParametersSectionProps) {
@@ -62,11 +80,37 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
   const [qtyValue, setQtyValue] = useState('')
   const [qtyUnit, setQtyUnit] = useState('')
 
+  // Interval-specific state for structured input
+  const [intervalStart, setIntervalStart] = useState('')
+  const [intervalEnd, setIntervalEnd] = useState('')
+
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
   const isQuantityType = paramType === 'Quantity' || paramType === 'Interval<Quantity>'
+  const isIntervalDateType = paramType === 'Interval<DateTime>' || paramType === 'Interval<Date>'
+  const isIntervalNumType = paramType === 'Interval<Integer>' || paramType === 'Interval<Decimal>'
+
+  const buildIntervalDefault = (): string => {
+    if (isIntervalDateType) {
+      if (!intervalStart && !intervalEnd) return ''
+      const isDateTime = paramType === 'Interval<DateTime>'
+      const start = isDateTime
+        ? formatDateTimeForCql(intervalStart, false)
+        : intervalStart
+      const end = isDateTime
+        ? formatDateTimeForCql(intervalEnd, true)
+        : intervalEnd
+      if (!start || !end) return ''
+      return `Interval[@${start}, @${end}]`
+    }
+    if (isIntervalNumType) {
+      if (!intervalStart.trim() || !intervalEnd.trim()) return ''
+      return `Interval[${intervalStart.trim()}, ${intervalEnd.trim()}]`
+    }
+    return ''
+  }
 
   const handleAdd = () => {
     if (!name.trim()) return
@@ -74,6 +118,11 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
     if (isQuantityType) {
       if (qtyValue.trim() && qtyUnit.trim()) {
         snippet += `\n  default ${qtyValue.trim()} '${qtyUnit.trim()}'`
+      }
+    } else if (isIntervalDateType || isIntervalNumType) {
+      const intervalDefault = buildIntervalDefault()
+      if (intervalDefault) {
+        snippet += `\n  default ${intervalDefault}`
       }
     } else if (defaultValue.trim()) {
       snippet += `\n  default ${defaultValue}`
@@ -97,20 +146,40 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
     setName(parsed.name)
     const type = CQL_TYPES.includes(parsed.type) ? parsed.type : 'Boolean'
     setParamType(type)
-    // Parse Quantity default like: 70 'kg'
+
+    // Reset all structured fields
+    setQtyValue('')
+    setQtyUnit('')
+    setIntervalStart('')
+    setIntervalEnd('')
+    setDefaultValue('')
+
     if ((type === 'Quantity' || type === 'Interval<Quantity>') && parsed.defaultValue) {
       const qm = parsed.defaultValue.match(/^(\S+)\s+'([^']*)'$/)
       if (qm) {
         setQtyValue(qm[1])
         setQtyUnit(qm[2])
-        setDefaultValue('')
+      } else {
+        setDefaultValue(parsed.defaultValue)
+      }
+    } else if ((type === 'Interval<DateTime>' || type === 'Interval<Date>') && parsed.defaultValue) {
+      const dm = parsed.defaultValue.match(INTERVAL_DATE_RE)
+      if (dm) {
+        setIntervalStart(parseDateTimeFromCql(dm[1]))
+        setIntervalEnd(parseDateTimeFromCql(dm[2]))
+      } else {
+        setDefaultValue(parsed.defaultValue)
+      }
+    } else if ((type === 'Interval<Integer>' || type === 'Interval<Decimal>') && parsed.defaultValue) {
+      const nm = parsed.defaultValue.match(INTERVAL_NUM_RE)
+      if (nm) {
+        setIntervalStart(nm[1].trim())
+        setIntervalEnd(nm[2].trim())
       } else {
         setDefaultValue(parsed.defaultValue)
       }
     } else {
       setDefaultValue(parsed.defaultValue)
-      setQtyValue('')
-      setQtyUnit('')
     }
     setShowForm(true)
   }
@@ -122,6 +191,8 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
     setDefaultValue('')
     setQtyValue('')
     setQtyUnit('')
+    setIntervalStart('')
+    setIntervalEnd('')
     setEditingItem(null)
     setPreviewSnippet('')
   }
@@ -131,6 +202,91 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
       onDelete?.(deleteTarget)
       setDeleteTarget(null)
     }
+  }
+
+  const renderDefaultValueInput = () => {
+    if (isQuantityType) {
+      return (
+        <Stack direction="row" spacing={1}>
+          <TextField
+            size="small"
+            label={t('parameters.defaultValue')}
+            type="number"
+            value={qtyValue}
+            onChange={(e) => setQtyValue(e.target.value)}
+            placeholder="e.g. 70"
+            sx={{ flex: 1 }}
+          />
+          <UcumUnitField
+            label="Unit"
+            value={qtyUnit}
+            onChange={setQtyUnit}
+            sx={{ flex: 1 }}
+          />
+        </Stack>
+      )
+    }
+
+    if (isIntervalDateType) {
+      const inputType = paramType === 'Interval<DateTime>' ? 'datetime-local' : 'date'
+      return (
+        <Stack direction="row" spacing={1}>
+          <TextField
+            size="small"
+            type={inputType}
+            label={t('parameters.intervalStart')}
+            value={intervalStart}
+            onChange={(e) => setIntervalStart(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ flex: 1 }}
+          />
+          <TextField
+            size="small"
+            type={inputType}
+            label={t('parameters.intervalEnd')}
+            value={intervalEnd}
+            onChange={(e) => setIntervalEnd(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ flex: 1 }}
+          />
+        </Stack>
+      )
+    }
+
+    if (isIntervalNumType) {
+      return (
+        <Stack direction="row" spacing={1}>
+          <TextField
+            size="small"
+            type="number"
+            label={t('parameters.intervalStart')}
+            value={intervalStart}
+            onChange={(e) => setIntervalStart(e.target.value)}
+            placeholder={t('parameters.intervalStartPlaceholder')}
+            sx={{ flex: 1 }}
+          />
+          <TextField
+            size="small"
+            type="number"
+            label={t('parameters.intervalEnd')}
+            value={intervalEnd}
+            onChange={(e) => setIntervalEnd(e.target.value)}
+            placeholder={t('parameters.intervalEndPlaceholder')}
+            sx={{ flex: 1 }}
+          />
+        </Stack>
+      )
+    }
+
+    return (
+      <TextField
+        size="small"
+        label={t('parameters.defaultValue')}
+        value={defaultValue}
+        onChange={(e) => setDefaultValue(e.target.value)}
+        placeholder={t('parameters.defaultPlaceholder')}
+      />
+    )
   }
 
   return (
@@ -181,33 +337,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             ))}
           </TextField>
 
-          {isQuantityType ? (
-            <Stack direction="row" spacing={1}>
-              <TextField
-                size="small"
-                label={t('parameters.defaultValue')}
-                type="number"
-                value={qtyValue}
-                onChange={(e) => setQtyValue(e.target.value)}
-                placeholder="e.g. 70"
-                sx={{ flex: 1 }}
-              />
-              <UcumUnitField
-                label="Unit"
-                value={qtyUnit}
-                onChange={setQtyUnit}
-                sx={{ flex: 1 }}
-              />
-            </Stack>
-          ) : (
-            <TextField
-              size="small"
-              label={t('parameters.defaultValue')}
-              value={defaultValue}
-              onChange={(e) => setDefaultValue(e.target.value)}
-              placeholder={t('parameters.defaultPlaceholder')}
-            />
-          )}
+          {renderDefaultValueInput()}
 
           {previewSnippet ? (
             <SnippetPreview

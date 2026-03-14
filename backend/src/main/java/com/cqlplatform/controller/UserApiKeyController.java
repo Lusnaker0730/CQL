@@ -37,12 +37,12 @@ public class UserApiKeyController {
         String username = getCurrentUsername();
         List<UserApiKeyEntity> keys = apiKeyService.listKeys(username);
 
-        // Don't expose the full API key in list responses
+        // Don't expose the full API key or hash in list responses
         List<Map<String, Object>> response = keys.stream()
                 .map(k -> Map.<String, Object>of(
                         "id", k.getId(),
                         "name", k.getName() != null ? k.getName() : "",
-                        "keyPreview", maskKey(k.getApiKey()),
+                        "keyPreview", k.getKeyPrefix() != null ? k.getKeyPrefix() + "..." : "****",
                         "createdAt", k.getCreatedAt() != null ? k.getCreatedAt().toString() : "",
                         "lastUsedAt", k.getLastUsedAt() != null ? k.getLastUsedAt().toString() : "",
                         "active", k.getActive()
@@ -84,8 +84,4 @@ public class UserApiKeyController {
         }
     }
 
-    private String maskKey(String key) {
-        if (key == null || key.length() <= 8) return "****";
-        return key.substring(0, 8) + "..." + key.substring(key.length() - 4);
-    }
 }

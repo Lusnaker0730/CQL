@@ -64,7 +64,7 @@ class AuthIntegrationTest {
         // Register
         MvcResult result = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"tokenuser\",\"password\":\"password123\"}"))
+                        .content("{\"username\":\"tokenuser\",\"password\":\"password123\",\"email\":\"token@test.com\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -81,7 +81,7 @@ class AuthIntegrationTest {
         // Register
         MvcResult result = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"protecteduser\",\"password\":\"password123\"}"))
+                        .content("{\"username\":\"protecteduser\",\"password\":\"password123\",\"email\":\"protected@test.com\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -100,13 +100,14 @@ class AuthIntegrationTest {
         // Register first time
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"dupuser\",\"password\":\"password123\"}"))
+                        .content("{\"username\":\"dupuser\",\"password\":\"password123\",\"email\":\"dup@test.com\"}"))
                 .andExpect(status().isOk());
 
         // Register same username again
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"dupuser\",\"password\":\"password456\"}"))
+                        .content("{\"username\":\"dupuser\",\"password\":\"password456\",\"email\":\"dup2@test.com\"}"))
+
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Username already exists"));
     }

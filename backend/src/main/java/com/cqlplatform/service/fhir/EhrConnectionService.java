@@ -2,7 +2,9 @@ package com.cqlplatform.service.fhir;
 
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import com.cqlplatform.entity.EhrConnectionEntity;
+import com.cqlplatform.model.ehr.EhrConnectionRequest;
 import com.cqlplatform.repository.EhrConnectionRepository;
+import com.cqlplatform.security.InputValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.CapabilityStatement;
@@ -35,8 +37,13 @@ public class EhrConnectionService {
     }
 
     @Transactional
-    public EhrConnectionEntity create(EhrConnectionEntity connection) {
-        connection.setId(null);
+    public EhrConnectionEntity create(EhrConnectionRequest request) {
+        InputValidator.requireValidUrl(request.getFhirServerUrl());
+        EhrConnectionEntity connection = new EhrConnectionEntity();
+        connection.setName(request.getName());
+        connection.setFhirServerUrl(request.getFhirServerUrl());
+        connection.setAuthType(request.getAuthType() != null ? request.getAuthType() : "none");
+        connection.setCredentials(request.getCredentials());
         connection.setStatus("untested");
         EhrConnectionEntity saved = repository.save(connection);
         log.info("Created EHR connection '{}' (id={})", saved.getName(), saved.getId());
@@ -44,13 +51,13 @@ public class EhrConnectionService {
     }
 
     @Transactional
-    public EhrConnectionEntity update(Long id, EhrConnectionEntity connection) {
+    public EhrConnectionEntity update(Long id, EhrConnectionRequest request) {
+        InputValidator.requireValidUrl(request.getFhirServerUrl());
         EhrConnectionEntity existing = getById(id);
-        existing.setName(connection.getName());
-        existing.setFhirServerUrl(connection.getFhirServerUrl());
-        existing.setAuthType(connection.getAuthType());
-        existing.setCredentials(connection.getCredentials());
-        existing.setDepartment(connection.getDepartment());
+        existing.setName(request.getName());
+        existing.setFhirServerUrl(request.getFhirServerUrl());
+        existing.setAuthType(request.getAuthType() != null ? request.getAuthType() : "none");
+        existing.setCredentials(request.getCredentials());
         // Reset status when URL or auth changes
         existing.setStatus("untested");
         existing.setLastTestedAt(null);
@@ -68,9 +75,9 @@ public class EhrConnectionService {
         log.info("Soft-deleted EHR connection '{}' (id={})", existing.getName(), id);
     }
 
-    @Transactional
     public EhrConnectionEntity testConnection(Long id) {
-        EhrConnectionEntity connection = getById(id);
+        EhrConnectionEntity connection = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
         try {
             IGenericClient client = fhirClientFactory.createAuthenticatedClient(connection);
             CapabilityStatement capabilities = client.capabilities()

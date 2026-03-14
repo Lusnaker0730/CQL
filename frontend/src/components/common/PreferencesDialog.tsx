@@ -25,7 +25,7 @@ import {
 import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { usePreferences } from '../../hooks/usePreferences'
-import { settingsApi, type VsacStatus } from '../../api/settingsApi'
+import { settingsApi, type VsacStatus, type AiStatus } from '../../api/settingsApi'
 import FhirServerUrlField from './FhirServerUrlField'
 
 interface PreferencesDialogProps {
@@ -43,11 +43,20 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
   const [vsacSaving, setVsacSaving] = useState(false)
   const [vsacMessage, setVsacMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null)
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [showAiApiKey, setShowAiApiKey] = useState(false)
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   useEffect(() => {
     if (open) {
       settingsApi.getVsacStatus()
         .then(setVsacStatus)
         .catch(() => setVsacStatus(null))
+      settingsApi.getAiStatus()
+        .then(setAiStatus)
+        .catch(() => setAiStatus(null))
     }
   }, [open])
 
@@ -63,6 +72,21 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
       setVsacMessage({ type: 'error', text: t('preferences.vsacKeySaveFailed') })
     } finally {
       setVsacSaving(false)
+    }
+  }
+
+  const handleSaveAiKey = async () => {
+    setAiSaving(true)
+    setAiMessage(null)
+    try {
+      const result = await settingsApi.updateAiApiKey(aiApiKey)
+      setAiStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
+      setAiApiKey('')
+      setAiMessage({ type: 'success', text: t('preferences.aiKeySaved') })
+    } catch {
+      setAiMessage({ type: 'error', text: t('preferences.aiKeySaveFailed') })
+    } finally {
+      setAiSaving(false)
     }
   }
 
@@ -225,6 +249,94 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
               <Alert severity={vsacMessage.type} sx={{ mt: 1 }} onClose={() => setVsacMessage(null)}>
                 {vsacMessage.text}
               </Alert>
+            )}
+          </Box>
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            {t('preferences.aiFixSuggestion')}
+          </Typography>
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Typography variant="body2">{t('preferences.aiStatus')}</Typography>
+              {aiStatus ? (
+                aiStatus.enabled ? (
+                  <Chip
+                    size="small"
+                    icon={<CheckCircle />}
+                    label={
+                      aiStatus.provider === 'ollama'
+                        ? `Ollama (${aiStatus.model})`
+                        : `Cloud (${aiStatus.model})`
+                    }
+                    color="success"
+                    variant="outlined"
+                  />
+                ) : (
+                  <Chip
+                    size="small"
+                    icon={<Cancel />}
+                    label={t('preferences.aiDisabled')}
+                    color="default"
+                    variant="outlined"
+                  />
+                )
+              ) : (
+                <Chip size="small" label={t('preferences.aiUnavailable')} color="default" variant="outlined" />
+              )}
+            </Box>
+
+            {aiStatus?.provider === 'cloud' && (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Typography variant="body2">{t('preferences.aiApiKeyStatus')}</Typography>
+                  <Chip
+                    size="small"
+                    icon={aiStatus.configured ? <CheckCircle /> : <Cancel />}
+                    label={aiStatus.configured ? t('preferences.aiKeyConfigured') : t('preferences.aiKeyNotConfigured')}
+                    color={aiStatus.configured ? 'success' : 'warning'}
+                    variant="outlined"
+                  />
+                </Box>
+
+                <TextField
+                  label={t('preferences.aiApiKey')}
+                  size="small"
+                  fullWidth
+                  type={showAiApiKey ? 'text' : 'password'}
+                  value={aiApiKey}
+                  onChange={(e) => setAiApiKey(e.target.value)}
+                  placeholder={t('preferences.aiApiKeyPlaceholder')}
+                  helperText={t('preferences.aiApiKeyHelp')}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setShowAiApiKey(!showAiApiKey)} edge="end">
+                          {showAiApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleSaveAiKey}
+                  disabled={!aiApiKey.trim() || aiSaving}
+                  sx={{ mt: 1, textTransform: 'none' }}
+                >
+                  {aiSaving ? t('preferences.aiKeySaving') : t('preferences.aiKeySave')}
+                </Button>
+
+                {aiMessage && (
+                  <Alert severity={aiMessage.type} sx={{ mt: 1 }} onClose={() => setAiMessage(null)}>
+                    {aiMessage.text}
+                  </Alert>
+                )}
+              </>
             )}
           </Box>
         </Stack>

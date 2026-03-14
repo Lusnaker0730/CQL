@@ -1,5 +1,5 @@
 import { Box, Typography, Chip } from '@mui/material'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { ElementInstance } from '../../../types/authoring'
 
@@ -43,6 +43,8 @@ function buildPhrase(element: ElementInstance, t: TFunction) {
       return buildAgeRangePhrase(element, t)
     case 'Gender':
       return buildGenderPhrase(element, t)
+    case 'arithmeticExpression':
+      return buildArithmeticPhrase(element)
     default:
       if (element.type?.startsWith('Generic')) {
         return buildGenericResourcePhrase(element, t)
@@ -58,7 +60,7 @@ function buildAgeRangePhrase(element: ElementInstance, t: TFunction) {
   const unitLabel = unit.endsWith('s') ? unit : unit + 's'
 
   const parts: React.ReactNode[] = []
-  parts.push(<span key="prefix" dangerouslySetInnerHTML={{ __html: t('expression.ageIs') }} />)
+  parts.push(<Trans key="prefix" i18nKey="expression.ageIs" ns="authoring" />)
 
   if (minAge && maxAge) {
     parts.push(<span key="between">{t('expression.between')}</span>)
@@ -92,7 +94,7 @@ function buildGenderPhrase(element: ElementInstance, t: TFunction) {
 
   return (
     <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <span dangerouslySetInnerHTML={{ __html: t('expression.genderIs') }} />
+      <Trans i18nKey="expression.genderIs" ns="authoring" />
       {gender ? <ValueChip label={gender} /> : <Box component="span" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>{t('expression.notSet')}</Box>}
     </Typography>
   )
@@ -141,6 +143,18 @@ function buildGenericResourcePhrase(element: ElementInstance, t: TFunction) {
   return (
     <Typography variant="body2" component="div" sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
       {parts}
+    </Typography>
+  )
+}
+
+function buildArithmeticPhrase(element: ElementInstance) {
+  const operator = getFieldValue(element, 'operator') || '+'
+  const opSymbols: Record<string, string> = { '+': '+', '-': '−', '*': '×', '/': '÷' }
+
+  return (
+    <Typography variant="body2" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Chip label={element.name} size="small" sx={{ bgcolor: 'secondary.main', color: 'white', fontWeight: 600, height: 26 }} />
+      <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>{opSymbols[operator] || operator}</span>
     </Typography>
   )
 }
@@ -197,6 +211,10 @@ function phraseToString(element: ElementInstance, t: TFunction): string {
     case 'Gender': {
       const g = getFieldValue(element, 'gender')
       return g ? `${stripHtml(t('expression.genderIs'))}${g}` : t('expression.genderNotSet')
+    }
+    case 'arithmeticExpression': {
+      const op = getFieldValue(element, 'operator') || '+'
+      return `${element.name} (${op})`
     }
     default: {
       const rt = element.type?.startsWith('Generic')

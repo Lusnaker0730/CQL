@@ -9,7 +9,7 @@ ALTER TABLE measure_definition ADD COLUMN indicator_category VARCHAR(100);
 
 -- Indicator catalog reference table
 CREATE TABLE indicator_catalog (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code VARCHAR(50) NOT NULL,
     name VARCHAR(500) NOT NULL,
     name_en VARCHAR(500),

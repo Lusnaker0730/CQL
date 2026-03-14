@@ -1,0 +1,66 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cqlplatform_test
+    driver-class-name: org.postgresql.Driver
+    username: cqltest
+    password: cqltest
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  h2:
+    console:
+      enabled: false
+
+jwt:
+  secret: TestSecretKeyForJWTAuthenticationMustBeAtLeast256BitsLong!!TestExtra
+  access-expiration-ms: 900000
+  refresh-expiration-ms: 604800000
+  absolute-session-ms: 2592000000
+  expiration-ms: 900000
+
+refresh-token:
+  cookie-secure: false
+
+rate-limit:
+  enabled: false
+  user-limit-enabled: false
+  requests-per-minute: 1000
+
+encryption:
+  secret-key: TestEncryptionKeyMustBeExact32B!
+
+fhir:
+  server:
+    url: http://localhost:9999/fhir
+  terminology:
+    url: http://localhost:9999/fhir
+
+vsac:
+  api:
+    url: http://localhost:9999/vsac
+    key: test-key
+
+cql:
+  translation:
+    enable-annotations: true
+    enable-locators: true
+    enable-result-types: true
+    validate-units: true
+    signature-level: All
+
+smart:
+  issuer: http://localhost:8080
+  authorization-endpoint: http://localhost:8080/api/auth/login
+  token-endpoint: http://localhost:8080/api/auth/login
+
+logging:
+  level:
+    com.cqlplatform: WARN

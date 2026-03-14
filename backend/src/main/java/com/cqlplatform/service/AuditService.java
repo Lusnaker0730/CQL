@@ -168,6 +168,8 @@ public class AuditService {
                 .ipAddress(entity.getIpAddress())
                 .userAgent(entity.getUserAgent())
                 .responseTimeMs(entity.getResponseTimeMs())
+                .phiAccess(entity.isPhiAccess())
+                .queryParameters(entity.getQueryParameters())
                 .createdAt(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null)
                 .build();
     }

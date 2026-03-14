@@ -23,6 +23,8 @@ export interface User {
   email: string
   role: string
   forcePasswordChange: boolean
+  authProvider?: string
+  displayName?: string
 }
 
 export interface ForgotPasswordRequest {
@@ -39,6 +41,11 @@ export interface ChangePasswordRequest {
   newPassword: string
 }
 
+export interface RefreshResponse {
+  token: string
+  expiresIn: number
+}
+
 export interface AdminResetPasswordResponse {
   temporaryPassword: string
   username: string
@@ -52,8 +59,22 @@ export interface UserSummary {
   role: string
   enabled: boolean
   forcePasswordChange: boolean
+  authProvider?: string
   department?: string
   createdAt: string
+}
+
+export interface OktaConfig {
+  enabled: boolean
+  authorizationEndpoint?: string
+  clientId?: string
+  scopes?: string
+}
+
+export interface OktaCallbackRequest {
+  code: string
+  redirectUri: string
+  nonce?: string
 }
 
 export interface AdminCreateUserRequest {
@@ -88,6 +109,14 @@ export interface CqlError {
   endLine?: number
   endColumn?: number
   errorType?: string
+}
+
+export interface CqlFixSuggestionResponse {
+  success: boolean
+  explanation?: string
+  suggestedCql?: string
+  errorMessage?: string
+  model?: string
 }
 
 export interface TranslationMetadata {
@@ -165,6 +194,7 @@ export interface DependencyAnalysisResult {
   dependencies: DependencyInfo[]
   conflicts: VersionConflict[]
   mismatches: VersionMismatch[]
+  circularDependencies?: CircularDependency[]
   hasIssues: boolean
 }
 
@@ -190,6 +220,12 @@ export interface VersionMismatch {
   declaredVersion: string
   availableVersion: string
   requestedBy: string
+}
+
+export interface CircularDependency {
+  libraryName: string
+  version?: string
+  cycle: string[]
 }
 
 export interface CdsServiceDefinition {
@@ -268,6 +304,7 @@ export interface CdsCard {
   }
   suggestions?: CdsSuggestion[]
   links?: CdsLink[]
+  overrideReasons?: { code?: { system?: string; code?: string; display?: string }; display?: string }[]
 }
 
 export interface CdsSuggestion {
@@ -325,6 +362,29 @@ export interface CdsSandboxRequest {
   hookInstance?: string
   context?: { userId?: string; patientId?: string; encounterId?: string }
   testData?: Record<string, unknown>
+  draftOrders?: unknown
+}
+
+export interface SandboxPresetRequest {
+  name: string
+  description?: string
+  serviceId?: string
+  patientId?: string
+  prefetchJson: string
+  shared?: boolean
+}
+
+export interface SandboxPresetResponse {
+  id: number
+  name: string
+  description?: string
+  ownerUsername: string
+  serviceId?: string
+  patientId?: string
+  prefetchJson: string
+  shared: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export interface MeasureEvaluationRequest {
@@ -941,6 +1001,8 @@ export interface AuditLogEntry {
   ipAddress?: string
   userAgent?: string
   responseTimeMs?: number
+  phiAccess: boolean
+  queryParameters?: string
   createdAt: string
 }
 

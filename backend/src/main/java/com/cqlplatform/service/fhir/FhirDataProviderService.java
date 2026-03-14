@@ -5,6 +5,8 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import com.cqlplatform.exception.FhirServerUnavailableException;
+import com.cqlplatform.service.cql.CircuitBreakerRetrieveProvider;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -28,14 +31,70 @@ public class FhirDataProviderService {
 
     private final FhirContext fhirContext;
     private final FhirClientFactory fhirClientFactory;
+    private final CircuitBreakerRegistry circuitBreakerRegistry;
 
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
+
+    @Value("${fhir.patient.batch-size:100}")
+    private int patientBatchSize;
+
+    @Value("${cql.execution.max-patient-count:50000}")
+    private int maxPatientCount;
 
     private final AtomicInteger retrieveCount = new AtomicInteger(0);
 
     public IGenericClient createClient(String fhirServerUrl) {
         return fhirClientFactory.createClient(fhirServerUrl);
+    }
+
+    /**
+     * Batch-fetch all resources of the given types for a patient in a single FHIR Batch request.
+     * Returns the combined list of resources for use with PrefetchRetrieveProvider.
+     */
+    public List<Resource> batchFetchPatientResources(String fhirServerUrl, String patientId, Set<String> resourceTypes) {
+        Bundle batch = new Bundle();
+        batch.setType(Bundle.BundleType.BATCH);
+
+        // Direct read for Patient
+        batch.addEntry()
+                .getRequest()
+                .setMethod(Bundle.HTTPVerb.GET)
+                .setUrl("Patient/" + patientId);
+
+        // Search for each clinical resource type (request up to 500 per type to avoid pagination truncation)
+        for (String resourceType : resourceTypes) {
+            if ("Patient".equals(resourceType)) continue;
+            String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
+            batch.addEntry()
+                    .getRequest()
+                    .setMethod(Bundle.HTTPVerb.GET)
+                    .setUrl(resourceType + "?" + searchParam + "=Patient/" + patientId + "&_count=500");
+        }
+
+        log.debug("Batch prefetch: {} entries for patient {}", batch.getEntry().size(), patientId);
+        Bundle response = executeTransaction(fhirServerUrl, batch);
+
+        List<Resource> resources = new ArrayList<>();
+        if (response.hasEntry()) {
+            for (Bundle.BundleEntryComponent entry : response.getEntry()) {
+                Resource resource = entry.getResource();
+                if (resource instanceof Bundle resultBundle) {
+                    if (resultBundle.hasEntry()) {
+                        for (Bundle.BundleEntryComponent resultEntry : resultBundle.getEntry()) {
+                            if (resultEntry.getResource() != null) {
+                                resources.add(resultEntry.getResource());
+                            }
+                        }
+                    }
+                } else if (resource != null) {
+                    resources.add(resource);
+                }
+            }
+        }
+
+        log.info("Batch prefetch result: {} resources for {} types", resources.size(), resourceTypes.size());
+        return resources;
     }
 
     public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider) {
@@ -56,7 +115,12 @@ public class FhirDataProviderService {
 
         retrieveProvider.setTerminologyProvider(terminologyProvider);
 
-        return new CountingRetrieveProvider(retrieveProvider, retrieveCount, fhirContext, processUrl(fhirServerUrl));
+        // Wrap with circuit breaker — shares "fhirDataProvider" CB with service-level methods
+        io.github.resilience4j.circuitbreaker.CircuitBreaker cb =
+                circuitBreakerRegistry.circuitBreaker("fhirDataProvider");
+        RetrieveProvider cbProvider = new CircuitBreakerRetrieveProvider(retrieveProvider, cb);
+
+        return new CountingRetrieveProvider(cbProvider, retrieveCount, fhirClientFactory, processUrl(fhirServerUrl));
     }
 
     private String processUrl(String url) {
@@ -82,7 +146,7 @@ public class FhirDataProviderService {
     @SuppressWarnings("unused")
     private Bundle searchResourcesFallback(String fhirServerUrl, String resourceType, String searchParams, Throwable t) {
         log.warn("Circuit breaker fallback for searchResources: {}", t.getMessage());
-        return new Bundle();
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "getResourceFallback")
@@ -177,6 +241,8 @@ public class FhirDataProviderService {
         try {
             Bundle bundle = client.search()
                     .forResource("Patient")
+                    .elementsSubset("id")
+                    .count(patientBatchSize)
                     .returnBundle(Bundle.class)
                     .execute();
 
@@ -189,7 +255,10 @@ public class FhirDataProviderService {
                     }
                 }
 
-                if (bundle.getLink(Bundle.LINK_NEXT) != null) {
+                if (patientIds.size() >= maxPatientCount) {
+                    log.warn("Patient ID fetch reached max count ({}). Stopping pagination.", maxPatientCount);
+                    bundle = null;
+                } else if (bundle.getLink(Bundle.LINK_NEXT) != null) {
                     bundle = client.loadPage().next(bundle).execute();
                 } else {
                     bundle = null;
@@ -200,6 +269,7 @@ public class FhirDataProviderService {
             throw new FhirServerUnavailableException("Failed to fetch patient list: " + e.getMessage(), e);
         }
 
+        log.debug("Fetched {} patient IDs (batch size: {})", patientIds.size(), patientBatchSize);
         return patientIds;
     }
 
@@ -263,7 +333,7 @@ public class FhirDataProviderService {
     private Bundle searchPatientsByDemographicsFallback(String fhirServerUrl,
                                                          String family, String given, String birthdate, String identifier, Throwable t) {
         log.warn("Circuit breaker fallback for searchPatientsByDemographics: {}", t.getMessage());
-        return new Bundle();
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     public int getAndResetRetrieveCount() {
@@ -313,14 +383,18 @@ public class FhirDataProviderService {
 
         private final RetrieveProvider delegate;
         private final AtomicInteger counter;
-        private final FhirContext fhirContext;
+        private final FhirClientFactory clientFactory;
         private final String fhirServerUrl;
+        /** Bounded fallback cache — evicts oldest entries when full to prevent unbounded memory growth. */
+        private static final int MAX_FALLBACK_CACHE_SIZE = 200;
+        private final java.util.concurrent.ConcurrentHashMap<String, List<Object>> fallbackCache =
+                new java.util.concurrent.ConcurrentHashMap<>();
 
-        public CountingRetrieveProvider(RetrieveProvider delegate, AtomicInteger counter, FhirContext fhirContext,
+        public CountingRetrieveProvider(RetrieveProvider delegate, AtomicInteger counter, FhirClientFactory clientFactory,
                 String fhirServerUrl) {
             this.delegate = delegate;
             this.counter = counter;
-            this.fhirContext = fhirContext;
+            this.clientFactory = clientFactory;
             this.fhirServerUrl = fhirServerUrl;
         }
 
@@ -360,7 +434,7 @@ public class FhirDataProviderService {
                     // Fallback: read Patient by ID directly
                     log.debug("Fallback: reading Patient/{}", patientId);
                     try {
-                        IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
+                        IGenericClient fallbackClient = clientFactory.createClient(fhirServerUrl);
                         Patient patient = fallbackClient.read().resource(Patient.class).withId(patientId).execute();
                         if (patient != null) {
                             resultList.add(patient);
@@ -387,22 +461,44 @@ public class FhirDataProviderService {
          */
         private List<Object> fallbackSearch(String dataType, String patientId,
                 String codePath, Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
-            log.debug("Fallback search for {}?subject/patient={}, codePath={}, hasCodes={}",
-                    dataType, patientId, codePath, codes != null);
-            IGenericClient fallbackClient = fhirContext.newRestfulGenericClient(fhirServerUrl);
+            // Collect codes for reuse
+            List<org.opencds.cqf.cql.engine.runtime.Code> codeList = collectCodes(codes);
 
-            // Build code filter string for FHIR search (e.g., "http://loinc.org|39156-5")
-            String codeFilter = buildCodeFilter(codes);
+            // Build cache key from search parameters
+            StringBuilder ckb = new StringBuilder();
+            if (codeList != null) {
+                for (org.opencds.cqf.cql.engine.runtime.Code c : codeList) {
+                    if (ckb.length() > 0) ckb.append(",");
+                    if (c.getSystem() != null) ckb.append(c.getSystem()).append("|");
+                    ckb.append(c.getCode());
+                }
+            }
+            String cacheKey = dataType + "|" + patientId + "|" + codePath + "|" + ckb;
+            List<Object> cached = fallbackCache.get(cacheKey);
+            if (cached != null) {
+                log.debug("Fallback cache hit for {}", cacheKey);
+                counter.addAndGet(cached.size());
+                return cached;
+            }
+
+            log.debug("Fallback search for {}?subject/patient={}, codePath={}, hasCodes={}",
+                    dataType, patientId, codePath, codeList != null);
+            IGenericClient fallbackClient = clientFactory.createClient(fhirServerUrl);
 
             // Determine which search parameter to try first
             String primaryParam = SUBJECT_BASED_RESOURCES.contains(dataType) ? "subject" : "patient";
             String secondaryParam = "subject".equals(primaryParam) ? "patient" : "subject";
 
             List<Object> results = trySearch(fallbackClient, dataType, primaryParam, patientId,
-                    codePath, codeFilter);
+                    codePath, codeList);
             if (results.isEmpty()) {
                 results = trySearch(fallbackClient, dataType, secondaryParam, patientId,
-                        codePath, codeFilter);
+                        codePath, codeList);
+            }
+
+            // Cache results (including empty) to avoid repeat queries; evict if too large
+            if (fallbackCache.size() < MAX_FALLBACK_CACHE_SIZE) {
+                fallbackCache.put(cacheKey, results);
             }
 
             if (!results.isEmpty()) {
@@ -412,39 +508,53 @@ public class FhirDataProviderService {
         }
 
         /**
-         * Build a comma-separated code filter string from CQL Code objects
-         * for use in FHIR search (e.g., "http://loinc.org|39156-5,http://loinc.org|8480-6").
+         * Collect CQL Code objects into a list for FHIR search parameter construction.
          */
-        private String buildCodeFilter(Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
-            if (codes == null) {
-                return null;
-            }
-            StringBuilder sb = new StringBuilder();
-            for (org.opencds.cqf.cql.engine.runtime.Code code : codes) {
-                if (sb.length() > 0) {
-                    sb.append(",");
-                }
-                if (code.getSystem() != null && !code.getSystem().isEmpty()) {
-                    sb.append(code.getSystem()).append("|");
-                }
-                sb.append(code.getCode());
-            }
-            return sb.length() > 0 ? sb.toString() : null;
+        private List<org.opencds.cqf.cql.engine.runtime.Code> collectCodes(
+                Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
+            if (codes == null) return null;
+            List<org.opencds.cqf.cql.engine.runtime.Code> list = new ArrayList<>();
+            codes.forEach(list::add);
+            return list.isEmpty() ? null : list;
         }
 
         private List<Object> trySearch(IGenericClient client, String dataType, String paramName,
-                String patientId, String codePath, String codeFilter) {
+                String patientId, String codePath,
+                List<org.opencds.cqf.cql.engine.runtime.Code> codes) {
             List<Object> results = new ArrayList<>();
             try {
                 var search = client.search()
                         .forResource(dataType)
                         .where(new TokenClientParam(paramName).exactly().code(patientId));
 
-                // Add code filter to the FHIR search query when available
-                if (codePath != null && codeFilter != null) {
-                    // Map common CQL code paths to FHIR search parameters
+                // Add code filter to the FHIR search query when available.
+                // Use systemAndCode() so HAPI builds "system|code" properly
+                // instead of escaping the pipe character.
+                if (codePath != null && codes != null && !codes.isEmpty()) {
                     String searchParam = mapCodePathToSearchParam(dataType, codePath);
-                    search = search.where(new TokenClientParam(searchParam).exactly().code(codeFilter));
+                    if (codes.size() == 1) {
+                        org.opencds.cqf.cql.engine.runtime.Code c = codes.get(0);
+                        if (c.getSystem() != null && !c.getSystem().isEmpty()) {
+                            search = search.where(new TokenClientParam(searchParam)
+                                    .exactly().systemAndCode(c.getSystem(), c.getCode()));
+                        } else {
+                            search = search.where(new TokenClientParam(searchParam)
+                                    .exactly().code(c.getCode()));
+                        }
+                    } else {
+                        // Multiple codes: build comma-separated system|code via whereMap
+                        // to avoid HAPI escaping the pipe character
+                        StringBuilder tokenValue = new StringBuilder();
+                        for (org.opencds.cqf.cql.engine.runtime.Code c : codes) {
+                            if (tokenValue.length() > 0) tokenValue.append(",");
+                            if (c.getSystem() != null && !c.getSystem().isEmpty()) {
+                                tokenValue.append(c.getSystem()).append("|");
+                            }
+                            tokenValue.append(c.getCode());
+                        }
+                        search = search.whereMap(java.util.Map.of(
+                                searchParam, java.util.List.of(tokenValue.toString())));
+                    }
                 }
 
                 Bundle bundle = search.returnBundle(Bundle.class).execute();
@@ -457,8 +567,8 @@ public class FhirDataProviderService {
                     }
                 }
             } catch (Exception e) {
-                log.debug("Fallback search {}?{}={}&code={} failed: {}",
-                        dataType, paramName, patientId, codeFilter, e.getMessage());
+                log.debug("Fallback search {}?{}={} failed: {}",
+                        dataType, paramName, patientId, e.getMessage());
                 // If code-filtered search fails, do NOT fall back to unfiltered search.
                 // Returning unfiltered results causes wrong data (e.g., returning TNF-alpha
                 // instead of BMI observations).

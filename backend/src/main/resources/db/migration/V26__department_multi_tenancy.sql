@@ -3,7 +3,7 @@
 
 -- Department reference table
 CREATE TABLE department (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code VARCHAR(100) NOT NULL UNIQUE,
     name VARCHAR(200) NOT NULL,
     description VARCHAR(1000),

@@ -2,6 +2,7 @@ import { TextField, MenuItem } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { departmentApi } from '../../api/departmentApi'
+import { STALE_5M } from '../../constants/queryConstants'
 
 interface DepartmentSelectorProps {
   value: string
@@ -26,7 +27,7 @@ export default function DepartmentSelector({
   const { data: departments = [] } = useQuery({
     queryKey: ['departments'],
     queryFn: departmentApi.getAll,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_5M,
   })
 
   return (

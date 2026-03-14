@@ -68,6 +68,14 @@ public class IndicatorCatalogService {
     }
 
     @Transactional
+    public void delete(String code, String source) {
+        IndicatorCatalogEntity existing = repository.findByCodeAndSource(code, source)
+                .orElseThrow(() -> new IllegalArgumentException("Indicator not found: " + code + " (" + source + ")"));
+        repository.delete(existing);
+        log.info("Deleted indicator: {} ({})", code, source);
+    }
+
+    @Transactional
     @SuppressWarnings("unchecked")
     public Map<String, Object> bulkImport(List<Map<String, Object>> entries) {
         int created = 0;

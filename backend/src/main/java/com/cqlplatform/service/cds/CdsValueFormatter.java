@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 /**
  * Formats CQL expression results (various types) into display strings
  * suitable for CDS card detail text.
+ * Note: No HTML escaping is needed here — the frontend (React) auto-escapes
+ * text content in JSX, so additional escaping causes literal entities like &#39;
  */
 @Component
 @RequiredArgsConstructor
@@ -17,6 +19,7 @@ public class CdsValueFormatter {
     /**
      * Format a single CQL expression result as a markdown line for the consolidated card.
      * Returns null for values that should be skipped (e.g., false booleans).
+     * Values are returned as-is; the frontend handles escaping.
      */
     public String formatExpressionLine(String exprName, Object value) {
         if (value instanceof Boolean) {
@@ -26,7 +29,7 @@ public class CdsValueFormatter {
             return null; // Skip false booleans
         }
         if (value instanceof String) {
-            return "**" + exprName + "**: " + value;
+            return "**" + exprName + "**: " + (String) value;
         }
         if (value instanceof Number) {
             return "**" + exprName + "**: " + value;
@@ -69,21 +72,25 @@ public class CdsValueFormatter {
             return count > 0 ? sb.toString() : null;
         }
         if (value.getClass().getSimpleName().contains("Interval")) {
-            return "**" + exprName + "**: " + value;
+            return "**" + exprName + "**: " + value.toString();
         }
         if (value instanceof PrimitiveType) {
             return "**" + exprName + "**: " + ((PrimitiveType<?>) value).getValueAsString();
         }
-        return "**" + exprName + "**: " + value;
+        return "**" + exprName + "**: " + value.toString();
     }
 
     /**
      * Format a single value for display (used in list items, tuple field values, etc.).
+     * Values are returned as-is; the frontend handles escaping.
      */
     public String formatValue(Object value) {
         if (value == null)
             return "null";
-        if (value instanceof String || value instanceof Number || value instanceof Boolean) {
+        if (value instanceof String) {
+            return (String) value;
+        }
+        if (value instanceof Number || value instanceof Boolean) {
             return value.toString();
         }
         if (value instanceof java.time.temporal.Temporal)
@@ -102,7 +109,7 @@ public class CdsValueFormatter {
             return ((PrimitiveType<?>) value).getValueAsString();
         }
         if (value instanceof Resource res) {
-            return resourceFormatter.formatReference(res);
+            return resourceFormatter.formatDetail(res);
         }
         return value.toString();
     }

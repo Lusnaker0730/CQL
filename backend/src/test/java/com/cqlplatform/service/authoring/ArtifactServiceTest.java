@@ -28,6 +28,9 @@ class ArtifactServiceTest {
     @Mock
     private CdsExternalCqlLibraryRepository externalCqlRepository;
 
+    @Mock
+    private ExpressionTreeValidator expressionTreeValidator;
+
     @InjectMocks
     private ArtifactService service;
 

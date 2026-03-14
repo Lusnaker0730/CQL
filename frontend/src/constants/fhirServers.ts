@@ -8,9 +8,9 @@ export interface FhirServerPreset {
 
 export const FHIR_SERVER_PRESETS: FhirServerPreset[] = [
   {
-    label: 'Local HAPI FHIR (Docker)',
+    label: '內建 HAPI FHIR 伺服器',
     url: DEFAULT_FHIR_SERVER_URL,
-    description: 'Local HAPI FHIR R4 server running in Docker',
+    description: '平台內建的 HAPI FHIR R4 伺服器（由後端代理存取）',
   },
   {
     label: 'HAPI FHIR R4',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { COPY_FEEDBACK_TIMEOUT_MS } from '../constants/timing'
 import {
   Box,
@@ -250,6 +250,9 @@ export default function AdminUsersPage() {
                         {isCurrentUser(user.username) && (
                           <Chip label={t('users.youChip')} size="small" sx={{ ml: 1 }} variant="outlined" />
                         )}
+                        {user.authProvider === 'OKTA' && (
+                          <Chip label={tc('auth.authProviderOkta')} size="small" sx={{ ml: 1 }} color="info" variant="outlined" />
+                        )}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -298,25 +301,27 @@ export default function AdminUsersPage() {
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title={t('users.tooltips.resetPassword')}>
-                        <span>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={
-                              resetLoading === user.id ? (
-                                <CircularProgress size={16} />
-                              ) : (
-                                <ResetIcon />
-                              )
-                            }
-                            onClick={() => handleResetPassword(user.id)}
-                            disabled={resetLoading !== null || actionLoading === user.id}
-                          >
-                            {t('users.resetPasswordButton')}
-                          </Button>
-                        </span>
-                      </Tooltip>
+                      {user.authProvider !== 'OKTA' && (
+                        <Tooltip title={t('users.tooltips.resetPassword')}>
+                          <span>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={
+                                resetLoading === user.id ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <ResetIcon />
+                                )
+                              }
+                              onClick={() => handleResetPassword(user.id)}
+                              disabled={resetLoading !== null || actionLoading === user.id}
+                            >
+                              {t('users.resetPasswordButton')}
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -396,7 +401,9 @@ export default function AdminUsersPage() {
               <Alert severity="info" sx={{ mb: 2 }}>
                 {resetResult.message}
               </Alert>
-              <Typography variant="body2" sx={{ mb: 1 }} dangerouslySetInnerHTML={{ __html: t('users.resetDialog.userLabel', { username: resetResult.username }) }} />
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <Trans i18nKey="users.resetDialog.userLabel" ns="admin" values={{ username: resetResult.username }} components={{ strong: <strong /> }} />
+              </Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>
                 {t('users.resetDialog.temporaryPasswordLabel')}
               </Typography>
