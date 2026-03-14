@@ -21,9 +21,9 @@ export default function CqlShowcase() {
         {t('showcase.subtitle')}
       </Typography>
 
-      <Grid container spacing={4} sx={{ maxWidth: 1100, mx: 'auto' }}>
+      <Grid spacing={4} sx={{ maxWidth: 1100, mx: 'auto' }}>
         {/* CQL Code */}
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Paper
             elevation={0}
             sx={{
@@ -90,7 +90,7 @@ export default function CqlShowcase() {
         </Grid>
 
         {/* Explanation */}
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
             <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="subtitle1" fontWeight={700} gutterBottom color="primary.main">

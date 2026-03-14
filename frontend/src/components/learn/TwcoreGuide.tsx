@@ -29,9 +29,9 @@ export default function TwcoreGuide() {
         {t('learn.twcore.title')}
       </Typography>
 
-      <Grid container spacing={3} sx={{ mt: 1 }}>
+      <Grid spacing={3} sx={{ mt: 1 }}>
         {/* Overview */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               {t('learn.twcore.overview.title')}
@@ -43,7 +43,7 @@ export default function TwcoreGuide() {
         </Grid>
 
         {/* Profiles Table */}
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               {t('learn.twcore.profiles.title')}
@@ -85,7 +85,7 @@ export default function TwcoreGuide() {
         </Grid>
 
         {/* Code Systems */}
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               {t('learn.twcore.codeSystems.title')}
@@ -106,7 +106,7 @@ export default function TwcoreGuide() {
         </Grid>
 
         {/* Full Example */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
               {t('learn.twcore.example.title')}

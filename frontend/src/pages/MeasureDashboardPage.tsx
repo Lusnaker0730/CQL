@@ -83,9 +83,9 @@ function OverviewCards({ data }: { data: DashboardSummary }) {
   ]
 
   return (
-    <Grid container spacing={2}>
+    <Grid spacing={2}>
       {cards.map((card) => (
-        <Grid item xs={12} sm={6} md key={card.label}>
+        <Grid size={{ xs: 12, sm: 6, md: 'grow' }} key={card.label}>
           <Paper
             elevation={0}
             sx={{
@@ -297,11 +297,11 @@ export default function MeasureDashboardPage() {
       />
 
       {/* Overview cards + Alerts */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={9}>
+      <Grid spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 9 }}>
           <OverviewCards data={data} />
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <ThresholdAlertPanel alerts={alerts} />
         </Grid>
       </Grid>
@@ -314,8 +314,8 @@ export default function MeasureDashboardPage() {
       )}
 
       {/* Department drill-down + Score distribution */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
+      <Grid spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           {enhancedData?.departmentScores && Object.keys(enhancedData.departmentScores).length > 0 ? (
             <DepartmentDrilldownChart data={enhancedData.departmentScores} />
           ) : (
@@ -324,17 +324,17 @@ export default function MeasureDashboardPage() {
             </Paper>
           )}
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ScoreDistributionChart data={data.byScoring} />
         </Grid>
       </Grid>
 
       {/* Recent evaluations + Quality report */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={7}>
+      <Grid spacing={3}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <RecentEvaluationsTable evaluations={data.recentEvaluations} />
         </Grid>
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <QualityReportPanel report={qualityReport} />
         </Grid>
       </Grid>

@@ -25,9 +25,9 @@ export default function FeatureCards() {
       <Typography variant="body1" textAlign="center" color="text.secondary" sx={{ mb: 5, maxWidth: 600, mx: 'auto' }}>
         {t('features.subtitle')}
       </Typography>
-      <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: 1100, mx: 'auto' }}>
+      <Grid spacing={3} justifyContent="center" sx={{ maxWidth: 1100, mx: 'auto' }}>
         {FEATURES.map(({ key, icon: Icon, color }) => (
-          <Grid item xs={12} sm={6} md={3} key={key}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={key}>
             <Paper
               elevation={0}
               sx={{
