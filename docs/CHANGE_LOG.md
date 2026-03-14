@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-056 | ✨ feature | 2026-03-14 | 前端（品質指標） | eCQM CQL Tab 從程式庫匯入 — 新增 ImportCqlFromLibraryDialog（搜尋/選擇/確認覆蓋）+ MeasureCqlTab 匯入按鈕，複用現有 CQL Libraries API | i18n EN+zh-TW | [`9a96f5f`](../../commit/9a96f5f) |
 | PAT-055 | ✨ feature | 2026-03-14 | 後端（CQL Engine） | CQL Framework 3.29→4.5.0 升級 — Kotlin Multiplatform 架構、groupId 遷移 (info→org.cqframework)、LibrarySourceProvider kotlinx.io.Source 適配、EvaluationParams builder、RestFhirRetrieveProvider +ModelResolver | 821 tests pass、6 檔案修改 | [`0d0f28a`](../../commit/0d0f28a) |
 | PAT-054 | 🔒 security | 2026-03-14 | 後端+CI（依賴升級） | Spring Boot 3.2→3.5.10 + HAPI FHIR 7.0→8.6.6 + Jackson 2.21.1 + ucum 1.0.9 + CI 密碼改 Secrets 參照 — 修復 Trivy CVE 掃描 + GitGuardian 告警 | 821 tests pass、Spring FW 6.2.x 對齊 | [`b532232`](../../commit/b532232) |
 | PAT-053 | ✨ feature | 2026-03-14 | 前端（Landing/Learn） | CQL 學習中心與 Landing Page 改造 — 新首頁（Hero+功能卡片+TWCORE 範例展示）+ /learn 學習中心（CQL 入門/核心概念/TWCORE IG/互動範例/快速開始/練習場/自我測驗）+ landing i18n namespace (EN+zh-TW) | 16 新檔案、所有 CQL 範例符合 TWCORE IG | [`cec2f1f`](../../commit/cec2f1f) |

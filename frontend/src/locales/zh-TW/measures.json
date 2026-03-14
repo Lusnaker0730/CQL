@@ -235,6 +235,7 @@
     "translate": "翻譯",
     "saving": "儲存中...",
     "saveCql": "儲存 CQL",
+    "importFromLibrary": "從程式庫匯入",
     "unsavedChanges": "未儲存的變更",
     "errorCount": "{{count}} 個錯誤",
     "errorCount_one": "{{count}} 個錯誤",
@@ -242,7 +243,16 @@
     "warningCount_one": "{{count}} 個警告",
     "discardDraft": "捨棄草稿",
     "draftRestored": "已恢復上次未儲存的草稿。",
-    "translationFailed": "翻譯失敗：{{error}}"
+    "translationFailed": "翻譯失敗：{{error}}",
+    "importDialog": {
+      "title": "從程式庫匯入 CQL",
+      "search": "搜尋程式庫...",
+      "noLibraries": "找不到 CQL 程式庫。",
+      "import": "匯入",
+      "cancel": "取消",
+      "confirmOverwrite": "這將取代目前的 CQL 內容，確定要繼續嗎？",
+      "version": "v{{version}}"
+    }
   },
   "populationCriteria": {
     "title": "族群條件",

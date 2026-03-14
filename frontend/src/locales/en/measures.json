@@ -235,6 +235,7 @@
     "translate": "Translate",
     "saving": "Saving...",
     "saveCql": "Save CQL",
+    "importFromLibrary": "Import from Library",
     "unsavedChanges": "Unsaved changes",
     "errorCount": "{{count}} errors",
     "errorCount_one": "{{count}} error",
@@ -242,7 +243,16 @@
     "warningCount_one": "{{count}} warning",
     "discardDraft": "Discard Draft",
     "draftRestored": "Restored unsaved draft from a previous session.",
-    "translationFailed": "Translation failed: {{error}}"
+    "translationFailed": "Translation failed: {{error}}",
+    "importDialog": {
+      "title": "Import CQL from Library",
+      "search": "Search libraries...",
+      "noLibraries": "No CQL libraries found.",
+      "import": "Import",
+      "cancel": "Cancel",
+      "confirmOverwrite": "This will replace the current CQL content. Continue?",
+      "version": "v{{version}}"
+    }
   },
   "populationCriteria": {
     "title": "Population Criteria",
