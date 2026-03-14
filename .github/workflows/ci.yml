@@ -168,7 +168,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build backend image
         uses: docker/build-push-action@v6
@@ -221,7 +221,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build backend image for scanning
         uses: docker/build-push-action@v6
@@ -240,7 +240,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload backend scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'backend-trivy.sarif'
@@ -263,7 +263,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload frontend scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'frontend-trivy.sarif'
