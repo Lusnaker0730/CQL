@@ -23,7 +23,10 @@ import org.opencds.cqf.cql.engine.debug.SourceLocator;
 import org.opencds.cqf.cql.engine.exception.CqlException;
 import org.opencds.cqf.cql.engine.execution.CqlEngine;
 import org.opencds.cqf.cql.engine.execution.Environment;
+import org.opencds.cqf.cql.engine.execution.EvaluationExpressionRef;
+import org.opencds.cqf.cql.engine.execution.EvaluationParams;
 import org.opencds.cqf.cql.engine.execution.EvaluationResult;
+import org.opencds.cqf.cql.engine.execution.EvaluationResults;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,8 +38,10 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.cqframework.cql.cql2elm.LibrarySourceProvider;
 import org.hl7.elm.r1.VersionedIdentifier;
+import kotlinx.io.CoreKt;
+import kotlinx.io.JvmCoreKt;
+import kotlinx.io.Source;
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 @Service
@@ -230,24 +235,19 @@ public class CqlExecutionService {
                     long exprStart = System.currentTimeMillis();
                     try {
                         Set<String> singleExpr = Set.of(expressionName);
-                        EvaluationResult evalResult;
+                        String pid = null;
                         if (request.getPatientId() != null) {
-                            String pid = request.getPatientId();
+                            pid = request.getPatientId();
                             if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
-                            evalResult = engine.evaluate(
-                                    elmLibrary.getIdentifier(), singleExpr,
-                                    org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), pid),
-                                    request.getParameters(), null);
-                        } else {
-                            evalResult = engine.evaluate(
-                                    elmLibrary.getIdentifier(), singleExpr,
-                                    null, request.getParameters(), null);
                         }
+                        EvaluationResult evalResult = evaluateWithEngine(engine,
+                                elmLibrary.getIdentifier(), singleExpr,
+                                request.getContextType(), pid, request.getParameters());
                         long exprTime = System.currentTimeMillis() - exprStart;
 
                         org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                                evalResult.expressionResults.get(expressionName);
-                        Object value = exprResult != null ? exprResult.value() : null;
+                                evalResult.getExpressionResults().get(expressionName);
+                        Object value = exprResult != null ? exprResult.getValue() : null;
                         String valueType = value != null ? value.getClass().getSimpleName() : "null";
 
                         results.put(expressionName, ExpressionResult.builder()
@@ -299,25 +299,16 @@ public class CqlExecutionService {
                 boolean batchFailed = false;
 
                 try {
+                    String patientId = null;
                     if (request.getPatientId() != null) {
-                        String patientId = request.getPatientId();
+                        patientId = request.getPatientId();
                         if (!patientId.startsWith("Patient/")) {
                             patientId = "Patient/" + patientId;
                         }
-                        evaluationResult = engine.evaluate(
-                                elmLibrary.getIdentifier(),
-                                expressions,
-                                org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), patientId),
-                                request.getParameters(),
-                                null);
-                    } else {
-                        evaluationResult = engine.evaluate(
-                                elmLibrary.getIdentifier(),
-                                expressions,
-                                null,
-                                request.getParameters(),
-                                null);
                     }
+                    evaluationResult = evaluateWithEngine(engine,
+                            elmLibrary.getIdentifier(), expressions,
+                            request.getContextType(), patientId, request.getParameters());
                 } catch (Exception batchEx) {
                     // Batch evaluation failed (e.g. ambiguous overload in FHIRHelpers).
                     // Fall back to per-expression evaluation so only the failing
@@ -330,23 +321,18 @@ public class CqlExecutionService {
                 if (batchFailed) {
                     for (String expressionName : expressions) {
                         try {
-                            EvaluationResult singleResult;
                             Set<String> singleExpr = Set.of(expressionName);
+                            String pid = null;
                             if (request.getPatientId() != null) {
-                                String pid = request.getPatientId();
+                                pid = request.getPatientId();
                                 if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
-                                singleResult = engine.evaluate(
-                                        elmLibrary.getIdentifier(), singleExpr,
-                                        org.apache.commons.lang3.tuple.Pair.of(request.getContextType(), pid),
-                                        request.getParameters(), null);
-                            } else {
-                                singleResult = engine.evaluate(
-                                        elmLibrary.getIdentifier(), singleExpr,
-                                        null, request.getParameters(), null);
                             }
+                            EvaluationResult singleResult = evaluateWithEngine(engine,
+                                    elmLibrary.getIdentifier(), singleExpr,
+                                    request.getContextType(), pid, request.getParameters());
                             org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                                    singleResult.expressionResults.get(expressionName);
-                            Object value = exprResult != null ? exprResult.value() : null;
+                                    singleResult.getExpressionResults().get(expressionName);
+                            Object value = exprResult != null ? exprResult.getValue() : null;
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
                                     .value(toSerializable(value))
@@ -370,9 +356,9 @@ public class CqlExecutionService {
                 } else {
                     for (String expressionName : expressions) {
                         try {
-                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.expressionResults
+                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.getExpressionResults()
                                     .get(expressionName);
-                            Object value = exprResult != null ? exprResult.value() : null;
+                            Object value = exprResult != null ? exprResult.getValue() : null;
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
                                     .value(toSerializable(value))
@@ -427,6 +413,28 @@ public class CqlExecutionService {
             log.error("CQL execution failed", e);
             throw new CqlExecutionException("Execution failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Build EvaluationParams and call engine.evaluate(), returning the single EvaluationResult.
+     */
+    private EvaluationResult evaluateWithEngine(CqlEngine engine, VersionedIdentifier libraryId,
+            Set<String> expressions, String contextType, String contextValue,
+            Map<String, Object> parameters) {
+        List<EvaluationExpressionRef> exprRefs = expressions.stream()
+                .map(EvaluationExpressionRef::new)
+                .toList();
+
+        Map<VersionedIdentifier, List<EvaluationExpressionRef>> exprMap = new HashMap<>();
+        exprMap.put(libraryId, exprRefs);
+
+        kotlin.Pair<String, Object> ctxParam = contextValue != null
+                ? new kotlin.Pair<>(contextType, contextValue)
+                : null;
+
+        EvaluationParams params = new EvaluationParams(exprMap, ctxParam, parameters, null, null);
+        EvaluationResults results = engine.evaluate(params);
+        return results.getResultFor(libraryId);
     }
 
     private Set<String> determineExpressions(CqlExecutionRequest request, org.hl7.elm.r1.Library library) {
@@ -657,10 +665,11 @@ public class CqlExecutionService {
         }
 
         @Override
-        public InputStream getLibrarySource(VersionedIdentifier libraryIdentifier) {
+        public Source getLibrarySource(VersionedIdentifier libraryIdentifier) {
             if (libraryName.equals(libraryIdentifier.getId()) &&
                     (libraryVersion == null || libraryVersion.equals(libraryIdentifier.getVersion()))) {
-                return new ByteArrayInputStream(cqlContent.getBytes(StandardCharsets.UTF_8));
+                ByteArrayInputStream bais = new ByteArrayInputStream(cqlContent.getBytes(StandardCharsets.UTF_8));
+                return CoreKt.buffered(JvmCoreKt.asSource(bais));
             }
             return null;
         }
