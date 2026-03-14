@@ -2,11 +2,13 @@ package com.cqlplatform.service.cql;
 
 import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import kotlinx.io.CoreKt;
+import kotlinx.io.JvmCoreKt;
+import kotlinx.io.Source;
 import org.cqframework.cql.cql2elm.LibrarySourceProvider;
 import org.hl7.elm.r1.VersionedIdentifier;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.List;
@@ -21,7 +23,7 @@ public class DatabaseLibrarySourceProvider implements LibrarySourceProvider {
     }
 
     @Override
-    public InputStream getLibrarySource(VersionedIdentifier libraryIdentifier) {
+    public Source getLibrarySource(VersionedIdentifier libraryIdentifier) {
         String name = libraryIdentifier.getId();
         String version = libraryIdentifier.getVersion();
 
@@ -36,7 +38,11 @@ public class DatabaseLibrarySourceProvider implements LibrarySourceProvider {
         }
 
         return entity
-                .map(e -> (InputStream) new ByteArrayInputStream(e.getCqlContent().getBytes(StandardCharsets.UTF_8)))
+                .map(e -> {
+                    ByteArrayInputStream bais = new ByteArrayInputStream(
+                            e.getCqlContent().getBytes(StandardCharsets.UTF_8));
+                    return (Source) CoreKt.buffered(JvmCoreKt.asSource(bais));
+                })
                 .orElse(null);
     }
 }
