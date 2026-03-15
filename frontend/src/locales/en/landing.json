@@ -49,6 +49,9 @@
       "advanced": "Advanced Topics",
       "troubleshooting": "Troubleshooting",
       "cheatSheet": "Cheat Sheet",
+      "languageRef": "Language Reference",
+      "fhirpathElm": "FHIRPath & ELM",
+      "ecqmTutorial": "eCQM Tutorial",
       "playground": "Playground",
       "quiz": "Self Quiz"
     },
@@ -585,6 +588,108 @@
         "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
         "answer": 1,
         "explanation": "eCQM stands for electronic Clinical Quality Measure, using CQL for measure logic definition."
+      }
+    },
+    "languageRef": {
+      "title": "CQL Language Reference",
+      "subtitle": "A comprehensive reference for CQL language features including conditionals, null handling, type system, date/time operations, and string manipulation.",
+      "conditionals": {
+        "title": "Conditional Expressions",
+        "description": "CQL provides two main conditional constructs: if/then/else for simple branching, and case/when for multi-way decisions. Both can be nested and combined with logical operators for complex clinical decision logic.",
+        "ifThenElse": "if/then/else Syntax",
+        "caseWhen": "case/when Syntax (Simple and With Operand)",
+        "clinicalExample": "Clinical Example: Risk Stratification",
+        "keyPoints": "Key points: if/then/else always requires an else branch. case/when supports two forms: general (case when condition then ...) and operand matching (case expression when value then ...). Both return a single value and can be used anywhere an expression is expected."
+      },
+      "nullHandling": {
+        "title": "Null Handling",
+        "description": "CQL uses three-valued logic (true, false, null) where null represents unknown or missing data. Understanding null propagation is critical for writing correct clinical logic, as missing clinical data is common in real-world healthcare systems.",
+        "threeValuedLogic": "Three-Valued Logic & Null Checks",
+        "coalesceAndPropagation": "Coalesce Function & Null Propagation",
+        "clinicalExample": "Clinical Example: Handling Missing Lab Values",
+        "keyPoints": "Key points: null propagates through arithmetic (5 + null = null) and most logical operations. Use Coalesce() to provide fallback values. 'is null' and 'is not null' are the safe ways to check for null. The '&' operator is null-safe for string concatenation while '+' is not."
+      },
+      "typeSystem": {
+        "title": "Type System",
+        "description": "CQL has a strong type system with support for type casting ('as'), type testing ('is'), and conversion functions. This is particularly important when working with FHIR data, where elements like Observation.value can be polymorphic (Quantity, CodeableConcept, string, etc.).",
+        "castingAndTesting": "Type Casting ('as') and Testing ('is')",
+        "conversionFunctions": "Conversion Functions",
+        "clinicalExample": "Clinical Example: Polymorphic Value Handling",
+        "keyPoints": "Key points: 'as' performs type casting and returns null if the cast fails (safe cast). 'is' tests the type and returns a Boolean. Use conversion functions (ToString, ToInteger, ToDecimal, ToDateTime) for explicit conversions. The 'convert' expression provides an alternative syntax."
+      },
+      "dateTime": {
+        "title": "Date/Time Operations",
+        "description": "CQL provides comprehensive date and time operations including construction, component extraction, duration calculation, date arithmetic, and interval membership testing. These are essential for clinical quality measures that rely on measurement periods and time-based criteria.",
+        "constructionAndExtraction": "Construction & Component Extraction",
+        "durationAndArithmetic": "Duration Calculation & Date Arithmetic",
+        "clinicalExample": "Clinical Example: Age & Measurement Periods",
+        "keyPoints": "Key points: 'duration in' calculates the number of whole calendar periods between two dates. 'difference in' counts calendar boundary crossings. Date arithmetic supports days, months, years, hours, minutes, seconds. The 'during' operator tests if a point or interval falls within another interval."
+      },
+      "stringOps": {
+        "title": "String Operations",
+        "description": "CQL provides a full set of string manipulation functions for parsing, searching, and transforming text data. The null-safe concatenation operator (&) is particularly useful when working with clinical data where fields may be missing.",
+        "basicOperations": "Basic String Operations",
+        "advancedOperations": "Advanced String Operations",
+        "clinicalExample": "Clinical Example: Parsing Clinical Text",
+        "keyPoints": "Key points: Use '&' instead of '+' for null-safe concatenation. Substring() uses 0-based indexing. Matches() supports regular expressions. Split() and Combine() are useful for processing delimited clinical data. StartsWith() and EndsWith() are convenient for code category matching."
+      }
+    },
+    "fhirpathElm": {
+      "title": "FHIRPath & ELM Guide",
+      "subtitle": "Learn how CQL uses FHIRPath for data navigation and how CQL is compiled to ELM (Expression Logical Model) for machine execution.",
+      "fhirpath": {
+        "title": "FHIRPath in CQL",
+        "description": "FHIRPath is a path-based navigation and extraction language designed for FHIR resources. CQL incorporates FHIRPath syntax for traversing resource properties, filtering collections, and testing conditions. Understanding FHIRPath is essential for writing effective CQL queries against FHIR data.",
+        "traversal": "Path Traversal & Dot Notation",
+        "whereFiltering": ".where() Filtering",
+        "collectionFunctions": "Collection Functions: .exists(), .empty(), .count(), .first(), .last(), .ofType()",
+        "resolveReferences": ".resolve() — Following FHIR References",
+        "cqlVsFhirpath": "CQL Queries vs FHIRPath Expressions",
+        "clinicalExample": "Clinical Example: Navigating Complex FHIR Resources",
+        "keyPoints": "Key points: FHIRPath uses dot notation for traversal and automatically iterates over collections. CQL extends FHIRPath with full query syntax (aliases, multi-source, aggregate, let, sort). Use .where() for inline filtering and .ofType() for polymorphic navigation. The .resolve() function follows FHIR reference links to retrieve referenced resources."
+      },
+      "elm": {
+        "title": "Understanding ELM",
+        "description": "ELM (Expression Logical Model) is the machine-readable intermediate representation that CQL is compiled into. While you write CQL in its human-readable form, the CQL engine actually executes the ELM representation. Understanding ELM helps you debug translation errors and understand how the engine interprets your logic.",
+        "cqlSource": "CQL Source Code",
+        "elmOutput": "ELM JSON Output",
+        "keyNodeTypes": "Key ELM Node Types",
+        "debuggingErrors": "Reading ELM Errors for Debugging",
+        "keyPoints": "Key points: CQL is always translated to ELM before execution. ELM is a tree of typed expression nodes (Retrieve, Query, FunctionRef, Property, etc.). Translation errors appear with severity, message, and errorType. Common errors include type mismatches (accessing list as single element) and unresolved identifiers (referencing undefined definitions)."
+      }
+    },
+    "ecqmTutorial": {
+      "title": "eCQM Development Tutorial",
+      "subtitle": "A step-by-step guide to building electronic Clinical Quality Measures using CQL, from understanding the structure to testing with patient data.",
+      "step1": {
+        "title": "Step 1: Understanding eCQM Structure",
+        "description": "An eCQM (electronic Clinical Quality Measure) is a standardized way to measure healthcare quality using computable logic. Each eCQM defines population criteria that categorize patients, and a scoring method that calculates the quality rate. The most common type is a proportion measure, which calculates the percentage of patients meeting a quality goal.",
+        "populationFlow": "Population Criteria Flow",
+        "scoringTypes": "Scoring Types Overview",
+        "keyPoints": "Key points: Every eCQM has an Initial Population (IPP) that defines eligible patients. The Denominator is usually the same as or a subset of the IPP. The Numerator identifies patients who met the quality goal. Denominator Exclusions remove patients who should not be measured (e.g., hospice). Denominator Exceptions capture valid clinical reasons for not meeting the numerator."
+      },
+      "step2": {
+        "title": "Step 2: Building a Proportion Measure",
+        "description": "Let's build a complete eCQM for 'Diabetes HbA1c Control' — measuring the percentage of diabetic patients aged 18-75 whose most recent HbA1c is below 9%. This is one of the most common quality measures in clinical practice.",
+        "libraryHeader": "Library Header, Value Sets & Parameters",
+        "ipp": "Initial Population (IPP)",
+        "denominator": "Denominator",
+        "numerator": "Numerator",
+        "denomExclusion": "Denominator Exclusion",
+        "completeCql": "Complete CQL (All Populations)"
+      },
+      "step3": {
+        "title": "Step 3: Testing and Validation",
+        "description": "Testing eCQMs requires creating test patient bundles with known data and verifying that each patient falls into the expected population. A test case should specify the expected population membership (IPP, Denominator, Numerator, etc.) and include the minimum FHIR resources needed to evaluate the measure.",
+        "testBundle": "Test Patient Bundle (FHIR JSON)",
+        "debuggingTips": "Common debugging issues: (1) Date ranges — ensure Observation.effectiveDateTime falls within the Measurement Period. (2) Missing codes — verify code system URIs and code values match exactly. (3) Status filters — check that resource status values match your where clauses (e.g., 'final' for Observations, 'active' for Conditions). (4) Reference links — ensure subject references point to the correct Patient resource."
+      },
+      "step4": {
+        "title": "Step 4: Real-World Example — CMS146",
+        "description": "CMS146 (Appropriate Testing for Pharyngitis) is a well-known CMS quality measure that demonstrates multi-resource queries and temporal relationships. It measures whether children and adults diagnosed with pharyngitis received a Group A streptococcus test before being prescribed antibiotics. Below we examine the CQL logic and show how to map US-specific terminologies to Taiwan/TWCORE equivalents.",
+        "cms146Cql": "CMS146 CQL Logic",
+        "twcoreMapping": "TWCORE Terminology Mapping",
+        "keyPoints": "Key points: CMS measures use US-specific value sets (VSAC) and drug codes (RxNorm). For Taiwan, map to ICD-10-CM-TW for diagnoses and NHI Medication codes for drugs. LOINC lab codes are international and typically work without changes. When adapting foreign measures, focus on terminology mapping while keeping the population logic structure intact."
       }
     },
     "progress": {
