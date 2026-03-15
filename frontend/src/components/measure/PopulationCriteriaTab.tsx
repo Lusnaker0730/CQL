@@ -748,7 +748,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   ))}
                 </TextField>
 
-                <Grid spacing={2}>
+                <Grid container spacing={2}>
                   {/* Left column: standard populations */}
                   <Grid size={{ xs: 12, md: hasExclusions ? 6 : 12 }}>
                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>

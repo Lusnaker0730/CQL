@@ -52,7 +52,7 @@ export default function InteractiveExamples() {
         {t('learn.examples.subtitle')}
       </Typography>
 
-      <Grid spacing={3}>
+      <Grid container spacing={3}>
         {/* Example List */}
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>

@@ -306,7 +306,7 @@ export default function EditorPage() {
         accept=".json,.cql"
         style={{ display: 'none' }}
       />
-      <Grid spacing={2} sx={{ height: '100%' }}>
+      <Grid container spacing={2} sx={{ height: '100%' }}>
         <Grid size={{ xs: 12, md: 2 }} sx={{ height: '100%', display: { xs: 'none', md: 'block' } }}>
           <LibraryQuickAccess />
         </Grid>

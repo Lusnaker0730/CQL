@@ -21,7 +21,7 @@ export default function CqlShowcase() {
         {t('showcase.subtitle')}
       </Typography>
 
-      <Grid spacing={4} sx={{ maxWidth: 1100, mx: 'auto' }}>
+      <Grid container spacing={4} sx={{ maxWidth: 1100, mx: 'auto' }}>
         {/* CQL Code */}
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper
