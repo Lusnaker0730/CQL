@@ -26,6 +26,9 @@ import {
   School as AdvancedIcon,
   BugReport as TroubleshootingIcon,
   ListAlt as CheatSheetIcon,
+  DataObject as DataObjectIcon,
+  AccountTree as AccountTreeIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -39,15 +42,20 @@ import TroubleshootingGuide from '../components/learn/TroubleshootingGuide'
 import CqlCheatSheet from '../components/learn/CqlCheatSheet'
 import CqlPlayground from '../components/learn/CqlPlayground'
 import CqlQuiz from '../components/learn/CqlQuiz'
+import LanguageReference from '../components/learn/LanguageReference'
+import FhirPathElmGuide from '../components/learn/FhirPathElmGuide'
+import EcqmTutorial from '../components/learn/EcqmTutorial'
 
 const TAB_KEYS = [
   'introduction', 'concepts', 'twcore', 'examples', 'quickStart',
   'advanced', 'troubleshooting', 'cheatSheet',
+  'languageRef', 'fhirpathElm', 'ecqmTutorial',
   'playground', 'quiz',
 ] as const
 const TAB_ICONS = [
   IntroIcon, ConceptIcon, TwcoreIcon, ExampleIcon, StartIcon,
   AdvancedIcon, TroubleshootingIcon, CheatSheetIcon,
+  DataObjectIcon, AccountTreeIcon, AssessmentIcon,
   PlaygroundIcon, QuizIcon,
 ]
 
@@ -157,8 +165,11 @@ export default function LearnPage() {
           {currentTab === 5 && <AdvancedTopics />}
           {currentTab === 6 && <TroubleshootingGuide />}
           {currentTab === 7 && <CqlCheatSheet />}
-          {currentTab === 8 && <CqlPlayground />}
-          {currentTab === 9 && <CqlQuiz />}
+          {currentTab === 8 && <LanguageReference />}
+          {currentTab === 9 && <FhirPathElmGuide />}
+          {currentTab === 10 && <EcqmTutorial />}
+          {currentTab === 11 && <CqlPlayground />}
+          {currentTab === 12 && <CqlQuiz />}
         </Container>
       </Box>
 

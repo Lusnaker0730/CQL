@@ -49,6 +49,9 @@
       "advanced": "進階主題",
       "troubleshooting": "疑難排解",
       "cheatSheet": "速查表",
+      "languageRef": "語言參考",
+      "fhirpathElm": "FHIRPath 與 ELM",
+      "ecqmTutorial": "eCQM 教學",
       "playground": "練習場",
       "quiz": "自我測驗"
     },
@@ -585,6 +588,108 @@
         "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
         "answer": 1,
         "explanation": "eCQM 全稱 electronic Clinical Quality Measure（電子臨床品質指標），使用 CQL 定義量測邏輯。"
+      }
+    },
+    "languageRef": {
+      "title": "CQL 語言參考",
+      "subtitle": "涵蓋條件運算式、空值處理、型別系統、日期時間操作與字串處理的完整 CQL 語言特性參考。",
+      "conditionals": {
+        "title": "條件運算式",
+        "description": "CQL 提供兩種主要的條件結構：if/then/else 用於簡單分支，case/when 用於多路決策。兩者皆可巢狀使用，並結合邏輯運算子處理複雜的臨床決策邏輯。",
+        "ifThenElse": "if/then/else 語法",
+        "caseWhen": "case/when 語法（一般形式與運算元匹配形式）",
+        "clinicalExample": "臨床範例：風險分層",
+        "keyPoints": "重點：if/then/else 必須包含 else 分支。case/when 支援兩種形式：一般形式（case when 條件 then ...）和運算元匹配形式（case 運算式 when 值 then ...）。兩者都回傳單一值，可在任何需要運算式的地方使用。"
+      },
+      "nullHandling": {
+        "title": "空值處理",
+        "description": "CQL 使用三值邏輯（true、false、null），其中 null 代表未知或缺失的資料。理解空值傳播對撰寫正確的臨床邏輯至關重要，因為真實醫療系統中缺失的臨床資料很常見。",
+        "threeValuedLogic": "三值邏輯與空值檢查",
+        "coalesceAndPropagation": "Coalesce 函式與空值傳播",
+        "clinicalExample": "臨床範例：處理缺失的檢驗值",
+        "keyPoints": "重點：null 會在算術運算（5 + null = null）和大多數邏輯運算中傳播。使用 Coalesce() 提供備用值。'is null' 和 'is not null' 是檢查空值的安全方式。字串串接中 '&' 運算子是空值安全的，而 '+' 則不是。"
+      },
+      "typeSystem": {
+        "title": "型別系統",
+        "description": "CQL 擁有強型別系統，支援型別轉換（'as'）、型別測試（'is'）和轉換函式。這在處理 FHIR 資料時特別重要，因為像 Observation.value 這樣的元素可能是多型的（Quantity、CodeableConcept、string 等）。",
+        "castingAndTesting": "型別轉換（'as'）與型別測試（'is'）",
+        "conversionFunctions": "轉換函式",
+        "clinicalExample": "臨床範例：多型值處理",
+        "keyPoints": "重點：'as' 執行型別轉換，若轉換失敗則回傳 null（安全轉換）。'is' 測試型別並回傳布林值。使用轉換函式（ToString、ToInteger、ToDecimal、ToDateTime）進行明確轉換。'convert' 運算式提供替代語法。"
+      },
+      "dateTime": {
+        "title": "日期/時間操作",
+        "description": "CQL 提供全面的日期和時間操作，包括建構、元件擷取、持續時間計算、日期算術和區間成員檢測。這些對於依賴量測期間和時間條件的臨床品質指標至關重要。",
+        "constructionAndExtraction": "建構與元件擷取",
+        "durationAndArithmetic": "持續時間計算與日期算術",
+        "clinicalExample": "臨床範例：年齡計算與量測期間",
+        "keyPoints": "重點：'duration in' 計算兩個日期之間的完整日曆週期數。'difference in' 計算跨越日曆邊界的次數。日期算術支援 days、months、years、hours、minutes、seconds。'during' 運算子測試一個點或區間是否落在另一個區間內。"
+      },
+      "stringOps": {
+        "title": "字串操作",
+        "description": "CQL 提供完整的字串操作函式集，用於解析、搜尋和轉換文字資料。空值安全的串接運算子（&）在處理可能缺失欄位的臨床資料時特別有用。",
+        "basicOperations": "基本字串操作",
+        "advancedOperations": "進階字串操作",
+        "clinicalExample": "臨床範例：解析臨床文字",
+        "keyPoints": "重點：使用 '&' 取代 '+' 進行空值安全的串接。Substring() 使用從 0 開始的索引。Matches() 支援正則表達式。Split() 和 Combine() 適合處理分隔的臨床資料。StartsWith() 和 EndsWith() 方便用於代碼類別比對。"
+      }
+    },
+    "fhirpathElm": {
+      "title": "FHIRPath 與 ELM 指南",
+      "subtitle": "學習 CQL 如何使用 FHIRPath 進行資料導覽，以及 CQL 如何被編譯為 ELM（運算式邏輯模型）以供機器執行。",
+      "fhirpath": {
+        "title": "CQL 中的 FHIRPath",
+        "description": "FHIRPath 是一種專為 FHIR 資源設計的路徑導覽與擷取語言。CQL 整合了 FHIRPath 語法，用於遍歷資源屬性、篩選集合和測試條件。理解 FHIRPath 對於撰寫有效的 FHIR 資料 CQL 查詢至關重要。",
+        "traversal": "路徑遍歷與點記法",
+        "whereFiltering": ".where() 篩選",
+        "collectionFunctions": "集合函式：.exists()、.empty()、.count()、.first()、.last()、.ofType()",
+        "resolveReferences": ".resolve() — 追蹤 FHIR 引用",
+        "cqlVsFhirpath": "CQL 查詢 vs FHIRPath 運算式",
+        "clinicalExample": "臨床範例：導覽複雜 FHIR 資源",
+        "keyPoints": "重點：FHIRPath 使用點記法進行遍歷，並自動對集合進行迭代。CQL 擴展了 FHIRPath，提供完整的查詢語法（別名、多來源、聚合、let、排序）。使用 .where() 進行行內篩選，.ofType() 進行多型導覽。.resolve() 函式追蹤 FHIR 引用連結以擷取被引用的資源。"
+      },
+      "elm": {
+        "title": "理解 ELM",
+        "description": "ELM（Expression Logical Model，運算式邏輯模型）是 CQL 被編譯後產生的機器可讀中間表示。雖然您以人類可讀的形式撰寫 CQL，但 CQL 引擎實際執行的是 ELM 表示。理解 ELM 有助於除錯翻譯錯誤，並了解引擎如何解釋您的邏輯。",
+        "cqlSource": "CQL 原始碼",
+        "elmOutput": "ELM JSON 輸出",
+        "keyNodeTypes": "關鍵 ELM 節點類型",
+        "debuggingErrors": "閱讀 ELM 錯誤以進行除錯",
+        "keyPoints": "重點：CQL 在執行前一定會被翻譯為 ELM。ELM 是具型別的運算式節點樹（Retrieve、Query、FunctionRef、Property 等）。翻譯錯誤會顯示嚴重度、訊息和錯誤類型。常見錯誤包括型別不匹配（將列表當作單一元素存取）和無法解析的識別碼（引用未定義的定義）。"
+      }
+    },
+    "ecqmTutorial": {
+      "title": "eCQM 開發教學",
+      "subtitle": "從理解結構到使用病患資料測試，逐步指導您使用 CQL 建構電子臨床品質指標。",
+      "step1": {
+        "title": "步驟一：理解 eCQM 結構",
+        "description": "eCQM（electronic Clinical Quality Measure，電子臨床品質指標）是使用可計算邏輯來量測醫療品質的標準化方式。每個 eCQM 定義了將病患分類的母群體標準，以及計算品質率的評分方法。最常見的類型是比例量測，計算達到品質目標的病患百分比。",
+        "populationFlow": "母群體標準流程",
+        "scoringTypes": "評分類型概述",
+        "keyPoints": "重點：每個 eCQM 都有初始母群體（IPP）定義符合條件的病患。分母通常與 IPP 相同或是其子集。分子識別達到品質目標的病患。分母排除移除不應被量測的病患（如安寧照護）。分母例外捕捉未達分子的有效臨床原因。"
+      },
+      "step2": {
+        "title": "步驟二：建構比例量測指標",
+        "description": "讓我們建構一個完整的「糖尿病 HbA1c 控制」eCQM — 量測 18-75 歲糖尿病患者中，最近一次 HbA1c 低於 9% 的百分比。這是臨床實務中最常見的品質指標之一。",
+        "libraryHeader": "程式庫標頭、值集與參數",
+        "ipp": "初始母群體（IPP）",
+        "denominator": "分母",
+        "numerator": "分子",
+        "denomExclusion": "分母排除",
+        "completeCql": "完整 CQL（所有母群體）"
+      },
+      "step3": {
+        "title": "步驟三：測試與驗證",
+        "description": "測試 eCQM 需要建立具有已知資料的測試病患組合，並驗證每位病患是否落入預期的母群體。測試案例應指定預期的母群體成員資格（IPP、分母、分子等），並包含評估指標所需的最少 FHIR 資源。",
+        "testBundle": "測試病患組合（FHIR JSON）",
+        "debuggingTips": "常見除錯問題：(1) 日期範圍 — 確保 Observation.effectiveDateTime 落在量測期間內。(2) 缺失代碼 — 確認代碼系統 URI 和代碼值完全匹配。(3) 狀態篩選 — 檢查資源狀態值是否與 where 子句匹配（例如 Observation 的 'final'、Condition 的 'active'）。(4) 引用連結 — 確保 subject 引用指向正確的 Patient 資源。"
+      },
+      "step4": {
+        "title": "步驟四：實際範例 — CMS146",
+        "description": "CMS146（咽炎適當檢測）是一個著名的 CMS 品質指標，展示了多資源查詢和時序關係。它量測被診斷為咽炎的兒童和成人在開立抗生素處方前是否接受了 A 群鏈球菌檢測。以下我們檢視 CQL 邏輯，並展示如何將美國特定術語對應到台灣/TWCORE 對等項。",
+        "cms146Cql": "CMS146 CQL 邏輯",
+        "twcoreMapping": "TWCORE 術語對應",
+        "keyPoints": "重點：CMS 指標使用美國特定的值集（VSAC）和藥品代碼（RxNorm）。台灣方面，診斷使用 ICD-10-CM-TW，藥品使用健保藥品代碼。LOINC 檢驗代碼是國際標準，通常無需更改即可使用。在調適外國指標時，專注於術語對應，同時保持母群體邏輯結構不變。"
       }
     },
     "progress": {
