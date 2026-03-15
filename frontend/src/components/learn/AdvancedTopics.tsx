@@ -126,7 +126,7 @@ export default function AdvancedTopics() {
         {t('learn.advanced.subtitle')}
       </Typography>
 
-      <Grid spacing={3}>
+      <Grid container spacing={3}>
         {TOPICS.map(({ key, code }) => (
           <Grid key={key} size={12}>
             <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>

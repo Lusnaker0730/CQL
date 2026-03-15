@@ -28,7 +28,7 @@ export default function ConceptGuide() {
         {t('learn.concepts.title')}
       </Typography>
 
-      <Grid spacing={3} sx={{ mt: 1 }}>
+      <Grid container spacing={3} sx={{ mt: 1 }}>
         {CONCEPTS.map(({ key, code }, index) => (
           <Grid size={{ xs: 12, md: 6 }} key={key}>
             <Paper

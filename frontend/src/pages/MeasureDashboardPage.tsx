@@ -83,7 +83,7 @@ function OverviewCards({ data }: { data: DashboardSummary }) {
   ]
 
   return (
-    <Grid spacing={2}>
+    <Grid container spacing={2}>
       {cards.map((card) => (
         <Grid size={{ xs: 12, sm: 6, md: 'grow' }} key={card.label}>
           <Paper
@@ -297,7 +297,7 @@ export default function MeasureDashboardPage() {
       />
 
       {/* Overview cards + Alerts */}
-      <Grid spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 9 }}>
           <OverviewCards data={data} />
         </Grid>
@@ -314,7 +314,7 @@ export default function MeasureDashboardPage() {
       )}
 
       {/* Department drill-down + Score distribution */}
-      <Grid spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 6 }}>
           {enhancedData?.departmentScores && Object.keys(enhancedData.departmentScores).length > 0 ? (
             <DepartmentDrilldownChart data={enhancedData.departmentScores} />
@@ -330,7 +330,7 @@ export default function MeasureDashboardPage() {
       </Grid>
 
       {/* Recent evaluations + Quality report */}
-      <Grid spacing={3}>
+      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 7 }}>
           <RecentEvaluationsTable evaluations={data.recentEvaluations} />
         </Grid>

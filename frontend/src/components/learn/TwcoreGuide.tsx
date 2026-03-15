@@ -29,7 +29,7 @@ export default function TwcoreGuide() {
         {t('learn.twcore.title')}
       </Typography>
 
-      <Grid spacing={3} sx={{ mt: 1 }}>
+      <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Overview */}
         <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>

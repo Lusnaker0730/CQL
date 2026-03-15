@@ -16,7 +16,7 @@ export default function CqlIntroduction() {
         {t('learn.introduction.title')}
       </Typography>
 
-      <Grid spacing={3} sx={{ mt: 1 }}>
+      <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* What is CQL */}
         <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
@@ -85,7 +85,7 @@ export default function CqlIntroduction() {
               <AppIcon sx={{ mr: 1, verticalAlign: 'middle', fontSize: 22 }} />
               {t('learn.introduction.applications.title')}
             </Typography>
-            <Grid spacing={2} sx={{ mt: 0.5 }}>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
               {(['ecqm', 'cds', 'phenotyping', 'research'] as const).map((key) => (
                 <Grid size={{ xs: 12, sm: 6 }} key={key}>
                   <Box

@@ -110,7 +110,7 @@ export default function TroubleshootingGuide() {
         {t('learn.troubleshooting.subtitle')}
       </Typography>
 
-      <Grid spacing={3}>
+      <Grid container spacing={3}>
         {ERROR_KEYS.map((key) => (
           <Grid key={key} size={12}>
             <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>

@@ -65,7 +65,7 @@ export default function MeasuresPage() {
         )}
 
         {topTab === 1 && (
-          <Grid spacing={2} sx={{ height: '100%' }}>
+          <Grid container spacing={2} sx={{ height: '100%' }}>
             {/* Left panel: Measure Library */}
             <Grid size={{ xs: 12, md: selectedMeasure ? 4 : 12 }} sx={{ height: '100%' }}>
               <MeasureLibrary onSelectMeasure={handleSelectMeasure} />
