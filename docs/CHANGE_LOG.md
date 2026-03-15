@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-058 | ✨ feature | 2026-03-15 | 前端（學習中心） | CQL 官方規範缺漏補齊 — 語言參考（條件式/Null/型別/Date-Time/字串）+ FHIRPath & ELM 解讀 + eCQM 實戰教學（糖尿病 HbA1c 指標建構 + CMS146 範例）| 13 Tab、+1372 行 | [`67540f0`](../../commit/67540f0) |
 | BUG-094 | 🐛 bugfix | 2026-03-15 | 前端（全頁面） | MUI v7 Grid container prop 修復 — Dependabot 升級 MUI v5→v7 後 Grid 缺少 container prop 導致版面垂直堆疊，修復 15 個檔案 | EditorPage/CdsPage/MeasuresPage 等 | [`c93e0ef`](../../commit/c93e0ef) |
 | PAT-057 | ✨ feature | 2026-03-15 | 前端（學習中心） | CQL 學習中心全面優化 — Monaco 練習場 + 「在編輯器中開啟」按鈕 + 進階主題/排錯指南/速查表 3 新 Tab + 測驗弱項提示 + i18n 修復 + 速查表擴充（基本結構 12 項 + 資料存取 13 項）| 10 Tab、+1292 行 | [`3edac7b`](../../commit/3edac7b) [`acd9136`](../../commit/acd9136) |
 | BUG-093 | 🔧 refactor | 2026-03-15 | CI/CD（Deploy） | 移除 K8s 部署步驟 — 保留 Build+Push GHCR + Verify Migrations + Notify，修復 Deploy workflow 失敗 | -149 行 | [`6af3f31`](../../commit/6af3f31) |
