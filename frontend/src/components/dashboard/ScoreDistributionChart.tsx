@@ -3,7 +3,7 @@ import { Box, Typography, Paper } from '@mui/material'
 import { CHART_HEIGHT } from '../../constants/layout'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { useTranslation } from 'react-i18next'
-import { CHART_COLORS } from './ScoreTrendChart'
+import { CHART_COLORS } from '../../constants/chartColors'
 
 interface ScoreDistributionChartProps {
   data: Record<string, number>

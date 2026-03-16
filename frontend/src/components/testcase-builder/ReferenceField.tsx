@@ -22,7 +22,7 @@ export default function ReferenceField({ element, value, onChange }: ReferenceFi
   const ref = (value as Reference) || {}
 
   // Build reference options from bundle entries, filtered by allowed target types
-  const targets = element.referenceTargets || []
+  const targets = useMemo(() => element.referenceTargets || [], [element.referenceTargets])
   const options = useMemo(
     () => state.entries
       .filter((e) => targets.length === 0 || targets.includes(e.resourceType))
