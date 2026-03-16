@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Stack,
   CircularProgress,
@@ -27,8 +27,6 @@ import { fhirApi } from '../../api'
 import {
   getResourceCount,
   getDisplayFields,
-  extractPaginationLinks,
-  extractSearchParamsFromUrl,
 } from '../../utils/fhirBrowserUtils'
 import type { FhirResource } from '../../utils/fhirBrowserUtils'
 import ResourceDetailDialog from './ResourceDetailDialog'
@@ -54,6 +52,8 @@ interface FhirBundle extends Record<string, unknown> {
   link?: Array<{ relation: string; url: string }>
 }
 
+const PAGE_SIZE = 20
+
 interface SearchTabProps {
   fhirServer: string
   resourceType: string
@@ -67,6 +67,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
   const [selectedResource, setSelectedResource] = useState<FhirResource | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(0)
 
   const { recent, favorites, addEntry, toggleFavorite, removeEntry, clearHistory } = useFhirQueryHistory()
 
@@ -78,6 +79,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     },
     onSuccess: (data) => {
       setSearchResult(data as FhirBundle)
+      setCurrentPage(0)
       addEntry(resourceType, searchParams, fhirServer)
     },
   })
@@ -92,14 +94,15 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     }
   }
 
-  const paginationLinks = searchResult ? extractPaginationLinks(searchResult) : {}
+  const allEntries = useMemo(() => searchResult?.entry || [], [searchResult])
+  const totalEntries = allEntries.length
+  const totalPages = Math.ceil(totalEntries / PAGE_SIZE)
 
-  const handlePageNav = (url: string) => {
-    const { resourceType: rt, params } = extractSearchParamsFromUrl(url)
-    searchMutation.mutate({ type: rt, raw: params })
-  }
+  const pagedEntries = useMemo(
+    () => allEntries.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
+    [allEntries, currentPage]
+  )
 
-  const entries: FhirBundleEntry[] = searchResult?.entry || []
   const fields = getDisplayFields(resourceType)
 
   const handleRowClick = (resource: FhirResource) => {
@@ -114,6 +117,14 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
 
   const handleRefresh = () => {
     searchMutation.mutate({})
+  }
+
+  const handlePrevPage = () => {
+    setCurrentPage(p => Math.max(0, p - 1))
+  }
+
+  const handleNextPage = () => {
+    setCurrentPage(p => Math.min(totalPages - 1, p + 1))
   }
 
   return (
@@ -161,42 +172,51 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         </Alert>
       )}
 
+      {searchMutation.isPending && (
+        <Alert severity="info">{t('search.searching')}</Alert>
+      )}
+
       {searchResult && (
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" mb={1} justifyContent="space-between">
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="subtitle2">{t('search.results')}</Typography>
               <Chip
-                label={t('search.resourceCount', { count: getResourceCount(searchResult) })}
+                label={t('search.resourceCount', { count: totalEntries || getResourceCount(searchResult) })}
                 size="small"
                 sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.main', fontWeight: 600 }}
               />
             </Stack>
-            <Stack direction="row" spacing={0.5}>
-              {paginationLinks.prev && (
-                <Button
-                  size="small"
-                  startIcon={<PrevIcon />}
-                  onClick={() => handlePageNav(paginationLinks.prev!)}
-                  disabled={searchMutation.isPending}
-                >
-                  {t('search.prev')}
-                </Button>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {totalPages > 1 && (
+                <Typography variant="caption" color="text.secondary">
+                  {currentPage + 1} / {totalPages}
+                </Typography>
               )}
-              {paginationLinks.next && (
-                <Button
-                  size="small"
-                  endIcon={<NextIcon />}
-                  onClick={() => handlePageNav(paginationLinks.next!)}
-                  disabled={searchMutation.isPending}
-                >
-                  {t('search.next')}
-                </Button>
-              )}
+              <Stack direction="row" spacing={0.5}>
+                {currentPage > 0 && (
+                  <Button
+                    size="small"
+                    startIcon={<PrevIcon />}
+                    onClick={handlePrevPage}
+                  >
+                    {t('search.prev')}
+                  </Button>
+                )}
+                {currentPage < totalPages - 1 && (
+                  <Button
+                    size="small"
+                    endIcon={<NextIcon />}
+                    onClick={handleNextPage}
+                  >
+                    {t('search.next')}
+                  </Button>
+                )}
+              </Stack>
             </Stack>
           </Stack>
 
-          {entries.length > 0 ? (
+          {pagedEntries.length > 0 ? (
             <TableContainer
               sx={{
                 bgcolor: 'action.hover',
@@ -216,11 +236,11 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {entries.map((entry, idx) => {
+                  {pagedEntries.map((entry, idx) => {
                     const resource: FhirResource = entry.resource || { resourceType: '' }
                     return (
                       <TableRow
-                        key={idx}
+                        key={resource.id || idx}
                         hover
                         sx={{ cursor: 'pointer' }}
                         onClick={() => handleRowClick(resource)}

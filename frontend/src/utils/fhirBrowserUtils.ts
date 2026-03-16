@@ -198,26 +198,6 @@ export function getDisplayFields(resourceType: string): DisplayField[] {
   return RESOURCE_DISPLAY_FIELDS[resourceType] || FALLBACK_FIELDS
 }
 
-export function extractPaginationLinks(bundle: Record<string, unknown>): { next?: string; prev?: string } {
-  const links = bundle.link as Array<{ relation: string; url: string }> | undefined
-  if (!links) return {}
-  const next = links.find(l => l.relation === 'next')?.url
-  const prev = links.find(l => l.relation === 'previous' || l.relation === 'prev')?.url
-  return { next, prev }
-}
-
-export function extractSearchParamsFromUrl(url: string): { resourceType: string; params: string } {
-  try {
-    const u = new URL(url)
-    const pathParts = u.pathname.split('/').filter(Boolean)
-    const resourceType = pathParts[pathParts.length - 1] || 'Patient'
-    const params = u.search ? u.search.substring(1) : ''
-    return { resourceType, params }
-  } catch {
-    return { resourceType: 'Patient', params: '' }
-  }
-}
-
 export const RESOURCE_SEARCH_PARAMS: Record<string, { name: string; type: string; label: string }[]> = {
   Patient: [
     { name: 'name', type: 'string', label: 'Name' },

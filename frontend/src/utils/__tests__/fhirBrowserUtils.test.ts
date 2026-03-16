@@ -3,8 +3,6 @@ import {
   formatJson,
   getResourceCount,
   getDisplayFields,
-  extractPaginationLinks,
-  extractSearchParamsFromUrl,
   RESOURCE_DISPLAY_FIELDS,
   FHIR_RESOURCE_TYPES,
   type FhirResource,
@@ -81,53 +79,6 @@ describe('getDisplayFields', () => {
       code: { coding: [{ display: 'Blood Pressure' }] },
     }
     expect(codeField.extract(obs)).toBe('Blood Pressure')
-  })
-})
-
-describe('extractPaginationLinks', () => {
-  it('should return empty object when no links', () => {
-    expect(extractPaginationLinks({})).toEqual({})
-  })
-
-  it('should extract next link', () => {
-    const bundle = {
-      link: [{ relation: 'next', url: 'http://example.com/next' }],
-    }
-    expect(extractPaginationLinks(bundle).next).toBe('http://example.com/next')
-  })
-
-  it('should extract prev link with "previous" relation', () => {
-    const bundle = {
-      link: [{ relation: 'previous', url: 'http://example.com/prev' }],
-    }
-    expect(extractPaginationLinks(bundle).prev).toBe('http://example.com/prev')
-  })
-
-  it('should extract prev link with "prev" relation', () => {
-    const bundle = {
-      link: [{ relation: 'prev', url: 'http://example.com/prev' }],
-    }
-    expect(extractPaginationLinks(bundle).prev).toBe('http://example.com/prev')
-  })
-})
-
-describe('extractSearchParamsFromUrl', () => {
-  it('should extract resourceType from URL path', () => {
-    const result = extractSearchParamsFromUrl('http://example.com/fhir/Patient?name=Smith')
-    expect(result.resourceType).toBe('Patient')
-    expect(result.params).toBe('name=Smith')
-  })
-
-  it('should return Patient as default for invalid URL', () => {
-    const result = extractSearchParamsFromUrl('not-a-url')
-    expect(result.resourceType).toBe('Patient')
-    expect(result.params).toBe('')
-  })
-
-  it('should handle URL without query params', () => {
-    const result = extractSearchParamsFromUrl('http://example.com/fhir/Observation')
-    expect(result.resourceType).toBe('Observation')
-    expect(result.params).toBe('')
   })
 })
 

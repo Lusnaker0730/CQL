@@ -4,6 +4,7 @@ import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { BrowserRouter } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import { useTranslation } from 'react-i18next'
 import './i18n'
 import App from './App'
@@ -55,18 +56,20 @@ function ThemedApp() {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <PreferencesProvider>
-          <NotificationProvider>
-            <TerminologyDrawerProvider>
-              <LibraryHistoryProvider>
-                <ThemedApp />
-              </LibraryHistoryProvider>
-            </TerminologyDrawerProvider>
-          </NotificationProvider>
-        </PreferencesProvider>
-      </QueryClientProvider>
-    </Provider>
+    <HelmetProvider>
+      <Provider store={store}>
+        <QueryClientProvider client={queryClient}>
+          <PreferencesProvider>
+            <NotificationProvider>
+              <TerminologyDrawerProvider>
+                <LibraryHistoryProvider>
+                  <ThemedApp />
+                </LibraryHistoryProvider>
+              </TerminologyDrawerProvider>
+            </NotificationProvider>
+          </PreferencesProvider>
+        </QueryClientProvider>
+      </Provider>
+    </HelmetProvider>
   </React.StrictMode>
 )

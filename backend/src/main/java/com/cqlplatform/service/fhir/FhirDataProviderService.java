@@ -129,16 +129,40 @@ public class FhirDataProviderService {
         return url != null ? url : defaultFhirServerUrl;
     }
 
+    private static final int MAX_SEARCH_RESULTS = 10000;
+
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "searchResourcesFallback")
     @Retry(name = "fhirDataProvider")
     public Bundle searchResources(String fhirServerUrl, String resourceType, String searchParams) {
         IGenericClient client = createClient(fhirServerUrl);
         try {
-            return client.search()
+            Bundle bundle = client.search()
                     .forResource(resourceType)
                     .whereMap(parseSearchParams(searchParams))
+                    .count(200)
                     .returnBundle(Bundle.class)
                     .execute();
+
+            // Collect all pages into one Bundle
+            List<Bundle.BundleEntryComponent> allEntries = new ArrayList<>(
+                    bundle.getEntry() != null ? bundle.getEntry() : List.of());
+
+            while (bundle.getLink(Bundle.LINK_NEXT) != null && allEntries.size() < MAX_SEARCH_RESULTS) {
+                bundle = client.loadPage().next(bundle).execute();
+                if (bundle.getEntry() != null) {
+                    allEntries.addAll(bundle.getEntry());
+                }
+            }
+
+            // Build a single result Bundle with all entries
+            Bundle result = new Bundle();
+            result.setType(Bundle.BundleType.SEARCHSET);
+            result.setTotal(allEntries.size());
+            result.setEntry(allEntries);
+            if (allEntries.size() >= MAX_SEARCH_RESULTS) {
+                log.warn("Search results truncated at {} for {}", MAX_SEARCH_RESULTS, resourceType);
+            }
+            return result;
         } catch (Exception e) {
             log.error("Failed to search FHIR resources", e);
             throw new FhirServerUnavailableException("FHIR search failed: " + e.getMessage(), e);
