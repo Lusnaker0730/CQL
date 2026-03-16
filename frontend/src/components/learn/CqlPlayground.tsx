@@ -58,7 +58,7 @@ export default function CqlPlayground() {
         setResult({ success: true, message: t('learn.playground.success') })
       }
     } catch {
-      setResult({ success: false, message: 'Translation failed. Please check your CQL syntax.' })
+      setResult({ success: false, message: t('learn.playground.translationFailed') })
     } finally {
       setLoading(false)
     }

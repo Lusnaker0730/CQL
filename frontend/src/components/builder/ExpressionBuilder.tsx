@@ -12,6 +12,7 @@ import {
   ToggleButton,
   Tooltip,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -162,7 +163,7 @@ export default function ExpressionBuilder({
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 1,
-            bgcolor: 'rgba(27,58,92,0.02)',
+            bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.02),
           }}
         >
           {idx > 0 && (
@@ -188,14 +189,14 @@ export default function ExpressionBuilder({
               onChange={(v) => updateRow(row.id, 'operand', v)}
               expressions={typedExpressions}
               parameters={parameters}
-              label="Operand"
+              label={t('expression.operandLabel')}
             />
 
             <Stack direction="row" spacing={0.5} alignItems="center">
               <TextField
                 select
                 size="small"
-                label="Operator"
+                label={t('expression.operatorLabel')}
                 value={row.operator}
                 onChange={(e) => updateRow(row.id, 'operator', e.target.value)}
                 sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
@@ -219,7 +220,7 @@ export default function ExpressionBuilder({
                 <>
                   <TextField
                     size="small"
-                    label="Value"
+                    label={t('expression.valueLabel')}
                     value={row.value}
                     onChange={(e) => updateRow(row.id, 'value', e.target.value)}
                     sx={{ flex: 1, '& input': { fontSize: '0.8rem', fontFamily: 'monospace' } }}

@@ -84,7 +84,9 @@
     "fhirRetrieveTrace": "FHIR 擷取追蹤",
     "resourceType": "資源類型",
     "count": "數量",
-    "totalTime": "總執行時間：{{ms}}ms"
+    "totalTime": "總執行時間：{{ms}}ms",
+    "sourceLine": "來源：第 {{line}} 行",
+    "dependsOn": "依賴於："
   },
   "version": {
     "createTitle": "建立新的{{type}}版本",

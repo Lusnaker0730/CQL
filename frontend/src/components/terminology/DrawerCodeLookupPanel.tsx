@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -33,6 +33,7 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
   const [system, setSystem] = useState('')
   const [code, setCode] = useState('')
   const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   const lookupMutation = useLookupCode()
 
@@ -49,7 +50,8 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
     if (!result) return
     await navigator.clipboard.writeText(`${result.system}|${result.code}`)
     setCopied(true)
-    setTimeout(() => setCopied(false), COPY_FEEDBACK_TIMEOUT_MS)
+    clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopied(false), COPY_FEEDBACK_TIMEOUT_MS)
   }
 
   const selectedEntry = ALL_CODE_SYSTEMS.find((cs) => cs.url === system) || null

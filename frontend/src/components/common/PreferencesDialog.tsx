@@ -268,8 +268,8 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
                     icon={<CheckCircle />}
                     label={
                       aiStatus.provider === 'ollama'
-                        ? `Ollama (${aiStatus.model})`
-                        : `Cloud (${aiStatus.model})`
+                        ? t('preferences.aiProviderOllama', { model: aiStatus.model })
+                        : t('preferences.aiProviderCloud', { model: aiStatus.model })
                     }
                     color="success"
                     variant="outlined"

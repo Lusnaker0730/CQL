@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { downloadBlob } from '../../utils/download'
 import {
@@ -197,8 +198,14 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     return { groups, ungrouped }
   }, [testCases])
 
+  const runResultMap = useMemo(() => {
+    const map = new Map<number, TestCaseRunResult>()
+    for (const r of runResults) map.set(r.testCaseId, r)
+    return map
+  }, [runResults])
+
   const renderTestCaseRow = (tc: TestCase) => {
-    const result = runResults.find((r) => r.testCaseId === tc.id)
+    const result = runResultMap.get(tc.id!)
     const coverage = coverageData[tc.id!]
     return (
       <Paper key={tc.id} variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -215,7 +222,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             {tc.expectedPopulations && (
               <Stack direction="row" spacing={0.25}>
                 {Object.entries(tc.expectedPopulations).filter(([, v]) => v).map(([key]) => (
-                  <Chip key={key} label={t(`testCaseEditor.populationTypesShort.${key}`, key.substring(0, 3))} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(13,115,119,0.08)' }} />
+                  <Chip key={key} label={t(`testCaseEditor.populationTypesShort.${key}`, key.substring(0, 3))} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08) }} />
                 ))}
               </Stack>
             )}
@@ -299,7 +306,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             startIcon={<CalcIcon />}
             onClick={() => setDateCalcOpen(true)}
             variant="outlined"
-            sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
+            sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.dateCalculator')}
           </Button>
@@ -309,7 +316,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             onClick={() => runAllMutation.mutate()}
             disabled={testCases.length === 0 || runAllMutation.isPending}
             sx={{
-              borderColor: 'rgba(13,115,119,0.4)',
+              borderColor: (theme) => alpha(theme.palette.primary.main, 0.4),
               color: 'primary.dark',
             }}
             variant="outlined"
@@ -322,7 +329,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             onClick={exportAllTestCases}
             disabled={testCases.length === 0}
             variant="outlined"
-            sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
+            sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.exportAll')}
           </Button>
@@ -331,7 +338,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             startIcon={<ImportIcon />}
             onClick={() => setImportDialogOpen(true)}
             variant="outlined"
-            sx={{ borderColor: 'rgba(13,115,119,0.4)', color: 'primary.dark' }}
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
           >
             {t('testCases.import')}
           </Button>

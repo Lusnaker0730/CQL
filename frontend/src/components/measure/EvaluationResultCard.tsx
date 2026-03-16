@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { alpha } from '@mui/material/styles'
 import {
   Box,
   Typography,
@@ -102,7 +103,7 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                   sx={{
                     height: 10,
                     borderRadius: 5,
-                    bgcolor: 'rgba(13,115,119,0.08)',
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
                   }}
                 />
               </Box>

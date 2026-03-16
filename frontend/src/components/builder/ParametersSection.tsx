@@ -7,6 +7,7 @@ import {
   Typography,
   MenuItem,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
@@ -317,7 +318,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
           {t('common.addItem', { type: 'Parameter' })}
         </Button>
       ) : (
-        <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
+        <Stack spacing={1} sx={{ p: 1, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03), borderRadius: 1 }}>
           <TextField
             size="small"
             label={t('parameters.name')}

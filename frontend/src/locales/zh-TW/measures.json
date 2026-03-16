@@ -43,7 +43,18 @@
     "belowTarget": "未達標",
     "alerts": "警示",
     "noAlerts": "無閾值警示",
-    "score": "分數"
+    "score": "分數",
+    "target": "目標",
+    "status": {
+      "above_target": "達標",
+      "below_target": "未達標",
+      "on_target": "達標"
+    },
+    "thresholdType": {
+      "target": "目標",
+      "warning": "警告",
+      "critical": "嚴重"
+    }
   },
   "library": {
     "title": "指標庫",

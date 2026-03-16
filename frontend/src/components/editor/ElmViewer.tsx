@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
-import { useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { alpha } from '@mui/material/styles'
 import {
   Box,
   Typography,
@@ -25,6 +25,7 @@ import {
   Info as InfoIcon,
   AutoFixHigh as AiFixIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import type { TerminologyValidationItem } from '../../types'
@@ -58,6 +59,11 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
       return null
     }
   }, [elmJson])
+
+  const formattedElm = useMemo(() => {
+    if (!parsedElm) return null
+    return JSON.stringify(parsedElm, null, 2)
+  }, [parsedElm])
 
   const metadata = useMemo(() => {
     if (!parsedElm) return null
@@ -144,7 +150,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                     sx={{
                       mr: 1,
                       mb: 1,
-                      bgcolor: 'rgba(13,115,119,0.08)',
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
                       color: 'primary.dark',
                       fontWeight: 500,
                     }}
@@ -166,7 +172,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                     sx={{
                       mr: 1,
                       mb: 1,
-                      bgcolor: 'rgba(27,58,92,0.08)',
+                      bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.08),
                       color: 'secondary.main',
                       fontWeight: 500,
                     }}
@@ -188,7 +194,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                     sx={{
                       mr: 1,
                       mb: 1,
-                      bgcolor: 'rgba(13,115,119,0.08)',
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
                       color: 'primary.dark',
                       fontWeight: 500,
                     }}
@@ -210,7 +216,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                     sx={{
                       mr: 1,
                       mb: 1,
-                      bgcolor: 'rgba(46,125,50,0.08)',
+                      bgcolor: (theme) => alpha(theme.palette.success.main, 0.08),
                       color: 'success.dark',
                       fontWeight: 500,
                     }}
@@ -233,7 +239,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                     sx={{
                       mr: 1,
                       mb: 1,
-                      borderColor: 'rgba(13,115,119,0.3)',
+                      borderColor: (theme) => alpha(theme.palette.primary.main, 0.3),
                       color: 'primary.dark',
                     }}
                   />
@@ -257,7 +263,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                 elevation={0}
                 sx={{
                   p: 2,
-                  bgcolor: 'rgba(211,47,47,0.06)',
+                  bgcolor: (theme) => alpha(theme.palette.error.main, 0.06),
                   borderLeft: '4px solid',
                   borderLeftColor: 'error.main',
                   borderRadius: '0 8px 8px 0',
@@ -320,7 +326,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                 </Stack>
                 <Collapse in={activeSuggestion?.index === i && (!!activeSuggestion?.explanation || !!activeSuggestion?.suggestedCql || !!activeSuggestion?.errorMessage)}>
                   {activeSuggestion?.index === i && (
-                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderTopColor: 'divider' }}>
                       {activeSuggestion.errorMessage ? (
                         <>
                           <Typography variant="body2" color="error.main" sx={{ mb: 1 }}>
@@ -371,20 +377,15 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                           )}
                           <Stack direction="row" spacing={1}>
                             {activeSuggestion.suggestedCql && onApplyFix && (
-                              <Button
+                              <GradientButton
                                 size="small"
-                                variant="contained"
                                 onClick={() => {
                                   onApplyFix(activeSuggestion.suggestedCql!)
                                   setActiveSuggestion(null)
                                 }}
-                                sx={{
-                                  textTransform: 'none',
-                                  background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-                                }}
                               >
                                 {t('elm.applyFix')}
-                              </Button>
+                              </GradientButton>
                             )}
                             <Button size="small" onClick={() => setActiveSuggestion(null)} sx={{ textTransform: 'none' }}>
                               {t('elm.dismiss')}
@@ -412,7 +413,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                 elevation={0}
                 sx={{
                   p: 2,
-                  bgcolor: 'rgba(237,108,2,0.06)',
+                  bgcolor: (theme) => alpha(theme.palette.warning.main, 0.06),
                   borderLeft: '4px solid',
                   borderLeftColor: 'warning.main',
                   borderRadius: '0 8px 8px 0',
@@ -447,7 +448,7 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
               color: 'text.primary',
             }}
           >
-            {JSON.stringify(parsedElm, null, 2)}
+            {formattedElm}
           </Box>
         ) : (
           <Typography color="text.secondary">

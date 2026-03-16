@@ -60,6 +60,7 @@
     "inReview": "In Review",
     "loading": "Loading..."
   },
+  "notAvailable": "N/A",
   "preferences": {
     "title": "Preferences",
     "editorSettings": "Editor Settings",
@@ -103,7 +104,9 @@
     "aiKeySave": "Update API Key",
     "aiKeySaving": "Saving...",
     "aiKeySaved": "AI API key updated successfully",
-    "aiKeySaveFailed": "Failed to update AI API key"
+    "aiKeySaveFailed": "Failed to update AI API key",
+    "aiProviderOllama": "Ollama ({{model}})",
+    "aiProviderCloud": "Cloud ({{model}})"
   },
   "errors": {
     "applicationError": "Application Error",

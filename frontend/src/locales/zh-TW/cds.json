@@ -84,7 +84,9 @@
     "saveFailed": "儲存服務失敗：{{error}}",
     "deleteFailed": "刪除服務失敗：{{error}}",
     "rollbackFailed": "回滾失敗：{{error}}",
-    "loadError": "無法載入服務"
+    "loadError": "無法載入服務",
+    "fieldServiceId": "服務 ID",
+    "fieldTitle": "標題"
   },
   "sandbox": {
     "description": "在不需要真實 FHIR 伺服器的情況下測試 CDS 服務。可視覺化建立測試資料或直接編輯 JSON。",

@@ -138,7 +138,7 @@ export default function LoginForm() {
               width: 48,
               height: 48,
               borderRadius: '14px',
-              background: 'linear-gradient(135deg, #0D7377, #1B3A5C)',
+              background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',

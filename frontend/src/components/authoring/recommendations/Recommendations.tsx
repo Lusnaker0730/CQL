@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
@@ -29,14 +29,14 @@ export default function Recommendations({ recommendations, subpopulations, onCha
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
-  const GRADES = [
+  const GRADES = useMemo(() => [
     { value: '', label: t('recommendations.gradeNone') },
     { value: 'A', label: t('recommendations.gradeA') },
     { value: 'B', label: t('recommendations.gradeB') },
     { value: 'C', label: t('recommendations.gradeC') },
     { value: 'D', label: t('recommendations.gradeD') },
     { value: 'I', label: t('recommendations.gradeI') },
-  ]
+  ], [t])
   const pendingDeleteIndex = pendingDeleteId
     ? recommendations.findIndex((r) => r.uid === pendingDeleteId)
     : -1
@@ -169,8 +169,10 @@ export default function Recommendations({ recommendations, subpopulations, onCha
     handleUpdate(uid, { suggestions })
   }
 
-  const nonSpecialSubpops = subpopulations.filter((sp) => !sp.special)
-  const allSubpopsForRec = [...nonSpecialSubpops, ...SPECIAL_SUBPOPS]
+  const allSubpopsForRec = useMemo(
+    () => [...subpopulations.filter((sp) => !sp.special), ...SPECIAL_SUBPOPS],
+    [subpopulations]
+  )
 
   return (
     <Box>

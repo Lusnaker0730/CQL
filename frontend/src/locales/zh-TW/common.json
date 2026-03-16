@@ -60,6 +60,7 @@
     "inReview": "審核中",
     "loading": "載入中..."
   },
+  "notAvailable": "N/A",
   "preferences": {
     "title": "偏好設定",
     "editorSettings": "編輯器設定",
@@ -103,7 +104,9 @@
     "aiKeySave": "更新 API Key",
     "aiKeySaving": "儲存中...",
     "aiKeySaved": "AI API Key 更新成功",
-    "aiKeySaveFailed": "AI API Key 更新失敗"
+    "aiKeySaveFailed": "AI API Key 更新失敗",
+    "aiProviderOllama": "Ollama（{{model}}）",
+    "aiProviderCloud": "雲端（{{model}}）"
   },
   "errors": {
     "applicationError": "應用程式錯誤",

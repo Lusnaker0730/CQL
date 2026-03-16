@@ -62,21 +62,10 @@ import { bundleToPrefetch, prefetchToBundle } from '../../utils/bundlePrefetchCo
 import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
 import { DEFAULT_PATIENT_ID, DEFAULT_PREFETCH } from '../../constants/sandboxDefaults'
-import { generateId } from '../../utils/validation'
+import { generateId, getStoredUsername } from '../../utils/validation'
+import { getIndicatorColor } from '../../constants/cdsHooks'
 
 const LOCALSTORAGE_KEY = 'cds-sandbox-draft'
-
-function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
-  switch (indicator) {
-    case 'critical':
-      return 'error'
-    case 'warning':
-      return 'warning'
-    case 'info':
-    default:
-      return 'info'
-  }
-}
 
 function loadDraft(): { patientId: string; testDataJson: string } | null {
   try {
@@ -416,16 +405,7 @@ function SandboxPanelInner() {
   }
 
   // Group presets: mine vs shared
-  const currentUsername = useMemo(() => {
-    try {
-      const token = localStorage.getItem('token')
-      if (!token) return ''
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload.sub || ''
-    } catch {
-      return ''
-    }
-  }, [])
+  const currentUsername = useMemo(() => getStoredUsername(), [])
 
   const myPresets = useMemo(
     () => (presets || []).filter((p) => p.ownerUsername === currentUsername),
@@ -600,11 +580,6 @@ function SandboxPanelInner() {
         onClick={handleSandboxInvoke}
         disabled={!selectedService || sandboxMutation.isPending}
         startIcon={sandboxMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
-        sx={{
-          '&.Mui-disabled': {
-            background: 'rgba(0,0,0,0.12)',
-          },
-        }}
       >
         {sandboxMutation.isPending ? t('sandbox.invoking') : t('sandbox.invokeButton')}
       </GradientButton>

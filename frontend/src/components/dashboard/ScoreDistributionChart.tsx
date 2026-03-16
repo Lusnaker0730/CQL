@@ -1,21 +1,25 @@
+import { useMemo } from 'react'
 import { Box, Typography, Paper } from '@mui/material'
 import { CHART_HEIGHT } from '../../constants/layout'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { useTranslation } from 'react-i18next'
+import { CHART_COLORS } from './ScoreTrendChart'
 
 interface ScoreDistributionChartProps {
   data: Record<string, number>
   title?: string
 }
 
-const COLORS = ['#0D7377', '#1B3A5C', '#14A3A8', '#E8A838', '#D32F2F', '#7B1FA2', '#00BCD4']
-
 export default function ScoreDistributionChart({ data, title }: ScoreDistributionChartProps) {
   const { t } = useTranslation('measures')
 
-  const chartData = Object.entries(data)
-    .filter(([, v]) => v > 0)
-    .map(([name, value]) => ({ name, value }))
+  const chartData = useMemo(
+    () =>
+      Object.entries(data)
+        .filter(([, v]) => v > 0)
+        .map(([name, value]) => ({ name, value })),
+    [data]
+  )
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -36,7 +40,7 @@ export default function ScoreDistributionChart({ data, title }: ScoreDistributio
               fontSize={11}
             >
               {chartData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip />

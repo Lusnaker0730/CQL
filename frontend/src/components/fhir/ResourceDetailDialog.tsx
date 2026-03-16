@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { COPY_FEEDBACK_TIMEOUT_MS } from '../../constants/timing'
 import {
   Dialog,
   DialogTitle,
@@ -94,8 +95,8 @@ export default function ResourceDetailDialog({
             component="pre"
             sx={{
               p: 2,
-              bgcolor: '#1e1e1e',
-              color: '#d4d4d4',
+              bgcolor: 'grey.900',
+              color: 'grey.300',
               borderRadius: '8px',
               fontSize: '0.75rem',
               overflow: 'auto',
@@ -151,7 +152,7 @@ export default function ResourceDetailDialog({
         }}
       />
 
-      <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)}>
+      <Snackbar open={copied} autoHideDuration={COPY_FEEDBACK_TIMEOUT_MS} onClose={() => setCopied(false)}>
         <Alert severity="success" variant="filled">{t('detail.jsonCopied')}</Alert>
       </Snackbar>
     </>

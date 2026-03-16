@@ -25,3 +25,6 @@ export const PREVIEW_MAX_HEIGHT = 120
 
 /** Row height for virtualized artifact lists */
 export const ARTIFACT_ROW_HEIGHT = 52
+
+/** Height of the AppBar / top toolbar (px) */
+export const APP_BAR_HEIGHT = 64

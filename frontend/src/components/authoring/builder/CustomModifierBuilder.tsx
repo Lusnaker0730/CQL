@@ -4,6 +4,7 @@ import {
   FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions,
   Chip,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   Add as AddIcon, Delete as DeleteIcon, Close as CloseIcon,
 } from '@mui/icons-material'
@@ -401,13 +402,13 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
       direction="row"
       spacing={1}
       alignItems="center"
-      sx={{
+      sx={(theme) => ({
         p: 1,
         borderRadius: 1,
-        backgroundColor: complete ? 'transparent' : '#FFEBEE',
+        backgroundColor: complete ? 'transparent' : alpha(theme.palette.error.main, 0.08),
         border: 1,
-        borderColor: complete ? 'divider' : '#FFCDD2',
-      }}
+        borderColor: complete ? 'divider' : alpha(theme.palette.error.main, 0.2),
+      })}
     >
       {/* Field selector */}
       <FormControl size="small" sx={{ minWidth: 160 }}>

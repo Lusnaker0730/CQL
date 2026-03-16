@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Box, TextField, Typography, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
@@ -31,7 +31,7 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
   }
 
   // Create a synthetic ElementMetadata for the chosen type
-  const syntheticElement: ElementMetadata = {
+  const syntheticElement: ElementMetadata = useMemo(() => ({
     name: element.name + selectedType.charAt(0).toUpperCase() + selectedType.slice(1),
     path: element.path,
     type: selectedType,
@@ -48,7 +48,7 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
     children: [],
     description: element.description,
     referenceTargets: [],
-  }
+  }), [element, selectedType])
 
   return (
     <Box sx={{ mb: 1 }}>

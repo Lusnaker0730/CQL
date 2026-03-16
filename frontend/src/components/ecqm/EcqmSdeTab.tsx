@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Checkbox, FormControlLabel, IconButton, Paper,
@@ -23,34 +23,34 @@ export default function EcqmSdeTab({
   supplementalData, supplementalDataGuidance, templates, modifiers, onChange, onGuidanceChange,
 }: Props) {
   const { t } = useTranslation('ecqm')
-  const sdeNames = new Set(supplementalData.map((s) => s.name))
+  const sdeNames = useMemo(() => new Set(supplementalData.map((s) => s.name)), [supplementalData])
 
-  const toggleStandard = useCallback((name: string, checked: boolean) => {
+  const toggleStandard = (name: string, checked: boolean) => {
     if (checked) {
       onChange([...supplementalData, { name }])
     } else {
       onChange(supplementalData.filter((s) => s.name !== name))
     }
-  }, [supplementalData, onChange])
+  }
 
-  const addCustom = useCallback(() => {
+  const addCustom = () => {
     onChange([...supplementalData, {
       name: t('sde.defaultName', { number: supplementalData.length + 1 }),
       criteria: createEmptyConjunctionGroup() as ConjunctionGroupType,
     }])
-  }, [supplementalData, onChange, t])
+  }
 
-  const updateCustom = useCallback((idx: number, updated: SupplementalDataElement) => {
+  const updateCustom = (idx: number, updated: SupplementalDataElement) => {
     const copy = [...supplementalData]
     copy[idx] = updated
     onChange(copy)
-  }, [supplementalData, onChange])
+  }
 
-  const removeCustom = useCallback((idx: number) => {
+  const removeCustom = (idx: number) => {
     const copy = [...supplementalData]
     copy.splice(idx, 1)
     onChange(copy)
-  }, [supplementalData, onChange])
+  }
 
   return (
     <Box sx={{ p: 3, maxWidth: 900 }}>

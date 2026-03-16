@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from '@mui/material/styles'
 import {
   Box,
   Typography,
@@ -115,13 +116,14 @@ function ActivityChart({ stats, t }: { stats: AuditStatsResponse; t: (key: strin
 }
 
 function ActionDistribution({ stats, t }: { stats: AuditStatsResponse; t: (key: string) => string }) {
+  const theme = useTheme()
   const entries = Object.entries(stats.actionCounts)
   const maxCount = Math.max(...entries.map(([, v]) => v), 1)
   const colors: Record<string, string> = {
-    READ: '#0D7377',
-    CREATE: '#2E7D32',
-    UPDATE: '#ED6C02',
-    DELETE: '#D32F2F',
+    READ: theme.palette.primary.main,
+    CREATE: theme.palette.success.main,
+    UPDATE: theme.palette.warning.main,
+    DELETE: theme.palette.error.main,
   }
 
   return (
@@ -285,6 +287,7 @@ function AuditLogTable({
 
 export default function AuditDashboardPage() {
   const { t } = useTranslation('admin')
+  const theme = useTheme()
   const [tab, setTab] = useState(0)
 
   // All logs filters
@@ -373,25 +376,25 @@ export default function AuditDashboardPage() {
               title={t('audit.stats.eventsToday')}
               value={stats.totalEventsToday}
               icon={<ShieldIcon />}
-              color="#0D7377"
+              color={theme.palette.primary.main}
             />
             <StatCard
               title={t('audit.stats.phiAccessesToday')}
               value={stats.phiAccessCount}
               icon={<PhiIcon />}
-              color="#1B3A5C"
+              color={theme.palette.secondary.main}
             />
             <StatCard
               title={t('audit.stats.failedLoginsToday')}
               value={stats.failedLoginAttempts}
               icon={<WarningIcon />}
-              color="#D32F2F"
+              color={theme.palette.error.main}
             />
             <StatCard
               title={t('audit.stats.activeUsersToday')}
               value={stats.activeUsersToday}
               icon={<PeopleIcon />}
-              color="#2E7D32"
+              color={theme.palette.success.main}
             />
           </Box>
 

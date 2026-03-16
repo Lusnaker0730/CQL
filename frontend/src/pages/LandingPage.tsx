@@ -1,4 +1,5 @@
 import { Box, Typography, Button, Container, IconButton, Menu, MenuItem } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   LocalHospital as MedicalIcon,
   Translate as TranslateIcon,
@@ -49,8 +50,8 @@ export default function LandingPage() {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <MedicalIcon sx={{ color: 'white', fontSize: 24 }} />
-          <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'white' }}>
+          <MedicalIcon sx={{ color: 'common.white', fontSize: 24 }} />
+          <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'common.white' }}>
             {tc('app.title')}
           </Typography>
         </Box>
@@ -58,11 +59,11 @@ export default function LandingPage() {
           <Button
             startIcon={<LearnIcon />}
             onClick={() => navigate('/learn')}
-            sx={{ color: 'rgba(255,255,255,0.9)', textTransform: 'none', fontWeight: 600 }}
+            sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.9), textTransform: 'none', fontWeight: 600 })}
           >
             {t('hero.tryDemo')}
           </Button>
-          <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.8) })}>
             <TranslateIcon fontSize="small" />
           </IconButton>
           <Menu
@@ -82,8 +83,8 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <Box
-        sx={{
-          background: 'linear-gradient(135deg, #0D7377 0%, #1B3A5C 50%, #0F2440 100%)',
+        sx={(theme) => ({
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 50%, ${theme.palette.secondary.dark} 100%)`,
           pt: { xs: 10, md: 8 },
           pb: { xs: 6, md: 8 },
           px: 3,
@@ -96,10 +97,10 @@ export default function LandingPage() {
             right: '-20%',
             width: '60%',
             height: '200%',
-            background: 'radial-gradient(circle, rgba(20,163,168,0.15) 0%, transparent 60%)',
+            background: `radial-gradient(circle, ${alpha(theme.palette.primary.light, 0.15)} 0%, transparent 60%)`,
             pointerEvents: 'none',
           },
-        }}
+        })}
       >
         <Container maxWidth="lg">
           <Box
@@ -117,7 +118,7 @@ export default function LandingPage() {
                 variant="h3"
                 fontWeight={800}
                 sx={{
-                  color: 'white',
+                  color: 'common.white',
                   mb: 2,
                   lineHeight: 1.3,
                   fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.6rem' },
@@ -127,24 +128,24 @@ export default function LandingPage() {
               </Typography>
               <Typography
                 variant="h6"
-                sx={{
-                  color: 'rgba(255,255,255,0.85)',
+                sx={(theme) => ({
+                  color: alpha(theme.palette.common.white, 0.85),
                   mb: 2,
                   fontWeight: 400,
                   lineHeight: 1.6,
                   fontSize: { xs: '1rem', md: '1.15rem' },
-                }}
+                })}
               >
                 {t('hero.tagline')}
               </Typography>
               <Typography
                 variant="body1"
-                sx={{
-                  color: 'rgba(255,255,255,0.65)',
+                sx={(theme) => ({
+                  color: alpha(theme.palette.common.white, 0.65),
                   mb: 4,
                   lineHeight: 1.8,
                   maxWidth: 520,
-                }}
+                })}
               >
                 {t('hero.description')}
               </Typography>
@@ -154,16 +155,16 @@ export default function LandingPage() {
                   size="large"
                   startIcon={<LearnIcon />}
                   onClick={() => navigate('/learn')}
-                  sx={{
-                    bgcolor: 'white',
-                    color: '#0D7377',
+                  sx={(theme) => ({
+                    bgcolor: 'common.white',
+                    color: theme.palette.primary.main,
                     fontWeight: 700,
                     px: 3,
                     py: 1.2,
                     borderRadius: 2,
                     textTransform: 'none',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' },
-                  }}
+                    '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.9) },
+                  })}
                 >
                   {t('hero.learnMore')}
                 </Button>
@@ -193,7 +194,7 @@ export default function LandingPage() {
         sx={{
           py: 3,
           px: 3,
-          bgcolor: '#0F2440',
+          bgcolor: 'secondary.dark',
           textAlign: 'center',
         }}
       >
@@ -211,17 +212,17 @@ export default function LandingPage() {
               target="_blank"
               rel="noopener noreferrer"
               variant="body2"
-              sx={{
-                color: 'rgba(255,255,255,0.6)',
+              sx={(theme) => ({
+                color: alpha(theme.palette.common.white, 0.6),
                 textDecoration: 'none',
-                '&:hover': { color: '#14A3A8' },
-              }}
+                '&:hover': { color: theme.palette.primary.light },
+              })}
             >
               {link.label}
             </Typography>
           ))}
         </Box>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)' }}>
+        <Typography variant="caption" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.35) })}>
           {tc('app.title')} — Clinical Quality Language
         </Typography>
       </Box>

@@ -29,8 +29,9 @@ import {
   Inventory as RepositoryIcon,
   Download as ImportIcon,
 } from '@mui/icons-material'
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getStoredUsername } from '../../utils/validation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
 import { useLibraries } from '../../hooks/useCql'
@@ -70,26 +71,23 @@ export default function LibraryQuickAccess() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['libraries'] }),
   })
 
-  const currentUser = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}').username || '' }
-    catch { return '' }
-  })()
+  const currentUser = useMemo(() => getStoredUsername(), [])
 
-  const filteredLibraries = allLibraries.filter((lib) => {
+  const filteredLibraries = useMemo(() => allLibraries.filter((lib) => {
     if (browseFilter === 1) return lib.ownerUsername === currentUser
     if (browseFilter === 2) return lib.sharedWith?.includes(currentUser) || lib.accessLevel === 'shared'
     if (browseFilter === 3) return lib.accessLevel === 'public'
     return true
-  })
+  }), [allLibraries, browseFilter, currentUser])
 
-  const handleLoadLibrary = async (id: string) => {
+  const handleLoadLibrary = useCallback(async (id: string) => {
     try {
       const library = await cqlApi.getLibrary(id)
       dispatch(setCqlContent(library.cqlContent))
     } catch {
       // Library may no longer exist
     }
-  }
+  }, [dispatch])
 
   return (
     <Paper

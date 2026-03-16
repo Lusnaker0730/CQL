@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 
 import Editor, { BeforeMount, OnMount, OnChange } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { EDITOR_HEIGHT } from '../../constants/layout'
 import { useDispatch, useSelector } from 'react-redux'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'
@@ -351,20 +352,20 @@ export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
 
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         height,
         width: '100%',
         border: '1px solid',
-        borderColor: 'rgba(13,115,119,0.15)',
+        borderColor: alpha(theme.palette.primary.main, 0.15),
         borderRadius: '10px',
         overflow: 'hidden',
         transition: 'all 0.2s ease',
-        boxShadow: 'inset 0 1px 3px rgba(13,115,119,0.06)',
+        boxShadow: `inset 0 1px 3px ${alpha(theme.palette.primary.main, 0.06)}`,
         '&:focus-within': {
           borderColor: 'primary.main',
-          boxShadow: '0 0 0 3px rgba(13,115,119,0.12), inset 0 1px 3px rgba(13,115,119,0.06)',
+          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}, inset 0 1px 3px ${alpha(theme.palette.primary.main, 0.06)}`,
         },
-      }}
+      })}
     >
       <Editor
         height="100%"

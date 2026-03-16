@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -24,6 +24,8 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { cqlApi } from '../../api'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
+import { STALE_30S } from '../../constants/queryConstants'
 
 interface LibraryPickerProps {
   open: boolean
@@ -34,13 +36,20 @@ interface LibraryPickerProps {
 export default function LibraryPicker({ open, onClose, onSelect }: LibraryPickerProps) {
   const { t } = useTranslation('editor')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const { favoritesList, recentList } = useLibraryHistory()
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
+    return () => clearTimeout(timer)
+  }, [search])
+
   const { data: searchResults = [], isFetching } = useQuery({
-    queryKey: ['library-search', search],
-    queryFn: () => cqlApi.getLibraries(search || undefined),
-    enabled: search.length > 0,
+    queryKey: ['library-search', debouncedSearch],
+    queryFn: () => cqlApi.getLibraries(debouncedSearch || undefined),
+    enabled: debouncedSearch.length > 0,
+    staleTime: STALE_30S,
   })
 
   const handleSelect = async (libraryId: string) => {
@@ -135,7 +144,7 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} /> }}
           />
           {isFetching && <CircularProgress size={20} />}
-          {search.length > 0 && searchResults.length > 0 && (
+          {debouncedSearch.length > 0 && searchResults.length > 0 && (
             <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
               {searchResults.map((lib) => (
                 <ListItemButton
@@ -153,7 +162,7 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
               ))}
             </List>
           )}
-          {search.length > 0 && !isFetching && searchResults.length === 0 && (
+          {debouncedSearch.length > 0 && !isFetching && searchResults.length === 0 && (
             <Typography variant="body2" color="text.secondary">
               {t('libraryPicker.noLibraries')}
             </Typography>

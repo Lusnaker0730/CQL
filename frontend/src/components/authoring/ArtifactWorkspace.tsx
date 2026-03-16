@@ -26,6 +26,7 @@ import {
   TAB_INDEX_REVIEW_CQL, TAB_INDEX_SUMMARY, KEYBOARD_SHORTCUTS,
 } from '../../constants/authoringConstants'
 import { generateId } from '../../utils/validation'
+import { getModifierMissingFields } from '../../utils/modifierUtils'
 
 /**
  * Sync reference element names with current base elements / parameters.
@@ -92,42 +93,6 @@ type TabStatus = 'empty' | 'has-content' | 'has-error'
 interface TabStatusInfo {
   status: TabStatus
   errors: string[]  // i18n keys with interpolation params already applied
-}
-
-interface ModifierLike {
-  id: string
-  name: string
-  cqlTemplate?: string
-  values?: Record<string, unknown>
-  inputTypes: string[]
-  returnType: string
-}
-
-function getModifierMissingFields(mod: ModifierLike): string[] {
-  if (mod.cqlTemplate === 'LookBackModifier' || mod.id.startsWith('LookBack')) {
-    const missing: string[] = []
-    if (!mod.values?.value) missing.push('value')
-    if (!mod.values?.unit) missing.push('unit')
-    return missing
-  }
-  if (mod.cqlTemplate === 'ValueComparisonNumber' || mod.cqlTemplate === 'ValueComparisonObservation') {
-    const missing: string[] = []
-    if (!mod.values?.minOperator) missing.push('operator')
-    if (!mod.values?.minValue && mod.values?.minValue !== 0) missing.push('value')
-    return missing
-  }
-  if (mod.cqlTemplate === 'WithUnit') return mod.values?.unit ? [] : ['unit']
-  if (['EqualsString', 'StartsWithString', 'EndsWithString'].includes(mod.cqlTemplate || '')) {
-    return mod.values?.value ? [] : ['value']
-  }
-  if (mod.cqlTemplate === 'Qualifier') {
-    const q = (mod.values?.qualifier as string) ?? 'value set'
-    return q === 'value set' ? (mod.values?.valueSet ? [] : ['valueSet']) : (mod.values?.code ? [] : ['code'])
-  }
-  if (mod.cqlTemplate === 'BeforeInterval' || mod.cqlTemplate === 'AfterInterval') {
-    return mod.values?.value ? [] : ['value']
-  }
-  return []
 }
 
 function collectTreeErrors(tree: ConjunctionGroupType | undefined): string[] {
@@ -212,7 +177,7 @@ export default function ArtifactWorkspace({
   const { t } = useTranslation('authoring')
   const { t: tc } = useTranslation('common')
 
-  const TAB_LABELS = [
+  const TAB_LABELS = useMemo(() => [
     t('workspace.tabInclusions'),
     t('workspace.tabExclusions'),
     t('workspace.tabSubpopulations'),
@@ -224,7 +189,7 @@ export default function ArtifactWorkspace({
     t('workspace.tabReviewCql'),
     t('workspace.tabTesting'),
     t('workspace.tabSummary'),
-  ]
+  ], [t])
 
   const [tab, setTab] = useState(0)
   const [localArtifact, setLocalArtifact] = useState<Artifact>(artifact)
@@ -289,6 +254,10 @@ export default function ArtifactWorkspace({
     usageInfo: localArtifact.usageInfo,
     copyright: localArtifact.copyright,
     experimental: localArtifact.experimental,
+    approvalDate: localArtifact.approvalDate,
+    lastReviewDate: localArtifact.lastReviewDate,
+    effectivePeriodStart: localArtifact.effectivePeriodStart,
+    effectivePeriodEnd: localArtifact.effectivePeriodEnd,
     strengthOfRecommendation: localArtifact.strengthOfRecommendation,
     qualityOfEvidence: localArtifact.qualityOfEvidence,
     context: localArtifact.context,
@@ -320,6 +289,24 @@ export default function ArtifactWorkspace({
     },
     [localArtifact.id, updateMutation, onArtifactUpdate]
   )
+
+  const handleSaveBeforeGenerate = useCallback(async (): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      const request = buildSaveRequest()
+      updateMutation.mutate(
+        { id: localArtifact.id, request },
+        {
+          onSuccess: (updated) => {
+            setLocalArtifact(updated)
+            setIsDirty(false)
+            onArtifactUpdate(updated)
+            resolve()
+          },
+          onError: reject,
+        }
+      )
+    })
+  }, [buildSaveRequest, localArtifact.id, updateMutation, onArtifactUpdate])
 
   const handleNameChange = useCallback(
     (name: string) => updateLocal({ name }),
@@ -469,6 +456,27 @@ export default function ArtifactWorkspace({
     [localArtifact.expTreeExclude, updateLocal]
   )
 
+  const handleSubpopulationsChange = useCallback(
+    (subpopulations: Artifact['subpopulations']) => updateLocal({ subpopulations }),
+    [updateLocal]
+  )
+  const handleBaseElementsChange = useCallback(
+    (baseElements: Artifact['baseElements']) => updateLocal({ baseElements }),
+    [updateLocal]
+  )
+  const handleRecommendationsChange = useCallback(
+    (recommendations: Artifact['recommendations']) => updateLocal({ recommendations }),
+    [updateLocal]
+  )
+  const handleParametersChange = useCallback(
+    (parameters: Artifact['parameters']) => updateLocal({ parameters }),
+    [updateLocal]
+  )
+  const handleErrorStatementChange = useCallback(
+    (errorStatement: Artifact['errorStatement']) => updateLocal({ errorStatement }),
+    [updateLocal]
+  )
+
   const { data: externalLibraries = [] } = useExternalCqlList(localArtifact.id)
 
   // Create synthetic modifier definitions from external CQL functions
@@ -563,23 +571,7 @@ export default function ArtifactWorkspace({
         isDirty={isDirty}
         onBack={handleBack}
         onSave={handleSave}
-        onSaveBeforeGenerate={async () => {
-          return new Promise<void>((resolve, reject) => {
-            const request = buildSaveRequest()
-            updateMutation.mutate(
-              { id: localArtifact.id, request },
-              {
-                onSuccess: (updated) => {
-                  setLocalArtifact(updated)
-                  setIsDirty(false)
-                  onArtifactUpdate(updated)
-                  resolve()
-                },
-                onError: reject,
-              }
-            )
-          })
-        }}
+        onSaveBeforeGenerate={handleSaveBeforeGenerate}
         onNameChange={handleNameChange}
         onUpdate={updateLocal}
       />
@@ -630,7 +622,7 @@ export default function ArtifactWorkspace({
           )
         })}
         </Tabs>
-        <Tooltip title="啟用 TWCORE 台灣核心實作指引範本">
+        <Tooltip title={t('workspace.twcoreTooltip')}>
           <FormControlLabel
             control={
               <Switch
@@ -699,7 +691,7 @@ export default function ArtifactWorkspace({
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
             twcoreMode={twcoreMode}
-            onChange={(subpopulations) => updateLocal({ subpopulations })}
+            onChange={handleSubpopulationsChange}
           />
         )}
         {tab === 3 && (
@@ -709,26 +701,26 @@ export default function ArtifactWorkspace({
             modifiers={allModifiers}
             dynamicEntries={dynamicEntries}
             twcoreMode={twcoreMode}
-            onChange={(baseElements) => updateLocal({ baseElements })}
+            onChange={handleBaseElementsChange}
           />
         )}
         {tab === 4 && (
           <Recommendations
             recommendations={localArtifact.recommendations || []}
             subpopulations={localArtifact.subpopulations || []}
-            onChange={(recommendations) => updateLocal({ recommendations })}
+            onChange={handleRecommendationsChange}
           />
         )}
         {tab === 5 && (
           <Parameters
             parameters={localArtifact.parameters || []}
-            onChange={(parameters) => updateLocal({ parameters })}
+            onChange={handleParametersChange}
           />
         )}
         {tab === 6 && (
           <ErrorStatementEditor
             errorStatement={localArtifact.errorStatement}
-            onChange={(errorStatement) => updateLocal({ errorStatement })}
+            onChange={handleErrorStatementChange}
           />
         )}
         {tab === 7 && (
@@ -803,23 +795,7 @@ export default function ArtifactWorkspace({
           <CqlPreviewPanel
             artifactId={localArtifact.id}
             isDirty={isDirty}
-            onSaveBeforeGenerate={async () => {
-              return new Promise<void>((resolve, reject) => {
-                const request = buildSaveRequest()
-                updateMutation.mutate(
-                  { id: localArtifact.id, request },
-                  {
-                    onSuccess: (updated) => {
-                      setLocalArtifact(updated)
-                      setIsDirty(false)
-                      onArtifactUpdate(updated)
-                      resolve()
-                    },
-                    onError: reject,
-                  }
-                )
-              })
-            }}
+            onSaveBeforeGenerate={handleSaveBeforeGenerate}
           />
         )}
         {tab === 9 && <ArtifactTester artifactId={localArtifact.id} />}

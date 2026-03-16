@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Box,
@@ -37,15 +38,11 @@ type SourceMode = 'remote' | 'local' | 'both'
 export default function ValueSetTab() {
   const { t } = useTranslation('terminology')
   const [searchTitle, setSearchTitle] = useState('')
-  const [debouncedTitle, setDebouncedTitle] = useState('')
   const [selectedVs, setSelectedVs] = useState<ValueSetSearchResult | null>(null)
   const [codeFilter, setCodeFilter] = useState('')
   const [source, setSource] = useState<SourceMode>('remote')
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTitle(searchTitle), SEARCH_DEBOUNCE_GENERAL_MS)
-    return () => clearTimeout(timer)
-  }, [searchTitle])
+  const debouncedTitle = useDebouncedValue(searchTitle, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const { data: remoteResults, isLoading: isSearchingRemote, error: remoteError } = useSearchValueSets(
     (source === 'remote' || source === 'both') ? debouncedTitle : undefined
@@ -58,7 +55,7 @@ export default function ValueSetTab() {
   const isSearching = isSearchingRemote || isSearchingLocal
 
   // Merge results based on source
-  const searchResults: (ValueSetSearchResult & { source?: string })[] = (() => {
+  const searchResults = useMemo(() => {
     const results: (ValueSetSearchResult & { source?: string })[] = []
     if (source === 'remote' || source === 'both') {
       if (remoteResults) {
@@ -80,7 +77,7 @@ export default function ValueSetTab() {
       }
     }
     return results
-  })()
+  }, [source, remoteResults, localResults])
 
   const searchError = remoteError
 
@@ -95,13 +92,18 @@ export default function ValueSetTab() {
     navigator.clipboard.writeText(cql)
   }
 
-  const filteredCodes = expandMutation.data?.expansion?.contains?.filter(
-    (c) =>
-      !codeFilter ||
-      c.code.toLowerCase().includes(codeFilter.toLowerCase()) ||
-      c.display.toLowerCase().includes(codeFilter.toLowerCase()) ||
-      c.system.toLowerCase().includes(codeFilter.toLowerCase())
-  ) || []
+  const filteredCodes = useMemo(() => {
+    const codes = expandMutation.data?.expansion?.contains
+    if (!codes) return []
+    if (!codeFilter) return codes
+    const q = codeFilter.toLowerCase()
+    return codes.filter(
+      (c) =>
+        c.code.toLowerCase().includes(q) ||
+        c.display.toLowerCase().includes(q) ||
+        c.system.toLowerCase().includes(q)
+    )
+  }, [expandMutation.data, codeFilter])
 
   return (
     <Stack spacing={2}>

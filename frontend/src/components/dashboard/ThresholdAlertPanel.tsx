@@ -54,7 +54,7 @@ export default function ThresholdAlertPanel({ alerts }: ThresholdAlertPanelProps
               secondaryTypographyProps={{ variant: 'caption' }}
             />
             <Chip
-              label={alert.thresholdType}
+              label={t(`dashboard.thresholdType.${alert.thresholdType}`, { defaultValue: alert.thresholdType })}
               size="small"
               color={alert.severity === 'critical' ? 'error' : 'warning'}
             />

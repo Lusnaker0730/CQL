@@ -14,8 +14,8 @@ function PageLoadingFallback() {
         minHeight: PAGE_CONTENT_HEIGHT,
         background: (theme) =>
           theme.palette.mode === 'dark'
-            ? 'linear-gradient(180deg, #1a1a1a 0%, #121212 100%)'
-            : 'linear-gradient(180deg, #EDF2F6 0%, #F4F7F9 50%, #F9FBFC 100%)',
+            ? `linear-gradient(180deg, ${theme.palette.grey[900]} 0%, ${theme.palette.background.default} 100%)`
+            : `linear-gradient(180deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 50%, ${theme.palette.background.paper} 100%)`,
       }}
     >
       <Stack alignItems="center" spacing={2}>

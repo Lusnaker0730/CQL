@@ -84,7 +84,9 @@
     "fhirRetrieveTrace": "FHIR Retrieve Trace",
     "resourceType": "Resource Type",
     "count": "Count",
-    "totalTime": "Total execution time: {{ms}}ms"
+    "totalTime": "Total execution time: {{ms}}ms",
+    "sourceLine": "Source: line {{line}}",
+    "dependsOn": "Depends on:"
   },
   "version": {
     "createTitle": "Create New {{type}} Version",

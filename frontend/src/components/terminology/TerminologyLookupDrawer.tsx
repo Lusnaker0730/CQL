@@ -11,6 +11,7 @@ import {
 } from '@mui/material'
 import { Close as CloseIcon } from '@mui/icons-material'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
+import { APP_BAR_HEIGHT } from '../../constants/layout'
 import DrawerCodeSearchPanel from './DrawerCodeSearchPanel'
 import DrawerValueSetPanel from './DrawerValueSetPanel'
 import DrawerCodeLookupPanel from './DrawerCodeLookupPanel'
@@ -39,8 +40,8 @@ export default function TerminologyLookupDrawer() {
         '& .MuiDrawer-paper': {
           width: DRAWER_WIDTH,
           boxSizing: 'border-box',
-          top: 64, // below AppBar
-          height: 'calc(100% - 64px)',
+          top: APP_BAR_HEIGHT,
+          height: `calc(100% - ${APP_BAR_HEIGHT}px)`,
         },
       }}
     >

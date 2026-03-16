@@ -35,6 +35,16 @@ import NotificationBell from './NotificationBell'
 import TerminologyLookupDrawer from '../terminology/TerminologyLookupDrawer'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 
+const TOOLBAR_BTN_BG = 'rgba(255,255,255,0.08)'
+const TOOLBAR_BTN_HOVER = 'rgba(255,255,255,0.15)'
+const TOOLBAR_BTN_ACTIVE = 'rgba(255,255,255,0.22)'
+
+const toolbarIconBtnSx = {
+  backgroundColor: TOOLBAR_BTN_BG,
+  '&:hover': { backgroundColor: TOOLBAR_BTN_HOVER },
+  transition: 'background-color 0.2s ease',
+} as const
+
 const baseNavItems = [
   { labelKey: 'nav.editor', path: '/' },
   { labelKey: 'nav.cdsHooks', path: '/cds' },
@@ -91,15 +101,15 @@ export default function Header() {
                 width: 36,
                 height: 36,
                 borderRadius: '10px',
-                background: 'rgba(255,255,255,0.15)',
+                background: TOOLBAR_BTN_HOVER,
                 backdropFilter: 'blur(10px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '1px solid rgba(255,255,255,0.2)',
+                border: `1px solid ${TOOLBAR_BTN_ACTIVE}`,
               }}
             >
-              <MedicalIcon sx={{ fontSize: 22, color: 'white' }} />
+              <MedicalIcon sx={{ fontSize: 22, color: 'common.white' }} />
             </Box>
             <Box sx={{ textAlign: 'left' }}>
               <Typography
@@ -110,7 +120,7 @@ export default function Header() {
                   fontSize: '1.05rem',
                   lineHeight: 1.2,
                   letterSpacing: '0.02em',
-                  color: 'white',
+                  color: 'common.white',
                 }}
               >
                 {t('app.title')}
@@ -122,7 +132,7 @@ export default function Header() {
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   lineHeight: 1,
-                  color: 'white',
+                  color: 'common.white',
                 }}
               >
                 {t('app.subtitle')}
@@ -146,13 +156,9 @@ export default function Header() {
                       py: 0.5,
                       fontSize: '0.85rem',
                       fontWeight: isActive ? 600 : 400,
-                      backgroundColor: isActive
-                        ? 'rgba(255,255,255,0.18)'
-                        : 'transparent',
+                      backgroundColor: isActive ? TOOLBAR_BTN_ACTIVE : 'transparent',
                       '&:hover': {
-                        backgroundColor: isActive
-                          ? 'rgba(255,255,255,0.22)'
-                          : 'rgba(255,255,255,0.08)',
+                        backgroundColor: isActive ? TOOLBAR_BTN_ACTIVE : TOOLBAR_BTN_BG,
                       },
                       transition: 'all 0.2s ease',
                     }}
@@ -173,9 +179,9 @@ export default function Header() {
                 label={user.username}
                 size="small"
                 sx={{
-                  color: 'white',
-                  backgroundColor: 'rgba(255,255,255,0.12)',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: 'common.white',
+                  backgroundColor: TOOLBAR_BTN_BG,
+                  border: `1px solid ${TOOLBAR_BTN_ACTIVE}`,
                   mr: 0.5,
                   '& .MuiChip-label': { fontSize: '0.8rem' },
                 }}
@@ -188,11 +194,7 @@ export default function Header() {
               onClick={() => terminologyOpen ? closeTerminology() : openTerminology()}
               aria-label={t('toolbar.terminologyLookup')}
               title={t('toolbar.terminologyLookup')}
-              sx={{
-                backgroundColor: terminologyOpen ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-                transition: 'background-color 0.2s ease',
-              }}
+              sx={{ ...toolbarIconBtnSx, backgroundColor: terminologyOpen ? TOOLBAR_BTN_ACTIVE : TOOLBAR_BTN_BG }}
             >
               <ManageSearchIcon sx={{ fontSize: 20 }} />
             </IconButton>
@@ -201,11 +203,7 @@ export default function Header() {
               onClick={toggleDarkMode}
               aria-label={preferences.themeMode === 'dark' ? t('toolbar.switchToLight') : t('toolbar.switchToDark')}
               title={preferences.themeMode === 'dark' ? t('toolbar.switchToLight') : t('toolbar.switchToDark')}
-              sx={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-                transition: 'background-color 0.2s ease',
-              }}
+              sx={toolbarIconBtnSx}
             >
               {preferences.themeMode === 'dark' ? (
                 <LightModeIcon sx={{ fontSize: 20 }} />
@@ -218,11 +216,7 @@ export default function Header() {
               onClick={() => setPrefsOpen(true)}
               aria-label={t('toolbar.settings')}
               title={t('toolbar.settings')}
-              sx={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-                transition: 'background-color 0.2s ease',
-              }}
+              sx={toolbarIconBtnSx}
             >
               <SettingsIcon sx={{ fontSize: 20 }} />
             </IconButton>
@@ -231,11 +225,7 @@ export default function Header() {
               onClick={() => setHelpOpen(true)}
               aria-label={t('toolbar.help')}
               title={t('toolbar.help')}
-              sx={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-                transition: 'background-color 0.2s ease',
-              }}
+              sx={toolbarIconBtnSx}
             >
               <HelpIcon sx={{ fontSize: 20 }} />
             </IconButton>
@@ -246,11 +236,7 @@ export default function Header() {
               rel="noopener noreferrer"
               aria-label={t('toolbar.github')}
               title={t('toolbar.github')}
-              sx={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-                transition: 'background-color 0.2s ease',
-              }}
+              sx={toolbarIconBtnSx}
             >
               <GitHubIcon sx={{ fontSize: 20 }} />
             </IconButton>
@@ -259,11 +245,7 @@ export default function Header() {
               onClick={handleLogout}
               aria-label={t('toolbar.logout')}
               title={t('toolbar.logout')}
-              sx={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-                transition: 'background-color 0.2s ease',
-              }}
+              sx={toolbarIconBtnSx}
             >
               <LogoutIcon sx={{ fontSize: 20 }} />
             </IconButton>

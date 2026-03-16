@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { Box, Typography, Paper } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import { CHART_HEIGHT } from '../../constants/layout'
 import {
   LineChart,
@@ -20,23 +22,27 @@ interface ScoreTrendChartProps {
   title?: string
 }
 
-const COLORS = ['#0D7377', '#1B3A5C', '#14A3A8', '#E8A838', '#D32F2F', '#7B1FA2']
+export const CHART_COLORS = ['#0D7377', '#1B3A5C', '#14A3A8', '#E8A838', '#D32F2F', '#7B1FA2', '#00BCD4']
 
 export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreTrendChartProps) {
   const { t } = useTranslation('measures')
+  const theme = useTheme()
 
-  // Group by measure name for multi-line
-  const measureNames = [...new Set(data.map((d) => d.measureName))]
-  const periods = [...new Set(data.map((d) => d.period))]
+  const { measureNames, chartData } = useMemo(() => {
+    const measureNames = [...new Set(data.map((d) => d.measureName))]
+    const periods = [...new Set(data.map((d) => d.period))]
 
-  const chartData = periods.map((period) => {
-    const point: Record<string, unknown> = { period }
-    for (const name of measureNames) {
-      const match = data.find((d) => d.period === period && d.measureName === name)
-      point[name] = match?.score ?? null
-    }
-    return point
-  })
+    const chartData = periods.map((period) => {
+      const point: Record<string, unknown> = { period }
+      for (const name of measureNames) {
+        const match = data.find((d) => d.period === period && d.measureName === name)
+        point[name] = match?.score ?? null
+      }
+      return point
+    })
+
+    return { measureNames, chartData }
+  }, [data])
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -56,30 +62,30 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
                 key={name}
                 type="monotone"
                 dataKey={name}
-                stroke={COLORS[i % COLORS.length]}
+                stroke={CHART_COLORS[i % CHART_COLORS.length]}
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 connectNulls
               />
             ))}
             {thresholds
-              .filter((t) => t.thresholdType === 'target')
-              .map((t, i) => (
+              .filter((th) => th.thresholdType === 'target')
+              .map((th, i) => (
                 <ReferenceLine
                   key={`target-${i}`}
-                  y={t.thresholdValue}
-                  stroke="#4CAF50"
+                  y={th.thresholdValue}
+                  stroke={theme.palette.success.light}
                   strokeDasharray="5 5"
-                  label={{ value: 'Target', fill: '#4CAF50', fontSize: 10 }}
+                  label={{ value: t('dashboard.target'), fill: theme.palette.success.light, fontSize: 10 }}
                 />
               ))}
             {thresholds
-              .filter((t) => t.thresholdType === 'warning')
-              .map((t, i) => (
+              .filter((th) => th.thresholdType === 'warning')
+              .map((th, i) => (
                 <ReferenceLine
                   key={`warning-${i}`}
-                  y={t.thresholdValue}
-                  stroke="#FF9800"
+                  y={th.thresholdValue}
+                  stroke={theme.palette.warning.light}
                   strokeDasharray="5 5"
                 />
               ))}

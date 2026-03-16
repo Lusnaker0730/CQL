@@ -27,6 +27,7 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material'
 import { ehrApi } from '../../api'
 import type { PatientSearchResult } from '../../types'
+import { STALE_5M, STALE_30S } from '../../constants/queryConstants'
 import GradientButton from '../common/GradientButton'
 
 interface EhrImportForTestCaseProps {
@@ -56,6 +57,7 @@ export default function EhrImportForTestCase({
     queryKey: ['ehr-connections'],
     queryFn: () => ehrApi.getConnections(),
     enabled: open,
+    staleTime: STALE_5M,
   })
 
   const hasSearchParams = !!(nationalId || mrn || family || given)
@@ -70,12 +72,14 @@ export default function EhrImportForTestCase({
         given: given || undefined,
       }),
     enabled: searchTriggered && !!connectionId && hasSearchParams,
+    staleTime: STALE_30S,
   })
 
   const { data: preview, isLoading: loadingPreview } = useQuery({
     queryKey: ['ehr-patient-preview-tc', connectionId, selectedPatient?.id],
     queryFn: () => ehrApi.getPatientPreview(connectionId as number, selectedPatient!.id),
     enabled: step === 2 && !!connectionId && !!selectedPatient,
+    staleTime: STALE_5M,
   })
 
   const handleImport = async () => {
@@ -303,7 +307,7 @@ export default function EhrImportForTestCase({
       <DialogActions>
         {step > 0 && (
           <Button onClick={() => setStep(step - 1)}>
-            {t('ehr.cancel')}
+            {t('ehr.back')}
           </Button>
         )}
         <Button onClick={onClose}>{t('ehr.cancel')}</Button>

@@ -86,7 +86,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const queryClient = useQueryClient()
 
   const { showNotification } = useNotification()
-  const currentUser = getStoredUsername()
+  const currentUser = useMemo(() => getStoredUsername(), [])
   const isOwner = measure.ownerUsername === currentUser || !measure.ownerUsername
   const isReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
 
@@ -229,7 +229,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           {measure.lockedAt && ` at ${new Date(measure.lockedAt).toLocaleString()}`}
         </Alert>
       )}
-      {measure.reviewComment && measure.status === 'draft' && (
+      {measure.reviewComment && measure.status === MEASURE_STATUS.DRAFT && (
         <Alert severity="info" sx={{ borderRadius: 0 }}>
           {t('editor.rejectionNotice', { reviewer: measure.reviewedBy || '—', comment: measure.reviewComment })}
         </Alert>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { alpha, useTheme } from '@mui/material/styles'
 import { Alert, Box, Snackbar, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Skeleton, Card, Stack } from '@mui/material'
 import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
 import ArtifactList from '../components/authoring/ArtifactList'
@@ -12,6 +13,7 @@ import type { ArtifactSummary, Artifact, ArtifactRequest } from '../types/author
 export default function AuthoringPage() {
   const { t } = useTranslation('authoring')
   const { t: tc } = useTranslation('common')
+  const theme = useTheme()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -77,7 +79,7 @@ export default function AuthoringPage() {
                 width: 48,
                 height: 3,
                 borderRadius: 2,
-                background: 'linear-gradient(90deg, #0D7377, #14A3A8)',
+                background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
                 mb: 1,
               }}
             />
@@ -115,14 +117,14 @@ export default function AuthoringPage() {
 
       {selectedId && !fullArtifact && (
         <Card sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ p: 2, backgroundColor: '#1B3A5C' }}>
+          <Box sx={{ p: 2, backgroundColor: theme.palette.secondary.main }}>
             <Stack direction="row" spacing={2} alignItems="center">
-              <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
-              <Skeleton variant="text" width={200} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+              <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
+              <Skeleton variant="text" width={200} height={32} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
               <Box sx={{ flex: 1 }} />
-              <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
-              <Skeleton variant="rounded" width={120} height={30} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
-              <Skeleton variant="rounded" width={70} height={30} sx={{ bgcolor: 'rgba(255,255,255,0.15)' }} />
+              <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
+              <Skeleton variant="rounded" width={120} height={30} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
+              <Skeleton variant="rounded" width={70} height={30} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
             </Stack>
           </Box>
           <Box sx={{ px: 2, pt: 1, borderBottom: 1, borderColor: 'divider' }}>

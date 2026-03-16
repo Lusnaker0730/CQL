@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { AUTOSAVE_SLOW_MS } from '../../constants/timing'
+import { AUTOSAVE_SLOW_MS, NOTIFICATION_DURATION_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogContentText,
@@ -19,6 +19,11 @@ import Parameters from '../authoring/parameters/Parameters'
 import EcqmExternalCql from './EcqmExternalCql'
 import type { BaseElement, Parameter } from '../../types/authoring'
 import { extractApiError } from '../../utils/errorUtils'
+
+const EMPTY_BASE_ELEMENTS: BaseElement[] = []
+const EMPTY_PARAMETERS: Parameter[] = []
+const EMPTY_SDE: SupplementalDataElement[] = []
+const EMPTY_STRATIFIERS: StratifierElement[] = []
 
 interface Props {
   artifact: EcqmArtifact
@@ -180,7 +185,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <EcqmArtifactWorkspaceHeader
-        artifact={artifact}
+        artifact={localArtifact}
         saveStatus={saveStatus}
         onBack={handleBack}
         onSave={flushSave}
@@ -216,7 +221,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         {tab === 2 && (
           <Box sx={{ p: 3 }}>
             <BaseElements
-              baseElements={localArtifact.baseElements || []}
+              baseElements={localArtifact.baseElements || EMPTY_BASE_ELEMENTS}
               templates={templates}
               modifiers={modifiers}
               onChange={(baseElements: BaseElement[]) => debouncedSave({ baseElements })}
@@ -226,14 +231,14 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         {tab === 3 && (
           <Box sx={{ p: 3 }}>
             <Parameters
-              parameters={localArtifact.parameters || []}
+              parameters={localArtifact.parameters || EMPTY_PARAMETERS}
               onChange={(parameters: Parameter[]) => debouncedSave({ parameters })}
             />
           </Box>
         )}
         {tab === 4 && (
           <EcqmSdeTab
-            supplementalData={localArtifact.supplementalData || []}
+            supplementalData={localArtifact.supplementalData || EMPTY_SDE}
             supplementalDataGuidance={localArtifact.supplementalDataGuidance}
             templates={templates}
             modifiers={modifiers}
@@ -243,7 +248,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         )}
         {tab === 5 && (
           <EcqmStratifiersTab
-            stratifiers={localArtifact.stratifiers || []}
+            stratifiers={localArtifact.stratifiers || EMPTY_STRATIFIERS}
             templates={templates}
             modifiers={modifiers}
             onChange={(s: StratifierElement[]) => debouncedSave({ stratifiers: s })}
@@ -277,7 +282,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
       </Dialog>
 
       <Snackbar
-        open={!!snack} autoHideDuration={4000}
+        open={!!snack} autoHideDuration={NOTIFICATION_DURATION_MS}
         onClose={() => setSnack(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

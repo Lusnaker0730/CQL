@@ -35,6 +35,7 @@ import {
   Error as ErrorIcon,
   CheckCircle as CheckIcon,
 } from '@mui/icons-material'
+import { alpha } from '@mui/material/styles'
 import {
   useCdsServices,
   useInvokeCdsService,
@@ -54,6 +55,7 @@ import {
   FEEDBACK_OVERRIDDEN,
   FEEDBACK_OVERRIDE_CODE,
   FEEDBACK_OVERRIDE_DEFAULT_DISPLAY,
+  getIndicatorColor,
 } from '../../constants/cdsHooks'
 
 function getIndicatorIcon(indicator: string) {
@@ -65,18 +67,6 @@ function getIndicatorIcon(indicator: string) {
     case 'info':
     default:
       return <InfoIcon color="info" />
-  }
-}
-
-function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
-  switch (indicator) {
-    case 'critical':
-      return 'error'
-    case 'warning':
-      return 'warning'
-    case 'info':
-    default:
-      return 'info'
   }
 }
 
@@ -270,11 +260,6 @@ export default function InvokeServicePanel() {
         onClick={handleInvoke}
         disabled={!selectedService || invokeMutation.isPending}
         startIcon={invokeMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
-        sx={{
-          '&.Mui-disabled': {
-            background: 'rgba(0,0,0,0.12)',
-          },
-        }}
       >
         {invokeMutation.isPending ? t('invoke.invoking') : t('invoke.invokeButton')}
       </GradientButton>
@@ -311,15 +296,15 @@ export default function InvokeServicePanel() {
               <Card
                 key={card.uuid}
                 variant="outlined"
-                sx={{
+                sx={(theme) => ({
                   borderLeft: 4,
                   borderLeftColor: `${getIndicatorColor(card.indicator)}.main`,
                   transition: 'all 0.25s ease',
                   '&:hover': {
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 6px 20px rgba(13,115,119,0.12)',
+                    boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.12)}`,
                   },
-                }}
+                })}
               >
                 <CardContent>
                   <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -390,14 +375,14 @@ export default function InvokeServicePanel() {
                             href={link.url && (link.url.startsWith('https://') || link.url.startsWith('http://')) ? link.url : '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            sx={{
+                            sx={(theme) => ({
                               borderColor: 'primary.main',
                               color: 'primary.main',
                               '&:hover': {
                                 borderColor: 'primary.dark',
-                                bgcolor: 'rgba(13,115,119,0.04)',
+                                bgcolor: alpha(theme.palette.primary.main, 0.04),
                               },
-                            }}
+                            })}
                           >
                             {link.label}
                           </Button>

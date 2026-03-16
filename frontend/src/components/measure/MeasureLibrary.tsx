@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef, useCallback } from 'react'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import { downloadBlob } from '../../utils/download'
 import {
@@ -97,13 +98,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   })
 
   const { showNotification } = useNotification()
-  const currentUser = getStoredUsername()
+  const currentUser = useMemo(() => getStoredUsername(), [])
 
-  const [debouncedSearch, setDebouncedSearch] = useState(search)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
-    return () => clearTimeout(timer)
-  }, [search])
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const { data: allMeasures = [], isLoading } = useQuery({
     queryKey: ['measures', debouncedSearch, departmentFilter],
@@ -218,11 +215,26 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     }
   }
 
+  const handleToggleSelect = useCallback((id: number, checked: boolean) => {
+    setSelectedMeasureIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  const handleDelete = useCallback((id: number) => {
+    deleteMutation.mutate(id)
+  }, [deleteMutation])
+
+  const batchMeasureIds = useMemo(() => Array.from(selectedMeasureIds), [selectedMeasureIds])
+
   return (
-    <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-        <Typography variant="h6">{t('library.title')}</Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
+    <Paper sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={0.5}>
+        <Typography variant="subtitle1" fontWeight={700}>{t('library.title')}</Typography>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap">
           {selectedMeasureIds.size > 0 && (
             <Button
               size="small"
@@ -237,13 +249,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           <Button size="small" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>
             {t('library.importFhir')}
           </Button>
-          <GradientButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+          <GradientButton size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
             {t('library.newMeasure')}
           </GradientButton>
         </Stack>
       </Stack>
 
-      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
         <TextField
           size="small"
           fullWidth
@@ -252,19 +264,21 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           onChange={(e) => setSearch(e.target.value)}
           InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
         />
-        <DepartmentSelector
-          value={departmentFilter}
-          onChange={setDepartmentFilter}
-          label={t('library.tableHeaders.department')}
-          size="small"
-          fullWidth={false}
-        />
+        <Box sx={{ minWidth: 120 }}>
+          <DepartmentSelector
+            value={departmentFilter}
+            onChange={setDepartmentFilter}
+            label={t('library.tableHeaders.department')}
+            size="small"
+            fullWidth={false}
+          />
+        </Box>
       </Stack>
 
       <Tabs
         value={filterTab}
         onChange={(_, v) => setFilterTab(v)}
-        sx={{ mb: 1, minHeight: 32, '& .MuiTab-root': { minHeight: 32, py: 0, textTransform: 'none', fontSize: '0.8rem' } }}
+        sx={{ mb: 0.5, minHeight: 28, '& .MuiTab-root': { minHeight: 28, py: 0, textTransform: 'none', fontSize: '0.8rem' } }}
       >
         <Tab label={t('library.tabs.all', { count: allMeasures.length })} />
         <Tab label={t('library.tabs.myMeasures')} />
@@ -307,15 +321,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   measure={m}
                   selected={selectedMeasureIds.has(m.id!)}
                   onSelect={onSelectMeasure}
-                  onToggleSelect={(checked) => {
-                    const next = new Set(selectedMeasureIds)
-                    if (checked) next.add(m.id!)
-                    else next.delete(m.id!)
-                    setSelectedMeasureIds(next)
-                  }}
+                  onToggleSelect={handleToggleSelect}
                   onEdit={handleEdit}
                   onExport={handleExport}
-                  onDelete={(id) => deleteMutation.mutate(id)}
+                  onDelete={handleDelete}
                   t={t}
                 />
               ))}
@@ -517,7 +526,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
       <BatchEvaluationDialog
         open={batchDialogOpen}
         onClose={() => setBatchDialogOpen(false)}
-        measureIds={Array.from(selectedMeasureIds)}
+        measureIds={batchMeasureIds}
       />
     </Paper>
   )
@@ -538,7 +547,7 @@ interface MeasureRowProps {
   measure: MeasureDefinition
   selected: boolean
   onSelect?: (measure: MeasureDefinition) => void
-  onToggleSelect: (checked: boolean) => void
+  onToggleSelect: (id: number, checked: boolean) => void
   onEdit: (id: number, e: React.MouseEvent) => void
   onExport: (id: number) => void
   onDelete: (id: number) => void
@@ -562,7 +571,7 @@ const MeasureRow = React.memo(function MeasureRow({
           size="small"
           checked={selected}
           onClick={(e) => e.stopPropagation()}
-          onChange={(e) => onToggleSelect(e.target.checked)}
+          onChange={(e) => onToggleSelect(m.id!, e.target.checked)}
         />
       </TableCell>
       <TableCell sx={{ width: COL_W.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -586,7 +595,7 @@ const MeasureRow = React.memo(function MeasureRow({
         </Stack>
       </TableCell>
       <TableCell sx={{ width: COL_W.status }}>
-        <StatusChip status={m.status || 'draft'} />
+        <StatusChip status={m.status || DEFAULT_MEASURE_STATUS} />
       </TableCell>
       <TableCell sx={{ width: COL_W.scoring, fontSize: '0.8rem' }}>{m.scoringType}</TableCell>
       <TableCell sx={{ width: COL_W.department }}>

@@ -1,18 +1,24 @@
+import { useMemo } from 'react'
 import { Box, Typography, Paper, Grid, Chip } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CQL_SHOWCASE_EXAMPLE } from '../../constants/cqlExamples'
 
 export default function CqlShowcase() {
   const { t } = useTranslation('landing')
 
+  const highlightedLines = useMemo(
+    () => CQL_SHOWCASE_EXAMPLE.split('\n').map((line, i) => ({ key: i, line, highlighted: highlightLine(line) })),
+    []
+  )
+
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         py: 8,
         px: 3,
-        bgcolor: (theme) =>
-          theme.palette.mode === 'dark' ? 'rgba(13,115,119,0.08)' : 'rgba(13,115,119,0.03)',
-      }}
+        bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.08 : 0.03),
+      })}
     >
       <Typography variant="h4" fontWeight={700} textAlign="center" color="secondary.main" gutterBottom>
         {t('showcase.title')}
@@ -37,7 +43,7 @@ export default function CqlShowcase() {
               sx={{
                 px: 2,
                 py: 1,
-                bgcolor: '#1B3A5C',
+                bgcolor: 'secondary.main',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
@@ -65,8 +71,8 @@ export default function CqlShowcase() {
                 maxHeight: 440,
               }}
             >
-              {CQL_SHOWCASE_EXAMPLE.split('\n').map((line, i) => (
-                <Box key={i} sx={{ display: 'flex' }}>
+              {highlightedLines.map(({ key, highlighted }) => (
+                <Box key={key} sx={{ display: 'flex' }}>
                   <Box
                     component="span"
                     sx={{
@@ -78,10 +84,10 @@ export default function CqlShowcase() {
                       userSelect: 'none',
                     }}
                   >
-                    {i + 1}
+                    {key + 1}
                   </Box>
                   <Box component="span">
-                    {highlightLine(line)}
+                    {highlighted}
                   </Box>
                 </Box>
               ))}

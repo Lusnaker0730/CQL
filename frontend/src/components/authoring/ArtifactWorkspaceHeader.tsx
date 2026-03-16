@@ -4,6 +4,7 @@ import {
   Box, Typography, Stack, IconButton, Tooltip, TextField, Menu, MenuItem, ListItemIcon, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, CircularProgress,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   ArrowBack as BackIcon, Save as SaveIcon, MoreVert as MoreIcon,
   CloudUpload as DeployIcon, LibraryBooks as LibraryIcon, Download as DownloadIcon,
@@ -165,19 +166,19 @@ export default function ArtifactWorkspaceHeader({
   return (
     <>
       <Box
-        sx={{
+        sx={(theme) => ({
           display: 'flex',
           alignItems: 'center',
           gap: 2,
           p: 2,
           borderBottom: 1,
           borderColor: 'divider',
-          backgroundColor: (theme) => theme.palette.mode === 'dark' ? theme.palette.secondary.dark : theme.palette.secondary.main,
-          color: '#fff',
-        }}
+          backgroundColor: theme.palette.mode === 'dark' ? theme.palette.secondary.dark : theme.palette.secondary.main,
+          color: theme.palette.common.white,
+        })}
       >
         <Tooltip title={t('header.backToList')}>
-          <IconButton onClick={onBack} size="small" sx={{ color: '#fff' }} aria-label={t('header.backToList')}>
+          <IconButton onClick={onBack} size="small" sx={{ color: 'common.white' }} aria-label={t('header.backToList')}>
             <BackIcon />
           </IconButton>
         </Tooltip>
@@ -186,22 +187,22 @@ export default function ArtifactWorkspaceHeader({
           value={artifact.name}
           onChange={(e) => onNameChange(e.target.value)}
           variant="standard"
-          sx={{
+          sx={(theme) => ({
             '& .MuiInput-input': {
               fontSize: '1.1rem',
               fontWeight: 600,
-              color: '#fff',
+              color: theme.palette.common.white,
             },
-            '& .MuiInput-underline:before': { borderBottomColor: 'rgba(255,255,255,0.3)' },
-            '& .MuiInput-underline:hover:before': { borderBottomColor: 'rgba(255,255,255,0.6)' },
-            '& .MuiInput-underline:after': { borderBottomColor: '#fff' },
+            '& .MuiInput-underline:before': { borderBottomColor: alpha(theme.palette.common.white, 0.3) },
+            '& .MuiInput-underline:hover:before': { borderBottomColor: alpha(theme.palette.common.white, 0.6) },
+            '& .MuiInput-underline:after': { borderBottomColor: theme.palette.common.white },
             minWidth: 200,
             maxWidth: 400,
-          }}
+          })}
         />
 
         {isDirty && (
-          <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.7)' }}>
+          <Typography variant="caption" sx={(theme) => ({ fontStyle: 'italic', color: alpha(theme.palette.common.white, 0.7) })}>
             {t('header.unsavedChanges')}
           </Typography>
         )}
@@ -214,14 +215,14 @@ export default function ArtifactWorkspaceHeader({
             startIcon={(generateCqlMutation.isPending || saving) ? <CircularProgress size={14} color="inherit" /> : <ViewIcon />}
             onClick={() => handleViewCql()}
             disabled={generateCqlMutation.isPending || saving}
-            sx={{
-              color: '#fff',
-              borderColor: 'rgba(255,255,255,0.5)',
+            sx={(theme) => ({
+              color: theme.palette.common.white,
+              borderColor: alpha(theme.palette.common.white, 0.5),
               textTransform: 'uppercase',
               fontWeight: 600,
               fontSize: '0.8rem',
-              '&:hover': { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
-            }}
+              '&:hover': { borderColor: theme.palette.common.white, backgroundColor: alpha(theme.palette.common.white, 0.1) },
+            })}
           >
             {t('header.viewCql')}
           </Button>
@@ -233,14 +234,14 @@ export default function ArtifactWorkspaceHeader({
             startIcon={<DownloadIcon />}
             onClick={() => handleDownloadCql()}
             disabled={generateCqlMutation.isPending || saving}
-            sx={{
-              color: '#fff',
-              borderColor: 'rgba(255,255,255,0.5)',
+            sx={(theme) => ({
+              color: theme.palette.common.white,
+              borderColor: alpha(theme.palette.common.white, 0.5),
               textTransform: 'uppercase',
               fontWeight: 600,
               fontSize: '0.8rem',
-              '&:hover': { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
-            }}
+              '&:hover': { borderColor: theme.palette.common.white, backgroundColor: alpha(theme.palette.common.white, 0.1) },
+            })}
           >
             {t('header.downloadCql')}
           </Button>
@@ -252,22 +253,22 @@ export default function ArtifactWorkspaceHeader({
             startIcon={<SaveIcon />}
             onClick={handleSave}
             disabled={!isDirty}
-            sx={{
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              color: '#fff',
+            sx={(theme) => ({
+              backgroundColor: alpha(theme.palette.common.white, 0.15),
+              color: theme.palette.common.white,
               textTransform: 'uppercase',
               fontWeight: 600,
               fontSize: '0.8rem',
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.25)' },
-              '&.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
-            }}
+              '&:hover': { backgroundColor: alpha(theme.palette.common.white, 0.25) },
+              '&.Mui-disabled': { color: alpha(theme.palette.common.white, 0.3) },
+            })}
           >
             {tc('actions.save')}
           </Button>
 
           {/* More actions menu */}
           <Tooltip title={t('header.moreActions')}>
-            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: '#fff' }} aria-label={t('header.moreActions')}>
+            <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: 'common.white' }} aria-label={t('header.moreActions')}>
               <MoreIcon />
             </IconButton>
           </Tooltip>
@@ -370,7 +371,7 @@ export default function ArtifactWorkspaceHeader({
               sx={{
                 ...codeBlockSx,
                 p: 2,
-                color: (theme) => theme.palette.mode === 'dark' ? '#d4d4d4' : '#1e1e1e',
+                color: 'text.primary',
                 maxHeight: '60vh',
                 overflow: 'auto',
               }}

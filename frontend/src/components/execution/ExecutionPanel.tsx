@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { alpha } from '@mui/material/styles'
 import {
   Box,
   Paper,
@@ -71,6 +72,8 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
     })
   }
 
+  const hasCql = !!(getLatestCql ? getLatestCql() : cqlContentFromRedux)
+
   const toggleExpanded = (name: string) => {
     const newExpanded = new Set(expandedResults)
     if (newExpanded.has(name)) {
@@ -83,7 +86,7 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
 
   const renderValue = (value: unknown): React.ReactNode => {
     if (value === null || value === undefined) {
-      return <Chip label={t('execution.nullValue')} size="small" sx={{ bgcolor: 'rgba(84,110,122,0.1)', color: 'text.secondary' }} />
+      return <Chip label={t('execution.nullValue')} size="small" sx={(theme) => ({ bgcolor: alpha(theme.palette.text.secondary, 0.1), color: 'text.secondary' })} />
     }
     if (typeof value === 'boolean') {
       return (
@@ -143,7 +146,7 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
           <GradientButton
             startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
             onClick={handleExecute}
-            disabled={isExecuting || !(getLatestCql ? getLatestCql() : cqlContentFromRedux)}
+            disabled={isExecuting || !hasCql}
             fullWidth
             sx={{
               py: 1.2,
@@ -188,12 +191,12 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
             icon={<TimerIcon sx={{ fontSize: 16 }} />}
             label={`${executionTimeMs}ms`}
             size="small"
-            sx={{
+            sx={(theme) => ({
               alignSelf: 'flex-start',
-              bgcolor: 'rgba(13,115,119,0.08)',
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
               color: 'primary.dark',
               fontWeight: 600,
-            }}
+            })}
           />
         )}
 
@@ -252,11 +255,11 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
                             label={result.valueType}
                             size="small"
                             variant="outlined"
-                            sx={{
-                              borderColor: 'rgba(27,58,92,0.3)',
+                            sx={(theme) => ({
+                              borderColor: alpha(theme.palette.secondary.main, 0.3),
                               color: 'secondary.main',
                               fontWeight: 500,
-                            }}
+                            })}
                           />
                         </TableCell>
                         <TableCell>{renderValue(result.value)}</TableCell>

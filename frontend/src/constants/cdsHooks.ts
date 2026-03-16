@@ -51,6 +51,20 @@ export const CDS_LINK_TYPES = [
 
 export const DEFAULT_INDICATOR: CdsIndicatorType = 'info'
 
+// --- Indicator color helper ---
+
+export function getIndicatorColor(indicator: string): 'error' | 'warning' | 'info' {
+  switch (indicator) {
+    case 'critical':
+      return 'error'
+    case 'warning':
+      return 'warning'
+    case 'info':
+    default:
+      return 'info'
+  }
+}
+
 // --- Feedback outcomes (keep in sync with backend CdsConstants) ---
 
 export const FEEDBACK_ACCEPTED = 'accepted' as const

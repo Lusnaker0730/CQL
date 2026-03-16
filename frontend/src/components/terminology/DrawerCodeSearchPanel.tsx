@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -23,7 +23,8 @@ import {
 } from '@mui/icons-material'
 import { ALL_CODE_SYSTEMS, type CodeSystemEntry } from '../../constants/codeSystems'
 import { useSearchCodes } from '../../hooks/useTerminology'
-import { COPY_FEEDBACK_TIMEOUT_MS } from '../../constants/timing'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { COPY_FEEDBACK_TIMEOUT_MS, SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { SelectedCoding } from '../../contexts/TerminologyDrawerContext'
 
 interface DrawerCodeSearchPanelProps {
@@ -41,6 +42,7 @@ export default function DrawerCodeSearchPanel({
   const [system, setSystem] = useState(initialSystem || '')
   const [searchText, setSearchText] = useState(initialSearchText || '')
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   // Apply initial values when they change (e.g. opened from a field)
   useEffect(() => {
@@ -48,12 +50,14 @@ export default function DrawerCodeSearchPanel({
     if (initialSearchText) setSearchText(initialSearchText)
   }, [initialSystem, initialSearchText])
 
-  const { data: results = [], isLoading } = useSearchCodes(system, searchText)
+  const debouncedSearchText = useDebouncedValue(searchText, SEARCH_DEBOUNCE_CODE_MS)
+  const { data: results = [], isLoading } = useSearchCodes(system, debouncedSearchText)
 
   const handleCopy = async (coding: SelectedCoding) => {
     await navigator.clipboard.writeText(`${coding.system}|${coding.code}`)
     setCopiedCode(coding.code)
-    setTimeout(() => setCopiedCode(null), COPY_FEEDBACK_TIMEOUT_MS)
+    clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopiedCode(null), COPY_FEEDBACK_TIMEOUT_MS)
   }
 
   const selectedEntry = ALL_CODE_SYSTEMS.find((cs) => cs.url === system) || null

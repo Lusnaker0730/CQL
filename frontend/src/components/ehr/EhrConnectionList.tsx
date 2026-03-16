@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material'
 import { ehrApi } from '../../api'
 import type { EhrConnection } from '../../types'
+import { STALE_5M } from '../../constants/queryConstants'
 import GradientButton from '../common/GradientButton'
 import EhrConnectionForm from './EhrConnectionForm'
 
@@ -51,6 +52,7 @@ export default function EhrConnectionList() {
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ['ehr-connections'],
     queryFn: () => ehrApi.getConnections(),
+    staleTime: STALE_5M,
   })
 
   const testMutation = useMutation({

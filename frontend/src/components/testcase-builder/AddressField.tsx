@@ -1,7 +1,9 @@
-import { Box, TextField, Typography, MenuItem, Chip, Collapse, IconButton } from '@mui/material'
+import { Box, TextField, MenuItem, Chip, Collapse, IconButton, Typography } from '@mui/material'
 import { useState } from 'react'
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import FieldWrapper from './FieldWrapper'
+import { getChildBoundCodes, ADDRESS_USE_CODES, ADDRESS_TYPE_CODES } from './constants'
 import type { ElementMetadata } from '../../types'
 
 interface FhirExtension {
@@ -26,9 +28,6 @@ interface AddressFieldProps {
   value: unknown
   onChange: (value: unknown) => void
 }
-
-const USE_FALLBACK = ['home', 'work', 'temp', 'old', 'billing']
-const TYPE_FALLBACK = ['postal', 'physical', 'both']
 
 const TW_EXT_BASE = 'https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/tw-'
 
@@ -67,8 +66,8 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
   const addr = (value as Address) || { country: 'TW' }
   const [lineInput, setLineInput] = useState('')
   const [twExpanded, setTwExpanded] = useState(false)
-  const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
-  const typeOptions = element.children?.find(c => c.name === 'type')?.boundCodes ?? TYPE_FALLBACK
+  const useOptions = getChildBoundCodes(element, 'use', ADDRESS_USE_CODES)
+  const typeOptions = getChildBoundCodes(element, 'type', ADDRESS_TYPE_CODES)
 
   const addLine = () => {
     if (lineInput.trim()) {
@@ -87,10 +86,7 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
   }
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-      </Typography>
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
         <TextField
           select
@@ -117,7 +113,6 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
       </Box>
 
       <Box sx={{ mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">{t('testCaseBuilder.fields.addressLines')}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
           {(addr.line || []).map((l, i) => (
             <Chip key={i} label={l} size="small" onDelete={() => removeLine(i)} />
@@ -168,6 +163,6 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
           </Box>
         </Collapse>
       </Box>
-    </Box>
+    </FieldWrapper>
   )
 }

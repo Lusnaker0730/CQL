@@ -54,6 +54,7 @@
       "baseElementMissingName": "基礎元素 #{{index}}：缺少名稱",
       "errorsFound": "發現 {{count}} 個問題："
     },
+    "twcoreTooltip": "啟用 TWCORE 台灣核心實作指引範本",
     "unsavedTitle": "未儲存的變更",
     "unsavedMessage": "您有未儲存的變更。確定要離開嗎？您的變更將會遺失。",
     "discardChanges": "捨棄變更",
@@ -209,7 +210,21 @@
     "enterValueOrExpr": "輸入值或表達式...",
     "contains": "包含：",
     "enterText": "輸入文字...",
-    "precision": "精確度"
+    "precision": "精確度",
+    "none": "無",
+    "default": "預設",
+    "year": "年",
+    "month": "月",
+    "day": "日",
+    "hour": "時",
+    "minute": "分",
+    "second": "秒",
+    "years": "年",
+    "months": "月",
+    "weeks": "週",
+    "days": "天",
+    "hours": "小時",
+    "valueSet": "值集"
   },
   "conjunctionType": {
     "and": "且",
@@ -458,7 +473,11 @@
     "intervalLow": "下限",
     "intervalHigh": "上限",
     "intervalStart": "開始",
-    "intervalEnd": "結束"
+    "intervalEnd": "結束",
+    "display": "顯示名稱",
+    "value": "值",
+    "unit": "單位",
+    "defaultName": "參數 {{number}}"
   },
   "externalCql": {
     "title": "外部 CQL 函式庫",

@@ -32,7 +32,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
   const [search, setSearch] = useState('')
 
   const filteredQuery = useTwcoreCatalog(resourceType)
-  const fullQuery = useTwcoreFullCatalog()
+  const fullQuery = useTwcoreFullCatalog(!resourceType)
   const { data: catalog, isLoading } = resourceType ? filteredQuery : fullQuery
 
   const filtered = useMemo(() => {

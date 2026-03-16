@@ -43,7 +43,8 @@
     "browseTwcore": "Browse TWCORE",
     "searchVsacTitle": "Search VSAC ValueSets",
     "searchVsacPlaceholder": "e.g. Diabetes, HbA1c...",
-    "noTwcoreEntries": "No matching TWCORE entries"
+    "noTwcoreEntries": "No matching TWCORE entries",
+    "andMore": "...and {{count}} more"
   },
   "codes": {
     "manualSearch": "Manual / Search",
@@ -117,6 +118,9 @@
     "rows": "Expression rows:",
     "select": "Select...",
     "none": "None",
+    "operandLabel": "Operand",
+    "operatorLabel": "Operator",
+    "valueLabel": "Value",
     "valuePlaceholder": "18, \"Name\", ...",
     "unit": "Unit",
     "removeRow": "Remove row",
@@ -128,6 +132,8 @@
     "resourceType": "Resource Type",
     "terminologySource": "Terminology Source",
     "alias": "Alias",
+    "with": "with",
+    "without": "without",
     "definitionName": "Definition Name",
     "whereClauses": "Where Clauses",
     "and": "AND",
@@ -205,7 +211,15 @@
     "noIssues": "No issues found",
     "errors": "errors",
     "warnings": "warnings",
-    "hints": "hints"
+    "hints": "hints",
+    "systemAnyType": "\"{{name}}\": type is System.Any — may need type annotation",
+    "missingInPopulation": "Recommendations found but missing \"InPopulation\" definition",
+    "missingInclusionCriteria": "\"InPopulation\" found but missing \"MeetsInclusionCriteria\"",
+    "missingExclusionCriteria": "\"InPopulation\" found but missing \"MeetsExclusionCriteria\"",
+    "emptyParameterName": "Parameter with empty name detected",
+    "unusedValueSets": "{{count}} value set(s) defined but no expressions use them yet",
+    "noLibraryIncludes": "No library includes — consider adding FHIRHelpers for FHIR type conversions",
+    "mixedContexts": "Mixed contexts detected (Patient and Population) — ensure this is intentional"
   },
   "modifierChain": {
     "title": "Modifier Chain",

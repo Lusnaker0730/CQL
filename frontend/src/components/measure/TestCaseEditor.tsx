@@ -264,6 +264,13 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     [dispatch, validateBundle]
   )
 
+  // Clean up pending JSON sync timer on unmount
+  useEffect(() => {
+    return () => {
+      if (jsonSyncTimerRef.current) clearTimeout(jsonSyncTimerRef.current)
+    }
+  }, [])
+
   const togglePopulation = (key: string) => {
     setExpectedPops((prev) => ({
       ...prev,

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -38,13 +39,8 @@ export default function ImportCqlFromLibraryDialog({
   const { t } = useTranslation('measures')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<CqlLibrary | null>(null)
-  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  // Debounce search input
-  useState(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
-    return () => clearTimeout(timer)
-  })
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const { data: libraries, isLoading } = useQuery({
     queryKey: ['cql-libraries', debouncedSearch],

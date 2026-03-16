@@ -119,7 +119,7 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             required
             fullWidth
             size="small"
-            placeholder="https://fhir.example.com/fhir"
+            placeholder={t('ehr.fhirUrlPlaceholder')}
             inputProps={{ maxLength: EHR_CONNECTION.fhirServerUrl.maxLength }}
           />
 

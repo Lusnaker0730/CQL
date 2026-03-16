@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Translate as TranslateIcon, Check as CheckIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 
@@ -26,11 +27,11 @@ export default function LanguageSwitcher() {
         onClick={(e) => setAnchorEl(e.currentTarget)}
         aria-label={t('language.switchLanguage')}
         title={t('language.switchLanguage')}
-        sx={{
-          backgroundColor: 'rgba(255,255,255,0.08)',
-          '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+        sx={(theme) => ({
+          backgroundColor: alpha(theme.palette.common.white, 0.08),
+          '&:hover': { backgroundColor: alpha(theme.palette.common.white, 0.15) },
           transition: 'background-color 0.2s ease',
-        }}
+        })}
       >
         <TranslateIcon sx={{ fontSize: 20 }} />
       </IconButton>

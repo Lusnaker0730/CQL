@@ -2,10 +2,53 @@ import type { languages, editor, Position, IRange, CancellationToken } from 'mon
 import type { CqlStructure } from '../hooks/useCqlStructure'
 import { CQL_KEYWORDS, CQL_TYPE_KEYWORDS } from './cqlTokens.generated'
 
+// Shared regex patterns (compiled once, reused in completions + hover + signature help)
+const RE_PARAM_NAME = /^"([^"]+)"/
+const RE_PARAM_FULL = /^"([^"]+)"\s+(.+)/
+const RE_VALUESET = /^"([^"]+)":\s*'([^']+)'/
+const RE_CODE = /^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"/
+const RE_DOT_RESOURCE = /\[(\w+)[^\]]*\]\s*\w*\s*$|(\w+)\.\s*$/
+const RE_INCLUDE = /include\s+$/
+const RE_FN_QUOTED = /"([^"]+)"\s*\([^)]*$/
+const RE_FN_WORD = /\b(\w+)\s*\([^)]*$/
+
 // Module-level CqlStructure reference for IntelliSense providers
 let currentCqlStructure: CqlStructure | null = null
+
+// Pre-parsed structure cache (updated when structure changes, not on every keystroke)
+interface ParsedStructureCache {
+  params: Array<{ name: string; full: string; type?: string }>
+  valueSets: Array<{ name: string; uri: string }>
+  codes: Array<{ name: string; code: string; from: string }>
+}
+let parsedStructureCache: ParsedStructureCache | null = null
+
 export function updateCqlStructure(structure: CqlStructure): void {
   currentCqlStructure = structure
+
+  // Pre-parse structure fields so completions/hover don't re-run regex on every keystroke
+  const params: ParsedStructureCache['params'] = []
+  for (const param of structure.parameters) {
+    const nameMatch = RE_PARAM_NAME.exec(param)
+    if (nameMatch) {
+      const fullMatch = RE_PARAM_FULL.exec(param)
+      params.push({ name: nameMatch[1], full: param, type: fullMatch?.[2] })
+    }
+  }
+
+  const valueSets: ParsedStructureCache['valueSets'] = []
+  for (const vs of structure.valueSets) {
+    const m = RE_VALUESET.exec(vs)
+    if (m) valueSets.push({ name: m[1], uri: m[2] })
+  }
+
+  const codes: ParsedStructureCache['codes'] = []
+  for (const code of structure.codes) {
+    const m = RE_CODE.exec(code)
+    if (m) codes.push({ name: m[1], code: m[2], from: m[3] })
+  }
+
+  parsedStructureCache = { params, valueSets, codes }
 }
 
 export const cqlLanguageConfiguration: languages.LanguageConfiguration = {
@@ -913,6 +956,9 @@ export interface LibraryInfo {
   functions?: string[]
 }
 
+// Pre-merged static completion items (computed once at module load, not per keystroke)
+const cachedStaticItems = [...cqlCompletionItems, ...cqlBuiltInFunctions, ...twcdiCompletionItems, ...twCodeSystemSnippets]
+
 export function provideCqlCompletions(
   monaco: typeof import('monaco-editor'),
   model: import('monaco-editor').editor.ITextModel,
@@ -931,10 +977,9 @@ export function provideCqlCompletions(
   const textBeforeCursor = lineContent.substring(0, position.column - 1)
 
   // After dot: provide FHIR property completions
-  const dotMatch = textBeforeCursor.match(/\[(\w+)[^\]]*\]\s*\w*\s*$/) ||
-                   textBeforeCursor.match(/(\w+)\.\s*$/)
+  const dotMatch = textBeforeCursor.match(RE_DOT_RESOURCE)
   if (dotMatch) {
-    const resourceType = dotMatch[1]
+    const resourceType = dotMatch[1] || dotMatch[2]
     const props = fhirResourceProperties[resourceType]
     if (props) {
       return {
@@ -950,7 +995,7 @@ export function provideCqlCompletions(
   }
 
   // After 'include ': suggest saved libraries
-  if (textBeforeCursor.match(/include\s+$/)) {
+  if (RE_INCLUDE.test(textBeforeCursor)) {
     const libSuggestions = libraries.map((lib) => ({
       label: lib.name,
       kind: monaco.languages.CompletionItemKind.Module,
@@ -964,15 +1009,11 @@ export function provideCqlCompletions(
     }
   }
 
-  // Default: all snippets + built-in functions + TWCDI completions
-  const suggestions: (languages.CompletionItem & { range: typeof range })[] = [
-    ...cqlCompletionItems.map((item) => ({ ...item, range })),
-    ...cqlBuiltInFunctions.map((item) => ({ ...item, range })),
-    ...twcdiCompletionItems.map((item) => ({ ...item, range })),
-    ...twCodeSystemSnippets.map((item) => ({ ...item, range })),
-  ]
+  // Static completions: stamp range onto pre-merged array (cached at module level)
+  const suggestions: (languages.CompletionItem & { range: typeof range })[] =
+    cachedStaticItems.map((item) => ({ ...item, range }))
 
-  // User-defined completions from CqlStructure
+  // User-defined completions from CqlStructure (uses pre-parsed cache)
   if (currentCqlStructure) {
     const s = currentCqlStructure
 
@@ -1005,32 +1046,37 @@ export function provideCqlCompletions(
       })
     }
 
-    // Parameters → Field kind
-    for (const param of s.parameters) {
-      const nameMatch = param.match(/^"([^"]+)"/)
-      if (nameMatch) {
-        const pName = nameMatch[1]
+    // Parameters, ValueSets, Codes → use pre-parsed cache (no regex on every keystroke)
+    if (parsedStructureCache) {
+      for (const p of parsedStructureCache.params) {
         suggestions.push({
-          label: `"${pName}"`,
+          label: `"${p.name}"`,
           kind: monaco.languages.CompletionItemKind.Field,
-          insertText: `"${pName}"`,
-          documentation: `**parameter** ${param}`,
-          sortText: `0_${pName}`,
+          insertText: `"${p.name}"`,
+          documentation: `**parameter** ${p.full}`,
+          sortText: `0_${p.name}`,
           range,
         })
       }
-    }
 
-    // ValueSets → Enum kind
-    for (const vs of s.valueSets) {
-      const vsMatch = vs.match(/^"([^"]+)":\s*'([^']+)'/)
-      if (vsMatch) {
+      for (const vs of parsedStructureCache.valueSets) {
         suggestions.push({
-          label: `"${vsMatch[1]}"`,
+          label: `"${vs.name}"`,
           kind: monaco.languages.CompletionItemKind.Enum,
-          insertText: `"${vsMatch[1]}"`,
-          documentation: `**valueset** "${vsMatch[1]}": '${vsMatch[2]}'`,
-          sortText: `0_${vsMatch[1]}`,
+          insertText: `"${vs.name}"`,
+          documentation: `**valueset** "${vs.name}": '${vs.uri}'`,
+          sortText: `0_${vs.name}`,
+          range,
+        })
+      }
+
+      for (const c of parsedStructureCache.codes) {
+        suggestions.push({
+          label: `"${c.name}"`,
+          kind: monaco.languages.CompletionItemKind.EnumMember,
+          insertText: `"${c.name}"`,
+          documentation: `**code** "${c.name}": '${c.code}' from "${c.from}"`,
+          sortText: `0_${c.name}`,
           range,
         })
       }
@@ -1046,21 +1092,6 @@ export function provideCqlCompletions(
         sortText: `0_${concept}`,
         range,
       })
-    }
-
-    // Codes → EnumMember kind
-    for (const code of s.codes) {
-      const codeMatch = code.match(/^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"/)
-      if (codeMatch) {
-        suggestions.push({
-          label: `"${codeMatch[1]}"`,
-          kind: monaco.languages.CompletionItemKind.EnumMember,
-          insertText: `"${codeMatch[1]}"`,
-          documentation: `**code** "${codeMatch[1]}": '${codeMatch[2]}' from "${codeMatch[3]}"`,
-          sortText: `0_${codeMatch[1]}`,
-          range,
-        })
-      }
     }
   }
 
@@ -1133,24 +1164,29 @@ function provideCqlHover(
     }
   }
 
-  // Match parameters
-  for (const param of s.parameters) {
-    const m = param.match(/^"([^"]+)"\s+(.+)/)
-    if (m && m[1] === name) {
+  // Match parameters, valueSets, codes using pre-parsed cache (avoids regex on every hover)
+  if (parsedStructureCache) {
+    const param = parsedStructureCache.params.find((p) => p.name === name)
+    if (param) {
       return {
         range,
-        contents: [{ value: `**parameter** "${name}" ${m[2]}` }],
+        contents: [{ value: `**parameter** "${name}"${param.type ? ` ${param.type}` : ''}` }],
       }
     }
-  }
 
-  // Match value sets
-  for (const vs of s.valueSets) {
-    const m = vs.match(/^"([^"]+)":\s*'([^']+)'/)
-    if (m && m[1] === name) {
+    const vs = parsedStructureCache.valueSets.find((v) => v.name === name)
+    if (vs) {
       return {
         range,
-        contents: [{ value: `**valueset** "${name}": '${m[2]}'` }],
+        contents: [{ value: `**valueset** "${name}": '${vs.uri}'` }],
+      }
+    }
+
+    const code = parsedStructureCache.codes.find((c) => c.name === name)
+    if (code) {
+      return {
+        range,
+        contents: [{ value: `**code** "${name}": '${code.code}' from "${code.from}"` }],
       }
     }
   }
@@ -1160,17 +1196,6 @@ function provideCqlHover(
     return {
       range,
       contents: [{ value: `**concept** "${name}"` }],
-    }
-  }
-
-  // Match codes
-  for (const code of s.codes) {
-    const m = code.match(/^"([^"]+)":\s*'([^']+)'\s+from\s+"([^"]+)"/)
-    if (m && m[1] === name) {
-      return {
-        range,
-        contents: [{ value: `**code** "${name}": '${m[2]}' from "${m[3]}"` }],
-      }
     }
   }
 
@@ -1187,8 +1212,8 @@ function provideCqlSignatureHelp(
 
   // Find the function name before the opening paren
   // Match patterns like: "FuncName"( or FuncName(
-  const fnMatch = textBeforeCursor.match(/"([^"]+)"\s*\([^)]*$/) ||
-                  textBeforeCursor.match(/\b(\w+)\s*\([^)]*$/)
+  const fnMatch = textBeforeCursor.match(RE_FN_QUOTED) ||
+                  textBeforeCursor.match(RE_FN_WORD)
   if (!fnMatch) return null
 
   const funcName = fnMatch[1]
@@ -1223,10 +1248,8 @@ function provideCqlSignatureHelp(
   if (builtIn) {
     const params: languages.ParameterInformation[] = []
     const insertText = (builtIn.insertText as string) || ''
-    // Parse ${1:paramName} patterns from insertText
-    const paramRegex = /\$\{\d+:([^}]+)\}/g
-    let pm: RegExpExecArray | null
-    while ((pm = paramRegex.exec(insertText)) !== null) {
+    // Parse ${1:paramName} patterns from insertText (use matchAll to avoid shared global regex state)
+    for (const pm of insertText.matchAll(/\$\{\d+:([^}]+)\}/g)) {
       params.push({ label: pm[1] })
     }
 
@@ -1247,10 +1270,15 @@ function provideCqlSignatureHelp(
   return null
 }
 
+let cqlLanguageRegistered = false
+
 export function registerCqlLanguage(
   monaco: typeof import('monaco-editor'),
   libraries: LibraryInfo[] = [],
 ) {
+  if (cqlLanguageRegistered) return
+  cqlLanguageRegistered = true
+
   monaco.languages.register({ id: 'cql' })
 
   monaco.languages.setLanguageConfiguration('cql', cqlLanguageConfiguration)

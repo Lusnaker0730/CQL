@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   ExpandMore as ExpandMoreIcon,
   Refresh as RefreshIcon,
@@ -78,25 +79,23 @@ export default function CqlBuilderPanel({
   }, [])
 
   // Collect all known names from the current structure
-  const getAllNames = useCallback((): string[] => {
-    return [
-      ...structure.expressions.map((e) => e.name),
-      ...structure.functions.map((f) => f.name),
-      ...structure.parameters.map(extractCqlName),
-      ...structure.valueSets.map(extractCqlName),
-      ...structure.codes.map(extractCqlName),
-    ]
-  }, [structure])
+  const allNames = useMemo(() => new Set([
+    ...structure.expressions.map((e) => e.name),
+    ...structure.functions.map((f) => f.name),
+    ...structure.parameters.map(extractCqlName),
+    ...structure.valueSets.map(extractCqlName),
+    ...structure.codes.map(extractCqlName),
+  ]), [structure])
 
   // Wrap insert with duplicate name check
   const handleInsertWithCheck = useCallback((snippet: string) => {
     const name = extractSnippetName(snippet)
-    if (name && getAllNames().includes(name)) {
+    if (name && allNames.has(name)) {
       setDuplicateWarning({ name, snippet })
       return
     }
     onInsertSnippet(snippet)
-  }, [extractSnippetName, getAllNames, onInsertSnippet])
+  }, [extractSnippetName, allNames, onInsertSnippet])
 
   const sections = [
     {
@@ -239,9 +238,9 @@ export default function CqlBuilderPanel({
         sx={{
           p: 1,
           px: 1.5,
-          background: 'linear-gradient(135deg, rgba(13,115,119,0.06) 0%, rgba(20,163,168,0.03) 100%)',
+          background: (theme) => `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.primary.light, 0.03)} 100%)`,
           borderBottom: '1px solid',
-          borderColor: 'rgba(13,115,119,0.1)',
+          borderColor: (theme) => alpha(theme.palette.primary.main, 0.1),
         }}
       >
         <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -306,7 +305,7 @@ export default function CqlBuilderPanel({
                   sx={{
                     height: 20,
                     fontSize: '0.7rem',
-                    bgcolor: section.count > 0 ? 'rgba(13,115,119,0.1)' : 'transparent',
+                    bgcolor: (theme) => section.count > 0 ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
                     color: section.count > 0 ? 'primary.dark' : 'text.disabled',
                   }}
                 />

@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import { Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 
+const HEADER_WIDTHS = [75, 60, 85, 70, 90, 65, 80, 55, 72, 68]
+
 interface TableSkeletonProps {
   columns: number
   rows?: number
@@ -22,7 +24,7 @@ function TableSkeleton({ columns, rows = 5, hasCheckbox = false }: TableSkeleton
             )}
             {Array.from({ length: columns }).map((_, i) => (
               <TableCell key={i} scope="col">
-                <Skeleton variant="text" width={`${60 + Math.random() * 40}%`} />
+                <Skeleton variant="text" width={`${HEADER_WIDTHS[i % HEADER_WIDTHS.length]}%`} />
               </TableCell>
             ))}
           </TableRow>

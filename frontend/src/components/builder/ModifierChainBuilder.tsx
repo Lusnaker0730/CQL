@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -17,6 +17,7 @@ import {
   Close as CloseIcon,
   DragIndicator as DragIcon,
 } from '@mui/icons-material'
+import { escapeCqlString } from '../../utils/cqlString'
 
 /** A modifier in the chain */
 export interface ChainModifier {
@@ -245,11 +246,11 @@ export default function ModifierChainBuilder({
   const { t } = useTranslation('builder')
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const availableModifiers = MODIFIER_DEFS.filter((def) => {
+  const availableModifiers = useMemo(() => MODIFIER_DEFS.filter((def) => {
     if (def.resourceTypes && !def.resourceTypes.includes(resourceType)) return false
     if (def.singleton && modifiers.some((m) => m.type === def.type)) return false
     return true
-  })
+  }), [resourceType, modifiers])
 
   const handleAdd = (type: ModifierType) => {
     const def = MODIFIER_DEFS.find((d) => d.type === type)
@@ -420,11 +421,6 @@ export default function ModifierChainBuilder({
   )
 }
 
-/** Escape single quotes for CQL string literals */
-function cqlEscapeString(value: string): string {
-  return value.replace(/'/g, "\\'")
-}
-
 /** Generate CQL from modifier chain */
 // eslint-disable-next-line react-refresh/only-export-components -- utility function co-located with component
 export function applyModifierChain(
@@ -473,11 +469,11 @@ export function applyModifierChain(
         break
       case 'valueComparison':
         if (mod.values.minVal) {
-          const unitSuffix = mod.values.unit ? ` '${cqlEscapeString(mod.values.unit)}'` : ''
+          const unitSuffix = mod.values.unit ? ` '${escapeCqlString(mod.values.unit)}'` : ''
           whereClauses.push(`${alias}.value ${mod.values.minOp || '>='} ${mod.values.minVal}${unitSuffix}`)
         }
         if (mod.values.maxVal && mod.values.maxOp) {
-          const unitSuffix = mod.values.unit ? ` '${cqlEscapeString(mod.values.unit)}'` : ''
+          const unitSuffix = mod.values.unit ? ` '${escapeCqlString(mod.values.unit)}'` : ''
           whereClauses.push(`${alias}.value ${mod.values.maxOp} ${mod.values.maxVal}${unitSuffix}`)
         }
         break
@@ -488,16 +484,16 @@ export function applyModifierChain(
         }
         break
       case 'equalsString':
-        if (mod.values.value) whereClauses.push(`${alias}.value = '${cqlEscapeString(mod.values.value)}'`)
+        if (mod.values.value) whereClauses.push(`${alias}.value = '${escapeCqlString(mod.values.value)}'`)
         break
       case 'startsWithString':
-        if (mod.values.value) whereClauses.push(`StartsWith(${alias}.value, '${cqlEscapeString(mod.values.value)}')`)
+        if (mod.values.value) whereClauses.push(`StartsWith(${alias}.value, '${escapeCqlString(mod.values.value)}')`)
         break
       case 'endsWithString':
-        if (mod.values.value) whereClauses.push(`EndsWith(${alias}.value, '${cqlEscapeString(mod.values.value)}')`)
+        if (mod.values.value) whereClauses.push(`EndsWith(${alias}.value, '${escapeCqlString(mod.values.value)}')`)
         break
       case 'filterUnit':
-        if (mod.values.unit) whereClauses.push(`${alias}.value.unit = '${cqlEscapeString(mod.values.unit)}'`)
+        if (mod.values.unit) whereClauses.push(`${alias}.value.unit = '${escapeCqlString(mod.values.unit)}'`)
         break
       case 'convertUnit':
         // handled as post-wrapper below
@@ -560,7 +556,7 @@ export function applyModifierChain(
     } else if (mod.type === 'conceptValue') {
       expr = `FHIRHelpers.ToConcept((${expr}).value as FHIR.CodeableConcept)`
     } else if (mod.type === 'convertUnit') {
-      if (mod.values.unit) expr = `convert (${expr}) to '${cqlEscapeString(mod.values.unit)}'`
+      if (mod.values.unit) expr = `convert (${expr}) to '${escapeCqlString(mod.values.unit)}'`
     } else if (mod.type === 'numericValue') {
       expr = `FHIRHelpers.ToDecimal(((${expr}).value as FHIR.Quantity).value)`
     } else if (mod.type === 'codeText') {

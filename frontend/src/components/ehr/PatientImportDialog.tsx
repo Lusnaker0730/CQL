@@ -19,6 +19,7 @@ import {
 } from '@mui/material'
 import { ehrApi } from '../../api'
 import type { PatientSearchResult } from '../../types'
+import { STALE_5M } from '../../constants/queryConstants'
 
 interface PatientImportDialogProps {
   open: boolean
@@ -43,6 +44,7 @@ export default function PatientImportDialog({
     queryKey: ['ehr-patient-preview', connectionId, patient.id],
     queryFn: () => ehrApi.getPatientPreview(connectionId, patient.id),
     enabled: open,
+    staleTime: STALE_5M,
   })
 
   const importMutation = useMutation({

@@ -223,6 +223,7 @@
     },
     "saveConnection": "Save",
     "cancel": "Cancel",
+    "back": "Back",
     "connectionSaved": "Connection saved successfully",
     "connectionDeleted": "Connection deleted",
     "testSuccess": "Connection successful",
@@ -257,6 +258,7 @@
     "importDate": "Import Date",
     "resourceCount": "Resources",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
   }
 }

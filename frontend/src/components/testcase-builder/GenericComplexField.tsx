@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material'
+import FieldWrapper from './FieldWrapper'
 import ElementField from './ElementField'
 import type { ElementMetadata } from '../../types'
 
@@ -27,10 +27,7 @@ export default function GenericComplexField({ element, value, onChange, depth }:
   }
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-      </Typography>
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       {element.children.map((child) => (
         <ElementField
           key={child.name}
@@ -41,6 +38,6 @@ export default function GenericComplexField({ element, value, onChange, depth }:
           depth={depth + 1}
         />
       ))}
-    </Box>
+    </FieldWrapper>
   )
 }

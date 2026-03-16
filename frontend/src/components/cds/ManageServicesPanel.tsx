@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation, Trans } from 'react-i18next'
+import { alpha } from '@mui/material/styles'
 import { setCqlContent } from '../../store/editorSlice'
 import type { RootState } from '../../store'
 
@@ -51,15 +52,25 @@ import {
 import type { CdsServiceConfigRequest, CdsServiceConfigResponse } from '../../types'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
-import { validateRequired, safeParseJson } from '../../utils/validation'
+import { validateRequired, getStoredUsername } from '../../utils/validation'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
-import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES } from '../../constants/cdsHooks'
+import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES, DEFAULT_INDICATOR } from '../../constants/cdsHooks'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import { CDS_SERVICE } from '../../constants/fieldConstraints'
+
+const DEFAULT_FORM_DATA: CdsServiceConfigRequest = {
+  id: '',
+  hook: CDS_HOOK_IDS[0],
+  title: '',
+  description: '',
+  cqlContent: '',
+  defaultIndicator: DEFAULT_INDICATOR,
+  enabled: true,
+}
 
 export default function ManageServicesPanel() {
   const dispatch = useDispatch()
@@ -74,19 +85,13 @@ export default function ManageServicesPanel() {
   const { t } = useTranslation('cds')
   const { t: tc } = useTranslation('common')
 
+  const currentUsername = useMemo(() => getStoredUsername(), [])
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<CdsServiceConfigResponse | null>(null)
   const [activeServiceId, setActiveServiceId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<CdsServiceConfigRequest>({
-    id: '',
-    hook: 'patient-view',
-    title: '',
-    description: '',
-    cqlContent: '',
-    defaultIndicator: 'info',
-    enabled: true,
-  })
+  const [formData, setFormData] = useState<CdsServiceConfigRequest>(DEFAULT_FORM_DATA)
 
   const [formErrors, setFormErrors] = useState<{ id?: string; title?: string }>({})
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
@@ -97,15 +102,7 @@ export default function ManageServicesPanel() {
 
   const handleOpenCreate = () => {
     setEditingService(null)
-    setFormData({
-      id: '',
-      hook: 'patient-view',
-      title: '',
-      description: '',
-      cqlContent: '',
-      defaultIndicator: 'info',
-      enabled: true,
-    })
+    setFormData(DEFAULT_FORM_DATA)
     setDialogOpen(true)
   }
 
@@ -118,7 +115,7 @@ export default function ManageServicesPanel() {
       description: service.description || '',
       cqlContent: service.cqlContent || '',
       cqlLibraryId: service.cqlLibraryId,
-      defaultIndicator: service.defaultIndicator || 'info',
+      defaultIndicator: service.defaultIndicator || DEFAULT_INDICATOR,
       enabled: service.enabled,
     })
     setDialogOpen(true)
@@ -131,8 +128,8 @@ export default function ManageServicesPanel() {
 
   const handleSave = async () => {
     const errors: { id?: string; title?: string } = {}
-    const idErr = validateRequired(formData.id, 'Service ID')
-    const titleErr = validateRequired(formData.title, 'Title')
+    const idErr = validateRequired(formData.id, t('services.fieldServiceId'))
+    const titleErr = validateRequired(formData.title, t('services.fieldTitle'))
     if (idErr) errors.id = idErr
     if (titleErr) errors.title = titleErr
     if (Object.keys(errors).length > 0) {
@@ -202,7 +199,7 @@ export default function ManageServicesPanel() {
           description: service.description || '',
           cqlContent: cqlContent,
           cqlLibraryId: service.cqlLibraryId,
-          defaultIndicator: service.defaultIndicator || 'info',
+          defaultIndicator: service.defaultIndicator || DEFAULT_INDICATOR,
           enabled: service.enabled,
         },
       })
@@ -252,8 +249,7 @@ export default function ManageServicesPanel() {
       )}
 
       {services?.map((service) => {
-        const currentUser = safeParseJson<{ username?: string }>(localStorage.getItem('user'), {})
-        const isOwner = !service.ownerUsername || service.ownerUsername === currentUser?.username
+        const isOwner = !service.ownerUsername || service.ownerUsername === currentUsername
         const isShared = service.shared
         const ownershipLabel = isShared ? t('manage.shared') : isOwner ? t('manage.mine') : t('manage.ownerLabel', { owner: service.ownerUsername })
 
@@ -262,19 +258,19 @@ export default function ManageServicesPanel() {
             key={service.id}
             variant="outlined"
             onClick={() => handleSelectService(service)}
-            sx={{
+            sx={(theme) => ({
               transition: 'all 0.25s ease',
               cursor: 'pointer',
               ...(activeServiceId === service.id && {
                 borderColor: 'primary.main',
                 borderWidth: 2,
-                bgcolor: 'rgba(13,115,119,0.04)',
+                bgcolor: alpha(theme.palette.primary.main, 0.04),
               }),
               '&:hover': {
                 transform: 'translateY(-2px)',
-                boxShadow: '0 6px 20px rgba(13,115,119,0.12)',
+                boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.12)}`,
               },
-            }}
+            })}
           >
             <CardContent sx={{ pb: 1 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">

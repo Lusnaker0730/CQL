@@ -1,6 +1,8 @@
-import { Box, TextField, Typography, Chip, MenuItem } from '@mui/material'
+import { Box, TextField, Chip, MenuItem } from '@mui/material'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import FieldWrapper from './FieldWrapper'
+import { getChildBoundCodes, NAME_USE_CODES } from './constants'
 import type { ElementMetadata } from '../../types'
 
 interface HumanName {
@@ -18,13 +20,11 @@ interface HumanNameFieldProps {
   onChange: (value: unknown) => void
 }
 
-const USE_FALLBACK = ['usual', 'official', 'temp', 'nickname', 'anonymous', 'old', 'maiden']
-
 export default function HumanNameField({ element, value, onChange }: HumanNameFieldProps) {
   const { t } = useTranslation('measures')
   const name = (value as HumanName) || {}
   const [givenInput, setGivenInput] = useState('')
-  const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
+  const useOptions = getChildBoundCodes(element, 'use', NAME_USE_CODES)
 
   const addGiven = () => {
     if (givenInput.trim()) {
@@ -39,10 +39,7 @@ export default function HumanNameField({ element, value, onChange }: HumanNameFi
   }
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-      </Typography>
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       <TextField
         label={t('testCaseBuilder.fields.nameText')}
         size="small"
@@ -75,7 +72,6 @@ export default function HumanNameField({ element, value, onChange }: HumanNameFi
         />
       </Box>
       <Box sx={{ mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">{t('testCaseBuilder.fields.givenNames')}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
           {(name.given || []).map((g, i) => (
             <Chip key={i} label={g} size="small" onDelete={() => removeGiven(i)} />
@@ -92,6 +88,6 @@ export default function HumanNameField({ element, value, onChange }: HumanNameFi
           sx={{ width: 200 }}
         />
       </Box>
-    </Box>
+    </FieldWrapper>
   )
 }

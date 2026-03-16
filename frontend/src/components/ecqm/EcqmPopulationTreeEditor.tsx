@@ -15,10 +15,6 @@ interface Props {
 const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
   label, required, tree, templates, modifiers, onUpdateTree,
 }: Props) {
-  const handleUpdateGroup = useCallback((updated: ConjunctionGroupType) => {
-    onUpdateTree(updated)
-  }, [onUpdateTree])
-
   const handleAddElement = useCallback((element: ElementInstance) => {
     onUpdateTree({
       ...tree,
@@ -53,7 +49,7 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
           treeName={label.replace(/\s/g, '')}
           templates={templates}
           modifiers={modifiers}
-          onUpdateGroup={handleUpdateGroup}
+          onUpdateGroup={onUpdateTree}
           onAddElement={handleAddElement}
           onRemoveElement={handleRemoveElement}
           onUpdateElement={handleUpdateElement}
