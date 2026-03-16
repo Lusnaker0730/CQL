@@ -31,6 +31,7 @@ import {
   Assessment as AssessmentIcon,
 } from '@mui/icons-material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useTranslation } from 'react-i18next'
 import CqlIntroduction from '../components/learn/CqlIntroduction'
 import ConceptGuide from '../components/learn/ConceptGuide'
@@ -82,7 +83,23 @@ export default function LearnPage() {
     localStorage.setItem(key, 'true')
   }, [currentTab])
 
+  const currentTabKey = TAB_KEYS[currentTab]
+  const seoDescription = t(`learn.seo.${currentTabKey}`, t('learn.seo.defaultDescription'))
+  const canonicalUrl = currentTab === 0
+    ? 'https://twcql.com/learn'
+    : `https://twcql.com/learn?tab=${currentTabKey}`
+
   return (
+    <>
+    <Helmet>
+      <title>{`${t(`learn.nav.${currentTabKey}`)} — ${tc('app.title')}`}</title>
+      <meta name="description" content={seoDescription} />
+      <link rel="canonical" href={canonicalUrl} />
+      <meta property="og:title" content={`${t(`learn.nav.${currentTabKey}`)} — ${tc('app.title')}`} />
+      <meta property="og:description" content={seoDescription} />
+      <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:type" content="article" />
+    </Helmet>
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       {/* Header */}
       <Box
@@ -196,5 +213,6 @@ export default function LearnPage() {
         </Box>
       </Box>
     </Box>
+    </>
   )
 }

@@ -1,4 +1,5 @@
 {
+  "seoDescription": "CQL 視覺化編輯、執行、教學平台，支援 FHIR R4 與 TWCORE IG。",
   "hero": {
     "tagline": "專為台灣醫療資訊系統設計的 CQL 開發平台",
     "description": "整合 TWCORE IG 規範，提供視覺化 CQL 編輯、品質量測、CDS 決策支援等完整功能，協助醫療機構提升照護品質。",
@@ -54,6 +55,23 @@
       "ecqmTutorial": "eCQM 教學",
       "playground": "練習場",
       "quiz": "自我測驗"
+    },
+    "seo": {
+      "defaultTitle": "CQL 學習中心 — 台灣CQL概念平台",
+      "defaultDescription": "從零開始學習臨床品質語言 (CQL) — 入門教學、互動範例、TWCORE IG 指南、eCQM、FHIRPath 與線上練習場。",
+      "introduction": "CQL 入門介紹 — 什麼是臨床品質語言、為什麼對醫療品質量測至關重要、如何與 FHIR 搭配使用。",
+      "concepts": "CQL 核心概念 — 資料型別、表達式、查詢、Retrieve 語句與臨床邏輯構建模組。",
+      "twcore": "TWCORE IG 指南 — 在台灣 TWCORE 實作指引與本地化 FHIR Profile 中使用 CQL。",
+      "examples": "互動式 CQL 範例 — 糖尿病篩檢、生命徵象監測等實用程式碼範例。",
+      "quickStart": "CQL 快速入門 — 逐步建立第一個 CQL 程式庫、撰寫定義並執行查詢。",
+      "advanced": "CQL 進階主題 — 複雜查詢、自訂函式、效能優化與最佳實務。",
+      "troubleshooting": "CQL 疑難排解 — 常見錯誤、除錯技巧與 CQL 開發問題解決方案。",
+      "cheatSheet": "CQL 速查表 — CQL 語法、運算子、函式與常用模式的快速參考。",
+      "languageRef": "CQL 語言參考 — 涵蓋型別、運算子、查詢與區間的完整語法參考。",
+      "fhirpathElm": "FHIRPath 與 ELM 指南 — 理解 FHIRPath 表達式與表達式邏輯模型 (ELM) 編譯。",
+      "ecqmTutorial": "eCQM 教學 — 使用 CQL 建構電子臨床品質量測、人群定義與分層。",
+      "playground": "CQL 練習場 — 在瀏覽器中互動式撰寫、編輯與測試 CQL 程式碼。",
+      "quiz": "CQL 自我測驗 — 透過互動式問答測試你的 CQL 知識，即時獲得回饋。"
     },
     "backToHome": "返回首頁",
     "introduction": {

@@ -5,6 +5,7 @@ import {
   School as LearnIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import LoginForm from '../components/landing/LoginForm'
@@ -23,6 +24,14 @@ export default function LandingPage() {
   }
 
   return (
+    <>
+    <Helmet>
+      <title>{`${tc('app.title')} — Clinical Quality Language`}</title>
+      <meta name="description" content={`${tc('app.title')} — ${t('seoDescription')}`} />
+      <link rel="canonical" href="https://twcql.com/login" />
+      <meta property="og:title" content={`${tc('app.title')} — Clinical Quality Language`} />
+      <meta property="og:url" content="https://twcql.com/login" />
+    </Helmet>
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <Box
@@ -217,5 +226,6 @@ export default function LandingPage() {
         </Typography>
       </Box>
     </Box>
+    </>
   )
 }

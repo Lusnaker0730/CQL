@@ -1,4 +1,5 @@
 {
+  "seoDescription": "CQL visual editing, execution, and learning platform with FHIR R4 and TWCORE IG support.",
   "hero": {
     "tagline": "A CQL development platform designed for Taiwan's healthcare systems",
     "description": "Integrated with TWCORE IG specifications, providing visual CQL editing, quality measures, CDS decision support, and more to help healthcare organizations improve care quality.",
@@ -54,6 +55,23 @@
       "ecqmTutorial": "eCQM Tutorial",
       "playground": "Playground",
       "quiz": "Self Quiz"
+    },
+    "seo": {
+      "defaultTitle": "CQL Learning Center — Taiwan CQL Platform",
+      "defaultDescription": "Learn Clinical Quality Language (CQL) from scratch — tutorials, interactive examples, TWCORE IG guide, eCQM, FHIRPath, and hands-on playground.",
+      "introduction": "Introduction to CQL — What is Clinical Quality Language, why it matters for healthcare quality measurement, and how it works with FHIR.",
+      "concepts": "CQL Core Concepts — Data types, expressions, queries, retrieve statements, and clinical logic building blocks.",
+      "twcore": "TWCORE IG Guide — Using CQL with Taiwan's TWCORE Implementation Guide and localized FHIR profiles.",
+      "examples": "Interactive CQL Examples — Hands-on code samples for diabetes screening, vital signs monitoring, and more.",
+      "quickStart": "CQL Quick Start Guide — Set up your first CQL library, write definitions, and run queries step by step.",
+      "advanced": "Advanced CQL Topics — Complex queries, custom functions, performance optimization, and best practices.",
+      "troubleshooting": "CQL Troubleshooting Guide — Common errors, debugging tips, and solutions for CQL development issues.",
+      "cheatSheet": "CQL Cheat Sheet — Quick reference for CQL syntax, operators, functions, and common patterns.",
+      "languageRef": "CQL Language Reference — Complete syntax reference covering types, operators, queries, and intervals.",
+      "fhirpathElm": "FHIRPath & ELM Guide — Understanding FHIRPath expressions and Expression Logical Model (ELM) compilation.",
+      "ecqmTutorial": "eCQM Tutorial — Building electronic Clinical Quality Measures with CQL, populations, and stratifiers.",
+      "playground": "CQL Playground — Write, edit, and test CQL code interactively in your browser.",
+      "quiz": "CQL Self Quiz — Test your CQL knowledge with interactive questions and instant feedback."
     },
     "backToHome": "Back to Home",
     "introduction": {
