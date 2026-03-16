@@ -43,7 +43,18 @@
     "belowTarget": "Below Target",
     "alerts": "Alerts",
     "noAlerts": "No threshold alerts",
-    "score": "Score"
+    "score": "Score",
+    "target": "Target",
+    "status": {
+      "above_target": "Above Target",
+      "below_target": "Below Target",
+      "on_target": "On Target"
+    },
+    "thresholdType": {
+      "target": "Target",
+      "warning": "Warning",
+      "critical": "Critical"
+    }
   },
   "library": {
     "title": "Measure Library",

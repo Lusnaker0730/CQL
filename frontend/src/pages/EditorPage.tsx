@@ -14,6 +14,7 @@ import {
   Tooltip,
   ToggleButton,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   NoteAdd as NewIcon,
   Translate as TranslateIcon,
@@ -323,13 +324,13 @@ export default function EditorPage() {
             }}
           >
             <Box
-              sx={{
+              sx={(theme) => ({
                 p: 1,
                 px: 1.5,
-                background: 'linear-gradient(135deg, rgba(13,115,119,0.06) 0%, rgba(20,163,168,0.03) 100%)',
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.primary.light, 0.03)} 100%)`,
                 borderBottom: '1px solid',
-                borderColor: 'rgba(13,115,119,0.1)',
-              }}
+                borderColor: alpha(theme.palette.primary.main, 0.1),
+              })}
             >
               <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main', whiteSpace: 'nowrap' }}>
@@ -363,15 +364,15 @@ export default function EditorPage() {
                     }
                     onClick={handleTranslate}
                     disabled={isTranslating || !localContent}
-                    sx={{
-                      background: 'linear-gradient(135deg, #1B3A5C 0%, #2D5F8A 100%)',
+                    sx={(theme) => ({
+                      background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.light} 100%)`,
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #0F2440 0%, #1B3A5C 100%)',
+                        background: `linear-gradient(135deg, ${theme.palette.secondary.dark} 0%, ${theme.palette.secondary.main} 100%)`,
                       },
                       '&.Mui-disabled': {
-                        background: 'rgba(0,0,0,0.12)',
+                        background: alpha(theme.palette.common.black, 0.12),
                       },
-                    }}
+                    })}
                   >
                     {isTranslating ? t('toolbar.translating') : t('toolbar.translate')}
                   </Button>
@@ -382,14 +383,14 @@ export default function EditorPage() {
                     startIcon={<SaveIcon />}
                     onClick={handleSaveLibrary}
                     disabled={saveLibraryMutation.isPending || errors.length > 0}
-                    sx={{
-                      borderColor: 'rgba(13,115,119,0.4)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.primary.main, 0.4),
                       color: 'primary.dark',
                       '&:hover': {
                         borderColor: 'primary.main',
-                        bgcolor: 'rgba(13,115,119,0.04)',
+                        bgcolor: alpha(theme.palette.primary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.saveLibrary')}
                   </Button>
@@ -412,14 +413,14 @@ export default function EditorPage() {
                     startIcon={<ExportIcon />}
                     onClick={handleExport}
                     disabled={!localContent || errors.length > 0}
-                    sx={{
-                      borderColor: 'rgba(27,58,92,0.3)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.secondary.main, 0.3),
                       color: 'secondary.main',
                       '&:hover': {
                         borderColor: 'secondary.main',
-                        bgcolor: 'rgba(27,58,92,0.04)',
+                        bgcolor: alpha(theme.palette.secondary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.export')}
                   </Button>
@@ -430,14 +431,14 @@ export default function EditorPage() {
                     startIcon={<ImportIcon />}
                     onClick={handleImport}
                     disabled={importMutation.isPending}
-                    sx={{
-                      borderColor: 'rgba(27,58,92,0.3)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.secondary.main, 0.3),
                       color: 'secondary.main',
                       '&:hover': {
                         borderColor: 'secondary.main',
-                        bgcolor: 'rgba(27,58,92,0.04)',
+                        bgcolor: alpha(theme.palette.secondary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.import')}
                   </Button>
@@ -448,14 +449,14 @@ export default function EditorPage() {
                     startIcon={<ShareIcon />}
                     onClick={() => setShareDialogOpen(true)}
                     disabled={!lastSavedLibraryId}
-                    sx={{
-                      borderColor: 'rgba(27,58,92,0.3)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.secondary.main, 0.3),
                       color: 'secondary.main',
                       '&:hover': {
                         borderColor: 'secondary.main',
-                        bgcolor: 'rgba(27,58,92,0.04)',
+                        bgcolor: alpha(theme.palette.secondary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.share')}
                   </Button>
@@ -465,14 +466,14 @@ export default function EditorPage() {
                     startIcon={<VersionIcon />}
                     onClick={() => setVersionDialogOpen(true)}
                     disabled={!libraryName}
-                    sx={{
-                      borderColor: 'rgba(27,58,92,0.3)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.secondary.main, 0.3),
                       color: 'secondary.main',
                       '&:hover': {
                         borderColor: 'secondary.main',
-                        bgcolor: 'rgba(27,58,92,0.04)',
+                        bgcolor: alpha(theme.palette.secondary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.version')}
                   </Button>
@@ -482,14 +483,14 @@ export default function EditorPage() {
                     startIcon={<HistoryIcon />}
                     onClick={() => setHistoryDialogOpen(true)}
                     disabled={!libraryName}
-                    sx={{
-                      borderColor: 'rgba(27,58,92,0.3)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.secondary.main, 0.3),
                       color: 'secondary.main',
                       '&:hover': {
                         borderColor: 'secondary.main',
-                        bgcolor: 'rgba(27,58,92,0.04)',
+                        bgcolor: alpha(theme.palette.secondary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.history')}
                   </Button>
@@ -499,14 +500,14 @@ export default function EditorPage() {
                     startIcon={<CompareIcon />}
                     onClick={() => { setHistoryDialogOpen(false); setDiffDialogOpen(true) }}
                     disabled={!libraryName}
-                    sx={{
-                      borderColor: 'rgba(27,58,92,0.3)',
+                    sx={(theme) => ({
+                      borderColor: alpha(theme.palette.secondary.main, 0.3),
                       color: 'secondary.main',
                       '&:hover': {
                         borderColor: 'secondary.main',
-                        bgcolor: 'rgba(27,58,92,0.04)',
+                        bgcolor: alpha(theme.palette.secondary.main, 0.04),
                       },
-                    }}
+                    })}
                   >
                     {t('toolbar.compare')}
                   </Button>
@@ -516,16 +517,16 @@ export default function EditorPage() {
                       value="builder"
                       selected={showBuilder}
                       onChange={() => setShowBuilder((prev) => !prev)}
-                      sx={{
+                      sx={(theme) => ({
                         border: '1px solid',
-                        borderColor: showBuilder ? 'primary.main' : 'rgba(13,115,119,0.3)',
+                        borderColor: showBuilder ? 'primary.main' : alpha(theme.palette.primary.main, 0.3),
                         color: showBuilder ? 'primary.main' : 'text.secondary',
-                        bgcolor: showBuilder ? 'rgba(13,115,119,0.08)' : 'transparent',
+                        bgcolor: showBuilder ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
                         px: 1,
                         '&:hover': {
-                          bgcolor: 'rgba(13,115,119,0.08)',
+                          bgcolor: alpha(theme.palette.primary.main, 0.08),
                         },
-                      }}
+                      })}
                     >
                       <BuilderIcon sx={{ fontSize: 18, mr: 0.5 }} />
                       <Typography variant="caption" sx={{ textTransform: 'none' }}>
@@ -574,11 +575,11 @@ export default function EditorPage() {
                 <Tabs
                   value={rightPanelTab}
                   onChange={(_, v) => setRightPanelTab(v)}
-                  sx={{
+                  sx={(theme) => ({
                     borderBottom: '1px solid',
-                    borderColor: 'rgba(13,115,119,0.1)',
-                    bgcolor: 'rgba(27,58,92,0.03)',
-                  }}
+                    borderColor: alpha(theme.palette.primary.main, 0.1),
+                    bgcolor: alpha(theme.palette.secondary.main, 0.03),
+                  })}
                 >
                   <Tab label={t('tabs.elmErrors')} {...a11yProps(0, 'editor')} />
                   <Tab label={t('tabs.execute')} {...a11yProps(1, 'editor')} />

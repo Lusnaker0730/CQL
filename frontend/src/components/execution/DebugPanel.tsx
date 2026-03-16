@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -14,6 +14,7 @@ import {
   IconButton,
   Stack,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   KeyboardArrowDown as ExpandIcon,
   KeyboardArrowUp as CollapseIcon,
@@ -26,6 +27,7 @@ interface DebugPanelProps {
 }
 
 function ExpressionRow({ et, maxExprTime }: { et: ExpressionTraceType; maxExprTime: number }) {
+  const { t } = useTranslation('editor')
   const [open, setOpen] = useState(false)
   const hasDetails = et.sourceLocator || (et.dependencies && et.dependencies.length > 0)
 
@@ -66,7 +68,7 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTraceType; maxExprTi
             label={et.resultType}
             size="small"
             variant="outlined"
-            sx={{ borderColor: 'rgba(27,58,92,0.3)', color: 'secondary.main' }}
+            sx={(theme) => ({ borderColor: alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' })}
           />
         </TableCell>
         <TableCell>
@@ -74,18 +76,18 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTraceType; maxExprTi
             <LinearProgress
               variant="determinate"
               value={(et.evaluationTimeMs / maxExprTime) * 100}
-              sx={{
+              sx={(theme) => ({
                 flexGrow: 1,
                 height: 6,
                 borderRadius: 3,
-                bgcolor: 'rgba(13,115,119,0.08)',
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
                 '& .MuiLinearProgress-bar': {
                   bgcolor: et.evaluationTimeMs > maxExprTime * 0.7
-                    ? '#e65100'
-                    : 'primary.main',
+                    ? theme.palette.warning.dark
+                    : theme.palette.primary.main,
                   borderRadius: 3,
                 },
-              }}
+              })}
             />
             <Typography variant="caption" sx={{ minWidth: 40, textAlign: 'right' }}>
               {et.evaluationTimeMs}ms
@@ -101,13 +103,13 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTraceType; maxExprTi
                 <Stack spacing={0.5}>
                   {et.sourceLocator && (
                     <Typography variant="caption" color="text.secondary">
-                      Source: line {et.sourceLocator}
+                      {t('debug.sourceLine', { line: et.sourceLocator })}
                     </Typography>
                   )}
                   {et.dependencies && et.dependencies.length > 0 && (
                     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
                       <Typography variant="caption" color="text.secondary">
-                        Depends on:
+                        {t('debug.dependsOn')}
                       </Typography>
                       {et.dependencies.map((dep) => (
                         <Chip
@@ -132,13 +134,20 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTraceType; maxExprTi
 
 export default function DebugPanel({ trace }: DebugPanelProps) {
   const { t } = useTranslation('editor')
-  const maxExprTime = Math.max(
-    ...trace.expressionTraces.map((t) => t.evaluationTimeMs),
-    1
+
+  const sortedExpressions = useMemo(
+    () => [...trace.expressionTraces].sort((a, b) => a.order - b.order),
+    [trace.expressionTraces]
   )
-  const maxRetrieveTime = Math.max(
-    ...trace.retrieveTraces.map((t) => t.retrieveTimeMs),
-    1
+
+  const maxExprTime = useMemo(
+    () => Math.max(...trace.expressionTraces.map((et) => et.evaluationTimeMs), 1),
+    [trace.expressionTraces]
+  )
+
+  const maxRetrieveTime = useMemo(
+    () => Math.max(...trace.retrieveTraces.map((rt) => rt.retrieveTimeMs), 1),
+    [trace.retrieveTraces]
   )
 
   return (
@@ -158,11 +167,9 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {[...trace.expressionTraces]
-              .sort((a, b) => a.order - b.order)
-              .map((et) => (
-                <ExpressionRow key={et.name} et={et} maxExprTime={maxExprTime} />
-              ))}
+            {sortedExpressions.map((et) => (
+              <ExpressionRow key={et.name} et={et} maxExprTime={maxExprTime} />
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
@@ -196,11 +203,11 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
                       <Chip
                         label={rt.resourceCount}
                         size="small"
-                        sx={{
-                          bgcolor: 'rgba(13,115,119,0.08)',
+                        sx={(theme) => ({
+                          bgcolor: alpha(theme.palette.primary.main, 0.08),
                           color: 'primary.dark',
                           fontWeight: 600,
-                        }}
+                        })}
                       />
                     </TableCell>
                     <TableCell>
@@ -208,16 +215,16 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
                         <LinearProgress
                           variant="determinate"
                           value={(rt.retrieveTimeMs / maxRetrieveTime) * 100}
-                          sx={{
+                          sx={(theme) => ({
                             flexGrow: 1,
                             height: 6,
                             borderRadius: 3,
-                            bgcolor: 'rgba(27,58,92,0.08)',
+                            bgcolor: alpha(theme.palette.secondary.main, 0.08),
                             '& .MuiLinearProgress-bar': {
                               bgcolor: 'secondary.main',
                               borderRadius: 3,
                             },
-                          }}
+                          })}
                         />
                         <Typography variant="caption" sx={{ minWidth: 40, textAlign: 'right' }}>
                           {rt.retrieveTimeMs}ms

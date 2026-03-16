@@ -22,13 +22,13 @@ export default function FhirPage() {
           {t('page.title')}
         </Typography>
         <Box
-          sx={{
+          sx={(theme) => ({
             width: 48,
             height: 3,
             borderRadius: 2,
-            background: 'linear-gradient(90deg, #0D7377, #14A3A8)',
+            background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
             mb: 1,
-          }}
+          })}
         />
         <Typography variant="body2" color="text.secondary">
           {t('page.subtitle')}

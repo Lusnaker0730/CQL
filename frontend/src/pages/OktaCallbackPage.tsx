@@ -64,13 +64,13 @@ export default function OktaCallbackPage() {
   if (error) {
     return (
       <Box
-        sx={{
+        sx={(theme) => ({
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0D7377 0%, #1B3A5C 100%)',
-        }}
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+        })}
       >
         <Card sx={{ maxWidth: 420, width: '100%', mx: 2, borderRadius: 3 }}>
           <CardContent sx={{ p: 4, textAlign: 'center' }}>
@@ -92,13 +92,13 @@ export default function OktaCallbackPage() {
 
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0D7377 0%, #1B3A5C 100%)',
-      }}
+        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+      })}
     >
       <Card sx={{ maxWidth: 420, width: '100%', mx: 2, borderRadius: 3 }}>
         <CardContent sx={{ p: 4, textAlign: 'center' }}>

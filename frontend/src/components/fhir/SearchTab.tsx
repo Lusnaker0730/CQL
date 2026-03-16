@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { alpha } from '@mui/material/styles'
 import {
   Stack,
   CircularProgress,
@@ -184,7 +185,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
               <Chip
                 label={t('search.resourceCount', { count: totalEntries || getResourceCount(searchResult) })}
                 size="small"
-                sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.main', fontWeight: 600 }}
+                sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.main', fontWeight: 600 }}
               />
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center">

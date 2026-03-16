@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { Box, TextField, Typography, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import FieldWrapper from './FieldWrapper'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import type { ElementMetadata } from '../../types'
 
@@ -20,24 +22,27 @@ export default function ReferenceField({ element, value, onChange }: ReferenceFi
   const ref = (value as Reference) || {}
 
   // Build reference options from bundle entries, filtered by allowed target types
-  const targets = element.referenceTargets || []
-  const options = state.entries
-    .filter((e) => targets.length === 0 || targets.includes(e.resourceType))
-    .map((e) => ({
-      value: `${e.resourceType}/${(e.resourceData.id as string) || e.id}`,
-      label: `${e.resourceType}/${(e.resourceData.id as string) || e.id}`,
-    }))
+  const targets = useMemo(() => element.referenceTargets || [], [element.referenceTargets])
+  const options = useMemo(
+    () => state.entries
+      .filter((e) => targets.length === 0 || targets.includes(e.resourceType))
+      .map((e) => {
+        const label = `${e.resourceType}/${(e.resourceData.id as string) || e.id}`
+        return { value: label, label }
+      }),
+    [state.entries, targets]
+  )
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-        {targets.length > 0 && (
-          <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 1 }}>
-            ({targets.join(', ')})
-          </Typography>
-        )}
-      </Typography>
+    <FieldWrapper
+      name={element.name}
+      isRequired={element.isRequired}
+      extra={targets.length > 0 ? (
+        <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 1 }}>
+          ({targets.join(', ')})
+        </Typography>
+      ) : undefined}
+    >
       <Box sx={{ display: 'flex', gap: 1 }}>
         <TextField
           select
@@ -60,6 +65,6 @@ export default function ReferenceField({ element, value, onChange }: ReferenceFi
           sx={{ flex: 1 }}
         />
       </Box>
-    </Box>
+    </FieldWrapper>
   )
 }

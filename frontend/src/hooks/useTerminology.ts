@@ -6,6 +6,7 @@ export function useSearchValueSets(title?: string) {
     queryKey: ['valueSets', title],
     queryFn: () => fhirApi.searchValueSets(title),
     enabled: !!title && title.length >= 2,
+    staleTime: 60_000,
   })
 }
 
@@ -28,6 +29,7 @@ export function useSearchCodes(system: string, text: string) {
     queryKey: ['searchCodes', system, text],
     queryFn: () => fhirApi.searchCodes(system, text),
     enabled: !!system && !!text && text.length >= 2,
+    staleTime: 60_000,
   })
 }
 

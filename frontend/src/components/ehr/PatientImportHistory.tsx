@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
+import { STALE_1M } from '../../constants/queryConstants'
 import {
   Typography,
   Table,
@@ -13,11 +14,12 @@ import {
 import { ehrApi } from '../../api'
 
 export default function PatientImportHistory() {
-  const { t } = useTranslation('fhir')
+  const { t, i18n } = useTranslation('fhir')
 
   const { data: imports = [] } = useQuery({
     queryKey: ['ehr-import-history'],
     queryFn: () => ehrApi.getImportHistory(),
+    staleTime: STALE_1M,
   })
 
   if (imports.length === 0) {
@@ -53,7 +55,7 @@ export default function PatientImportHistory() {
               <TableCell>{imp.importedBy || '--'}</TableCell>
               <TableCell>
                 {imp.createdAt
-                  ? new Date(imp.createdAt).toLocaleDateString('en-US', {
+                  ? new Date(imp.createdAt).toLocaleDateString(i18n.language, {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

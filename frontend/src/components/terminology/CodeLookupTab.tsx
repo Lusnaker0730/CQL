@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import {
   Box,
@@ -29,23 +30,16 @@ import {
 import GradientButton from '../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 import { useIgCodeSystems } from '../../hooks/useImplementationGuide'
-
-const INTERNATIONAL_CODE_SYSTEMS = [
-  { label: 'LOINC', url: 'http://loinc.org' },
-  { label: 'SNOMED CT', url: 'http://snomed.info/sct' },
-  { label: 'ICD-10-CM', url: 'http://hl7.org/fhir/sid/icd-10-cm' },
-  { label: 'RxNorm', url: 'http://www.nlm.nih.gov/research/umls/rxnorm' },
-  { label: 'CPT', url: 'http://www.ama-assn.org/go/cpt' },
-]
+import { COMMON_CODE_SYSTEMS } from '../../constants/codeSystems'
 
 export default function CodeLookupTab() {
   const { t } = useTranslation('terminology')
   const [system, setSystem] = useState('')
   const [code, setCode] = useState('')
   const [searchText, setSearchText] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [showTextSearch, setShowTextSearch] = useState(false)
   const [showIntlSystems, setShowIntlSystems] = useState(true)
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_CODE_MS)
   const lookupMutation = useLookupCode()
   const { data: searchResults, isFetching: isSearching } = useSearchCodes(system, debouncedSearch)
   const { data: igCodeSystems } = useIgCodeSystems()
@@ -60,14 +54,9 @@ export default function CodeLookupTab() {
 
   // Combined list for label lookup (TWCORE first, then international)
   const ALL_CODE_SYSTEMS = useMemo(
-    () => [...twcoreCodeSystems, ...INTERNATIONAL_CODE_SYSTEMS],
+    () => [...twcoreCodeSystems, ...COMMON_CODE_SYSTEMS],
     [twcoreCodeSystems]
   )
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
-    return () => clearTimeout(timer)
-  }, [searchText])
 
   const handleLookup = () => {
     if (system && code) {
@@ -123,7 +112,7 @@ export default function CodeLookupTab() {
         </Button>
         <Collapse in={showIntlSystems}>
           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-            {INTERNATIONAL_CODE_SYSTEMS.map((cs) => (
+            {COMMON_CODE_SYSTEMS.map((cs) => (
               <Chip
                 key={cs.url}
                 label={cs.label}

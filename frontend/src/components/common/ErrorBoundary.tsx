@@ -1,5 +1,6 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { Paper, Typography, Button, Stack, Box } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { ErrorOutline as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material'
 import { Translation } from 'react-i18next'
 
@@ -39,14 +40,14 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
         <Translation>
           {(t) => (
         <Paper
-          sx={{
+          sx={(theme) => ({
             p: 4,
             m: 2,
             textAlign: 'center',
             border: '1px solid',
             borderColor: 'error.light',
-            bgcolor: 'rgba(211,47,47,0.04)',
-          }}
+            bgcolor: alpha(theme.palette.error.main, 0.04),
+          })}
         >
           <Stack spacing={2} alignItems="center">
             <ErrorIcon sx={{ fontSize: 48, color: 'error.main' }} />
@@ -67,11 +68,13 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             {import.meta.env.DEV && this.state.error && (
               <Box
                 component="pre"
-                sx={{
+                sx={(theme) => ({
                   mt: 2,
                   p: 2,
-                  bgcolor: '#1a1a1a',
-                  color: '#ff6b6b',
+                  bgcolor: theme.palette.mode === 'dark'
+                    ? theme.palette.grey[900]
+                    : theme.palette.grey[900],
+                  color: theme.palette.error.light,
                   borderRadius: 1,
                   fontSize: '0.75rem',
                   textAlign: 'left',
@@ -79,7 +82,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
                   maxHeight: 200,
                   width: '100%',
                   fontFamily: '"Consolas", monospace',
-                }}
+                })}
               >
                 {this.state.error.toString()}
                 {this.state.errorInfo?.componentStack}

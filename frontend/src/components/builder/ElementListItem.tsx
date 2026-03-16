@@ -1,5 +1,7 @@
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -14,7 +16,7 @@ interface ElementListItemProps {
   onDelete: () => void
 }
 
-export default function ElementListItem({
+const ElementListItem = memo(function ElementListItem({
   label,
   secondaryLabel,
   onGoTo,
@@ -30,7 +32,7 @@ export default function ElementListItem({
         py: 0.5,
         px: 0.5,
         borderRadius: 0.5,
-        '&:hover': { bgcolor: 'rgba(13,115,119,0.04)' },
+        '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04) },
         '&:hover .element-actions': { opacity: 1 },
       }}
     >
@@ -78,4 +80,6 @@ export default function ElementListItem({
       </Stack>
     </Box>
   )
-}
+})
+
+export default ElementListItem

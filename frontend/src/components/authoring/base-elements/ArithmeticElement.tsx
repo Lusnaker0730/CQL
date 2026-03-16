@@ -3,6 +3,7 @@ import {
   Stack, TextField, MenuItem, Typography, IconButton, Tooltip, Chip, Card, CardContent, Box,
   ToggleButtonGroup, ToggleButton,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Delete as DeleteIcon } from '@mui/icons-material'
 import type { BaseElement } from '../../../types/authoring'
 
@@ -136,7 +137,7 @@ export default function ArithmeticElement({ element, availableOperands, onUpdate
         </Stack>
 
         {preview && (
-          <Box sx={{ mt: 1.5, p: 1, bgcolor: 'rgba(13,115,119,0.04)', borderRadius: 1 }}>
+          <Box sx={(theme) => ({ mt: 1.5, p: 1, bgcolor: alpha(theme.palette.primary.main, 0.04), borderRadius: 1 })}>
             <Typography variant="caption" color="text.secondary">{t('arithmetic.cqlPreview')}</Typography>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
               define &quot;{element.name}&quot;: {preview}

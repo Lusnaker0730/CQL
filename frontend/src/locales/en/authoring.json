@@ -54,6 +54,7 @@
       "baseElementMissingName": "Base Element #{{index}}: missing name",
       "errorsFound": "{{count}} issue(s) found:"
     },
+    "twcoreTooltip": "Enable TWCORE Taiwan Core Implementation Guide templates",
     "unsavedTitle": "Unsaved Changes",
     "unsavedMessage": "You have unsaved changes. Are you sure you want to leave? Your changes will be lost.",
     "discardChanges": "Discard Changes",
@@ -209,7 +210,21 @@
     "enterValueOrExpr": "Enter value or expression...",
     "contains": "Contains:",
     "enterText": "Enter text...",
-    "precision": "Precision"
+    "precision": "Precision",
+    "none": "None",
+    "default": "Default",
+    "year": "Year",
+    "month": "Month",
+    "day": "Day",
+    "hour": "Hour",
+    "minute": "Minute",
+    "second": "Second",
+    "years": "Year(s)",
+    "months": "Month(s)",
+    "weeks": "Week(s)",
+    "days": "Day(s)",
+    "hours": "Hour(s)",
+    "valueSet": "Value Set"
   },
   "conjunctionType": {
     "and": "And",
@@ -458,7 +473,11 @@
     "intervalLow": "Low",
     "intervalHigh": "High",
     "intervalStart": "Start",
-    "intervalEnd": "End"
+    "intervalEnd": "End",
+    "display": "Display",
+    "value": "Value",
+    "unit": "Unit",
+    "defaultName": "Parameter {{number}}"
   },
   "externalCql": {
     "title": "External CQL Libraries",

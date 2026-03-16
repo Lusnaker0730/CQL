@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from '@mui/material/styles'
 import { getScoreChipColor } from '../utils/scoreColors'
 import {
   Paper,
@@ -33,8 +34,6 @@ import ThresholdAlertPanel from '../components/dashboard/ThresholdAlertPanel'
 import QualityReportPanel from '../components/dashboard/QualityReportPanel'
 import { STALE_30S, STALE_1M } from '../constants/queryConstants'
 
-const TEAL = '#0D7377'
-
 const STATUS_ORDER = ['active', 'draft', 'retired', 'in-review'] as const
 
 function formatDate(dateStr?: string): string {
@@ -66,19 +65,20 @@ function formatStatusLabel(key: string, inReviewLabel = 'In Review'): string {
 
 function OverviewCards({ data }: { data: DashboardSummary }) {
   const { t } = useTranslation('measures')
+  const theme = useTheme()
   const cards = [
-    { label: t('dashboard.totalMeasures'), value: data.totalMeasures, color: TEAL },
+    { label: t('dashboard.totalMeasures'), value: data.totalMeasures, color: theme.palette.primary.main },
     ...STATUS_ORDER.map((status) => ({
       label: formatStatusLabel(status, t('dashboard.inReview')),
       value: data.byStatus[status] ?? 0,
       color:
         status === 'active'
-          ? '#2e7d32'
+          ? theme.palette.success.main
           : status === 'draft'
-            ? '#757575'
+            ? theme.palette.text.secondary
             : status === 'retired'
-              ? '#ed6c02'
-              : '#0288d1',
+              ? theme.palette.warning.main
+              : theme.palette.info.main,
     })),
   ]
 
@@ -120,6 +120,7 @@ function RecentEvaluationsTable({
   evaluations: DashboardSummary['recentEvaluations']
 }) {
   const { t } = useTranslation('measures')
+  const theme = useTheme()
   const rows = evaluations.slice(0, 10)
 
   return (
@@ -138,7 +139,7 @@ function RecentEvaluationsTable({
         spacing={1}
         sx={{ px: 3, pt: 2.5, pb: 1.5 }}
       >
-        <TrendingUpIcon sx={{ color: TEAL, fontSize: 22 }} />
+        <TrendingUpIcon sx={{ color: theme.palette.primary.main, fontSize: 22 }} />
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           {t('dashboard.recentEvaluations')}
         </Typography>
@@ -213,6 +214,7 @@ function RecentEvaluationsTable({
 
 export default function MeasureDashboardPage() {
   const { t } = useTranslation('measures')
+  const theme = useTheme()
   const [department, setDepartment] = useState('')
   const [periodType, setPeriodType] = useState('monthly')
 
@@ -282,7 +284,7 @@ export default function MeasureDashboardPage() {
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: 'auto' }}>
       {/* Header */}
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-        <DashboardIcon sx={{ color: TEAL, fontSize: 28 }} />
+        <DashboardIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {t('dashboard.title')}
         </Typography>

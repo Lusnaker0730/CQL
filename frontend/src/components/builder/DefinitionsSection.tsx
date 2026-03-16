@@ -9,6 +9,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Add as AddIcon } from '@mui/icons-material'
 import ElementListItem from './ElementListItem'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
@@ -147,7 +148,7 @@ export default function DefinitionsSection({
           {t('common.addItem', { type: 'Definition' })}
         </Button>
       ) : (
-        <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
+        <Stack spacing={1} sx={{ p: 1, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03), borderRadius: 1 }}>
           <ToggleButtonGroup
             size="small"
             exclusive

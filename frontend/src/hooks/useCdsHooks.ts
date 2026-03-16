@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cdsHooksApi, apiKeyApi } from '../api'
 import type { CdsRequest, CdsServiceConfigRequest, CdsFeedbackRequest, CdsSandboxRequest, SandboxPresetRequest } from '../types'
-import { REFETCH_30S } from '../constants/queryConstants'
+import { REFETCH_30S, STALE_30S, STALE_1M, STALE_5M } from '../constants/queryConstants'
 
 export function useCdsServices() {
   return useQuery({
     queryKey: ['cds-services'],
     queryFn: () => cdsHooksApi.discover(),
+    staleTime: STALE_30S,
   })
 }
 
@@ -21,6 +22,7 @@ export function useCdsServiceConfigs() {
   return useQuery({
     queryKey: ['cds-service-configs'],
     queryFn: () => cdsHooksApi.getAllServices(),
+    staleTime: STALE_1M,
   })
 }
 
@@ -70,6 +72,7 @@ export function useCdsServiceVersions(serviceName: string | null) {
     queryKey: ['cds-service-versions', serviceName],
     queryFn: () => cdsHooksApi.getServiceVersions(serviceName!),
     enabled: !!serviceName,
+    staleTime: STALE_5M,
   })
 }
 
@@ -117,6 +120,7 @@ export function useSandboxPresets() {
   return useQuery({
     queryKey: ['sandbox-presets'],
     queryFn: () => cdsHooksApi.listPresets(),
+    staleTime: STALE_1M,
   })
 }
 
@@ -156,6 +160,7 @@ export function useApiKeys() {
   return useQuery({
     queryKey: ['api-keys'],
     queryFn: () => apiKeyApi.listKeys(),
+    staleTime: STALE_5M,
   })
 }
 

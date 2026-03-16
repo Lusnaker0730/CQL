@@ -20,6 +20,7 @@ import {
   AccordionDetails,
   Chip,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -204,7 +205,7 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
           {t('common.addItem', { type: 'Code' })}
         </Button>
       ) : (
-        <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
+        <Stack spacing={1} sx={{ p: 1, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03), borderRadius: 1 }}>
           {!editingItem && (
             <ToggleButtonGroup
               value={browseMode}

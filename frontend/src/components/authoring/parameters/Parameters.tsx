@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent,
@@ -22,7 +22,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [codeDialogParamId, setCodeDialogParamId] = useState<string | null>(null)
 
-  const PARAMETER_TYPES = [
+  const PARAMETER_TYPES = useMemo(() => [
     { value: 'boolean', label: t('parameters.typeBoolean'), hint: t('parameters.typeBooleanHint') },
     { value: 'integer', label: t('parameters.typeInteger'), hint: t('parameters.typeIntegerHint') },
     { value: 'decimal', label: t('parameters.typeDecimal'), hint: t('parameters.typeDecimalHint') },
@@ -34,7 +34,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
     { value: 'quantity', label: t('parameters.typeQuantity'), hint: t('parameters.typeQuantityHint') },
     { value: 'interval<integer>', label: t('parameters.typeIntervalInt'), hint: t('parameters.typeIntervalIntHint') },
     { value: 'interval<datetime>', label: t('parameters.typeIntervalDt'), hint: t('parameters.typeIntervalDtHint') },
-  ]
+  ], [t])
   const pendingDeleteName = pendingDeleteId
     ? parameters.find((p) => p.uniqueId === pendingDeleteId)?.name || 'this parameter'
     : ''
@@ -44,7 +44,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
       ...parameters,
       {
         uniqueId: generateId(),
-        name: 'Parameter ' + (parameters.length + 1),
+        name: t('parameters.defaultName', { number: parameters.length + 1 }),
         type: 'boolean',
         value: undefined,
         comment: '',
@@ -176,7 +176,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
           <Stack direction="row" spacing={1}>
             <TextField
               size="small"
-              label="Display"
+              label={t('parameters.display')}
               value={conceptVal.display || ''}
               onChange={(e) => handleUpdate(param.uniqueId, {
                 value: { ...conceptVal, display: e.target.value || undefined },
@@ -213,7 +213,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
           <Stack direction="row" spacing={1}>
             <TextField
               size="small"
-              label="Value"
+              label={t('parameters.value')}
               type="number"
               value={qtyVal.value ?? ''}
               onChange={(e) => handleUpdate(param.uniqueId, {
@@ -222,7 +222,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
               sx={{ width: 120 }}
             />
             <UcumUnitField
-              label="Unit"
+              label={t('parameters.unit')}
               value={qtyVal.unit || ''}
               onChange={(unit) => handleUpdate(param.uniqueId, {
                 value: { ...qtyVal, unit: unit || undefined },
@@ -316,7 +316,9 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
         </Box>
       ) : (
         <Stack spacing={2}>
-          {parameters.map((param) => (
+          {parameters.map((param) => {
+            const nameError = getNameError(param)
+            return (
             <Card key={param.uniqueId} variant="outlined">
               <CardContent>
                 <Stack direction="row" alignItems="center" spacing={2}>
@@ -326,8 +328,8 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
                     size="small"
                     label={t('parameters.nameLabel')}
                     sx={{ flex: 1 }}
-                    error={!!getNameError(param)}
-                    helperText={getNameError(param)}
+                    error={!!nameError}
+                    helperText={nameError}
                   />
                   <Tooltip title={PARAMETER_TYPES.find((t) => t.value === param.type)?.hint || ''} placement="top">
                     <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -366,7 +368,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
                 />
               </CardContent>
             </Card>
-          ))}
+          )})}
         </Stack>
       )}
 

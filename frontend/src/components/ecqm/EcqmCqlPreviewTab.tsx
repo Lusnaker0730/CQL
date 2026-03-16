@@ -99,11 +99,11 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
       {cql && (
         <Paper
           variant="outlined"
-          sx={{
+          sx={(theme) => ({
             p: 2, fontFamily: 'monospace', fontSize: '0.85rem',
             whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '70vh',
-            bgcolor: 'grey.50',
-          }}
+            bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+          })}
         >
           {cql}
         </Paper>

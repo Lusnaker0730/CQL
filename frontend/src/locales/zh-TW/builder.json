@@ -43,7 +43,8 @@
     "browseTwcore": "瀏覽 TWCORE",
     "searchVsacTitle": "搜尋 VSAC 值集",
     "searchVsacPlaceholder": "例如 糖尿病、HbA1c...",
-    "noTwcoreEntries": "無符合的 TWCORE 項目"
+    "noTwcoreEntries": "無符合的 TWCORE 項目",
+    "andMore": "...還有 {{count}} 個"
   },
   "codes": {
     "manualSearch": "手動 / 搜尋",
@@ -117,6 +118,9 @@
     "rows": "運算式列：",
     "select": "選擇...",
     "none": "無",
+    "operandLabel": "運算元",
+    "operatorLabel": "運算子",
+    "valueLabel": "值",
     "valuePlaceholder": "18、\"Name\"、...",
     "unit": "單位",
     "removeRow": "移除列",
@@ -128,6 +132,8 @@
     "resourceType": "資源類型",
     "terminologySource": "術語來源",
     "alias": "別名",
+    "with": "with",
+    "without": "without",
     "definitionName": "定義名稱",
     "whereClauses": "Where 子句",
     "and": "AND",
@@ -205,7 +211,15 @@
     "noIssues": "未發現問題",
     "errors": "個錯誤",
     "warnings": "個警告",
-    "hints": "個提示"
+    "hints": "個提示",
+    "systemAnyType": "「{{name}}」：類型為 System.Any — 可能需要型別標註",
+    "missingInPopulation": "找到建議定義但缺少「InPopulation」定義",
+    "missingInclusionCriteria": "找到「InPopulation」但缺少「MeetsInclusionCriteria」",
+    "missingExclusionCriteria": "找到「InPopulation」但缺少「MeetsExclusionCriteria」",
+    "emptyParameterName": "偵測到名稱為空的參數",
+    "unusedValueSets": "已定義 {{count}} 個值集，但尚無運算式使用",
+    "noLibraryIncludes": "無函式庫引入 — 建議新增 FHIRHelpers 以支援 FHIR 型別轉換",
+    "mixedContexts": "偵測到混合上下文（Patient 與 Population）— 請確認此為預期行為"
   },
   "modifierChain": {
     "title": "修飾器鏈",

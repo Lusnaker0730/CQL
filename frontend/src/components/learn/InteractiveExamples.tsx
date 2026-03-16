@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Box, Typography, Paper, Grid, List, ListItemButton, ListItemIcon, ListItemText, Button } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import {
   Bloodtype as DiabetesIcon,
   MonitorHeart as HypertensionIcon,
@@ -19,18 +20,30 @@ import {
   CQL_EXAMPLE_ENCOUNTER,
 } from '../../constants/cqlExamples'
 
-const EXAMPLES = [
-  { key: 'diabetes', icon: DiabetesIcon, code: CQL_EXAMPLE_DIABETES, color: '#D32F2F' },
-  { key: 'hypertension', icon: HypertensionIcon, code: CQL_EXAMPLE_HYPERTENSION, color: '#0D7377' },
-  { key: 'medication', icon: MedicationIcon, code: CQL_EXAMPLE_MEDICATION, color: '#E8A838' },
-  { key: 'encounter', icon: EncounterIcon, code: CQL_EXAMPLE_ENCOUNTER, color: '#1B3A5C' },
-] as const
+const EXAMPLE_KEYS = ['diabetes', 'hypertension', 'medication', 'encounter'] as const
+const EXAMPLE_CODES = [CQL_EXAMPLE_DIABETES, CQL_EXAMPLE_HYPERTENSION, CQL_EXAMPLE_MEDICATION, CQL_EXAMPLE_ENCOUNTER]
+const EXAMPLE_ICONS = [DiabetesIcon, HypertensionIcon, MedicationIcon, EncounterIcon]
 
 export default function InteractiveExamples() {
   const { t } = useTranslation('landing')
+  const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const [selected, setSelected] = useState(0)
+
+  const EXAMPLE_COLORS = [
+    theme.palette.error.main,
+    theme.palette.primary.main,
+    theme.palette.warning.main,
+    theme.palette.secondary.main,
+  ]
+
+  const EXAMPLES = EXAMPLE_KEYS.map((key, i) => ({
+    key,
+    icon: EXAMPLE_ICONS[i],
+    code: EXAMPLE_CODES[i],
+    color: EXAMPLE_COLORS[i],
+  }))
 
   const handleSelect = useCallback((index: number) => {
     setSelected(index)
@@ -39,7 +52,7 @@ export default function InteractiveExamples() {
   const handleOpenInEditor = useCallback(() => {
     dispatch(setCqlContent(EXAMPLES[selected].code))
     navigate('/')
-  }, [dispatch, navigate, selected])
+  }, [dispatch, navigate, selected, EXAMPLES])
 
   const example = EXAMPLES[selected]
 
@@ -66,7 +79,7 @@ export default function InteractiveExamples() {
                     py: 2,
                     borderLeft: '3px solid',
                     borderColor: selected === index ? color : 'transparent',
-                    '&.Mui-selected': { bgcolor: `${color}08` },
+                    '&.Mui-selected': { bgcolor: alpha(color, 0.03) },
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 40 }}>

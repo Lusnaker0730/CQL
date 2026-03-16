@@ -1,5 +1,7 @@
-import { Box, TextField, Typography, MenuItem } from '@mui/material'
+import { Box, TextField, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import FieldWrapper from './FieldWrapper'
+import { getChildBoundCodes, IDENTIFIER_USE_CODES } from './constants'
 import type { ElementMetadata } from '../../types'
 
 interface IdentifierType {
@@ -23,8 +25,6 @@ interface IdentifierFieldProps {
   value: unknown
   onChange: (value: unknown) => void
 }
-
-const USE_FALLBACK = ['usual', 'official', 'temp', 'secondary', 'old']
 
 interface TwIdentifierPreset {
   labelKey: string
@@ -70,7 +70,7 @@ const TW_IDENTIFIER_PRESETS: TwIdentifierPreset[] = [
 export default function IdentifierField({ element, value, onChange }: IdentifierFieldProps) {
   const { t } = useTranslation('measures')
   const ident = (value as Identifier) || {}
-  const useOptions = element.children?.find(c => c.name === 'use')?.boundCodes ?? USE_FALLBACK
+  const useOptions = getChildBoundCodes(element, 'use', IDENTIFIER_USE_CODES)
 
   const handlePresetChange = (presetIndex: string) => {
     if (!presetIndex) return
@@ -101,10 +101,7 @@ export default function IdentifierField({ element, value, onChange }: Identifier
     : undefined
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-      </Typography>
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
         <TextField
           select
@@ -151,6 +148,6 @@ export default function IdentifierField({ element, value, onChange }: Identifier
           helperText={activeHint ? t(activeHint) : undefined}
         />
       </Box>
-    </Box>
+    </FieldWrapper>
   )
 }

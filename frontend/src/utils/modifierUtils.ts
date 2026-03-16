@@ -1,34 +1,49 @@
 import type { Modifier } from '../types/authoring'
 
 /**
- * Check if a modifier has all required fields filled.
- * Returns true if the modifier is "complete" and its returnType is reliable.
+ * Returns the list of required field names that are missing for the given modifier.
+ * Works with the full `Modifier` type as well as the narrower modifier-like objects
+ * used in the artifact expression tree.
  */
-export function isModifierComplete(mod: Modifier): boolean {
+export function getModifierMissingFields(mod: Modifier): string[] {
   const tpl = mod.cqlTemplate || ''
   const vals = mod.values
 
   if (tpl === 'LookBackModifier' || mod.id.startsWith('LookBack')) {
-    return !!(vals?.value && vals?.unit)
+    const missing: string[] = []
+    if (!vals?.value) missing.push('value')
+    if (!vals?.unit) missing.push('unit')
+    return missing
   }
   if (tpl === 'ValueComparisonNumber' || tpl === 'ValueComparisonObservation') {
-    return !!(vals?.minOperator && (vals?.minValue || vals?.minValue === 0))
+    const missing: string[] = []
+    if (!vals?.minOperator) missing.push('operator')
+    if (!vals?.minValue && vals?.minValue !== 0) missing.push('value')
+    return missing
   }
   if (tpl === 'ConvertUnits' || tpl === 'WithUnit') {
-    return !!vals?.unit
+    return vals?.unit ? [] : ['unit']
   }
   if (['EqualsString', 'StartsWithString', 'EndsWithString'].includes(tpl)) {
-    return !!vals?.value
+    return vals?.value ? [] : ['value']
   }
   if (tpl === 'Qualifier') {
     const q = (vals?.qualifier as string) ?? 'value set'
-    return q === 'value set' ? !!vals?.valueSet : !!vals?.code
+    return q === 'value set' ? (vals?.valueSet ? [] : ['valueSet']) : (vals?.code ? [] : ['code'])
   }
   if (tpl === 'BeforeInterval' || tpl === 'AfterInterval') {
-    return !!vals?.value
+    return vals?.value ? [] : ['value']
   }
-  // Modifiers without values (BaseModifier, CheckExistence, etc.) are always complete
-  return true
+  // Modifiers without required values (BaseModifier, CheckExistence, etc.) are always complete
+  return []
+}
+
+/**
+ * Check if a modifier has all required fields filled.
+ * Returns true if the modifier is "complete" and its returnType is reliable.
+ */
+export function isModifierComplete(mod: Modifier): boolean {
+  return getModifierMissingFields(mod).length === 0
 }
 
 /**

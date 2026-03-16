@@ -1,5 +1,6 @@
-import { Box, TextField, Typography } from '@mui/material'
+import { Box, TextField } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import FieldWrapper from './FieldWrapper'
 import type { ElementMetadata } from '../../types'
 
 interface Period {
@@ -18,10 +19,7 @@ export default function PeriodField({ element, value, onChange }: PeriodFieldPro
   const period = (value as Period) || {}
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-      </Typography>
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       <Box sx={{ display: 'flex', gap: 1 }}>
         <TextField
           label={t('testCaseBuilder.fields.start')}
@@ -48,6 +46,6 @@ export default function PeriodField({ element, value, onChange }: PeriodFieldPro
           sx={{ flex: 1 }}
         />
       </Box>
-    </Box>
+    </FieldWrapper>
   )
 }

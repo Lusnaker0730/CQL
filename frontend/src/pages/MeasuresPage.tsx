@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
-import { PAGE_CONTENT_HEIGHT } from '../constants/layout'
+import { APP_BAR_HEIGHT } from '../constants/layout'
 import MeasureLibrary from '../components/measure/MeasureLibrary'
 import MeasureEditor from '../components/measure/MeasureEditor'
 import MeasureComparison from '../components/measure/MeasureComparison'
@@ -34,37 +34,31 @@ export default function MeasuresPage() {
   }
 
   return (
-    <Box sx={{ height: PAGE_CONTENT_HEIGHT, p: 2, display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ mb: 0.5 }}>
-          {t('page.title')}
-        </Typography>
-        <Box
-          sx={{
-            width: 48,
-            height: 3,
-            borderRadius: 2,
-            background: 'linear-gradient(90deg, #0D7377, #14A3A8)',
-            mb: 1,
-          }}
-        />
-        <Typography variant="body2" color="text.secondary">
-          {t('page.subtitle')}
-        </Typography>
+    <Box sx={{ height: `calc(100vh - ${APP_BAR_HEIGHT}px)`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Box sx={{ px: 2, pt: 1.5, pb: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {t('page.title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('page.subtitle')}
+          </Typography>
+        </Box>
+        <Tabs value={topTab} onChange={(_, v) => setTopTab(v)} sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0 } }}>
+          <Tab label={t('page.tabs.dashboard')} />
+          <Tab label={t('page.tabs.measures')} />
+          <Tab label={t('page.tabs.comparison')} />
+        </Tabs>
       </Box>
 
-      <Tabs value={topTab} onChange={(_, v) => setTopTab(v)} sx={{ mb: 2 }}>
-        <Tab label={t('page.tabs.dashboard')} />
-        <Tab label={t('page.tabs.measures')} />
-        <Tab label={t('page.tabs.comparison')} />
-      </Tabs>
-
-      <Box sx={{ flex: 1, minHeight: 0 }}>
-        {topTab === 0 && (
+      {topTab === 0 && (
+        <Box sx={{ flex: 1, minHeight: 0, p: 2, pt: 1, overflow: 'auto' }}>
           <MeasureDashboardPage />
-        )}
+        </Box>
+      )}
 
-        {topTab === 1 && (
+      {topTab === 1 && (
+        <Box sx={{ flex: 1, minHeight: 0, p: 2, pt: 1 }}>
           <Grid container spacing={2} sx={{ height: '100%' }}>
             {/* Left panel: Measure Library */}
             <Grid size={{ xs: 12, md: selectedMeasure ? 4 : 12 }} sx={{ height: '100%' }}>
@@ -87,12 +81,14 @@ export default function MeasuresPage() {
               </Box>
             )}
           </Grid>
-        )}
+        </Box>
+      )}
 
-        {topTab === 2 && (
+      {topTab === 2 && (
+        <Box sx={{ flex: 1, minHeight: 0, p: 2, pt: 1, overflow: 'auto' }}>
           <MeasureComparison />
-        )}
-      </Box>
+        </Box>
+      )}
     </Box>
   )
 }

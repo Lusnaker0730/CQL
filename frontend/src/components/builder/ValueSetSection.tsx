@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import {
   Stack,
   TextField,
@@ -15,6 +16,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Add as AddIcon, ExpandMore, ExpandLess, Search as SearchIcon, LocalLibrary as BrowseIcon } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
 import ElementListItem from './ElementListItem'
@@ -47,14 +49,21 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
   const [showForm, setShowForm] = useState(false)
   const [browseMode, setBrowseMode] = useState<BrowseMode>('vsac')
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [expandedUrl, setExpandedUrl] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editUrl, setEditUrl] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), SEARCH_DEBOUNCE_CODE_MS)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
   const { data: searchResults = [], isLoading: isSearching } = useSearchValueSets(
-    browseMode === 'vsac' && searchTerm.length >= 2 ? searchTerm : undefined
+    browseMode === 'vsac' && debouncedSearchTerm.length >= 2 ? debouncedSearchTerm : undefined
   )
   const expandMutation = useExpandValueSet()
   const handleExpand = (url: string) => {
@@ -100,6 +109,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
     setShowForm(false)
     setBrowseMode('vsac')
     setSearchTerm('')
+    setDebouncedSearchTerm('')
     setEditingItem(null)
     setEditName('')
     setEditUrl('')
@@ -147,7 +157,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
           {t('common.addItem', { type: 'ValueSet' })}
         </Button>
       ) : (
-        <Stack spacing={1} sx={{ p: 1, bgcolor: 'rgba(13,115,119,0.03)', borderRadius: 1 }}>
+        <Stack spacing={1} sx={{ p: 1, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03), borderRadius: 1 }}>
           {editingItem && (
             <>
               <TextField
@@ -253,7 +263,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                                   {expandMutation.data.expansion.contains.length > 10 && (
                                     <TableRow>
                                       <TableCell colSpan={2} sx={{ py: 0.25, fontSize: '0.75rem', fontStyle: 'italic' }}>
-                                        ...and {expandMutation.data.expansion.contains.length - 10} more
+                                        {t('valueSets.andMore', { count: expandMutation.data.expansion.contains.length - 10 })}
                                       </TableCell>
                                     </TableRow>
                                   )}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { alpha } from '@mui/material/styles'
 import { POLL_INTERVAL_MS } from '../../constants/timing'
 import {
   Stack,
@@ -226,7 +227,7 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
               <Chip
                 label={t('bulkExport.totalResources', { count: getTotalResourceCount() })}
                 size="small"
-                sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }}
+                sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }}
               />
             )}
           </Stack>

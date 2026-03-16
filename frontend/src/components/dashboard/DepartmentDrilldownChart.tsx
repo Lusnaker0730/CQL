@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { Box, Typography, Paper } from '@mui/material'
+import { CHART_HEIGHT } from '../../constants/layout'
 import { getScoreHex } from '../../utils/scoreColors'
 import {
   BarChart,
@@ -20,17 +22,21 @@ interface DepartmentDrilldownChartProps {
 export default function DepartmentDrilldownChart({ data, title }: DepartmentDrilldownChartProps) {
   const { t } = useTranslation('measures')
 
-  const chartData = Object.entries(data).map(([dept, score]) => ({
-    department: dept,
-    score,
-  }))
+  const chartData = useMemo(
+    () =>
+      Object.entries(data).map(([dept, score]) => ({
+        department: dept,
+        score,
+      })),
+    [data]
+  )
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography variant="subtitle2" gutterBottom>
         {title || t('dashboard.departmentScores')}
       </Typography>
-      <Box sx={{ width: '100%', height: 300 }}>
+      <Box sx={{ width: '100%', height: CHART_HEIGHT }}>
         <ResponsiveContainer minWidth={0} minHeight={0}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />

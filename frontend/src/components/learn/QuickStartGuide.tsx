@@ -3,6 +3,7 @@ import {
   ArrowForward as ArrowIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import CodeBlock from './CodeBlock'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
 
@@ -40,19 +41,10 @@ export default function QuickStartGuide() {
                   {t(`learn.quickStart.${key}.content`)}
                 </Typography>
                 {index === 2 && (
-                  <Box
-                    sx={{
-                      mt: 1,
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: '#1E1E2E',
-                      fontFamily: 'monospace',
-                      fontSize: '0.78rem',
-                      color: '#D4D4D4',
-                      whiteSpace: 'pre',
-                    }}
-                  >
-                    {`library MyFirstCQL version '1.0.0'\n\nusing FHIR version '4.0.1'\ninclude FHIRHelpers version '4.0.1'\n\ncontext Patient\n\ndefine "Patient Name":\n  Patient.name`}
+                  <Box sx={{ mt: 1 }}>
+                    <CodeBlock
+                      code={`library MyFirstCQL version '1.0.0'\n\nusing FHIR version '4.0.1'\ninclude FHIRHelpers version '4.0.1'\n\ncontext Patient\n\ndefine "Patient Name":\n  Patient.name`}
+                    />
                   </Box>
                 )}
               </StepContent>

@@ -359,10 +359,10 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
               onChange={(_, v) => { if (v) updateWithClause(wc.id, { mode: v }) }}
             >
               <ToggleButton value="with" sx={{ textTransform: 'none', px: 1, py: 0, fontSize: '0.7rem' }}>
-                with
+                {t('query.with')}
               </ToggleButton>
               <ToggleButton value="without" sx={{ textTransform: 'none', px: 1, py: 0, fontSize: '0.7rem' }}>
-                without
+                {t('query.without')}
               </ToggleButton>
             </ToggleButtonGroup>
             <TextField

@@ -84,7 +84,9 @@
     "saveFailed": "Failed to save service: {{error}}",
     "deleteFailed": "Failed to delete service: {{error}}",
     "rollbackFailed": "Failed to rollback: {{error}}",
-    "loadError": "Failed to load services"
+    "loadError": "Failed to load services",
+    "fieldServiceId": "Service ID",
+    "fieldTitle": "Title"
   },
   "sandbox": {
     "description": "Test CDS services without a real FHIR server. Build test data visually or edit JSON directly.",

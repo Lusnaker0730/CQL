@@ -79,9 +79,10 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
     }
   }
 
-  const cqlPreview = terminology
-    ? generateCql(resourceType, terminology, definitionName || 'Untitled', chainModifiers)
-    : ''
+  const cqlPreview = useMemo(
+    () => terminology ? generateCql(resourceType, terminology, definitionName || 'Untitled', chainModifiers) : '',
+    [resourceType, terminology, definitionName, chainModifiers]
+  )
 
   const handleInsert = () => {
     if (!terminology || !definitionName.trim()) return

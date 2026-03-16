@@ -74,3 +74,21 @@ export function getResourceIcon(resourceType: string): React.ReactElement {
 export const FHIR_UCUM_SYSTEM = 'http://unitsofmeasure.org'
 export const FHIR_BUNDLE_TYPE = 'collection'
 
+// --- FHIR code fallbacks (shared across field components) ---
+
+/** Extracts boundCodes from a named child element, with fallback */
+export function getChildBoundCodes(
+  element: { children?: Array<{ name: string; boundCodes: string[] }> },
+  childName: string,
+  fallback: string[],
+): string[] {
+  return element.children?.find(c => c.name === childName)?.boundCodes ?? fallback
+}
+
+export const NAME_USE_CODES = ['usual', 'official', 'temp', 'nickname', 'anonymous', 'old', 'maiden']
+export const ADDRESS_USE_CODES = ['home', 'work', 'temp', 'old', 'billing']
+export const ADDRESS_TYPE_CODES = ['postal', 'physical', 'both']
+export const CONTACT_SYSTEM_CODES = ['phone', 'fax', 'email', 'pager', 'url', 'sms', 'other']
+export const CONTACT_USE_CODES = ['home', 'work', 'temp', 'old', 'mobile']
+export const IDENTIFIER_USE_CODES = ['usual', 'official', 'temp', 'secondary', 'old']
+

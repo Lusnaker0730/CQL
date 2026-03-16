@@ -11,6 +11,7 @@ import {
   LinearProgress,
   Chip,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
@@ -32,6 +33,7 @@ const TOPIC_MAP: Record<number, { key: string; tab: string }> = {
 
 export default function CqlQuiz() {
   const { t } = useTranslation('landing')
+  const theme = useTheme()
   const [, setSearchParams] = useSearchParams()
   const [currentQ, setCurrentQ] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -203,10 +205,10 @@ export default function CqlQuiz() {
           }}
         >
           {question.options.map((option: string, index: number) => {
-            let bgcolor = 'transparent'
+            let bgcolor: string = 'transparent'
             if (checked) {
-              if (index === question.answer) bgcolor = 'rgba(46,125,50,0.08)'
-              else if (index === selectedAnswer && index !== question.answer) bgcolor = 'rgba(211,47,47,0.08)'
+              if (index === question.answer) bgcolor = alpha(theme.palette.success.main, 0.08)
+              else if (index === selectedAnswer && index !== question.answer) bgcolor = alpha(theme.palette.error.main, 0.08)
             }
 
             return (

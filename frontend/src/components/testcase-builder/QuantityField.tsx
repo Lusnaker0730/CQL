@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Box, TextField, Typography, Collapse, Link } from '@mui/material'
+import { Box, TextField, Collapse, Link } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import FieldWrapper from './FieldWrapper'
 import type { ElementMetadata } from '../../types'
 import { FHIR_UCUM_SYSTEM } from './constants'
 import UcumUnitField, { UCUM_UNITS } from '../common/UcumUnitField'
@@ -36,10 +37,7 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
   const unitDisplayValue = qty.code || qty.unit || ''
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-        {element.name} {element.isRequired && '*'}
-      </Typography>
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
         <TextField
           label={t('testCaseBuilder.fields.value')}
@@ -87,6 +85,6 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
           />
         </Box>
       </Collapse>
-    </Box>
+    </FieldWrapper>
   )
 }

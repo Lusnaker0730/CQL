@@ -14,6 +14,7 @@ import {
   CircularProgress,
   Divider,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   AccountTree as TreeIcon,
   ArrowUpward as DependentIcon,
@@ -58,9 +59,9 @@ export default function LibraryDependencyPanel({
       <Box
         sx={{
           p: 1.5,
-          background: 'linear-gradient(135deg, rgba(13,115,119,0.06) 0%, rgba(20,163,168,0.03) 100%)',
+          background: (theme) => `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.primary.light, 0.03)} 100%)`,
           borderBottom: '1px solid',
-          borderColor: 'rgba(13,115,119,0.1)',
+          borderColor: (theme) => alpha(theme.palette.primary.main, 0.1),
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1}>

@@ -214,7 +214,7 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
 
       {cql ? (
         <Box
-          sx={{
+          sx={(theme) => ({
             ...codeBlockSx,
             flex: 1,
             minHeight: 0,
@@ -224,8 +224,8 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
             fontSize: '0.85rem',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-all',
-            '& .mtk1': { color: isDark ? '#D4D4D4' : '#1B3A5C' },
-          }}
+            '& .mtk1': { color: isDark ? theme.palette.text.primary : theme.palette.secondary.main },
+          })}
         >
           {colorizedHtml ? (
             <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(colorizedHtml) }} />

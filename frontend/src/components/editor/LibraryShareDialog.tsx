@@ -29,6 +29,7 @@ import {
   Group as SharedIcon,
   SwapHoriz as TransferIcon,
 } from '@mui/icons-material'
+import GradientButton from '../common/GradientButton'
 import { useShareLibrary, useUnshareLibrary, useTransferOwnership, useSetAccessLevel } from '../../hooks/useCql'
 import type { CqlLibrary } from '../../types'
 
@@ -144,19 +145,15 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
             onKeyDown={(e) => e.key === 'Enter' && handleShare()}
             fullWidth
           />
-          <Button
-            variant="contained"
+          <GradientButton
             size="small"
             startIcon={<ShareIcon />}
             onClick={handleShare}
             disabled={!shareUsername.trim() || shareMutation.isPending}
-            sx={{
-              background: 'linear-gradient(135deg, #0D7377 0%, #14A3A8 100%)',
-              whiteSpace: 'nowrap',
-            }}
+            sx={{ whiteSpace: 'nowrap' }}
           >
             {t('share.share')}
-          </Button>
+          </GradientButton>
         </Stack>
 
         {sharedWith.length > 0 ? (

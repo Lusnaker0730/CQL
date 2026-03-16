@@ -19,6 +19,7 @@ interface QualityReportPanelProps {
 
 export default function QualityReportPanel({ report }: QualityReportPanelProps) {
   const { t } = useTranslation('measures')
+  const { t: tCommon } = useTranslation('common')
 
   if (!report) {
     return (
@@ -70,14 +71,14 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
               <TableRow key={ms.measureId}>
                 <TableCell>{ms.measureName}</TableCell>
                 <TableCell align="right">
-                  {ms.score != null ? `${ms.score.toFixed(1)}%` : 'N/A'}
+                  {ms.score != null ? `${ms.score.toFixed(1)}%` : tCommon('notAvailable')}
                 </TableCell>
                 <TableCell align="right">
                   {ms.targetThreshold != null ? `${ms.targetThreshold}%` : '-'}
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={ms.status.replace('_', ' ')}
+                    label={t(`dashboard.status.${ms.status}`, { defaultValue: ms.status })}
                     size="small"
                     color={
                       ms.status === 'above_target'

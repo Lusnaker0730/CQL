@@ -12,6 +12,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   LocalHospital as MedicalIcon,
   ArrowBack as BackIcon,
@@ -104,7 +105,7 @@ export default function LearnPage() {
       {/* Header */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #0D7377 0%, #1B3A5C 100%)',
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
           px: 3,
           py: 1.5,
           display: 'flex',
@@ -116,17 +117,17 @@ export default function LearnPage() {
           <Button
             startIcon={<BackIcon />}
             onClick={() => navigate('/login')}
-            sx={{ color: 'rgba(255,255,255,0.9)', textTransform: 'none', mr: 2 }}
+            sx={{ color: alpha(theme.palette.common.white, 0.9), textTransform: 'none', mr: 2 }}
           >
             {t('learn.backToHome')}
           </Button>
-          <MedicalIcon sx={{ color: 'white', fontSize: 22 }} />
-          <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'white' }}>
+          <MedicalIcon sx={{ color: 'common.white', fontSize: 22 }} />
+          <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'common.white' }}>
             {tc('app.title')}
           </Typography>
         </Box>
         <Box>
-          <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={{ color: alpha(theme.palette.common.white, 0.8) }}>
             <TranslateIcon fontSize="small" />
           </IconButton>
           <Menu

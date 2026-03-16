@@ -11,11 +11,12 @@ export function useTwcoreCatalog(resourceType?: string) {
   })
 }
 
-export function useTwcoreFullCatalog() {
+export function useTwcoreFullCatalog(enabled = true) {
   return useQuery<TwcoreCatalogEntry[]>({
     queryKey: ['twcore-catalog', '__all__'],
     queryFn: () => authoringApi.getTwcoreCatalog(),
     staleTime: Infinity,
+    enabled,
   })
 }
 

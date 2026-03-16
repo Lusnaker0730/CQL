@@ -1,4 +1,9 @@
 import { useState } from 'react'
+
+const TOOLBAR_BTN_BG = 'rgba(255,255,255,0.08)'
+const TOOLBAR_BTN_HOVER = 'rgba(255,255,255,0.15)'
+const TOOLBAR_BTN_ACTIVE = 'rgba(255,255,255,0.22)'
+
 import {
   IconButton,
   Badge,
@@ -101,8 +106,8 @@ export default function NotificationBell() {
         aria-label={t('notifications.title')}
         title={t('notifications.title')}
         sx={{
-          backgroundColor: open ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
-          '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
+          backgroundColor: open ? TOOLBAR_BTN_ACTIVE : TOOLBAR_BTN_BG,
+          '&:hover': { backgroundColor: TOOLBAR_BTN_HOVER },
           transition: 'background-color 0.2s ease',
         }}
       >

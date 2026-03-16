@@ -20,6 +20,7 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material'
 import { ehrApi } from '../../api'
 import type { EhrConnection, PatientSearchResult } from '../../types'
+import { STALE_30S } from '../../constants/queryConstants'
 import GradientButton from '../common/GradientButton'
 
 interface PatientSearchPanelProps {
@@ -48,6 +49,7 @@ export default function PatientSearchPanel({ connections, onSelectPatient }: Pat
         given: given || undefined,
       }),
     enabled: searchEnabled && !!connectionId && hasSearchParams,
+    staleTime: STALE_30S,
   })
 
   const handleSearch = () => {

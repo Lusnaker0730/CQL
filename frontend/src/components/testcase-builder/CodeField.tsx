@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack,
   FormControl, InputLabel, Select, MenuItem, FormHelperText,
@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import TwcoreCodePicker from './TwcoreCodePicker'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
@@ -22,7 +23,6 @@ interface CodeFieldProps {
 export default function CodeField({ element, value, onChange }: CodeFieldProps) {
   const { t } = useTranslation('measures')
   const [inputValue, setInputValue] = useState(String(value || ''))
-  const [debouncedInput, setDebouncedInput] = useState(inputValue)
   const [twcoreOpen, setTwcoreOpen] = useState(false)
 
   // Sync local input when value changes externally
@@ -31,12 +31,7 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   }, [value])
   const resourceType = useCurrentResourceType()
   const { openDrawer } = useTerminologyDrawer()
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
-
-  useEffect(() => {
-    debounceRef.current = setTimeout(() => setDebouncedInput(inputValue), SEARCH_DEBOUNCE_CODE_MS)
-    return () => clearTimeout(debounceRef.current)
-  }, [inputValue])
+  const debouncedInput = useDebouncedValue(inputValue, SEARCH_DEBOUNCE_CODE_MS)
 
   const hasBinding = !!element.bindingValueSetUrl
   const isRequiredBinding = element.bindingStrength === 'required' && element.boundCodes.length > 0
@@ -148,16 +143,14 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
         }}
         renderOption={(props, option) => (
           <Box component="li" {...props} key={typeof option === 'string' ? option : option.code}>
-            <Box>
-              <Typography variant="body2" fontWeight={500}>
-                {typeof option === 'string' ? option : option.code}
+            <Typography variant="body2" fontWeight={500}>
+              {typeof option === 'string' ? option : option.code}
+            </Typography>
+            {typeof option !== 'string' && (
+              <Typography variant="caption" color="text.secondary">
+                {option.display}
               </Typography>
-              {typeof option !== 'string' && (
-                <Typography variant="caption" color="text.secondary">
-                  {option.display}
-                </Typography>
-              )}
-            </Box>
+            )}
           </Box>
         )}
         renderInput={(params) => (

@@ -20,8 +20,10 @@ export interface ValidationIssue {
   element?: string
 }
 
+type TFunc = (key: string, opts?: Record<string, unknown>) => string
+
 /** Run basic static analysis on the parsed CQL structure */
-function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
+function analyzeStructure(structure: CqlStructure, t: TFunc): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const allExprNames = new Set(structure.expressions.map((e) => e.name))
   const paramNames = new Set(structure.parameters.map((p) => extractCqlName(p)).filter(Boolean))
@@ -31,7 +33,7 @@ function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
     if (expr.resultType === 'System.Any') {
       issues.push({
         severity: 'info',
-        message: `"${expr.name}": type is System.Any — may need type annotation`,
+        message: t('validation.systemAnyType', { name: expr.name }),
         element: expr.name,
       })
     }
@@ -48,26 +50,26 @@ function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
   if (hasRecommendation && !hasInPopulation) {
     issues.push({
       severity: 'warning',
-      message: 'Recommendations found but missing "InPopulation" definition',
+      message: t('validation.missingInPopulation'),
     })
   }
   if (hasInPopulation && !hasInclusion) {
     issues.push({
       severity: 'warning',
-      message: '"InPopulation" found but missing "MeetsInclusionCriteria"',
+      message: t('validation.missingInclusionCriteria'),
     })
   }
   if (hasInPopulation && !hasExclusion) {
     issues.push({
       severity: 'info',
-      message: '"InPopulation" found but missing "MeetsExclusionCriteria"',
+      message: t('validation.missingExclusionCriteria'),
     })
   }
 
   // Check empty parameter names
   for (const p of paramNames) {
     if (!p.trim()) {
-      issues.push({ severity: 'error', message: 'Parameter with empty name detected' })
+      issues.push({ severity: 'error', message: t('validation.emptyParameterName') })
     }
   }
 
@@ -76,7 +78,7 @@ function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
   if (structure.valueSets.length > 0 && structure.expressions.length === 0 && structure.functions.length === 0) {
     issues.push({
       severity: 'info',
-      message: `${structure.valueSets.length} value set(s) defined but no expressions use them yet`,
+      message: t('validation.unusedValueSets', { count: structure.valueSets.length }),
     })
   }
 
@@ -84,7 +86,7 @@ function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
   if (structure.includes.length === 0 && structure.expressions.length > 0) {
     issues.push({
       severity: 'info',
-      message: 'No library includes — consider adding FHIRHelpers for FHIR type conversions',
+      message: t('validation.noLibraryIncludes'),
     })
   }
 
@@ -93,7 +95,7 @@ function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
   if (contexts.size > 1) {
     issues.push({
       severity: 'info',
-      message: 'Mixed contexts detected (Patient and Population) — ensure this is intentional',
+      message: t('validation.mixedContexts'),
     })
   }
 
@@ -102,7 +104,7 @@ function analyzeStructure(structure: CqlStructure): ValidationIssue[] {
 
 export default function ValidationPanel({ structure, parseError }: ValidationPanelProps) {
   const { t } = useTranslation('builder')
-  const issues = useMemo(() => analyzeStructure(structure), [structure])
+  const issues = useMemo(() => analyzeStructure(structure, t), [structure, t])
 
   const errorCount = issues.filter((i) => i.severity === 'error').length
   const warningCount = issues.filter((i) => i.severity === 'warning').length

@@ -8,6 +8,7 @@ import {
   Tooltip,
   Chip,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   PushPin as PinIcon,
   PushPinOutlined as PinOutlinedIcon,
@@ -105,8 +106,8 @@ export default function BaseElementsPanel({ structure, onGoTo }: BaseElementsPan
                 py: 0.5,
                 px: 0.5,
                 borderRadius: 0.5,
-                bgcolor: 'rgba(13,115,119,0.04)',
-                '&:hover': { bgcolor: 'rgba(13,115,119,0.08)' },
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+                '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08) },
               }}
             >
               <Tooltip title={t('baseElements.unmarkBase')}>
@@ -187,7 +188,7 @@ export default function BaseElementsPanel({ structure, onGoTo }: BaseElementsPan
                 <Chip
                   label={`×${count}`}
                   size="small"
-                  sx={{ height: 16, fontSize: '0.55rem', bgcolor: 'rgba(13,115,119,0.08)' }}
+                  sx={{ height: 16, fontSize: '0.55rem', bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08) }}
                 />
               </Stack>
             )

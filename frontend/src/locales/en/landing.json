@@ -240,6 +240,7 @@
       "errors": "Translation found {{count}} issue(s):",
       "loginRequired": "Login to use full translation features",
       "loginToTranslate": "Login to Translate",
+      "translationFailed": "Translation failed. Please check your CQL syntax.",
       "lines": "{{count}} lines",
       "templates": {
         "starter": "Starter Template",

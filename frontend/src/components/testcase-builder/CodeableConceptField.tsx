@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  Box, TextField, Typography, Autocomplete, Button, IconButton, Tooltip,
+  Box, TextField, Autocomplete, Button, IconButton, Tooltip,
   FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon, Search as SearchIcon } from '@mui/icons-material'
@@ -9,7 +9,9 @@ import { useQuery } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import TwcoreCodePicker from './TwcoreCodePicker'
+import FieldWrapper from './FieldWrapper'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { ElementMetadata, CodeSearchResult } from '../../types'
 
@@ -47,18 +49,12 @@ function CodingField({
 }) {
   const { t } = useTranslation('measures')
   const [searchText, setSearchText] = useState(coding.code || '')
-  const [debouncedSearch, setDebouncedSearch] = useState(searchText)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_CODE_MS)
 
   // Sync local input when coding.code changes externally (e.g. TWCORE picker, terminology drawer)
   useEffect(() => {
     setSearchText(coding.code || '')
   }, [coding.code])
-
-  useEffect(() => {
-    debounceRef.current = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
-    return () => clearTimeout(debounceRef.current)
-  }, [searchText])
 
   const { data: options = [] } = useQuery<CodeSearchResult[]>({
     queryKey: ['code-search', bindingUrl || coding.system, debouncedSearch],
@@ -208,11 +204,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
   }
 
   return (
-    <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
-        {element.name} {element.isRequired && '*'}
-      </Typography>
-
+    <FieldWrapper name={element.name} isRequired={element.isRequired}>
       {codings.map((coding, i) => (
         <CodingField
           key={i}
@@ -248,6 +240,6 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
           resourceType={resourceType}
         />
       )}
-    </Box>
+    </FieldWrapper>
   )
 }

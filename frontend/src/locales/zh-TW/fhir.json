@@ -223,6 +223,7 @@
     },
     "saveConnection": "儲存",
     "cancel": "取消",
+    "back": "返回",
     "connectionSaved": "連線儲存成功",
     "connectionDeleted": "連線已刪除",
     "testSuccess": "連線成功",
@@ -257,6 +258,7 @@
     "importDate": "匯入日期",
     "resourceCount": "資源數",
     "active": "啟用",
-    "inactive": "停用"
+    "inactive": "停用",
+    "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
   }
 }

@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { alpha } from '@mui/material/styles'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import {
   Box,
@@ -129,15 +131,11 @@ function PackagesTab() {
 function ProfilesTab() {
   const { t } = useTranslation('fhir')
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [resourceType, setResourceType] = useState<string>('')
   const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
   const [loadingDetail, setLoadingDetail] = useState(false)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
-    return () => clearTimeout(timer)
-  }, [search])
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const { data: profiles, isLoading, error } = useIgProfiles(resourceType || undefined, debouncedSearch || undefined)
 
@@ -252,14 +250,10 @@ function ProfilesTab() {
 function ValueSetsTab() {
   const { t } = useTranslation('fhir')
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
   const [loadingDetail, setLoadingDetail] = useState(false)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
-    return () => clearTimeout(timer)
-  }, [search])
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const { data: valueSets, isLoading, error } = useIgValueSets(debouncedSearch || undefined)
 
@@ -330,7 +324,7 @@ function ValueSetsTab() {
                       <StatusChip status={vs.status || 'draft'} />
                     </TableCell>
                     <TableCell>
-                      <Chip label={vs.conceptCount} size="small" sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }} />
+                      <Chip label={vs.conceptCount} size="small" sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -355,14 +349,10 @@ function ValueSetsTab() {
 function CodeSystemsTab() {
   const { t } = useTranslation('fhir')
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [detail, setDetail] = useState<DetailDialogState>({ open: false, title: '', json: '' })
   const [loadingDetail, setLoadingDetail] = useState(false)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
-    return () => clearTimeout(timer)
-  }, [search])
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const { data: codeSystems, isLoading, error } = useIgCodeSystems(debouncedSearch || undefined)
 
@@ -433,7 +423,7 @@ function CodeSystemsTab() {
                       <StatusChip status={cs.status || 'draft'} />
                     </TableCell>
                     <TableCell>
-                      <Chip label={cs.conceptCount} size="small" sx={{ bgcolor: 'rgba(13,115,119,0.1)', color: 'primary.dark', fontWeight: 600 }} />
+                      <Chip label={cs.conceptCount} size="small" sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -477,8 +467,8 @@ function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; o
             component="pre"
             sx={{
               p: 2,
-              bgcolor: '#1e1e1e',
-              color: '#d4d4d4',
+              bgcolor: 'grey.900',
+              color: 'grey.300',
               borderRadius: 1,
               overflow: 'auto',
               maxHeight: 500,

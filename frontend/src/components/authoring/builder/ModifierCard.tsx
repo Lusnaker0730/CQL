@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Card, CardContent, Stack, Typography, IconButton, Tooltip, TextField,
   FormControl, InputLabel, Select, MenuItem, Alert,
@@ -6,14 +7,7 @@ import { Close as RemoveIcon, Warning as WarnIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import UcumUnitField from '../fields/UcumUnitField'
 import type { Modifier } from '../../../types/authoring'
-
-const TIME_UNITS = [
-  { value: 'years', label: 'Year(s)' },
-  { value: 'months', label: 'Month(s)' },
-  { value: 'weeks', label: 'Week(s)' },
-  { value: 'days', label: 'Day(s)' },
-  { value: 'hours', label: 'Hour(s)' },
-]
+import { getModifierMissingFields } from '../../../utils/modifierUtils'
 
 const COMPARISON_OPERATORS = [
   { value: '>', label: '>' },
@@ -45,7 +39,7 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
     onUpdateValues({ ...(modifier.values || {}), [key]: value })
   }
 
-  const missingFields = getMissingRequiredFields(modifier)
+  const missingFields = getModifierMissingFields(modifier)
 
   return (
     <Card variant="outlined" sx={{ backgroundColor: 'action.hover' }}>
@@ -96,6 +90,13 @@ function ModifierValueEditor({
   onValueChange: (key: string, value: unknown) => void
 }) {
   const { t } = useTranslation('authoring')
+  const TIME_UNITS = useMemo(() => [
+    { value: 'years', label: t('modifier.years') },
+    { value: 'months', label: t('modifier.months') },
+    { value: 'weeks', label: t('modifier.weeks') },
+    { value: 'days', label: t('modifier.days') },
+    { value: 'hours', label: t('modifier.hours') },
+  ], [t])
   if (!modifier.values || Object.keys(modifier.values).length === 0) return null
 
   const modType = modifier.cqlTemplate || modifier.id
@@ -164,7 +165,7 @@ function ModifierValueEditor({
               displayEmpty
               onChange={(e) => onValueChange('maxOperator', e.target.value)}
             >
-              <MenuItem value=""><em>None</em></MenuItem>
+              <MenuItem value=""><em>{t('modifier.none')}</em></MenuItem>
               {COMPARISON_OPERATORS.map((op) => (
                 <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>
               ))}
@@ -261,13 +262,13 @@ function ModifierValueEditor({
             label={t('modifier.precision')}
             onChange={(e) => onValueChange('precision', e.target.value)}
           >
-            <MenuItem value=""><em>Default</em></MenuItem>
-            <MenuItem value="year">Year</MenuItem>
-            <MenuItem value="month">Month</MenuItem>
-            <MenuItem value="day">Day</MenuItem>
-            <MenuItem value="hour">Hour</MenuItem>
-            <MenuItem value="minute">Minute</MenuItem>
-            <MenuItem value="second">Second</MenuItem>
+            <MenuItem value=""><em>{t('modifier.default')}</em></MenuItem>
+            <MenuItem value="year">{t('modifier.year')}</MenuItem>
+            <MenuItem value="month">{t('modifier.month')}</MenuItem>
+            <MenuItem value="day">{t('modifier.day')}</MenuItem>
+            <MenuItem value="hour">{t('modifier.hour')}</MenuItem>
+            <MenuItem value="minute">{t('modifier.minute')}</MenuItem>
+            <MenuItem value="second">{t('modifier.second')}</MenuItem>
           </Select>
         </FormControl>
       </Stack>
@@ -286,8 +287,8 @@ function ModifierValueEditor({
               displayEmpty
               onChange={(e) => onValueChange('qualifier', e.target.value)}
             >
-              <MenuItem value="value set">Value Set</MenuItem>
-              <MenuItem value="code">Code</MenuItem>
+              <MenuItem value="value set">{t('modifier.valueSet')}</MenuItem>
+              <MenuItem value="code">{t('modifier.codeLabel')}</MenuItem>
             </Select>
           </FormControl>
         </Stack>
@@ -370,50 +371,4 @@ function ModifierValueEditor({
       ))}
     </Stack>
   )
-}
-
-// ----- Validation -----
-
-function getMissingRequiredFields(modifier: Modifier): string[] {
-  // LookBack requires value + unit
-  if (modifier.cqlTemplate === 'LookBackModifier' || modifier.id.startsWith('LookBack')) {
-    const missing: string[] = []
-    if (!modifier.values?.value) missing.push('value')
-    if (!modifier.values?.unit) missing.push('unit')
-    return missing
-  }
-
-  // ValueComparison requires minOperator + minValue
-  if (modifier.cqlTemplate === 'ValueComparisonNumber' || modifier.cqlTemplate === 'ValueComparisonObservation') {
-    const missing: string[] = []
-    if (!modifier.values?.minOperator) missing.push('operator')
-    if (!modifier.values?.minValue && modifier.values?.minValue !== 0) missing.push('value')
-    return missing
-  }
-
-  // ConvertUnits / WithUnit requires unit
-  if (modifier.cqlTemplate === 'ConvertUnits' || modifier.cqlTemplate === 'WithUnit') {
-    return modifier.values?.unit ? [] : ['unit']
-  }
-
-  // String modifiers require value
-  if (['EqualsString', 'StartsWithString', 'EndsWithString'].includes(modifier.cqlTemplate || '')) {
-    return modifier.values?.value ? [] : ['value']
-  }
-
-  // Qualifier requires valueSet or code depending on qualifier type
-  if (modifier.cqlTemplate === 'Qualifier') {
-    const qualifier = (modifier.values?.qualifier as string) ?? 'value set'
-    if (qualifier === 'value set') {
-      return modifier.values?.valueSet ? [] : ['valueSet']
-    }
-    return modifier.values?.code ? [] : ['code']
-  }
-
-  // Before/After Interval require value
-  if (modifier.cqlTemplate === 'BeforeInterval' || modifier.cqlTemplate === 'AfterInterval') {
-    return modifier.values?.value ? [] : ['value']
-  }
-
-  return []
 }

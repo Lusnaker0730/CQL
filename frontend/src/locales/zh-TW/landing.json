@@ -240,6 +240,7 @@
       "errors": "翻譯發現 {{count}} 個問題：",
       "loginRequired": "登入後可使用完整的翻譯功能",
       "loginToTranslate": "登入以翻譯",
+      "translationFailed": "翻譯失敗，請檢查您的 CQL 語法。",
       "lines": "{{count}} 行",
       "templates": {
         "starter": "入門範本",

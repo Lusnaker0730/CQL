@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -27,9 +27,9 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
-import { COPY_FEEDBACK_TIMEOUT_MS } from '../../constants/timing'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { COPY_FEEDBACK_TIMEOUT_MS, SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { SelectedCoding } from '../../contexts/TerminologyDrawerContext'
-import type { ValueSetCode } from '../../types'
 
 interface DrawerValueSetPanelProps {
   onSelect?: (coding: SelectedCoding) => void
@@ -39,11 +39,14 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
   const { t } = useTranslation('terminology')
   const [search, setSearch] = useState('')
   const [expandedUrl, setExpandedUrl] = useState<string | null>(null)
-  const [expandedCodes, setExpandedCodes] = useState<ValueSetCode[]>([])
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  const { data: valueSets = [], isLoading } = useSearchValueSets(search)
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_CODE_MS)
+  const { data: valueSets = [], isLoading } = useSearchValueSets(debouncedSearch)
   const expandMutation = useExpandValueSet()
+
+  const expandedCodes = expandMutation.data?.expansion?.contains || []
 
   const handleToggle = async (url: string) => {
     if (expandedUrl === url) {
@@ -51,10 +54,8 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
       return
     }
     setExpandedUrl(url)
-    setExpandedCodes([])
     try {
-      const result = await expandMutation.mutateAsync({ url })
-      setExpandedCodes(result.expansion?.contains || [])
+      await expandMutation.mutateAsync({ url })
     } catch {
       // expansion failed
     }
@@ -63,7 +64,8 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
   const handleCopy = async (coding: SelectedCoding) => {
     await navigator.clipboard.writeText(`${coding.system}|${coding.code}`)
     setCopiedCode(coding.code)
-    setTimeout(() => setCopiedCode(null), COPY_FEEDBACK_TIMEOUT_MS)
+    clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopiedCode(null), COPY_FEEDBACK_TIMEOUT_MS)
   }
 
   return (

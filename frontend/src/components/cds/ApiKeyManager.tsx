@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { alpha } from '@mui/material/styles'
 import {
   Box,
   Typography,
@@ -89,13 +90,13 @@ export default function ApiKeyManager() {
         <Stack direction="row" spacing={1} alignItems="center">
           <Typography
             variant="body2"
-            sx={{
+            sx={(theme) => ({
               fontFamily: '"Consolas", monospace',
-              bgcolor: 'rgba(0,0,0,0.04)',
+              bgcolor: alpha(theme.palette.common.black, 0.04),
               px: 1,
               py: 0.5,
               borderRadius: 1,
-            }}
+            })}
           >
             {perUserEndpoint}
           </Typography>
@@ -206,15 +207,15 @@ export default function ApiKeyManager() {
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                   <Typography
                     variant="body2"
-                    sx={{
+                    sx={(theme) => ({
                       fontFamily: '"Consolas", monospace',
-                      bgcolor: 'rgba(0,0,0,0.06)',
+                      bgcolor: alpha(theme.palette.common.black, 0.06),
                       px: 1.5,
                       py: 1,
                       borderRadius: 1,
                       wordBreak: 'break-all',
                       flex: 1,
-                    }}
+                    })}
                   >
                     {newlyCreatedKey}
                   </Typography>

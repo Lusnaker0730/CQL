@@ -122,30 +122,30 @@ export default function LoginPage() {
 
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0D7377 0%, #1B3A5C 100%)',
-      }}
+        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+      })}
     >
       <Card sx={{ maxWidth: 420, width: '100%', mx: 2, borderRadius: 3 }}>
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Box
-              sx={{
+              sx={(theme) => ({
                 width: 56,
                 height: 56,
                 borderRadius: '16px',
-                background: 'linear-gradient(135deg, #0D7377, #1B3A5C)',
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 mb: 2,
-              }}
+              })}
             >
-              <MedicalIcon sx={{ fontSize: 32, color: 'white' }} />
+              <MedicalIcon sx={{ fontSize: 32, color: 'common.white' }} />
             </Box>
             <Typography variant="h5" fontWeight={700} color="text.primary">
               {t('app.title')}
