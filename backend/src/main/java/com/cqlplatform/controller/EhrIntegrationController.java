@@ -50,6 +50,9 @@ public class EhrIntegrationController {
     @Operation(summary = "Create Connection", description = "Create a new EHR connection")
     public ResponseEntity<EhrConnectionEntity> createConnection(@Valid @RequestBody EhrConnectionRequest request) {
         InputValidator.requireValidUrl(request.getFhirServerUrl());
+        if (request.getTokenEndpoint() != null && !request.getTokenEndpoint().isBlank()) {
+            InputValidator.requireValidUrl(request.getTokenEndpoint());
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(connectionService.create(request));
     }
 
@@ -60,6 +63,9 @@ public class EhrIntegrationController {
             @PathVariable Long id,
             @Valid @RequestBody EhrConnectionRequest request) {
         InputValidator.requireValidUrl(request.getFhirServerUrl());
+        if (request.getTokenEndpoint() != null && !request.getTokenEndpoint().isBlank()) {
+            InputValidator.requireValidUrl(request.getTokenEndpoint());
+        }
         return ResponseEntity.ok(connectionService.update(id, request));
     }
 
@@ -72,6 +78,7 @@ public class EhrIntegrationController {
     }
 
     @PostMapping("/connections/{id}/test")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Test Connection", description = "Test connectivity to an EHR FHIR server")
     public ResponseEntity<EhrConnectionEntity> testConnection(@PathVariable Long id) {
         return ResponseEntity.ok(connectionService.testConnection(id));
@@ -80,6 +87,7 @@ public class EhrIntegrationController {
     // ===== Patient Search & Import =====
 
     @GetMapping("/connections/{id}/patients")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Search Patients", description = "Search for patients on a connected EHR server")
     public ResponseEntity<List<PatientSearchResult>> searchPatients(
             @PathVariable Long id,
@@ -91,6 +99,7 @@ public class EhrIntegrationController {
     }
 
     @GetMapping("/connections/{id}/patients/{patientId}/preview")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Patient Import Preview", description = "Preview what data is available for a patient before importing")
     public ResponseEntity<PatientImportPreview> getPatientPreview(
             @PathVariable Long id,
@@ -99,6 +108,7 @@ public class EhrIntegrationController {
     }
 
     @PostMapping("/connections/{id}/patients/{patientId}/import")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
     @Operation(summary = "Import Patient", description = "Import patient data as a test case bundle")
     public ResponseEntity<PatientImportEntity> importPatient(
             @PathVariable Long id,

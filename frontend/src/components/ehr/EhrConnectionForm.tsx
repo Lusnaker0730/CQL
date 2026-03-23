@@ -17,6 +17,8 @@ import type { EhrConnection } from '../../types'
 import DepartmentSelector from '../common/DepartmentSelector'
 import { EHR_CONNECTION } from '../../constants/fieldConstraints'
 
+type AuthType = 'none' | 'basic' | 'bearer' | 'smart_backend'
+
 interface EhrConnectionFormProps {
   open: boolean
   connection: EhrConnection | null
@@ -29,18 +31,24 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
 
   const [name, setName] = useState('')
   const [fhirServerUrl, setFhirServerUrl] = useState('')
-  const [authType, setAuthType] = useState<'none' | 'basic' | 'bearer'>('none')
+  const [authType, setAuthType] = useState<AuthType>('none')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [token, setToken] = useState('')
   const [department, setDepartment] = useState('')
+  // SMART Backend Services fields
+  const [clientId, setClientId] = useState('')
+  const [tokenEndpoint, setTokenEndpoint] = useState('')
+  const [scopes, setScopes] = useState('')
+  const [privateKey, setPrivateKey] = useState('')
 
   useEffect(() => {
     if (connection) {
       setName(connection.name || '')
       setFhirServerUrl(connection.fhirServerUrl || '')
-      setAuthType((connection.authType as 'none' | 'basic' | 'bearer') || 'none')
+      setAuthType((connection.authType as AuthType) || 'none')
       setDepartment(connection.department || '')
+      setTokenEndpoint(connection.tokenEndpoint || '')
       // Parse credentials
       if (connection.credentials) {
         try {
@@ -50,6 +58,11 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             setPassword(creds.password || '')
           } else if (connection.authType === 'bearer') {
             setToken(creds.token || '')
+          } else if (connection.authType === 'smart_backend') {
+            setClientId(creds.clientId || '')
+            setTokenEndpoint(creds.tokenEndpoint || connection.tokenEndpoint || '')
+            setScopes(creds.scopes || '')
+            setPrivateKey(creds.privateKey || '')
           }
         } catch { /* ignore */ }
       }
@@ -61,12 +74,17 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
       setPassword('')
       setToken('')
       setDepartment('')
+      setClientId('')
+      setTokenEndpoint('')
+      setScopes('')
+      setPrivateKey('')
     }
   }, [connection])
 
   const buildCredentials = (): string | undefined => {
     if (authType === 'basic') return JSON.stringify({ username, password })
     if (authType === 'bearer') return JSON.stringify({ token })
+    if (authType === 'smart_backend') return JSON.stringify({ clientId, scopes, privateKey })
     return undefined
   }
 
@@ -78,6 +96,7 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
         authType,
         credentials: buildCredentials(),
         department: department || undefined,
+        tokenEndpoint: authType === 'smart_backend' ? tokenEndpoint : undefined,
       }
       if (isEdit && connection?.id) {
         return ehrApi.updateConnection(connection.id, payload)
@@ -87,7 +106,8 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
     onSuccess: () => onClose(true),
   })
 
-  const valid = name.trim() && fhirServerUrl.trim()
+  const smartBackendValid = authType !== 'smart_backend' || (clientId.trim() && tokenEndpoint.trim() && privateKey.trim())
+  const valid = name.trim() && fhirServerUrl.trim() && smartBackendValid
 
   return (
     <Dialog open={open} onClose={() => onClose()} maxWidth="sm" fullWidth>
@@ -127,13 +147,14 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             select
             label={t('ehr.authType')}
             value={authType}
-            onChange={(e) => setAuthType(e.target.value as 'none' | 'basic' | 'bearer')}
+            onChange={(e) => setAuthType(e.target.value as AuthType)}
             fullWidth
             size="small"
           >
             <MenuItem value="none">{t('ehr.authNone')}</MenuItem>
             <MenuItem value="basic">{t('ehr.authBasic')}</MenuItem>
             <MenuItem value="bearer">{t('ehr.authBearer')}</MenuItem>
+            <MenuItem value="smart_backend">{t('ehr.authSmartBackend')}</MenuItem>
           </TextField>
 
           {authType === 'basic' && (
@@ -166,6 +187,50 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
               multiline
               rows={2}
             />
+          )}
+
+          {authType === 'smart_backend' && (
+            <>
+              <TextField
+                label={t('ehr.clientId')}
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                required
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label={t('ehr.tokenEndpoint')}
+                value={tokenEndpoint}
+                onChange={(e) => setTokenEndpoint(e.target.value)}
+                required
+                fullWidth
+                size="small"
+                placeholder="https://auth.example.com/token"
+                inputProps={{ maxLength: EHR_CONNECTION.tokenEndpoint.maxLength }}
+              />
+              <TextField
+                label={t('ehr.scopes')}
+                value={scopes}
+                onChange={(e) => setScopes(e.target.value)}
+                fullWidth
+                size="small"
+                placeholder={t('ehr.scopesPlaceholder')}
+              />
+              <TextField
+                label={t('ehr.privateKey')}
+                value={privateKey}
+                onChange={(e) => setPrivateKey(e.target.value)}
+                required
+                fullWidth
+                size="small"
+                multiline
+                rows={6}
+                helperText={t('ehr.privateKeyHelperText')}
+                inputProps={{ style: { fontFamily: 'monospace', fontSize: '0.8rem' } }}
+                placeholder={'-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----'}
+              />
+            </>
           )}
 
           <DepartmentSelector

@@ -54,7 +54,8 @@ export const EHR_CONNECTION = {
   name:          { maxLength: 255,  required: true },
   fhirServerUrl: { maxLength: 2048, required: true },
   description:   { maxLength: 1000 },
-  credentials:   { maxLength: 2048 },
+  credentials:   { maxLength: 10000 },
+  tokenEndpoint: { maxLength: 500 },
 } as const
 
 // ─── Auth ───────────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-060 | ✨ feature | 2026-03-24 | 全端（EHR 連線） | SMART Backend Services 驗證 — EHR 連線新增 OAuth 2.0 client_credentials + JWT assertion (RS384) 驗證方式，含 token 自動快取/刷新、per-connection locking、SSRF 防護（tokenEndpoint 驗證）、權限修正（test/search/import 端點加 @PreAuthorize）| V43 migration、SmartBackendTokenService、nimbus-jose-jwt PEM 解析 | |
 | PAT-059 | ✨ feature | 2026-03-24 | 前端（病人產生器） | TW Core IG 假病人產生器 — 批次/自訂/情境模板三分頁，純前端 config-driven 架構（5 JSON 設定檔驅動 60+ 臨床項目），FHIR 資源產生（Patient/Encounter/Condition/Observation/Medication/MedicationRequest/AllergyIntolerance）+ 下載 JSON + 上傳 FHIR Server | 20 新檔案、新增 patientGenerator i18n namespace | [`c8b7512`](../../commit/c8b7512) |
 | BUG-095 | 🔧 refactor | 2026-03-16 | 前端（全模組） | 前端全面簡化 — 主題色彩/i18n/效能/佈局修復 | 136 檔、+1334/-1146 行 | [`525d244`](../../commit/525d244) |
 | PAT-058 | ✨ feature | 2026-03-15 | 前端（學習中心） | CQL 官方規範缺漏補齊 — 語言參考（條件式/Null/型別/Date-Time/字串）+ FHIRPath & ELM 解讀 + eCQM 實戰教學（糖尿病 HbA1c 指標建構 + CMS146 範例）| 13 Tab、+1372 行 | [`67540f0`](../../commit/67540f0) |

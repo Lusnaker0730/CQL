@@ -20,13 +20,16 @@ public class EhrConnectionEntity {
     @Column(name = "fhir_server_url", nullable = false, length = 500)
     private String fhirServerUrl;
 
-    @Column(name = "auth_type", nullable = false, length = 20)
+    @Column(name = "auth_type", nullable = false, length = 50)
     private String authType = "none";
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Convert(converter = EncryptionConverter.class)
-    @Column(length = 2000)
+    @Column(columnDefinition = "TEXT")
     private String credentials;
+
+    @Column(name = "token_endpoint", length = 500)
+    private String tokenEndpoint;
 
     @Column(length = 100)
     private String department;
