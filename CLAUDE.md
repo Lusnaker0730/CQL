@@ -48,17 +48,20 @@ frontend/src/
     common/        — 共用元件
     ecqm/          — eCQM 建構器
     editor/        — Monaco CQL 編輯器
+    patient-generator/ — TW Core IG 假病人產生器
     execution/     — CQL 執行面板
     fhir/          — FHIR 瀏覽器
     measure/       — 品質量測
     terminology/   — 術語瀏覽器
   contexts/        — React Context (6 providers)
-  hooks/           — 自訂 Hooks (54 files)
-  locales/{en,zh-TW}/ — i18n JSON (11 namespaces)
+  config/
+    twcore/        — TW Core IG 假病人產生器設定 (5 JSON + types)
+  hooks/           — 自訂 Hooks (55 files)
+  locales/{en,zh-TW}/ — i18n JSON (12 namespaces)
   constants/       — 集中常數 (17 modules: timing, layout, queryConstants 等)
-  pages/           — 路由頁面 (26 pages, 10 lazy-loaded routes)
+  pages/           — 路由頁面 (27 pages, 11 lazy-loaded routes)
   store/           — Redux slices (editor, execution, auth, artifact)
-  utils/           — 共用工具 (20 modules)
+  utils/           — 共用工具 (22 modules)
 
 backend/src/main/resources/
   templates/cql/   — FreeMarker 模板 (31 files)
@@ -96,7 +99,7 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 ### i18n（必須遵守）
 - 所有 UI 文字使用 `useTranslation('namespace')`，**禁止硬編碼字串**
 - 新增/修改文字時，**必須同時更新** `locales/en/*.json` 和 `locales/zh-TW/*.json`
-- 11 個 namespace: common, validation, editor, builder, measures, cds, fhir, terminology, authoring, admin, ecqm
+- 12 個 namespace: common, validation, editor, builder, measures, cds, fhir, terminology, authoring, admin, ecqm, patientGenerator
 
 ### Backend 模式
 - Controller → Service → Repository 分層架構
@@ -144,10 +147,13 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 | CQL Builder UI | `components/builder/` (27 元件) |
 | CDS Authoring UI | `components/authoring/` |
 | eCQM UI | `components/ecqm/` |
+| 假病人產生器 UI | `components/patient-generator/` (7 元件) |
+| 假病人產生邏輯 | `utils/fhirPatientGenerator.ts` + `twDemographics.ts` |
+| TW Core 設定檔 | `config/twcore/` (conditions/observations/medications/allergies/scenarios JSON) |
 | Monaco CQL 語法 | `utils/cqlSyntax.ts` (48KB) |
 | API 客戶端 | `api/client.ts` (Axios instance) |
 | 前端常數 | `constants/timing.ts`, `layout.ts`, `queryConstants.ts` |
-| 路由 | `App.tsx` (10 routes, lazy-loaded) |
+| 路由 | `App.tsx` (11 routes, lazy-loaded) |
 | 主配置 | `backend/src/main/resources/application.yml` |
 | Flyway 遷移 | `backend/src/main/resources/db/migration/` |
 | Docker | `docker/docker-compose.yml` |
@@ -234,4 +240,6 @@ regulatory_docs/
 - Monaco Editor 整合: `useCqlEditor` hook 管理編輯器生命週期
 - 前端 dev server proxy: `/api/*` → `localhost:8080`
 - 前端時間/尺寸常數統一在 `constants/` 目錄，禁止在元件中寫 magic number
+- 假病人產生器: 純前端實作，臨床資料由 `config/twcore/*.json` 驅動，新增/修改病症只需改 JSON 不需改程式碼
+- `utils/random.ts` 提供共用隨機函數（`randomInt`, `randomElement`, `pickRandom`），禁止在其他檔案重複定義
 - Docker 部署: `docker/docker-compose.yml`（postgres, backend, frontend, hapi-fhir, monitoring stack）
