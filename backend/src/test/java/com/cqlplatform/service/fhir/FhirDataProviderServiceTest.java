@@ -5,6 +5,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -13,12 +14,15 @@ import static org.assertj.core.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 class FhirDataProviderServiceTest {
 
+    @Mock
+    private SmartBackendTokenService smartBackendTokenService;
+
     private FhirDataProviderService service;
 
     @BeforeEach
     void setUp() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirClientFactory clientFactory = new FhirClientFactory(fhirContext);
+        FhirClientFactory clientFactory = new FhirClientFactory(fhirContext, smartBackendTokenService);
         ReflectionTestUtils.setField(clientFactory, "defaultFhirServerUrl", "http://localhost:9999/fhir");
         CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
         service = new FhirDataProviderService(fhirContext, clientFactory, cbRegistry);
