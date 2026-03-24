@@ -19,6 +19,9 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import com.cqlplatform.model.measure.EvaluationStatusConstants;
 import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
@@ -28,7 +31,6 @@ import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
  * Flow: discover patients → execute CQL → evaluate populations → stratify → score → save.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class MeasureEvaluationService {
 
@@ -37,6 +39,22 @@ public class MeasureEvaluationService {
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
     private final MeasureScoreCalculator scoreCalculator;
+    private final ExecutorService measureExecutor;
+
+    public MeasureEvaluationService(
+            CqlExecutionService cqlExecutionService,
+            PatientDiscoveryService patientDiscoveryService,
+            PopulationEvaluator populationEvaluator,
+            StratifierEvaluator stratifierEvaluator,
+            MeasureScoreCalculator scoreCalculator,
+            @org.springframework.beans.factory.annotation.Qualifier("cqlExecutionExecutor") ExecutorService measureExecutor) {
+        this.cqlExecutionService = cqlExecutionService;
+        this.patientDiscoveryService = patientDiscoveryService;
+        this.populationEvaluator = populationEvaluator;
+        this.stratifierEvaluator = stratifierEvaluator;
+        this.scoreCalculator = scoreCalculator;
+        this.measureExecutor = measureExecutor;
+    }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private MeasureReportService measureReportService;
@@ -143,28 +161,51 @@ public class MeasureEvaluationService {
         Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
         List<StratifierDefinition> stratifiers = stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
 
+        // Execute CQL for all patients in parallel
+        record PatientResult(String patientId, CqlExecutionResponse response, Exception error) {}
+
+        List<CompletableFuture<PatientResult>> futures = patients.stream()
+                .map(patientId -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        CqlExecutionResponse resp = executeForPatient(context, patientId);
+                        return new PatientResult(patientId, resp, null);
+                    } catch (Exception e) {
+                        return new PatientResult(patientId, null, e);
+                    }
+                }, measureExecutor))
+                .toList();
+
+        // Wait for all patients to finish (with overall timeout)
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(context.getTimeoutSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("Measure evaluation timed out or interrupted after {}s", context.getTimeoutSeconds());
+        }
+
+        // Aggregate results sequentially (thread-safe)
         int errorCount = 0;
-        long deadline = System.currentTimeMillis() + (context.getTimeoutSeconds() * 1000L);
-
-        for (String patientId : patients) {
-            if (System.currentTimeMillis() > deadline) {
-                log.warn("Measure evaluation timed out after {}s", context.getTimeoutSeconds());
-                break;
-            }
-
+        for (CompletableFuture<PatientResult> future : futures) {
+            PatientResult pr;
             try {
-                CqlExecutionResponse execResponse = executeForPatient(context, patientId);
-                Map<String, CqlExecutionResponse.ExpressionResult> results = execResponse.getResults();
-
-                populationEvaluator.aggregatePatientResults(populationCounts, results);
-                populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
-
-                if (!stratifiers.isEmpty()) {
-                    stratifierEvaluator.evaluatePatientStratifiers(stratifiers, results, stratificationData);
-                }
+                pr = future.getNow(null);
             } catch (Exception e) {
                 errorCount++;
-                log.error("Failed evaluation for patient {}", patientId, e);
+                continue;
+            }
+            if (pr == null || pr.error() != null) {
+                errorCount++;
+                if (pr != null) {
+                    log.error("Failed evaluation for patient {}", pr.patientId(), pr.error());
+                }
+                continue;
+            }
+            Map<String, CqlExecutionResponse.ExpressionResult> results = pr.response().getResults();
+            populationEvaluator.aggregatePatientResults(populationCounts, results);
+            populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
+
+            if (!stratifiers.isEmpty()) {
+                stratifierEvaluator.evaluatePatientStratifiers(stratifiers, results, stratificationData);
             }
         }
 
