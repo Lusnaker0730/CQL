@@ -58,7 +58,7 @@ export default function GenerationResultPanel({
   const handleUpload = useCallback(async () => {
     setUploading(true)
     setUploadMessage(null)
-    let uploadedCount = 0
+    let totalResources = 0
 
     try {
       for (const patientData of results) {
@@ -71,15 +71,43 @@ export default function GenerationResultPanel({
           ...patientData.medication_requests,
           ...patientData.allergies,
         ]
-        for (const resource of allResources) {
-          await fhirApi.createResource(
-            resource.resourceType as string,
-            JSON.stringify(resource),
-          )
-          uploadedCount++
+
+        // Collect all resource IDs for reference rewriting
+        const idSet = new Set(allResources.map((r) => r.id as string))
+
+        // Rewrite internal references (e.g. "Patient/xxx" → "urn:uuid:xxx")
+        const rewriteRefs = (obj: unknown): unknown => {
+          if (obj == null || typeof obj !== 'object') return obj
+          if (Array.isArray(obj)) return obj.map(rewriteRefs)
+          const out: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+            if (k === 'reference' && typeof v === 'string') {
+              const refId = v.split('/')[1]
+              out[k] = refId && idSet.has(refId) ? `urn:uuid:${refId}` : v
+            } else {
+              out[k] = rewriteRefs(v)
+            }
+          }
+          return out
         }
+
+        const bundle = {
+          resourceType: 'Bundle',
+          type: 'transaction',
+          entry: allResources.map((resource) => ({
+            fullUrl: `urn:uuid:${resource.id}`,
+            resource: { ...(rewriteRefs(resource) as Record<string, unknown>), id: undefined },
+            request: {
+              method: 'POST',
+              url: resource.resourceType as string,
+            },
+          })),
+        }
+
+        await fhirApi.executeTransaction(JSON.stringify(bundle))
+        totalResources += allResources.length
       }
-      setUploadMessage({ type: 'success', text: t('result.uploadSuccess', { count: uploadedCount }) })
+      setUploadMessage({ type: 'success', text: t('result.uploadSuccess', { count: totalResources }) })
     } catch (err) {
       setUploadMessage({
         type: 'error',
