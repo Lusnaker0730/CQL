@@ -29,6 +29,9 @@ public class CqlExecutionRequest {
     @Size(max = 500)
     private String fhirServerUrl;
 
+    /** Pre-compiled ELM JSON — if present, skips CQL-to-ELM translation at runtime. */
+    private String elmJson;
+
     private boolean debugMode = false;
     private String[] expressionNames;
 }

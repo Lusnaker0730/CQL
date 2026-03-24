@@ -213,6 +213,7 @@ public class MeasureEvaluationService {
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId) {
         CqlExecutionRequest execRequest = new CqlExecutionRequest();
         execRequest.setCql(context.getMeasureCql());
+        execRequest.setElmJson(context.getElmJson());
         execRequest.setPatientId(patientId);
         execRequest.setFhirServerUrl(context.getFhirServerUrl());
 

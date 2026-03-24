@@ -7,6 +7,8 @@ import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.NotificationService;
+import com.cqlplatform.model.CqlTranslationRequest;
+import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ public class MeasureDefinitionService {
     private final MeasureDefinitionRepository repository;
     private final MeasureAuditRepository auditRepository;
     private final NotificationService notificationService;
+    private final CqlTranslationService cqlTranslationService;
 
     @Value("${measure.locking.timeout-minutes:30}")
     private int lockTimeoutMinutes;
@@ -67,6 +70,7 @@ public class MeasureDefinitionService {
         entity.setScoringType(definition.getScoringType());
         entity.setCqlLibraryId(definition.getCqlLibraryId());
         entity.setCqlContent(definition.getCqlContent());
+        entity.setElmJson(preCompileElm(definition.getCqlContent()));
         entity.setFhirMeasureJson(definition.getFhirMeasureJson());
         entity.setGroupDefinitionList(definition.getGroupDefinitions());
         entity.setCompositeScoring(definition.getCompositeScoring());
@@ -296,6 +300,7 @@ public class MeasureDefinitionService {
                 .scoringType(entity.getScoringType())
                 .cqlLibraryId(entity.getCqlLibraryId())
                 .cqlContent(entity.getCqlContent())
+                .elmJson(entity.getElmJson())
                 .fhirMeasureJson(entity.getFhirMeasureJson())
                 .groupDefinitions(entity.getGroupDefinitionList())
                 .compositeScoring(entity.getCompositeScoring())
@@ -617,6 +622,7 @@ public class MeasureDefinitionService {
                 .scoringType(model.getScoringType() != null ? model.getScoringType() : ScoringTypeConstants.PROPORTION)
                 .cqlLibraryId(model.getCqlLibraryId())
                 .cqlContent(model.getCqlContent())
+                .elmJson(model.getElmJson())
                 .fhirMeasureJson(model.getFhirMeasureJson())
                 .groupDefinitionList(model.getGroupDefinitions())
                 .compositeScoring(model.getCompositeScoring())
@@ -650,5 +656,19 @@ public class MeasureDefinitionService {
                 .indicatorCategory(model.getIndicatorCategory())
                 .department(model.getDepartment())
                 .build();
+    }
+
+    /** Pre-compile CQL to ELM JSON. Returns null if CQL is blank or translation fails. */
+    private String preCompileElm(String cql) {
+        if (cql == null || cql.isBlank()) return null;
+        try {
+            var req = new CqlTranslationRequest();
+            req.setCql(cql);
+            var resp = cqlTranslationService.translate(req);
+            return resp.isSuccess() ? resp.getElmJson() : null;
+        } catch (Exception e) {
+            log.warn("Failed to pre-compile ELM: {}", e.getMessage());
+            return null;
+        }
     }
 }

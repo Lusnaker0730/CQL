@@ -40,4 +40,8 @@ public class MeasureEvaluationContext {
     public String getReportType() {
         return request.getReportType();
     }
+
+    public String getElmJson() {
+        return measureDefinition != null ? measureDefinition.getElmJson() : null;
+    }
 }
