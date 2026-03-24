@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
@@ -80,8 +81,8 @@ public class FhirTerminologyService {
         return new RestTemplate(factory);
     }
 
-    private final java.util.concurrent.ConcurrentHashMap<String, TerminologyProvider> terminologyProviderCache =
-            new java.util.concurrent.ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TerminologyProvider> terminologyProviderCache =
+            new ConcurrentHashMap<>();
 
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
         String serverUrl = terminologyServerUrl != null ? terminologyServerUrl : defaultTerminologyServerUrl;
