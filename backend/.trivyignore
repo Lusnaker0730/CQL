@@ -1,0 +1,8 @@
+# CVE-2026-33180: HAPI FHIR HTTP authentication leak in redirects
+# These org.hl7.fhir.* packages (6.6.7) are tightly coupled to hapi-fhir-validation 8.6.6
+# and cannot be upgraded independently without AbstractMethodError.
+# The vulnerable packages we CAN upgrade (convertors, dstu2, dstu2016may, dstu3, r4b) are
+# already overridden to 6.9.0 in pom.xml dependencyManagement.
+# Remaining packages (model, support, utilities, r4, r5, validation) require a full
+# hapi-fhir major version upgrade to resolve.
+CVE-2026-33180
