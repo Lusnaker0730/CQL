@@ -59,7 +59,7 @@ export default function ScenarioSelector({ isGenerating, onGenerate }: ScenarioS
 
       <Grid container spacing={2}>
         {scenariosConfig.scenarios.map((scenario) => (
-          <Grid item xs={12} sm={6} md={4} key={scenario.id}>
+          <Grid key={scenario.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card
               variant="outlined"
               sx={{
