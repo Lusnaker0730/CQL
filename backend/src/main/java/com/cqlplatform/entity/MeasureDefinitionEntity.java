@@ -54,6 +54,9 @@ public class MeasureDefinitionEntity {
     @Column(name = "cql_content", columnDefinition = "TEXT")
     private String cqlContent;
 
+    @Column(name = "elm_json", columnDefinition = "TEXT")
+    private String elmJson;
+
     @Column(name = "fhir_measure_json", columnDefinition = "TEXT")
     private String fhirMeasureJson;
 

@@ -141,18 +141,24 @@ public class CqlExecutionService {
 
     private CqlExecutionResponse doExecute(CqlExecutionRequest request, RetrieveProvider prefetchProvider, long startTime) {
         try {
-            // Translate CQL to ELM
             LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
 
-            CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
-
-            org.hl7.elm.r1.Library elmLibrary = translator.toELM();
+            // Use pre-compiled ELM if available, otherwise translate at runtime
+            org.hl7.elm.r1.Library elmLibrary;
+            CqlTranslator translator = null;
+            if (request.getElmJson() != null && !request.getElmJson().isBlank()) {
+                log.debug("Using pre-compiled ELM, skipping CQL translation");
+                elmLibrary = ELM_MAPPER.readValue(request.getElmJson(), org.hl7.elm.r1.Library.class);
+            } else {
+                translator = CqlTranslator.fromText(request.getCql(), libraryManager);
+                elmLibrary = translator.toELM();
+            }
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
 
             // Extract source locators and dependencies for debug mode
             Map<String, String> sourceLocators = new HashMap<>();
             Map<String, List<String>> expressionDependencies = new HashMap<>();
-            String elmJson = null;
+            String elmJson = request.getElmJson();
             if (request.isDebugMode()) {
                 if (elmLibrary.getStatements() != null && elmLibrary.getStatements().getDef() != null) {
                     for (org.hl7.elm.r1.ExpressionDef def : elmLibrary.getStatements().getDef()) {
@@ -161,7 +167,9 @@ public class CqlExecutionService {
                         }
                     }
                 }
-                elmJson = translator.toJson();
+                if (elmJson == null && translator != null) {
+                    elmJson = translator.toJson();
+                }
                 expressionDependencies = extractExpressionDependencies(elmJson);
             }
 

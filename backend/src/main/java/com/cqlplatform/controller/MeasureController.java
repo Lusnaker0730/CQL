@@ -356,6 +356,9 @@ public class MeasureController {
                 if (request.getMeasureCql() == null || request.getMeasureCql().isBlank()) {
                     request.setMeasureCql(def.getCqlContent());
                 }
+                // Pass definition with pre-compiled ELM to skip runtime translation
+                MeasureEvaluationResult result = measureService.evaluateMeasure(request, defId, def);
+                return ResponseEntity.ok(result);
             }
         } catch (NumberFormatException ignored) {
         }

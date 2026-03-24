@@ -52,6 +52,10 @@ public class MeasureDefinition {
     @JsonDeserialize(using = JsonDeserializer.None.class)
     private String cqlContent;
 
+    /** Pre-compiled ELM JSON — populated on save, used at execution time to skip CQL translation. */
+    @JsonDeserialize(using = JsonDeserializer.None.class)
+    private String elmJson;
+
     /** FHIR Measure JSON — exempt from XSS sanitization (legitimate JSON/code). */
     @Size(max = 2_097_152, message = "FHIR Measure JSON must be at most 2 MB")
     @JsonDeserialize(using = JsonDeserializer.None.class)
