@@ -10,7 +10,6 @@ import {
   AccordionSummary,
   AccordionDetails,
   Chip,
-  TextField,
   CircularProgress,
   IconButton,
   Tooltip,
@@ -24,6 +23,7 @@ import {
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
+import { fhirApi } from '../../api/fhirApi'
 import type { GeneratedPatientData } from '../../config/twcore'
 
 interface GenerationResultPanelProps {
@@ -39,7 +39,6 @@ export default function GenerationResultPanel({
 }: GenerationResultPanelProps) {
   const { t } = useTranslation('patientGenerator')
   const copyToClipboard = useCopyToClipboard()
-  const [serverUrl, setServerUrl] = useState('http://localhost:8090/fhir')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -57,7 +56,6 @@ export default function GenerationResultPanel({
   }, [results])
 
   const handleUpload = useCallback(async () => {
-    if (!serverUrl.trim()) return
     setUploading(true)
     setUploadMessage(null)
     let uploadedCount = 0
@@ -74,12 +72,11 @@ export default function GenerationResultPanel({
           ...patientData.allergies,
         ]
         for (const resource of allResources) {
-          const response = await fetch(`${serverUrl}/${resource.resourceType}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/fhir+json' },
-            body: JSON.stringify(resource),
-          })
-          if (response.ok) uploadedCount++
+          await fhirApi.createResource(
+            resource.resourceType as string,
+            JSON.stringify(resource),
+          )
+          uploadedCount++
         }
       }
       setUploadMessage({ type: 'success', text: t('result.uploadSuccess', { count: uploadedCount }) })
@@ -91,7 +88,7 @@ export default function GenerationResultPanel({
     } finally {
       setUploading(false)
     }
-  }, [serverUrl, results, t])
+  }, [results, t])
 
   if (results.length === 0) return null
 
@@ -123,18 +120,11 @@ export default function GenerationResultPanel({
       </Stack>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-        <TextField
-          size="small"
-          label={t('result.serverUrl')}
-          value={serverUrl}
-          onChange={(e) => setServerUrl(e.target.value)}
-          sx={{ flex: 1 }}
-        />
         <Button
           variant="outlined"
           startIcon={uploading ? <CircularProgress size={18} /> : <UploadIcon />}
           onClick={handleUpload}
-          disabled={uploading || !serverUrl.trim()}
+          disabled={uploading}
         >
           {uploading ? t('result.uploading') : t('result.uploadToServer')}
         </Button>
