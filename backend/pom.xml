@@ -30,6 +30,46 @@
         <jackson-bom.version>2.21.1</jackson-bom.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!--
+              Override transitive org.hl7.fhir.* at 6.7.9 to fix CVE-2026-33180 (auth leak in redirects).
+              Only override packages that Trivy flags AND are ABI-compatible with hapi-fhir 8.6.6.
+              Do NOT override r4/r5/validation/utilities (6.6.7) — they are tightly coupled to hapi-fhir core.
+            -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.convertors</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu2</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu2016may</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3.support</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.r4b</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Spring Boot Starters -->
         <dependency>

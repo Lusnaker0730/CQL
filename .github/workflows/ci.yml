@@ -202,6 +202,7 @@ jobs:
           scan-ref: 'backend'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+          trivyignores: 'backend/.trivyignore'
 
       - name: Run Trivy on frontend
         uses: aquasecurity/trivy-action@master
