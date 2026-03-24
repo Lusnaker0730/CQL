@@ -39,7 +39,7 @@ export default function GenerationResultPanel({
 }: GenerationResultPanelProps) {
   const { t } = useTranslation('patientGenerator')
   const copyToClipboard = useCopyToClipboard()
-  const [serverUrl, setServerUrl] = useState('https://twcore.hapi.fhir.tw/fhir')
+  const [serverUrl, setServerUrl] = useState('http://localhost:8090/fhir')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
