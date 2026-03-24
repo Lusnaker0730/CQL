@@ -40,6 +40,11 @@
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu2</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4b</artifactId>
                 <version>6.9.0</version>
             </dependency>
