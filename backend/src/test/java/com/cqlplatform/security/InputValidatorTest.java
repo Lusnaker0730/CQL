@@ -68,7 +68,8 @@ class InputValidatorTest {
 
     @Test
     void isValidUrl_shouldAcceptHttpsUrl() {
-        assertThat(InputValidator.isValidUrl("https://fhir.server.org/r4")).isTrue();
+        // Use a well-known domain that resolves reliably in CI environments
+        assertThat(InputValidator.isValidUrl("https://example.com/r4")).isTrue();
     }
 
     @Test
