@@ -80,19 +80,24 @@ public class FhirTerminologyService {
         return new RestTemplate(factory);
     }
 
+    private final java.util.concurrent.ConcurrentHashMap<String, TerminologyProvider> terminologyProviderCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
         String serverUrl = terminologyServerUrl != null ? terminologyServerUrl : defaultTerminologyServerUrl;
-        IGenericClient client = fhirContext.newRestfulGenericClient(serverUrl);
-        TerminologyProvider remoteProvider = new R4FhirTerminologyProvider(client);
+        return terminologyProviderCache.computeIfAbsent(serverUrl, url -> {
+            IGenericClient client = fhirContext.newRestfulGenericClient(url);
+            TerminologyProvider remoteProvider = new R4FhirTerminologyProvider(client);
 
-        boolean hasIg = igService != null && igService.isLoaded();
-        boolean hasVsac = vsacService != null;
+            boolean hasIg = igService != null && igService.isLoaded();
+            boolean hasVsac = vsacService != null;
 
-        if (hasIg || hasVsac) {
-            log.debug("Creating terminology provider with local IG={}, VSAC={}", hasIg, hasVsac);
-            return new LocalTerminologyProvider(hasIg ? igService : null, remoteProvider, hasVsac ? vsacService : null);
-        }
-        return remoteProvider;
+            if (hasIg || hasVsac) {
+                log.debug("Creating terminology provider with local IG={}, VSAC={}", hasIg, hasVsac);
+                return new LocalTerminologyProvider(hasIg ? igService : null, remoteProvider, hasVsac ? vsacService : null);
+            }
+            return remoteProvider;
+        });
     }
 
     @Cacheable(value = "valueSets", key = "#valueSetUrl")
