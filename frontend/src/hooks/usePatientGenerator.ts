@@ -36,8 +36,12 @@ export function usePatientGenerator(): UsePatientGeneratorReturn {
   const generateCustom = useCallback((config: CustomGenerationConfig) => {
     setIsGenerating(true)
     setTimeout(() => {
-      const data = generateCustomPatient(config)
-      setResults([data])
+      const count = config.numPatients ?? 1
+      const data: GeneratedPatientData[] = []
+      for (let i = 0; i < count; i++) {
+        data.push(generateCustomPatient(config))
+      }
+      setResults(data)
       setIsGenerating(false)
     }, 0)
   }, [])

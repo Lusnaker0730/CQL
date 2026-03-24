@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { getScoreThemeColor } from '../../utils/scoreColors'
 import { extractApiError } from '../../utils/errorUtils'
 import {
+  Autocomplete,
   Box,
   Paper,
   Typography,
@@ -23,7 +24,7 @@ import {
   Timeline as TimelineIcon,
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import type { MeasureComparisonResult, MeasureTrendResult } from '../../types'
 import { getDefaultComparisonPeriods } from '../../utils/dateDefaults'
@@ -31,6 +32,14 @@ import { getDefaultComparisonPeriods } from '../../utils/dateDefaults'
 export default function MeasureComparison() {
   const { t } = useTranslation('measures')
   const [measureName, setMeasureName] = useState('')
+
+  const { data: measures = [] } = useQuery({
+    queryKey: ['measures'],
+    queryFn: () => measureApi.getMeasures(),
+    staleTime: Infinity,
+  })
+  const measureOptions = measures.map((m) => m.title || m.name)
+
   const defaults = getDefaultComparisonPeriods()
   const [p1Start, setP1Start] = useState(defaults.period1Start)
   const [p1End, setP1End] = useState(defaults.period1End)
@@ -67,12 +76,15 @@ export default function MeasureComparison() {
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>{t('comparison.title')}</Typography>
 
-      <TextField
-        label={t('comparison.measureName')}
-        size="small"
-        fullWidth
+      <Autocomplete
+        freeSolo
+        options={measureOptions}
         value={measureName}
-        onChange={(e) => setMeasureName(e.target.value)}
+        onChange={(_e, value) => setMeasureName(value ?? '')}
+        onInputChange={(_e, value) => setMeasureName(value)}
+        renderInput={(params) => (
+          <TextField {...params} label={t('comparison.measureName')} size="small" />
+        )}
         sx={{ mb: 2 }}
       />
 
