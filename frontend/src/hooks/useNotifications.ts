@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useCallback } from 'react'
+import { api } from '../api/client'
 import { notificationApi } from '../api/notificationApi'
 import { STALE_30S, REFETCH_30S } from '../constants/queryConstants'
 
@@ -53,17 +54,11 @@ export function useNotifications() {
 
     const baseUrl = import.meta.env.VITE_API_URL || '/api'
 
-    // Obtain a short-lived, single-use ticket to avoid exposing the
-    // long-lived JWT in a query parameter (leaks into logs/history)
-    fetch(`${baseUrl}/auth/sse-ticket`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('ticket request failed'))))
-      .then(({ ticket }: { ticket: string }) => {
+    // Use the Axios client so expired JWTs are silently refreshed via
+    // the response interceptor before we attempt to open the EventSource.
+    api
+      .post<{ ticket: string }>('/auth/sse-ticket')
+      .then(({ data: { ticket } }) => {
         const url = `${baseUrl}/notifications/subscribe?ticket=${encodeURIComponent(ticket)}`
         const es = new EventSource(url)
         eventSourceRef.current = es
@@ -89,7 +84,7 @@ export function useNotifications() {
       })
       .catch(() => {
         // Ticket request failed or SSE not available — rely on polling
-        setTimeout(connectSSE, 30_000)
+        setTimeout(connectSSE, REFETCH_30S)
       })
   }, [queryClient])
 
