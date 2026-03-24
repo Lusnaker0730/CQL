@@ -116,7 +116,7 @@ class EhrIntegrationControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {"USER"})
+    @WithMockUser(roles = {"ADMIN"})
     void testConnection_shouldReturnUpdatedConnection() throws Exception {
         EhrConnectionEntity tested = createConnection(1L, "Hospital A");
         tested.setStatus("connected");
@@ -129,6 +129,13 @@ class EhrIntegrationControllerTest {
 
     @Test
     @WithMockUser(roles = {"USER"})
+    void testConnection_withUserRole_shouldReturn403() throws Exception {
+        mockMvc.perform(post("/api/ehr/connections/1/test"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
     void searchPatients_shouldReturnResults() throws Exception {
         when(patientSearchService.searchPatients(eq(1L), isNull(), isNull(), eq("Smith"), isNull()))
                 .thenReturn(List.of());
@@ -136,6 +143,13 @@ class EhrIntegrationControllerTest {
         mockMvc.perform(get("/api/ehr/connections/1/patients?family=Smith"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @WithMockUser(roles = {"USER"})
+    void searchPatients_withUserRole_shouldReturn403() throws Exception {
+        mockMvc.perform(get("/api/ehr/connections/1/patients?family=Smith"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

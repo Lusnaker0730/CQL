@@ -53,6 +53,7 @@ const baseNavItems = [
   { labelKey: 'nav.ecqm', path: '/ecqm' },
   { labelKey: 'nav.fhirBrowser', path: '/fhir' },
   { labelKey: 'nav.terminology', path: '/terminology' },
+  { labelKey: 'nav.patientGenerator', path: '/patient-generator' },
 ]
 
 export default function Header() {

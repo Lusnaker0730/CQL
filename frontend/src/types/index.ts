@@ -1184,9 +1184,10 @@ export interface EhrConnection {
   id?: number
   name: string
   fhirServerUrl: string
-  authType: 'none' | 'basic' | 'bearer'
+  authType: 'none' | 'basic' | 'bearer' | 'smart_backend'
   credentials?: string
   department?: string
+  tokenEndpoint?: string
   status?: string
   lastTestedAt?: string
   lastTestMessage?: string

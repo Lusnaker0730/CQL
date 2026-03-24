@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FhirClientFactory {
 
     private final FhirContext fhirContext;
+    private final SmartBackendTokenService smartBackendTokenService;
 
     private static final long CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
     private static final int MAX_CACHE_SIZE = 50;
@@ -33,8 +34,9 @@ public class FhirClientFactory {
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
-    public FhirClientFactory(FhirContext fhirContext) {
+    public FhirClientFactory(FhirContext fhirContext, SmartBackendTokenService smartBackendTokenService) {
         this.fhirContext = fhirContext;
+        this.smartBackendTokenService = smartBackendTokenService;
     }
 
     /**
@@ -102,6 +104,9 @@ public class FhirClientFactory {
             } catch (Exception e) {
                 log.warn("Failed to parse bearer token credentials for connection {}", connection.getId(), e);
             }
+        } else if ("smart_backend".equals(connection.getAuthType())) {
+            String accessToken = smartBackendTokenService.getAccessToken(connection);
+            client.registerInterceptor(new BearerTokenAuthInterceptor(accessToken));
         }
 
         return client;

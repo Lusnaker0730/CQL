@@ -15,11 +15,17 @@ public class EhrConnectionRequest {
     private String fhirServerUrl;
 
     @Size(max = 50)
-    private String authType; // NONE, BASIC, BEARER, OAUTH2
+    private String authType; // none, basic, bearer, smart_backend
 
-    @Size(max = 2048)
+    @Size(max = 10000)
     private String credentials; // JSON string, encrypted at rest
 
     @Size(max = 1000)
     private String description;
+
+    @Size(max = 100)
+    private String department;
+
+    @Size(max = 500)
+    private String tokenEndpoint;
 }

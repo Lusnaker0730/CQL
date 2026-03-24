@@ -21,6 +21,7 @@ public class EhrConnectionService {
 
     private final EhrConnectionRepository repository;
     private final FhirClientFactory fhirClientFactory;
+    private final SmartBackendTokenService smartBackendTokenService;
 
     @Transactional(readOnly = true)
     public List<EhrConnectionEntity> list(String department) {
@@ -44,6 +45,8 @@ public class EhrConnectionService {
         connection.setFhirServerUrl(request.getFhirServerUrl());
         connection.setAuthType(request.getAuthType() != null ? request.getAuthType() : "none");
         connection.setCredentials(request.getCredentials());
+        connection.setDepartment(request.getDepartment());
+        connection.setTokenEndpoint(request.getTokenEndpoint());
         connection.setStatus("untested");
         EhrConnectionEntity saved = repository.save(connection);
         log.info("Created EHR connection '{}' (id={})", saved.getName(), saved.getId());
@@ -58,10 +61,13 @@ public class EhrConnectionService {
         existing.setFhirServerUrl(request.getFhirServerUrl());
         existing.setAuthType(request.getAuthType() != null ? request.getAuthType() : "none");
         existing.setCredentials(request.getCredentials());
+        existing.setDepartment(request.getDepartment());
+        existing.setTokenEndpoint(request.getTokenEndpoint());
         // Reset status when URL or auth changes
         existing.setStatus("untested");
         existing.setLastTestedAt(null);
         existing.setLastTestMessage(null);
+        smartBackendTokenService.evictToken(id);
         EhrConnectionEntity saved = repository.save(existing);
         log.info("Updated EHR connection '{}' (id={})", saved.getName(), saved.getId());
         return saved;
@@ -72,6 +78,7 @@ public class EhrConnectionService {
         EhrConnectionEntity existing = getById(id);
         existing.setActive(false);
         repository.save(existing);
+        smartBackendTokenService.evictToken(id);
         log.info("Soft-deleted EHR connection '{}' (id={})", existing.getName(), id);
     }
 

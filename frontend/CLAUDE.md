@@ -57,7 +57,7 @@ const mutation = useMutation({
 - 基底 URL: `VITE_API_URL || '/api'`
 - Dev proxy: `/api/*` → `localhost:8080`
 
-## i18n Namespaces（11 個）
+## i18n Namespaces（12 個）
 
 | Namespace | 對應模組 |
 |-----------|----------|
@@ -72,6 +72,7 @@ const mutation = useMutation({
 | `terminology` | 術語瀏覽 |
 | `admin` | 管理後台 |
 | `validation` | 驗證訊息 |
+| `patientGenerator` | TW Core 假病人產生器 |
 
 ## 路由
 
@@ -83,9 +84,10 @@ const mutation = useMutation({
 - `/measures` — MeasuresPage
 - `/fhir` — FhirPage
 - `/terminology` — TerminologyPage
+- `/patient-generator` — PatientGeneratorPage（假病人產生器）
 - `/admin/users`, `/admin/audit` — 管理頁面
 
-## 自訂 Hooks（`src/hooks/`，31 files）
+## 自訂 Hooks（`src/hooks/`，32 files）
 
 核心 hooks：
 - `useCql` — 翻譯 / 驗證 CQL
@@ -96,6 +98,7 @@ const mutation = useMutation({
 - `useModifiers` — 修飾器列表查詢
 - `useCopyToClipboard` — 剪貼簿工具
 - `usePreferences` — 使用者偏好設定
+- `usePatientGenerator` — TW Core 假病人產生狀態管理
 
 ## 常用指令
 
@@ -115,3 +118,7 @@ npm run lint          # ESLint
 - `modifierUtils.ts` — 修飾器型別判斷
 - `conjunctionTreeUtils.ts` — 邏輯樹操作
 - `validation.ts` — 表單驗證規則
+- `fhirPatientGenerator.ts` — TW Core IG FHIR 假病人產生引擎
+- `twDemographics.ts` — 台灣人口資料產生（姓名/地址/身分證/電話）
+- `random.ts` — 共用隨機工具函數
+- `config/twcore/` — 假病人產生設定檔（conditions/observations/medications/allergies/scenarios JSON，新增/修改臨床項目只需改 JSON）

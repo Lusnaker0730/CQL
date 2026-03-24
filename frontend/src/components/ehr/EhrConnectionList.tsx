@@ -151,7 +151,7 @@ export default function EhrConnectionList() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={conn.authType === 'basic' ? t('ehr.authBasic') : conn.authType === 'bearer' ? t('ehr.authBearer') : t('ehr.authNone')}
+                      label={t({ basic: 'ehr.authBasic', bearer: 'ehr.authBearer', smart_backend: 'ehr.authSmartBackend', none: 'ehr.authNone' }[conn.authType] ?? 'ehr.authNone')}
                       size="small"
                       variant="outlined"
                     />
