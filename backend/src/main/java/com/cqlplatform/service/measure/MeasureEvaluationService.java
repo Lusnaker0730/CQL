@@ -20,7 +20,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.cqlplatform.model.measure.EvaluationStatusConstants;
@@ -39,21 +38,18 @@ public class MeasureEvaluationService {
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
     private final MeasureScoreCalculator scoreCalculator;
-    private final ExecutorService measureExecutor;
 
     public MeasureEvaluationService(
             CqlExecutionService cqlExecutionService,
             PatientDiscoveryService patientDiscoveryService,
             PopulationEvaluator populationEvaluator,
             StratifierEvaluator stratifierEvaluator,
-            MeasureScoreCalculator scoreCalculator,
-            @org.springframework.beans.factory.annotation.Qualifier("cqlExecutionExecutor") ExecutorService measureExecutor) {
+            MeasureScoreCalculator scoreCalculator) {
         this.cqlExecutionService = cqlExecutionService;
         this.patientDiscoveryService = patientDiscoveryService;
         this.populationEvaluator = populationEvaluator;
         this.stratifierEvaluator = stratifierEvaluator;
         this.scoreCalculator = scoreCalculator;
-        this.measureExecutor = measureExecutor;
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -161,7 +157,9 @@ public class MeasureEvaluationService {
         Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
         List<StratifierDefinition> stratifiers = stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
 
-        // Execute CQL for all patients in parallel
+        // Execute CQL for all patients in parallel.
+        // Use ForkJoinPool (default) for the outer loop — each task delegates to
+        // cqlExecutionExecutor internally, so using the same pool here would deadlock.
         record PatientResult(String patientId, CqlExecutionResponse response, Exception error) {}
 
         List<CompletableFuture<PatientResult>> futures = patients.stream()
@@ -172,7 +170,7 @@ public class MeasureEvaluationService {
                     } catch (Exception e) {
                         return new PatientResult(patientId, null, e);
                     }
-                }, measureExecutor))
+                }))
                 .toList();
 
         // Wait for all patients to finish (with overall timeout)
