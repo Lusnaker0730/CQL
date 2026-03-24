@@ -30,6 +30,22 @@
         <jackson-bom.version>2.21.1</jackson-bom.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Override transitive org.hl7.fhir.* to fix CVE-2026-33180 (auth leak in redirects) -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.convertors</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.r4b</artifactId>
+                <version>6.9.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Spring Boot Starters -->
         <dependency>
