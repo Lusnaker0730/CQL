@@ -69,8 +69,11 @@ public class MeasureDefinitionService {
         entity.setStatus(definition.getStatus());
         entity.setScoringType(definition.getScoringType());
         entity.setCqlLibraryId(definition.getCqlLibraryId());
+        boolean cqlChanged = !java.util.Objects.equals(definition.getCqlContent(), entity.getCqlContent());
         entity.setCqlContent(definition.getCqlContent());
-        entity.setElmJson(preCompileElm(definition.getCqlContent()));
+        if (cqlChanged) {
+            entity.setElmJson(preCompileElm(definition.getCqlContent()));
+        }
         entity.setFhirMeasureJson(definition.getFhirMeasureJson());
         entity.setGroupDefinitionList(definition.getGroupDefinitions());
         entity.setCompositeScoring(definition.getCompositeScoring());

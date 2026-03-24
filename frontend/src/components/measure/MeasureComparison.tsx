@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getScoreThemeColor } from '../../utils/scoreColors'
 import { extractApiError } from '../../utils/errorUtils'
@@ -38,7 +38,7 @@ export default function MeasureComparison() {
     queryFn: () => measureApi.getMeasures(),
     staleTime: Infinity,
   })
-  const measureOptions = measures.map((m) => m.title || m.name)
+  const measureOptions = useMemo(() => measures.map((m) => m.title || m.name), [measures])
 
   const defaults = getDefaultComparisonPeriods()
   const [p1Start, setP1Start] = useState(defaults.period1Start)
@@ -80,7 +80,6 @@ export default function MeasureComparison() {
         freeSolo
         options={measureOptions}
         value={measureName}
-        onChange={(_e, value) => setMeasureName(value ?? '')}
         onInputChange={(_e, value) => setMeasureName(value)}
         renderInput={(params) => (
           <TextField {...params} label={t('comparison.measureName')} size="small" />

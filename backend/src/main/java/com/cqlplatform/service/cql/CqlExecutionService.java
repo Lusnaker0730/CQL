@@ -147,8 +147,14 @@ public class CqlExecutionService {
             org.hl7.elm.r1.Library elmLibrary;
             CqlTranslator translator = null;
             if (request.getElmJson() != null && !request.getElmJson().isBlank()) {
-                log.debug("Using pre-compiled ELM, skipping CQL translation");
-                elmLibrary = ELM_MAPPER.readValue(request.getElmJson(), org.hl7.elm.r1.Library.class);
+                try {
+                    elmLibrary = ELM_MAPPER.readValue(request.getElmJson(), org.hl7.elm.r1.Library.class);
+                    log.debug("Using pre-compiled ELM, skipped CQL translation");
+                } catch (Exception e) {
+                    log.warn("Pre-compiled ELM deserialization failed, falling back to CQL translation: {}", e.getMessage());
+                    translator = CqlTranslator.fromText(request.getCql(), libraryManager);
+                    elmLibrary = translator.toELM();
+                }
             } else {
                 translator = CqlTranslator.fromText(request.getCql(), libraryManager);
                 elmLibrary = translator.toELM();

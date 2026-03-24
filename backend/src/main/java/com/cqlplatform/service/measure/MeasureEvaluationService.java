@@ -7,7 +7,6 @@ import com.cqlplatform.model.measure.MeasureEvaluationResult.*;
 import com.cqlplatform.service.cql.CqlExecutionService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opencds.cqf.cql.engine.runtime.DateTime;
 import org.opencds.cqf.cql.engine.runtime.Interval;
@@ -179,6 +178,7 @@ public class MeasureEvaluationService {
                     .get(context.getTimeoutSeconds(), TimeUnit.SECONDS);
         } catch (Exception e) {
             log.warn("Measure evaluation timed out or interrupted after {}s", context.getTimeoutSeconds());
+            futures.forEach(f -> f.cancel(true));
         }
 
         // Aggregate results sequentially (thread-safe)
