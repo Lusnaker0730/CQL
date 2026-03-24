@@ -45,8 +45,7 @@ class MeasureEvaluationServiceTest {
         stratifierEvaluator = new StratifierEvaluator(populationEvaluator, scoreCalculator);
         measureService = new MeasureEvaluationService(
                 cqlExecutionService, patientDiscoveryService,
-                populationEvaluator, stratifierEvaluator, scoreCalculator,
-                java.util.concurrent.Executors.newFixedThreadPool(4));
+                populationEvaluator, stratifierEvaluator, scoreCalculator);
         ReflectionTestUtils.setField(measureService, "defaultPeriodStart", "");
         ReflectionTestUtils.setField(measureService, "defaultPeriodEnd", "");
         ReflectionTestUtils.setField(measureService, "measureTimeoutSeconds", 120);
