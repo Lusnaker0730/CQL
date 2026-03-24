@@ -79,6 +79,7 @@ export interface CustomGenerationConfig {
   selectedMedications: string[]
   selectedAllergies: string[]
   numEncounters: number
+  numPatients?: number
   dateFrom?: string
   dateTo?: string
 }

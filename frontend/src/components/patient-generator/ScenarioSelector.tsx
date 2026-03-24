@@ -43,6 +43,7 @@ export default function ScenarioSelector({ isGenerating, onGenerate }: ScenarioS
         selectedMedications: scenario.medications,
         selectedAllergies: [],
         numEncounters: scenario.num_encounters,
+        numPatients: scenario.recommended_patient_count,
       })
     },
     [onGenerate],
