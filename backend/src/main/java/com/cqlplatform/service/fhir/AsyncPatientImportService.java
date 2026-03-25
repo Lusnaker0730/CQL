@@ -7,10 +7,11 @@ import com.cqlplatform.model.ehr.BatchImportRequest;
 import com.cqlplatform.repository.BatchImportJobRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cqlplatform.util.SecurityUtils;
+import com.cqlplatform.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +41,7 @@ public class AsyncPatientImportService {
         job.setTotalPatients(request.getPatientIds().size());
         job.setStatus("pending");
         job.setMeasureId(request.getMeasureId());
-        job.setCreatedBy(getCurrentUsername());
+        job.setCreatedBy(SecurityUtils.getCurrentUsername("system"));
 
         try {
             job.setPatientIds(MAPPER.writeValueAsString(request.getPatientIds()));
@@ -82,17 +83,20 @@ public class AsyncPatientImportService {
         List<Map<String, Object>> results = new ArrayList<>();
         int completed = 0;
         int failed = 0;
+        int processed = 0;
 
         for (String patientId : patientIds) {
-            // Check for cancellation
-            BatchImportJobEntity current = jobRepository.findById(jobId).orElse(null);
-            if (current == null || current.isCancelled()) {
-                job.setStatus("cancelled");
-                job.setCompletedAt(LocalDateTime.now());
-                jobRepository.save(job);
-                log.info("Batch import job {} cancelled after processing {}/{} patients",
-                        jobId, completed, patientIds.size());
-                return;
+            // Check for cancellation and save progress every 10 patients
+            if (processed % 10 == 0) {
+                BatchImportJobEntity current = jobRepository.findById(jobId).orElse(null);
+                if (current == null || current.isCancelled()) {
+                    job.setStatus("cancelled");
+                    job.setCompletedAt(LocalDateTime.now());
+                    jobRepository.save(job);
+                    log.info("Batch import job {} cancelled after processing {}/{} patients",
+                            jobId, completed, patientIds.size());
+                    return;
+                }
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -107,19 +111,26 @@ public class AsyncPatientImportService {
                 completed++;
             } catch (Exception e) {
                 result.put("status", "failed");
-                result.put("error", truncate(e.getMessage(), 500));
+                result.put("error", StringUtils.truncate(e.getMessage(), 500));
                 failed++;
                 log.warn("Batch import job {}: failed to import patient {}: {}",
                         jobId, patientId, e.getMessage());
             }
 
             results.add(result);
+            processed++;
 
-            // Update progress
-            job.setCompletedCount(completed);
-            job.setFailedCount(failed);
-            jobRepository.save(job);
+            // Update progress every 10 patients
+            if (processed % 10 == 0) {
+                job.setCompletedCount(completed);
+                job.setFailedCount(failed);
+                jobRepository.save(job);
+            }
         }
+
+        // Save final progress
+        job.setCompletedCount(completed);
+        job.setFailedCount(failed);
 
         // Finalize
         job.setStatus(failed == patientIds.size() ? "failed" : "completed");
@@ -162,20 +173,4 @@ public class AsyncPatientImportService {
         return jobRepository.save(job);
     }
 
-    private String getCurrentUsername() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getName() != null) {
-                return auth.getName();
-            }
-        } catch (Exception e) {
-            log.debug("Could not determine current user: {}", e.getMessage());
-        }
-        return "system";
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null) return null;
-        return value.length() > maxLength ? value.substring(0, maxLength) : value;
-    }
 }

@@ -4,11 +4,11 @@ import com.cqlplatform.entity.FailedImportEntity;
 import com.cqlplatform.entity.PatientImportEntity;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.repository.FailedImportRepository;
+import com.cqlplatform.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +42,7 @@ public class ImportRetryService {
         failed.setConnectionId(connectionId);
         failed.setPatientFhirId(patientFhirId);
         failed.setMeasureId(measureId);
-        failed.setErrorMessage(truncate(error.getMessage(), 2000));
+        failed.setErrorMessage(StringUtils.truncate(error.getMessage(), 2000));
         failed.setErrorType(error.getClass().getSimpleName());
         failed.setMaxRetries(maxRetryAttempts);
         failed.setCreatedBy(createdBy != null ? createdBy : "system");
@@ -110,10 +110,9 @@ public class ImportRetryService {
 
     @Transactional
     public void deleteFailedImport(Long id) {
-        if (!failedImportRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Failed import not found: " + id);
-        }
-        failedImportRepository.deleteById(id);
+        FailedImportEntity entity = failedImportRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Failed import not found: " + id));
+        failedImportRepository.delete(entity);
     }
 
     private FailedImportEntity executeRetry(FailedImportEntity failed) {
@@ -131,7 +130,7 @@ public class ImportRetryService {
             log.info("Retry succeeded for failed import {}: patient {} imported as {}",
                     failed.getId(), failed.getPatientFhirId(), imported.getId());
         } catch (Exception e) {
-            failed.setErrorMessage(truncate(e.getMessage(), 2000));
+            failed.setErrorMessage(StringUtils.truncate(e.getMessage(), 2000));
             failed.setErrorType(e.getClass().getSimpleName());
 
             if (failed.getRetryCount() >= failed.getMaxRetries()) {
@@ -161,8 +160,4 @@ public class ImportRetryService {
         return LocalDateTime.now().plusSeconds(delaySeconds);
     }
 
-    private String truncate(String value, int maxLength) {
-        if (value == null) return null;
-        return value.length() > maxLength ? value.substring(0, maxLength) : value;
-    }
 }

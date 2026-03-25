@@ -37,15 +37,15 @@ public class PatientMatchService {
             connections = connectionService.list(null);
         }
 
-        List<PatientMatchResult> allResults = new ArrayList<>();
-        for (EhrConnectionEntity connection : connections) {
+        List<PatientMatchResult> allResults = Collections.synchronizedList(new ArrayList<>());
+        connections.parallelStream().forEach(connection -> {
             try {
                 List<PatientMatchResult> results = searchAndScore(connection, request);
                 allResults.addAll(results);
             } catch (Exception e) {
                 log.warn("Patient match failed on connection '{}': {}", connection.getName(), e.getMessage());
             }
-        }
+        });
 
         // Sort by confidence score descending, deduplicate
         allResults.sort(Comparator.comparingInt(PatientMatchResult::getConfidenceScore).reversed());

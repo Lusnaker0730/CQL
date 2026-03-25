@@ -1,4 +1,4 @@
--- V45: Add EHR-specific audit fields and retention index
+-- V46: Add EHR-specific audit fields and retention index
 ALTER TABLE audit_log ADD COLUMN connection_id BIGINT;
 ALTER TABLE audit_log ADD COLUMN patient_fhir_id VARCHAR(200);
 ALTER TABLE audit_log ADD COLUMN connection_name VARCHAR(200);
