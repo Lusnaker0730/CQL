@@ -118,6 +118,12 @@ export default function MeasureComparison() {
         <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(compareMutation.error)}</Alert>
       )}
 
+      {comparison && comparison.period1.measureScore == null && comparison.period2.measureScore == null && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t('comparison.noReportData')}
+        </Alert>
+      )}
+
       {comparison && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <CardContent>

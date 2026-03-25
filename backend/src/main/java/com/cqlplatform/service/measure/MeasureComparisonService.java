@@ -105,8 +105,13 @@ public class MeasureComparisonService {
                     .build();
         }
 
-        // Use the most recent report for this period
-        MeasureReportEntity report = reports.get(0);
+        // Use the best report: prefer the one with the highest score among those with non-null scores
+        MeasureReportEntity report = reports.size() > 1
+                ? reports.stream()
+                    .filter(r -> r.getMeasureScore() != null)
+                    .max(java.util.Comparator.comparingDouble(MeasureReportEntity::getMeasureScore))
+                    .orElse(reports.get(0))
+                : reports.get(0);
         Map<String, Integer> popCounts = extractPopulationCounts(report);
 
         return PeriodSummary.builder()
