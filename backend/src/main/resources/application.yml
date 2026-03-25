@@ -202,6 +202,10 @@ ehr:
     max-retry-attempts: ${EHR_IMPORT_MAX_RETRIES:3}
     retry-initial-delay-seconds: ${EHR_IMPORT_RETRY_DELAY:60}
     retry-check-interval-ms: ${EHR_IMPORT_RETRY_CHECK_INTERVAL:60000}
+  health:
+    check-interval-ms: ${EHR_HEALTH_CHECK_INTERVAL:900000}
+    check-interval-minutes: ${EHR_HEALTH_CHECK_MINUTES:15}
+    retention-days: ${EHR_HEALTH_RETENTION_DAYS:7}
 
 # Audit Configuration
 audit:
