@@ -165,6 +165,44 @@ public class FhirImplementationGuideService {
         return codeSystemsByUrl.get(url);
     }
 
+    /**
+     * Get recommended TW Core profiles for a given FHIR resource type.
+     * Only returns profiles that are constraints (not base definitions).
+     */
+    public List<ProfileSummary> getRecommendedProfiles(String resourceType) {
+        if (resourceType == null || resourceType.isBlank()) {
+            return List.of();
+        }
+        return profilesByUrl.values().stream()
+                .filter(sd -> resourceType.equals(sd.getType()))
+                .filter(sd -> sd.getDerivation() == StructureDefinition.TypeDerivationRule.CONSTRAINT)
+                .map(sd -> new ProfileSummary(
+                        sd.getUrl(),
+                        sd.getName(),
+                        sd.getTitle(),
+                        sd.getType(),
+                        sd.getKind() != null ? sd.getKind().toCode() : null,
+                        sd.getStatus() != null ? sd.getStatus().toCode() : null
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Attempt to find the best matching TW Core profile URL for a given resource type.
+     * Returns the first constraint profile found, or null if none exists.
+     */
+    public String findProfileUrlForResourceType(String resourceType) {
+        if (resourceType == null || resourceType.isBlank()) {
+            return null;
+        }
+        return profilesByUrl.values().stream()
+                .filter(sd -> resourceType.equals(sd.getType()))
+                .filter(sd -> sd.getDerivation() == StructureDefinition.TypeDerivationRule.CONSTRAINT)
+                .map(StructureDefinition::getUrl)
+                .findFirst()
+                .orElse(null);
+    }
+
     private boolean matchesSearch(String name, String title, String url, String search) {
         String lowerSearch = search.toLowerCase();
         return (name != null && name.toLowerCase().contains(lowerSearch))
