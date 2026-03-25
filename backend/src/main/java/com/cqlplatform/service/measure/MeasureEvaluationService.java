@@ -33,6 +33,7 @@ import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
 public class MeasureEvaluationService {
 
     private final CqlExecutionService cqlExecutionService;
+    private final com.cqlplatform.service.cql.CqlTranslationService cqlTranslationService;
     private final PatientDiscoveryService patientDiscoveryService;
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
@@ -40,11 +41,13 @@ public class MeasureEvaluationService {
 
     public MeasureEvaluationService(
             CqlExecutionService cqlExecutionService,
+            com.cqlplatform.service.cql.CqlTranslationService cqlTranslationService,
             PatientDiscoveryService patientDiscoveryService,
             PopulationEvaluator populationEvaluator,
             StratifierEvaluator stratifierEvaluator,
             MeasureScoreCalculator scoreCalculator) {
         this.cqlExecutionService = cqlExecutionService;
+        this.cqlTranslationService = cqlTranslationService;
         this.patientDiscoveryService = patientDiscoveryService;
         this.populationEvaluator = populationEvaluator;
         this.stratifierEvaluator = stratifierEvaluator;
@@ -87,7 +90,34 @@ public class MeasureEvaluationService {
         MeasureEvaluationContext context = buildContext(request, measureDefinitionId, measureDefinition);
 
         try {
-            // 1. Discover patients
+            // 1. Pre-translate CQL → ELM once (MADiE pattern: translate once, reuse for all patients)
+            if (context.getElmJson() == null && context.getMeasureCql() != null) {
+                long translateStart = System.currentTimeMillis();
+                try {
+                    var translateRequest = new com.cqlplatform.model.CqlTranslationRequest();
+                    translateRequest.setCql(context.getMeasureCql());
+                    var translateResponse = cqlTranslationService.translate(translateRequest);
+                    if (translateResponse.isSuccess() && translateResponse.getElmJson() != null) {
+                        context = MeasureEvaluationContext.builder()
+                                .request(context.getRequest())
+                                .measureDefinition(context.getMeasureDefinition())
+                                .measureDefinitionId(context.getMeasureDefinitionId())
+                                .periodStart(context.getPeriodStart())
+                                .periodEnd(context.getPeriodEnd())
+                                .timeoutSeconds(context.getTimeoutSeconds())
+                                .preCompiledElmJson(translateResponse.getElmJson())
+                                .build();
+                        log.info("Pre-compiled CQL to ELM in {}ms (will reuse for all patients)",
+                                System.currentTimeMillis() - translateStart);
+                    } else {
+                        log.warn("CQL pre-translation failed, will translate per patient");
+                    }
+                } catch (Exception e) {
+                    log.warn("CQL pre-translation failed: {}, will translate per patient", e.getMessage());
+                }
+            }
+
+            // 2. Discover patients
             List<String> patients = patientDiscoveryService.discoverPatients(context);
             if (patients.isEmpty()) {
                 stopTimer(sample);
@@ -95,7 +125,7 @@ public class MeasureEvaluationService {
                 return errorResult(context, patientDiscoveryService.buildNoPatientsMessage(context));
             }
 
-            // 2. Execute CQL per patient and aggregate
+            // 3. Execute CQL per patient and aggregate
             AggregationState state = executeAndAggregate(context, patients);
 
             // 3. Check if all patients failed

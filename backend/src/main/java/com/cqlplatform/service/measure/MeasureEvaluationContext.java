@@ -20,6 +20,8 @@ public class MeasureEvaluationContext {
     private final LocalDate periodStart;
     private final LocalDate periodEnd;
     private final int timeoutSeconds;
+    /** Pre-compiled ELM JSON — translated once, reused for all patients. */
+    private final String preCompiledElmJson;
 
     public String getMeasureId() {
         return request.getMeasureId();
@@ -42,6 +44,10 @@ public class MeasureEvaluationContext {
     }
 
     public String getElmJson() {
+        // Prefer pre-compiled ELM (translated once before patient loop)
+        if (preCompiledElmJson != null) {
+            return preCompiledElmJson;
+        }
         return measureDefinition != null ? measureDefinition.getElmJson() : null;
     }
 }

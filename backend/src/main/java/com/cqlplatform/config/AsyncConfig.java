@@ -32,6 +32,9 @@ public class AsyncConfig {
                     Thread t = new Thread(r);
                     t.setName("cql-exec-" + t.getId());
                     t.setDaemon(false);
+                    // Inherit the Spring Boot LaunchedURLClassLoader so that
+                    // ServiceLoader-based CQL model discovery works correctly
+                    t.setContextClassLoader(Thread.currentThread().getContextClassLoader());
                     return t;
                 },
                 new ThreadPoolExecutor.CallerRunsPolicy());
