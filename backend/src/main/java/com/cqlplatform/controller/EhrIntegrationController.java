@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.BatchImportJobEntity;
+import com.cqlplatform.entity.ConnectionHealthCheckEntity;
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.cqlplatform.entity.FailedImportEntity;
 import com.cqlplatform.entity.FhirSubscriptionEntity;
@@ -12,6 +13,7 @@ import com.cqlplatform.model.fhir.PatientImportPreview;
 import com.cqlplatform.model.fhir.PatientSearchResult;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.AsyncPatientImportService;
+import com.cqlplatform.service.fhir.ConnectionHealthService;
 import com.cqlplatform.service.fhir.EhrConnectionService;
 import com.cqlplatform.service.fhir.FhirSubscriptionService;
 import com.cqlplatform.service.fhir.ImportRetryService;
@@ -40,6 +42,7 @@ public class EhrIntegrationController {
     private final AsyncPatientImportService asyncImportService;
     private final ImportRetryService importRetryService;
     private final FhirSubscriptionService subscriptionService;
+    private final ConnectionHealthService connectionHealthService;
 
     // ===== Connection Management =====
 
@@ -256,5 +259,34 @@ public class EhrIntegrationController {
     public ResponseEntity<Void> deleteFailedImport(@PathVariable Long id) {
         importRetryService.deleteFailedImport(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ===== Health Monitoring =====
+
+    @GetMapping("/health/overview")
+    @Operation(summary = "Health Overview", description = "Get health overview for all EHR connections")
+    public ResponseEntity<List<ConnectionHealthService.ConnectionHealthOverview>> getHealthOverview() {
+        return ResponseEntity.ok(connectionHealthService.getHealthOverview());
+    }
+
+    @GetMapping("/health/connections/{id}/history")
+    @Operation(summary = "Connection Health History", description = "Get health check history for a connection")
+    public ResponseEntity<List<ConnectionHealthCheckEntity>> getConnectionHealthHistory(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "24") int hours) {
+        return ResponseEntity.ok(connectionHealthService.getHistory(id, hours));
+    }
+
+    @PostMapping("/health/connections/{id}/check")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Manual Health Check", description = "Manually trigger a health check for a connection")
+    public ResponseEntity<ConnectionHealthCheckEntity> manualHealthCheck(@PathVariable Long id) {
+        return ResponseEntity.ok(connectionHealthService.checkConnection(id));
+    }
+
+    @GetMapping("/health/circuit-breakers")
+    @Operation(summary = "Circuit Breaker Status", description = "Get circuit breaker statuses for all FHIR services")
+    public ResponseEntity<List<ConnectionHealthService.CircuitBreakerStatus>> getCircuitBreakerStatuses() {
+        return ResponseEntity.ok(connectionHealthService.getCircuitBreakerStatuses());
     }
 }
