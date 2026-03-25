@@ -224,6 +224,27 @@ public class FhirController {
         return ResponseEntity.ok(result);
     }
 
+    @PostMapping(value = "/validate/bundle", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Validate Bundle", description = "Validate all resources in a FHIR Bundle against applicable TW Core profiles")
+    public ResponseEntity<FhirValidationService.BundleValidationResult> validateBundle(
+            @RequestBody String bundleJson) {
+
+        FhirValidationService.BundleValidationResult result = validationService.validateBundle(bundleJson);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/ig/profiles/{resourceType}/recommended")
+    @Operation(summary = "Get Recommended Profiles", description = "Get recommended TW Core profiles for a FHIR resource type")
+    public ResponseEntity<List<FhirImplementationGuideService.ProfileSummary>> getRecommendedProfiles(
+            @PathVariable String resourceType) {
+
+        InputValidator.requireValidFhirResourceType(resourceType);
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(igService.getRecommendedProfiles(resourceType));
+    }
+
     // ─── Patient Demographics Search ─────────────────────────────────
 
     @GetMapping("/Patient/$search-by-demographics")
