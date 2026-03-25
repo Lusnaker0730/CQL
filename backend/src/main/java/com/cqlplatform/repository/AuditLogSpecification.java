@@ -36,6 +36,15 @@ public class AuditLogSpecification {
             LocalDateTime end = LocalDate.parse(request.getEndDate()).atTime(LocalTime.MAX);
             spec = spec.and(createdBefore(end));
         }
+        if (request.getConnectionId() != null) {
+            spec = spec.and(connectionIdEquals(request.getConnectionId()));
+        }
+        if (request.getPatientFhirId() != null && !request.getPatientFhirId().isBlank()) {
+            spec = spec.and(patientFhirIdEquals(request.getPatientFhirId()));
+        }
+        if (request.getPhiAccess() != null) {
+            spec = spec.and(phiAccessEquals(request.getPhiAccess()));
+        }
 
         return spec;
     }
@@ -62,5 +71,17 @@ public class AuditLogSpecification {
 
     private static Specification<AuditLogEntity> createdBefore(LocalDateTime before) {
         return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("createdAt"), before);
+    }
+
+    private static Specification<AuditLogEntity> connectionIdEquals(Long connectionId) {
+        return (root, query, cb) -> cb.equal(root.get("connectionId"), connectionId);
+    }
+
+    private static Specification<AuditLogEntity> patientFhirIdEquals(String patientFhirId) {
+        return (root, query, cb) -> cb.equal(root.get("patientFhirId"), patientFhirId);
+    }
+
+    private static Specification<AuditLogEntity> phiAccessEquals(Boolean phiAccess) {
+        return (root, query, cb) -> cb.equal(root.get("phiAccess"), phiAccess);
     }
 }

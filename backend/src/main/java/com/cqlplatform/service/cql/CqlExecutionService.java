@@ -259,9 +259,12 @@ public class CqlExecutionService {
                                 request.getContextType(), pid, request.getParameters());
                         long exprTime = System.currentTimeMillis() - exprStart;
 
-                        org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                                evalResult.getExpressionResults().get(expressionName);
-                        Object value = exprResult != null ? exprResult.getValue() : null;
+                        Object value = null;
+                        if (evalResult != null && evalResult.getExpressionResults() != null) {
+                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                                    evalResult.getExpressionResults().get(expressionName);
+                            value = exprResult != null ? exprResult.getValue() : null;
+                        }
                         String valueType = value != null ? value.getClass().getSimpleName() : "null";
 
                         results.put(expressionName, ExpressionResult.builder()
@@ -332,7 +335,10 @@ public class CqlExecutionService {
                     batchFailed = true;
                 }
 
-                if (batchFailed) {
+                if (batchFailed || evaluationResult == null) {
+                    if (evaluationResult == null && !batchFailed) {
+                        log.warn("CQL engine returned null EvaluationResult for library, falling back to per-expression evaluation");
+                    }
                     for (String expressionName : expressions) {
                         try {
                             Set<String> singleExpr = Set.of(expressionName);
@@ -344,9 +350,12 @@ public class CqlExecutionService {
                             EvaluationResult singleResult = evaluateWithEngine(engine,
                                     elmLibrary.getIdentifier(), singleExpr,
                                     request.getContextType(), pid, request.getParameters());
-                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                                    singleResult.getExpressionResults().get(expressionName);
-                            Object value = exprResult != null ? exprResult.getValue() : null;
+                            Object value = null;
+                            if (singleResult != null && singleResult.getExpressionResults() != null) {
+                                org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                                        singleResult.getExpressionResults().get(expressionName);
+                                value = exprResult != null ? exprResult.getValue() : null;
+                            }
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
                                     .value(toSerializable(value))
@@ -370,9 +379,12 @@ public class CqlExecutionService {
                 } else {
                     for (String expressionName : expressions) {
                         try {
-                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult = evaluationResult.getExpressionResults()
-                                    .get(expressionName);
-                            Object value = exprResult != null ? exprResult.getValue() : null;
+                            Object value = null;
+                            if (evaluationResult.getExpressionResults() != null) {
+                                org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
+                                        evaluationResult.getExpressionResults().get(expressionName);
+                                value = exprResult != null ? exprResult.getValue() : null;
+                            }
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
                                     .value(toSerializable(value))

@@ -166,4 +166,77 @@ class AuditServiceTest {
 
         assertThat(result).isNotNull();
     }
+
+    // ===== getEhrOperations =====
+
+    @Test
+    void getEhrOperations_withConnectionId_shouldFilterByConnection() {
+        AuditLogEntity log1 = createLogEntry("user1", "READ");
+        log1.setConnectionId(5L);
+        log1.setPatientFhirId("Patient/123");
+        log1.setConnectionName("Hospital A");
+        Page<AuditLogEntity> page = new PageImpl<>(List.of(log1));
+        when(auditLogRepository.findByConnectionId(eq(5L), any())).thenReturn(page);
+
+        AuditLogResponse result = service.getEhrOperations(0, 50, 5L, 30);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getConnectionId()).isEqualTo(5L);
+        assertThat(result.getContent().get(0).getPatientFhirId()).isEqualTo("Patient/123");
+        assertThat(result.getContent().get(0).getConnectionName()).isEqualTo("Hospital A");
+    }
+
+    @Test
+    void getEhrOperations_withoutConnectionId_shouldReturnAllEhrOps() {
+        Page<AuditLogEntity> page = new PageImpl<>(List.of());
+        when(auditLogRepository.findEhrOperations(any(), any())).thenReturn(page);
+
+        AuditLogResponse result = service.getEhrOperations(0, 50, null, 30);
+
+        assertThat(result).isNotNull();
+        verify(auditLogRepository).findEhrOperations(any(LocalDateTime.class), any(Pageable.class));
+    }
+
+    // ===== manualCleanup =====
+
+    @Test
+    void manualCleanup_shouldDeleteAndReturnCount() {
+        when(auditLogRepository.deleteByCreatedAtBefore(any())).thenReturn(100);
+
+        int deleted = service.manualCleanup(90);
+
+        assertThat(deleted).isEqualTo(100);
+        verify(auditLogRepository).deleteByCreatedAtBefore(any(LocalDateTime.class));
+    }
+
+    // ===== toEntry EHR fields =====
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void searchLogs_shouldIncludeEhrFieldsInResponse() {
+        AuditLogEntity log1 = createLogEntry("user1", "CREATE");
+        log1.setConnectionId(10L);
+        log1.setPatientFhirId("Patient/456");
+        log1.setConnectionName("Hospital B");
+        log1.setRequestId("req-abc-123");
+        Page<AuditLogEntity> page = new PageImpl<>(List.of(log1));
+
+        when(auditLogRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+
+        AuditLogSearchRequest request = new AuditLogSearchRequest();
+        AuditLogResponse result = service.searchLogs(request);
+
+        AuditLogEntry entry = result.getContent().get(0);
+        assertThat(entry.getConnectionId()).isEqualTo(10L);
+        assertThat(entry.getPatientFhirId()).isEqualTo("Patient/456");
+        assertThat(entry.getConnectionName()).isEqualTo("Hospital B");
+        assertThat(entry.getRequestId()).isEqualTo("req-abc-123");
+    }
+
+    // ===== getRetentionDays =====
+
+    @Test
+    void getRetentionDays_shouldReturnConfiguredValue() {
+        assertThat(service.getRetentionDays()).isEqualTo(365);
+    }
 }

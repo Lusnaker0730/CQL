@@ -117,7 +117,10 @@
       "Bash(powershell.exe -Command \"Test-Path ''$env:APPDATA\\\\Code''; Get-ChildItem ''$env:APPDATA\\\\Code'' -ErrorAction SilentlyContinue | Select-Object Name\")",
       "Bash(powershell.exe -Command \"Get-ChildItem ''$env:USERPROFILE\\\\.vscode\\\\extensions'' -Directory -Filter ''*java*'' -ErrorAction SilentlyContinue | Select-Object Name\")",
       "Bash(powershell.exe -Command \"Get-Process *code* -ErrorAction SilentlyContinue | Select-Object Name,Path | Format-Table -AutoSize\")",
-      "Bash(powershell.exe -Command \"Test-Path ''$env:LOCALAPPDATA\\\\Programs\\\\Microsoft VS Code''; Test-Path ''$env:USERPROFILE\\\\.vscode''; Get-ChildItem ''$env:USERPROFILE\\\\.vscode'' -ErrorAction SilentlyContinue | Select-Object Name\")"
+      "Bash(powershell.exe -Command \"Test-Path ''$env:LOCALAPPDATA\\\\Programs\\\\Microsoft VS Code''; Test-Path ''$env:USERPROFILE\\\\.vscode''; Get-ChildItem ''$env:USERPROFILE\\\\.vscode'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(\"/c/Program Files/apache-maven-3.9.9/bin/mvn\" -f backend/pom.xml compile -q 2>&1)",
+      "Bash(\"/c/Program Files/apache-maven-3.9.9/bin/mvn\" -f backend/pom.xml test -Dtest=\"CqlExecutionIntegrationTest,CqlPipelineIntegrationTest\" -pl .)",
+      "Bash(git mv:*)"
     ]
   }
 }

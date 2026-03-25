@@ -19,5 +19,9 @@ public class AuditLogEntry {
     private Long responseTimeMs;
     private boolean phiAccess;
     private String queryParameters;
+    private String requestId;
+    private Long connectionId;
+    private String patientFhirId;
+    private String connectionName;
     private String createdAt;
 }
