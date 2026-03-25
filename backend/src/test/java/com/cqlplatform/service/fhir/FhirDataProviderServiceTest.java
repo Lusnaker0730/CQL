@@ -22,7 +22,7 @@ class FhirDataProviderServiceTest {
     @BeforeEach
     void setUp() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirClientFactory clientFactory = new FhirClientFactory(fhirContext, smartBackendTokenService);
+        FhirClientFactory clientFactory = new FhirClientFactory(fhirContext, smartBackendTokenService, new TlsContextFactory());
         ReflectionTestUtils.setField(clientFactory, "defaultFhirServerUrl", "http://localhost:9999/fhir");
         CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
         service = new FhirDataProviderService(fhirContext, clientFactory, cbRegistry);

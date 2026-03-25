@@ -28,4 +28,12 @@ public class EhrConnectionRequest {
 
     @Size(max = 500)
     private String tokenEndpoint;
+
+    private Boolean tlsEnabled;
+    private String caCertPem;
+    private String clientCertPem;
+    private String clientKeyPem;
+    @Size(max = 10)
+    private String tlsMinVersion;
+    private Boolean hostnameVerification;
 }
