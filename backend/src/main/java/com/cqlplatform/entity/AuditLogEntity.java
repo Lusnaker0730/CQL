@@ -56,6 +56,15 @@ public class AuditLogEntity {
     @Column(name = "request_id", length = 36)
     private String requestId;
 
+    @Column(name = "connection_id")
+    private Long connectionId;
+
+    @Column(name = "patient_fhir_id", length = 200)
+    private String patientFhirId;
+
+    @Column(name = "connection_name", length = 200)
+    private String connectionName;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

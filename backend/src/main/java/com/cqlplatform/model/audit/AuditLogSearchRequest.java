@@ -24,6 +24,13 @@ public class AuditLogSearchRequest {
 
     private Integer statusCode;
 
+    private Long connectionId;
+
+    @Size(max = 200)
+    private String patientFhirId;
+
+    private Boolean phiAccess;
+
     @Min(0)
     private int page = 0;
 

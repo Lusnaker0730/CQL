@@ -35,6 +35,14 @@ public class AuditFilter extends OncePerRequestFilter {
     private static final Pattern RESOURCE_PATTERN =
             Pattern.compile("/api/(\\w+)(?:/([^/]+))?");
 
+    // EHR patient operations: /api/ehr/connections/{connId}/patients/{patientId}/...
+    private static final Pattern EHR_PATIENT_PATTERN =
+            Pattern.compile("/api/ehr/connections/(\\d+)/patients/([^/]+)");
+
+    // EHR connection operations: /api/ehr/connections/{connId}
+    private static final Pattern EHR_CONNECTION_PATTERN =
+            Pattern.compile("/api/ehr/connections/(\\d+)");
+
     /** FHIR resource types whose read/search constitutes PHI access. */
     private static final Set<String> PHI_RESOURCE_TYPES = Set.of(
             "Patient", "Observation", "Condition", "Procedure", "Encounter",
@@ -104,6 +112,32 @@ public class AuditFilter extends OncePerRequestFilter {
                 queryParameters = truncate(request.getQueryString(), 2000);
             }
 
+            // EHR connection and patient audit fields
+            Long connectionId = null;
+            String patientFhirId = null;
+            String connectionName = null;
+
+            Matcher ehrPatientMatcher = EHR_PATIENT_PATTERN.matcher(path);
+            if (ehrPatientMatcher.find()) {
+                connectionId = Long.valueOf(ehrPatientMatcher.group(1));
+                patientFhirId = ehrPatientMatcher.group(2);
+                phiAccess = true;
+                queryParameters = truncate(request.getQueryString(), 2000);
+                connectionName = (String) request.getAttribute("ehr.connectionName");
+            } else {
+                Matcher ehrConnMatcher = EHR_CONNECTION_PATTERN.matcher(path);
+                if (ehrConnMatcher.find()) {
+                    connectionId = Long.valueOf(ehrConnMatcher.group(1));
+                    connectionName = (String) request.getAttribute("ehr.connectionName");
+                }
+            }
+
+            // Batch import — mark as PHI access
+            if (path.contains("/batch-import")) {
+                phiAccess = true;
+                action = "BATCH_IMPORT";
+            }
+
             String requestId = (String) request.getAttribute(RequestTracingFilter.MDC_REQUEST_ID);
 
             AuditLogEntity auditLog = AuditLogEntity.builder()
@@ -120,6 +154,9 @@ public class AuditFilter extends OncePerRequestFilter {
                     .phiAccess(phiAccess)
                     .queryParameters(queryParameters)
                     .requestId(requestId)
+                    .connectionId(connectionId)
+                    .patientFhirId(truncate(patientFhirId, 200))
+                    .connectionName(truncate(connectionName, 200))
                     .build();
 
             auditLogRepository.save(auditLog);

@@ -48,4 +48,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long>,
     @Modifying
     @Query("DELETE FROM AuditLogEntity a WHERE a.createdAt < :before")
     int deleteByCreatedAtBefore(@Param("before") LocalDateTime before);
+
+    @Query("SELECT a FROM AuditLogEntity a WHERE a.connectionId = :connectionId ORDER BY a.createdAt DESC")
+    Page<AuditLogEntity> findByConnectionId(@Param("connectionId") Long connectionId, Pageable pageable);
+
+    @Query("SELECT a FROM AuditLogEntity a WHERE a.patientFhirId = :patientFhirId ORDER BY a.createdAt DESC")
+    Page<AuditLogEntity> findByPatientFhirId(@Param("patientFhirId") String patientFhirId, Pageable pageable);
+
+    @Query("SELECT a FROM AuditLogEntity a WHERE a.connectionId IS NOT NULL AND a.createdAt > :after ORDER BY a.createdAt DESC")
+    Page<AuditLogEntity> findEhrOperations(@Param("after") LocalDateTime after, Pageable pageable);
 }

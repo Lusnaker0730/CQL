@@ -155,6 +155,30 @@ public class AuditService {
                 .build();
     }
 
+    public AuditLogResponse getEhrOperations(int page, int size, Long connectionId, int days) {
+        var pageable = PageRequest.of(page, Math.min(size, 200), Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<AuditLogEntity> result;
+        if (connectionId != null) {
+            result = auditLogRepository.findByConnectionId(connectionId, pageable);
+        } else {
+            LocalDateTime after = LocalDateTime.now().minusDays(days);
+            result = auditLogRepository.findEhrOperations(after, pageable);
+        }
+        return toResponse(result);
+    }
+
+    @Transactional
+    public int manualCleanup(int olderThanDays) {
+        LocalDateTime before = LocalDateTime.now().minusDays(olderThanDays);
+        int deleted = auditLogRepository.deleteByCreatedAtBefore(before);
+        log.info("Manual audit cleanup: {} logs deleted (older than {} days)", deleted, olderThanDays);
+        return deleted;
+    }
+
+    public int getRetentionDays() {
+        return retentionDays;
+    }
+
     private AuditLogEntry toEntry(AuditLogEntity entity) {
         return AuditLogEntry.builder()
                 .id(entity.getId())
@@ -170,6 +194,10 @@ public class AuditService {
                 .responseTimeMs(entity.getResponseTimeMs())
                 .phiAccess(entity.isPhiAccess())
                 .queryParameters(entity.getQueryParameters())
+                .requestId(entity.getRequestId())
+                .connectionId(entity.getConnectionId())
+                .patientFhirId(entity.getPatientFhirId())
+                .connectionName(entity.getConnectionName())
                 .createdAt(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null)
                 .build();
     }
