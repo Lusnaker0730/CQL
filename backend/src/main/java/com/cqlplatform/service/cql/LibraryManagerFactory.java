@@ -25,6 +25,25 @@ public final class LibraryManagerFactory {
      * Creates a LibraryManager with the given compiler options.
      */
     public static LibraryManager create(CqlLibraryRepository libraryRepository, CqlCompilerOptions options) {
+        // Ensure the context class loader is set correctly for ServiceLoader-based
+        // model discovery (System model, FHIR model). Worker threads in
+        // ThreadPoolExecutor / ForkJoinPool may lose the Spring Boot LaunchedURLClassLoader,
+        // causing "Could not load model information for model System" errors.
+        ClassLoader originalCl = Thread.currentThread().getContextClassLoader();
+        ClassLoader targetCl = LibraryManagerFactory.class.getClassLoader();
+        if (originalCl != targetCl) {
+            Thread.currentThread().setContextClassLoader(targetCl);
+        }
+        try {
+            return doCreate(libraryRepository, options);
+        } finally {
+            if (originalCl != targetCl) {
+                Thread.currentThread().setContextClassLoader(originalCl);
+            }
+        }
+    }
+
+    private static LibraryManager doCreate(CqlLibraryRepository libraryRepository, CqlCompilerOptions options) {
         ModelManager modelManager = new ModelManager();
         LibraryManager libraryManager = new LibraryManager(modelManager, options);
 
