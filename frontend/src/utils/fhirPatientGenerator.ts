@@ -97,7 +97,7 @@ function generateMedicationPair(
   dateTo?: string,
 ): { medication: FhirResource; request: FhirResource } {
   const med = generateMedication(item)
-  const request = generateMedicationRequest(patientId, med.id as string, dateFrom, dateTo)
+  const request = generateMedicationRequest(patientId, med.id as string, item, dateFrom, dateTo)
   return { medication: med, request }
 }
 
@@ -284,6 +284,7 @@ export function generateMedication(item: MedicationItem): FhirResource {
 export function generateMedicationRequest(
   patientId: string,
   medicationId: string,
+  item: MedicationItem,
   dateFrom?: string,
   dateTo?: string,
 ): FhirResource {
@@ -291,11 +292,27 @@ export function generateMedicationRequest(
   const instruction = randomElement(MEDICATION_INSTRUCTIONS)
   const id = nextId('medreq')
 
+  // Build medication coding with both RxNorm and ATC codes for CQL compatibility
+  const medicationCoding: Array<{system: string; code: string; display: string}> = [
+    { system: item.system, code: item.code, display: item.display },
+  ]
+  if (item.atc) {
+    medicationCoding.push({
+      system: 'http://www.whocc.no/atc',
+      code: item.atc,
+      display: item.display,
+    })
+  }
+
   return {
     resourceType: 'MedicationRequest',
     id,
     status: 'active',
     intent: 'order',
+    medicationCodeableConcept: {
+      coding: medicationCoding,
+      text: item.display,
+    },
     medicationReference: { reference: `Medication/${medicationId}` },
     subject: { reference: `Patient/${patientId}` },
     authoredOn: date,
