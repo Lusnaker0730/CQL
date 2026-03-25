@@ -166,6 +166,8 @@ fhir:
     url: ${FHIR_TERMINOLOGY_URL:https://tx.fhir.org/r4}
   implementation-guides:
     enabled: ${FHIR_IG_ENABLED:true}
+  subscription:
+    callback-base-url: ${FHIR_SUBSCRIPTION_CALLBACK_URL:}
   client:
     pool-max-total: 50
     pool-default-per-route: 30

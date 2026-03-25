@@ -3,14 +3,17 @@ package com.cqlplatform.controller;
 import com.cqlplatform.entity.BatchImportJobEntity;
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.cqlplatform.entity.FailedImportEntity;
+import com.cqlplatform.entity.FhirSubscriptionEntity;
 import com.cqlplatform.entity.PatientImportEntity;
 import com.cqlplatform.model.ehr.BatchImportRequest;
 import com.cqlplatform.model.ehr.EhrConnectionRequest;
+import com.cqlplatform.model.ehr.SubscriptionRequest;
 import com.cqlplatform.model.fhir.PatientImportPreview;
 import com.cqlplatform.model.fhir.PatientSearchResult;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.AsyncPatientImportService;
 import com.cqlplatform.service.fhir.EhrConnectionService;
+import com.cqlplatform.service.fhir.FhirSubscriptionService;
 import com.cqlplatform.service.fhir.ImportRetryService;
 import com.cqlplatform.service.fhir.PatientImportService;
 import com.cqlplatform.service.fhir.PatientSearchService;
@@ -36,6 +39,7 @@ public class EhrIntegrationController {
     private final PatientImportService patientImportService;
     private final AsyncPatientImportService asyncImportService;
     private final ImportRetryService importRetryService;
+    private final FhirSubscriptionService subscriptionService;
 
     // ===== Connection Management =====
 
@@ -162,6 +166,57 @@ public class EhrIntegrationController {
     @Operation(summary = "Cancel Batch Import", description = "Cancel a running or pending batch import job")
     public ResponseEntity<BatchImportJobEntity> cancelBatchImport(@PathVariable Long jobId) {
         return ResponseEntity.ok(asyncImportService.cancelJob(jobId));
+    }
+
+    // ===== Subscriptions =====
+
+    @PostMapping("/connections/{id}/subscriptions")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Create Subscription", description = "Create a FHIR Subscription on a remote EHR server")
+    public ResponseEntity<FhirSubscriptionEntity> createSubscription(
+            @PathVariable Long id,
+            @Valid @RequestBody SubscriptionRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(subscriptionService.createSubscription(id, request));
+    }
+
+    @GetMapping("/subscriptions")
+    @Operation(summary = "List Subscriptions", description = "List all FHIR Subscriptions")
+    public ResponseEntity<List<FhirSubscriptionEntity>> listSubscriptions(
+            @RequestParam(required = false) Long connectionId) {
+        return ResponseEntity.ok(subscriptionService.listSubscriptions(connectionId));
+    }
+
+    @GetMapping("/subscriptions/{id}")
+    @Operation(summary = "Get Subscription", description = "Get details of a FHIR Subscription")
+    public ResponseEntity<FhirSubscriptionEntity> getSubscription(@PathVariable Long id) {
+        return ResponseEntity.ok(subscriptionService.getSubscription(id));
+    }
+
+    @PostMapping("/subscriptions/{id}/sync")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Sync Subscription Status", description = "Sync subscription status from remote FHIR server")
+    public ResponseEntity<FhirSubscriptionEntity> syncSubscriptionStatus(@PathVariable Long id) {
+        return ResponseEntity.ok(subscriptionService.syncStatus(id));
+    }
+
+    @DeleteMapping("/subscriptions/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Delete Subscription", description = "Delete a FHIR Subscription from local and remote server")
+    public ResponseEntity<Void> deleteSubscription(@PathVariable Long id) {
+        subscriptionService.deleteSubscription(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/subscriptions/callback")
+    @Operation(summary = "Subscription Callback", description = "REST-hook callback endpoint for FHIR server notifications")
+    public ResponseEntity<Void> subscriptionCallback(
+            @RequestHeader(value = "X-Subscription-Id", required = false) String subscriptionId,
+            @RequestBody(required = false) String resourceJson) {
+        if (subscriptionId != null) {
+            subscriptionService.handleNotification(subscriptionId, resourceJson);
+        }
+        return ResponseEntity.ok().build();
     }
 
     // ===== Import History =====
