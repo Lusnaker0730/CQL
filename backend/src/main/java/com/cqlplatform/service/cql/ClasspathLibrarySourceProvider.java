@@ -36,9 +36,23 @@ public class ClasspathLibrarySourceProvider implements LibrarySourceProvider {
 
     private Source tryLoadResource(String fileName) {
         try {
-            ClassPathResource resource = new ClassPathResource(basePath + fileName);
+            String path = basePath + fileName;
+            ClassPathResource resource = new ClassPathResource(path);
             if (resource.exists()) {
                 InputStream is = resource.getInputStream();
+                return CoreKt.buffered(JvmCoreKt.asSource(is));
+            }
+            // Try with thread context class loader explicitly
+            ClassLoader tcl = Thread.currentThread().getContextClassLoader();
+            if (tcl != null) {
+                InputStream is = tcl.getResourceAsStream(path);
+                if (is != null) {
+                    return CoreKt.buffered(JvmCoreKt.asSource(is));
+                }
+            }
+            // Try with this class's class loader
+            InputStream is = ClasspathLibrarySourceProvider.class.getClassLoader().getResourceAsStream(path);
+            if (is != null) {
                 return CoreKt.buffered(JvmCoreKt.asSource(is));
             }
         } catch (Exception e) {

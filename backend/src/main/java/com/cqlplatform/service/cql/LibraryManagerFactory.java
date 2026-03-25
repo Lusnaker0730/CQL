@@ -1,21 +1,41 @@
 package com.cqlplatform.service.cql;
 
 import com.cqlplatform.repository.CqlLibraryRepository;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlCompilerOptions;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
+import org.springframework.stereotype.Component;
 
 /**
  * Creates a pre-configured LibraryManager with database and classpath library providers.
- * Centralizes the setup that was previously duplicated in CqlTranslationService and CqlExecutionService.
+ *
+ * <p>A single {@link ModelManager} is created once during Spring initialization
+ * (via {@code @PostConstruct}) on the main thread where the Spring Boot
+ * {@code LaunchedURLClassLoader} is the context class loader. This avoids
+ * {@code ServiceLoader} failures in worker threads (ForkJoinPool, ThreadPoolExecutor)
+ * that have a different context class loader.</p>
  */
-public final class LibraryManagerFactory {
+@Slf4j
+@Component
+public class LibraryManagerFactory {
 
-    private LibraryManagerFactory() {}
+    private static volatile ModelManager sharedModelManager;
+
+    @PostConstruct
+    void init() {
+        // Create ModelManager on the Spring main thread where the correct class loader is set.
+        // ModelManager uses ServiceLoader internally to discover ModelInfoProviders.
+        log.info("Initializing shared CQL ModelManager on thread: {} with classloader: {}",
+                Thread.currentThread().getName(),
+                Thread.currentThread().getContextClassLoader());
+        sharedModelManager = new ModelManager();
+        log.info("CQL ModelManager initialized successfully");
+    }
 
     /**
-     * Creates a LibraryManager with default compiler options
-     * (EnableLocators, EnableAnnotations, EnableResultTypes).
+     * Creates a LibraryManager with default compiler options.
      */
     public static LibraryManager create(CqlLibraryRepository libraryRepository) {
         return create(libraryRepository, defaultOptions());
@@ -25,25 +45,27 @@ public final class LibraryManagerFactory {
      * Creates a LibraryManager with the given compiler options.
      */
     public static LibraryManager create(CqlLibraryRepository libraryRepository, CqlCompilerOptions options) {
-        ModelManager modelManager = new ModelManager();
-        LibraryManager libraryManager = new LibraryManager(modelManager, options);
+        ModelManager mm = sharedModelManager;
+        if (mm == null) {
+            // Fallback: if called before Spring init (e.g. in tests), create inline
+            log.warn("sharedModelManager not yet initialized, creating inline (thread: {})",
+                    Thread.currentThread().getName());
+            mm = new ModelManager();
+        }
 
-        // Register database provider first so user libraries take precedence
+        LibraryManager libraryManager = new LibraryManager(mm, options);
+
         if (libraryRepository != null) {
             libraryManager.getLibrarySourceLoader()
                     .registerProvider(new DatabaseLibrarySourceProvider(libraryRepository));
         }
 
-        // Register classpath provider to load FHIRHelpers from classpath resources
         libraryManager.getLibrarySourceLoader()
                 .registerProvider(new ClasspathLibrarySourceProvider("cql"));
 
         return libraryManager;
     }
 
-    /**
-     * Builds CqlCompilerOptions from individual flags.
-     */
     public static CqlCompilerOptions buildOptions(
             boolean enableLocators,
             boolean enableAnnotations,

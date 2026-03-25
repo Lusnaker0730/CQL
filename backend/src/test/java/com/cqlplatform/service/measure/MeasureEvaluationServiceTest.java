@@ -29,6 +29,9 @@ class MeasureEvaluationServiceTest {
     private CqlExecutionService cqlExecutionService;
 
     @Mock
+    private com.cqlplatform.service.cql.CqlTranslationService cqlTranslationService;
+
+    @Mock
     private FhirDataProviderService fhirDataProviderService;
 
     private PatientDiscoveryService patientDiscoveryService;
@@ -44,7 +47,7 @@ class MeasureEvaluationServiceTest {
         scoreCalculator = new MeasureScoreCalculator();
         stratifierEvaluator = new StratifierEvaluator(populationEvaluator, scoreCalculator);
         measureService = new MeasureEvaluationService(
-                cqlExecutionService, patientDiscoveryService,
+                cqlExecutionService, cqlTranslationService, patientDiscoveryService,
                 populationEvaluator, stratifierEvaluator, scoreCalculator);
         ReflectionTestUtils.setField(measureService, "defaultPeriodStart", "");
         ReflectionTestUtils.setField(measureService, "defaultPeriodEnd", "");

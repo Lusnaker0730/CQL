@@ -14,6 +14,7 @@ import com.cqlplatform.service.fhir.FhirTerminologyService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
+import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
@@ -159,6 +160,30 @@ public class CqlExecutionService {
                 translator = CqlTranslator.fromText(request.getCql(), libraryManager);
                 elmLibrary = translator.toELM();
             }
+
+            // Check for translation errors — previously these were silently swallowed,
+            // causing null EvaluationResult downstream
+            if (translator != null && translator.getExceptions() != null) {
+                List<CqlCompilerException> errors = translator.getExceptions().stream()
+                        .filter(e -> e.getSeverity() == CqlCompilerException.ErrorSeverity.Error)
+                        .toList();
+                if (!errors.isEmpty()) {
+                    String errorSummary = errors.stream()
+                            .map(CqlCompilerException::getMessage)
+                            .limit(5)
+                            .collect(java.util.stream.Collectors.joining("; "));
+                    log.error("CQL translation produced {} error(s): {}", errors.size(), errorSummary);
+                    throw new CqlExecutionException("CQL translation failed with " + errors.size()
+                            + " error(s): " + errorSummary);
+                }
+                long warnCount = translator.getExceptions().stream()
+                        .filter(e -> e.getSeverity() == CqlCompilerException.ErrorSeverity.Warning)
+                        .count();
+                if (warnCount > 0) {
+                    log.warn("CQL translation produced {} warning(s)", warnCount);
+                }
+            }
+
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
 
             // Extract source locators and dependencies for debug mode

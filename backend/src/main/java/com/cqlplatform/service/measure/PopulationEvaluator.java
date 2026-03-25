@@ -37,18 +37,47 @@ public class PopulationEvaluator {
 
     /**
      * Aggregates a single patient's CQL results into the running population counts.
+     * Enforces HL7 proportion measure population hierarchy:
+     * <ul>
+     *   <li>Denominator is only counted if Initial Population is true</li>
+     *   <li>Denominator Exclusions only if Denominator is true</li>
+     *   <li>Numerator is only counted if Denominator is true AND not excluded</li>
+     *   <li>Numerator Exclusions only if Numerator is true</li>
+     *   <li>Denominator Exceptions only if Denominator is true but Numerator is false</li>
+     * </ul>
      *
      * @param counts  running population counts (mutated in place)
      * @param results CQL expression results for one patient
      */
     public void aggregatePatientResults(Map<String, Integer> counts,
                                         Map<String, CqlExecutionResponse.ExpressionResult> results) {
-        for (String key : counts.keySet()) {
-            Integer count = extractPopulationCount(results, key);
-            if (count != null && count > 0) {
-                counts.put(key, counts.get(key) + count);
-            }
-        }
+        // Evaluate each population for this patient
+        boolean inInitPop = isPopulationTrue(results, "Initial Population");
+        boolean inDenom = inInitPop && isPopulationTrue(results, "Denominator");
+        boolean denomExcluded = inDenom && isPopulationTrue(results, "Denominator Exclusions");
+        boolean effectiveDenom = inDenom && !denomExcluded;
+        boolean inNumer = effectiveDenom && isPopulationTrue(results, "Numerator");
+        boolean numerExcluded = inNumer && isPopulationTrue(results, "Numerator Exclusions");
+        boolean effectiveNumer = inNumer && !numerExcluded;
+        boolean denomException = effectiveDenom && !effectiveNumer
+                && isPopulationTrue(results, "Denominator Exceptions");
+
+        if (inInitPop) increment(counts, "Initial Population");
+        if (inDenom) increment(counts, "Denominator");
+        if (denomExcluded) increment(counts, "Denominator Exclusions");
+        if (effectiveNumer) increment(counts, "Numerator");
+        if (numerExcluded) increment(counts, "Numerator Exclusions");
+        if (denomException) increment(counts, "Denominator Exceptions");
+    }
+
+    private boolean isPopulationTrue(Map<String, CqlExecutionResponse.ExpressionResult> results,
+                                     String populationName) {
+        Integer count = extractPopulationCount(results, populationName);
+        return count != null && count > 0;
+    }
+
+    private void increment(Map<String, Integer> counts, String key) {
+        counts.computeIfPresent(key, (k, v) -> v + 1);
     }
 
     /**
