@@ -194,6 +194,13 @@ measure:
   scheduling:
     enabled: ${MEASURE_SCHEDULING_ENABLED:true}
 
+# EHR Import Configuration
+ehr:
+  import:
+    max-retry-attempts: ${EHR_IMPORT_MAX_RETRIES:3}
+    retry-initial-delay-seconds: ${EHR_IMPORT_RETRY_DELAY:60}
+    retry-check-interval-ms: ${EHR_IMPORT_RETRY_CHECK_INTERVAL:60000}
+
 # Audit Configuration
 audit:
   retention-days: ${AUDIT_RETENTION_DAYS:365}
