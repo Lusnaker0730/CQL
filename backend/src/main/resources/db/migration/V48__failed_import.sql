@@ -1,4 +1,4 @@
--- V45: Failed import tracking for error recovery
+-- V48: Failed import tracking for error recovery
 CREATE TABLE failed_import (
     id BIGSERIAL PRIMARY KEY,
     connection_id BIGINT NOT NULL,

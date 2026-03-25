@@ -4,6 +4,7 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import com.cqlplatform.entity.ConnectionHealthCheckEntity;
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.cqlplatform.repository.ConnectionHealthCheckRepository;
+import com.cqlplatform.util.StringUtils;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +61,7 @@ public class ConnectionHealthService {
             long responseTime = System.currentTimeMillis() - startTime;
             check.setResponseTimeMs(responseTime);
             check.setStatus("down");
-            check.setErrorMessage(truncate(e.getMessage(), 1000));
+            check.setErrorMessage(StringUtils.truncate(e.getMessage(), 1000));
         }
 
         check = healthCheckRepository.save(check);
@@ -144,17 +145,16 @@ public class ConnectionHealthService {
      * Scheduled: check all active connections periodically.
      */
     @Scheduled(fixedDelayString = "${ehr.health.check-interval-ms:900000}")
-    @Transactional
     public void scheduledHealthCheck() {
         List<EhrConnectionEntity> connections = connectionService.list(null);
         log.info("Running scheduled health check for {} connections", connections.size());
-        for (EhrConnectionEntity connection : connections) {
+        connections.parallelStream().forEach(connection -> {
             try {
                 checkConnection(connection.getId());
             } catch (Exception e) {
                 log.warn("Scheduled health check failed for connection {}: {}", connection.getId(), e.getMessage());
             }
-        }
+        });
     }
 
     /**
@@ -168,11 +168,6 @@ public class ConnectionHealthService {
         if (deleted > 0) {
             log.info("Cleaned up {} old health check records (older than {} days)", deleted, retentionDays);
         }
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null) return null;
-        return value.length() > maxLength ? value.substring(0, maxLength) : value;
     }
 
     // DTOs

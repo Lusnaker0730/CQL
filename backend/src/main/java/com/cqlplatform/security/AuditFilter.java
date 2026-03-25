@@ -13,6 +13,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.cqlplatform.util.StringUtils;
+
 import java.io.IOException;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -85,7 +87,7 @@ public class AuditFilter extends OncePerRequestFilter {
 
                 if (PHI_RESOURCE_TYPES.contains(resourceType)) {
                     phiAccess = true;
-                    queryParameters = truncate(request.getQueryString(), 2000);
+                    queryParameters = StringUtils.truncate(request.getQueryString(), 2000);
                 }
             } else {
                 // Fallback: generic /api/{module}/{id}
@@ -100,7 +102,7 @@ public class AuditFilter extends OncePerRequestFilter {
             if (path.contains("Patient/$search-by-demographics")) {
                 phiAccess = true;
                 resourceType = "Patient";
-                queryParameters = truncate(request.getQueryString(), 2000);
+                queryParameters = StringUtils.truncate(request.getQueryString(), 2000);
             }
 
             // Bulk Data Export — highest-risk PHI operation
@@ -109,7 +111,7 @@ public class AuditFilter extends OncePerRequestFilter {
                 resourceType = "BulkExport";
                 resourceId = null;
                 action = "EXPORT";
-                queryParameters = truncate(request.getQueryString(), 2000);
+                queryParameters = StringUtils.truncate(request.getQueryString(), 2000);
             }
 
             // EHR connection and patient audit fields
@@ -122,7 +124,7 @@ public class AuditFilter extends OncePerRequestFilter {
                 connectionId = Long.valueOf(ehrPatientMatcher.group(1));
                 patientFhirId = ehrPatientMatcher.group(2);
                 phiAccess = true;
-                queryParameters = truncate(request.getQueryString(), 2000);
+                queryParameters = StringUtils.truncate(request.getQueryString(), 2000);
                 connectionName = (String) request.getAttribute("ehr.connectionName");
             } else {
                 Matcher ehrConnMatcher = EHR_CONNECTION_PATTERN.matcher(path);
@@ -143,20 +145,20 @@ public class AuditFilter extends OncePerRequestFilter {
             AuditLogEntity auditLog = AuditLogEntity.builder()
                     .username(username)
                     .method(request.getMethod())
-                    .path(truncate(path, 500))
+                    .path(StringUtils.truncate(path, 500))
                     .resourceType(resourceType)
-                    .resourceId(truncate(resourceId, 100))
+                    .resourceId(StringUtils.truncate(resourceId, 100))
                     .action(action)
                     .statusCode(response.getStatus())
-                    .ipAddress(truncate(getClientIp(request), 45))
-                    .userAgent(truncate(request.getHeader("User-Agent"), 500))
+                    .ipAddress(StringUtils.truncate(getClientIp(request), 45))
+                    .userAgent(StringUtils.truncate(request.getHeader("User-Agent"), 500))
                     .responseTimeMs(duration)
                     .phiAccess(phiAccess)
                     .queryParameters(queryParameters)
                     .requestId(requestId)
                     .connectionId(connectionId)
-                    .patientFhirId(truncate(patientFhirId, 200))
-                    .connectionName(truncate(connectionName, 200))
+                    .patientFhirId(StringUtils.truncate(patientFhirId, 200))
+                    .connectionName(StringUtils.truncate(connectionName, 200))
                     .build();
 
             auditLogRepository.save(auditLog);
@@ -229,8 +231,4 @@ public class AuditFilter extends OncePerRequestFilter {
         }
     }
 
-    private String truncate(String value, int maxLength) {
-        if (value == null) return null;
-        return value.length() > maxLength ? value.substring(0, maxLength) : value;
-    }
 }

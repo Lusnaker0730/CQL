@@ -6,11 +6,12 @@ import com.cqlplatform.entity.FhirSubscriptionEntity;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.ehr.SubscriptionRequest;
 import com.cqlplatform.repository.FhirSubscriptionRepository;
+import com.cqlplatform.util.SecurityUtils;
+import com.cqlplatform.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.Subscription;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,7 +58,7 @@ public class FhirSubscriptionService {
         entity.setCriteria(request.getCriteria());
         entity.setCallbackUrl(callbackUrl);
         entity.setReason(request.getReason());
-        entity.setCreatedBy(getCurrentUsername());
+        entity.setCreatedBy(SecurityUtils.getCurrentUsername("system"));
 
         try {
             var outcome = client.create().resource(subscription).execute();
@@ -68,7 +69,7 @@ public class FhirSubscriptionService {
                     subscriptionId, connectionId, request.getCriteria());
         } catch (Exception e) {
             entity.setStatus("error");
-            entity.setErrorMessage(truncate(e.getMessage(), 1000));
+            entity.setErrorMessage(StringUtils.truncate(e.getMessage(), 1000));
             log.warn("Failed to create FHIR Subscription on connection {}: {}",
                     connectionId, e.getMessage());
         }
@@ -130,7 +131,7 @@ public class FhirSubscriptionService {
             entity.setErrorMessage(remote.hasError() ? remote.getError() : null);
         } catch (Exception e) {
             entity.setStatus("error");
-            entity.setErrorMessage("Status sync failed: " + truncate(e.getMessage(), 900));
+            entity.setErrorMessage("Status sync failed: " + StringUtils.truncate(e.getMessage(), 900));
         }
 
         return subscriptionRepository.save(entity);
@@ -164,16 +165,4 @@ public class FhirSubscriptionService {
         return "http://localhost:" + serverPort + "/api/ehr/subscriptions/callback";
     }
 
-    private String getCurrentUsername() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getName() != null) return auth.getName();
-        } catch (Exception ignored) {}
-        return "system";
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null) return null;
-        return value.length() > maxLength ? value.substring(0, maxLength) : value;
-    }
 }

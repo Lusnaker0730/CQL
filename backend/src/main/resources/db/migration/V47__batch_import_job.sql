@@ -1,4 +1,4 @@
--- V45: Batch import job tracking table
+-- V47: Batch import job tracking table
 CREATE TABLE batch_import_job (
     id BIGSERIAL PRIMARY KEY,
     connection_id BIGINT NOT NULL,

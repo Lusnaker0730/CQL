@@ -31,6 +31,7 @@ public class FhirClientFactory {
     private final FhirContext fhirContext;
     private final SmartBackendTokenService smartBackendTokenService;
     private final TlsContextFactory tlsContextFactory;
+    private final FhirContext tlsFhirContext = FhirContext.forR4();
 
     private static final long CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
     private static final int MAX_CACHE_SIZE = 50;
@@ -138,29 +139,31 @@ public class FhirClientFactory {
         SSLContext sslContext = tlsContextFactory.createSslContext(connection);
         HostnameVerifier hostnameVerifier = tlsContextFactory.createHostnameVerifier(connection);
 
-        // Create a dedicated FhirContext with TLS-enabled client factory
-        FhirContext tlsContext = FhirContext.forR4();
-        ApacheRestfulClientFactory clientFactory = new ApacheRestfulClientFactory(tlsContext);
+        // Reuse a single FhirContext for TLS clients; synchronize because
+        // setRestfulClientFactory mutates its state.
+        synchronized (tlsFhirContext) {
+            ApacheRestfulClientFactory clientFactory = new ApacheRestfulClientFactory(tlsFhirContext);
 
-        if (sslContext != null) {
-            HttpClientBuilder httpClientBuilder = HttpClients.custom();
+            if (sslContext != null) {
+                HttpClientBuilder httpClientBuilder = HttpClients.custom();
 
-            SSLConnectionSocketFactory sslSocketFactory;
-            if (hostnameVerifier != null) {
-                sslSocketFactory = new SSLConnectionSocketFactory(sslContext, hostnameVerifier);
-            } else {
-                sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
+                SSLConnectionSocketFactory sslSocketFactory;
+                if (hostnameVerifier != null) {
+                    sslSocketFactory = new SSLConnectionSocketFactory(sslContext, hostnameVerifier);
+                } else {
+                    sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
+                }
+                httpClientBuilder.setSSLSocketFactory(sslSocketFactory);
+                clientFactory.setHttpClient(httpClientBuilder.build());
             }
-            httpClientBuilder.setSSLSocketFactory(sslSocketFactory);
-            clientFactory.setHttpClient(httpClientBuilder.build());
+
+            tlsFhirContext.setRestfulClientFactory(clientFactory);
+
+            log.info("Created TLS client for EHR connection {} (hostname verification: {})",
+                    connection.getId(), connection.isHostnameVerification());
+
+            return tlsFhirContext.newRestfulGenericClient(serverUrl);
         }
-
-        tlsContext.setRestfulClientFactory(clientFactory);
-
-        log.info("Created TLS client for EHR connection {} (hostname verification: {})",
-                connection.getId(), connection.isHostnameVerification());
-
-        return tlsContext.newRestfulGenericClient(serverUrl);
     }
 
     private static void registerLoggingInterceptor(IGenericClient client) {

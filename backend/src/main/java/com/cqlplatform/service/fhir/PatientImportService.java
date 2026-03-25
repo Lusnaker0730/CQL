@@ -7,10 +7,10 @@ import com.cqlplatform.entity.PatientImportEntity;
 import com.cqlplatform.model.measure.TestCase;
 import com.cqlplatform.repository.PatientImportRepository;
 import com.cqlplatform.service.measure.TestCaseService;
+import com.cqlplatform.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.*;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,7 +65,7 @@ public class PatientImportService {
         int resourceCount = patientBundle.getEntry().size();
 
         // Get current user
-        String importedBy = getCurrentUsername();
+        String importedBy = SecurityUtils.getCurrentUsername("system");
 
         // Create import record
         PatientImportEntity importEntity = new PatientImportEntity();
@@ -177,15 +177,4 @@ public class PatientImportService {
         return null;
     }
 
-    private String getCurrentUsername() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getName() != null) {
-                return auth.getName();
-            }
-        } catch (Exception e) {
-            log.debug("Could not determine current user: {}", e.getMessage());
-        }
-        return "system";
-    }
 }

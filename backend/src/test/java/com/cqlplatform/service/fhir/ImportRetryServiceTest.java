@@ -220,14 +220,15 @@ class ImportRetryServiceTest {
 
     @Test
     void deleteFailedImport_exists_shouldDelete() {
-        when(failedImportRepository.existsById(1L)).thenReturn(true);
+        FailedImportEntity entity = createFailed(1L, "pending", 0);
+        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(entity));
         service.deleteFailedImport(1L);
-        verify(failedImportRepository).deleteById(1L);
+        verify(failedImportRepository).delete(entity);
     }
 
     @Test
     void deleteFailedImport_notFound_shouldThrow() {
-        when(failedImportRepository.existsById(999L)).thenReturn(false);
+        when(failedImportRepository.findById(999L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.deleteFailedImport(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
