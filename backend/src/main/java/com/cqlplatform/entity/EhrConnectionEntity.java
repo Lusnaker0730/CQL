@@ -31,6 +31,30 @@ public class EhrConnectionEntity {
     @Column(name = "token_endpoint", length = 500)
     private String tokenEndpoint;
 
+    @Column(name = "tls_enabled")
+    private boolean tlsEnabled = false;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Convert(converter = EncryptionConverter.class)
+    @Column(name = "ca_cert_pem", columnDefinition = "TEXT")
+    private String caCertPem;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Convert(converter = EncryptionConverter.class)
+    @Column(name = "client_cert_pem", columnDefinition = "TEXT")
+    private String clientCertPem;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Convert(converter = EncryptionConverter.class)
+    @Column(name = "client_key_pem", columnDefinition = "TEXT")
+    private String clientKeyPem;
+
+    @Column(name = "tls_min_version", length = 10)
+    private String tlsMinVersion = "TLSv1.2";
+
+    @Column(name = "hostname_verification")
+    private boolean hostnameVerification = true;
+
     @Column(length = 100)
     private String department;
 

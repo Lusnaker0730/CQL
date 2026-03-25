@@ -47,6 +47,18 @@ public class EhrConnectionService {
         connection.setCredentials(request.getCredentials());
         connection.setDepartment(request.getDepartment());
         connection.setTokenEndpoint(request.getTokenEndpoint());
+        if (request.getTlsEnabled() != null) {
+            connection.setTlsEnabled(request.getTlsEnabled());
+        }
+        connection.setCaCertPem(request.getCaCertPem());
+        connection.setClientCertPem(request.getClientCertPem());
+        connection.setClientKeyPem(request.getClientKeyPem());
+        if (request.getTlsMinVersion() != null) {
+            connection.setTlsMinVersion(request.getTlsMinVersion());
+        }
+        if (request.getHostnameVerification() != null) {
+            connection.setHostnameVerification(request.getHostnameVerification());
+        }
         connection.setStatus("untested");
         EhrConnectionEntity saved = repository.save(connection);
         log.info("Created EHR connection '{}' (id={})", saved.getName(), saved.getId());
@@ -63,6 +75,18 @@ public class EhrConnectionService {
         existing.setCredentials(request.getCredentials());
         existing.setDepartment(request.getDepartment());
         existing.setTokenEndpoint(request.getTokenEndpoint());
+        if (request.getTlsEnabled() != null) {
+            existing.setTlsEnabled(request.getTlsEnabled());
+        }
+        existing.setCaCertPem(request.getCaCertPem());
+        existing.setClientCertPem(request.getClientCertPem());
+        existing.setClientKeyPem(request.getClientKeyPem());
+        if (request.getTlsMinVersion() != null) {
+            existing.setTlsMinVersion(request.getTlsMinVersion());
+        }
+        if (request.getHostnameVerification() != null) {
+            existing.setHostnameVerification(request.getHostnameVerification());
+        }
         // Reset status when URL or auth changes
         existing.setStatus("untested");
         existing.setLastTestedAt(null);

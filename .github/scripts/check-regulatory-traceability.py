@@ -43,7 +43,7 @@ def get_issues_by_label(repo: str, label: str) -> list[dict]:
     page = 1
     while True:
         result = subprocess.run(
-            ["gh", "api", f"repos/{repo}/issues",
+            ["gh", "api", "-X", "GET", f"repos/{repo}/issues",
              "-f", f"labels={label}", "-f", "state=all",
              "-f", f"per_page=100", "-f", f"page={page}"],
             capture_output=True, text=True, check=True,
