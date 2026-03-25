@@ -103,6 +103,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 // SMART on FHIR configuration
                 .requestMatchers("/.well-known/smart-configuration").permitAll()
+                // FHIR Subscription callback (external FHIR servers can't authenticate)
+                .requestMatchers(HttpMethod.POST, "/api/ehr/subscriptions/callback").permitAll()
                 // CDS Hooks sandbox requires authentication
                 .requestMatchers(HttpMethod.POST, "/cds-services/*/sandbox").authenticated()
                 // Per-user CDS endpoints (API key auth handled in filter)
