@@ -5,12 +5,36 @@
       "name": "糖尿病患者",
       "icon": "🩺",
       "description": "第二型糖尿病患者的典型醫療資料",
-      "conditions": ["73211009"],
-      "condition_names": ["糖尿病"],
-      "observations": ["2339-0", "4548-4", "2345-7", "8480-6", "8462-4"],
-      "observation_names": ["血糖", "HbA1c", "血糖（飯前）", "收縮壓", "舒張壓"],
-      "medications": ["860975", "5856", "203323"],
-      "medication_names": ["Metformin", "Insulin", "Glyburide"],
+      "conditions": [
+        "E11"
+      ],
+      "condition_names": [
+        "第二型糖尿病"
+      ],
+      "observations": [
+        "2339-0",
+        "17856-6",
+        "1558-6",
+        "8480-6",
+        "8462-4"
+      ],
+      "observation_names": [
+        "血糖",
+        "HbA1c",
+        "空腹血糖",
+        "收縮壓",
+        "舒張壓"
+      ],
+      "medications": [
+        "6809",
+        "5856",
+        "274783"
+      ],
+      "medication_names": [
+        "Metformin",
+        "Insulin",
+        "Glimepiride"
+      ],
       "num_encounters": 2,
       "recommended_patient_count": 5
     },
@@ -19,12 +43,34 @@
       "name": "高血壓患者",
       "icon": "❤️",
       "description": "高血壓患者的常規追蹤資料",
-      "conditions": ["38341003"],
-      "condition_names": ["高血壓"],
-      "observations": ["8480-6", "8462-4", "8867-4", "29463-7"],
-      "observation_names": ["收縮壓", "舒張壓", "心率", "體重"],
-      "medications": ["316049", "197361", "153821"],
-      "medication_names": ["Lisinopril", "Amlodipine", "Losartan"],
+      "conditions": [
+        "I10"
+      ],
+      "condition_names": [
+        "高血壓"
+      ],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "8867-4",
+        "29463-7"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "心率",
+        "體重"
+      ],
+      "medications": [
+        "29046",
+        "197361",
+        "32592"
+      ],
+      "medication_names": [
+        "Lisinopril",
+        "Amlodipine",
+        "Losartan"
+      ],
       "num_encounters": 2,
       "recommended_patient_count": 5
     },
@@ -33,12 +79,32 @@
       "name": "氣喘患者",
       "icon": "🫁",
       "description": "氣喘患者的管理與追蹤",
-      "conditions": ["195967001"],
-      "condition_names": ["氣喘"],
-      "observations": ["20564-1", "8867-4", "8310-5"],
-      "observation_names": ["血氧濃度", "心率", "體溫"],
-      "medications": ["745678", "896321", "745752"],
-      "medication_names": ["Albuterol", "Fluticasone", "Montelukast"],
+      "conditions": [
+        "J45"
+      ],
+      "condition_names": [
+        "氣喘"
+      ],
+      "observations": [
+        "2710-2",
+        "8867-4",
+        "8310-5"
+      ],
+      "observation_names": [
+        "血氧濃度",
+        "心率",
+        "體溫"
+      ],
+      "medications": [
+        "1256",
+        "1998",
+        "2670"
+      ],
+      "medication_names": [
+        "Salbutamol",
+        "Budesonide",
+        "Montelukast"
+      ],
       "num_encounters": 1,
       "recommended_patient_count": 3
     },
@@ -49,8 +115,24 @@
       "description": "年度健康檢查的完整項目",
       "conditions": [],
       "condition_names": [],
-      "observations": ["8480-6", "8462-4", "29463-7", "8302-2", "39156-5", "2093-3", "2571-8"],
-      "observation_names": ["收縮壓", "舒張壓", "體重", "身高", "BMI", "總膽固醇", "低密度脂蛋白"],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "29463-7",
+        "8302-2",
+        "39156-5",
+        "2093-3",
+        "2571-8"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "體重",
+        "身高",
+        "BMI",
+        "總膽固醇",
+        "三酸甘油酯"
+      ],
       "medications": [],
       "medication_names": [],
       "num_encounters": 1,
@@ -61,12 +143,34 @@
       "name": "慢性阻塞性肺病",
       "icon": "💨",
       "description": "COPD 患者的醫療管理",
-      "conditions": ["13645005"],
-      "condition_names": ["慢性阻塞性肺病"],
-      "observations": ["20564-1", "8867-4", "8310-5", "8480-6"],
-      "observation_names": ["血氧濃度", "心率", "體溫", "收縮壓"],
-      "medications": ["1649558", "896321", "745678"],
-      "medication_names": ["Tiotropium", "Fluticasone", "Albuterol"],
+      "conditions": [
+        "J44"
+      ],
+      "condition_names": [
+        "慢性阻塞性肺病"
+      ],
+      "observations": [
+        "2710-2",
+        "8867-4",
+        "8310-5",
+        "8480-6"
+      ],
+      "observation_names": [
+        "血氧濃度",
+        "心率",
+        "體溫",
+        "收縮壓"
+      ],
+      "medications": [
+        "1649558",
+        "1998",
+        "1256"
+      ],
+      "medication_names": [
+        "Tiotropium",
+        "Budesonide",
+        "Salbutamol"
+      ],
       "num_encounters": 2,
       "recommended_patient_count": 3
     },
@@ -75,12 +179,36 @@
       "name": "心臟衰竭",
       "icon": "💔",
       "description": "心臟衰竭患者的追蹤管理",
-      "conditions": ["84114007"],
-      "condition_names": ["心臟衰竭"],
-      "observations": ["8480-6", "8462-4", "8867-4", "29463-7", "20564-1"],
-      "observation_names": ["收縮壓", "舒張壓", "心率", "體重", "血氧濃度"],
-      "medications": ["197361", "316049", "3616"],
-      "medication_names": ["Amlodipine", "Lisinopril", "Furosemide"],
+      "conditions": [
+        "I50"
+      ],
+      "condition_names": [
+        "心臟衰竭"
+      ],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "8867-4",
+        "29463-7",
+        "2710-2"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "心率",
+        "體重",
+        "血氧濃度"
+      ],
+      "medications": [
+        "197361",
+        "29046",
+        "3616"
+      ],
+      "medication_names": [
+        "Amlodipine",
+        "Lisinopril",
+        "Furosemide"
+      ],
       "num_encounters": 3,
       "recommended_patient_count": 3
     },
@@ -89,10 +217,26 @@
       "name": "產前檢查",
       "icon": "🤰",
       "description": "懷孕婦女的產前追蹤",
-      "conditions": ["77386006"],
-      "condition_names": ["懷孕"],
-      "observations": ["8480-6", "8462-4", "29463-7", "8302-2", "2339-0"],
-      "observation_names": ["收縮壓", "舒張壓", "體重", "身高", "血糖"],
+      "conditions": [
+        "Z33.1"
+      ],
+      "condition_names": [
+        "懷孕"
+      ],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "29463-7",
+        "8302-2",
+        "2339-0"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "體重",
+        "身高",
+        "血糖"
+      ],
       "medications": [],
       "medication_names": [],
       "num_encounters": 4,
@@ -103,12 +247,44 @@
       "name": "老年人綜合照護",
       "icon": "👴",
       "description": "老年人常見的多重慢性病管理",
-      "conditions": ["38341003", "73211009", "13645005"],
-      "condition_names": ["高血壓", "糖尿病", "慢性阻塞性肺病"],
-      "observations": ["8480-6", "8462-4", "2339-0", "4548-4", "29463-7", "20564-1"],
-      "observation_names": ["收縮壓", "舒張壓", "血糖", "HbA1c", "體重", "血氧濃度"],
-      "medications": ["316049", "860975", "1649558", "745678"],
-      "medication_names": ["Lisinopril", "Metformin", "Tiotropium", "Albuterol"],
+      "conditions": [
+        "I10",
+        "E11",
+        "J44"
+      ],
+      "condition_names": [
+        "高血壓",
+        "糖尿病",
+        "慢性阻塞性肺病"
+      ],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "2339-0",
+        "17856-6",
+        "29463-7",
+        "2710-2"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "血糖",
+        "HbA1c",
+        "體重",
+        "血氧濃度"
+      ],
+      "medications": [
+        "29046",
+        "6809",
+        "1649558",
+        "1256"
+      ],
+      "medication_names": [
+        "Lisinopril",
+        "Metformin",
+        "Tiotropium",
+        "Salbutamol"
+      ],
       "num_encounters": 3,
       "recommended_patient_count": 5
     },
@@ -117,12 +293,34 @@
       "name": "心理健康追蹤",
       "icon": "🧠",
       "description": "憂鬱症/焦慮症患者的追蹤",
-      "conditions": ["35489007", "197480006"],
-      "condition_names": ["憂鬱症", "焦慮症"],
-      "observations": ["8480-6", "8462-4", "8867-4", "29463-7"],
-      "observation_names": ["收縮壓", "舒張壓", "心率", "體重"],
-      "medications": ["321988", "283420"],
-      "medication_names": ["Sertraline", "Escitalopram"],
+      "conditions": [
+        "F32",
+        "F41"
+      ],
+      "condition_names": [
+        "憂鬱症",
+        "焦慮症"
+      ],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "8867-4",
+        "29463-7"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "心率",
+        "體重"
+      ],
+      "medications": [
+        "3638",
+        "321988"
+      ],
+      "medication_names": [
+        "Sertraline",
+        "Escitalopram"
+      ],
       "num_encounters": 2,
       "recommended_patient_count": 5
     },
@@ -133,10 +331,28 @@
       "description": "手術後的恢復追蹤",
       "conditions": [],
       "condition_names": [],
-      "observations": ["8480-6", "8462-4", "8310-5", "8867-4", "29463-7"],
-      "observation_names": ["收縮壓", "舒張壓", "體溫", "心率", "體重"],
-      "medications": ["161", "11289"],
-      "medication_names": ["Acetaminophen", "Ibuprofen"],
+      "observations": [
+        "8480-6",
+        "8462-4",
+        "8310-5",
+        "8867-4",
+        "29463-7"
+      ],
+      "observation_names": [
+        "收縮壓",
+        "舒張壓",
+        "體溫",
+        "心率",
+        "體重"
+      ],
+      "medications": [
+        "161",
+        "5640"
+      ],
+      "medication_names": [
+        "Acetaminophen",
+        "Ibuprofen"
+      ],
       "num_encounters": 2,
       "recommended_patient_count": 3
     },
@@ -145,15 +361,38 @@
       "name": "急診就醫",
       "icon": "🚑",
       "description": "急診科常見的緊急醫療狀況",
-      "conditions": ["233604007", "386661006"],
-      "condition_names": ["發燒", "急性腹痛"],
-      "observations": ["8310-5", "8867-4", "8480-6", "8462-4", "20564-1"],
-      "observation_names": ["體溫", "心率", "收縮壓", "舒張壓", "血氧濃度"],
-      "medications": ["161", "11289"],
-      "medication_names": ["Acetaminophen", "Ibuprofen"],
+      "conditions": [
+        "J18",
+        "R50"
+      ],
+      "condition_names": [
+        "肺炎",
+        "發燒"
+      ],
+      "observations": [
+        "8310-5",
+        "8867-4",
+        "8480-6",
+        "8462-4",
+        "2710-2"
+      ],
+      "observation_names": [
+        "體溫",
+        "心率",
+        "收縮壓",
+        "舒張壓",
+        "血氧濃度"
+      ],
+      "medications": [
+        "161",
+        "5640"
+      ],
+      "medication_names": [
+        "Acetaminophen",
+        "Ibuprofen"
+      ],
       "num_encounters": 1,
       "recommended_patient_count": 3
     }
   ]
 }
-
