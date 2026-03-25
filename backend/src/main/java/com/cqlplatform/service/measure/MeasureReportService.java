@@ -83,7 +83,11 @@ public class MeasureReportService {
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsForPeriod(String measureName, LocalDate periodStart, LocalDate periodEnd) {
-        return repository.findByMeasureNameAndPeriodStartAndPeriodEnd(measureName, periodStart, periodEnd);
+        List<MeasureReportEntity> exact = repository.findByMeasureNameAndPeriodStartAndPeriodEnd(measureName, periodStart, periodEnd);
+        if (!exact.isEmpty()) {
+            return exact;
+        }
+        return repository.findByMeasureNameAndPeriodOverlap(measureName, periodStart, periodEnd);
     }
 
     @Transactional(readOnly = true)
