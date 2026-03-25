@@ -2,6 +2,7 @@ package com.cqlplatform.controller;
 
 import com.cqlplatform.entity.BatchImportJobEntity;
 import com.cqlplatform.entity.EhrConnectionEntity;
+import com.cqlplatform.entity.FailedImportEntity;
 import com.cqlplatform.entity.PatientImportEntity;
 import com.cqlplatform.model.ehr.BatchImportRequest;
 import com.cqlplatform.model.ehr.EhrConnectionRequest;
@@ -10,6 +11,7 @@ import com.cqlplatform.model.fhir.PatientSearchResult;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.AsyncPatientImportService;
 import com.cqlplatform.service.fhir.EhrConnectionService;
+import com.cqlplatform.service.fhir.ImportRetryService;
 import com.cqlplatform.service.fhir.PatientImportService;
 import com.cqlplatform.service.fhir.PatientSearchService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,7 @@ public class EhrIntegrationController {
     private final PatientSearchService patientSearchService;
     private final PatientImportService patientImportService;
     private final AsyncPatientImportService asyncImportService;
+    private final ImportRetryService importRetryService;
 
     // ===== Connection Management =====
 
@@ -118,8 +121,14 @@ public class EhrIntegrationController {
             @PathVariable Long id,
             @PathVariable String patientId,
             @RequestParam(required = false) Long measureId) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(patientImportService.importAsTestCase(id, patientId, measureId));
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(patientImportService.importAsTestCase(id, patientId, measureId));
+        } catch (Exception e) {
+            // Record the failure for later retry
+            importRetryService.recordFailure(id, patientId, measureId, e, null);
+            throw e;
+        }
     }
 
     // ===== Batch Import =====
@@ -162,5 +171,35 @@ public class EhrIntegrationController {
     public ResponseEntity<List<PatientImportEntity>> listImports(
             @RequestParam(required = false) String importedBy) {
         return ResponseEntity.ok(patientImportService.listImports(importedBy));
+    }
+
+    // ===== Failed Import Management =====
+
+    @GetMapping("/failed-imports")
+    @Operation(summary = "List Failed Imports", description = "List failed patient imports for error recovery")
+    public ResponseEntity<List<FailedImportEntity>> listFailedImports(
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(importRetryService.listFailedImports(status));
+    }
+
+    @GetMapping("/failed-imports/{id}")
+    @Operation(summary = "Get Failed Import", description = "Get details of a specific failed import")
+    public ResponseEntity<FailedImportEntity> getFailedImport(@PathVariable Long id) {
+        return ResponseEntity.ok(importRetryService.getFailedImport(id));
+    }
+
+    @PostMapping("/failed-imports/{id}/retry")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Retry Failed Import", description = "Manually retry a failed patient import")
+    public ResponseEntity<FailedImportEntity> retryFailedImport(@PathVariable Long id) {
+        return ResponseEntity.ok(importRetryService.retryImport(id));
+    }
+
+    @DeleteMapping("/failed-imports/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Delete Failed Import", description = "Remove a failed import record")
+    public ResponseEntity<Void> deleteFailedImport(@PathVariable Long id) {
+        importRetryService.deleteFailedImport(id);
+        return ResponseEntity.noContent().build();
     }
 }
