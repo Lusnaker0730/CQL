@@ -1,11 +1,14 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.entity.BatchImportJobEntity;
 import com.cqlplatform.entity.EhrConnectionEntity;
 import com.cqlplatform.entity.PatientImportEntity;
+import com.cqlplatform.model.ehr.BatchImportRequest;
 import com.cqlplatform.model.ehr.EhrConnectionRequest;
 import com.cqlplatform.model.fhir.PatientImportPreview;
 import com.cqlplatform.model.fhir.PatientSearchResult;
 import com.cqlplatform.security.InputValidator;
+import com.cqlplatform.service.fhir.AsyncPatientImportService;
 import com.cqlplatform.service.fhir.EhrConnectionService;
 import com.cqlplatform.service.fhir.PatientImportService;
 import com.cqlplatform.service.fhir.PatientSearchService;
@@ -29,6 +32,7 @@ public class EhrIntegrationController {
     private final EhrConnectionService connectionService;
     private final PatientSearchService patientSearchService;
     private final PatientImportService patientImportService;
+    private final AsyncPatientImportService asyncImportService;
 
     // ===== Connection Management =====
 
@@ -116,6 +120,39 @@ public class EhrIntegrationController {
             @RequestParam(required = false) Long measureId) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(patientImportService.importAsTestCase(id, patientId, measureId));
+    }
+
+    // ===== Batch Import =====
+
+    @PostMapping("/connections/{id}/patients/batch-import")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Batch Import Patients", description = "Submit a batch import job for multiple patients")
+    public ResponseEntity<BatchImportJobEntity> batchImport(
+            @PathVariable Long id,
+            @Valid @RequestBody BatchImportRequest request) {
+        BatchImportJobEntity job = asyncImportService.submitBatchImport(id, request);
+        asyncImportService.executeBatchImport(job.getId());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(job);
+    }
+
+    @GetMapping("/batch-imports/{jobId}")
+    @Operation(summary = "Get Batch Import Job", description = "Get the status and progress of a batch import job")
+    public ResponseEntity<BatchImportJobEntity> getBatchImportJob(@PathVariable Long jobId) {
+        return ResponseEntity.ok(asyncImportService.getJob(jobId));
+    }
+
+    @GetMapping("/batch-imports")
+    @Operation(summary = "List Batch Import Jobs", description = "List batch import job history")
+    public ResponseEntity<List<BatchImportJobEntity>> listBatchImportJobs(
+            @RequestParam(required = false) String createdBy) {
+        return ResponseEntity.ok(asyncImportService.listJobs(createdBy));
+    }
+
+    @PostMapping("/batch-imports/{jobId}/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Cancel Batch Import", description = "Cancel a running or pending batch import job")
+    public ResponseEntity<BatchImportJobEntity> cancelBatchImport(@PathVariable Long jobId) {
+        return ResponseEntity.ok(asyncImportService.cancelJob(jobId));
     }
 
     // ===== Import History =====
