@@ -33,6 +33,8 @@ public class ExpressionCqlEngine {
         public final List<String> warnings = new ArrayList<>();
         /** When true, list-returning expressions keep their list type instead of being wrapped in exists(). */
         public boolean preserveListReturn = false;
+        /** The resource type to preserve as a list (e.g. "Encounter") when preserveListReturn is true. */
+        public String episodeResourceType = null;
 
         public BuildContext(List<Map<String, Object>> baseElements, List<Map<String, Object>> parameters) {
             this.baseElements = baseElements;
@@ -93,6 +95,12 @@ public class ExpressionCqlEngine {
         }
         log.debug("buildConjunctionExpression: processing {} children", children.size());
 
+        // Episode-based CV: separate the episode resource from filter conditions
+        if (ctx.preserveListReturn && ctx.episodeResourceType != null
+                && "And".equals(getStr(group, "id", "And"))) {
+            return buildEpisodeConjunction(children, ctx);
+        }
+
         String conjId = getStr(group, "id", "And");
         String operator;
         switch (conjId) {
@@ -113,6 +121,53 @@ public class ExpressionCqlEngine {
         }
 
         return String.join(operator + "\n  ", childExprs);
+    }
+
+    /**
+     * Builds a conjunction for episode-based CV Measure Population.
+     * The first element matching the episode resource type is kept as a list query;
+     * all other elements become boolean filter conditions in a where clause.
+     */
+    @SuppressWarnings("unchecked")
+    private String buildEpisodeConjunction(List<Map<String, Object>> children, BuildContext ctx) {
+        String episodeType = ctx.episodeResourceType.toLowerCase();
+        String baseExpr = null;
+        List<String> filterExprs = new ArrayList<>();
+
+        // Temporarily disable preserveListReturn for filter expressions
+        ctx.preserveListReturn = false;
+
+        for (Map<String, Object> child : children) {
+            Boolean conjunction = (Boolean) child.get("conjunction");
+            if (Boolean.TRUE.equals(conjunction)) {
+                filterExprs.add("(" + buildConjunctionExpression(child, ctx) + ")");
+                continue;
+            }
+
+            String childType = getStr(child, "type", "").toLowerCase();
+            if (baseExpr == null && childType.contains(episodeType)) {
+                // This is the episode resource — build without exists()
+                ctx.preserveListReturn = true;
+                baseExpr = buildExpression(child, ctx);
+                ctx.preserveListReturn = false;
+            } else {
+                filterExprs.add(buildExpression(child, ctx));
+            }
+        }
+
+        // Restore flag
+        ctx.preserveListReturn = true;
+
+        if (baseExpr == null) {
+            // No matching episode element found — fall back to normal boolean conjunction
+            return String.join(" and \n  ", filterExprs);
+        }
+
+        if (filterExprs.isEmpty()) {
+            return baseExpr;
+        }
+
+        return baseExpr + " _ep where " + String.join(" and ", filterExprs);
     }
 
     @SuppressWarnings("unchecked")
