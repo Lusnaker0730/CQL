@@ -91,6 +91,20 @@ public class MeasureReportService {
     }
 
     @Transactional(readOnly = true)
+    public List<MeasureReportEntity> getReportsForPeriodById(Long measureDefinitionId, LocalDate periodStart, LocalDate periodEnd) {
+        List<MeasureReportEntity> exact = repository.findByMeasureDefinitionIdAndPeriodStartAndPeriodEnd(measureDefinitionId, periodStart, periodEnd);
+        if (!exact.isEmpty()) {
+            return exact;
+        }
+        return repository.findByMeasureDefinitionIdAndPeriodOverlap(measureDefinitionId, periodStart, periodEnd);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeasureReportEntity> getReportsByMeasureIdOrderByPeriod(Long measureDefinitionId) {
+        return repository.findByMeasureDefinitionIdOrderByPeriodStartAsc(measureDefinitionId);
+    }
+
+    @Transactional(readOnly = true)
     public Optional<MeasureReportEntity> getReport(Long id) {
         return repository.findById(id);
     }

@@ -171,19 +171,24 @@ export const measureApi = {
 
   // Comparison & Trends
   comparePeriods: async (
+    measureDefinitionId: number,
     measureName: string,
     p1Start: string,
     p1End: string,
     p2Start: string,
     p2End: string
   ): Promise<MeasureComparisonResult> => {
-    const params = new URLSearchParams({ measureName, p1Start, p1End, p2Start, p2End })
+    const params = new URLSearchParams({
+      measureDefinitionId: measureDefinitionId.toString(), measureName, p1Start, p1End, p2Start, p2End,
+    })
     const response = await api.get<MeasureComparisonResult>(`/measures/compare?${params.toString()}`)
     return response.data
   },
 
-  getTrend: async (measureName: string, periods: number = 4): Promise<MeasureTrendResult> => {
-    const params = new URLSearchParams({ measureName, periods: periods.toString() })
+  getTrend: async (measureDefinitionId: number, measureName: string, periods: number = 4): Promise<MeasureTrendResult> => {
+    const params = new URLSearchParams({
+      measureDefinitionId: measureDefinitionId.toString(), measureName, periods: periods.toString(),
+    })
     const response = await api.get<MeasureTrendResult>(`/measures/trend?${params.toString()}`)
     return response.data
   },

@@ -23,11 +23,11 @@ public class MeasureComparisonService {
 
     private final MeasureReportService reportService;
 
-    public MeasureComparisonResult comparePeriods(String measureName,
+    public MeasureComparisonResult comparePeriods(Long measureDefinitionId, String measureName,
                                                    LocalDate p1Start, LocalDate p1End,
                                                    LocalDate p2Start, LocalDate p2End) {
-        List<MeasureReportEntity> p1Reports = reportService.getReportsForPeriod(measureName, p1Start, p1End);
-        List<MeasureReportEntity> p2Reports = reportService.getReportsForPeriod(measureName, p2Start, p2End);
+        List<MeasureReportEntity> p1Reports = reportService.getReportsForPeriodById(measureDefinitionId, p1Start, p1End);
+        List<MeasureReportEntity> p2Reports = reportService.getReportsForPeriodById(measureDefinitionId, p2Start, p2End);
 
         PeriodSummary period1 = buildPeriodSummary(p1Start, p1End, p1Reports);
         PeriodSummary period2 = buildPeriodSummary(p2Start, p2End, p2Reports);
@@ -71,8 +71,8 @@ public class MeasureComparisonService {
                 .build();
     }
 
-    public MeasureTrendResult getTrend(String measureName, int periodCount) {
-        List<MeasureReportEntity> reports = reportService.getReportsByMeasureNameOrderByPeriod(measureName);
+    public MeasureTrendResult getTrend(Long measureDefinitionId, String measureName, int periodCount) {
+        List<MeasureReportEntity> reports = reportService.getReportsByMeasureIdOrderByPeriod(measureDefinitionId);
 
         // Take the last N reports
         int start = Math.max(0, reports.size() - periodCount);
