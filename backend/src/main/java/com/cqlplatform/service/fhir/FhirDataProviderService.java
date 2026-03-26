@@ -98,6 +98,109 @@ public class FhirDataProviderService {
         return resources;
     }
 
+    /**
+     * Bulk-fetch resources for ALL patients in a single FHIR batch request per resource type.
+     * Returns a map of patientId → list of resources, ready for PrefetchRetrieveProvider.
+     * This is much faster than per-patient batch fetch when evaluating many patients.
+     */
+    @CircuitBreaker(name = "fhirServer")
+    @Retry(name = "fhirServer")
+    public java.util.Map<String, List<Resource>> bulkFetchAllPatients(
+            String fhirServerUrl, List<String> patientIds, Set<String> resourceTypes) {
+        IGenericClient client = createClient(fhirServerUrl);
+        java.util.Map<String, List<Resource>> result = new java.util.concurrent.ConcurrentHashMap<>();
+        for (String pid : patientIds) {
+            result.put(pid, new ArrayList<>());
+        }
+
+        long start = System.currentTimeMillis();
+
+        // Fetch each resource type for ALL patients in one query
+        for (String resourceType : resourceTypes) {
+            try {
+                String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
+                // Build comma-separated patient ID list for _has or direct search
+                String patientList = String.join(",", patientIds.stream()
+                        .map(id -> "Patient/" + id).toList());
+
+                Bundle searchResult = client.search()
+                        .byUrl(resourceType + "?" + searchParam + "=" + patientList + "&_count=5000")
+                        .returnBundle(Bundle.class)
+                        .execute();
+
+                // Distribute resources to their patient buckets
+                if (searchResult.hasEntry()) {
+                    for (Bundle.BundleEntryComponent entry : searchResult.getEntry()) {
+                        Resource resource = entry.getResource();
+                        if (resource == null) continue;
+                        String ownerPatientId = extractPatientId(resource);
+                        if (ownerPatientId != null && result.containsKey(ownerPatientId)) {
+                            result.get(ownerPatientId).add(resource);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Bulk fetch failed for {}: {}", resourceType, e.getMessage());
+            }
+        }
+
+        // Also fetch Patient resources
+        Bundle patientBatch = new Bundle();
+        patientBatch.setType(Bundle.BundleType.BATCH);
+        for (String pid : patientIds) {
+            patientBatch.addEntry().getRequest()
+                    .setMethod(Bundle.HTTPVerb.GET)
+                    .setUrl("Patient/" + pid);
+        }
+        try {
+            Bundle patientResponse = executeTransaction(fhirServerUrl, patientBatch);
+            if (patientResponse.hasEntry()) {
+                for (Bundle.BundleEntryComponent entry : patientResponse.getEntry()) {
+                    if (entry.getResource() instanceof Patient patient && patient.hasId()) {
+                        String pid = patient.getIdElement().getIdPart();
+                        if (result.containsKey(pid)) {
+                            result.get(pid).add(patient);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Bulk Patient fetch failed: {}", e.getMessage());
+        }
+
+        long elapsed = System.currentTimeMillis() - start;
+        int totalResources = result.values().stream().mapToInt(List::size).sum();
+        log.info("Bulk fetch complete: {} resources for {} patients in {}ms ({} resource types)",
+                totalResources, patientIds.size(), elapsed, resourceTypes.size());
+
+        return result;
+    }
+
+    /**
+     * Extract the patient ID from a FHIR resource's subject/patient reference.
+     */
+    private String extractPatientId(Resource resource) {
+        try {
+            if (resource instanceof org.hl7.fhir.r4.model.DomainResource dr) {
+                // Use reflection-free approach for common types
+                if (dr instanceof Observation obs && obs.hasSubject()) {
+                    return obs.getSubject().getReferenceElement().getIdPart();
+                } else if (dr instanceof Condition cond && cond.hasSubject()) {
+                    return cond.getSubject().getReferenceElement().getIdPart();
+                } else if (dr instanceof Encounter enc && enc.hasSubject()) {
+                    return enc.getSubject().getReferenceElement().getIdPart();
+                } else if (dr instanceof MedicationRequest mr && mr.hasSubject()) {
+                    return mr.getSubject().getReferenceElement().getIdPart();
+                } else if (dr instanceof AllergyIntolerance ai && ai.hasPatient()) {
+                    return ai.getPatient().getReferenceElement().getIdPart();
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
+    }
+
     public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider) {
         log.debug("Creating RetrieveProvider for URL: {}", fhirServerUrl);
         IGenericClient client = createClient(fhirServerUrl);

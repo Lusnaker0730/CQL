@@ -570,7 +570,7 @@ public class CqlExecutionService {
     /**
      * Extract FHIR retrieve types directly from a pre-translated ELM Library object.
      */
-    private Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library) {
+    public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library) {
         Set<String> types = new HashSet<>();
         if (library.getStatements() != null && library.getStatements().getDef() != null) {
             for (org.hl7.elm.r1.ExpressionDef def : library.getStatements().getDef()) {

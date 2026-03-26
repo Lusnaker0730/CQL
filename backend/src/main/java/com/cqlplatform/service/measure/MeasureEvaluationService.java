@@ -34,6 +34,7 @@ public class MeasureEvaluationService {
 
     private final CqlExecutionService cqlExecutionService;
     private final com.cqlplatform.service.cql.CqlTranslationService cqlTranslationService;
+    private final com.cqlplatform.service.fhir.FhirDataProviderService fhirDataProviderService;
     private final PatientDiscoveryService patientDiscoveryService;
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
@@ -43,6 +44,7 @@ public class MeasureEvaluationService {
     public MeasureEvaluationService(
             CqlExecutionService cqlExecutionService,
             com.cqlplatform.service.cql.CqlTranslationService cqlTranslationService,
+            com.cqlplatform.service.fhir.FhirDataProviderService fhirDataProviderService,
             PatientDiscoveryService patientDiscoveryService,
             PopulationEvaluator populationEvaluator,
             StratifierEvaluator stratifierEvaluator,
@@ -51,6 +53,7 @@ public class MeasureEvaluationService {
             java.util.concurrent.ExecutorService measureExecutor) {
         this.cqlExecutionService = cqlExecutionService;
         this.cqlTranslationService = cqlTranslationService;
+        this.fhirDataProviderService = fhirDataProviderService;
         this.patientDiscoveryService = patientDiscoveryService;
         this.populationEvaluator = populationEvaluator;
         this.stratifierEvaluator = stratifierEvaluator;
@@ -115,9 +118,27 @@ public class MeasureEvaluationService {
                 return errorResult(context, patientDiscoveryService.buildNoPatientsMessage(context));
             }
 
-            // 3. Execute CQL per patient and aggregate
+            // 3. Bulk-fetch all patient resources in one batch (instead of per-patient HTTP requests)
+            java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData = null;
+            if (preTranslated != null) {
+                long bulkStart = System.currentTimeMillis();
+                try {
+                    Set<String> retrieveTypes = cqlExecutionService.extractRetrieveTypesFromLibrary(
+                            preTranslated.elmLibrary());
+                    retrieveTypes.add("Patient");
+                    bulkData = fhirDataProviderService.bulkFetchAllPatients(
+                            context.getFhirServerUrl(), patients, retrieveTypes);
+                    log.info("Bulk data fetch: {} patients in {}ms",
+                            patients.size(), System.currentTimeMillis() - bulkStart);
+                } catch (Exception e) {
+                    log.warn("Bulk fetch failed, will fall back to per-patient fetch: {}", e.getMessage());
+                }
+            }
+
+            // 4. Execute CQL per patient and aggregate
             final CqlExecutionService.PreTranslatedContext pt = preTranslated;
-            AggregationState state = executeAndAggregate(context, patients, pt);
+            final java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bd = bulkData;
+            AggregationState state = executeAndAggregate(context, patients, pt, bd);
 
             // 3. Check if all patients failed
             if (state.errorCount == patients.size()) {
@@ -171,7 +192,8 @@ public class MeasureEvaluationService {
     }
 
     private AggregationState executeAndAggregate(MeasureEvaluationContext context, List<String> patients,
-                                                   CqlExecutionService.PreTranslatedContext preTranslated) {
+                                                   CqlExecutionService.PreTranslatedContext preTranslated,
+                                                   java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData) {
         Map<String, Integer> populationCounts = populationEvaluator.initializePopulationCounts();
         Set<String> standardNames = new HashSet<>(populationCounts.keySet());
         Map<String, Object> customExpressions = new LinkedHashMap<>();
@@ -186,7 +208,7 @@ public class MeasureEvaluationService {
         List<CompletableFuture<PatientResult>> futures = patients.stream()
                 .map(patientId -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        CqlExecutionResponse resp = executeForPatient(context, patientId, preTranslated);
+                        CqlExecutionResponse resp = executeForPatient(context, patientId, preTranslated, bulkData);
                         return new PatientResult(patientId, resp, null);
                     } catch (Exception e) {
                         return new PatientResult(patientId, null, e);
@@ -233,7 +255,8 @@ public class MeasureEvaluationService {
     }
 
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
-                                                     CqlExecutionService.PreTranslatedContext preTranslated) {
+                                                     CqlExecutionService.PreTranslatedContext preTranslated,
+                                                     java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData) {
         CqlExecutionRequest execRequest = new CqlExecutionRequest();
         execRequest.setCql(context.getMeasureCql());
         execRequest.setPatientId(patientId);
@@ -250,6 +273,13 @@ public class MeasureEvaluationService {
 
         // Use pre-translated context if available (skips CQL→ELM per patient)
         if (preTranslated != null) {
+            // If bulk data is available, create a PrefetchRetrieveProvider from it
+            // (no FHIR HTTP request needed per patient)
+            if (bulkData != null && bulkData.containsKey(patientId)) {
+                var provider = new com.cqlplatform.service.cds.PrefetchRetrieveProvider(
+                        bulkData.get(patientId), patientId);
+                return cqlExecutionService.executeWithPreTranslated(execRequest, preTranslated, provider);
+            }
             return cqlExecutionService.executeWithPreTranslated(execRequest, preTranslated);
         }
         return cqlExecutionService.execute(execRequest);
