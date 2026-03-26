@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-084 | 🐛 fix | 2026-03-26 | 前端（eCQM） | 驗證按鈕只檢查 HTTP 狀態未檢查 CQL 翻譯結果 — 後端回 200+errors，前端誤判為驗證通過；現正確檢查 `response.success` 並顯示錯誤明細 | EcqmCqlPreviewTab、ecqmApi | [`c02cbbd`](../../commit/c02cbbd) |
 | BUG-083 | 🐛 fix | 2026-03-26 | 後端（CQL 產生） | Code system 名稱不一致 — `code` 宣告使用前端 display name 但 `codesystem` 宣告使用原始 URI，導致含 Qualifier code 的 eCQM 發布失敗；將 codeSystems 從 Set 改為 Map 追蹤 URI→displayName 對應 | ExpressionCqlEngine、CqlArtifactBuilder、EcqmCqlBuilder | [`45cf21c`](../../commit/45cf21c) |
 | PAT-063 | ✨ feature | 2026-03-26 | 全端（eCQM） | eCQM 觀察計算類型 — Continuous-variable 觀察函數新增 Duration of Period（住院天數等）及 Quantity Value（檢驗數值等）兩種計算模式，附 CQL 即時預覽；後端依 observationType 產生對應 CQL，含輸入驗證防注入 | EcqmObservationEditor、EcqmCqlBuilder、ecqmConstants | [`41e4a8b`](../../commit/41e4a8b) |
 | PAT-062 | ⚡ perf | 2026-03-24 | 後端（CQL Engine） | ELM 預編譯快取 — 儲存量測定義時自動翻譯 CQL→ELM JSON 並存入 DB，執行時反序列化 (~10ms) 取代即時翻譯 (~1.5s/次)，含 corrupt ELM fallback + metadata-only 更新跳過重編譯 | V44 migration、MeasureDefinitionService preCompileElm | [`9ef5a9f`](../../commit/9ef5a9f) [`b0d65fb`](../../commit/b0d65fb) |
