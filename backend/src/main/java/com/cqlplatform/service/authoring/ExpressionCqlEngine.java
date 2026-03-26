@@ -886,11 +886,17 @@ public class ExpressionCqlEngine {
     /**
      * Escape a value for use inside CQL quoted identifiers (delimited by double quotes).
      * In CQL, a quoted identifier uses {@code "name"} syntax; an embedded double-quote
-     * must be escaped as {@code \"}.
+     * must be escaped as {@code \"}. Non-ASCII characters (e.g. Chinese) are stripped
+     * to avoid CQL engine compatibility issues.
      */
     public String escapeCqlIdentifier(String value) {
         if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+        // Strip non-ASCII characters and clean up residual whitespace/parentheses
+        String ascii = value.replaceAll("[^\\x00-\\x7F]", "")
+                .replaceAll("\\(\\s*\\)", "")   // remove empty parentheses left after stripping
+                .replaceAll("\\s{2,}", " ")      // collapse multiple spaces
+                .trim();
+        return ascii.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     public String getCodeSystemDisplayName(String systemUrl) {
