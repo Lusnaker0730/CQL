@@ -6,6 +6,7 @@ import type {
   PublishResult,
   ScoringTypesResponse,
 } from '../types/ecqm'
+import type { CqlTranslationResponse } from '../types'
 import type { FormTemplateCategory, ModifierDefinition, ExternalCqlLibrary } from '../types/authoring'
 
 const BASE = '/ecqm'
@@ -38,7 +39,7 @@ export const ecqmApi = {
     api.post(`${BASE}/artifacts/${id}/elm`).then((r) => r.data),
 
   validateCql: (id: number) =>
-    api.post(`${BASE}/artifacts/${id}/validate`).then((r) => r.data),
+    api.post<CqlTranslationResponse>(`${BASE}/artifacts/${id}/validate`).then((r) => r.data),
 
   // Publish
   publish: (id: number) =>
