@@ -198,10 +198,21 @@ public class MeasureEvaluationService {
     private AggregationState executeAndAggregate(MeasureEvaluationContext context, List<String> patients,
                                                    CqlExecutionService.PreTranslatedContext preTranslated,
                                                    java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData) {
-        Map<String, Integer> populationCounts = populationEvaluator.initializePopulationCounts();
+        String scoringType = context.getMeasureDefinition() != null
+                ? context.getMeasureDefinition().getScoringType() : null;
+        boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
+
+        Map<String, Integer> populationCounts = isCv
+                ? populationEvaluator.initializeCvPopulationCounts()
+                : populationEvaluator.initializePopulationCounts();
         Set<String> standardNames = new HashSet<>(populationCounts.keySet());
+        if (isCv) {
+            standardNames.add("Measure Observation Values");
+            standardNames.add("Measure Observation Value");
+        }
         Map<String, Object> customExpressions = new LinkedHashMap<>();
         Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
+        List<Double> observationValues = Collections.synchronizedList(new ArrayList<>());
         List<StratifierDefinition> stratifiers = stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
 
         // Execute CQL for all patients in parallel using cqlExecutionExecutor (10-20 threads).
@@ -247,7 +258,11 @@ public class MeasureEvaluationService {
                 continue;
             }
             Map<String, CqlExecutionResponse.ExpressionResult> results = pr.response().getResults();
-            populationEvaluator.aggregatePatientResults(populationCounts, results);
+            if (isCv) {
+                populationEvaluator.aggregateCvPatientResults(populationCounts, results, observationValues);
+            } else {
+                populationEvaluator.aggregatePatientResults(populationCounts, results);
+            }
             populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
 
             if (!stratifiers.isEmpty()) {
@@ -255,7 +270,7 @@ public class MeasureEvaluationService {
             }
         }
 
-        return new AggregationState(populationCounts, customExpressions, stratificationData, errorCount);
+        return new AggregationState(populationCounts, customExpressions, stratificationData, errorCount, observationValues);
     }
 
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
@@ -293,9 +308,15 @@ public class MeasureEvaluationService {
                                                  AggregationState state,
                                                  int totalPatients) {
         Map<String, Integer> counts = state.populationCounts;
+        MeasureDefinition def = context.getMeasureDefinition();
+
+        // Continuous-variable measures use a separate result builder
+        String scoringType = def != null ? def.getScoringType() : null;
+        if (ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType)) {
+            return buildCvResult(context, state, totalPatients);
+        }
 
         // Check if measure has multiple group definitions
-        MeasureDefinition def = context.getMeasureDefinition();
         if (def != null && def.getGroupDefinitions() != null && def.getGroupDefinitions().size() > 1) {
             return buildMultiGroupResult(context, state, totalPatients);
         }
@@ -325,6 +346,63 @@ public class MeasureEvaluationService {
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit("percentage")
+                .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
+                .totalPatients(totalPatients)
+                .build();
+
+        return MeasureEvaluationResult.builder()
+                .measureId(context.getMeasureId())
+                .measureName(context.getMeasureId())
+                .status(EvaluationStatusConstants.COMPLETE)
+                .periodStart(context.getPeriodStart())
+                .periodEnd(context.getPeriodEnd())
+                .reportType(context.getReportType())
+                .groups(List.of(groupResult))
+                .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .build();
+    }
+
+    private MeasureEvaluationResult buildCvResult(MeasureEvaluationContext context,
+                                                    AggregationState state, int totalPatients) {
+        Map<String, Integer> counts = state.populationCounts;
+        MeasureDefinition def = context.getMeasureDefinition();
+
+        List<PopulationResult> populations = new ArrayList<>();
+        populations.add(populationResult(INITIAL_POPULATION, counts.getOrDefault("Initial Population", 0)));
+        populations.add(populationResult(MEASURE_POPULATION, counts.getOrDefault("Measure Population", 0)));
+        Integer mpExcl = counts.getOrDefault("Measure Population Exclusion", 0);
+        if (mpExcl > 0) {
+            populations.add(populationResult(MEASURE_POPULATION_EXCLUSION, mpExcl));
+        }
+
+        String aggregateMethod = "average";
+        String scoringUnit = null;
+        if (def != null && def.getGroupDefinitions() != null && !def.getGroupDefinitions().isEmpty()) {
+            GroupDefinition group = def.getGroupDefinitions().get(0);
+            scoringUnit = group.getScoringUnit();
+            if (group.getObservations() != null && !group.getObservations().isEmpty()) {
+                String method = group.getObservations().get(0).getAggregateMethod();
+                if (method != null && !method.isBlank()) aggregateMethod = method;
+            }
+        }
+
+        ObservationStatistics obsStats = null;
+        Double measureScore = null;
+        if (!state.observationValues.isEmpty()) {
+            obsStats = scoreCalculator.computeObservationStats(
+                    state.observationValues, aggregateMethod, scoringUnit);
+            measureScore = obsStats.getAggregateValue();
+        }
+
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
+
+        GroupResult groupResult = GroupResult.builder()
+                .groupId("group-1")
+                .description("Primary measure group")
+                .populations(populations)
+                .measureScore(measureScore)
+                .measureScoreUnit(scoringUnit != null ? scoringUnit : "value")
+                .observationStatistics(obsStats)
                 .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
                 .totalPatients(totalPatients)
                 .build();
@@ -444,6 +522,7 @@ public class MeasureEvaluationService {
             Map<String, Integer> populationCounts,
             Map<String, Object> customExpressions,
             Map<String, Map<String, Map<String, Integer>>> stratificationData,
-            int errorCount
+            int errorCount,
+            List<Double> observationValues
     ) {}
 }

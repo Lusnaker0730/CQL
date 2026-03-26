@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-064 | ✨ feature | 2026-03-26 | 全端（品質量測） | Continuous-variable 觀察值聚合 — CQL 產生觀察函數 wrapper define、PopulationEvaluator 收集觀察值、MeasureScoreCalculator 實作 Average/Sum/Median/Min/Max/Count 聚合、前端顯示聚合統計（取代百分比） | 9 檔案、+313 行 | [`1541323`](../../commit/1541323) |
 | BUG-084 | 🐛 fix | 2026-03-26 | 前端（eCQM） | 驗證按鈕只檢查 HTTP 狀態未檢查 CQL 翻譯結果 — 後端回 200+errors，前端誤判為驗證通過；現正確檢查 `response.success` 並顯示錯誤明細 | EcqmCqlPreviewTab、ecqmApi | [`c02cbbd`](../../commit/c02cbbd) |
 | BUG-083 | 🐛 fix | 2026-03-26 | 後端（CQL 產生） | Code system 名稱不一致 — `code` 宣告使用前端 display name 但 `codesystem` 宣告使用原始 URI，導致含 Qualifier code 的 eCQM 發布失敗；將 codeSystems 從 Set 改為 Map 追蹤 URI→displayName 對應 | ExpressionCqlEngine、CqlArtifactBuilder、EcqmCqlBuilder | [`45cf21c`](../../commit/45cf21c) |
 | PAT-063 | ✨ feature | 2026-03-26 | 全端（eCQM） | eCQM 觀察計算類型 — Continuous-variable 觀察函數新增 Duration of Period（住院天數等）及 Quantity Value（檢驗數值等）兩種計算模式，附 CQL 即時預覽；後端依 observationType 產生對應 CQL，含輸入驗證防注入 | EcqmObservationEditor、EcqmCqlBuilder、ecqmConstants | [`41e4a8b`](../../commit/41e4a8b) |

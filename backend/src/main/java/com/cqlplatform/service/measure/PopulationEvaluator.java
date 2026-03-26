@@ -24,6 +24,16 @@ public class PopulationEvaluator {
             "Numerator Exclusions"
     );
 
+    /** Continuous-variable population names. */
+    public static final List<String> CV_POPULATIONS = List.of(
+            "Initial Population",
+            "Measure Population",
+            "Measure Population Exclusion"
+    );
+
+    private static final String OBSERVATION_VALUES_EXPR = "Measure Observation Values";
+    private static final String OBSERVATION_VALUE_EXPR = "Measure Observation Value";
+
     /**
      * Creates an initialized population count map with all standard populations set to 0.
      */
@@ -78,6 +88,67 @@ public class PopulationEvaluator {
 
     private void increment(Map<String, Integer> counts, String key) {
         counts.computeIfPresent(key, (k, v) -> v + 1);
+    }
+
+    /**
+     * Creates an initialized population count map for continuous-variable measures.
+     */
+    public Map<String, Integer> initializeCvPopulationCounts() {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (String pop : CV_POPULATIONS) {
+            counts.put(pop, 0);
+        }
+        return counts;
+    }
+
+    /**
+     * Aggregates a single patient's CQL results for continuous-variable measures.
+     * Collects observation values into the shared accumulator list.
+     */
+    public void aggregateCvPatientResults(Map<String, Integer> counts,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> results,
+                                           List<Double> observationValues) {
+        boolean inInitPop = isPopulationTrue(results, "Initial Population");
+        boolean inMeasurePop = inInitPop && isPopulationTrue(results, "Measure Population");
+        boolean excluded = inMeasurePop && isPopulationTrue(results, "Measure Population Exclusion");
+        boolean effectiveMp = inMeasurePop && !excluded;
+
+        if (inInitPop) increment(counts, "Initial Population");
+        if (inMeasurePop) increment(counts, "Measure Population");
+        if (excluded) increment(counts, "Measure Population Exclusion");
+
+        if (effectiveMp) {
+            // Collect observation values — try episode-based list first, then patient-based scalar
+            List<Double> values = extractObservationValues(results, OBSERVATION_VALUES_EXPR);
+            if (values.isEmpty()) {
+                values = extractObservationValues(results, OBSERVATION_VALUE_EXPR);
+            }
+            observationValues.addAll(values);
+        }
+    }
+
+    /**
+     * Extracts numeric observation values from CQL expression results.
+     * Handles single Number, Iterable of Numbers, and nested Quantity types.
+     */
+    public List<Double> extractObservationValues(Map<String, CqlExecutionResponse.ExpressionResult> results,
+                                                  String expressionName) {
+        CqlExecutionResponse.ExpressionResult result = results.get(expressionName);
+        if (result == null || result.getValue() == null) return List.of();
+
+        Object value = result.getValue();
+        if (value instanceof Number num) {
+            return List.of(num.doubleValue());
+        } else if (value instanceof Iterable<?> iterable) {
+            List<Double> values = new ArrayList<>();
+            for (Object item : iterable) {
+                if (item instanceof Number num) {
+                    values.add(num.doubleValue());
+                }
+            }
+            return values;
+        }
+        return List.of();
     }
 
     /**

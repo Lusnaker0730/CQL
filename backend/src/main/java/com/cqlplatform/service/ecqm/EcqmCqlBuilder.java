@@ -162,6 +162,9 @@ public class EcqmCqlBuilder {
                     for (Map<String, Object> obs : observations) {
                         appendObservationFunction(block, obs, suffix, ctx, isEpisodeBased, populationBasis);
                     }
+                    if (!observations.isEmpty()) {
+                        appendObservationWrapper(block, suffix, isEpisodeBased);
+                    }
                 }
 
                 // Group-level stratifiers
@@ -283,6 +286,18 @@ public class EcqmCqlBuilder {
                     block.append("  1\n\n");
                 }
             }
+        }
+    }
+
+    private void appendObservationWrapper(StringBuilder block, String suffix, boolean isEpisodeBased) {
+        String funcName = EcqmConstants.MEASURE_OBSERVATION + suffix;
+        String mpName = EcqmConstants.MEASURE_POPULATION + suffix;
+        if (isEpisodeBased) {
+            block.append(String.format("define \"%s%s\":\n  (\"%s\") MP return \"%s\"(MP)\n\n",
+                    "Measure Observation Values", suffix, mpName, funcName));
+        } else {
+            block.append(String.format("define \"%s%s\":\n  if \"%s\" then \"%s\"(Patient) else null\n\n",
+                    "Measure Observation Value", suffix, mpName, funcName));
         }
     }
 
