@@ -38,6 +38,7 @@ public class MeasureEvaluationService {
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
     private final MeasureScoreCalculator scoreCalculator;
+    private final java.util.concurrent.ExecutorService measureExecutor;
 
     public MeasureEvaluationService(
             CqlExecutionService cqlExecutionService,
@@ -45,13 +46,16 @@ public class MeasureEvaluationService {
             PatientDiscoveryService patientDiscoveryService,
             PopulationEvaluator populationEvaluator,
             StratifierEvaluator stratifierEvaluator,
-            MeasureScoreCalculator scoreCalculator) {
+            MeasureScoreCalculator scoreCalculator,
+            @org.springframework.beans.factory.annotation.Qualifier("cqlExecutionExecutor")
+            java.util.concurrent.ExecutorService measureExecutor) {
         this.cqlExecutionService = cqlExecutionService;
         this.cqlTranslationService = cqlTranslationService;
         this.patientDiscoveryService = patientDiscoveryService;
         this.populationEvaluator = populationEvaluator;
         this.stratifierEvaluator = stratifierEvaluator;
         this.scoreCalculator = scoreCalculator;
+        this.measureExecutor = measureExecutor;
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -174,9 +178,9 @@ public class MeasureEvaluationService {
         Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
         List<StratifierDefinition> stratifiers = stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
 
-        // Execute CQL for all patients in parallel.
-        // Use ForkJoinPool (default) for the outer loop — each task delegates to
-        // cqlExecutionExecutor internally, so using the same pool here would deadlock.
+        // Execute CQL for all patients in parallel using cqlExecutionExecutor (10-20 threads).
+        // Pre-translated path runs doExecutePreTranslated directly on the caller thread
+        // (no nested executor submit), so no deadlock risk.
         record PatientResult(String patientId, CqlExecutionResponse response, Exception error) {}
 
         List<CompletableFuture<PatientResult>> futures = patients.stream()
@@ -187,7 +191,7 @@ public class MeasureEvaluationService {
                     } catch (Exception e) {
                         return new PatientResult(patientId, null, e);
                     }
-                }))
+                }, measureExecutor))
                 .toList();
 
         // Wait for all patients to finish (with overall timeout)

@@ -145,42 +145,19 @@ public class CqlExecutionService {
 
     public CqlExecutionResponse executeWithPreTranslated(
             CqlExecutionRequest request, PreTranslatedContext preTranslated, RetrieveProvider prefetchProvider) {
-        log.debug("Executing pre-translated CQL for patient: {}", request.getPatientId());
+        // Execute directly on the caller's thread (no executor submit).
+        // This avoids deadlock when the caller is already on a thread pool,
+        // and allows MeasureEvaluationService to control parallelism.
         if (cqlExecutionCounter != null) cqlExecutionCounter.increment();
-        Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
-
-        Future<CqlExecutionResponse> future;
         try {
-            future = executorService.submit(
-                    () -> doExecutePreTranslated(request, preTranslated, prefetchProvider, startTime));
-        } catch (java.util.concurrent.RejectedExecutionException e) {
+            return doExecutePreTranslated(request, preTranslated, prefetchProvider, startTime);
+        } catch (CqlExecutionException e) {
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
-            throw new CqlExecutionException("CQL execution pool exhausted — please retry later");
-        }
-
-        try {
-            CqlExecutionResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
-            return response;
-        } catch (TimeoutException e) {
-            future.cancel(true);
+            throw e;
+        } catch (Exception e) {
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
-            throw new CqlExecutionException("CQL execution timed out after " + timeoutSeconds + "s");
-        } catch (ExecutionException e) {
-            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
-            Throwable cause = e.getCause();
-            if (cause instanceof CqlExecutionException) throw (CqlExecutionException) cause;
-            throw new CqlExecutionException("Execution failed: " + cause.getMessage(), cause);
-        } catch (InterruptedException e) {
-            future.cancel(true);
-            Thread.currentThread().interrupt();
-            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
-            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
-            throw new CqlExecutionException("Execution was interrupted");
+            throw new CqlExecutionException("Execution failed: " + e.getMessage(), e);
         }
     }
 
