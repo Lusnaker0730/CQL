@@ -147,13 +147,19 @@ public class EcqmCqlBuilder {
                 }
 
                 // Population defines in canonical order
+                boolean isCvEpisode = EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType) && isEpisodeBased;
                 for (String popKey : EcqmConstants.ALL_POPULATION_KEYS) {
                     if (dualIp && "initial-population".equals(popKey)) continue;
                     Object popTree = populations.get(popKey);
                     if (popTree == null) continue;
                     String defineName = EcqmConstants.POPULATION_KEY_TO_DEFINE.get(popKey);
                     if (defineName == null) continue;
+                    // Episode-based CV: Measure Population should return resource list, not boolean
+                    if (isCvEpisode && "measure-population".equals(popKey)) {
+                        ctx.preserveListReturn = true;
+                    }
                     appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
+                    ctx.preserveListReturn = false;
                 }
 
                 // Observations (continuous variable)

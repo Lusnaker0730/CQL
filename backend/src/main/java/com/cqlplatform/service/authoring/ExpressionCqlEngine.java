@@ -31,6 +31,8 @@ public class ExpressionCqlEngine {
         public final Map<String, String> baseElementNameIndex;
         public final Map<String, String> parameterNameIndex;
         public final List<String> warnings = new ArrayList<>();
+        /** When true, list-returning expressions keep their list type instead of being wrapped in exists(). */
+        public boolean preserveListReturn = false;
 
         public BuildContext(List<Map<String, Object>> baseElements, List<Map<String, Object>> parameters) {
             this.baseElements = baseElements;
@@ -186,7 +188,8 @@ public class ExpressionCqlEngine {
         }
 
         String finalReturnType = getFinalReturnType(element, modifiers);
-        if (finalReturnType != null && finalReturnType.startsWith("list_of_")) {
+        if (finalReturnType != null && finalReturnType.startsWith("list_of_")
+                && !ctx.preserveListReturn) {
             expr = String.format("exists(%s)", expr);
         }
 
