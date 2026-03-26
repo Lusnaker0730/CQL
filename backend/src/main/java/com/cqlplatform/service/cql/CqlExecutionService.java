@@ -591,6 +591,44 @@ public class CqlExecutionService {
     }
 
     /**
+     * Extract FHIR retrieve types directly from a pre-translated ELM Library object.
+     */
+    private Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library) {
+        Set<String> types = new HashSet<>();
+        if (library.getStatements() != null && library.getStatements().getDef() != null) {
+            for (org.hl7.elm.r1.ExpressionDef def : library.getStatements().getDef()) {
+                collectRetrieveTypes(def.getExpression(), types);
+            }
+        }
+        return types;
+    }
+
+    private void collectRetrieveTypes(org.hl7.elm.r1.Element element, Set<String> types) {
+        if (element == null) return;
+        if (element instanceof org.hl7.elm.r1.Retrieve retrieve) {
+            javax.xml.namespace.QName dt = retrieve.getDataType();
+            if (dt != null) {
+                types.add(dt.getLocalPart());
+            }
+        }
+        // Recurse into child expressions using reflection-free approach
+        if (element instanceof org.hl7.elm.r1.Query query) {
+            if (query.getSource() != null) {
+                for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types);
+            }
+            if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types);
+        } else if (element instanceof org.hl7.elm.r1.ExpressionRef) {
+            // Skip — will be resolved by the defining expression
+        } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
+            collectRetrieveTypes(ue.getOperand(), types);
+        } else if (element instanceof org.hl7.elm.r1.BinaryExpression be) {
+            for (var op : be.getOperand()) collectRetrieveTypes(op, types);
+        } else if (element instanceof org.hl7.elm.r1.NaryExpression ne) {
+            for (var op : ne.getOperand()) collectRetrieveTypes(op, types);
+        }
+    }
+
+    /**
      * Recursively removes all "annotation" fields from a Jackson JSON tree.
      * ELM annotation nodes contain abstract CqlToElmBase types that cannot be deserialized.
      */
@@ -626,8 +664,21 @@ public class CqlExecutionService {
                 }
                 retrieveProvider = prefetchProvider;
             } else if (request.getPatientId() != null) {
-                retrieveProvider = tryAutoPrefetch(request, fhirServerUrl, terminologyProvider, null, null);
-                if (retrieveProvider == null) {
+                // Extract retrieve types directly from pre-translated ELM Library object
+                Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+                retrieveTypes.add("Patient");
+                String pid = request.getPatientId();
+                if (pid.startsWith("Patient/")) pid = pid.substring("Patient/".length());
+                try {
+                    com.cqlplatform.security.InputValidator.requireValidResourceId(pid);
+                    java.util.List<org.hl7.fhir.r4.model.Resource> resources =
+                            dataProviderService.batchFetchPatientResources(fhirServerUrl, pid, retrieveTypes);
+                    log.info("Batch prefetch result: {} resources for {} types", resources.size(), retrieveTypes.size());
+                    var provider = new com.cqlplatform.service.cds.PrefetchRetrieveProvider(resources, pid);
+                    provider.setTerminologyProvider(terminologyProvider);
+                    retrieveProvider = provider;
+                } catch (Exception e) {
+                    log.warn("Batch prefetch failed, falling back to REST: {}", e.getMessage());
                     retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
                 }
             } else {
