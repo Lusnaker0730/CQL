@@ -50,7 +50,7 @@ public class CqlArtifactBuilder {
 
         // ── Collect declarations ──────────────────────────────────────────
         Set<String> valueSets = new LinkedHashSet<>();
-        Set<String> codeSystems = new LinkedHashSet<>();
+        Map<String, String> codeSystems = new LinkedHashMap<>();
         Set<String> codes = new LinkedHashSet<>();
         Set<String> includes = new LinkedHashSet<>();
 
@@ -85,12 +85,12 @@ public class CqlArtifactBuilder {
         }
         dataModel.put("valueSets", escapedValueSets);
 
-        // Code systems: convert URL → {name, id} with escaping
+        // Code systems: convert URI → {name, id} with escaping
         List<Map<String, String>> codeSystemEntries = new ArrayList<>();
-        for (String cs : codeSystems) {
+        for (var csEntry : codeSystems.entrySet()) {
             codeSystemEntries.add(Map.of(
-                    "name", engine.escapeCqlIdentifier(engine.getCodeSystemDisplayName(cs)),
-                    "id", engine.escapeCqlString(cs)));
+                    "name", engine.escapeCqlIdentifier(csEntry.getValue()),
+                    "id", engine.escapeCqlString(csEntry.getKey())));
         }
         dataModel.put("codeSystemEntries", codeSystemEntries);
         dataModel.put("codes", codes);
