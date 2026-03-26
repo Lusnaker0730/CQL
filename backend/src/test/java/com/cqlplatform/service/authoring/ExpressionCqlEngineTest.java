@@ -202,7 +202,7 @@ class ExpressionCqlEngineTest {
     @Test
     void collectDeclarations_emptyTree_shouldNotThrow() {
         Set<String> vs = new LinkedHashSet<>();
-        Set<String> cs = new LinkedHashSet<>();
+        Map<String, String> cs = new LinkedHashMap<>();
         Set<String> codes = new LinkedHashSet<>();
         Set<String> includes = new LinkedHashSet<>();
 

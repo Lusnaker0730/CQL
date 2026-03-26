@@ -540,7 +540,7 @@ public class ExpressionCqlEngine {
 
     @SuppressWarnings("unchecked")
     public void collectDeclarations(Map<String, Object> node, Set<String> valueSets,
-            Set<String> codeSystems, Set<String> codes, Set<String> includes) {
+            Map<String, String> codeSystems, Set<String> codes, Set<String> includes) {
         if (node == null)
             return;
 
@@ -591,10 +591,10 @@ public class ExpressionCqlEngine {
                         if (codeVal != null && codeSystem != null) {
                             String csId = getStr(codeSystem, "id", "");
                             String csName = getStr(codeSystem, "name", "");
-                            if (!csId.isEmpty()) {
-                                codeSystems.add(csId);
-                            }
                             String csDisplayName = !csName.isEmpty() ? csName : getCodeSystemDisplayName(csId);
+                            if (!csId.isEmpty()) {
+                                codeSystems.put(csId, csDisplayName);
+                            }
                             codes.add(String.format("code \"%s\": '%s' from \"%s\"",
                                     escapeCqlIdentifier(display != null ? display : codeVal),
                                     escapeCqlString(codeVal),
@@ -624,11 +624,13 @@ public class ExpressionCqlEngine {
         }
     }
 
-    public void emitCodeSystems(StringBuilder cql, Set<String> codeSystems) {
+    public void emitCodeSystems(StringBuilder cql, Map<String, String> codeSystems) {
         if (!codeSystems.isEmpty()) {
-            for (String cs : codeSystems) {
-                String csName = getCodeSystemDisplayName(cs);
-                cql.append(String.format("codesystem \"%s\": '%s'%n", escapeCqlIdentifier(csName), escapeCqlString(cs)));
+            for (var entry : codeSystems.entrySet()) {
+                String uri = entry.getKey();
+                String displayName = entry.getValue();
+                cql.append(String.format("codesystem \"%s\": '%s'%n",
+                        escapeCqlIdentifier(displayName), escapeCqlString(uri)));
             }
             cql.append("\n");
         }

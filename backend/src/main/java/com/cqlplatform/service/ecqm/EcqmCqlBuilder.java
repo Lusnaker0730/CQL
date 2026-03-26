@@ -57,7 +57,7 @@ public class EcqmCqlBuilder {
 
         // ── Collect declarations ──────────────────────────────────────────
         Set<String> valueSets = new LinkedHashSet<>();
-        Set<String> codeSystems = new LinkedHashSet<>();
+        Map<String, String> codeSystems = new LinkedHashMap<>();
         Set<String> codes = new LinkedHashSet<>();
         Set<String> includes = new LinkedHashSet<>();
 
@@ -82,10 +82,10 @@ public class EcqmCqlBuilder {
         dataModel.put("valueSets", escapedValueSets);
 
         List<Map<String, String>> codeSystemEntries = new ArrayList<>();
-        for (String cs : codeSystems) {
+        for (var csEntry : codeSystems.entrySet()) {
             codeSystemEntries.add(Map.of(
-                    "name", engine.escapeCqlIdentifier(engine.getCodeSystemDisplayName(cs)),
-                    "id", engine.escapeCqlString(cs)));
+                    "name", engine.escapeCqlIdentifier(csEntry.getValue()),
+                    "id", engine.escapeCqlString(csEntry.getKey())));
         }
         dataModel.put("codeSystemEntries", codeSystemEntries);
         dataModel.put("codes", codes);
@@ -323,7 +323,7 @@ public class EcqmCqlBuilder {
             List<Map<String, Object>> baseElements,
             List<Map<String, Object>> supplementalData,
             List<Map<String, Object>> stratifiers,
-            Set<String> valueSets, Set<String> codeSystems,
+            Set<String> valueSets, Map<String, String> codeSystems,
             Set<String> codes, Set<String> includes) {
 
         // From base elements
