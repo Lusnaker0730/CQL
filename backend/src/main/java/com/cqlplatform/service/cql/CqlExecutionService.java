@@ -59,6 +59,9 @@ public class CqlExecutionService {
     private final ExecutorService executorService;
     private final CqlLibraryRepository libraryRepository;
 
+    /** Shared model resolver — expensive to create (~2.5s), thread-safe after init. */
+    private static final ComparableR4FhirModelResolver SHARED_MODEL_RESOLVER = new ComparableR4FhirModelResolver();
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer cqlExecutionTimer;
 
@@ -300,7 +303,7 @@ public class CqlExecutionService {
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
 
             // Setup data provider - use prefetch if available, auto-prefetch for patient context, otherwise REST
-            ComparableR4FhirModelResolver modelResolver = new ComparableR4FhirModelResolver();
+            ComparableR4FhirModelResolver modelResolver = SHARED_MODEL_RESOLVER;
             RetrieveProvider retrieveProvider;
             if (prefetchProvider != null) {
                 log.info("Using prefetch data provider for CQL execution");
@@ -626,14 +629,18 @@ public class CqlExecutionService {
             CqlExecutionRequest request, PreTranslatedContext ctx,
             RetrieveProvider prefetchProvider, long startTime) {
         try {
+            long t0 = System.currentTimeMillis();
             org.hl7.elm.r1.Library elmLibrary = ctx.elmLibrary();
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
 
             String fhirServerUrl = request.getFhirServerUrl() != null
                     ? request.getFhirServerUrl() : defaultFhirServerUrl;
 
+            long t1 = System.currentTimeMillis();
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
-            ComparableR4FhirModelResolver modelResolver = new ComparableR4FhirModelResolver();
+            long t2 = System.currentTimeMillis();
+            ComparableR4FhirModelResolver modelResolver = SHARED_MODEL_RESOLVER;
+            long t3 = System.currentTimeMillis();
             RetrieveProvider retrieveProvider;
             if (prefetchProvider != null) {
                 if (prefetchProvider instanceof com.cqlplatform.service.cds.PrefetchRetrieveProvider pfp) {
@@ -664,11 +671,14 @@ public class CqlExecutionService {
             retrieveProvider = new InterruptAwareRetrieveProvider(retrieveProvider, maxRetrieveCount);
             CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
 
+            long t4 = System.currentTimeMillis();
             Map<String, org.opencds.cqf.cql.engine.data.DataProvider> dataProviders = new HashMap<>();
             dataProviders.put("http://hl7.org/fhir", compositeProvider);
 
             Environment environment = new Environment(ctx.libraryManager(), dataProviders, terminologyProvider);
+            long t5 = System.currentTimeMillis();
             CqlEngine engine = new CqlEngine(environment);
+            long t6 = System.currentTimeMillis();
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
             Map<String, ExpressionResult> results = new LinkedHashMap<>();
@@ -681,8 +691,14 @@ public class CqlExecutionService {
                 if (patientId != null && !patientId.startsWith("Patient/")) {
                     patientId = "Patient/" + patientId;
                 }
+                long t7 = System.currentTimeMillis();
                 evaluationResult = evaluateWithEngine(engine, libraryId, expressions,
                         request.getContextType(), patientId, request.getParameters());
+                long t8 = System.currentTimeMillis();
+                log.info("PROFILE patient={} | terminology={}ms modelResolver={}ms dataProvider={}ms env={}ms engine={}ms evaluate={}ms | total={}ms",
+                        request.getPatientId(),
+                        t2-t1, t3-t2, t4-t3, t5-t4, t6-t5, t8-t7,
+                        t8-t0);
             } catch (Exception batchEx) {
                 log.warn("Batch CQL evaluation failed, falling back to per-expression: {}", batchEx.getMessage());
                 batchFailed = true;
