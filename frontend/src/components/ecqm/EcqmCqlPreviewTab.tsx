@@ -6,6 +6,7 @@ import {
   CheckCircle as ValidateIcon,
   Publish as PublishIcon,
 } from '@mui/icons-material'
+import type { CqlTranslationResponse } from '../../types'
 import { useGenerateEcqmCql, useValidateEcqmCql, usePublishEcqm } from '../../hooks/useEcqm'
 
 interface Props {
@@ -17,11 +18,13 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
   const { t } = useTranslation('ecqm')
   const [cql, setCql] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
+  const [validation, setValidation] = useState<CqlTranslationResponse | null>(null)
   const generateCql = useGenerateEcqmCql()
   const validateCql = useValidateEcqmCql()
   const publish = usePublishEcqm()
 
   const handleGenerate = () => {
+    setValidation(null)
     generateCql.mutate(artifactId, {
       onSuccess: (data) => {
         setCql(data.cql)
@@ -31,7 +34,10 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
   }
 
   const handleValidate = () => {
-    validateCql.mutate(artifactId)
+    validateCql.mutate(artifactId, {
+      onSuccess: (data) => { setValidation(data) },
+      onError: () => { setValidation(null) },
+    })
   }
 
   const handlePublish = () => {
@@ -39,6 +45,12 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
       onSuccess: () => { onPublished?.() },
     })
   }
+
+  const validationPassed = validation?.success === true
+  const validationErrors = validation && !validation.success
+    ? (validation.errors || []).map((e) => `Line ${e.startLine}:${e.startColumn} — ${e.message}`)
+    : []
+  const validationWarnings = validation?.warnings || []
 
   return (
     <Box sx={{ p: 3 }}>
@@ -71,11 +83,27 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
         </Alert>
       )}
 
-      {validateCql.isSuccess && (
+      {validationPassed && (
         <Alert severity="success" sx={{ mb: 2 }}>{t('cqlPreview.validPassed')}</Alert>
+      )}
+      {validationErrors.length > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">{t('cqlPreview.validFailed')}</Typography>
+          <ul style={{ margin: 0 }}>
+            {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </Alert>
       )}
       {validateCql.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{t('cqlPreview.validFailed')}</Alert>
+      )}
+      {validationWarnings.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">{t('cqlPreview.warnings')}</Typography>
+          <ul style={{ margin: 0 }}>
+            {validationWarnings.map((w, i) => <li key={i}>{w.message}</li>)}
+          </ul>
+        </Alert>
       )}
 
       {publish.isSuccess && (
