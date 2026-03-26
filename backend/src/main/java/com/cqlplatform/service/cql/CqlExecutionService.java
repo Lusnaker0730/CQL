@@ -153,10 +153,9 @@ public class CqlExecutionService {
                     // Translation API returns {"library": {...}} wrapper — unwrap if present
                     com.fasterxml.jackson.databind.JsonNode root = ELM_MAPPER.readTree(elmJson);
                     com.fasterxml.jackson.databind.JsonNode libraryNode = root.has("library") ? root.get("library") : root;
-                    // Remove annotation field that contains abstract CqlToElmBase which cannot be deserialized
-                    if (libraryNode.isObject()) {
-                        ((com.fasterxml.jackson.databind.node.ObjectNode) libraryNode).remove("annotation");
-                    }
+                    // Recursively remove all "annotation" fields — they contain abstract
+                    // CqlToElmBase types that Jackson cannot deserialize
+                    stripAnnotations(libraryNode);
                     elmLibrary = ELM_MAPPER.treeToValue(libraryNode, org.hl7.elm.r1.Library.class);
                     log.debug("Using pre-compiled ELM, skipped CQL translation");
                 } catch (Exception e) {
@@ -494,6 +493,20 @@ public class CqlExecutionService {
         EvaluationParams params = new EvaluationParams(exprMap, ctxParam, parameters, null, null);
         EvaluationResults results = engine.evaluate(params);
         return results.getResultFor(libraryId);
+    }
+
+    /**
+     * Recursively removes all "annotation" fields from a Jackson JSON tree.
+     * ELM annotation nodes contain abstract CqlToElmBase types that cannot be deserialized.
+     */
+    private static void stripAnnotations(com.fasterxml.jackson.databind.JsonNode node) {
+        if (node.isObject()) {
+            var obj = (com.fasterxml.jackson.databind.node.ObjectNode) node;
+            obj.remove("annotation");
+            obj.fields().forEachRemaining(entry -> stripAnnotations(entry.getValue()));
+        } else if (node.isArray()) {
+            node.forEach(CqlExecutionService::stripAnnotations);
+        }
     }
 
     private Set<String> determineExpressions(CqlExecutionRequest request, org.hl7.elm.r1.Library library) {
