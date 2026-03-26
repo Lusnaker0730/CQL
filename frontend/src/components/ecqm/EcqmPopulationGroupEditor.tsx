@@ -7,7 +7,7 @@ import {
 import { Add as AddIcon } from '@mui/icons-material'
 import type { PopulationGroup, ObservationEntry } from '../../types/ecqm'
 import type { ConjunctionGroup as ConjunctionGroupType, FormTemplateCategory, ModifierDefinition } from '../../types/authoring'
-import { SCORING_POPULATIONS, REQUIRED_POPULATIONS, createEmptyConjunctionGroup } from '../../constants/ecqmConstants'
+import { SCORING_POPULATIONS, REQUIRED_POPULATIONS, createEmptyConjunctionGroup, DURATION_DEFAULT_PROPERTY } from '../../constants/ecqmConstants'
 import type { PopulationKey } from '../../types/ecqm'
 import EcqmPopulationTreeEditor from './EcqmPopulationTreeEditor'
 import EcqmObservationEditor from './EcqmObservationEditor'
@@ -15,6 +15,7 @@ import EcqmObservationEditor from './EcqmObservationEditor'
 interface Props {
   group: PopulationGroup
   scoringType: string
+  populationBasis: string
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   onChange: (updated: PopulationGroup) => void
@@ -25,7 +26,7 @@ function newId() {
 }
 
 export default function EcqmPopulationGroupEditor({
-  group, scoringType, templates, modifiers, onChange,
+  group, scoringType, populationBasis, templates, modifiers, onChange,
 }: Props) {
   const { t } = useTranslation('ecqm')
   const relevantPops = SCORING_POPULATIONS[scoringType] || []
@@ -61,14 +62,17 @@ export default function EcqmPopulationGroupEditor({
     const newObs: ObservationEntry = {
       observationId: newId(),
       criteria: createEmptyConjunctionGroup() as ConjunctionGroupType,
-      aggregateMethod: 'Count',
+      aggregateMethod: 'Average',
       populationRef: 'measure-population',
+      observationType: 'duration',
+      observationUnit: 'days',
+      observationProperty: DURATION_DEFAULT_PROPERTY[populationBasis] || 'period',
     }
     onChange({
       ...group,
       observations: [...(group.observations || []), newObs],
     })
-  }, [group, onChange])
+  }, [group, onChange, populationBasis])
 
   const updateObservation = useCallback((idx: number, updated: ObservationEntry) => {
     const obs = [...(group.observations || [])]
@@ -144,6 +148,7 @@ export default function EcqmPopulationGroupEditor({
             <EcqmObservationEditor
               key={obs.observationId}
               observation={obs}
+              populationBasis={populationBasis}
               templates={templates}
               modifiers={modifiers}
               onChange={(updated) => updateObservation(idx, updated)}

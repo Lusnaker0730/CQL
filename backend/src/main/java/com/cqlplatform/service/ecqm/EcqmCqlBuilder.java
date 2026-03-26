@@ -23,6 +23,8 @@ import java.util.*;
 public class EcqmCqlBuilder {
 
     private static final String FHIR_HELPERS = "FHIRHelpers";
+    private static final Set<String> VALID_DURATION_UNITS = Set.of(
+            "years", "months", "weeks", "days", "hours", "minutes");
 
     private final ExpressionCqlEngine engine;
     private final CqlTemplateEngine templateEngine;
@@ -244,7 +246,8 @@ public class EcqmCqlBuilder {
             String suffix, BuildContext ctx,
             boolean isEpisodeBased, String populationBasis) {
         String aggregateMethod = engine.getStr(obs, "aggregateMethod", "Count");
-        Map<String, Object> criteria = (Map<String, Object>) obs.get("criteria");
+        // Default to "criteria" for backward compatibility with observations saved before observationType was added
+        String observationType = engine.getStr(obs, "observationType", "criteria");
 
         String funcName = EcqmConstants.MEASURE_OBSERVATION + suffix;
         String paramType = isEpisodeBased ? populationBasis : "Patient";
@@ -255,11 +258,31 @@ public class EcqmCqlBuilder {
         block.append(String.format("// Aggregate Method: %s\n", safeAggMethod));
         block.append(String.format("define function \"%s\"(%s \"%s\"):\n", funcName, paramName, paramType));
 
-        if (criteria != null) {
-            String expr = engine.buildConjunctionExpression(criteria, ctx);
-            block.append(!"null".equals(expr) ? String.format("  %s\n\n", expr) : "  1\n\n");
-        } else {
-            block.append("  1\n\n");
+        switch (observationType) {
+            case "duration" -> {
+                String unit = engine.getStr(obs, "observationUnit", "days");
+                String property = engine.getStr(obs, "observationProperty", "period");
+                if (!VALID_DURATION_UNITS.contains(unit)) {
+                    ctx.warn(String.format("Invalid duration unit '%s', defaulting to 'days'", unit));
+                    unit = "days";
+                }
+                String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
+                block.append(String.format("  duration in %s of %s.%s\n\n", unit, paramName, safeProperty));
+            }
+            case "quantity" -> {
+                String property = engine.getStr(obs, "observationProperty", "value");
+                String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
+                block.append(String.format("  (%s.%s as Quantity).value\n\n", paramName, safeProperty));
+            }
+            default -> {
+                Map<String, Object> criteria = (Map<String, Object>) obs.get("criteria");
+                if (criteria != null) {
+                    String expr = engine.buildConjunctionExpression(criteria, ctx);
+                    block.append(!"null".equals(expr) ? String.format("  %s\n\n", expr) : "  1\n\n");
+                } else {
+                    block.append("  1\n\n");
+                }
+            }
         }
     }
 

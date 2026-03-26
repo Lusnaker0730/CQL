@@ -90,7 +90,21 @@
     "aggregateMethod": "聚合方法",
     "populationRef": "族群參考",
     "populationRefPlaceholder": "measure-population",
-    "criteria": "觀測條件"
+    "criteria": "觀測條件",
+    "observationType": "計算類型",
+    "observationTypeHelp": "選擇如何計算每個事件的觀測值",
+    "types": {
+      "duration": "時間區間長度",
+      "durationDesc": "計算期間屬性的時間長度（例如：住院天數）",
+      "quantity": "量化數值",
+      "quantityDesc": "擷取數值型的量化值（例如：檢驗結果、生命徵象）",
+      "criteria": "表達式樹",
+      "criteriaDesc": "使用視覺化建構器建立自訂表達式"
+    },
+    "unit": "時間單位",
+    "property": "FHIR 屬性",
+    "durationPreview": "CQL: duration in {{unit}} of {{param}}.{{property}}",
+    "quantityPreview": "CQL: ({{param}}.{{property}} as Quantity).value"
   },
   "sde": {
     "title": "補充資料元素",

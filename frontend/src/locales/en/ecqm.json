@@ -90,7 +90,21 @@
     "aggregateMethod": "Aggregate Method",
     "populationRef": "Population Reference",
     "populationRefPlaceholder": "measure-population",
-    "criteria": "Observation Criteria"
+    "criteria": "Observation Criteria",
+    "observationType": "Calculation Type",
+    "observationTypeHelp": "Select how to compute the observation value for each episode",
+    "types": {
+      "duration": "Duration of Period",
+      "durationDesc": "Calculate the time duration of a period property (e.g., length of stay)",
+      "quantity": "Quantity Value",
+      "quantityDesc": "Extract a numeric quantity value (e.g., lab result, vital sign)",
+      "criteria": "Expression Tree",
+      "criteriaDesc": "Build a custom expression using the visual tree builder"
+    },
+    "unit": "Time Unit",
+    "property": "FHIR Property",
+    "durationPreview": "CQL: duration in {{unit}} of {{param}}.{{property}}",
+    "quantityPreview": "CQL: ({{param}}.{{property}} as Quantity).value"
   },
   "sde": {
     "title": "Supplemental Data Elements",
