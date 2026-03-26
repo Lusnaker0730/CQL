@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-063 | ✨ feature | 2026-03-26 | 全端（eCQM） | eCQM 觀察計算類型 — Continuous-variable 觀察函數新增 Duration of Period（住院天數等）及 Quantity Value（檢驗數值等）兩種計算模式，附 CQL 即時預覽；後端依 observationType 產生對應 CQL，含輸入驗證防注入 | EcqmObservationEditor、EcqmCqlBuilder、ecqmConstants | [`41e4a8b`](../../commit/41e4a8b) |
 | PAT-062 | ⚡ perf | 2026-03-24 | 後端（CQL Engine） | ELM 預編譯快取 — 儲存量測定義時自動翻譯 CQL→ELM JSON 並存入 DB，執行時反序列化 (~10ms) 取代即時翻譯 (~1.5s/次)，含 corrupt ELM fallback + metadata-only 更新跳過重編譯 | V44 migration、MeasureDefinitionService preCompileElm | [`9ef5a9f`](../../commit/9ef5a9f) [`b0d65fb`](../../commit/b0d65fb) |
 | BUG-100 | 🐛 bugfix | 2026-03-24 | 前端（病人產生器+品質指標） | 情境模板產生正確病人數 + 期間比較指標 Autocomplete — 情境模板原本固定只產生 1 位病人，改為依 recommended_patient_count 迴圈產生；期間比較「指標名稱」從純文字改為自動載入現有指標的下拉選單 | CustomGenerationConfig.numPatients、MeasureComparison Autocomplete | [`c2858c2`](../../commit/c2858c2) |
 | BUG-099 | ⚡ perf | 2026-03-24 | 後端（品質量測） | 量測評估平行化 + TerminologyProvider 快取 — 病人 CQL 評估從循序改為 CompletableFuture 平行執行（99s→~20s），TerminologyProvider 依 server URL 快取避免重複建立 FHIR 客戶端，修復 ForkJoinPool 死鎖 + timeout 取消 futures | MeasureEvaluationService、FhirTerminologyService | [`e98463d`](../../commit/e98463d) [`87c278d`](../../commit/87c278d) |
