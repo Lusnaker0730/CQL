@@ -23,6 +23,7 @@ import java.util.*;
 public class EcqmCqlBuilder {
 
     private static final String FHIR_HELPERS = "FHIRHelpers";
+    private static final String C3F_LIBRARY = "CDSConnectCommonsForFHIRv401";
     private static final Set<String> VALID_DURATION_UNITS = Set.of(
             "years", "months", "weeks", "days", "hours", "minutes");
 
@@ -62,6 +63,7 @@ public class EcqmCqlBuilder {
         Set<String> includes = new LinkedHashSet<>();
 
         includes.add(String.format("include %s version '%s' called FHIRHelpers", FHIR_HELPERS, resolvedHelpersVersion));
+        includes.add(String.format("include %s version '2.1.0' called C3F", C3F_LIBRARY));
 
         collectAllDeclarations(populationGroups, baseElements, supplementalData, stratifiers,
                 valueSets, codeSystems, codes, includes);
