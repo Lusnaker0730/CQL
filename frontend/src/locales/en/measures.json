@@ -557,7 +557,22 @@
       "populations": "Populations"
     },
     "supplementalData": "Supplemental Data",
-    "groupLabel": "Group: {{groupId}}"
+    "groupLabel": "Group: {{groupId}}",
+    "aggregateMethods": {
+      "average": "Average",
+      "sum": "Sum",
+      "median": "Median",
+      "minimum": "Minimum",
+      "maximum": "Maximum",
+      "count": "Count"
+    },
+    "observations": {
+      "count": "Observations",
+      "min": "Min",
+      "max": "Max",
+      "avg": "Average",
+      "median": "Median"
+    }
   },
   "comparison": {
     "title": "Period Comparison & Trends",

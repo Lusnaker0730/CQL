@@ -81,7 +81,42 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
               {group.description || t('evaluationResult.groupLabel', { groupId: group.groupId })}
             </Typography>
 
-            {group.measureScore !== undefined && group.measureScore !== null && (
+            {group.observationStatistics ? (
+              <Box mb={3} sx={{ textAlign: 'center' }}>
+                <Typography
+                  sx={{ fontSize: '3rem', fontWeight: 700, color: 'primary.main', lineHeight: 1.1 }}
+                >
+                  {group.measureScore?.toFixed(1) ?? '—'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                  {t(`evaluationResult.aggregateMethods.${group.observationStatistics.aggregateMethod}`,
+                     group.observationStatistics.aggregateMethod)}
+                  {group.observationStatistics.unit ? ` (${group.observationStatistics.unit})` : ''}
+                </Typography>
+                <Stack direction="row" justifyContent="center" spacing={3} mt={1.5}>
+                  <Box textAlign="center">
+                    <Typography variant="h6">{group.observationStatistics.observationCount}</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.count')}</Typography>
+                  </Box>
+                  <Box textAlign="center">
+                    <Typography variant="h6">{group.observationStatistics.minimum?.toFixed(1)}</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.min')}</Typography>
+                  </Box>
+                  <Box textAlign="center">
+                    <Typography variant="h6">{group.observationStatistics.maximum?.toFixed(1)}</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.max')}</Typography>
+                  </Box>
+                  <Box textAlign="center">
+                    <Typography variant="h6">{group.observationStatistics.average?.toFixed(1)}</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.avg')}</Typography>
+                  </Box>
+                  <Box textAlign="center">
+                    <Typography variant="h6">{group.observationStatistics.median?.toFixed(1)}</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.median')}</Typography>
+                  </Box>
+                </Stack>
+              </Box>
+            ) : group.measureScore !== undefined && group.measureScore !== null && (
               <Box mb={3} sx={{ textAlign: 'center' }}>
                 <Typography
                   sx={{

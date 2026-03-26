@@ -557,7 +557,22 @@
       "populations": "族群"
     },
     "supplementalData": "補充資料",
-    "groupLabel": "群組：{{groupId}}"
+    "groupLabel": "群組：{{groupId}}",
+    "aggregateMethods": {
+      "average": "平均值",
+      "sum": "總和",
+      "median": "中位數",
+      "minimum": "最小值",
+      "maximum": "最大值",
+      "count": "計數"
+    },
+    "observations": {
+      "count": "觀察數",
+      "min": "最小",
+      "max": "最大",
+      "avg": "平均",
+      "median": "中位"
+    }
   },
   "comparison": {
     "title": "期間比較與趨勢",

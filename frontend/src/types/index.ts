@@ -409,6 +409,17 @@ export interface MeasureEvaluationResult {
   errorMessage?: string
 }
 
+export interface ObservationStatistics {
+  aggregateMethod: string
+  aggregateValue: number
+  observationCount: number
+  minimum: number
+  maximum: number
+  average: number
+  median: number
+  unit?: string
+}
+
 export interface MeasureGroupResult {
   groupId: string
   description?: string
@@ -417,6 +428,7 @@ export interface MeasureGroupResult {
   measureScoreUnit?: string
   stratifiers?: StratifierResult[]
   totalPatients?: number
+  observationStatistics?: ObservationStatistics
 }
 
 export interface PopulationResult {

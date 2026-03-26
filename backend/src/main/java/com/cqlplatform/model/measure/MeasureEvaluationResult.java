@@ -30,6 +30,20 @@ public class MeasureEvaluationResult {
         private String measureScoreUnit;
         private List<StratifierResult> stratifiers;
         private Integer totalPatients;
+        private ObservationStatistics observationStatistics;
+    }
+
+    @Data
+    @Builder
+    public static class ObservationStatistics {
+        private String aggregateMethod;
+        private Double aggregateValue;
+        private Integer observationCount;
+        private Double minimum;
+        private Double maximum;
+        private Double average;
+        private Double median;
+        private String unit;
     }
 
     @Data

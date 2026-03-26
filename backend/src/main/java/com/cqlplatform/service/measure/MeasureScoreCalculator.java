@@ -1,6 +1,11 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Calculates measure scores based on scoring type.
@@ -53,6 +58,50 @@ public class MeasureScoreCalculator {
             case com.cqlplatform.model.measure.ScoringTypeConstants.CONTINUOUS_VARIABLE -> null; // Requires observation values, not simple counts
             default -> calculateProportionScore(denominator, exclusions, numerator);
         };
+    }
+
+    /**
+     * Calculates continuous-variable score by aggregating observation values.
+     */
+    public Double calculateContinuousVariableScore(List<Double> values, String aggregateMethod) {
+        if (values == null || values.isEmpty()) return null;
+        return switch (aggregateMethod != null ? aggregateMethod.toLowerCase() : "average") {
+            case "sum" -> values.stream().mapToDouble(Double::doubleValue).sum();
+            case "median" -> calculateMedian(values);
+            case "minimum" -> values.stream().mapToDouble(Double::doubleValue).min().orElse(0);
+            case "maximum" -> values.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+            case "count" -> (double) values.size();
+            default -> values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        };
+    }
+
+    /**
+     * Computes full observation statistics for continuous-variable measures.
+     */
+    public MeasureEvaluationResult.ObservationStatistics computeObservationStats(
+            List<Double> values, String aggregateMethod, String unit) {
+        if (values == null || values.isEmpty()) return null;
+        double avg = values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        return MeasureEvaluationResult.ObservationStatistics.builder()
+                .aggregateMethod(aggregateMethod != null ? aggregateMethod.toLowerCase() : "average")
+                .aggregateValue(calculateContinuousVariableScore(values, aggregateMethod))
+                .observationCount(values.size())
+                .minimum(values.stream().mapToDouble(Double::doubleValue).min().orElse(0))
+                .maximum(values.stream().mapToDouble(Double::doubleValue).max().orElse(0))
+                .average(avg)
+                .median(calculateMedian(values))
+                .unit(unit)
+                .build();
+    }
+
+    private Double calculateMedian(List<Double> values) {
+        List<Double> sorted = new ArrayList<>(values);
+        Collections.sort(sorted);
+        int size = sorted.size();
+        if (size % 2 == 0) {
+            return (sorted.get(size / 2 - 1) + sorted.get(size / 2)) / 2.0;
+        }
+        return sorted.get(size / 2);
     }
 
     private Double calculateRatioScore(Integer denominator, Integer exclusions, Integer numerator) {
