@@ -102,12 +102,16 @@ public class MeasureEvaluationService {
             if (context.getMeasureCql() != null) {
                 long translateStart = System.currentTimeMillis();
                 try {
+                    log.info("Starting CQL pre-translation ({} chars)", context.getMeasureCql().length());
                     preTranslated = cqlExecutionService.translateOnce(context.getMeasureCql());
                     log.info("Pre-translated CQL in {}ms (will reuse for all patients)",
                             System.currentTimeMillis() - translateStart);
-                } catch (Exception e) {
-                    log.warn("CQL pre-translation failed: {}, will translate per patient", e.getMessage());
+                } catch (Throwable e) {
+                    log.error("CQL pre-translation failed: {} ({}), will translate per patient",
+                            e.getMessage(), e.getClass().getName(), e);
                 }
+            } else {
+                log.warn("context.getMeasureCql() is null, skipping pre-translation");
             }
 
             // 2. Discover patients
