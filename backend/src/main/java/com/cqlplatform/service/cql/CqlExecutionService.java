@@ -91,6 +91,99 @@ public class CqlExecutionService {
         this.libraryRepository = libraryRepository;
     }
 
+    /**
+     * Pre-translated CQL context — holds the Java objects from a single CQL translation
+     * so they can be reused across multiple patient executions without re-translating.
+     */
+    public record PreTranslatedContext(
+            org.hl7.elm.r1.Library elmLibrary,
+            LibraryManager libraryManager,
+            String cql
+    ) {}
+
+    /**
+     * Translate CQL once and return the context for reuse.
+     * Call this once before a batch of patient evaluations.
+     */
+    public PreTranslatedContext translateOnce(String cql) {
+        LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
+        CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
+        org.hl7.elm.r1.Library elmLibrary = translator.toELM();
+
+        // Check for translation errors
+        if (translator.getExceptions() != null) {
+            List<CqlCompilerException> errors = translator.getExceptions().stream()
+                    .filter(e -> e.getSeverity() == CqlCompilerException.ErrorSeverity.Error)
+                    .toList();
+            if (!errors.isEmpty()) {
+                String errorSummary = errors.stream()
+                        .map(CqlCompilerException::getMessage)
+                        .limit(5)
+                        .collect(java.util.stream.Collectors.joining("; "));
+                throw new CqlExecutionException("CQL translation failed with " + errors.size()
+                        + " error(s): " + errorSummary);
+            }
+        }
+
+        // Register the source so the engine can find it
+        org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
+        if (libraryId != null) {
+            libraryManager.getLibrarySourceLoader().registerProvider(
+                    new InMemoryLibrarySourceProvider(libraryId.getId(), libraryId.getVersion(), cql));
+        }
+
+        return new PreTranslatedContext(elmLibrary, libraryManager, cql);
+    }
+
+    /**
+     * Execute CQL using a pre-translated context (skips CQL→ELM translation).
+     */
+    public CqlExecutionResponse executeWithPreTranslated(
+            CqlExecutionRequest request, PreTranslatedContext preTranslated) {
+        return executeWithPreTranslated(request, preTranslated, null);
+    }
+
+    public CqlExecutionResponse executeWithPreTranslated(
+            CqlExecutionRequest request, PreTranslatedContext preTranslated, RetrieveProvider prefetchProvider) {
+        log.debug("Executing pre-translated CQL for patient: {}", request.getPatientId());
+        if (cqlExecutionCounter != null) cqlExecutionCounter.increment();
+        Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
+        long startTime = System.currentTimeMillis();
+
+        Future<CqlExecutionResponse> future;
+        try {
+            future = executorService.submit(
+                    () -> doExecutePreTranslated(request, preTranslated, prefetchProvider, startTime));
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("CQL execution pool exhausted — please retry later");
+        }
+
+        try {
+            CqlExecutionResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            return response;
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("CQL execution timed out after " + timeoutSeconds + "s");
+        } catch (ExecutionException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            Throwable cause = e.getCause();
+            if (cause instanceof CqlExecutionException) throw (CqlExecutionException) cause;
+            throw new CqlExecutionException("Execution failed: " + cause.getMessage(), cause);
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("Execution was interrupted");
+        }
+    }
+
     public CqlExecutionResponse execute(CqlExecutionRequest request) {
         return executeWithProvider(request, null);
     }
@@ -508,6 +601,119 @@ public class CqlExecutionService {
             obj.fields().forEachRemaining(entry -> stripAnnotations(entry.getValue()));
         } else if (node.isArray()) {
             node.forEach(CqlExecutionService::stripAnnotations);
+        }
+    }
+
+    /**
+     * Execute CQL using pre-translated Library + LibraryManager (skips CQL→ELM entirely).
+     */
+    private CqlExecutionResponse doExecutePreTranslated(
+            CqlExecutionRequest request, PreTranslatedContext ctx,
+            RetrieveProvider prefetchProvider, long startTime) {
+        try {
+            org.hl7.elm.r1.Library elmLibrary = ctx.elmLibrary();
+            org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
+
+            String fhirServerUrl = request.getFhirServerUrl() != null
+                    ? request.getFhirServerUrl() : defaultFhirServerUrl;
+
+            TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
+            ComparableR4FhirModelResolver modelResolver = new ComparableR4FhirModelResolver();
+            RetrieveProvider retrieveProvider;
+            if (prefetchProvider != null) {
+                if (prefetchProvider instanceof com.cqlplatform.service.cds.PrefetchRetrieveProvider pfp) {
+                    pfp.setTerminologyProvider(terminologyProvider);
+                }
+                retrieveProvider = prefetchProvider;
+            } else if (request.getPatientId() != null) {
+                retrieveProvider = tryAutoPrefetch(request, fhirServerUrl, terminologyProvider, null, null);
+                if (retrieveProvider == null) {
+                    retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
+                }
+            } else {
+                retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider);
+            }
+            retrieveProvider = new InterruptAwareRetrieveProvider(retrieveProvider, maxRetrieveCount);
+            CompositeDataProvider compositeProvider = new CompositeDataProvider(modelResolver, retrieveProvider);
+
+            Map<String, org.opencds.cqf.cql.engine.data.DataProvider> dataProviders = new HashMap<>();
+            dataProviders.put("http://hl7.org/fhir", compositeProvider);
+
+            Environment environment = new Environment(ctx.libraryManager(), dataProviders, terminologyProvider);
+            CqlEngine engine = new CqlEngine(environment);
+
+            Set<String> expressions = determineExpressions(request, elmLibrary);
+            Map<String, ExpressionResult> results = new LinkedHashMap<>();
+
+            // Normal mode: evaluate all expressions at once
+            EvaluationResult evaluationResult = null;
+            boolean batchFailed = false;
+            try {
+                String patientId = request.getPatientId();
+                if (patientId != null && !patientId.startsWith("Patient/")) {
+                    patientId = "Patient/" + patientId;
+                }
+                evaluationResult = evaluateWithEngine(engine, libraryId, expressions,
+                        request.getContextType(), patientId, request.getParameters());
+            } catch (Exception batchEx) {
+                log.warn("Batch CQL evaluation failed, falling back to per-expression: {}", batchEx.getMessage());
+                batchFailed = true;
+            }
+
+            if (batchFailed || evaluationResult == null) {
+                for (String expressionName : expressions) {
+                    try {
+                        Set<String> singleExpr = Set.of(expressionName);
+                        String pid = request.getPatientId();
+                        if (pid != null && !pid.startsWith("Patient/")) pid = "Patient/" + pid;
+                        EvaluationResult singleResult = evaluateWithEngine(engine, libraryId, singleExpr,
+                                request.getContextType(), pid, request.getParameters());
+                        Object value = null;
+                        if (singleResult != null && singleResult.getExpressionResults() != null) {
+                            var exprResult = singleResult.getExpressionResults().get(expressionName);
+                            value = exprResult != null ? exprResult.getValue() : null;
+                        }
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName).value(toSerializable(value))
+                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                .displayValue(formatDisplayValue(value)).build());
+                    } catch (Exception e) {
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName).value(null).valueType("Error")
+                                .displayValue("Error: " + e.getMessage()).build());
+                    }
+                }
+            } else {
+                for (String expressionName : expressions) {
+                    try {
+                        Object value = null;
+                        if (evaluationResult.getExpressionResults() != null) {
+                            var exprResult = evaluationResult.getExpressionResults().get(expressionName);
+                            value = exprResult != null ? exprResult.getValue() : null;
+                        }
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName).value(toSerializable(value))
+                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                .displayValue(formatDisplayValue(value)).build());
+                    } catch (Exception e) {
+                        results.put(expressionName, ExpressionResult.builder()
+                                .name(expressionName).value(null).valueType("Error")
+                                .displayValue("Error: " + e.getMessage()).build());
+                    }
+                }
+            }
+
+            long executionTime = System.currentTimeMillis() - startTime;
+            return CqlExecutionResponse.builder()
+                    .results(results)
+                    .metadata(ExecutionMetadata.builder()
+                            .executionTimeMs(executionTime)
+                            .fhirServerUrl(fhirServerUrl)
+                            .build())
+                    .build();
+        } catch (Exception e) {
+            log.error("Pre-translated CQL execution failed", e);
+            throw new CqlExecutionException("Execution failed: " + e.getMessage(), e);
         }
     }
 

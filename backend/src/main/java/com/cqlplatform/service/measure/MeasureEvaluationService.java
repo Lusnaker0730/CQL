@@ -90,28 +90,14 @@ public class MeasureEvaluationService {
         MeasureEvaluationContext context = buildContext(request, measureDefinitionId, measureDefinition);
 
         try {
-            // 1. Pre-translate CQL → ELM once (MADiE pattern: translate once, reuse for all patients)
-            if (context.getElmJson() == null && context.getMeasureCql() != null) {
+            // 1. Pre-translate CQL once (MADiE pattern: translate once, reuse Java objects for all patients)
+            CqlExecutionService.PreTranslatedContext preTranslated = null;
+            if (context.getMeasureCql() != null) {
                 long translateStart = System.currentTimeMillis();
                 try {
-                    var translateRequest = new com.cqlplatform.model.CqlTranslationRequest();
-                    translateRequest.setCql(context.getMeasureCql());
-                    var translateResponse = cqlTranslationService.translate(translateRequest);
-                    if (translateResponse.isSuccess() && translateResponse.getElmJson() != null) {
-                        context = MeasureEvaluationContext.builder()
-                                .request(context.getRequest())
-                                .measureDefinition(context.getMeasureDefinition())
-                                .measureDefinitionId(context.getMeasureDefinitionId())
-                                .periodStart(context.getPeriodStart())
-                                .periodEnd(context.getPeriodEnd())
-                                .timeoutSeconds(context.getTimeoutSeconds())
-                                .preCompiledElmJson(translateResponse.getElmJson())
-                                .build();
-                        log.info("Pre-compiled CQL to ELM in {}ms (will reuse for all patients)",
-                                System.currentTimeMillis() - translateStart);
-                    } else {
-                        log.warn("CQL pre-translation failed, will translate per patient");
-                    }
+                    preTranslated = cqlExecutionService.translateOnce(context.getMeasureCql());
+                    log.info("Pre-translated CQL in {}ms (will reuse for all patients)",
+                            System.currentTimeMillis() - translateStart);
                 } catch (Exception e) {
                     log.warn("CQL pre-translation failed: {}, will translate per patient", e.getMessage());
                 }
@@ -126,7 +112,8 @@ public class MeasureEvaluationService {
             }
 
             // 3. Execute CQL per patient and aggregate
-            AggregationState state = executeAndAggregate(context, patients);
+            final CqlExecutionService.PreTranslatedContext pt = preTranslated;
+            AggregationState state = executeAndAggregate(context, patients, pt);
 
             // 3. Check if all patients failed
             if (state.errorCount == patients.size()) {
@@ -179,7 +166,8 @@ public class MeasureEvaluationService {
                 .build();
     }
 
-    private AggregationState executeAndAggregate(MeasureEvaluationContext context, List<String> patients) {
+    private AggregationState executeAndAggregate(MeasureEvaluationContext context, List<String> patients,
+                                                   CqlExecutionService.PreTranslatedContext preTranslated) {
         Map<String, Integer> populationCounts = populationEvaluator.initializePopulationCounts();
         Set<String> standardNames = new HashSet<>(populationCounts.keySet());
         Map<String, Object> customExpressions = new LinkedHashMap<>();
@@ -194,7 +182,7 @@ public class MeasureEvaluationService {
         List<CompletableFuture<PatientResult>> futures = patients.stream()
                 .map(patientId -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        CqlExecutionResponse resp = executeForPatient(context, patientId);
+                        CqlExecutionResponse resp = executeForPatient(context, patientId, preTranslated);
                         return new PatientResult(patientId, resp, null);
                     } catch (Exception e) {
                         return new PatientResult(patientId, null, e);
@@ -240,10 +228,10 @@ public class MeasureEvaluationService {
         return new AggregationState(populationCounts, customExpressions, stratificationData, errorCount);
     }
 
-    private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId) {
+    private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
+                                                     CqlExecutionService.PreTranslatedContext preTranslated) {
         CqlExecutionRequest execRequest = new CqlExecutionRequest();
         execRequest.setCql(context.getMeasureCql());
-        execRequest.setElmJson(context.getElmJson());
         execRequest.setPatientId(patientId);
         execRequest.setFhirServerUrl(context.getFhirServerUrl());
 
@@ -256,6 +244,10 @@ public class MeasureEvaluationService {
                         true));
         execRequest.setParameters(parameters);
 
+        // Use pre-translated context if available (skips CQL→ELM per patient)
+        if (preTranslated != null) {
+            return cqlExecutionService.executeWithPreTranslated(execRequest, preTranslated);
+        }
         return cqlExecutionService.execute(execRequest);
     }
 
