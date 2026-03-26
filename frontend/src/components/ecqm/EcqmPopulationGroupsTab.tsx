@@ -93,6 +93,7 @@ export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers
             <EcqmPopulationGroupEditor
               group={group}
               scoringType={artifact.scoringType}
+              populationBasis={artifact.populationBasis}
               templates={templates}
               modifiers={modifiers}
               onChange={(updated) => updateGroup(idx, updated)}

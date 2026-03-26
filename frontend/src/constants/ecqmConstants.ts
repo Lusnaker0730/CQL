@@ -24,6 +24,47 @@ export const AGGREGATE_METHODS = [
   'Count', 'Sum', 'Average', 'Median', 'Maximum', 'Minimum', 'Percentile',
 ] as const
 
+/** Observation calculation types for continuous-variable measures */
+export const OBSERVATION_TYPES = ['duration', 'quantity', 'criteria'] as const
+
+/** Time units for duration observation type */
+export const DURATION_UNITS = [
+  'years', 'months', 'weeks', 'days', 'hours', 'minutes',
+] as const
+
+/** Default FHIR property for duration by population basis */
+export const DURATION_DEFAULT_PROPERTY: Record<string, string> = {
+  Encounter: 'period',
+  Procedure: 'performed',
+  Observation: 'effective',
+  MedicationRequest: 'dispenseRequest.validityPeriod',
+  MedicationAdministration: 'effective',
+  ServiceRequest: 'occurrence',
+  Condition: 'onset',
+  Coverage: 'period',
+}
+
+/** Available period-type properties per resource for duration calculation */
+export const DURATION_PROPERTIES: Record<string, string[]> = {
+  Encounter: ['period'],
+  Procedure: ['performed'],
+  Observation: ['effective'],
+  MedicationRequest: ['dispenseRequest.validityPeriod'],
+  MedicationAdministration: ['effective'],
+  ServiceRequest: ['occurrence'],
+  Condition: ['onset', 'abatement'],
+  Coverage: ['period'],
+}
+
+/** Available quantity-type properties per resource */
+export const QUANTITY_PROPERTIES: Record<string, string[]> = {
+  Observation: ['value'],
+  MedicationRequest: ['dispenseRequest.quantity', 'dosageInstruction.doseAndRate.dose'],
+  MedicationAdministration: ['dosage.dose'],
+  Procedure: ['outcome'],
+  Encounter: ['length'],
+}
+
 /** Which populations are relevant for each scoring type */
 export const SCORING_POPULATIONS: Record<string, PopulationKey[]> = {
   proportion: [

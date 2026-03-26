@@ -89,11 +89,18 @@ export interface PopulationGroup {
   stratifiers?: StratifierElement[]
 }
 
+export type ObservationType = 'criteria' | 'duration' | 'quantity'
+
 export interface ObservationEntry {
   observationId: string
   criteria: ConjunctionGroup
   aggregateMethod: string
   populationRef?: string
+  observationType?: ObservationType
+  /** Time unit for duration type (e.g. 'days', 'hours') */
+  observationUnit?: string
+  /** FHIR property path for duration/quantity (e.g. 'period', 'value') */
+  observationProperty?: string
 }
 
 export interface StratifierElement {
