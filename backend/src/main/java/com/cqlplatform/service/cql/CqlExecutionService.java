@@ -50,7 +50,9 @@ import java.nio.charset.StandardCharsets;
 public class CqlExecutionService {
 
     private static final com.fasterxml.jackson.databind.ObjectMapper ELM_MAPPER =
-            new com.fasterxml.jackson.databind.ObjectMapper();
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                    .configure(com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
 
     private final FhirDataProviderService dataProviderService;
     private final FhirTerminologyService terminologyService;
