@@ -303,8 +303,13 @@ public class EcqmCqlBuilder {
                     ctx.warn(String.format("Invalid duration unit '%s', defaulting to 'days'", unit));
                     unit = "days";
                 }
-                String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
-                block.append(String.format("  duration in %s of %s.%s\n\n", unit, paramName, safeProperty));
+                // Patient-based: use "Measurement Period" since Patient has no period property
+                if ("Patient".equals(paramType)) {
+                    block.append(String.format("  duration in %s of \"Measurement Period\"\n\n", unit));
+                } else {
+                    String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
+                    block.append(String.format("  duration in %s of %s.%s\n\n", unit, paramName, safeProperty));
+                }
             }
             case "quantity" -> {
                 String property = engine.getStr(obs, "observationProperty", "value");
