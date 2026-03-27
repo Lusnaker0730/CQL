@@ -29,6 +29,19 @@ public interface MeasureReportRepository extends JpaRepository<MeasureReportEnti
             @Param("rangeStart") LocalDate rangeStart,
             @Param("rangeEnd") LocalDate rangeEnd);
 
+    List<MeasureReportEntity> findByMeasureDefinitionIdAndPeriodStartAndPeriodEnd(
+            Long measureDefinitionId, LocalDate periodStart, LocalDate periodEnd);
+
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.measureDefinitionId = :measureId " +
+            "AND r.periodStart <= :rangeEnd AND r.periodEnd >= :rangeStart " +
+            "ORDER BY r.createdAt DESC")
+    List<MeasureReportEntity> findByMeasureDefinitionIdAndPeriodOverlap(
+            @Param("measureId") Long measureId,
+            @Param("rangeStart") LocalDate rangeStart,
+            @Param("rangeEnd") LocalDate rangeEnd);
+
+    List<MeasureReportEntity> findByMeasureDefinitionIdOrderByPeriodStartAsc(Long measureDefinitionId);
+
     List<MeasureReportEntity> findTop50ByOrderByCreatedAtDesc();
 
     List<MeasureReportEntity> findTop10ByOrderByCreatedAtDesc();

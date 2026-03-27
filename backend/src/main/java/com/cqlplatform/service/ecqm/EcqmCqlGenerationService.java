@@ -61,6 +61,18 @@ public class EcqmCqlGenerationService {
 
     @Transactional(readOnly = true)
     public CqlTranslationResponse validateCql(Long artifactId) {
-        return generateAndTranslate(artifactId);
+        CqlBuildResult buildResult = generateCql(artifactId);
+        log.info("Validating CQL for artifact {}:\n{}", artifactId, buildResult.cql());
+        CqlTranslationRequest request = new CqlTranslationRequest();
+        request.setCql(buildResult.cql());
+        request.setEnableAnnotations(true);
+        request.setEnableLocators(true);
+        request.setEnableResultTypes(true);
+        CqlTranslationResponse response = translationService.translate(request);
+        if (!response.isSuccess() && response.getErrors() != null) {
+            response.getErrors().forEach(e ->
+                log.warn("CQL validation error: Line {}:{} — {}", e.getStartLine(), e.getStartColumn(), e.getMessage()));
+        }
+        return response;
     }
 }

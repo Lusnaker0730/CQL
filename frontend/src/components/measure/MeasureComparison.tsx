@@ -29,16 +29,24 @@ import { measureApi } from '../../api'
 import type { MeasureComparisonResult, MeasureTrendResult } from '../../types'
 import { getDefaultComparisonPeriods } from '../../utils/dateDefaults'
 
+interface MeasureOption {
+  id: number
+  label: string
+}
+
 export default function MeasureComparison() {
   const { t } = useTranslation('measures')
-  const [measureName, setMeasureName] = useState('')
+  const [selectedMeasure, setSelectedMeasure] = useState<MeasureOption | null>(null)
 
   const { data: measures = [] } = useQuery({
     queryKey: ['measures'],
     queryFn: () => measureApi.getMeasures(),
     staleTime: Infinity,
   })
-  const measureOptions = useMemo(() => measures.map((m) => m.title || m.name), [measures])
+  const measureOptions = useMemo<MeasureOption[]>(
+    () => measures.map((m) => ({ id: m.id!, label: m.title || m.name })),
+    [measures],
+  )
 
   const defaults = getDefaultComparisonPeriods()
   const [p1Start, setP1Start] = useState(defaults.period1Start)
@@ -50,12 +58,12 @@ export default function MeasureComparison() {
   const [trend, setTrend] = useState<MeasureTrendResult | null>(null)
 
   const compareMutation = useMutation({
-    mutationFn: () => measureApi.comparePeriods(measureName, p1Start, p1End, p2Start, p2End),
+    mutationFn: () => measureApi.comparePeriods(selectedMeasure!.id, selectedMeasure!.label, p1Start, p1End, p2Start, p2End),
     onSuccess: (data) => setComparison(data),
   })
 
   const trendMutation = useMutation({
-    mutationFn: () => measureApi.getTrend(measureName, periods),
+    mutationFn: () => measureApi.getTrend(selectedMeasure!.id, selectedMeasure!.label, periods),
     onSuccess: (data) => setTrend(data),
   })
 
@@ -77,10 +85,11 @@ export default function MeasureComparison() {
       <Typography variant="h6" gutterBottom>{t('comparison.title')}</Typography>
 
       <Autocomplete
-        freeSolo
         options={measureOptions}
-        value={measureName}
-        onInputChange={(_e, value) => setMeasureName(value)}
+        getOptionLabel={(opt) => opt.label}
+        value={selectedMeasure}
+        onChange={(_e, value) => setSelectedMeasure(value)}
+        isOptionEqualToValue={(opt, val) => opt.id === val.id}
         renderInput={(params) => (
           <TextField {...params} label={t('comparison.measureName')} size="small" />
         )}
@@ -108,7 +117,7 @@ export default function MeasureComparison() {
       <GradientButton
         startIcon={<CompareIcon />}
         onClick={() => compareMutation.mutate()}
-        disabled={!measureName || compareMutation.isPending}
+        disabled={!selectedMeasure || compareMutation.isPending}
         sx={{ mb: 2 }}
       >
         {compareMutation.isPending ? t('comparison.comparing') : t('comparison.compare')}
@@ -193,7 +202,7 @@ export default function MeasureComparison() {
           variant="outlined"
           startIcon={<TimelineIcon />}
           onClick={() => trendMutation.mutate()}
-          disabled={!measureName || trendMutation.isPending}
+          disabled={!selectedMeasure || trendMutation.isPending}
           size="small"
         >
           {trendMutation.isPending ? t('comparison.loading') : t('comparison.loadTrend')}

@@ -506,22 +506,26 @@ public class MeasureController {
     @GetMapping("/compare")
     @Operation(summary = "Compare Periods", description = "Compare measure results across two periods")
     public ResponseEntity<MeasureComparisonResult> comparePeriods(
-            @RequestParam String measureName,
+            @RequestParam Long measureDefinitionId,
+            @RequestParam(required = false) String measureName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate p1Start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate p1End,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate p2Start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate p2End) {
-        MeasureComparisonResult comparison = comparisonService.comparePeriods(measureName, p1Start, p1End, p2Start, p2End);
+        String name = measureName != null ? measureName : String.valueOf(measureDefinitionId);
+        MeasureComparisonResult comparison = comparisonService.comparePeriods(measureDefinitionId, name, p1Start, p1End, p2Start, p2End);
         return ResponseEntity.ok(comparison);
     }
 
     @GetMapping("/trend")
     @Operation(summary = "Measure Trend", description = "Get measure score trend over time")
     public ResponseEntity<MeasureTrendResult> getTrend(
-            @RequestParam String measureName,
+            @RequestParam Long measureDefinitionId,
+            @RequestParam(required = false) String measureName,
             @RequestParam(defaultValue = "4") int periods) {
         int clampedPeriods = (int) Math.clamp(periods, 1, 52);
-        MeasureTrendResult trend = comparisonService.getTrend(measureName, clampedPeriods);
+        String name = measureName != null ? measureName : String.valueOf(measureDefinitionId);
+        MeasureTrendResult trend = comparisonService.getTrend(measureDefinitionId, name, clampedPeriods);
         return ResponseEntity.ok(trend);
     }
 
