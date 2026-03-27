@@ -150,12 +150,25 @@ public class EcqmCqlBuilder {
 
                 // Population defines in canonical order
                 boolean isCvEpisode = EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType) && isEpisodeBased;
+                List<String> requiredPops = EcqmConstants.REQUIRED_POPULATIONS.getOrDefault(scoringType, List.of());
                 for (String popKey : EcqmConstants.ALL_POPULATION_KEYS) {
                     if (dualIp && "initial-population".equals(popKey)) continue;
-                    Object popTree = populations.get(popKey);
-                    if (popTree == null) continue;
                     String defineName = EcqmConstants.POPULATION_KEY_TO_DEFINE.get(popKey);
                     if (defineName == null) continue;
+
+                    Object popTree = populations.get(popKey);
+                    boolean isEmpty = popTree == null || isEmptyTree((Map<String, Object>) popTree);
+
+                    if (isEmpty) {
+                        // Required populations with empty trees inherit from parent population
+                        String parentDefine = EcqmConstants.POPULATION_PARENT.get(defineName);
+                        if (parentDefine != null && requiredPops.contains(defineName)) {
+                            block.append(String.format("define \"%s%s\":\n  \"%s%s\"\n\n",
+                                    defineName, suffix, parentDefine, suffix));
+                        }
+                        continue;
+                    }
+
                     // Episode-based CV: Measure Population should return resource list, not boolean
                     if (isCvEpisode && "measure-population".equals(popKey)) {
                         ctx.preserveListReturn = true;
@@ -245,6 +258,13 @@ public class EcqmCqlBuilder {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    private boolean isEmptyTree(Map<String, Object> tree) {
+        if (tree == null) return true;
+        List<Map<String, Object>> children = (List<Map<String, Object>>) tree.get("childInstances");
+        return children == null || children.isEmpty();
+    }
 
     private void appendPopulationDefine(StringBuilder block, String defineName,
             Map<String, Object> tree, BuildContext ctx) {
