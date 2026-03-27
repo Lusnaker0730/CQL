@@ -19,6 +19,10 @@ public final class CdsTupleAccessor {
         if (value == null) {
             return false;
         }
+        // CQL engine 4.5+ may return Tuples as plain Maps
+        if (value instanceof Map) {
+            return true;
+        }
         try {
             java.lang.reflect.Method m = value.getClass().getMethod("getElements");
             return Map.class.isAssignableFrom(m.getReturnType());
@@ -29,6 +33,10 @@ public final class CdsTupleAccessor {
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> getElements(Object tuple) {
+        // CQL engine 4.5+ may return Tuples as plain Maps
+        if (tuple instanceof Map) {
+            return (Map<String, Object>) tuple;
+        }
         try {
             java.lang.reflect.Method getElements = tuple.getClass().getMethod("getElements");
             return (Map<String, Object>) getElements.invoke(tuple);
