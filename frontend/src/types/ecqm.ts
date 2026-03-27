@@ -87,6 +87,10 @@ export interface PopulationGroup {
   initialPopulationNumer?: ConjunctionGroup | null
   observations?: ObservationEntry[]
   stratifiers?: StratifierElement[]
+  /** Rate multiplier for ratio measures with observations (e.g., 1000 for "per 1,000 person-years") */
+  rateMultiplier?: number
+  /** Scoring unit label (e.g., "per 1,000 person-years") */
+  scoringUnit?: string
 }
 
 export type ObservationType = 'criteria' | 'duration' | 'quantity'

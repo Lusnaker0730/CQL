@@ -199,6 +199,9 @@ public class EcqmPublishService {
 
             String groupId = group.get("groupId") != null ? group.get("groupId").toString() : "group-" + (g + 1);
 
+            Integer rateMultiplier = group.get("rateMultiplier") instanceof Number n ? n.intValue() : null;
+            String scoringUnit = group.get("scoringUnit") != null ? group.get("scoringUnit").toString() : null;
+
             result.add(GroupDefinition.builder()
                     .groupId(groupId)
                     .description(group.get("description") != null ? group.get("description").toString() : null)
@@ -206,6 +209,8 @@ public class EcqmPublishService {
                     .populations(popDefs)
                     .observations(obsDefs)
                     .stratifiers(stratDefs)
+                    .rateIndex(rateMultiplier)
+                    .scoringUnit(scoringUnit)
                     .build());
         }
 

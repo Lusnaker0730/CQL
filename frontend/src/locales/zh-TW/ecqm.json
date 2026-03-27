@@ -83,7 +83,10 @@
     "ip1Label": "初始族群 1（分母）",
     "ip2Label": "初始族群 2（分子）",
     "observations": "觀測",
-    "addObservation": "新增觀測"
+    "addObservation": "新增觀測",
+    "rateMultiplier": "比率乘數",
+    "scoringUnit": "計分單位",
+    "scoringUnitPlaceholder": "例如：每 1,000 人年"
   },
   "observation": {
     "title": "品質指標觀測",

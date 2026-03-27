@@ -112,4 +112,15 @@ public class MeasureScoreCalculator {
         int effectiveNumerator = numerator != null ? numerator : 0;
         return (double) effectiveNumerator / denominator * 100;
     }
+
+    /**
+     * Calculates rate score: (events / observation sum) × rate multiplier.
+     * Used for rates like "per 1,000 person-years".
+     */
+    public Double calculateRateScore(Integer numeratorCount, Double observationSum, double rateMultiplier) {
+        if (numeratorCount == null || observationSum == null || observationSum == 0) {
+            return null;
+        }
+        return (double) numeratorCount / observationSum * rateMultiplier;
+    }
 }
