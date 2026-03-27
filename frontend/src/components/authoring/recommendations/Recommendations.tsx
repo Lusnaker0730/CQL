@@ -340,18 +340,18 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
                   {t('recommendations.applyToSubpops')}
                 </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mb: 2 }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
                   {allSubpopsForRec.map((sp) => {
                     const isSelected = (rec.subpopulations || []).some((s) => s.uniqueId === sp.uniqueId)
                     return (
                       <Chip
                         key={sp.uniqueId}
                         label={sp.subpopulationName}
-                        size="small"
+                        size="medium"
                         color={isSelected ? (sp.special ? 'warning' : 'primary') : 'default'}
                         variant={isSelected ? 'filled' : 'outlined'}
                         onClick={() => handleToggleSubpop(rec.uid, sp, !isSelected)}
-                        sx={{ mb: 0.5 }}
+                        sx={{ mb: 0.5, fontSize: '0.875rem' }}
                       />
                     )
                   })}
