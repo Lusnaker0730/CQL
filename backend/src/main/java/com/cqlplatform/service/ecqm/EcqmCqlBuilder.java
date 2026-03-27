@@ -179,14 +179,18 @@ public class EcqmCqlBuilder {
                     ctx.episodeResourceType = null;
                 }
 
-                // Observations (continuous variable)
+                // Observations
                 List<Map<String, Object>> observations = (List<Map<String, Object>>) group.get("observations");
                 if (observations != null) {
+                    // Ratio observations are always patient-based (calculating per-patient time)
+                    boolean obsEpisodeBased = isEpisodeBased
+                            && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType);
+                    String obsBasis = obsEpisodeBased ? populationBasis : "boolean";
                     for (Map<String, Object> obs : observations) {
-                        appendObservationFunction(block, obs, suffix, ctx, isEpisodeBased, populationBasis);
+                        appendObservationFunction(block, obs, suffix, ctx, obsEpisodeBased, obsBasis);
                     }
                     if (!observations.isEmpty()) {
-                        appendObservationWrapper(block, suffix, isEpisodeBased);
+                        appendObservationWrapper(block, suffix, isEpisodeBased, scoringType, observations);
                     }
                 }
 
@@ -299,8 +303,13 @@ public class EcqmCqlBuilder {
                     ctx.warn(String.format("Invalid duration unit '%s', defaulting to 'days'", unit));
                     unit = "days";
                 }
-                String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
-                block.append(String.format("  duration in %s of %s.%s\n\n", unit, paramName, safeProperty));
+                // Patient-based: use "Measurement Period" since Patient has no period property
+                if ("Patient".equals(paramType)) {
+                    block.append(String.format("  duration in %s of \"Measurement Period\"\n\n", unit));
+                } else {
+                    String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
+                    block.append(String.format("  duration in %s of %s.%s\n\n", unit, paramName, safeProperty));
+                }
             }
             case "quantity" -> {
                 String property = engine.getStr(obs, "observationProperty", "value");
@@ -319,15 +328,32 @@ public class EcqmCqlBuilder {
         }
     }
 
-    private void appendObservationWrapper(StringBuilder block, String suffix, boolean isEpisodeBased) {
+    @SuppressWarnings("unchecked")
+    private void appendObservationWrapper(StringBuilder block, String suffix,
+            boolean isEpisodeBased, String scoringType, List<Map<String, Object>> observations) {
         String funcName = EcqmConstants.MEASURE_OBSERVATION + suffix;
-        String mpName = EcqmConstants.MEASURE_POPULATION + suffix;
-        if (isEpisodeBased) {
+
+        // Determine the population to reference based on scoring type and observation config
+        String refPopulation;
+        if (EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType)) {
+            refPopulation = EcqmConstants.MEASURE_POPULATION + suffix;
+        } else {
+            // For ratio/proportion: use the observation's populationRef (default: "Denominator")
+            String popRef = "denominator";
+            if (observations != null && !observations.isEmpty()) {
+                String ref = engine.getStr(observations.get(0), "populationRef", "denominator");
+                if (ref != null && !ref.isBlank()) popRef = ref;
+            }
+            String defineName = EcqmConstants.POPULATION_KEY_TO_DEFINE.get(popRef);
+            refPopulation = (defineName != null ? defineName : EcqmConstants.DENOMINATOR) + suffix;
+        }
+
+        if (isEpisodeBased && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType)) {
             block.append(String.format("define \"%s%s\":\n  (\"%s\") MP return \"%s\"(MP)\n\n",
-                    "Measure Observation Values", suffix, mpName, funcName));
+                    "Measure Observation Values", suffix, refPopulation, funcName));
         } else {
             block.append(String.format("define \"%s%s\":\n  if \"%s\" then \"%s\"(Patient) else null\n\n",
-                    "Measure Observation Value", suffix, mpName, funcName));
+                    "Measure Observation Value", suffix, refPopulation, funcName));
         }
     }
 
