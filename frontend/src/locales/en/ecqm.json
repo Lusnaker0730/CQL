@@ -83,7 +83,10 @@
     "ip1Label": "Initial Population 1 (Denominator)",
     "ip2Label": "Initial Population 2 (Numerator)",
     "observations": "Observations",
-    "addObservation": "Add Observation"
+    "addObservation": "Add Observation",
+    "rateMultiplier": "Rate Multiplier",
+    "scoringUnit": "Scoring Unit",
+    "scoringUnitPlaceholder": "e.g., per 1,000 person-years"
   },
   "observation": {
     "title": "Measure Observation",

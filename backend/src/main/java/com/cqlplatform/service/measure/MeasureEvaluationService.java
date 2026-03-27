@@ -206,10 +206,9 @@ public class MeasureEvaluationService {
                 ? populationEvaluator.initializeCvPopulationCounts()
                 : populationEvaluator.initializePopulationCounts();
         Set<String> standardNames = new HashSet<>(populationCounts.keySet());
-        if (isCv) {
-            standardNames.add("Measure Observation Values");
-            standardNames.add("Measure Observation Value");
-        }
+        // Always exclude observation wrapper names from custom expressions
+        standardNames.add("Measure Observation Values");
+        standardNames.add("Measure Observation Value");
         Map<String, Object> customExpressions = new LinkedHashMap<>();
         Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
         List<Double> observationValues = Collections.synchronizedList(new ArrayList<>());
@@ -262,6 +261,12 @@ public class MeasureEvaluationService {
                 populationEvaluator.aggregateCvPatientResults(populationCounts, results, observationValues);
             } else {
                 populationEvaluator.aggregatePatientResults(populationCounts, results);
+                // Also collect observation values for ratio measures with observations
+                List<Double> patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Value");
+                if (patientObs.isEmpty()) {
+                    patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Values");
+                }
+                observationValues.addAll(patientObs);
             }
             populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
 
@@ -335,8 +340,40 @@ public class MeasureEvaluationService {
         if (counts.get("Numerator Exclusions") > 0)
             populations.add(populationResult(NUMERATOR_EXCLUSION, counts.get("Numerator Exclusions")));
 
-        Double measureScore = scoreCalculator.calculateProportionScore(
-                counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
+        // Check for ratio with observation values (rate-based scoring like "per 1,000 person-years")
+        boolean hasObservations = !state.observationValues.isEmpty();
+        Double measureScore;
+        ObservationStatistics obsStats = null;
+        String scoreUnit = "percentage";
+
+        if (ScoringTypeConstants.RATIO.equals(scoringType) && hasObservations) {
+            double rateMultiplier = 1000;
+            String scoringUnit = null;
+            if (def != null && def.getGroupDefinitions() != null && !def.getGroupDefinitions().isEmpty()) {
+                GroupDefinition group = def.getGroupDefinitions().get(0);
+                scoringUnit = group.getScoringUnit();
+                if (group.getRateIndex() != null && group.getRateIndex() > 0) {
+                    rateMultiplier = group.getRateIndex();
+                }
+            }
+            String aggregateMethod = "sum";
+            if (def != null && def.getGroupDefinitions() != null && !def.getGroupDefinitions().isEmpty()) {
+                GroupDefinition group = def.getGroupDefinitions().get(0);
+                if (group.getObservations() != null && !group.getObservations().isEmpty()) {
+                    String method = group.getObservations().get(0).getAggregateMethod();
+                    if (method != null && !method.isBlank()) aggregateMethod = method;
+                }
+            }
+            Double obsSum = state.observationValues.stream().mapToDouble(Double::doubleValue).sum();
+            measureScore = scoreCalculator.calculateRateScore(
+                    counts.get("Numerator"), obsSum, rateMultiplier);
+            obsStats = scoreCalculator.computeObservationStats(
+                    state.observationValues, aggregateMethod, scoringUnit);
+            scoreUnit = scoringUnit != null ? scoringUnit : "per " + (int) rateMultiplier;
+        } else {
+            measureScore = scoreCalculator.calculateProportionScore(
+                    counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
+        }
 
         List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
 
@@ -345,7 +382,8 @@ public class MeasureEvaluationService {
                 .description("Primary measure group")
                 .populations(populations)
                 .measureScore(measureScore)
-                .measureScoreUnit("percentage")
+                .measureScoreUnit(scoreUnit)
+                .observationStatistics(obsStats)
                 .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
                 .totalPatients(totalPatients)
                 .build();
