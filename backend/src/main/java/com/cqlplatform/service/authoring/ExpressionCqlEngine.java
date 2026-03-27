@@ -880,7 +880,16 @@ public class ExpressionCqlEngine {
 
     public String escapeCqlString(String value) {
         if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("'", "\\'");
+        String cleaned = stripNonAscii(value);
+        return cleaned.replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    /** Strips non-ASCII characters and cleans up residual empty parentheses/whitespace. */
+    private String stripNonAscii(String value) {
+        return value.replaceAll("[^\\x00-\\x7F]", "")
+                .replaceAll("\\(\\s*\\)", "")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
     }
 
     /**
@@ -891,11 +900,7 @@ public class ExpressionCqlEngine {
      */
     public String escapeCqlIdentifier(String value) {
         if (value == null) return "";
-        // Strip non-ASCII characters and clean up residual whitespace/parentheses
-        String ascii = value.replaceAll("[^\\x00-\\x7F]", "")
-                .replaceAll("\\(\\s*\\)", "")   // remove empty parentheses left after stripping
-                .replaceAll("\\s{2,}", " ")      // collapse multiple spaces
-                .trim();
+        String ascii = stripNonAscii(value);
         return ascii.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
