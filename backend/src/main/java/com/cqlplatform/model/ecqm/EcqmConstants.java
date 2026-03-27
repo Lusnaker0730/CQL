@@ -76,6 +76,16 @@ public final class EcqmConstants {
     );
 
     /**
+     * When a required population has an empty expression tree, it inherits from its parent.
+     * e.g. empty Denominator → references "Initial Population".
+     */
+    public static final Map<String, String> POPULATION_PARENT = Map.of(
+            DENOMINATOR, INITIAL_POPULATION,
+            NUMERATOR, DENOMINATOR,
+            MEASURE_POPULATION, INITIAL_POPULATION
+    );
+
+    /**
      * All population keys that can appear in a population group, in CMS canonical order.
      */
     public static final List<String> ALL_POPULATION_KEYS = List.of(
