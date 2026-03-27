@@ -74,7 +74,7 @@ export default function EcqmPopulationGroupEditor({
       ...group,
       observations: [...(group.observations || []), newObs],
     })
-  }, [group, onChange, populationBasis])
+  }, [group, onChange, populationBasis, isRatio])
 
   const updateObservation = useCallback((idx: number, updated: ObservationEntry) => {
     const obs = [...(group.observations || [])]
