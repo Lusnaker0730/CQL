@@ -178,6 +178,7 @@ export default function ValueSetField({
         open={vsDialogOpen}
         onClose={() => setVsDialogOpen(false)}
         onAdd={handleAddValueSet}
+        onAddCode={handleAddCode}
         resourceType={effectiveResourceType}
       />
     </Box>
@@ -209,11 +210,13 @@ function AddValueSetDialog({
   open,
   onClose,
   onAdd,
+  onAddCode,
   resourceType,
 }: {
   open: boolean
   onClose: () => void
   onAdd: (vs: ValueSetReference) => void
+  onAddCode: (code: CodeReference) => void
   resourceType?: string
 }) {
   const { t } = useTranslation('authoring')
@@ -254,15 +257,23 @@ function AddValueSetDialog({
     onClose()
   }
 
-  const handleSelectTwcoreCode = (system: string, code: string, display: string, displayZh: string) => {
-    onAdd({ oid: system, name: `${display} (${displayZh}) [${code}]` })
+  const handleSelectTwcoreCode = (system: string, systemName: string, code: string, display: string, displayZh: string) => {
+    onAddCode({
+      code,
+      codeSystem: { name: systemName, id: system },
+      display: `${display} (${displayZh})`,
+    })
     handleReset()
     onClose()
   }
 
-  const handleAddCategory = (system: string, category: { name: string; codes: Array<{ code: string; display: string; displayZh: string }> }) => {
+  const handleAddCategory = (system: string, systemName: string, category: { name: string; codes: Array<{ code: string; display: string; displayZh: string }> }) => {
     for (const c of category.codes) {
-      onAdd({ oid: system, name: `${c.display} (${c.displayZh}) [${c.code}]` })
+      onAddCode({
+        code: c.code,
+        codeSystem: { name: systemName, id: system },
+        display: `${c.display} (${c.displayZh})`,
+      })
     }
     handleReset()
     onClose()
@@ -436,7 +447,7 @@ function AddValueSetDialog({
                           <Button
                             size="small"
                             variant="text"
-                            onClick={(e) => { e.stopPropagation(); handleAddCategory(entry.system, cat) }}
+                            onClick={(e) => { e.stopPropagation(); handleAddCategory(entry.system, entry.name, cat) }}
                             sx={{ fontSize: '0.7rem', minWidth: 'auto' }}
                           >
                             {t('valueSetField.addAll')}
@@ -459,7 +470,7 @@ function AddValueSetDialog({
                                 key={c.code}
                                 hover
                                 sx={{ cursor: 'pointer' }}
-                                onClick={() => handleSelectTwcoreCode(entry.system, c.code, c.display, c.displayZh)}
+                                onClick={() => handleSelectTwcoreCode(entry.system, entry.name, c.code, c.display, c.displayZh)}
                               >
                                 <TableCell sx={{ py: 0.5 }}>
                                   <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>{c.code}</Typography>
