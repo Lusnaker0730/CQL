@@ -180,7 +180,7 @@ export default function CqlLibraryHistoryTab({
                             color="primary"
                             sx={{ ml: 1 }}
                           >
-                            (current)
+                            {t('history.current')}
                           </Typography>
                         )}
                       </Typography>
@@ -232,7 +232,7 @@ export default function CqlLibraryHistoryTab({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDraftSource(null)} disabled={createMutation.isPending}>
-            {t('common:actions.cancel', 'Cancel')}
+            {t('common:actions.cancel')}
           </Button>
           <Button
             variant="contained"

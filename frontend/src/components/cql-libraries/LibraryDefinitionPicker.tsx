@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { parseCqlDefineBlocks } from '../../utils/cqlNames'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -26,8 +27,10 @@ import {
   Typography,
 } from '@mui/material'
 import { ArrowBack as BackIcon, Close as CloseIcon } from '@mui/icons-material'
+import { useQuery } from '@tanstack/react-query'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { useCqlLibraries, useCqlLibrary } from '../../hooks/useCqlLibraries'
+import { useCqlLibrary } from '../../hooks/useCqlLibraries'
+import { cqlApi } from '../../api'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import StatusChip from '../common/StatusChip'
 import type { CqlLibrary } from '../../types'
@@ -45,9 +48,6 @@ interface LibraryDefinitionPickerProps {
   onSelect: (reference: LibraryDefinitionReference) => void
 }
 
-/** Regex to extract CQL define statement names */
-const DEFINE_RE = /define\s+"([^"]+)"/g
-
 /** Generate a short alias from a library name (uppercase first letters of camel/pascal words) */
 function generateAlias(name: string): string {
   // Split on uppercase boundaries: "DiabetesCohort" -> ["Diabetes", "Cohort"]
@@ -56,17 +56,6 @@ function generateAlias(name: string): string {
     .map((w) => w.charAt(0).toUpperCase())
     .join('')
   return alias || name.substring(0, 3).toUpperCase()
-}
-
-/** Extract define statement names from CQL content */
-function extractDefinitions(cqlContent: string): string[] {
-  const defs: string[] = []
-  let match: RegExpExecArray | null
-  const re = new RegExp(DEFINE_RE.source, 'g')
-  while ((match = re.exec(cqlContent)) !== null) {
-    defs.push(match[1])
-  }
-  return defs
 }
 
 export default function LibraryDefinitionPicker({
@@ -86,8 +75,12 @@ export default function LibraryDefinitionPicker({
   const [searchInput, setSearchInput] = useState('')
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_GENERAL_MS)
 
-  // Queries
-  const { data: libraries, isLoading: librariesLoading } = useCqlLibraries(debouncedSearch || undefined)
+  // Queries — only fetch libraries when the dialog is open
+  const { data: libraries, isLoading: librariesLoading } = useQuery({
+    queryKey: ['cql-libraries', debouncedSearch || undefined] as const,
+    queryFn: () => cqlApi.getLibraries(debouncedSearch || undefined),
+    enabled: open,
+  })
   const { data: libraryDetail, isLoading: detailLoading } = useCqlLibrary(
     activeStep === 1 ? selectedLibrary?.id : null
   )
@@ -101,13 +94,18 @@ export default function LibraryDefinitionPicker({
   // Extract definitions from library CQL content
   const definitions = useMemo(() => {
     if (!libraryDetail?.cqlContent) return []
-    return extractDefinitions(libraryDetail.cqlContent)
+    return parseCqlDefineBlocks(libraryDetail.cqlContent).map(b => b.name)
   }, [libraryDetail?.cqlContent])
 
-  const steps = useMemo(
-    () => [t('picker.step1Title'), t('picker.step2Title')],
-    [t]
-  )
+  const steps = [t('picker.step1Title'), t('picker.step2Title')]
+
+  const resetState = useCallback(() => {
+    setActiveStep(0)
+    setSelectedLibrary(null)
+    setSelectedDefinition('')
+    setAlias('')
+    setSearchInput('')
+  }, [])
 
   const handleSelectLibrary = useCallback((lib: CqlLibrary) => {
     setSelectedLibrary(lib)
@@ -117,11 +115,8 @@ export default function LibraryDefinitionPicker({
   }, [])
 
   const handleBack = useCallback(() => {
-    setActiveStep(0)
-    setSelectedLibrary(null)
-    setSelectedDefinition('')
-    setAlias('')
-  }, [])
+    resetState()
+  }, [resetState])
 
   const handleConfirm = useCallback(() => {
     if (!selectedLibrary || !selectedDefinition) return
@@ -131,22 +126,13 @@ export default function LibraryDefinitionPicker({
       definitionName: selectedDefinition,
       alias: alias.trim() || generateAlias(selectedLibrary.name),
     })
-    // Reset state
-    setActiveStep(0)
-    setSelectedLibrary(null)
-    setSelectedDefinition('')
-    setAlias('')
-    setSearchInput('')
-  }, [selectedLibrary, selectedDefinition, alias, onSelect])
+    resetState()
+  }, [selectedLibrary, selectedDefinition, alias, onSelect, resetState])
 
   const handleClose = useCallback(() => {
-    setActiveStep(0)
-    setSelectedLibrary(null)
-    setSelectedDefinition('')
-    setAlias('')
-    setSearchInput('')
+    resetState()
     onClose()
-  }, [onClose])
+  }, [resetState, onClose])
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -299,7 +285,7 @@ export default function LibraryDefinitionPicker({
         {activeStep === 1 && (
           <Button onClick={handleBack}>{t('picker.back')}</Button>
         )}
-        <Button onClick={handleClose}>{t('common:cancel')}</Button>
+        <Button onClick={handleClose}>{t('common:actions.cancel')}</Button>
         {activeStep === 1 && (
           <Button
             variant="contained"

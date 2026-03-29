@@ -110,7 +110,8 @@
     "date": "日期",
     "actions": "操作",
     "loadVersion": "載入版本",
-    "createDraftFrom": "從此版本建立草稿"
+    "createDraftFrom": "從此版本建立草稿",
+    "current": "（目前）"
   },
   "sharing": {
     "title": "分享設定",
@@ -140,7 +141,8 @@
     "importing": "匯入中...",
     "import": "匯入",
     "importSuccess": "程式庫匯入成功。",
-    "uploadHint": "上傳 FHIR Library 資源 (.json)"
+    "uploadHint": "上傳 FHIR Library 資源 (.json)",
+    "invalidJson": "JSON 格式無效。"
   },
   "export": {
     "exporting": "匯出中...",

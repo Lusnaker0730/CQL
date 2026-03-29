@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { cqlApi } from '../api'
+import { STALE_1M, STALE_5M } from '../constants/queryConstants'
 
 const CQL_LIBRARIES_KEY = ['cql-libraries'] as const
 
@@ -9,6 +10,7 @@ export function useCqlLibraries(search?: string) {
   return useQuery({
     queryKey: [...CQL_LIBRARIES_KEY, search] as const,
     queryFn: () => cqlApi.getLibraries(search),
+    staleTime: STALE_5M,
   })
 }
 
@@ -17,6 +19,7 @@ export function useCqlLibrary(id: string | null | undefined) {
     queryKey: ['cql-library', id] as const,
     queryFn: () => cqlApi.getLibrary(id!),
     enabled: !!id,
+    staleTime: STALE_1M,
   })
 }
 
@@ -33,6 +36,7 @@ export function useCqlLibraryHistory(name: string | null | undefined) {
     queryKey: ['cql-library-history', name] as const,
     queryFn: () => cqlApi.getLibraryHistory(name!),
     enabled: !!name,
+    staleTime: STALE_5M,
   })
 }
 

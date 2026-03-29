@@ -110,7 +110,8 @@
     "date": "Date",
     "actions": "Actions",
     "loadVersion": "Load Version",
-    "createDraftFrom": "Create Draft from This Version"
+    "createDraftFrom": "Create Draft from This Version",
+    "current": "(current)"
   },
   "sharing": {
     "title": "Sharing Settings",
@@ -140,7 +141,8 @@
     "importing": "Importing...",
     "import": "Import",
     "importSuccess": "Library imported successfully.",
-    "uploadHint": "Upload a FHIR Library resource (.json)"
+    "uploadHint": "Upload a FHIR Library resource (.json)",
+    "invalidJson": "Invalid JSON format."
   },
   "export": {
     "exporting": "Exporting...",

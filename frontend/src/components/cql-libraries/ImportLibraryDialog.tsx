@@ -60,7 +60,7 @@ export default function ImportLibraryDialog({
     try {
       parsed = JSON.parse(jsonText)
     } catch {
-      setError('Invalid JSON format.')
+      setError(t('import.invalidJson'))
       return
     }
     importMutation.mutate(parsed, {
@@ -162,7 +162,7 @@ export default function ImportLibraryDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isPending}>
-          {t('common:actions.cancel', 'Cancel')}
+          {t('common:actions.cancel')}
         </Button>
         <Button
           variant="contained"

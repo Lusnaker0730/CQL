@@ -173,13 +173,14 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
     [allLibraries, filterTab, currentUser],
   )
 
-  // Tab counts
+  // Tab counts — single pass
   const tabCounts = useMemo(() => {
-    const my = allLibraries.filter((l) => l.ownerUsername === currentUser).length
-    const shared = allLibraries.filter(
-      (l) => l.sharedWith?.includes(currentUser) && l.ownerUsername !== currentUser,
-    ).length
-    const pub = allLibraries.filter((l) => l.accessLevel === 'public').length
+    let my = 0, shared = 0, pub = 0
+    for (const l of allLibraries) {
+      if (l.ownerUsername === currentUser) my++
+      if (l.sharedWith?.includes(currentUser) && l.ownerUsername !== currentUser) shared++
+      if (l.accessLevel === 'public') pub++
+    }
     return { all: allLibraries.length, my, shared, pub }
   }, [allLibraries, currentUser])
 
@@ -281,7 +282,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
 
   return (
     <Paper sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={0.5}>
         <Typography variant="subtitle1" fontWeight={700}>
           {t('list.title')}
@@ -296,7 +296,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
         </Stack>
       </Stack>
 
-      {/* Search */}
       <TextField
         size="small"
         fullWidth
@@ -307,7 +306,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
         sx={{ mb: 0.5 }}
       />
 
-      {/* Tabs */}
       <Tabs
         value={filterTab}
         onChange={(_, v) => setFilterTab(v)}
@@ -326,7 +324,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
       {/* Loading skeleton */}
       {isLoading && <TableSkeleton columns={7} />}
 
-      {/* Table */}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" sx={{ minWidth: TABLE_MIN_WIDTH, ...TABLE_LAYOUT }}>
           <TableHead>

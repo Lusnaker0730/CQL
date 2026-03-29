@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { AUTOSAVE_SLOW_MS, NOTIFICATION_DURATION_MS } from '../../constants/timing'
+import { AUTOSAVE_SLOW_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Chip, CircularProgress, Dialog, DialogTitle, DialogContent,
-  DialogContentText, DialogActions, IconButton, Snackbar, Alert,
+  DialogContentText, DialogActions, IconButton,
   Stack, Tab, Tabs, Tooltip, Typography,
   RadioGroup, Radio, FormControlLabel,
 } from '@mui/material'
@@ -18,6 +18,8 @@ import {
 import type { CqlLibrary } from '../../types'
 import { useUpdateCqlLibrary, useCreateCqlLibraryVersion, useExportCqlLibrary } from '../../hooks/useCqlLibraries'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import { useNotification } from '../../hooks/useNotification'
+import { downloadBlob } from '../../utils/download'
 import StatusChip from '../common/StatusChip'
 import CqlLibraryEditorTab from './CqlLibraryEditorTab'
 import CqlLibraryMetadataTab from './CqlLibraryMetadataTab'
@@ -35,8 +37,8 @@ interface CqlLibraryWorkspaceProps {
 
 export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorkspaceProps) {
   const { t } = useTranslation('cqlLibraries')
+  const { showNotification } = useNotification()
   const [tab, setTab] = useState(0)
-  const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [showBackConfirm, setShowBackConfirm] = useState(false)
   const [showVersionDialog, setShowVersionDialog] = useState(false)
@@ -53,6 +55,10 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
   )
 
   const updateMutation = useUpdateCqlLibrary()
+
+  // Ref for mutate to stabilize save callback
+  const mutateRef = useRef(updateMutation.mutate)
+  mutateRef.current = updateMutation.mutate
 
   const isDirty = saveStatus === 'dirty' || saveStatus === 'saving'
   useUnsavedChangesGuard(isDirty)
@@ -79,7 +85,7 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
   const save = useCallback((updates: Partial<CqlLibrary>) => {
     const lib = libraryRef.current
     setSaveStatus('saving')
-    updateMutation.mutate(
+    mutateRef.current(
       {
         id: lib.id,
         cql: updates.cqlContent ?? lib.cqlContent,
@@ -92,11 +98,11 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
         onError: (error) => {
           setSaveStatus('error')
           const msg = extractApiError(error)
-          setSnack({ message: msg || t('workspace.saveFailed'), severity: 'error' })
+          showNotification(msg || t('workspace.saveFailed'), 'error')
         },
       }
     )
-  }, [updateMutation, t])
+  }, [t, showNotification])
 
   const debouncedSave = useCallback((updates: Partial<CqlLibrary>) => {
     setLocalOverrides(prev => ({ ...prev, ...updates }))
@@ -122,16 +128,20 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
     }
   }, [save])
 
+  // Ref for save to stabilize cleanup effect
+  const saveRef = useRef(save)
+  saveRef.current = save
+
   // Flush on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
       if (pendingRef.current) {
-        save(pendingRef.current)
+        saveRef.current(pendingRef.current)
         pendingRef.current = null
       }
     }
-  }, [save])
+  }, [])
 
   // Ctrl+S keyboard shortcut
   useEffect(() => {
@@ -178,38 +188,31 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
       { name: library.name, type: versionType },
       {
         onSuccess: () => {
-          setSnack({ message: t('version.versionCreated'), severity: 'success' })
+          showNotification(t('version.versionCreated'), 'success')
           setShowVersionDialog(false)
         },
         onError: (error) => {
           const msg = extractApiError(error)
-          setSnack({ message: msg || t('errors.versionFailed', { error: 'Unknown' }), severity: 'error' })
+          showNotification(msg || t('errors.versionFailed', { error: 'Unknown' }), 'error')
           setShowVersionDialog(false)
         },
       },
     )
-  }, [versionMutation, library.name, versionType, t])
+  }, [versionMutation, library.name, versionType, t, showNotification])
 
   const handleExport = useCallback(() => {
     exportMutation.mutate(library.id, {
       onSuccess: (data) => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${library.name}-v${library.version}.json`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        setSnack({ message: t('export.exportSuccess'), severity: 'success' })
+        downloadBlob(blob, `${library.name}-v${library.version}.json`)
+        showNotification(t('export.exportSuccess'), 'success')
       },
       onError: (error) => {
         const msg = extractApiError(error)
-        setSnack({ message: msg || t('export.exportFailed'), severity: 'error' })
+        showNotification(msg || t('export.exportFailed'), 'error')
       },
     })
-  }, [exportMutation, library.id, library.name, library.version, t])
+  }, [exportMutation, library.id, library.name, library.version, t, showNotification])
 
   const handleCqlChange = useCallback((content: string) => {
     debouncedSave({ cqlContent: content })
@@ -256,7 +259,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header */}
       <Box sx={{ px: 3, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Stack direction="row" alignItems="center" spacing={2}>
           <Tooltip title={t('header.backToList')}>
@@ -313,7 +315,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
         </Stack>
       </Box>
 
-      {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
           <Tab label={t('workspace.tabs.cqlEditor')} />
@@ -324,7 +325,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
         </Tabs>
       </Box>
 
-      {/* Tab content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {tab === 0 && (
           <CqlLibraryEditorTab
@@ -372,7 +372,7 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           <DialogContentText>{t('workspace.unsavedMessage')}</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBackConfirm(false)}>{t('common:actions.cancel', 'Cancel')}</Button>
+          <Button onClick={() => setShowBackConfirm(false)}>{t('common:actions.cancel')}</Button>
           <Button color="error" onClick={() => { setShowBackConfirm(false); onBack() }}>
             {t('workspace.discardChanges')}
           </Button>
@@ -407,7 +407,7 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowVersionDialog(false)} disabled={versionMutation.isPending}>
-            {t('common:actions.cancel', 'Cancel')}
+            {t('common:actions.cancel')}
           </Button>
           <Button
             variant="contained"
@@ -418,16 +418,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={!!snack} autoHideDuration={NOTIFICATION_DURATION_MS}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setSnack(null)} severity={snack?.severity} variant="filled">
-          {snack?.message}
-        </Alert>
-      </Snackbar>
     </Box>
   )
 }

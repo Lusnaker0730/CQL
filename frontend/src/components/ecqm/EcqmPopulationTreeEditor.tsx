@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Button, Stack, Typography, Paper } from '@mui/material'
 import { LibraryBooks as LibraryIcon } from '@mui/icons-material'
@@ -22,28 +22,32 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
   const { t } = useTranslation('cqlLibraries')
   const [pickerOpen, setPickerOpen] = useState(false)
 
+  // Ref for tree to stabilize callbacks across tree changes
+  const treeRef = useRef(tree)
+  treeRef.current = tree
+
   const handleAddElement = useCallback((element: ElementInstance) => {
     onUpdateTree({
-      ...tree,
-      childInstances: [...tree.childInstances, element],
+      ...treeRef.current,
+      childInstances: [...treeRef.current.childInstances, element],
     })
-  }, [tree, onUpdateTree])
+  }, [onUpdateTree])
 
   const handleRemoveElement = useCallback((uniqueId: string) => {
     onUpdateTree({
-      ...tree,
-      childInstances: tree.childInstances.filter((c) => c.uniqueId !== uniqueId),
+      ...treeRef.current,
+      childInstances: treeRef.current.childInstances.filter((c) => c.uniqueId !== uniqueId),
     })
-  }, [tree, onUpdateTree])
+  }, [onUpdateTree])
 
   const handleUpdateElement = useCallback((uniqueId: string, updated: Partial<ElementInstance>) => {
     onUpdateTree({
-      ...tree,
-      childInstances: tree.childInstances.map((c) =>
+      ...treeRef.current,
+      childInstances: treeRef.current.childInstances.map((c) =>
         c.uniqueId === uniqueId ? { ...c, ...updated } : c
       ),
     })
-  }, [tree, onUpdateTree])
+  }, [onUpdateTree])
 
   const handleLibrarySelect = useCallback((reference: LibraryDefinitionReference) => {
     // Create an element instance representing the library definition reference
@@ -61,12 +65,12 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
       modifiers: [],
     }
     onUpdateTree({
-      ...tree,
-      childInstances: [...tree.childInstances, element],
+      ...treeRef.current,
+      childInstances: [...treeRef.current.childInstances, element],
     })
     onLibraryDefinitionSelected?.(reference)
     setPickerOpen(false)
-  }, [tree, onUpdateTree, onLibraryDefinitionSelected])
+  }, [onUpdateTree, onLibraryDefinitionSelected])
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
@@ -33,6 +33,10 @@ export default function CqlLibraryEditorTab({
   const [validationErrors, setValidationErrors] = useState<CqlError[]>([])
   const [validationSuccess, setValidationSuccess] = useState<boolean | null>(null)
 
+  // Ref to avoid validationSuccess in handleChange deps
+  const validationSuccessRef = useRef(validationSuccess)
+  validationSuccessRef.current = validationSuccess
+
   const displayErrors = externalErrors ?? validationErrors
 
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
@@ -49,12 +53,12 @@ export default function CqlLibraryEditorTab({
       lastContentRef.current = value
       onChange(value)
       // Clear validation state on edit
-      if (validationSuccess !== null) {
+      if (validationSuccessRef.current !== null) {
         setValidationSuccess(null)
         setValidationErrors([])
       }
     }
-  }, [onChange, validationSuccess])
+  }, [onChange])
 
   // Sync editor content when cqlContent changes externally
   useEffect(() => {
@@ -137,6 +141,22 @@ export default function CqlLibraryEditorTab({
     }
   }, [cqlContent, t])
 
+  const editorOptions = useMemo(() => ({
+    readOnly,
+    minimap: { enabled: preferences.editorMinimap },
+    fontSize: preferences.editorFontSize,
+    lineNumbers: 'on' as const,
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    tabSize: preferences.editorTabSize,
+    wordWrap: preferences.editorWordWrap,
+    folding: true,
+    bracketPairColorization: { enabled: true },
+    formatOnPaste: false,
+    formatOnType: true,
+    contextmenu: true,
+  }), [readOnly, preferences.editorMinimap, preferences.editorFontSize, preferences.editorTabSize, preferences.editorWordWrap])
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Stack direction="row" spacing={1} sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
@@ -193,21 +213,7 @@ export default function CqlLibraryEditorTab({
           onMount={handleMount}
           onChange={handleChange}
           loading={<CircularProgress />}
-          options={{
-            readOnly,
-            minimap: { enabled: preferences.editorMinimap },
-            fontSize: preferences.editorFontSize,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: preferences.editorTabSize,
-            wordWrap: preferences.editorWordWrap,
-            folding: true,
-            bracketPairColorization: { enabled: true },
-            formatOnPaste: false,
-            formatOnType: true,
-            contextmenu: true,
-          }}
+          options={editorOptions}
         />
       </Box>
     </Box>

@@ -2,8 +2,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Box, Chip, CircularProgress, Divider, Stack, Typography,
 } from '@mui/material'
-import { useQuery } from '@tanstack/react-query'
-import { cqlApi } from '../../api/cqlApi'
+import { useLibraryDependencies, useLibraryDependents } from '../../hooks/useCql'
 import SectionHeader from '../common/SectionHeader'
 
 interface CqlLibraryDependencyTabProps {
@@ -14,17 +13,8 @@ interface CqlLibraryDependencyTabProps {
 export default function CqlLibraryDependencyTab({ libraryId, libraryName }: CqlLibraryDependencyTabProps) {
   const { t } = useTranslation('cqlLibraries')
 
-  const { data: dependencies, isLoading: depsLoading } = useQuery({
-    queryKey: ['cql-library-dependencies', libraryId],
-    queryFn: () => cqlApi.getDependencies(libraryId),
-    enabled: !!libraryId,
-  })
-
-  const { data: dependents, isLoading: dependentsLoading } = useQuery({
-    queryKey: ['cql-library-dependents', libraryName],
-    queryFn: () => cqlApi.getDependents(libraryName),
-    enabled: !!libraryName,
-  })
+  const { data: dependencies, isLoading: depsLoading } = useLibraryDependencies(libraryId)
+  const { data: dependents, isLoading: dependentsLoading } = useLibraryDependents(libraryName)
 
   const isLoading = depsLoading || dependentsLoading
 

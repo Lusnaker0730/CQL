@@ -22,10 +22,9 @@ import { extractApiError } from '../../utils/errorUtils'
 
 interface CqlLibrarySharingTabProps {
   library: CqlLibrary
-  onUpdate?: () => void
 }
 
-export default function CqlLibrarySharingTab({ library, onUpdate }: CqlLibrarySharingTabProps) {
+export default function CqlLibrarySharingTab({ library }: CqlLibrarySharingTabProps) {
   const { t } = useTranslation('cqlLibraries')
 
   const [shareUsername, setShareUsername] = useState('')
@@ -45,23 +44,21 @@ export default function CqlLibrarySharingTab({ library, onUpdate }: CqlLibrarySh
       {
         onSuccess: () => {
           setShareUsername('')
-          onUpdate?.()
         },
         onError: (err) => setError(extractApiError(err)),
       }
     )
-  }, [library.id, shareUsername, shareMutation, onUpdate])
+  }, [library.id, shareUsername, shareMutation])
 
   const handleUnshare = useCallback((username: string) => {
     setError(null)
     unshareMutation.mutate(
       { id: library.id, targetUsername: username },
       {
-        onSuccess: () => onUpdate?.(),
         onError: (err) => setError(extractApiError(err)),
       }
     )
-  }, [library.id, unshareMutation, onUpdate])
+  }, [library.id, unshareMutation])
 
   const handleTransfer = useCallback(() => {
     if (!transferUsername.trim()) return
@@ -71,23 +68,21 @@ export default function CqlLibrarySharingTab({ library, onUpdate }: CqlLibrarySh
       {
         onSuccess: () => {
           setTransferUsername('')
-          onUpdate?.()
         },
         onError: (err) => setError(extractApiError(err)),
       }
     )
-  }, [library.id, transferUsername, transferMutation, onUpdate])
+  }, [library.id, transferUsername, transferMutation])
 
   const handleAccessLevelChange = useCallback((level: string) => {
     setError(null)
     accessLevelMutation.mutate(
       { id: library.id, accessLevel: level },
       {
-        onSuccess: () => onUpdate?.(),
         onError: (err) => setError(extractApiError(err)),
       }
     )
-  }, [library.id, accessLevelMutation, onUpdate])
+  }, [library.id, accessLevelMutation])
 
   const sharedUsers = library.sharedWith || []
 
