@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-103 | 🐛 fix | 2026-03-29 | 後端（CQL 執行） | CV 觀察值序列化遺失 — `toSerializable` 未處理 HAPI FHIR `DecimalType`，回傳 `String` 而非 `BigDecimal`，導致 `extractObservationValues` 無法識別為 `Number`，聚合結果為空；新增 `PrimitiveType<?>` 處理，解包為原始 Java 型別 | CqlExecutionService | [`de38f71`](../../commit/de38f71) |
 | BUG-102 | 🐛 fix | 2026-03-29 | 後端（CQL 執行） | Bulk fetch 遺漏 FunctionRef 內的 Retrieve 類型 — `collectRetrieveTypes` 遇到 `FunctionRef`（繼承 `ExpressionRef`）時跳過，導致 `C3F.Verified([Observation])` 中的 Observation 未被提取，bulk fetch 不拉 Observation 資料，CV 量測 Measure Population 恆為 0 | CqlExecutionService | [`befa1d7`](../../commit/befa1d7) |
 | BUG-101 | 🐛 fix | 2026-03-29 | 後端（CQL 產生） | Episode-based CV Measure Population 型別不匹配 — `preserveListReturn` 未阻止 MostRecent/QuantityValue 等修飾器，導致 Measure Population 回傳 `System.Quantity` 而非資源列表，與 Measure Observation 函數簽名不匹配；新增 `isListCollapsingOrValueExtractingModifier` 檢查，跳過折疊列表和提取標量的修飾器 | ExpressionCqlEngine | [`c2360c1`](../../commit/c2360c1) |
 | PAT-064 | ✨ feature | 2026-03-26 | 全端（品質量測） | Continuous-variable 觀察值聚合 — CQL 產生觀察函數 wrapper define、PopulationEvaluator 收集觀察值、MeasureScoreCalculator 實作 Average/Sum/Median/Min/Max/Count 聚合、前端顯示聚合統計（取代百分比） | 9 檔案、+313 行 | [`1541323`](../../commit/1541323) |
