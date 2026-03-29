@@ -1,0 +1,193 @@
+{
+  "page": {
+    "title": "CQL Libraries",
+    "description": "Manage, version, and share CQL library definitions across your organization."
+  },
+  "list": {
+    "title": "Libraries",
+    "newLibrary": "New Library",
+    "searchPlaceholder": "Search libraries by name...",
+    "emptyState": "No CQL libraries yet. Create your first library to get started.",
+    "noResults": "No libraries match your search criteria.",
+    "importFhir": "Import FHIR Library",
+    "importCql": "Import CQL",
+    "colName": "Name",
+    "colVersion": "Version",
+    "colStatus": "Status",
+    "colOwner": "Owner",
+    "colUpdated": "Last Updated",
+    "colAccess": "Access",
+    "colActions": "Actions",
+    "tabs": {
+      "all": "All",
+      "myLibraries": "My Libraries",
+      "sharedWithMe": "Shared with Me",
+      "public": "Public"
+    },
+    "deleteConfirm": "Delete Library",
+    "deleteConfirmMessage": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "accessPrivate": "Private",
+    "accessShared": "Shared",
+    "accessPublic": "Public",
+    "editLibrary": "Edit",
+    "shareLibrary": "Share",
+    "createVersion": "Create Version",
+    "deleteLibrary": "Delete",
+    "versionConfirm": "Create a new version of \"{{name}}\"?",
+    "versionConfirmTitle": "Create New Version",
+    "noDate": "N/A"
+  },
+  "create": {
+    "title": "Create New Library",
+    "name": "Library Name",
+    "nameHint": "A valid CQL library identifier (e.g., MyLibrary)",
+    "nameError": "Library name is required and must be a valid CQL identifier.",
+    "description": "Description",
+    "descriptionHint": "Optional description of the library's purpose.",
+    "model": "Data Model",
+    "cqlContent": "CQL Content",
+    "creating": "Creating...",
+    "create": "Create"
+  },
+  "workspace": {
+    "tabs": {
+      "cqlEditor": "CQL Editor",
+      "metadata": "Metadata",
+      "dependencies": "Dependencies",
+      "history": "History",
+      "sharing": "Sharing"
+    },
+    "saving": "Saving...",
+    "saved": "All changes saved",
+    "unsavedChanges": "Unsaved changes",
+    "saveFailed": "Failed to save changes",
+    "readOnly": "Read-only",
+    "unsavedTitle": "Unsaved Changes",
+    "unsavedMessage": "You have unsaved changes. Do you want to save before leaving?",
+    "discardChanges": "Discard Changes",
+    "saveAndLeave": "Save & Leave"
+  },
+  "header": {
+    "backToList": "Back to Libraries",
+    "save": "Save",
+    "saving": "Saving...",
+    "version": "Version",
+    "createVersion": "Create Version",
+    "createDraft": "Create Draft",
+    "compare": "Compare Versions",
+    "share": "Share",
+    "export": "Export",
+    "delete": "Delete",
+    "versionMajor": "Major",
+    "versionMinor": "Minor",
+    "versionType": "Version Type",
+    "versionConfirm": "Create a new {{type}} version of this library?"
+  },
+  "metadata": {
+    "description": "Description",
+    "status": "Status",
+    "accessLevel": "Access Level",
+    "owner": "Owner",
+    "createdAt": "Created",
+    "updatedAt": "Last Updated",
+    "dependencies": "Dependencies",
+    "publisher": "Publisher"
+  },
+  "dependency": {
+    "title": "Dependency Analysis",
+    "noDeps": "This library has no dependencies.",
+    "dependents": "Dependents",
+    "noDependents": "No other libraries depend on this library.",
+    "directDeps": "Direct Dependencies",
+    "transitiveDeps": "Transitive Dependencies",
+    "impactAnalysis": "Impact Analysis"
+  },
+  "history": {
+    "title": "Version History",
+    "noHistory": "No version history available.",
+    "version": "Version",
+    "status": "Status",
+    "date": "Date",
+    "actions": "Actions",
+    "loadVersion": "Load Version",
+    "createDraftFrom": "Create Draft from This Version"
+  },
+  "sharing": {
+    "title": "Sharing Settings",
+    "shareWith": "Share With",
+    "enterUsername": "Enter username",
+    "sharedUsers": "Shared Users",
+    "noSharedUsers": "This library is not shared with anyone.",
+    "unshare": "Unshare",
+    "transfer": "Transfer Ownership",
+    "transferTo": "Transfer to",
+    "retainAccess": "Retain access after transfer"
+  },
+  "editor": {
+    "validate": "Validate CQL",
+    "validating": "Validating...",
+    "validateFailed": "Validation request failed.",
+    "validationSuccess": "CQL is valid. No errors found.",
+    "validationErrorCount": "{{count}} error(s) found"
+  },
+  "import": {
+    "title": "Import Library",
+    "fhirTab": "FHIR Library",
+    "cqlTab": "Raw CQL",
+    "uploadFile": "Upload JSON File",
+    "pasteJson": "Or paste FHIR Library JSON",
+    "pasteCql": "Paste CQL content",
+    "importing": "Importing...",
+    "import": "Import",
+    "importSuccess": "Library imported successfully.",
+    "uploadHint": "Upload a FHIR Library resource (.json)"
+  },
+  "export": {
+    "exporting": "Exporting...",
+    "exportSuccess": "Library exported successfully.",
+    "exportFailed": "Failed to export library."
+  },
+  "version": {
+    "createConfirmTitle": "Create New Version",
+    "createConfirmMessage": "Select the version type for this library:",
+    "creatingVersion": "Creating version...",
+    "versionCreated": "New version created successfully."
+  },
+  "compare": {
+    "title": "Compare Versions",
+    "selectTwo": "Select two versions to compare.",
+    "oldVersion": "Old Version",
+    "newVersion": "New Version",
+    "noDifferences": "No differences found between the selected versions.",
+    "compareSelected": "Compare Selected"
+  },
+  "draft": {
+    "createTitle": "Create Draft",
+    "createMessage": "Create a new draft based on version {{version}}?",
+    "creating": "Creating draft..."
+  },
+  "picker": {
+    "title": "Select Library Definition",
+    "searchLibraries": "Search libraries by name...",
+    "selectLibrary": "Select a Library",
+    "selectDefinition": "Select a Definition",
+    "noDefinitions": "No define statements found in this library.",
+    "alias": "Alias",
+    "aliasHint": "Short alias used in CQL include statement (e.g., DM)",
+    "select": "Select",
+    "back": "Back",
+    "step1Title": "Select Library",
+    "step2Title": "Select Definition",
+    "generateInclude": "Reference expression",
+    "useLibraryDefinition": "Use Library Definition"
+  },
+  "errors": {
+    "createFailed": "Failed to create library: {{error}}",
+    "updateFailed": "Failed to update library: {{error}}",
+    "deleteFailed": "Failed to delete library: {{error}}",
+    "versionFailed": "Failed to create version: {{error}}",
+    "shareFailed": "Failed to share library: {{error}}",
+    "importFailed": "Failed to import library: {{error}}",
+    "exportFailed": "Failed to export library: {{error}}"
+  }
+}

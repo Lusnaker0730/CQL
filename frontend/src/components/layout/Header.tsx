@@ -51,6 +51,7 @@ const baseNavItems = [
   { labelKey: 'nav.measures', path: '/measures' },
   { labelKey: 'nav.authoring', path: '/authoring' },
   { labelKey: 'nav.ecqm', path: '/ecqm' },
+  { labelKey: 'nav.cqlLibraries', path: '/cql-libraries' },
   { labelKey: 'nav.fhirBrowser', path: '/fhir' },
   { labelKey: 'nav.terminology', path: '/terminology' },
   { labelKey: 'nav.patientGenerator', path: '/patient-generator' },

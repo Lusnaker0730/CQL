@@ -28,6 +28,7 @@ const EcqmPage = lazy(() => import('./pages/EcqmPage'))
 const OktaCallbackPage = lazy(() => import('./pages/OktaCallbackPage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
 const PatientGeneratorPage = lazy(() => import('./pages/PatientGeneratorPage'))
+const CqlLibrariesPage = lazy(() => import('./pages/CqlLibrariesPage'))
 
 export default function App() {
   const dispatch = useDispatch()
@@ -126,6 +127,14 @@ export default function App() {
                         element={
                           <ErrorBoundary fallbackTitle="eCQM Builder Error">
                             <EcqmPage />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/cql-libraries"
+                        element={
+                          <ErrorBoundary fallbackTitle={t('errors.cqlLibrariesError')}>
+                            <CqlLibrariesPage />
                           </ErrorBoundary>
                         }
                       />

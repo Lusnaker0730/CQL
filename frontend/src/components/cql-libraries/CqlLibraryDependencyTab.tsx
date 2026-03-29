@@ -1,0 +1,90 @@
+import { useTranslation } from 'react-i18next'
+import {
+  Box, Chip, CircularProgress, Divider, Stack, Typography,
+} from '@mui/material'
+import { useQuery } from '@tanstack/react-query'
+import { cqlApi } from '../../api/cqlApi'
+import SectionHeader from '../common/SectionHeader'
+
+interface CqlLibraryDependencyTabProps {
+  libraryId: string
+  libraryName: string
+}
+
+export default function CqlLibraryDependencyTab({ libraryId, libraryName }: CqlLibraryDependencyTabProps) {
+  const { t } = useTranslation('cqlLibraries')
+
+  const { data: dependencies, isLoading: depsLoading } = useQuery({
+    queryKey: ['cql-library-dependencies', libraryId],
+    queryFn: () => cqlApi.getDependencies(libraryId),
+    enabled: !!libraryId,
+  })
+
+  const { data: dependents, isLoading: dependentsLoading } = useQuery({
+    queryKey: ['cql-library-dependents', libraryName],
+    queryFn: () => cqlApi.getDependents(libraryName),
+    enabled: !!libraryName,
+  })
+
+  const isLoading = depsLoading || dependentsLoading
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ maxWidth: 800 }}>
+      <SectionHeader title={t('dependency.title')} />
+
+      {/* Direct Dependencies */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('dependency.directDeps')}</Typography>
+        {dependencies && dependencies.length > 0 ? (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {dependencies.map((dep) => (
+              <Chip
+                key={dep.id}
+                label={`${dep.name} v${dep.version}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {t('dependency.noDeps')}
+          </Typography>
+        )}
+      </Box>
+
+      <Divider sx={{ my: 2 }} />
+
+      {/* Dependents (who depends on this library) */}
+      <Box>
+        <Typography variant="subtitle2" gutterBottom>{t('dependency.dependents')}</Typography>
+        {dependents && dependents.length > 0 ? (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {dependents.map((dep) => (
+              <Chip
+                key={dep.id}
+                label={`${dep.name} v${dep.version}`}
+                size="small"
+                variant="outlined"
+                color="secondary"
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {t('dependency.noDependents')}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  )
+}
