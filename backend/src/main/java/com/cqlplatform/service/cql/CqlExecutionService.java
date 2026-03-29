@@ -597,6 +597,12 @@ public class CqlExecutionService {
                 for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types);
             }
             if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types);
+        } else if (element instanceof org.hl7.elm.r1.FunctionRef funcRef) {
+            // FunctionRef extends ExpressionRef but carries operands from THIS library
+            // (e.g. C3F.Verified([Observation: ...]) — the [Observation] Retrieve is our operand)
+            if (funcRef.getOperand() != null) {
+                for (var op : funcRef.getOperand()) collectRetrieveTypes(op, types);
+            }
         } else if (element instanceof org.hl7.elm.r1.ExpressionRef) {
             // Skip — will be resolved by the defining expression
         } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
@@ -790,6 +796,14 @@ public class CqlExecutionService {
         if (value instanceof java.time.LocalDateTime) return value.toString();
         if (value instanceof org.opencds.cqf.cql.engine.runtime.Quantity q) {
             return q.getValue() + (q.getUnit() != null ? " '" + q.getUnit() + "'" : "");
+        }
+        // HAPI FHIR PrimitiveType (DecimalType, IntegerType, BooleanType, StringType, etc.)
+        if (value instanceof org.hl7.fhir.r4.model.PrimitiveType<?> pt) {
+            Object primitiveValue = pt.getValue();
+            if (primitiveValue instanceof Number || primitiveValue instanceof Boolean || primitiveValue instanceof String) {
+                return primitiveValue;
+            }
+            return pt.getValueAsString();
         }
         if (value instanceof org.opencds.cqf.cql.engine.runtime.Tuple t) {
             Map<String, Object> map = new java.util.LinkedHashMap<>();

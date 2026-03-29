@@ -15,6 +15,7 @@ import adminEn from './locales/en/admin.json'
 import ecqmEn from './locales/en/ecqm.json'
 import landingEn from './locales/en/landing.json'
 import patientGeneratorEn from './locales/en/patientGenerator.json'
+import cqlLibrariesEn from './locales/en/cqlLibraries.json'
 
 import commonZhTW from './locales/zh-TW/common.json'
 import validationZhTW from './locales/zh-TW/validation.json'
@@ -29,6 +30,7 @@ import adminZhTW from './locales/zh-TW/admin.json'
 import ecqmZhTW from './locales/zh-TW/ecqm.json'
 import landingZhTW from './locales/zh-TW/landing.json'
 import patientGeneratorZhTW from './locales/zh-TW/patientGenerator.json'
+import cqlLibrariesZhTW from './locales/zh-TW/cqlLibraries.json'
 
 // Both languages statically bundled — zh-TW is the default
 
@@ -36,8 +38,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: { common: commonEn, validation: validationEn, editor: editorEn, builder: builderEn, measures: measuresEn, cds: cdsEn, fhir: fhirEn, terminology: terminologyEn, authoring: authoringEn, admin: adminEn, ecqm: ecqmEn, landing: landingEn, patientGenerator: patientGeneratorEn },
-      'zh-TW': { common: commonZhTW, validation: validationZhTW, editor: editorZhTW, builder: builderZhTW, measures: measuresZhTW, cds: cdsZhTW, fhir: fhirZhTW, terminology: terminologyZhTW, authoring: authoringZhTW, admin: adminZhTW, ecqm: ecqmZhTW, landing: landingZhTW, patientGenerator: patientGeneratorZhTW },
+      en: { common: commonEn, validation: validationEn, editor: editorEn, builder: builderEn, measures: measuresEn, cds: cdsEn, fhir: fhirEn, terminology: terminologyEn, authoring: authoringEn, admin: adminEn, ecqm: ecqmEn, landing: landingEn, patientGenerator: patientGeneratorEn, cqlLibraries: cqlLibrariesEn },
+      'zh-TW': { common: commonZhTW, validation: validationZhTW, editor: editorZhTW, builder: builderZhTW, measures: measuresZhTW, cds: cdsZhTW, fhir: fhirZhTW, terminology: terminologyZhTW, authoring: authoringZhTW, admin: adminZhTW, ecqm: ecqmZhTW, landing: landingZhTW, patientGenerator: patientGeneratorZhTW, cqlLibraries: cqlLibrariesZhTW },
     },
     lng: localStorage.getItem('cql-platform-language') || 'zh-TW',
     fallbackLng: 'en',
