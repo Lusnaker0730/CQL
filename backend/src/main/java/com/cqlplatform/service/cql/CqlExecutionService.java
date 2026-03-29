@@ -797,6 +797,14 @@ public class CqlExecutionService {
         if (value instanceof org.opencds.cqf.cql.engine.runtime.Quantity q) {
             return q.getValue() + (q.getUnit() != null ? " '" + q.getUnit() + "'" : "");
         }
+        // HAPI FHIR PrimitiveType (DecimalType, IntegerType, BooleanType, StringType, etc.)
+        if (value instanceof org.hl7.fhir.r4.model.PrimitiveType<?> pt) {
+            Object primitiveValue = pt.getValue();
+            if (primitiveValue instanceof Number || primitiveValue instanceof Boolean || primitiveValue instanceof String) {
+                return primitiveValue;
+            }
+            return pt.getValueAsString();
+        }
         if (value instanceof org.opencds.cqf.cql.engine.runtime.Tuple t) {
             Map<String, Object> map = new java.util.LinkedHashMap<>();
             for (String key : t.getElements().keySet()) {
