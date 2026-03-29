@@ -238,6 +238,12 @@ public class ExpressionCqlEngine {
         List<Map<String, Object>> modifiers = (List<Map<String, Object>>) element.get("modifiers");
         if (modifiers != null) {
             for (Map<String, Object> mod : modifiers) {
+                // Episode-based CV Measure Population: skip modifiers that collapse a list
+                // to a single item or extract non-resource values, so the population returns
+                // a resource list for the Measure Observation wrapper to iterate over.
+                if (ctx.preserveListReturn && isListCollapsingOrValueExtractingModifier(mod)) {
+                    continue;
+                }
                 expr = applyModifier(expr, mod, ctx);
             }
         }
@@ -906,6 +912,28 @@ public class ExpressionCqlEngine {
 
     public String getCodeSystemDisplayName(String systemUrl) {
         return AuthoringConstants.getCodeSystemDisplayName(systemUrl);
+    }
+
+    /**
+     * Returns true if the modifier collapses a list to a single item (e.g. MostRecent, First)
+     * or extracts a scalar value from a resource (e.g. QuantityValue, ConceptValue).
+     * These must be skipped when preserveListReturn is true so that the Measure Population
+     * returns a resource list for the Measure Observation function to iterate over.
+     */
+    private boolean isListCollapsingOrValueExtractingModifier(Map<String, Object> modifier) {
+        String cqlLibFunc = getStr(modifier, "cqlLibraryFunction", "");
+        // List-collapsing: picks one item from a list
+        if (cqlLibFunc.contains("MostRecent") || cqlLibFunc.contains("First")
+                || cqlLibFunc.contains("Last") || cqlLibFunc.contains("Highest")
+                || cqlLibFunc.contains("Lowest")) {
+            return true;
+        }
+        // Value-extracting: converts a resource to a scalar type
+        if (cqlLibFunc.contains("QuantityValue") || cqlLibFunc.contains("ConceptValue")
+                || cqlLibFunc.contains("DateTimeValue")) {
+            return true;
+        }
+        return false;
     }
 
     public String getFinalReturnType(Map<String, Object> element, List<Map<String, Object>> modifiers) {
