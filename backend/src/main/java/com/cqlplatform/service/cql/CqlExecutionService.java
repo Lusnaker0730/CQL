@@ -597,6 +597,12 @@ public class CqlExecutionService {
                 for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types);
             }
             if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types);
+        } else if (element instanceof org.hl7.elm.r1.FunctionRef funcRef) {
+            // FunctionRef extends ExpressionRef but carries operands from THIS library
+            // (e.g. C3F.Verified([Observation: ...]) — the [Observation] Retrieve is our operand)
+            if (funcRef.getOperand() != null) {
+                for (var op : funcRef.getOperand()) collectRetrieveTypes(op, types);
+            }
         } else if (element instanceof org.hl7.elm.r1.ExpressionRef) {
             // Skip — will be resolved by the defining expression
         } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
