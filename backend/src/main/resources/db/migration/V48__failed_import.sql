@@ -1,6 +1,6 @@
 -- V48: Failed import tracking for error recovery
 CREATE TABLE failed_import (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     connection_id BIGINT NOT NULL,
     patient_fhir_id VARCHAR(200) NOT NULL,
     measure_id BIGINT,
@@ -17,5 +17,5 @@ CREATE TABLE failed_import (
 );
 
 CREATE INDEX idx_failed_import_status ON failed_import (status);
-CREATE INDEX idx_failed_import_next_retry ON failed_import (next_retry_at) WHERE status = 'pending';
+CREATE INDEX idx_failed_import_next_retry ON failed_import (next_retry_at, status);
 CREATE INDEX idx_failed_import_connection ON failed_import (connection_id);

@@ -12,7 +12,7 @@
 | Editor | Monaco Editor | 4.6 |
 | State | Redux Toolkit + TanStack React Query | 2.0 / 5.8 |
 | i18n | i18next + react-i18next | 25 / 16 |
-| DB | PostgreSQL (prod) / H2 (dev) | — |
+| DB | PostgreSQL (prod & dev) / H2 (test only) | — |
 | Cache | Caffeine (in-process) | — |
 | CQL Engine | CQL Framework + HAPI FHIR | 3.29 / 7.0 |
 | Templates | FreeMarker (.ftl) | — |
@@ -77,6 +77,9 @@ backend/src/main/resources/
 ## 開發指令
 
 ```bash
+# Dev DB (PostgreSQL via Docker — 首次需先啟動)
+docker compose -f docker/docker-compose.dev-pg.yml up -d
+
 # Backend
 "/c/Program Files/apache-maven-3.9.9/bin/mvn" -f backend/pom.xml test     # 執行測試
 "/c/Program Files/apache-maven-3.9.9/bin/mvn" -f backend/pom.xml compile  # 編譯
