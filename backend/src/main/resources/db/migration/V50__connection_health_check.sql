@@ -1,5 +1,5 @@
 CREATE TABLE connection_health_check (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     connection_id BIGINT NOT NULL,
     status VARCHAR(20) NOT NULL,
     response_time_ms BIGINT,

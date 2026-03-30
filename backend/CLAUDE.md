@@ -78,7 +78,7 @@ ecqm/        (1 file)              — standard-sde
 
 ## 資料庫
 
-- PostgreSQL (prod) / H2 (dev)
+- PostgreSQL (prod & dev) / H2 (test only)
 - Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V40）
 - 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份）
 - JPA `ddl-auto=validate`（不會自動建表）
@@ -119,6 +119,6 @@ $mvn -f backend/pom.xml test -Dtest=XxxTest  # 單一測試
 ## 關鍵設定
 
 - `application.yml` — 主配置（port 8080, HikariCP max=20）
-- `application-dev.yml` — H2 記憶體資料庫
+- `application-dev.yml` — 本機 PostgreSQL (docker/docker-compose.dev-pg.yml)
 - `application-docker.yml` — Docker 環境變數覆蓋
 - `logback-spring.xml` — 結構化日誌

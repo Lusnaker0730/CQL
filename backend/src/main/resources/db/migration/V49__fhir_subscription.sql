@@ -1,5 +1,5 @@
 CREATE TABLE fhir_subscription (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     connection_id BIGINT NOT NULL,
     fhir_subscription_id VARCHAR(200),
     criteria VARCHAR(500) NOT NULL,

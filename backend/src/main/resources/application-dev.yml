@@ -1,14 +1,15 @@
-# Development profile - H2 in-memory database
+# Development profile - local PostgreSQL via Docker
+# Start DB: docker compose -f docker/docker-compose.dev-pg.yml up -d
 # Secrets must be provided via environment variables (JWT_SECRET, ENCRYPTION_KEY)
 # Example: export JWT_SECRET="YourDevSecretKeyMustBeAtLeast256BitsLongForSecurity!!"
 # Example: export ENCRYPTION_KEY="YourDevEncryptionKey32BytesLong!"
 
 spring:
   datasource:
-    url: jdbc:h2:file:./data/cqlplatform;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/cqlplatform_dev
+    driver-class-name: org.postgresql.Driver
+    username: dev
+    password: dev
     hikari:
       maximum-pool-size: 15
       minimum-idle: 3
@@ -19,13 +20,13 @@ spring:
       pool-name: CqlPlatformPool-Dev
 
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
-  # Disable Flyway for H2 dev mode (use Hibernate auto DDL)
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 
   # Dev mail config (logs to console instead of sending)
   mail:
@@ -42,13 +43,6 @@ spring:
 
 # VSAC API Key (NLM UMLS) - must be provided via environment variable
 # Example: export VSAC_API_KEY="your-vsac-api-key"
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-      settings:
-        web-allow-others: false
 
 refresh-token:
   cookie-secure: false   # dev runs on HTTP

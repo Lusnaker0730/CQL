@@ -1,6 +1,6 @@
 -- V47: Batch import job tracking table
 CREATE TABLE batch_import_job (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     connection_id BIGINT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     total_patients INT NOT NULL DEFAULT 0,
