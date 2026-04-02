@@ -118,9 +118,28 @@
       "Bash(powershell.exe -Command \"Get-ChildItem ''$env:USERPROFILE\\\\.vscode\\\\extensions'' -Directory -Filter ''*java*'' -ErrorAction SilentlyContinue | Select-Object Name\")",
       "Bash(powershell.exe -Command \"Get-Process *code* -ErrorAction SilentlyContinue | Select-Object Name,Path | Format-Table -AutoSize\")",
       "Bash(powershell.exe -Command \"Test-Path ''$env:LOCALAPPDATA\\\\Programs\\\\Microsoft VS Code''; Test-Path ''$env:USERPROFILE\\\\.vscode''; Get-ChildItem ''$env:USERPROFILE\\\\.vscode'' -ErrorAction SilentlyContinue | Select-Object Name\")",
-      "Bash(\"/c/Program Files/apache-maven-3.9.9/bin/mvn\" -f backend/pom.xml compile -q 2>&1)",
-      "Bash(\"/c/Program Files/apache-maven-3.9.9/bin/mvn\" -f backend/pom.xml test -Dtest=\"CqlExecutionIntegrationTest,CqlPipelineIntegrationTest\" -pl .)",
-      "Bash(git mv:*)"
+      "Bash(git checkout:*)",
+      "Bash(powershell.exe -Command \"Get-Command gh -ErrorAction SilentlyContinue | Select-Object Source\")",
+      "Bash(grep '\"\"@mui/material\"\"' package.json)",
+      "Read(//c/Program Files/GitHub CLI//**)",
+      "Read(//c/Users/alumi/scoop/shims/**)",
+      "Read(//c/Users/alumi/AppData/Local/Programs/**)",
+      "Bash(powershell.exe -Command \"where.exe gh\")",
+      "Bash(powershell.exe -Command \"\\(Get-Command gh\\).Source\")",
+      "Bash(powershell.exe -Command \"where.exe gh 2>\\\\$null; Test-Path 'C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe'; Test-Path 'C:\\\\Users\\\\alumi\\\\AppData\\\\Local\\\\GitHub CLI\\\\gh.exe'\")",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr view 115 --json title,state,statusCheckRollup --jq '{title: .title, state: .state, checks: [.statusCheckRollup[] | {name: .name, status: .status, conclusion: .conclusion}]}')",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr checks 115 2>&1)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23464791181 --log-failed)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --branch feat/patient-generator --limit 3 2>&1)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --branch feat/patient-generator --limit 2 2>&1)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23465303580 --log-failed)",
+      "Bash(node:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23468350317 --log-failed)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 23468502542 --log)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr merge 115 --merge --subject \"feat: add TW Core IG patient generator + SMART Backend Services EHR auth \\(#PAT-059 #PAT-060\\)\" 2>&1)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr view 115 --json state,mergedAt --jq '{state: .state, mergedAt: .mergedAt}' 2>&1)",
+      "Bash(ssh:*)",
+      "Bash(\"/c/Users/alumi/apache-maven-3.9.12/bin/mvn\" -f backend/pom.xml test -Dtest=\"ExpressionCqlEngineTest,EcqmControllerTest,ExpressionTreeValidatorTest\" -q)"
     ]
   }
 }
