@@ -209,6 +209,20 @@ public class ExpressionCqlEngine {
                 }
                 break;
             }
+            case "externalCqlElement": {
+                // Library definition reference from LibraryDefinitionPicker (eCQM integration)
+                String alias = getFieldValue(fields, "alias", "");
+                String defName = getFieldValue(fields, "definitionName", "");
+                if (alias != null && !alias.isEmpty() && defName != null && !defName.isEmpty()) {
+                    expr = String.format("\"%s\".\"%s\"", escapeCqlIdentifier(alias), escapeCqlIdentifier(defName));
+                } else if (defName != null && !defName.isEmpty()) {
+                    expr = String.format("\"%s\"", escapeCqlIdentifier(defName));
+                } else {
+                    ctx.warn(String.format("External CQL element '%s' has no definition name", elementName));
+                    expr = "null /* missing library definition */";
+                }
+                break;
+            }
             case "arithmeticExpression": {
                 String operator = getFieldValue(fields, "operator", "+");
                 // Validate operator to prevent injection
@@ -621,6 +635,23 @@ public class ExpressionCqlEngine {
                             safeLibName, escapeCqlString(libVersion), safeLibName);
                 } else {
                     includeStmt = String.format("include %s called %s", safeLibName, safeLibName);
+                }
+                includes.add(includeStmt);
+            }
+        } else if ("externalCqlElement".equals(type)) {
+            List<Map<String, Object>> extFields = (List<Map<String, Object>>) node.get("fields");
+            String libName = getFieldValue(extFields, "libraryName", null);
+            String libVersion = getFieldValue(extFields, "libraryVersion", null);
+            String alias = getFieldValue(extFields, "alias", null);
+            if (libName != null && !libName.isEmpty()) {
+                String safeLibName = libName.replaceAll("[^a-zA-Z0-9_]", "_");
+                String called = (alias != null && !alias.isEmpty()) ? alias : safeLibName;
+                String includeStmt;
+                if (libVersion != null && !libVersion.isEmpty()) {
+                    includeStmt = String.format("include %s version '%s' called %s",
+                            safeLibName, escapeCqlString(libVersion), called);
+                } else {
+                    includeStmt = String.format("include %s called %s", safeLibName, called);
                 }
                 includes.add(includeStmt);
             }
