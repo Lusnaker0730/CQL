@@ -447,7 +447,8 @@ public class MeasureEvaluationService {
 
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
-                .measureName(context.getMeasureId())
+                .measureName(context.getMeasureDefinition() != null && context.getMeasureDefinition().getName() != null
+                        ? context.getMeasureDefinition().getName() : context.getMeasureId())
                 .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
@@ -509,7 +510,8 @@ public class MeasureEvaluationService {
 
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
-                .measureName(context.getMeasureId())
+                .measureName(context.getMeasureDefinition() != null && context.getMeasureDefinition().getName() != null
+                        ? context.getMeasureDefinition().getName() : context.getMeasureId())
                 .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())

@@ -33,5 +33,6 @@ public class QualityReport {
         private Double score;
         private String status; // above_target, below_target, warning, critical
         private Double targetThreshold;
+        private String scoringType; // proportion, ratio, continuous-variable, cohort
     }
 }
