@@ -17,6 +17,13 @@ interface QualityReportPanelProps {
   report: QualityReportData | null
 }
 
+function formatScore(score: number | undefined | null, scoringType?: string, naLabel = 'N/A'): string {
+  if (score == null) return naLabel
+  // Continuous-variable scores are raw values (e.g., HbA1c 5.6), not percentages
+  if (scoringType === 'continuous-variable') return score.toFixed(1)
+  return `${score.toFixed(1)}%`
+}
+
 export default function QualityReportPanel({ report }: QualityReportPanelProps) {
   const { t } = useTranslation('measures')
   const { t: tCommon } = useTranslation('common')
@@ -71,7 +78,7 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
               <TableRow key={ms.measureId}>
                 <TableCell>{ms.measureName}</TableCell>
                 <TableCell align="right">
-                  {ms.score != null ? `${ms.score.toFixed(1)}%` : tCommon('notAvailable')}
+                  {formatScore(ms.score, ms.scoringType, tCommon('notAvailable'))}
                 </TableCell>
                 <TableCell align="right">
                   {ms.targetThreshold != null ? `${ms.targetThreshold}%` : '-'}

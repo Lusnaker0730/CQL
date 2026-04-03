@@ -83,12 +83,31 @@ public class DashboardService {
 
         return reports.stream()
                 .map(r -> EnhancedDashboardData.TrendDataPoint.builder()
-                        .period((r.getPeriodStart() != null ? r.getPeriodStart() : "?") + " to " + (r.getPeriodEnd() != null ? r.getPeriodEnd() : "?"))
+                        .period(formatPeriodLabel(r.getPeriodStart(), r.getPeriodEnd()))
                         .measureName(r.getMeasureName())
                         .measureId(r.getMeasureDefinitionId())
                         .score(r.getMeasureScore())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Format period label concisely based on the date range.
+     * Same month → "Jan 2026", same year → "Jan-Mar 2026", cross-year → "Dec 25-Jan 26"
+     */
+    private String formatPeriodLabel(LocalDate start, LocalDate end) {
+        if (start == null && end == null) return "?";
+        if (start == null) return end.toString();
+        if (end == null) return start.toString();
+        String sMonth = start.getMonth().name().substring(0, 3);
+        String eMonth = end.getMonth().name().substring(0, 3);
+        if (start.getYear() == end.getYear() && start.getMonth() == end.getMonth()) {
+            return sMonth + " " + start.getYear();
+        }
+        if (start.getYear() == end.getYear()) {
+            return sMonth + "-" + eMonth + " " + start.getYear();
+        }
+        return sMonth + " " + (start.getYear() % 100) + "-" + eMonth + " " + (end.getYear() % 100);
     }
 
     @Transactional(readOnly = true)
@@ -156,16 +175,23 @@ public class DashboardService {
 
         List<QualityReport.MeasureScoreSummary> scoreSummaries = new ArrayList<>();
         int above = 0, below = 0;
-        double totalScore = 0;
-        int scored = 0;
+        // Only average proportion-compatible measures (proportion, ratio, cohort)
+        // Continuous-variable scores represent raw values (e.g., HbA1c 5.6),
+        // not percentages, so mixing them with proportion scores is meaningless.
+        double proportionTotal = 0;
+        int proportionScored = 0;
 
         for (MeasureDefinitionEntity m : measures) {
             Double score = latestScores.get(m.getId());
             Double target = targetMap.get(m.getId());
+            String scoring = m.getScoringType() != null ? m.getScoringType() : "proportion";
             String status = "no_data";
             if (score != null) {
-                scored++;
-                totalScore += score;
+                boolean isProportionLike = !"continuous-variable".equals(scoring);
+                if (isProportionLike) {
+                    proportionScored++;
+                    proportionTotal += score;
+                }
                 if (target != null) {
                     status = score >= target ? "above_target" : "below_target";
                     if (score >= target) above++;
@@ -178,6 +204,7 @@ public class DashboardService {
                     .score(score)
                     .status(status)
                     .targetThreshold(target)
+                    .scoringType(scoring)
                     .build());
         }
 
@@ -188,7 +215,7 @@ public class DashboardService {
                 .totalMeasures(measures.size())
                 .measuresAboveTarget(above)
                 .measuresBelowTarget(below)
-                .averageScore(scored > 0 ? totalScore / scored : 0)
+                .averageScore(proportionScored > 0 ? proportionTotal / proportionScored : 0)
                 .measureScores(scoreSummaries)
                 .departmentAverages(computeDepartmentScores())
                 .build();

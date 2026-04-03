@@ -1153,6 +1153,7 @@ export interface MeasureScoreSummary {
   score?: number
   status: string
   targetThreshold?: number
+  scoringType?: string
 }
 
 // Department types
