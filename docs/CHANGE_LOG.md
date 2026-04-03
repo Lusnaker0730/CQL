@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| BUG-105 | 🐛 fix | 2026-04-03 | 全端（品質指標儀表板） | 品質報告混合計分類型平均 + 趨勢圖難理解 — 品質報告把 proportion（百分比）和 continuous-variable（原始數值如 HbA1c 5.6）混在一起平均，改為只平均比例型指標；趨勢圖 X 軸標籤過長改為簡短格式，修正 measureName 儲存 ID 而非名稱 | DashboardService、MeasureEvaluationService、QualityReportPanel | |
 | BUG-104 | 🐛 fix | 2026-04-02 | 後端（eCQM 驗證/CQL 產生） | eCQM 程式庫定義儲存失敗 — LibraryDefinitionPicker 建立 `externalCqlElement` 元素但後端驗證器不認識此型別，導致 ValidationException；新增 TemplateService BUILTIN_REFERENCE_TYPES + ExpressionCqlEngine CQL 產生/include 收集 | TemplateService、ExpressionCqlEngine | |
 | PAT-065 | ✨ feature | 2026-03-29 | 前端（CQL 程式庫） | CQL Library Management UI — 完整複製 MADiE 程式庫系統：4-Tab 列表(All/Mine/Shared/Public)+搜尋排序、5-Tab 工作區(CQL Editor/Metadata/Dependencies/History/Sharing)、auto-save+Ctrl+S、版本管理(Major/Minor/Draft/Compare)、FHIR/CQL 匯入匯出、分享/轉移、依賴分析、eCQM LibraryDefinitionPicker 整合、i18n EN+zh-TW | 15 新檔案、+3234 行 | [`fbbb4a0`](../../commit/fbbb4a0) |
 | BUG-103 | 🐛 fix | 2026-03-29 | 後端（CQL 執行） | CV 觀察值序列化遺失 — `toSerializable` 未處理 HAPI FHIR `DecimalType`，回傳 `String` 而非 `BigDecimal`，導致 `extractObservationValues` 無法識別為 `Number`，聚合結果為空；新增 `PrimitiveType<?>` 處理，解包為原始 Java 型別 | CqlExecutionService | [`de38f71`](../../commit/de38f71) |
