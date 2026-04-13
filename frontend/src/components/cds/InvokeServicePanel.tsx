@@ -56,7 +56,9 @@ import {
   FEEDBACK_OVERRIDE_CODE,
   FEEDBACK_OVERRIDE_DEFAULT_DISPLAY,
   getIndicatorColor,
+  getStringContextFields,
 } from '../../constants/cdsHooks'
+import type { CdsContextField } from '../../constants/cdsHooks'
 
 function getIndicatorIcon(indicator: string) {
   switch (indicator) {
@@ -82,7 +84,7 @@ export default function InvokeServicePanel() {
   const { showNotification } = useNotification()
 
   const [selectedService, setSelectedService] = useState<string>('')
-  const [patientId, setPatientId] = useState('')
+  const [contextFields, setContextFields] = useState<Record<string, string>>({})
   const [fhirServer, setFhirServer] = useState(FHIR_SERVER_PRESETS[0].url)
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
@@ -101,6 +103,13 @@ export default function InvokeServicePanel() {
   )
   const allCards = useMemo(() => cdsResponse?.cards ?? [], [cdsResponse?.cards])
 
+  const selectedHook = useMemo(() => {
+    const svc = services.find((s) => s.id === selectedService)
+    return svc?.hook ?? ''
+  }, [services, selectedService])
+
+  const stringFields = useMemo(() => getStringContextFields(selectedHook), [selectedHook])
+
   useEffect(() => {
     if (selectedService && serviceConfigs) {
       const config = serviceConfigs.find((s) => s.id === selectedService)
@@ -117,15 +126,21 @@ export default function InvokeServicePanel() {
     if (!service) return
 
     try {
+      // Build context from dynamic string fields
+      const context: Record<string, string> = {}
+      for (const field of stringFields) {
+        if (contextFields[field.name]) {
+          context[field.name] = contextFields[field.name]
+        }
+      }
+
       const response = await invokeMutation.mutateAsync({
         serviceId: selectedService,
         request: {
           hook: service.hook,
           hookInstance: generateId(),
           fhirServer,
-          context: {
-            ...(patientId ? { patientId } : {}),
-          },
+          context,
         },
       })
       setCdsResponse(response)
@@ -246,15 +261,18 @@ export default function InvokeServicePanel() {
         helperText={fhirServerError}
       />
 
-      <TextField
-        label={t('invoke.patientIdLabel')}
-        value={patientId}
-        onChange={(e) => setPatientId(e.target.value)}
-        size="small"
-        fullWidth
-        placeholder={t('invoke.patientIdPlaceholder')}
-        helperText={t('invoke.patientIdHelperText')}
-      />
+      {stringFields.map((field: CdsContextField) => (
+        <TextField
+          key={field.name}
+          label={t(`sandbox.${field.name}Label`, { defaultValue: field.name })}
+          placeholder={t(`sandbox.${field.name}Placeholder`, { defaultValue: '' })}
+          value={contextFields[field.name] || ''}
+          onChange={(e) => setContextFields((prev) => ({ ...prev, [field.name]: e.target.value }))}
+          size="small"
+          fullWidth
+          required={field.required}
+        />
+      ))}
 
       <GradientButton
         onClick={handleInvoke}

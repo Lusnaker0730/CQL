@@ -234,6 +234,11 @@ export interface CdsServiceDefinition {
   title: string
   description: string
   prefetch?: Record<string, { query: string }>
+  contextFields?: Array<{
+    name: string
+    required: boolean
+    type: string
+  }>
 }
 
 export interface CdsServiceConfigRequest {
@@ -363,6 +368,7 @@ export interface CdsSandboxRequest {
   context?: { userId?: string; patientId?: string; encounterId?: string }
   testData?: Record<string, unknown>
   draftOrders?: unknown
+  appointments?: unknown
 }
 
 export interface SandboxPresetRequest {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -17,10 +18,19 @@ public class CdsServiceDefinition {
     private Integer version;
     private Map<String, PrefetchTemplate> prefetch;
     private String usageRequirements;
+    private List<ContextField> contextFields;
 
     @Data
     @Builder
     public static class PrefetchTemplate {
         private String query;
+    }
+
+    @Data
+    @Builder
+    public static class ContextField {
+        private String name;
+        private boolean required;
+        private String type;
     }
 }

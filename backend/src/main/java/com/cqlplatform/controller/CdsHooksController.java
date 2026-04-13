@@ -84,6 +84,10 @@ public class CdsHooksController {
             if (sandboxRequest.getDraftOrders() != null && cdsRequest.getContext() != null) {
                 cdsRequest.getContext().setDraftOrders(sandboxRequest.getDraftOrders());
             }
+            // Inject appointments into context if provided (for appointment-book hooks)
+            if (sandboxRequest.getAppointments() != null && cdsRequest.getContext() != null) {
+                cdsRequest.getContext().setAppointments(sandboxRequest.getAppointments());
+            }
             // Use testData as prefetch, no fhirServer -> forces PrefetchRetrieveProvider
             cdsRequest.setPrefetch(sandboxRequest.getTestData());
 

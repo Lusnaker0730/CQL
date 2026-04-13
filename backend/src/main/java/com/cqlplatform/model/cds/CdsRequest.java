@@ -47,5 +47,8 @@ public class CdsRequest {
 
         @JsonProperty("selections")
         private Object selections;
+
+        @JsonProperty("appointments")
+        private Object appointments;
     }
 }
