@@ -9,6 +9,7 @@
 
 | ID | 類型 | 日期 | 範圍 | 標題 | 備註 | Commit |
 |-----|------|------|------|------|------|--------|
+| PAT-062 | ✨ feature | 2026-04-16 | 全端（CDS Hooks 除錯） | CDS Hook Debug Mode + 結構化診斷 — 8 合 1 除錯套件：Sandbox/Invoke 支援 debug mode（DebugPanel 顯示 expression/retrieve traces）、phase-wrapped 錯誤（phase + errorType + stack summary）、prefetch per-key 狀態、context 診斷警告、FHIR server 錯誤分類、compiled ELM viewer、admin 最近調用紀錄（ring buffer 100 筆）、dry-run 模式（跳過 CQL 執行） | CdsResponse.CdsDebugInfo, CdsInvocationService, CdsRecentInvocationsService, CdsDebugPanel, RecentInvocationsPanel | |
 | PAT-061 | ✨ feature | 2026-04-13 | 全端（CDS Hooks） | CDS Hook Context Requirements — 依 CDS Hooks 規範為 6 種 hook 類型加入必要 context 欄位驗證（patient-view 需 userId+patientId、order-select 需 selections+draftOrders 等）；後端驗證+discovery 回應帶 contextFields；前端動態渲染 context 欄位與 object tabs；新增 appointment-book 的 appointments 支援 | HookContextRequirements、CdsHooksService、SandboxPanel、InvokeServicePanel、ManageServicesPanel | |
 | BUG-105 | 🐛 fix | 2026-04-03 | 全端（品質指標儀表板） | 品質報告混合計分類型平均 + 趨勢圖難理解 — 品質報告把 proportion（百分比）和 continuous-variable（原始數值如 HbA1c 5.6）混在一起平均，改為只平均比例型指標；趨勢圖 X 軸標籤過長改為簡短格式，修正 measureName 儲存 ID 而非名稱 | DashboardService、MeasureEvaluationService、QualityReportPanel | |
 | BUG-104 | 🐛 fix | 2026-04-02 | 後端（eCQM 驗證/CQL 產生） | eCQM 程式庫定義儲存失敗 — LibraryDefinitionPicker 建立 `externalCqlElement` 元素但後端驗證器不認識此型別，導致 ValidationException；新增 TemplateService BUILTIN_REFERENCE_TYPES + ExpressionCqlEngine CQL 產生/include 收集 | TemplateService、ExpressionCqlEngine | |
