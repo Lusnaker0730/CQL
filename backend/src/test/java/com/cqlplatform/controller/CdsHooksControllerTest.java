@@ -1,5 +1,6 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.cds.CdsResponse;
 import com.cqlplatform.model.cds.CdsServiceDefinition;
 import com.cqlplatform.service.cds.CdsHooksService;
@@ -116,6 +117,21 @@ class CdsHooksControllerTest {
                         .content("{\"serviceId\":\"test-service\",\"hook\":\"patient-view\",\"context\":{\"patientId\":\"p1\"},\"testData\":{}}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cards[0].summary").value("Sandbox Card"));
+    }
+
+    @Test
+    void invoke_missingRequiredContextFields_shouldReturn400WithDetails() throws Exception {
+        when(cdsHooksService.invokeService(eq("test-service"), any()))
+                .thenThrow(new ValidationException(
+                        "Missing required context fields for hook 'patient-view': [userId]",
+                        List.of("Missing required context field: userId")));
+
+        mockMvc.perform(post("/cds-services/test-service")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"hook\":\"patient-view\",\"hookInstance\":\"test-instance\",\"context\":{\"patientId\":\"p1\"}}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Missing required context fields")))
+                .andExpect(jsonPath("$.details[0]").value(org.hamcrest.Matchers.containsString("userId")));
     }
 
     @Test

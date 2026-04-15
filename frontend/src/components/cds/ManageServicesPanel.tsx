@@ -58,7 +58,7 @@ import { helpContent } from '../../constants/helpContent'
 import LibraryPicker from '../common/LibraryPicker'
 import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
-import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES, DEFAULT_INDICATOR } from '../../constants/cdsHooks'
+import { CDS_HOOK_IDS, CDS_INDICATOR_TYPES, DEFAULT_INDICATOR, getRequiredContextFields } from '../../constants/cdsHooks'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import { CDS_SERVICE } from '../../constants/fieldConstraints'
 
@@ -401,6 +401,16 @@ export default function ManageServicesPanel() {
               </FormControl>
               <HelpTooltip text={helpContent.cds.hookType} />
             </Stack>
+
+            {formData.hook && (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                {t('manage.contextFieldsHint', {
+                  fields: getRequiredContextFields(formData.hook)
+                    .map((f) => f.name)
+                    .join(', '),
+                })}
+              </Alert>
+            )}
 
             <TextField
               label={t('manage.descriptionLabel')}

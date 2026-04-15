@@ -63,21 +63,56 @@ import Editor from '@monaco-editor/react'
 import GradientButton from '../common/GradientButton'
 import { DEFAULT_PATIENT_ID, DEFAULT_PREFETCH } from '../../constants/sandboxDefaults'
 import { generateId, getStoredUsername } from '../../utils/validation'
-import { getIndicatorColor } from '../../constants/cdsHooks'
+import { getIndicatorColor, getStringContextFields, getObjectContextFields } from '../../constants/cdsHooks'
+import type { CdsContextField } from '../../constants/cdsHooks'
 
 const LOCALSTORAGE_KEY = 'cds-sandbox-draft'
 
-function loadDraft(): { patientId: string; testDataJson: string } | null {
+interface DraftData {
+  contextFields?: Record<string, string>
+  patientId?: string // backwards compat
+  testDataJson: string
+}
+
+function loadDraft(): DraftData | null {
   try {
     const raw = localStorage.getItem(LOCALSTORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (parsed.patientId && parsed.testDataJson) return parsed
+    if (parsed.testDataJson) return parsed
   } catch {
     // ignore
   }
   return null
 }
+
+interface ObjectFieldConfig {
+  defaultValue: string
+  tabKey: string
+  descKey: string
+}
+
+const OBJECT_FIELD_CONFIG: Record<string, ObjectFieldConfig> = {
+  draftOrders: {
+    defaultValue: '{"resourceType":"Bundle","type":"collection","entry":[]}',
+    tabKey: 'sandbox.tabDraftOrders',
+    descKey: 'sandbox.draftOrdersDescription',
+  },
+  selections: {
+    defaultValue: '[]',
+    tabKey: 'sandbox.tabSelections',
+    descKey: 'sandbox.selectionsDescription',
+  },
+  appointments: {
+    defaultValue: '{"resourceType":"Bundle","type":"collection","entry":[]}',
+    tabKey: 'sandbox.tabAppointments',
+    descKey: 'sandbox.appointmentsDescription',
+  },
+}
+
+const DEFAULT_OBJECT_VALUES = Object.fromEntries(
+  Object.entries(OBJECT_FIELD_CONFIG).map(([k, v]) => [k, v.defaultValue])
+)
 
 export default function SandboxPanel() {
   return (
@@ -105,12 +140,19 @@ function SandboxPanelInner() {
   const draft = useMemo(() => loadDraft(), [])
   const defaultJson = JSON.stringify(DEFAULT_PREFETCH, null, 2)
 
+  // Migrate old draft format: { patientId } → { contextFields: { patientId } }
+  const initialContextFields = useMemo(() => {
+    if (draft?.contextFields) return draft.contextFields
+    if (draft?.patientId) return { patientId: draft.patientId }
+    return { patientId: DEFAULT_PATIENT_ID }
+  }, [draft])
+
   const [selectedService, setSelectedService] = useState('')
-  const [patientId, setPatientId] = useState(draft?.patientId ?? DEFAULT_PATIENT_ID)
+  const [contextFields, setContextFields] = useState<Record<string, string>>(initialContextFields)
   const [testDataJson, setTestDataJson] = useState(draft?.testDataJson ?? defaultJson)
   const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
   const [dataTab, setDataTab] = useState(0)
-  const [draftOrdersJson, setDraftOrdersJson] = useState('{"resourceType":"Bundle","type":"collection","entry":[]}')
+  const [objectFieldJsons, setObjectFieldJsons] = useState<Record<string, string>>(DEFAULT_OBJECT_VALUES)
 
   // Critical card queue state
   const [criticalQueue, setCriticalQueue] = useState<CdsCard[]>([])
@@ -134,7 +176,7 @@ function SandboxPanelInner() {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     draftTimerRef.current = setTimeout(() => {
       try {
-        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ patientId, testDataJson }))
+        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ contextFields, testDataJson }))
       } catch {
         // storage full or unavailable
       }
@@ -142,7 +184,7 @@ function SandboxPanelInner() {
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     }
-  }, [patientId, testDataJson])
+  }, [contextFields, testDataJson])
 
   const services = useMemo(
     () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
@@ -154,7 +196,15 @@ function SandboxPanelInner() {
     return svc?.hook ?? ''
   }, [services, selectedService])
 
-  const isOrderHook = selectedHook === 'order-select' || selectedHook === 'order-sign'
+  // Dynamic context fields based on selected hook type
+  const stringFields = useMemo(() => getStringContextFields(selectedHook), [selectedHook])
+  const objectFields = useMemo(() => getObjectContextFields(selectedHook), [selectedHook])
+
+  // Reset dataTab if it points to a tab that no longer exists when hook changes
+  useEffect(() => {
+    const maxTab = 1 + objectFields.length
+    if (dataTab > maxTab) setDataTab(0)
+  }, [objectFields.length, dataTab])
 
   // Initialize: convert initial prefetch to bundle entries and load into builder
   useEffect(() => {
@@ -244,7 +294,7 @@ function SandboxPanelInner() {
   const handleLoadPreset = useCallback(
     (preset: SandboxPresetResponse) => {
       setTestDataJson(preset.prefetchJson)
-      if (preset.patientId) setPatientId(preset.patientId)
+      if (preset.patientId) setContextFields((prev) => ({ ...prev, patientId: preset.patientId! }))
       if (preset.serviceId) setSelectedService(preset.serviceId)
       setActivePreset(preset)
       loadPrefetchIntoBuilder(preset.prefetchJson)
@@ -254,7 +304,7 @@ function SandboxPanelInner() {
 
   const handleResetDefault = useCallback(() => {
     setTestDataJson(defaultJson)
-    setPatientId(DEFAULT_PATIENT_ID)
+    setContextFields({ patientId: DEFAULT_PATIENT_ID })
     setActivePreset(null)
     loadPrefetchIntoBuilder(defaultJson)
     localStorage.removeItem(LOCALSTORAGE_KEY)
@@ -278,7 +328,7 @@ function SandboxPanelInner() {
       name: presetName,
       description: presetDescription || undefined,
       serviceId: selectedService || undefined,
-      patientId,
+      patientId: contextFields.patientId || '',
       prefetchJson: testDataJson,
       shared: presetShared,
     }
@@ -299,7 +349,7 @@ function SandboxPanelInner() {
     presetName,
     presetDescription,
     selectedService,
-    patientId,
+    contextFields,
     testDataJson,
     presetShared,
     activePreset,
@@ -341,13 +391,24 @@ function SandboxPanelInner() {
 
       const testData = JSON.parse(testDataJson)
 
-      // Parse draftOrders for order-select/order-sign hooks
-      let draftOrders: unknown = undefined
-      if (isOrderHook && draftOrdersJson.trim()) {
-        try {
-          draftOrders = JSON.parse(draftOrdersJson)
-        } catch {
-          // Invalid JSON, skip draftOrders
+      // Build context from string fields
+      const context: Record<string, string> = {}
+      for (const field of stringFields) {
+        if (contextFields[field.name]) {
+          context[field.name] = contextFields[field.name]
+        }
+      }
+
+      // Parse object-type context fields (draftOrders, selections, appointments)
+      const objectContext: Record<string, unknown> = {}
+      for (const field of objectFields) {
+        const json = objectFieldJsons[field.name]
+        if (json?.trim()) {
+          try {
+            objectContext[field.name] = JSON.parse(json)
+          } catch {
+            // Invalid JSON, skip
+          }
         }
       }
 
@@ -357,9 +418,9 @@ function SandboxPanelInner() {
           serviceId: selectedService,
           hook: service.hook,
           hookInstance: generateId(),
-          context: { patientId },
+          context,
           testData,
-          ...(draftOrders ? { draftOrders } : {}),
+          ...objectContext,
         },
       })
       setSandboxResponse(response)
@@ -433,13 +494,18 @@ function SandboxPanelInner() {
         </Select>
       </FormControl>
 
-      <TextField
-        label={t('sandbox.patientIdLabel')}
-        value={patientId}
-        onChange={(e) => setPatientId(e.target.value)}
-        size="small"
-        fullWidth
-      />
+      {stringFields.map((field: CdsContextField) => (
+        <TextField
+          key={field.name}
+          label={t(`sandbox.${field.name}Label`)}
+          placeholder={t(`sandbox.${field.name}Placeholder`, { defaultValue: '' })}
+          value={contextFields[field.name] || ''}
+          onChange={(e) => setContextFields((prev) => ({ ...prev, [field.name]: e.target.value }))}
+          size="small"
+          fullWidth
+          required={field.required}
+        />
+      ))}
 
       {/* Preset toolbar */}
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -523,9 +589,15 @@ function SandboxPanelInner() {
         <Tabs value={dataTab} onChange={(_, v) => setDataTab(v)} sx={{ mb: 1 }}>
           <Tab icon={<BuilderIcon />} iconPosition="start" label={t('sandbox.tabVisualBuilder')} sx={{ textTransform: 'none', minHeight: 42 }} />
           <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabJsonPrefetch')} sx={{ textTransform: 'none', minHeight: 42 }} />
-          {isOrderHook && (
-            <Tab icon={<JsonIcon />} iconPosition="start" label={t('sandbox.tabDraftOrders')} sx={{ textTransform: 'none', minHeight: 42 }} />
-          )}
+          {objectFields.map((field) => (
+            <Tab
+              key={field.name}
+              icon={<JsonIcon />}
+              iconPosition="start"
+              label={t(OBJECT_FIELD_CONFIG[field.name]?.tabKey ?? field.name)}
+              sx={{ textTransform: 'none', minHeight: 42 }}
+            />
+          ))}
         </Tabs>
 
         {dataTab === 0 && (
@@ -551,28 +623,30 @@ function SandboxPanelInner() {
           </Box>
         )}
 
-        {dataTab === 2 && isOrderHook && (
-          <Box>
-            <Alert severity="info" sx={{ mb: 1 }}>
-              {t('sandbox.draftOrdersDescription')}
-            </Alert>
-            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-              <Editor
-                height={EDITOR_HEIGHT_SMALL}
-                language="json"
-                theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
-                value={draftOrdersJson}
-                onChange={(v) => setDraftOrdersJson(v || '')}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 13,
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                }}
-              />
+        {objectFields.map((field, idx) =>
+          dataTab === 2 + idx ? (
+            <Box key={field.name}>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                {t(OBJECT_FIELD_CONFIG[field.name]?.descKey ?? field.name)}
+              </Alert>
+              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                <Editor
+                  height={EDITOR_HEIGHT_SMALL}
+                  language="json"
+                  theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+                  value={objectFieldJsons[field.name] || DEFAULT_OBJECT_VALUES[field.name] || '{}'}
+                  onChange={(v) => setObjectFieldJsons((prev) => ({ ...prev, [field.name]: v || '' }))}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                  }}
+                />
+              </Box>
             </Box>
-          </Box>
+          ) : null
         )}
       </Box>
 

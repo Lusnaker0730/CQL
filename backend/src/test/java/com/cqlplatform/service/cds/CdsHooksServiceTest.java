@@ -1,5 +1,6 @@
 package com.cqlplatform.service.cds;
 
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.cds.*;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -124,6 +125,7 @@ class CdsHooksServiceTest {
 
         CdsRequest request = new CdsRequest();
         CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setUserId("Practitioner/123");
         ctx.setPatientId("p1");
         request.setContext(ctx);
 
@@ -169,6 +171,84 @@ class CdsHooksServiceTest {
         assertThatThrownBy(() -> cdsHooksService.invokeService("patient-view-service", request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Hook type mismatch");
+    }
+
+    @Test
+    void invokeService_patientView_missingUserId_shouldThrowValidationException() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("pv-service")
+                .hook("patient-view")
+                .title("Patient View")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .build();
+        cdsHooksService.registerService(config);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        // userId intentionally missing
+        request.setContext(ctx);
+
+        assertThatThrownBy(() -> cdsHooksService.invokeService("pv-service", request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(e -> {
+                    ValidationException ve = (ValidationException) e;
+                    assertThat(ve.getDetails()).anyMatch(d -> d.contains("userId"));
+                });
+    }
+
+    @Test
+    void invokeService_orderSelect_missingDraftOrders_shouldThrowValidationException() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("os-service")
+                .hook("order-select")
+                .title("Order Select")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .build();
+        cdsHooksService.registerService(config);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setUserId("Practitioner/123");
+        ctx.setPatientId("p1");
+        // selections and draftOrders intentionally missing
+        request.setContext(ctx);
+
+        assertThatThrownBy(() -> cdsHooksService.invokeService("os-service", request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(e -> {
+                    ValidationException ve = (ValidationException) e;
+                    assertThat(ve.getDetails()).anyMatch(d -> d.contains("selections"));
+                    assertThat(ve.getDetails()).anyMatch(d -> d.contains("draftOrders"));
+                });
+    }
+
+    @Test
+    void invokeService_encounterStart_withAllRequired_shouldProceed() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("es-service")
+                .hook("encounter-start")
+                .title("Encounter Start")
+                .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .build();
+        cdsHooksService.registerService(config);
+
+        CdsResponse expectedResponse = CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder()
+                        .summary("OK").indicator("info").build()))
+                .build();
+        when(invocationService.invoke(any(), any())).thenReturn(expectedResponse);
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setUserId("Practitioner/123");
+        ctx.setPatientId("p1");
+        ctx.setEncounterId("enc-1");
+        request.setContext(ctx);
+
+        CdsResponse response = cdsHooksService.invokeService("es-service", request);
+        assertThat(response.getCards()).isNotEmpty();
+        verify(invocationService).invoke(any(), any());
     }
 
     @Test

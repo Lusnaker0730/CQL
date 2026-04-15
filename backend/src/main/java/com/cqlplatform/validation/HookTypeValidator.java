@@ -4,14 +4,8 @@ import java.util.Set;
 
 public final class HookTypeValidator {
 
-    public static final Set<String> VALID_HOOKS = Set.of(
-            "patient-view",
-            "order-select",
-            "order-sign",
-            "appointment-book",
-            "encounter-start",
-            "encounter-discharge"
-    );
+    /** Derived from HookContextRequirements to avoid maintaining the hook list in two places. */
+    public static final Set<String> VALID_HOOKS = HookContextRequirements.getSupportedHooks();
 
     private HookTypeValidator() {
     }

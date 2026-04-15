@@ -1,23 +1,99 @@
 /**
  * Single source of truth for CDS Hooks constants.
- * Keep in sync with backend HookTypeValidator.VALID_HOOKS.
+ * Keep in sync with backend HookTypeValidator.VALID_HOOKS and HookContextRequirements.
  */
+
+export interface CdsContextField {
+  name: string
+  required: boolean
+  type: 'string' | 'object'
+}
 
 export interface CdsHookType {
   id: string
   description: string
+  requiredContext: CdsContextField[]
 }
 
 export const CDS_HOOK_TYPES: CdsHookType[] = [
-  { id: 'patient-view', description: 'Triggered when a patient chart is opened' },
-  { id: 'order-select', description: 'Triggered when a clinician selects orders (e.g., medications, labs)' },
-  { id: 'order-sign', description: 'Triggered when a clinician is about to sign orders' },
-  { id: 'appointment-book', description: 'Triggered when an appointment is being booked' },
-  { id: 'encounter-start', description: 'Triggered when a new encounter begins' },
-  { id: 'encounter-discharge', description: 'Triggered when a patient is being discharged' },
+  {
+    id: 'patient-view',
+    description: 'Triggered when a patient chart is opened',
+    requiredContext: [
+      { name: 'userId', required: true, type: 'string' },
+      { name: 'patientId', required: true, type: 'string' },
+    ],
+  },
+  {
+    id: 'order-select',
+    description: 'Triggered when a clinician selects orders (e.g., medications, labs)',
+    requiredContext: [
+      { name: 'userId', required: true, type: 'string' },
+      { name: 'patientId', required: true, type: 'string' },
+      { name: 'selections', required: true, type: 'object' },
+      { name: 'draftOrders', required: true, type: 'object' },
+    ],
+  },
+  {
+    id: 'order-sign',
+    description: 'Triggered when a clinician is about to sign orders',
+    requiredContext: [
+      { name: 'userId', required: true, type: 'string' },
+      { name: 'patientId', required: true, type: 'string' },
+      { name: 'draftOrders', required: true, type: 'object' },
+    ],
+  },
+  {
+    id: 'appointment-book',
+    description: 'Triggered when an appointment is being booked',
+    requiredContext: [
+      { name: 'userId', required: true, type: 'string' },
+      { name: 'patientId', required: true, type: 'string' },
+      { name: 'appointments', required: true, type: 'object' },
+    ],
+  },
+  {
+    id: 'encounter-start',
+    description: 'Triggered when a new encounter begins',
+    requiredContext: [
+      { name: 'userId', required: true, type: 'string' },
+      { name: 'patientId', required: true, type: 'string' },
+      { name: 'encounterId', required: true, type: 'string' },
+    ],
+  },
+  {
+    id: 'encounter-discharge',
+    description: 'Triggered when a patient is being discharged',
+    requiredContext: [
+      { name: 'userId', required: true, type: 'string' },
+      { name: 'patientId', required: true, type: 'string' },
+      { name: 'encounterId', required: true, type: 'string' },
+    ],
+  },
 ]
 
 export const CDS_HOOK_IDS = CDS_HOOK_TYPES.map((h) => h.id)
+
+/**
+ * Returns all required context fields for a given hook type.
+ */
+export function getRequiredContextFields(hookId: string): CdsContextField[] {
+  return CDS_HOOK_TYPES.find((h) => h.id === hookId)?.requiredContext ?? []
+}
+
+/**
+ * Returns only the string-type context fields (rendered as text inputs).
+ */
+export function getStringContextFields(hookId: string): CdsContextField[] {
+  return getRequiredContextFields(hookId).filter((f) => f.type === 'string')
+}
+
+/**
+ * Returns only the object-type context fields (rendered as JSON editors).
+ */
+export function getObjectContextFields(hookId: string): CdsContextField[] {
+  return getRequiredContextFields(hookId).filter((f) => f.type === 'object')
+}
 
 export const CDS_INDICATOR_TYPES = ['info', 'warning', 'critical'] as const
 

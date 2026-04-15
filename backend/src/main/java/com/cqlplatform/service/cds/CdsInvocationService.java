@@ -200,7 +200,8 @@ public class CdsInvocationService {
         }
 
         // Parse draftOrders from context and merge into resources
-        List<Resource> draftResources = parseDraftOrders(request);
+        Object draftOrdersData = request.getContext() != null ? request.getContext().getDraftOrders() : null;
+        List<Resource> draftResources = parseContextBundle(draftOrdersData, "draftOrders");
         if (!draftResources.isEmpty()) {
             if (patientId != null) {
                 Reference patRef = new Reference("Patient/" + patientId);
@@ -209,7 +210,13 @@ public class CdsInvocationService {
                 }
             }
             resources.addAll(draftResources);
-            log.info("Merged {} resources from draftOrders", draftResources.size());
+        }
+
+        // Parse appointments from context and merge into resources
+        Object appointmentsData = request.getContext() != null ? request.getContext().getAppointments() : null;
+        List<Resource> appointmentResources = parseContextBundle(appointmentsData, "appointments");
+        if (!appointmentResources.isEmpty()) {
+            resources.addAll(appointmentResources);
         }
 
         log.info("Built prefetch provider with {} resources", resources.size());
@@ -217,18 +224,17 @@ public class CdsInvocationService {
     }
 
     /**
-     * Parses draftOrders from the CDS request context.
-     * draftOrders is expected to be a FHIR Bundle containing draft resources
-     * (e.g. MedicationRequest, ServiceRequest) for order-select/order-sign hooks.
+     * Parses a FHIR Bundle (or single Resource) from a context object field.
+     * Used for draftOrders, appointments, and any future Bundle-typed context fields.
      */
-    private List<Resource> parseDraftOrders(CdsRequest request) {
+    private List<Resource> parseContextBundle(Object contextData, String label) {
         List<Resource> resources = new ArrayList<>();
-        if (request.getContext() == null || request.getContext().getDraftOrders() == null) {
+        if (contextData == null) {
             return resources;
         }
 
         try {
-            String json = objectMapper.writeValueAsString(request.getContext().getDraftOrders());
+            String json = objectMapper.writeValueAsString(contextData);
             IParser jsonParser = fhirContext.newJsonParser();
             Resource parsed = (Resource) jsonParser.parseResource(json);
 
@@ -243,9 +249,9 @@ public class CdsInvocationService {
             } else {
                 resources.add(parsed);
             }
-            log.info("Parsed {} resources from draftOrders", resources.size());
+            log.info("Parsed {} resources from {}", resources.size(), label);
         } catch (Exception e) {
-            log.warn("Failed to parse draftOrders: {}", e.getMessage());
+            log.warn("Failed to parse {}: {}", label, e.getMessage());
         }
 
         return resources;

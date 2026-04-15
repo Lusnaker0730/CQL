@@ -8,6 +8,7 @@ import com.cqlplatform.model.cds.*;
 import com.cqlplatform.repository.CdsFeedbackRepository;
 import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.validation.HookContextRequirements;
 import com.cqlplatform.validation.HookTypeValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -210,15 +211,7 @@ public class CdsHooksService {
         List<CdsServiceConfigEntity> entities = repository.findByOwnerUsernameAndEnabledTrue(username);
 
         for (CdsServiceConfigEntity entity : entities) {
-            CdsServiceConfig config = entityToConfig(entity);
-            definitions.add(CdsServiceDefinition.builder()
-                    .id(config.getId())
-                    .hook(config.getHook())
-                    .title(config.getTitle())
-                    .description(config.getDescription())
-                    .version(config.getVersion())
-                    .prefetch(config.getPrefetch())
-                    .build());
+            definitions.add(toDefinition(entityToConfig(entity)));
         }
 
         return definitions;
@@ -240,15 +233,7 @@ public class CdsHooksService {
         }
 
         for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
-            CdsServiceConfig config = entityToConfig(entity);
-            definitions.add(CdsServiceDefinition.builder()
-                    .id(config.getId())
-                    .hook(config.getHook())
-                    .title(config.getTitle())
-                    .description(config.getDescription())
-                    .version(config.getVersion())
-                    .prefetch(config.getPrefetch())
-                    .build());
+            definitions.add(toDefinition(entityToConfig(entity)));
         }
 
         return definitions;
@@ -286,14 +271,7 @@ public class CdsHooksService {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
 
         for (CdsServiceConfig config : serviceConfigs.values()) {
-            definitions.add(CdsServiceDefinition.builder()
-                    .id(config.getId())
-                    .hook(config.getHook())
-                    .title(config.getTitle())
-                    .description(config.getDescription())
-                    .version(config.getVersion())
-                    .prefetch(config.getPrefetch())
-                    .build());
+            definitions.add(toDefinition(config));
         }
 
         return definitions;
@@ -317,6 +295,9 @@ public class CdsHooksService {
                     "Hook type mismatch: request hook '" + request.getHook() +
                             "' does not match service hook '" + config.getHook() + "'");
         }
+
+        // Validate required context fields for the hook type
+        HookContextRequirements.validateContext(config.getHook(), request.getContext());
 
         return invocationService.invoke(config, request);
     }
@@ -425,6 +406,18 @@ public class CdsHooksService {
     }
 
     // --- Entity mapping ---
+
+    private CdsServiceDefinition toDefinition(CdsServiceConfig config) {
+        return CdsServiceDefinition.builder()
+                .id(config.getId())
+                .hook(config.getHook())
+                .title(config.getTitle())
+                .description(config.getDescription())
+                .version(config.getVersion())
+                .prefetch(config.getPrefetch())
+                .contextFields(HookContextRequirements.getContextFieldDefinitions(config.getHook()))
+                .build();
+    }
 
     private CdsServiceConfigEntity requestToEntity(CdsServiceConfigRequest request) {
         CdsServiceConfigEntity entity = CdsServiceConfigEntity.builder()
