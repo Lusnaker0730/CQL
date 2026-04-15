@@ -168,6 +168,85 @@ class CdsInvocationServiceTest {
     }
 
     @Test
+    void invoke_debugModeFalse_shouldNotAttachDebug() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("test-svc").title("Svc").cqlContent("library Test version '1.0'\ndefine X: true")
+                .build();
+
+        when(executionService.execute(any())).thenReturn(CqlExecutionResponse.builder()
+                .success(true).results(new LinkedHashMap<>()).build());
+        when(tupleStrategy.buildResponse(any(), any())).thenReturn(CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("OK").build())).build());
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+        request.setDebugMode(false);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getDebug()).isNull();
+    }
+
+    @Test
+    void invoke_debugModeTrue_success_shouldAttachDebugTraceAndContext() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("svc-1").hook("patient-view").title("Svc")
+                .cqlContent("library Test version '1.0'\ndefine X: true")
+                .build();
+
+        CqlExecutionResponse.DebugTrace trace = CqlExecutionResponse.DebugTrace.builder()
+                .totalTimeMs(42).build();
+        when(executionService.execute(any())).thenReturn(CqlExecutionResponse.builder()
+                .success(true).results(new LinkedHashMap<>()).debugTrace(trace).build());
+        when(tupleStrategy.buildResponse(any(), any())).thenReturn(CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("OK").build())).build());
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        ctx.setUserId("u1");
+        request.setContext(ctx);
+        request.setDebugMode(true);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getDebug()).isNotNull();
+        assertThat(response.getDebug().getDebugTrace()).isSameAs(trace);
+        assertThat(response.getDebug().getInvocationContext()).containsEntry("serviceId", "svc-1");
+        assertThat(response.getDebug().getInvocationContext()).containsEntry("hook", "patient-view");
+        assertThat(response.getDebug().getInvocationContext()).containsEntry("patientId", "p1");
+        assertThat(response.getDebug().getError()).isNull();
+    }
+
+    @Test
+    void invoke_debugModeTrue_executionFails_shouldAttachErrorInfoWithPhase() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("svc-err").title("Err Svc").cqlContent("library Test version '1.0'\ndefine X: true")
+                .build();
+
+        when(executionService.execute(any())).thenThrow(new RuntimeException("boom"));
+        when(tupleStrategy.createErrorCard("boom")).thenReturn(CdsResponse.Card.builder()
+                .summary("CDS Service Error").detail("boom").indicator("warning").build());
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+        request.setDebugMode(true);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getCards()).hasSize(1);
+        assertThat(response.getDebug()).isNotNull();
+        assertThat(response.getDebug().getError()).isNotNull();
+        assertThat(response.getDebug().getError().getPhase()).isEqualTo("cql_execution");
+        assertThat(response.getDebug().getError().getErrorType()).isEqualTo("RuntimeException");
+        assertThat(response.getDebug().getError().getMessage()).isEqualTo("boom");
+    }
+
+    @Test
     void invoke_planDefinitionModeWithNullJson_shouldFallbackToTupleStrategy() {
         CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
                 .id("test-svc")

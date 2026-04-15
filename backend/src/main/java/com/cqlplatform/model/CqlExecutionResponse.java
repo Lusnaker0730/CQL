@@ -42,6 +42,8 @@ public class CqlExecutionResponse {
         private List<RetrieveTrace> retrieveTraces;
         private long totalTimeMs;
         private Map<String, String> sourceLocators;
+        /** Compiled ELM JSON (only populated when debugMode=true). */
+        private String elmJson;
     }
 
     @Data

@@ -9,7 +9,23 @@
     "tabManage": "Manage Services",
     "tabAnalytics": "Analytics",
     "tabSandbox": "Sandbox",
-    "tabApiKeys": "API Keys"
+    "tabApiKeys": "API Keys",
+    "tabRecent": "Recent (Admin)"
+  },
+  "recentInvocations": {
+    "total": "Recent invocations: {{count}}",
+    "refresh": "Refresh",
+    "time": "Time",
+    "service": "Service",
+    "hook": "Hook",
+    "patient": "Patient",
+    "status": "Status",
+    "duration": "Duration",
+    "detail": "Detail",
+    "success": "Success",
+    "failed": "Failed",
+    "empty": "No invocations recorded yet",
+    "loadError": "Failed to load recent invocations"
   },
   "invoke": {
     "serviceLabel": "CDS Service",
@@ -62,7 +78,7 @@
     "serviceIdHelperText": "Unique identifier for the service (cannot be changed after creation)",
     "titleLabel": "Title",
     "hookTypeLabel": "Hook Type",
-    "contextFieldsHint": "This hook type requires the following context fields: {{fields}}",
+    "contextFieldsHint": "⚙️ Callers (EHR / Sandbox / Invoke panel) must provide the following context fields: {{fields}}",
     "descriptionLabel": "Description",
     "defaultIndicatorLabel": "Default Indicator",
     "loadFromLibrary": "Load from Library",
@@ -110,6 +126,9 @@
     "invokeButton": "Invoke in Sandbox",
     "invokeFailed": "Sandbox invocation failed: {{error}}",
     "invokeError": "Sandbox invocation failed: {{error}}",
+    "debugMode": "Debug Mode",
+    "dryRun": "Dry Run",
+    "dryRunButton": "Run Dry",
     "results": "Sandbox Results ({{count}} cards)",
     "suggestions": "Suggestions:",
     "systemActions": "System Actions",
@@ -135,6 +154,45 @@
       "deleteFailed": "Failed to delete preset: {{error}}",
       "loadedChip": "Preset: {{name}}",
       "overwrite": "Overwrite"
+    }
+  },
+  "debug": {
+    "title": "Debug Info",
+    "stackTrace": "Stack trace (top frames)",
+    "invocationContext": "Invocation context",
+    "contextWarnings": "Context Warnings",
+    "prefetchStatus": "Prefetch Status",
+    "prefetchKey": "Key",
+    "prefetchCount": "Count",
+    "prefetchTime": "Time",
+    "prefetchDetail": "Detail",
+    "compiledElm": "Compiled ELM (JSON)",
+    "dryRunTitle": "Dry Run",
+    "dryRunDescription": "CQL execution was skipped. Only prefetch resolution, context binding, and FHIR server diagnostics were performed.",
+    "resourcesByType": "Available Resources (by type)",
+    "phase": {
+      "prefetch_resolution": "Prefetch Resolution",
+      "prefetch_provider_build": "Prefetch Provider",
+      "cql_translation": "CQL Translation",
+      "cql_execution": "CQL Execution",
+      "card_generation": "Card Generation",
+      "unknown": "Unknown"
+    },
+    "fhirStatus": {
+      "not_attempted": "Not Attempted",
+      "attempted": "Attempted",
+      "success": "Success",
+      "error": "Error"
+    },
+    "fhirCategory": {
+      "timeout": "Timeout",
+      "network": "Network",
+      "not_found": "Not Found",
+      "unauthorized": "Unauthorized",
+      "forbidden": "Forbidden",
+      "server_error": "Server Error",
+      "unsupported_version": "Unsupported FHIR version",
+      "other": "Other"
     }
   },
   "critical": {

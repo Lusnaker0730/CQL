@@ -90,6 +90,8 @@ public class CdsHooksController {
             }
             // Use testData as prefetch, no fhirServer -> forces PrefetchRetrieveProvider
             cdsRequest.setPrefetch(sandboxRequest.getTestData());
+            cdsRequest.setDebugMode(sandboxRequest.isDebugMode());
+            cdsRequest.setDryRun(sandboxRequest.isDryRun());
 
             CdsResponse response = cdsHooksService.invokeService(serviceId, cdsRequest);
             return ResponseEntity.ok(response);

@@ -3,14 +3,19 @@ package com.cqlplatform.service.cds;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.BearerTokenAuthInterceptor;
 import com.cqlplatform.model.cds.CdsRequest;
+import com.cqlplatform.model.cds.CdsResponse;
 import com.cqlplatform.model.cds.CdsServiceDefinition;
 import com.cqlplatform.service.fhir.FhirClientFactory;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -39,21 +44,29 @@ public class PrefetchResolver {
     public Map<String, Resource> resolve(
             Map<String, CdsServiceDefinition.PrefetchTemplate> templates,
             CdsRequest request) {
+        return resolveWithStatus(templates, request).getResources();
+    }
+
+    /**
+     * Same as {@link #resolve} but also returns per-key status for debug output.
+     */
+    public ResolutionResult resolveWithStatus(
+            Map<String, CdsServiceDefinition.PrefetchTemplate> templates,
+            CdsRequest request) {
 
         Map<String, Resource> resolved = new HashMap<>();
+        List<CdsResponse.PrefetchStatus> statuses = new ArrayList<>();
         String fhirServer = request.getFhirServer();
 
         if (fhirServer == null || fhirServer.isBlank()) {
             log.warn("No fhirServer URL in request, cannot resolve prefetch templates");
-            return resolved;
+            return new ResolutionResult(resolved, statuses);
         }
 
-        // Build context substitution values
         String patientId = request.getContext() != null ? request.getContext().getPatientId() : null;
         String encounterId = request.getContext() != null ? request.getContext().getEncounterId() : null;
         String userId = request.getContext() != null ? request.getContext().getUserId() : null;
 
-        // Create a FHIR client with the appropriate auth
         IGenericClient client = fhirClientFactory.createClient(fhirServer);
         if (request.getFhirAuthorization() != null && !request.getFhirAuthorization().isBlank()) {
             client.registerInterceptor(new BearerTokenAuthInterceptor(request.getFhirAuthorization()));
@@ -65,32 +78,66 @@ public class PrefetchResolver {
 
             if (queryTemplate == null || queryTemplate.isBlank()) {
                 log.debug("Skipping empty prefetch template for key '{}'", key);
+                statuses.add(CdsResponse.PrefetchStatus.builder()
+                        .key(key).status("empty").count(0).build());
                 continue;
             }
 
-            try {
-                // Substitute context variables
-                String resolvedQuery = substituteTemplate(queryTemplate, patientId, encounterId, userId);
-                log.info("Resolving prefetch template '{}': {} -> {}", key, queryTemplate, resolvedQuery);
+            String resolvedQuery = substituteTemplate(queryTemplate, patientId, encounterId, userId);
+            String resolvedUrl = fhirServer + "/" + resolvedQuery;
+            long start = System.currentTimeMillis();
 
-                // Fetch from FHIR server
+            try {
+                log.info("Resolving prefetch template '{}': {} -> {}", key, queryTemplate, resolvedQuery);
                 Resource resource = client.read()
                         .resource(Resource.class)
-                        .withUrl(fhirServer + "/" + resolvedQuery)
+                        .withUrl(resolvedUrl)
                         .execute();
+
+                long elapsed = System.currentTimeMillis() - start;
+                int count = countResources(resource);
 
                 if (resource != null) {
                     resolved.put(key, resource);
-                    log.info("Resolved prefetch '{}': {}", key, resource.fhirType());
+                    log.info("Resolved prefetch '{}': {} ({} resources)", key, resource.fhirType(), count);
                 }
+                statuses.add(CdsResponse.PrefetchStatus.builder()
+                        .key(key).status("success").count(count)
+                        .elapsedMs(elapsed).resolvedUrl(resolvedUrl).build());
             } catch (Exception e) {
+                long elapsed = System.currentTimeMillis() - start;
                 log.warn("Failed to resolve prefetch template '{}': {}", key, e.getMessage());
+                statuses.add(CdsResponse.PrefetchStatus.builder()
+                        .key(key).status("failed").count(0)
+                        .elapsedMs(elapsed).resolvedUrl(resolvedUrl)
+                        .error(e.getClass().getSimpleName() + ": " + e.getMessage())
+                        .build());
                 // Partial resolution is OK per CDS Hooks spec — skip failed keys
             }
         }
 
         log.info("Resolved {}/{} prefetch templates", resolved.size(), templates.size());
-        return resolved;
+        return new ResolutionResult(resolved, statuses);
+    }
+
+    /** Counts resources inside a Bundle, or 1 for a single resource. */
+    private static int countResources(Resource resource) {
+        if (resource == null) return 0;
+        if (resource instanceof Bundle bundle) {
+            return bundle.hasEntry() ? bundle.getEntry().size() : 0;
+        }
+        return 1;
+    }
+
+    @Getter
+    public static class ResolutionResult {
+        private final Map<String, Resource> resources;
+        private final List<CdsResponse.PrefetchStatus> statuses;
+
+        public ResolutionResult(Map<String, Resource> resources, List<CdsResponse.PrefetchStatus> statuses) {
+            this.resources = resources;
+            this.statuses = statuses;
+        }
     }
 
     /**

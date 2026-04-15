@@ -31,6 +31,12 @@ public class CdsRequest {
 
     private Map<String, Object> prefetch;
 
+    /** When true, response will include DebugTrace and structured error info. */
+    private boolean debugMode = false;
+
+    /** When true, resolve prefetch + check context but skip CQL execution. Implies debugMode. */
+    private boolean dryRun = false;
+
     @Data
     public static class CdsContext {
         @Size(max = 200)
