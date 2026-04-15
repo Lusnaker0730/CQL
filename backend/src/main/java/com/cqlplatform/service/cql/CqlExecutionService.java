@@ -525,6 +525,7 @@ public class CqlExecutionService {
                         .retrieveTraces(tracingProvider != null ? tracingProvider.getTraces() : List.of())
                         .totalTimeMs(executionTime)
                         .sourceLocators(sourceLocators)
+                        .elmJson(elmJson)
                         .build();
             }
 

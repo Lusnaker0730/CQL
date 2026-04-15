@@ -47,6 +47,26 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
     }
 
     /**
+     * Returns a map of resource type → count for dry-run diagnostics.
+     */
+    public Map<String, Integer> getResourceCountsByType() {
+        Map<String, Integer> counts = new HashMap<>();
+        resourcesByType.forEach((type, list) -> counts.put(type, list.size()));
+        return counts;
+    }
+
+    /**
+     * Checks whether a Patient resource with the given id is present in the prefetch data.
+     * Used by debug-mode context diagnostics.
+     */
+    public boolean hasPatient(String patientId) {
+        if (patientId == null) return false;
+        List<Resource> patients = resourcesByType.get("Patient");
+        if (patients == null) return false;
+        return patients.stream().anyMatch(p -> patientId.equals(p.getIdPart()));
+    }
+
+    /**
      * Merge additional resources (e.g. from draftOrders or resolved prefetch templates)
      * into the existing resource map.
      */

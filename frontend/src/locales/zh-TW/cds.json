@@ -9,7 +9,23 @@
     "tabManage": "管理服務",
     "tabAnalytics": "分析",
     "tabSandbox": "沙盒",
-    "tabApiKeys": "API 金鑰"
+    "tabApiKeys": "API 金鑰",
+    "tabRecent": "最近調用（管理員）"
+  },
+  "recentInvocations": {
+    "total": "最近調用紀錄：{{count}} 筆",
+    "refresh": "重新整理",
+    "time": "時間",
+    "service": "服務",
+    "hook": "Hook",
+    "patient": "病患",
+    "status": "狀態",
+    "duration": "耗時",
+    "detail": "詳情",
+    "success": "成功",
+    "failed": "失敗",
+    "empty": "尚無調用紀錄",
+    "loadError": "無法載入最近調用紀錄"
   },
   "invoke": {
     "serviceLabel": "CDS 服務",
@@ -62,7 +78,7 @@
     "serviceIdHelperText": "服務的唯一識別碼（建立後無法變更）",
     "titleLabel": "標題",
     "hookTypeLabel": "Hook 類型",
-    "contextFieldsHint": "此 Hook 類型需要以下上下文欄位：{{fields}}",
+    "contextFieldsHint": "⚙️ 呼叫方（EHR / Sandbox / Invoke 面板）須提供以下上下文欄位：{{fields}}",
     "descriptionLabel": "說明",
     "defaultIndicatorLabel": "預設指示器",
     "loadFromLibrary": "從函式庫載入",
@@ -110,6 +126,9 @@
     "invokeButton": "在沙盒中調用",
     "invokeFailed": "沙盒調用失敗：{{error}}",
     "invokeError": "沙盒調用失敗：{{error}}",
+    "debugMode": "除錯模式",
+    "dryRun": "乾跑模式",
+    "dryRunButton": "執行乾跑",
     "results": "沙盒結果（{{count}} 張卡片）",
     "suggestions": "建議：",
     "systemActions": "系統動作",
@@ -135,6 +154,45 @@
       "deleteFailed": "刪除預設失敗：{{error}}",
       "loadedChip": "預設：{{name}}",
       "overwrite": "覆蓋更新"
+    }
+  },
+  "debug": {
+    "title": "除錯資訊",
+    "stackTrace": "堆疊追蹤（前幾個）",
+    "invocationContext": "呼叫上下文",
+    "contextWarnings": "上下文警告",
+    "prefetchStatus": "Prefetch 狀態",
+    "prefetchKey": "鍵",
+    "prefetchCount": "數量",
+    "prefetchTime": "耗時",
+    "prefetchDetail": "詳情",
+    "compiledElm": "編譯後 ELM (JSON)",
+    "dryRunTitle": "乾跑模式",
+    "dryRunDescription": "已跳過 CQL 執行。只進行 prefetch 解析、上下文綁定、FHIR server 診斷。",
+    "resourcesByType": "可用資源（依類型）",
+    "phase": {
+      "prefetch_resolution": "Prefetch 解析",
+      "prefetch_provider_build": "Prefetch 資料建立",
+      "cql_translation": "CQL 翻譯",
+      "cql_execution": "CQL 執行",
+      "card_generation": "卡片生成",
+      "unknown": "未知"
+    },
+    "fhirStatus": {
+      "not_attempted": "未嘗試",
+      "attempted": "嘗試中",
+      "success": "成功",
+      "error": "錯誤"
+    },
+    "fhirCategory": {
+      "timeout": "逾時",
+      "network": "網路",
+      "not_found": "找不到資源",
+      "unauthorized": "未授權",
+      "forbidden": "禁止存取",
+      "server_error": "伺服器錯誤",
+      "unsupported_version": "不支援的 FHIR 版本",
+      "other": "其他"
     }
   },
   "critical": {

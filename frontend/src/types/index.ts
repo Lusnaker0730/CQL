@@ -291,11 +291,50 @@ export interface CdsRequest {
     encounterId?: string
   }
   prefetch?: Record<string, unknown>
+  debugMode?: boolean
+  dryRun?: boolean
 }
 
 export interface CdsResponse {
   cards: CdsCard[]
   systemActions?: SystemAction[]
+  debug?: CdsDebugInfo
+}
+
+export interface CdsDebugInfo {
+  debugTrace?: DebugTrace
+  error?: CdsErrorInfo
+  invocationContext?: Record<string, unknown>
+  prefetchStatus?: PrefetchStatus[]
+  contextWarnings?: string[]
+  fhirServerDiagnostics?: FhirServerDiagnostics
+  dryRun?: boolean
+  resourcesByType?: Record<string, number>
+}
+
+export interface CdsErrorInfo {
+  phase: string
+  errorType: string
+  message: string
+  stackTraceSummary?: string[]
+}
+
+export interface PrefetchStatus {
+  key: string
+  status: 'success' | 'failed' | 'empty'
+  count?: number
+  elapsedMs?: number
+  error?: string
+  resolvedUrl?: string
+}
+
+export interface FhirServerDiagnostics {
+  url: string
+  status: 'not_attempted' | 'attempted' | 'success' | 'error'
+  errorCategory?: string
+  errorMessage?: string
+  httpStatus?: number
+  elapsedMs?: number
 }
 
 export interface CdsCard {
@@ -369,6 +408,8 @@ export interface CdsSandboxRequest {
   testData?: Record<string, unknown>
   draftOrders?: unknown
   appointments?: unknown
+  debugMode?: boolean
+  dryRun?: boolean
 }
 
 export interface SandboxPresetRequest {
@@ -792,6 +833,8 @@ export interface DebugTrace {
   retrieveTraces: RetrieveTrace[]
   totalTimeMs: number
   sourceLocators?: Record<string, string>
+  /** Compiled ELM JSON (only populated when debugMode=true). */
+  elmJson?: string
 }
 
 export interface ExpressionTrace {

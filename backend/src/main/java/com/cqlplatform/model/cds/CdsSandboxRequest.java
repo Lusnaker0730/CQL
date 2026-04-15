@@ -33,4 +33,10 @@ public class CdsSandboxRequest {
     private Map<String, Object> testData;
     private Object draftOrders;
     private Object appointments;
+
+    /** When true, response will include DebugTrace and structured error info. */
+    private boolean debugMode = false;
+
+    /** When true, resolve prefetch + check context but skip CQL execution. Implies debugMode. */
+    private boolean dryRun = false;
 }

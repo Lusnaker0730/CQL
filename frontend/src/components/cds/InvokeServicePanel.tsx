@@ -28,13 +28,17 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Switch,
+  FormControlLabel,
 } from '@mui/material'
 import {
   Info as InfoIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   CheckCircle as CheckIcon,
+  BugReport as DebugIcon,
 } from '@mui/icons-material'
+import CdsDebugPanel from './CdsDebugPanel'
 import { alpha } from '@mui/material/styles'
 import {
   useCdsServices,
@@ -88,6 +92,7 @@ export default function InvokeServicePanel() {
   const [fhirServer, setFhirServer] = useState(FHIR_SERVER_PRESETS[0].url)
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
   const [cdsResponse, setCdsResponse] = useState<CdsResponse | null>(null)
+  const [debugMode, setDebugMode] = useState(false)
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
   const [overrideCardUuid, setOverrideCardUuid] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
@@ -141,6 +146,7 @@ export default function InvokeServicePanel() {
           hookInstance: generateId(),
           fhirServer,
           context,
+          debugMode,
         },
       })
       setCdsResponse(response)
@@ -274,13 +280,34 @@ export default function InvokeServicePanel() {
         />
       ))}
 
-      <GradientButton
-        onClick={handleInvoke}
-        disabled={!selectedService || invokeMutation.isPending}
-        startIcon={invokeMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
-      >
-        {invokeMutation.isPending ? t('invoke.invoking') : t('invoke.invokeButton')}
-      </GradientButton>
+      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={debugMode}
+              onChange={(e) => setDebugMode(e.target.checked)}
+            />
+          }
+          label={
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
+              <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
+                {t('sandbox.debugMode')}
+              </Typography>
+            </Stack>
+          }
+        />
+        <GradientButton
+          onClick={handleInvoke}
+          disabled={!selectedService || invokeMutation.isPending}
+          startIcon={invokeMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
+        >
+          {invokeMutation.isPending ? t('invoke.invoking') : t('invoke.invokeButton')}
+        </GradientButton>
+      </Stack>
+
+      {cdsResponse?.debug && <CdsDebugPanel debug={cdsResponse.debug} />}
 
       <Divider />
 

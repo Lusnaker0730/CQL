@@ -30,6 +30,7 @@ import {
   ListSubheader,
   IconButton,
   Tooltip,
+  Switch,
 } from '@mui/material'
 import {
   ViewModule as BuilderIcon,
@@ -38,7 +39,9 @@ import {
   Save as SaveIcon,
   RestartAlt as ResetIcon,
   Delete as DeleteIcon,
+  BugReport as DebugIcon,
 } from '@mui/icons-material'
+import CdsDebugPanel from './CdsDebugPanel'
 import {
   useCdsServices,
   useSandboxInvoke,
@@ -153,6 +156,8 @@ function SandboxPanelInner() {
   const [sandboxResponse, setSandboxResponse] = useState<CdsResponse | null>(null)
   const [dataTab, setDataTab] = useState(0)
   const [objectFieldJsons, setObjectFieldJsons] = useState<Record<string, string>>(DEFAULT_OBJECT_VALUES)
+  const [debugMode, setDebugMode] = useState(false)
+  const [dryRun, setDryRun] = useState(false)
 
   // Critical card queue state
   const [criticalQueue, setCriticalQueue] = useState<CdsCard[]>([])
@@ -421,6 +426,8 @@ function SandboxPanelInner() {
           context,
           testData,
           ...objectContext,
+          debugMode,
+          dryRun,
         },
       })
       setSandboxResponse(response)
@@ -650,17 +657,55 @@ function SandboxPanelInner() {
         )}
       </Box>
 
-      <GradientButton
-        onClick={handleSandboxInvoke}
-        disabled={!selectedService || sandboxMutation.isPending}
-        startIcon={sandboxMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
-      >
-        {sandboxMutation.isPending ? t('sandbox.invoking') : t('sandbox.invokeButton')}
-      </GradientButton>
+      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+        <Stack direction="row" spacing={1}>
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={debugMode}
+                onChange={(e) => setDebugMode(e.target.checked)}
+                disabled={dryRun}
+              />
+            }
+            label={
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
+                <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
+                  {t('sandbox.debugMode')}
+                </Typography>
+              </Stack>
+            }
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={dryRun}
+                onChange={(e) => setDryRun(e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2" color={dryRun ? 'warning.main' : 'text.secondary'}>
+                {t('sandbox.dryRun')}
+              </Typography>
+            }
+          />
+        </Stack>
+        <GradientButton
+          onClick={handleSandboxInvoke}
+          disabled={!selectedService || sandboxMutation.isPending}
+          startIcon={sandboxMutation.isPending ? <CircularProgress size={20} color="inherit" /> : null}
+        >
+          {sandboxMutation.isPending ? t('sandbox.invoking') : (dryRun ? t('sandbox.dryRunButton') : t('sandbox.invokeButton'))}
+        </GradientButton>
+      </Stack>
 
       {sandboxMutation.isError && (
         <Alert severity="error">{t('sandbox.invokeError', { error: extractApiError(sandboxMutation.error) })}</Alert>
       )}
+
+      {sandboxResponse?.debug && <CdsDebugPanel debug={sandboxResponse.debug} />}
 
       {/* Critical Card Dialog */}
       {currentCritical && (

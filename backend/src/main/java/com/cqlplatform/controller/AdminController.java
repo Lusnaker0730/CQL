@@ -10,6 +10,7 @@ import com.cqlplatform.service.PasswordResetService;
 import com.cqlplatform.service.RefreshTokenService;
 import com.cqlplatform.service.TokenVersionService;
 import com.cqlplatform.service.UserApiKeyService;
+import com.cqlplatform.service.cds.CdsRecentInvocationsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +32,13 @@ public class AdminController {
     private final UserApiKeyService userApiKeyService;
     private final TokenVersionService tokenVersionService;
     private final RefreshTokenService refreshTokenService;
+    private final CdsRecentInvocationsService cdsRecentInvocationsService;
+
+    @GetMapping("/cds/recent-invocations")
+    public ResponseEntity<List<CdsRecentInvocationsService.InvocationRecord>> recentCdsInvocations(
+            @RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(cdsRecentInvocationsService.recent(Math.min(Math.max(1, limit), 100)));
+    }
 
     @GetMapping("/users")
     public ResponseEntity<List<UserSummary>> listUsers() {
