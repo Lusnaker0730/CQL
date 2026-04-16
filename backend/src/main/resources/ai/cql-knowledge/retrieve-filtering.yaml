@@ -1,0 +1,63 @@
+# Retrieve syntax variants — [Resource], [Resource: code], [Resource: valueset]
+
+- id: retrieve-basic
+  topic: Basic retrieve returns a list
+  severity: medium
+  keywords:
+    - retrieve
+    - "[Resource]"
+    - "[Observation]"
+    - "[Condition]"
+  explanation: |
+    `[ResourceType]` returns ALL resources of that type for the current
+    context (usually Patient). The result is a List<Resource> — you
+    cannot directly access properties on the list.
+  examples:
+    - title: All conditions for current patient
+      good: "[Condition]"
+
+- id: retrieve-with-code
+  topic: Retrieve filtered by a single declared code
+  severity: high
+  keywords:
+    - "[Resource: code]"
+    - "[Observation: \""
+    - retrieve filter
+    - "retrieve with code"
+  explanation: |
+    `[ResourceType: "CodeOrValueSetName"]` filters the retrieve to
+    resources whose primary code element matches the given Code or
+    ValueSet. This is the MOST efficient filter — uses terminology-aware
+    indexing on the FHIR server.
+  examples:
+    - title: Single declared code
+      good: |
+        code "HbA1c": '4548-4' from "LOINC"
+        define "HbA1cTests": [Observation: "HbA1c"]
+    - title: ValueSet membership
+      good: |
+        valueset "DiabetesVS": 'http://.../ValueSet/diabetes'
+        define "DiabetesConditions": [Condition: "DiabetesVS"]
+
+- id: retrieve-property-access
+  topic: Filtering by non-code properties requires a query
+  severity: medium
+  keywords:
+    - "retrieve filter"
+    - "status ="
+    - "where"
+    - "retrieve where"
+  explanation: |
+    The `[R: code]` syntax only filters the primary coded element. To
+    filter by other properties (status, effective date, value range),
+    wrap with a `where` query.
+  examples:
+    - title: Filter by status
+      good: |
+        define "ActiveConditions":
+          [Condition] C where C.clinicalStatus.coding[0].code = 'active'
+    - title: Filter by time range
+      good: |
+        define "RecentLabs":
+          [Observation] O
+            where O.effective during "Measurement Period"

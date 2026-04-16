@@ -1,0 +1,86 @@
+# CodeableConcept matching patterns — the #1 source of AI debug failures.
+# FHIR.CodeableConcept wraps a list of Codings; CQL's `in` operator does
+# NOT auto-compare it against list<Code>.
+
+- id: codeable-concept-in-list
+  topic: CodeableConcept 'in' list of inline codes
+  severity: high
+  keywords:
+    - CodeableConcept
+    - "operator In"
+    - "FHIR.CodeableConcept"
+    - "list<System.Code>"
+    - "X.code in"
+  explanation: |
+    CodeableConcept contains a list of Codings. To check if any coding
+    matches a list of Code references, drill into the .coding collection
+    with `exists (X.code.coding C where C in { ... })`.
+  examples:
+    - title: Inline code-list match
+      bad: |
+        define "HasHypertension":
+          [Condition] C where C.code in { "HTN Primary", "HTN Secondary" }
+      good: |
+        define "HasHypertension":
+          [Condition] C
+            where exists (C.code.coding CC where CC in { "HTN Primary", "HTN Secondary" })
+    - title: ValueSet membership (easier and preferred)
+      good: |
+        define "HasHypertension":
+          [Condition] C where C.code in "Hypertension ValueSet"
+
+- id: codeable-concept-equivalent
+  topic: CodeableConcept equivalence with a single code
+  severity: high
+  keywords:
+    - CodeableConcept
+    - equivalent
+    - "~"
+    - "P.code ~"
+  explanation: |
+    To compare a CodeableConcept to one single declared Code, use the
+    equivalent operator `~`. `=` is stricter and usually fails on FHIR
+    coded types because Codings carry display/system metadata.
+  examples:
+    - title: Single code equivalent
+      bad: |
+        define "IsDiabetes":
+          [Condition] C where C.code = "Diabetes"
+      good: |
+        define "IsDiabetes":
+          [Condition] C where C.code ~ "Diabetes"
+
+- id: codeable-concept-plain-string
+  topic: Matching a raw string code inside CodeableConcept.coding
+  severity: medium
+  keywords:
+    - "coding.code"
+    - "C.code ="
+    - "plain string"
+    - string match
+  explanation: |
+    When you have a literal string code (not a declared CQL code) and must
+    match it, drill into .coding and compare the primitive .code field.
+  examples:
+    - title: Match primitive string code
+      good: |
+        define "HasIcd10E11":
+          [Condition] C
+            where exists (C.code.coding CC where CC.code = 'E11')
+
+- id: codeable-concept-text-fallback
+  topic: CodeableConcept.text fallback when no Coding matches
+  severity: low
+  keywords:
+    - "CodeableConcept.text"
+    - "code.text"
+    - "text field"
+  explanation: |
+    CodeableConcept has an optional .text field (human-readable label) used
+    when no formal Coding was available. Read it for display or logging,
+    not for clinical decision logic.
+  examples:
+    - title: Display or fallback
+      good: |
+        define "ConditionLabel":
+          [Condition] C return Coalesce(C.code.coding[0].display, C.code.text)

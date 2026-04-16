@@ -1,0 +1,98 @@
+# Advanced CQL patterns: aggregates, multi-source, intervals, tuples.
+# Sourced from frontend/src/components/learn/AdvancedTopics.tsx.
+
+- id: aggregate-functions
+  topic: Aggregate functions (Count, Avg, Sum, Min, Max)
+  severity: medium
+  keywords:
+    - Count
+    - Avg
+    - Sum
+    - aggregate
+    - "Measurement Period"
+  explanation: |
+    Aggregate functions operate on lists and return scalars. Common ones:
+    Count, Avg, Sum, Min, Max, AllTrue, AnyTrue. Use `return` in a query
+    to project the value you want to aggregate.
+  examples:
+    - title: Count + Avg with return projection
+      good: |
+        define "Observation Count": Count([Observation])
+        define "Avg Systolic BP":
+          Avg(
+            [Observation] O
+              where O.code.coding[0].code = '8480-6'
+              return (O.value as Quantity).value
+          )
+
+- id: multi-source-query
+  topic: Multi-source query with from
+  severity: medium
+  keywords:
+    - "from.*where"
+    - multi-source
+    - "[Condition] C, [MedicationRequest]"
+    - join
+    - multiple resources
+  explanation: |
+    `from ResourceA R, ResourceB S where ... return ...` performs a
+    cross-resource join. Use it to correlate resources that reference
+    each other (e.g. Conditions with MedicationRequests for the same
+    patient).
+  examples:
+    - title: Conditions correlated with medications
+      good: |
+        define "DiabeticOnMetformin":
+          from [Condition] C, [MedicationRequest] M
+            where C.code.coding[0].code in { 'E11.9', 'E11.65' }
+              and M.medication.coding[0].display = 'Metformin'
+              and C.subject = M.subject
+            return { condition: C, medication: M }
+
+- id: interval-operations
+  topic: Interval operators (overlaps / during / meets / width)
+  severity: medium
+  keywords:
+    - Interval
+    - overlaps
+    - during
+    - meets
+    - "duration in days"
+    - "Measurement Period"
+  explanation: |
+    Intervals support rich temporal operators:
+      A overlaps B — A and B share at least one point
+      A during B  — A is entirely inside B
+      A meets B   — A ends exactly where B begins
+      duration in days of I — numeric length
+  examples:
+    - title: During measurement period
+      good: |
+        define "LabsInPeriod":
+          [Observation] O where O.effective during "Measurement Period"
+    - title: Duration
+      good: |
+        define "EncounterDays":
+          [Encounter] E return duration in days of E.period
+
+- id: tuple-construction
+  topic: Tuple construction and field access
+  severity: low
+  keywords:
+    - Tuple
+    - "Tuple {"
+    - tuple field
+    - structured return
+  explanation: |
+    `Tuple { field1: value1, field2: value2 }` creates a structured
+    record. Access fields with dot notation: `"MyTuple".field1`. Useful
+    for projecting composite results out of a query.
+  examples:
+    - title: Tuple in return
+      good: |
+        define "LabSummary":
+          [Observation] O return Tuple {
+            code: O.code.coding[0].code,
+            value: (O.value as Quantity).value,
+            date: O.effective
+          }

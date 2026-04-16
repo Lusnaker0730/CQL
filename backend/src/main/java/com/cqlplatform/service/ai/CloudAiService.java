@@ -25,12 +25,16 @@ import java.util.Map;
 @Conditional(AiProviderCondition.Cloud.class)
 public class CloudAiService implements CqlFixService {
 
+    private static final int KB_TOP_K = 3;
+
     private final AiProperties properties;
+    private final CqlKnowledgeBase knowledgeBase;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CloudAiService(AiProperties properties) {
+    public CloudAiService(AiProperties properties, CqlKnowledgeBase knowledgeBase) {
         this.properties = properties;
+        this.knowledgeBase = knowledgeBase;
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
@@ -62,11 +66,17 @@ public class CloudAiService implements CqlFixService {
         }
 
         String prompt = CqlFixPromptHelper.buildPrompt(cql, error);
+        List<KnowledgeEntry> relevant = knowledgeBase.findRelevant(error.getMessage(), cql, KB_TOP_K);
+        String systemPrompt = CqlFixPromptHelper.buildSystemPrompt(relevant);
+        if (!relevant.isEmpty()) {
+            log.debug("AI fix — matched {} knowledge entries: {}", relevant.size(),
+                    relevant.stream().map(KnowledgeEntry::id).toList());
+        }
 
         Map<String, Object> requestBody = Map.of(
                 "model", properties.getCloudModel(),
                 "messages", List.of(
-                        Map.of("role", "system", "content", CqlFixPromptHelper.SYSTEM_PROMPT),
+                        Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.1,

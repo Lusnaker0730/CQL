@@ -1,0 +1,67 @@
+# FHIRHelpers reality check — what IS and ISN'T available.
+
+- id: fhirhelpers-implicit-conversions
+  topic: FHIRHelpers provides implicit conversions (do NOT call explicitly)
+  severity: high
+  keywords:
+    - FHIRHelpers
+    - implicit conversion
+    - ToConcept
+    - ToCode
+    - conversion
+  explanation: |
+    FHIRHelpers registers implicit conversions that CQL applies
+    automatically. You never call these as functions. Auto-applied:
+      FHIR.string    -> System.String
+      FHIR.Coding    -> System.Code
+      FHIR.dateTime  -> System.DateTime
+      FHIR.Period    -> Interval<System.DateTime>
+      FHIR.Quantity  -> System.Quantity
+  examples:
+    - title: Don't call ToCode / ToConcept explicitly
+      bad: |
+        define "X":
+          [Observation] O where FHIRHelpers.ToConcept(O.code) = "LabCode"
+      good: |
+        define "X":
+          [Observation] O where O.code ~ "LabCode"
+
+- id: fhirhelpers-nonexistent-functions
+  topic: FHIRHelpers does NOT have GetCode / GetCodes / ToCodeList
+  severity: high
+  keywords:
+    - "GetCode"
+    - "GetCodes"
+    - "ToCodeList"
+    - "FHIRHelpers."
+    - nonexistent
+    - invented
+  explanation: |
+    Never invent functions that 'sound right'. The following DO NOT
+    exist in FHIRHelpers 4.0.1: GetCode(), GetCodes(), ToCoding(),
+    ToCodeList(), any X-to-Code converter. If you need codes out of a
+    CodeableConcept, drill into .coding directly.
+  examples:
+    - title: No such function — drill into coding instead
+      bad: |
+        define "Codes":
+          FHIRHelpers.GetCodes([Condition].code)
+      good: |
+        define "Codings":
+          flatten [Condition].code.coding
+
+- id: fhirhelpers-include-alias
+  topic: "'include FHIRHelpers' requires the 'called' keyword"
+  severity: medium
+  keywords:
+    - "include FHIRHelpers"
+    - "called FHIRHelpers"
+    - "include.*version"
+  explanation: |
+    The `include` statement requires a `called` alias. By convention the
+    FHIRHelpers library is included as `called FHIRHelpers`, so you never
+    need to qualify — implicit conversions are registered globally.
+  examples:
+    - title: Correct include syntax
+      bad: "include FHIRHelpers version '4.0.1'"
+      good: "include FHIRHelpers version '4.0.1' called FHIRHelpers"
