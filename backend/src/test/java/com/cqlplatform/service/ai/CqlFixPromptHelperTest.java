@@ -25,7 +25,7 @@ class CqlFixPromptHelperTest {
         KnowledgeEntry entry = new KnowledgeEntry(
                 "cc-match",
                 "CodeableConcept Matching",
-                "high",
+                KnowledgeEntry.Severity.HIGH,
                 List.of("CodeableConcept"),
                 "Drill into .coding.",
                 List.of(new KnowledgeEntry.Example(
@@ -50,7 +50,7 @@ class CqlFixPromptHelperTest {
     @Test
     void buildSystemPrompt_entryWithoutExamples_stillIncludesTopicAndExplanation() {
         KnowledgeEntry entry = new KnowledgeEntry(
-                "no-ex", "No Examples Topic", "low",
+                "no-ex", "No Examples Topic", KnowledgeEntry.Severity.LOW,
                 List.of("kw"), "Just explanation.", List.of()
         );
 

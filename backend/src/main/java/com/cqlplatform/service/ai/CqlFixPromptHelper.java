@@ -1,10 +1,14 @@
 package com.cqlplatform.service.ai;
 
 import com.cqlplatform.model.CqlTranslationResponse.CqlError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public final class CqlFixPromptHelper {
+
+    private static final Logger log = LoggerFactory.getLogger(CqlFixPromptHelper.class);
 
     private CqlFixPromptHelper() {}
 
@@ -46,14 +50,19 @@ public final class CqlFixPromptHelper {
             - Output the COMPLETE code with your fix applied.""";
 
     /**
-     * Kept for backward compatibility with any caller that hasn't migrated to
-     * {@link #buildSystemPrompt(List)}. Equivalent to the base prompt with no
-     * knowledge-base entries appended.
-     *
-     * @deprecated use {@link #buildSystemPrompt(List)} with knowledge-base entries instead.
+     * Convenience: looks up relevant knowledge entries for the given error + CQL
+     * and builds the final system prompt. Centralizes the logic that was previously
+     * duplicated in each AI provider service.
      */
-    @Deprecated
-    public static final String SYSTEM_PROMPT = BASE_SYSTEM_PROMPT;
+    public static String buildSystemPromptFor(CqlKnowledgeBase knowledgeBase, String cql, CqlError error) {
+        List<KnowledgeEntry> relevant = knowledgeBase.findRelevant(
+                error.getMessage(), cql, CqlKnowledgeBase.DEFAULT_TOP_K);
+        if (log.isDebugEnabled() && !relevant.isEmpty()) {
+            log.debug("AI fix — matched {} knowledge entries: {}", relevant.size(),
+                    relevant.stream().map(KnowledgeEntry::id).toList());
+        }
+        return buildSystemPrompt(relevant);
+    }
 
     /**
      * Builds a system prompt by appending relevant knowledge-base entries to the
