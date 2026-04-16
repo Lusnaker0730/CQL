@@ -192,14 +192,6 @@ public class PopulationEvaluator {
         }
     }
 
-    /**
-     * Extracts a population count from a single patient's CQL result.
-     * Handles Boolean (true=1), Number, and Iterable result types.
-     *
-     * @param results        CQL expression results
-     * @param populationName the population expression name
-     * @return the count, or null if the expression is not present
-     */
     // ---------- Population Membership Trace (debug mode) ----------
 
     /**
@@ -242,7 +234,7 @@ public class PopulationEvaluator {
             String exprName = pop.getCriteriaExpression();
             if (exprName != null && allResults.containsKey(exprName)) {
                 canonical.put(displayName, allResults.get(exprName));
-                // Also remember the binding under its expression key for reference
+
             }
         }
         return canonical;
@@ -299,9 +291,10 @@ public class PopulationEvaluator {
         Boolean denomExclRaw = rawBool(results, "Denominator Exclusions");
         boolean denomExcluded = denom && Boolean.TRUE.equals(denomExclRaw);
         if (hasPopulation(results, "Denominator Exclusions")) {
+            String denomExclReason = !denom ? "denomExcl_gatedByDenomFalse"
+                    : (denomExcluded ? "denom_excludedOut" : "denom_exprFalse");
             entries.add(populationEntry("Denominator Exclusions", "denominator-exclusion", results,
-                    denomExclRaw, denomExcluded,
-                    denomExcluded ? "denom_excludedOut" : "denom_exprFalse",
+                    denomExclRaw, denomExcluded, denomExclReason,
                     Map.of("denom", denom, "exclusion", Boolean.TRUE.equals(denomExclRaw))));
         }
 
@@ -318,9 +311,10 @@ public class PopulationEvaluator {
         Boolean numerExclRaw = rawBool(results, "Numerator Exclusions");
         boolean numerExcluded = numer && Boolean.TRUE.equals(numerExclRaw);
         if (hasPopulation(results, "Numerator Exclusions")) {
+            String numerExclReason = !numer ? "numerExcl_gatedByNumerFalse"
+                    : (numerExcluded ? "numer_excludedOut" : "numer_exprFalse");
             entries.add(populationEntry("Numerator Exclusions", "numerator-exclusion", results,
-                    numerExclRaw, numerExcluded,
-                    numerExcluded ? "numer_excludedOut" : "numer_exprFalse",
+                    numerExclRaw, numerExcluded, numerExclReason,
                     Map.of("numer", numer, "exclusion", Boolean.TRUE.equals(numerExclRaw))));
         }
 

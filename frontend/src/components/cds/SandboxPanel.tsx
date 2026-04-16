@@ -39,9 +39,9 @@ import {
   Save as SaveIcon,
   RestartAlt as ResetIcon,
   Delete as DeleteIcon,
-  BugReport as DebugIcon,
 } from '@mui/icons-material'
 import CdsDebugPanel from './CdsDebugPanel'
+import DebugModeSwitch from '../common/DebugModeSwitch'
 import {
   useCdsServices,
   useSandboxInvoke,
@@ -659,24 +659,7 @@ function SandboxPanelInner() {
 
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
         <Stack direction="row" spacing={1}>
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={debugMode}
-                onChange={(e) => setDebugMode(e.target.checked)}
-                disabled={dryRun}
-              />
-            }
-            label={
-              <Stack direction="row" spacing={0.5} alignItems="center">
-                <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
-                <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
-                  {t('sandbox.debugMode')}
-                </Typography>
-              </Stack>
-            }
-          />
+          <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('sandbox.debugMode')} disabled={dryRun} />
           <FormControlLabel
             control={
               <Switch

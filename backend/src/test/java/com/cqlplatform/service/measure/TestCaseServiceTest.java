@@ -40,9 +40,11 @@ class TestCaseServiceTest {
     @Mock
     private PopulationEvaluator populationEvaluator;
 
-    // Real FhirContext so parseBundleResources can parse the test bundle JSON.
+    // Shared across test methods — forR4() is expensive (~300ms) and stateless for parsing.
+    private static final FhirContext SHARED_FHIR_CTX = FhirContext.forR4();
+
     @org.mockito.Spy
-    private FhirContext fhirContext = FhirContext.forR4();
+    private FhirContext fhirContext = SHARED_FHIR_CTX;
 
     @InjectMocks
     private TestCaseService service;

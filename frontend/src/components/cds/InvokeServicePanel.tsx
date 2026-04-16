@@ -28,17 +28,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Switch,
-  FormControlLabel,
 } from '@mui/material'
 import {
   Info as InfoIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   CheckCircle as CheckIcon,
-  BugReport as DebugIcon,
 } from '@mui/icons-material'
 import CdsDebugPanel from './CdsDebugPanel'
+import DebugModeSwitch from '../common/DebugModeSwitch'
 import { alpha } from '@mui/material/styles'
 import {
   useCdsServices,
@@ -281,23 +279,7 @@ export default function InvokeServicePanel() {
       ))}
 
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={debugMode}
-              onChange={(e) => setDebugMode(e.target.checked)}
-            />
-          }
-          label={
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
-              <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
-                {t('sandbox.debugMode')}
-              </Typography>
-            </Stack>
-          }
-        />
+        <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('sandbox.debugMode')} />
         <GradientButton
           onClick={handleInvoke}
           disabled={!selectedService || invokeMutation.isPending}
