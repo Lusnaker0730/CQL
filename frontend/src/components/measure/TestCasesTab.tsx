@@ -17,6 +17,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControlLabel,
+  Switch,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -32,6 +34,7 @@ import {
   Calculate as CalcIcon,
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
+  BugReport as DebugIcon,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
@@ -40,12 +43,14 @@ import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
-import type { MeasureDefinition, TestCase, TestCaseRunResult, CoverageResult } from '../../types'
+import type { MeasureDefinition, TestCase, TestCaseRunResult } from '../../types'
 import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
 import TestCaseImportDialog from './TestCaseImportDialog'
+import PopulationTracePanel from './PopulationTracePanel'
+import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
 
 interface TestCasesTabProps {
@@ -69,7 +74,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
-  const [coverageData, setCoverageData] = useState<Record<number, { data: CoverageResult | null; loading: boolean }>>({})
+  const [debugMode, setDebugMode] = useState(false)
 
   const { data: testCases = [], isLoading } = useQuery({
     queryKey: ['test-cases', measure.id],
@@ -114,7 +119,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   })
 
   const runOneMutation = useMutation({
-    mutationFn: (testCaseId: number) => measureApi.runTestCase(measure.id!, testCaseId),
+    mutationFn: (testCaseId: number) => measureApi.runTestCase(measure.id!, testCaseId, debugMode),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults((prev) => {
@@ -126,25 +131,12 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   })
 
   const runAllMutation = useMutation({
-    mutationFn: () => measureApi.runAllTestCases(measure.id!),
+    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode),
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults(results)
     },
     onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
-  })
-
-  const coverageMutation = useMutation({
-    mutationFn: (testCaseId: number) => measureApi.runWithCoverage(measure.id!, testCaseId),
-    onMutate: (testCaseId) => {
-      setCoverageData(prev => ({ ...prev, [testCaseId]: { data: null, loading: true } }))
-    },
-    onSuccess: (data, testCaseId) => {
-      setCoverageData(prev => ({ ...prev, [testCaseId]: { data, loading: false } }))
-    },
-    onError: (_, testCaseId) => {
-      setCoverageData(prev => ({ ...prev, [testCaseId]: { data: null, loading: false } }))
-    },
   })
 
   const toExportShape = (tc: TestCase) => ({
@@ -206,7 +198,6 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
 
   const renderTestCaseRow = (tc: TestCase) => {
     const result = runResultMap.get(tc.id!)
-    const coverage = coverageData[tc.id!]
     return (
       <Paper key={tc.id} variant="outlined" sx={{ overflow: 'hidden' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1 }}>
@@ -226,14 +217,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
                 ))}
               </Stack>
             )}
-            <Tooltip title={t('testCases.tooltips.runWithCoverage')}>
-              <IconButton size="small" aria-label={t('testCases.ariaLabels.runWithCoverage')} onClick={() => coverageMutation.mutate(tc.id!)} disabled={coverageMutation.isPending}>
-                <RunIcon fontSize="small" color="secondary" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={t('testCases.tooltips.runTestCase')}>
+            <Tooltip title={debugMode ? t('testCases.tooltips.runTestCaseDebug') : t('testCases.tooltips.runTestCase')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.runTestCase')} onClick={() => runOneMutation.mutate(tc.id!)} disabled={runOneMutation.isPending}>
-                {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" />}
+                {runOneMutation.isPending && runOneMutation.variables === tc.id ? <CircularProgress size={16} /> : <RunIcon fontSize="small" color={debugMode ? 'secondary' : 'inherit'} />}
               </IconButton>
             </Tooltip>
             <Tooltip title={t('testCases.tooltips.exportJson')}>
@@ -250,13 +236,62 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         {result && (
           <>
             <Divider />
-            <Box sx={{ px: 1, py: 0.5 }}><TestCaseResultComponent result={result} /></Box>
-          </>
-        )}
-        {coverage && (
-          <>
-            <Divider />
-            <Box sx={{ px: 2, py: 1 }}><TestCaseCoverage coverage={coverage.data} isLoading={coverage.loading} /></Box>
+            <Box sx={{ px: 2, py: 1 }}>
+              {result.phaseError && (
+                <Alert severity="error" sx={{ mb: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      size="small"
+                      color="error"
+                      label={t(`populationTrace.phases.${result.phaseError.phase}`, { defaultValue: result.phaseError.phase })}
+                    />
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      {result.phaseError.message}
+                    </Typography>
+                  </Stack>
+                </Alert>
+              )}
+              <TestCaseResultComponent result={result} />
+
+              {result.populationTrace && (
+                <Accordion defaultExpanded sx={{ mt: 1 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="body2" fontWeight={600}>
+                      {t('testCases.populationTraceTitle')}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <PopulationTracePanel trace={result.populationTrace} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {result.coverage && (
+                <Accordion sx={{ mt: 0.5 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="body2" fontWeight={600}>
+                      {t('testCases.coverageTitle')}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <TestCaseCoverage coverage={result.coverage} isLoading={false} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {result.debugTrace && (
+                <Accordion sx={{ mt: 0.5 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="body2" fontWeight={600}>
+                      {t('testCases.debugPanelTitle')}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <DebugPanel trace={result.debugTrace} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </Box>
           </>
         )}
       </Paper>
@@ -300,7 +335,25 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             </Stack>
           )}
         </Stack>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={debugMode}
+                onChange={(e) => setDebugMode(e.target.checked)}
+              />
+            }
+            label={
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
+                <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
+                  {t('testCases.debugMode')}
+                </Typography>
+              </Stack>
+            }
+            sx={{ mr: 0 }}
+          />
           <Button
             size="small"
             startIcon={<CalcIcon />}

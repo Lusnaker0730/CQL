@@ -218,13 +218,21 @@ export const measureApi = {
     await api.delete(`/measures/${measureId}/test-cases/${testCaseId}`)
   },
 
-  runTestCase: async (measureId: number, testCaseId: number): Promise<TestCaseRunResult> => {
-    const response = await api.post<TestCaseRunResult>(`/measures/${measureId}/test-cases/${testCaseId}/run`)
+  runTestCase: async (measureId: number, testCaseId: number, debugMode = false): Promise<TestCaseRunResult> => {
+    const response = await api.post<TestCaseRunResult>(
+      `/measures/${measureId}/test-cases/${testCaseId}/run`,
+      null,
+      { params: { debugMode } }
+    )
     return response.data
   },
 
-  runAllTestCases: async (measureId: number): Promise<TestCaseRunResult[]> => {
-    const response = await api.post<TestCaseRunResult[]>(`/measures/${measureId}/test-cases/run`)
+  runAllTestCases: async (measureId: number, debugMode = false): Promise<TestCaseRunResult[]> => {
+    const response = await api.post<TestCaseRunResult[]>(
+      `/measures/${measureId}/test-cases/run`,
+      null,
+      { params: { debugMode } }
+    )
     return response.data
   },
 

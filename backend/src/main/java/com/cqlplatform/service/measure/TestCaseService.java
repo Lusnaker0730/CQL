@@ -1,6 +1,7 @@
 package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.TestCaseEntity;
+import com.cqlplatform.exception.BundleParseException;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
@@ -33,6 +34,7 @@ public class TestCaseService {
     private final CqlExecutionService cqlExecutionService;
     private final DateShiftService dateShiftService;
     private final FhirContext fhirContext;
+    private final PopulationEvaluator populationEvaluator;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -131,6 +133,11 @@ public class TestCaseService {
 
     @Transactional
     public TestCaseRunResult runTestCase(Long testCaseId) {
+        return runTestCase(testCaseId, false);
+    }
+
+    @Transactional
+    public TestCaseRunResult runTestCase(Long testCaseId, boolean debugMode) {
         TestCaseEntity entity = repository.findById(testCaseId)
                 .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + testCaseId));
 
@@ -138,25 +145,18 @@ public class TestCaseService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Measure not found: " + entity.getMeasureDefinitionId()));
 
-        TestCaseRunResult result = executeTestCase(entity, measure);
-
-        // Update entity with results
-        entity.setStatus(result.getStatus());
-        entity.setLastRunAt(LocalDateTime.now());
-        entity.setLastRunActualPopulationMap(result.getActualPopulations() != null
-                ? result.getActualPopulations() : new LinkedHashMap<>());
-        try {
-            entity.setLastRunResultJson(MAPPER.writeValueAsString(result));
-        } catch (Exception e) {
-            entity.setLastRunResultJson("{}");
-        }
-        repository.save(entity);
-
+        TestCaseRunResult result = executeTestCase(entity, measure, debugMode);
+        persistRunResult(entity, result);
         return result;
     }
 
     @Transactional
     public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId) {
+        return runAllTestCases(measureDefinitionId, false);
+    }
+
+    @Transactional
+    public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode) {
         MeasureDefinition measure = definitionService.getById(measureDefinitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
 
@@ -165,94 +165,58 @@ public class TestCaseService {
 
         List<TestCaseRunResult> results = new ArrayList<>();
         for (TestCaseEntity entity : entities) {
-            TestCaseRunResult result = executeTestCase(entity, measure);
-
-            // Update entity with results
-            entity.setStatus(result.getStatus());
-            entity.setLastRunAt(LocalDateTime.now());
-            entity.setLastRunActualPopulationMap(result.getActualPopulations() != null
-                    ? result.getActualPopulations() : new LinkedHashMap<>());
-            try {
-                entity.setLastRunResultJson(MAPPER.writeValueAsString(result));
-            } catch (Exception e) {
-                entity.setLastRunResultJson("{}");
-            }
-            repository.save(entity);
-
+            TestCaseRunResult result = executeTestCase(entity, measure, debugMode);
+            persistRunResult(entity, result);
             results.add(result);
         }
-
         return results;
+    }
+
+    /**
+     * Persists the run outcome to the entity. Strips large debug fields before serializing
+     * to keep {@code lastRunResultJson} from bloating the DB row.
+     */
+    private void persistRunResult(TestCaseEntity entity, TestCaseRunResult result) {
+        entity.setStatus(result.getStatus());
+        entity.setLastRunAt(LocalDateTime.now());
+        entity.setLastRunActualPopulationMap(result.getActualPopulations() != null
+                ? result.getActualPopulations() : new LinkedHashMap<>());
+        try {
+            TestCaseRunResult stored = result.toBuilder()
+                    .debugTrace(null).populationTrace(null).coverage(null).build();
+            entity.setLastRunResultJson(MAPPER.writeValueAsString(stored));
+        } catch (Exception e) {
+            entity.setLastRunResultJson("{}");
+        }
+        repository.save(entity);
     }
 
     // ===== Coverage =====
 
+    /**
+     * Backward-compat endpoint. Delegates to {@link #runTestCase(Long, boolean)} with debugMode=true
+     * and returns only the coverage portion. Preserves the original contract of returning an
+     * empty CoverageResult on any failure (rather than null) so existing callers keep working.
+     */
     @Transactional
     public CoverageResult runWithCoverage(Long testCaseId) {
-        TestCaseEntity entity = repository.findById(testCaseId)
-                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + testCaseId));
-
-        MeasureDefinition measure = definitionService.getById(entity.getMeasureDefinitionId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Measure not found: " + entity.getMeasureDefinitionId()));
-
-        if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
-            return CoverageResult.builder()
-                    .definitions(Collections.emptyList())
-                    .functions(Collections.emptyList())
-                    .build();
-        }
-
         try {
-            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
-            List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
-            PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
-
-            CqlExecutionRequest execRequest = new CqlExecutionRequest();
-            execRequest.setCql(measure.getCqlContent());
-            execRequest.setPatientId(patientId);
-            execRequest.setParameters(buildMeasurementPeriodParams(measure));
-
-            CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
-
-            List<CoverageResult.ExpressionCoverage> definitions = new ArrayList<>();
-            List<CoverageResult.ExpressionCoverage> functions = new ArrayList<>();
-
-            if (execResponse.getResults() != null) {
-                for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults().entrySet()) {
-                    String name = entry.getKey();
-                    CqlExecutionResponse.ExpressionResult result = entry.getValue();
-                    boolean truthy = isTruthy(result);
-                    String relevance = result.getValue() == null ? "NA" : (truthy ? "TRUE" : "FALSE");
-                    String resultStr = result.getDisplayValue() != null ? result.getDisplayValue() : String.valueOf(result.getValue());
-                    String type = result.getValueType() != null ? result.getValueType() : "unknown";
-
-                    // Simple heuristic: names starting with lowercase or containing parentheses are likely functions
-                    if (name.contains("(") || (name.length() > 0 && Character.isLowerCase(name.charAt(0)))) {
-                        functions.add(CoverageResult.ExpressionCoverage.builder()
-                                .name(name).type(type).relevance(relevance).result(resultStr).build());
-                    } else {
-                        definitions.add(CoverageResult.ExpressionCoverage.builder()
-                                .name(name).type(type).relevance(relevance).result(resultStr).build());
-                    }
-                }
-            }
-
-            return CoverageResult.builder()
-                    .definitions(definitions)
-                    .functions(functions)
-                    .build();
-
+            TestCaseRunResult result = runTestCase(testCaseId, true);
+            return result.getCoverage() != null ? result.getCoverage() : emptyCoverage();
         } catch (Exception e) {
             log.error("Coverage analysis failed for test case {}", testCaseId, e);
-            return CoverageResult.builder()
-                    .definitions(Collections.emptyList())
-                    .functions(Collections.emptyList())
-                    .build();
+            return emptyCoverage();
         }
     }
 
-    private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure) {
+    private CoverageResult emptyCoverage() {
+        return CoverageResult.builder()
+                .definitions(Collections.emptyList())
+                .functions(Collections.emptyList())
+                .build();
+    }
+
+    private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure, boolean debugMode) {
         long startTime = System.currentTimeMillis();
 
         if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
@@ -264,60 +228,122 @@ public class TestCaseService {
                     .build();
         }
 
+        String currentPhase = "BUNDLE_PARSE";
         try {
-            // Parse the test case bundle and create an in-memory data provider
             String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
             List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
             PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
 
+            currentPhase = "CQL_EXECUTION";
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
             execRequest.setPatientId(patientId);
             execRequest.setParameters(buildMeasurementPeriodParams(measure));
+            execRequest.setDebugMode(debugMode);
 
             CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
             if (!execResponse.isSuccess()) {
-                return TestCaseRunResult.builder()
+                TestCaseRunResult.TestCaseRunResultBuilder b = TestCaseRunResult.builder()
                         .testCaseId(entity.getId())
                         .testCaseTitle(entity.getTitle())
                         .status("error")
                         .errorMessage(execResponse.getErrors() != null
                                 ? String.join("; ", execResponse.getErrors()) : "Execution failed")
-                        .executionTimeMs(System.currentTimeMillis() - startTime)
-                        .build();
+                        .executionTimeMs(System.currentTimeMillis() - startTime);
+                if (debugMode) {
+                    b.phaseError(TestCaseRunResult.PhaseError.builder()
+                            .phase("CQL_EXECUTION")
+                            .message(execResponse.getErrors() != null
+                                    ? String.join("; ", execResponse.getErrors()) : "Execution failed")
+                            .build())
+                     .debugTrace(execResponse.getDebugTrace());
+                }
+                return b.build();
             }
 
-            // Build actual populations from CQL results
+            currentPhase = "POPULATION_EVAL";
             Map<String, Boolean> actualPopulations = buildActualPopulations(execResponse, measure);
             Map<String, Boolean> expectedPopulations = entity.getExpectedPopulationMap();
-
-            // Compare expected vs actual
             List<TestCaseRunResult.PopulationComparison> comparisons = buildComparisons(
                     expectedPopulations, actualPopulations);
-
             boolean allMatch = comparisons.stream().allMatch(TestCaseRunResult.PopulationComparison::isMatch);
 
-            return TestCaseRunResult.builder()
+            TestCaseRunResult.TestCaseRunResultBuilder b = TestCaseRunResult.builder()
                     .testCaseId(entity.getId())
                     .testCaseTitle(entity.getTitle())
                     .status(allMatch ? "pass" : "fail")
                     .expectedPopulations(expectedPopulations)
                     .actualPopulations(actualPopulations)
                     .comparisons(comparisons)
-                    .executionTimeMs(System.currentTimeMillis() - startTime)
-                    .build();
+                    .executionTimeMs(System.currentTimeMillis() - startTime);
 
+            if (debugMode) {
+                b.debugTrace(execResponse.getDebugTrace())
+                 .populationTrace(populationEvaluator.buildTestCaseTrace(measure, execResponse))
+                 .coverage(computeCoverage(execResponse));
+            }
+
+            return b.build();
+
+        } catch (BundleParseException e) {
+            return errorResult(entity, "BUNDLE_PARSE", e, debugMode, startTime);
         } catch (Exception e) {
-            log.error("Failed to execute test case '{}'", entity.getTitle(), e);
-            return TestCaseRunResult.builder()
-                    .testCaseId(entity.getId())
-                    .testCaseTitle(entity.getTitle())
-                    .status("error")
-                    .errorMessage(e.getMessage())
-                    .executionTimeMs(System.currentTimeMillis() - startTime)
-                    .build();
+            log.error("Failed to execute test case '{}' in phase {}", entity.getTitle(), currentPhase, e);
+            return errorResult(entity, currentPhase, e, debugMode, startTime);
         }
+    }
+
+    private TestCaseRunResult errorResult(TestCaseEntity entity, String phase, Throwable e,
+                                          boolean debugMode, long startTime) {
+        TestCaseRunResult.TestCaseRunResultBuilder b = TestCaseRunResult.builder()
+                .testCaseId(entity.getId())
+                .testCaseTitle(entity.getTitle())
+                .status("error")
+                .errorMessage(e.getMessage())
+                .executionTimeMs(System.currentTimeMillis() - startTime);
+        if (debugMode) {
+            List<String> frames = Arrays.stream(e.getStackTrace())
+                    .filter(f -> f.getClassName().startsWith("com.cqlplatform"))
+                    .limit(5)
+                    .map(StackTraceElement::toString)
+                    .toList();
+            b.phaseError(TestCaseRunResult.PhaseError.builder()
+                    .phase(phase)
+                    .message(e.getMessage())
+                    .stackHint(frames.isEmpty() ? null : frames)
+                    .build());
+        }
+        return b.build();
+    }
+
+    /**
+     * Classifies CQL expression results into definitions vs functions with relevance + result string.
+     * Shared by debug-mode runs and the backward-compat {@link #runWithCoverage} path.
+     */
+    private CoverageResult computeCoverage(CqlExecutionResponse execResponse) {
+        List<CoverageResult.ExpressionCoverage> definitions = new ArrayList<>();
+        List<CoverageResult.ExpressionCoverage> functions = new ArrayList<>();
+        if (execResponse.getResults() != null) {
+            for (Map.Entry<String, CqlExecutionResponse.ExpressionResult> entry : execResponse.getResults().entrySet()) {
+                String name = entry.getKey();
+                CqlExecutionResponse.ExpressionResult result = entry.getValue();
+                boolean truthy = isTruthy(result);
+                String relevance = result.getValue() == null ? "NA" : (truthy ? "TRUE" : "FALSE");
+                String resultStr = result.getDisplayValue() != null
+                        ? result.getDisplayValue() : String.valueOf(result.getValue());
+                String type = result.getValueType() != null ? result.getValueType() : "unknown";
+                CoverageResult.ExpressionCoverage item = CoverageResult.ExpressionCoverage.builder()
+                        .name(name).type(type).relevance(relevance).result(resultStr).build();
+                // Names containing parens or starting with lowercase likely denote functions
+                if (name.contains("(") || (!name.isEmpty() && Character.isLowerCase(name.charAt(0)))) {
+                    functions.add(item);
+                } else {
+                    definitions.add(item);
+                }
+            }
+        }
+        return CoverageResult.builder().definitions(definitions).functions(functions).build();
     }
 
     private Map<String, Boolean> buildActualPopulations(CqlExecutionResponse response,
@@ -393,6 +419,7 @@ public class TestCaseService {
             }
         } catch (Exception e) {
             log.warn("Failed to parse test case bundle: {}", e.getMessage());
+            throw new BundleParseException("Failed to parse test case bundle: " + e.getMessage(), e);
         }
         return resources;
     }

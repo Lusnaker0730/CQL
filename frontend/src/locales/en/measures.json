@@ -440,9 +440,14 @@
     "emptyTitle": "No test cases yet",
     "emptyDescription": "Create test cases with expected population outcomes to validate your measure logic.",
     "createFirst": "Create First Test Case",
+    "debugMode": "Debug mode",
+    "debugPanelTitle": "CQL execution trace",
+    "populationTraceTitle": "Population membership trace",
+    "coverageTitle": "Expression coverage",
     "tooltips": {
       "runWithCoverage": "Run with coverage",
       "runTestCase": "Run this test case",
+      "runTestCaseDebug": "Run with debug trace (population membership, execution, coverage)",
       "exportJson": "Export JSON",
       "edit": "Edit",
       "delete": "Delete"
@@ -453,6 +458,42 @@
       "exportJson": "Export test case JSON",
       "edit": "Edit test case",
       "delete": "Delete test case"
+    }
+  },
+  "populationTrace": {
+    "defaultGroupName": "Group {{index}}",
+    "columns": {
+      "population": "Population",
+      "raw": "CQL",
+      "effective": "Effective",
+      "reason": "Reason"
+    },
+    "phases": {
+      "BUNDLE_PARSE": "Bundle parse",
+      "CQL_TRANSLATION": "CQL translation",
+      "CQL_EXECUTION": "CQL execution",
+      "POPULATION_EVAL": "Population evaluation",
+      "UNKNOWN": "Unknown"
+    },
+    "reasons": {
+      "ip_true": "Patient qualified for Initial Population",
+      "ip_false": "Patient did NOT meet Initial Population criteria",
+      "denom_gatedByIpFalse": "Excluded from Denominator because Initial Population is false",
+      "denom_exprFalse": "Denominator criteria evaluated to false",
+      "denom_true": "In Denominator (IP true AND Denominator true)",
+      "denom_excludedOut": "Removed from Denominator by Denominator Exclusions",
+      "numer_gatedByDenomFalse": "Excluded from Numerator (not in effective Denominator)",
+      "numer_exprFalse": "Numerator criteria evaluated to false",
+      "numer_true": "In Numerator",
+      "numer_excludedOut": "Removed from Numerator by Numerator Exclusions",
+      "denomException_gatedByDenomFalse": "Denominator Exception not applicable (not in Denominator)",
+      "denomException_gatedByNumerTrue": "Denominator Exception not applicable (already in Numerator)",
+      "denomException_applied": "Denominator Exception applied",
+      "denomException_exprFalse": "Denominator Exception criteria evaluated to false",
+      "cv_mp_gatedByIpFalse": "Excluded from Measure Population because Initial Population is false",
+      "cv_mp_exprFalse": "Measure Population criteria evaluated to false",
+      "cv_mp_true": "In Measure Population",
+      "cv_mp_excludedOut": "Removed from Measure Population by exclusion"
     }
   },
   "importDialog": {
