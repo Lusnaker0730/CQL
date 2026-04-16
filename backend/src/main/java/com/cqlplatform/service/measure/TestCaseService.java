@@ -155,6 +155,8 @@ public class TestCaseService {
         return runAllTestCases(measureDefinitionId, false);
     }
 
+    private static final int DEBUG_BATCH_CAP = 20;
+
     @Transactional
     public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode) {
         MeasureDefinition measure = definitionService.getById(measureDefinitionId)
@@ -163,9 +165,17 @@ public class TestCaseService {
         List<TestCaseEntity> entities = repository
                 .findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
 
+        // Cap debug mode for large suites to avoid per-expression evaluation overhead
+        boolean effectiveDebug = debugMode;
+        if (debugMode && entities.size() > DEBUG_BATCH_CAP) {
+            log.warn("Debug mode disabled for batch run — {} test cases exceeds cap of {}",
+                    entities.size(), DEBUG_BATCH_CAP);
+            effectiveDebug = false;
+        }
+
         List<TestCaseRunResult> results = new ArrayList<>();
         for (TestCaseEntity entity : entities) {
-            TestCaseRunResult result = executeTestCase(entity, measure, debugMode);
+            TestCaseRunResult result = executeTestCase(entity, measure, effectiveDebug);
             persistRunResult(entity, result);
             results.add(result);
         }

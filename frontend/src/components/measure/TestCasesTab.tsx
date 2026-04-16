@@ -17,8 +17,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  FormControlLabel,
-  Switch,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -34,8 +32,8 @@ import {
   Calculate as CalcIcon,
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
-  BugReport as DebugIcon,
 } from '@mui/icons-material'
+import DebugModeSwitch from '../common/DebugModeSwitch'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useNotification } from '../../hooks/useNotification'
@@ -336,24 +334,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           )}
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={debugMode}
-                onChange={(e) => setDebugMode(e.target.checked)}
-              />
-            }
-            label={
-              <Stack direction="row" spacing={0.5} alignItems="center">
-                <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
-                <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
-                  {t('testCases.debugMode')}
-                </Typography>
-              </Stack>
-            }
-            sx={{ mr: 0 }}
-          />
+          <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('testCases.debugMode')} />
           <Button
             size="small"
             startIcon={<CalcIcon />}
