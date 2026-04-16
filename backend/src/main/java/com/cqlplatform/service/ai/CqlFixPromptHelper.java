@@ -2,11 +2,19 @@ package com.cqlplatform.service.ai;
 
 import com.cqlplatform.model.CqlTranslationResponse.CqlError;
 
+import java.util.List;
+
 public final class CqlFixPromptHelper {
 
     private CqlFixPromptHelper() {}
 
-    public static final String SYSTEM_PROMPT = """
+    /**
+     * Core system prompt — the minimal set of rules always included, regardless
+     * of which knowledge-base entries are matched. Specific patterns (CodeableConcept,
+     * FHIRHelpers, TWCORE, eCQM populations, etc.) are appended dynamically via
+     * {@link #buildSystemPrompt(List)} when the knowledge base returns matches.
+     */
+    public static final String BASE_SYSTEM_PROMPT = """
             You are a CQL (Clinical Quality Language) compiler assistant for HL7 FHIR R4.
             Your job: fix exactly ONE compilation error with the smallest possible code change.
 
@@ -31,47 +39,52 @@ public final class CqlFixPromptHelper {
             - exists(expr) — not exist(expr)
             - Property names are case-sensitive: O.status not O.Status
 
-            FHIR TYPE SYSTEM — CRITICAL:
-            FHIRHelpers provides IMPLICIT conversions (auto-applied, do NOT call them explicitly):
-            - FHIR.string    → System.String
-            - FHIR.Coding    → System.Code
-            - FHIR.dateTime  → System.DateTime
-            - FHIR.Period    → Interval<System.DateTime>
-            - FHIR.Quantity   → System.Quantity
-            FHIRHelpers does NOT have: GetCode(), GetCodes(), ToCoding(), ToCodeList(),
-            or any function that converts CodeableConcept to Code. Never invent functions.
-
-            Matching FHIR.CodeableConcept with codes — use ONLY these patterns:
-            1. Single code comparison with ~ (equivalent):
-               P.code ~ "MyCodeDef"
-            2. ValueSet membership:
-               P.code in "MyValueSetName"
-            3. Inline code list — drill into .coding:
-               exists (P.code.coding C where C ~ "Code1" or C ~ "Code2")
-               OR: exists (P.code.coding C where C in { "Code1", "Code2" })
-            4. Plain string code matching:
-               exists (P.code.coding C where C.code = '12345')
-            NEVER use: P.code in { "Code1", "Code2" }  ← WRONG (CodeableConcept ≠ Code)
-            NEVER use: FHIRHelpers.GetCode(P.code)      ← DOES NOT EXIST
-            NEVER use: FHIRHelpers.ToConcept(P.code)     ← Not needed, conversion is implicit
-
-            Common CQL type error patterns and correct fixes:
-            - "Could not resolve call to operator In with signature (FHIR.CodeableConcept, list<System.Code>)"
-              → Replace "X.code in {codes}" with "exists (X.code.coding C where C in {codes})"
-            - "Could not resolve call to operator In with signature (FHIR.code, list<System.Code>)"
-              → The FHIR.code (lowercase) auto-converts to System.String, not System.Code.
-                 Use: X.status = 'active'  OR  X.status in { 'active', 'completed' }
-            - "Could not resolve property X for type FHIR.Resource"
-              → Check spelling and case-sensitivity of property names.
-
-            If the error is caused by wrong declaration order (e.g. context before codesystem), \
-            fix it by moving the misplaced line to the correct position.
-
             STRICT RULES:
             - Make the SMALLEST change that fixes the error.
             - Do NOT add comments. Do NOT modify lines unrelated to the error.
             - Preserve ALL single quotes, double quotes, whitespace, and formatting exactly.
             - Output the COMPLETE code with your fix applied.""";
+
+    /**
+     * Kept for backward compatibility with any caller that hasn't migrated to
+     * {@link #buildSystemPrompt(List)}. Equivalent to the base prompt with no
+     * knowledge-base entries appended.
+     *
+     * @deprecated use {@link #buildSystemPrompt(List)} with knowledge-base entries instead.
+     */
+    @Deprecated
+    public static final String SYSTEM_PROMPT = BASE_SYSTEM_PROMPT;
+
+    /**
+     * Builds a system prompt by appending relevant knowledge-base entries to the
+     * base prompt. Each entry contributes its topic, explanation, and before/after
+     * examples formatted as markdown sections that LLMs parse well.
+     */
+    public static String buildSystemPrompt(List<KnowledgeEntry> relevant) {
+        if (relevant == null || relevant.isEmpty()) {
+            return BASE_SYSTEM_PROMPT;
+        }
+        StringBuilder sb = new StringBuilder(BASE_SYSTEM_PROMPT);
+        sb.append("\n\n## RELEVANT PATTERNS FOR THIS ERROR\n");
+        for (KnowledgeEntry entry : relevant) {
+            sb.append("\n### ").append(entry.topic()).append("\n");
+            sb.append(entry.explanation()).append("\n");
+            if (entry.examples() != null && !entry.examples().isEmpty()) {
+                for (KnowledgeEntry.Example ex : entry.examples()) {
+                    if (ex.title() != null && !ex.title().isBlank()) {
+                        sb.append("\n**").append(ex.title()).append("**\n");
+                    }
+                    if (ex.bad() != null && !ex.bad().isBlank()) {
+                        sb.append("WRONG:\n```cql\n").append(ex.bad().trim()).append("\n```\n");
+                    }
+                    if (ex.good() != null && !ex.good().isBlank()) {
+                        sb.append("CORRECT:\n```cql\n").append(ex.good().trim()).append("\n```\n");
+                    }
+                }
+            }
+        }
+        return sb.toString();
+    }
 
     public static String buildPrompt(String cql, CqlError error) {
         String truncatedCql = truncateCql(cql, error.getStartLine());

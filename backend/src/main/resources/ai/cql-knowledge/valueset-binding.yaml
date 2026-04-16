@@ -1,0 +1,61 @@
+# ValueSet declaration → binding → usage chain.
+
+- id: valueset-declaration
+  topic: Declaring a valueset
+  severity: high
+  keywords:
+    - valueset
+    - "Could not resolve value set"
+    - "value set name"
+    - canonical URL
+  explanation: |
+    `valueset "Name": 'canonical-url'` declares a ValueSet bound by its
+    canonical URL. The name in double quotes is the local reference used
+    in retrieves and `in` expressions. The URL in single quotes points to
+    the actual ValueSet resource on the terminology server.
+  examples:
+    - title: Declare and use
+      good: |
+        valueset "Diabetes": 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.103.12.1001'
+        define "HasDiabetes":
+          exists [Condition: "Diabetes"]
+
+- id: valueset-vs-code
+  topic: "valueset vs code — pick the right one"
+  severity: medium
+  keywords:
+    - "valueset or code"
+    - "single code"
+    - "multiple codes"
+  explanation: |
+    Use `code "X": '...' from "CS"` when you have exactly one code. Use
+    `valueset "X": 'URL'` when you need a curated set of codes managed on
+    a terminology server. Retrieves accept both interchangeably:
+    `[Condition: "X"]`.
+  examples:
+    - title: Single code
+      good: 'code "HbA1c": ''4548-4'' from "LOINC"'
+    - title: ValueSet
+      good: 'valueset "Diabetes": ''http://.../ValueSet/diabetes'''
+
+- id: valueset-codesystem-cross
+  topic: Declaration order — codesystem before valueset / code
+  severity: medium
+  keywords:
+    - "declaration order"
+    - "codesystem before"
+    - "unresolved reference"
+  explanation: |
+    CQL enforces declaration order at the top of a library:
+    library -> using -> include -> codesystem -> valueset -> code ->
+    parameter -> context -> define. A `code` statement that references a
+    codesystem before that codesystem is declared will fail.
+  examples:
+    - title: Correct order
+      good: |
+        library Example version '1.0.0'
+        using FHIR version '4.0.1'
+        include FHIRHelpers version '4.0.1' called FHIRHelpers
+        codesystem "LOINC": 'http://loinc.org'
+        code "HbA1c": '4548-4' from "LOINC"
+        context Patient

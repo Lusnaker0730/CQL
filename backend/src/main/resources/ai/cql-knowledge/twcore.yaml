@@ -1,0 +1,49 @@
+# TWCORE IG specifics — Taiwan localization for FHIR CQL.
+# Sourced from frontend/src/components/learn/TwcoreGuide.tsx.
+
+- id: twcore-code-systems
+  topic: TWCORE / Taiwan-specific code systems
+  severity: medium
+  keywords:
+    - TWCORE
+    - "ICD-10-CM-TW"
+    - "ICD-10-PCS-TW"
+    - "twcore.mohw.gov.tw"
+    - NHI
+    - Taiwan
+    - "台灣"
+  explanation: |
+    Taiwan's TWCORE IG defines local code systems. When working with TWCORE
+    data, use the TWCORE canonical URLs (not US HL7 defaults):
+
+      ICD-10-CM (TW): https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw
+      ICD-10-PCS (TW): https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-pcs-2023-tw
+      NHI Medication: https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medication-nhi-tw
+      NHI Procedure: https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/medical-service-payment-tw
+      Department:    https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/department-tw
+
+    Standard international systems (LOINC, SNOMED CT, RxNorm) are still
+    used where applicable.
+  examples:
+    - title: TWCORE ICD-10-CM codesystem declaration
+      good: |
+        codesystem "ICD10CM-TW": 'https://twcore.mohw.gov.tw/ig/twcore/CodeSystem/icd-10-cm-2023-tw'
+        code "Essential hypertension": 'I10' from "ICD10CM-TW"
+
+- id: twcore-profiles
+  topic: TWCORE profiled resources
+  severity: low
+  keywords:
+    - "twcore profile"
+    - "Patient-twcore"
+    - "Condition-twcore"
+    - "MedicationRequest-twcore"
+  explanation: |
+    TWCORE profiles constrain FHIR resources for Taiwan clinical data.
+    CQL retrieves use the base FHIR resource type; profile conformance is
+    enforced by the FHIR server. You do NOT write `[Patient-twcore]` —
+    still use `[Patient]`, `[Condition]`, etc.
+  examples:
+    - title: Retrieve still uses base resource type
+      bad: "[Patient-twcore]"
+      good: "[Patient]"

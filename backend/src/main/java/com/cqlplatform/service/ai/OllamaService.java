@@ -17,6 +17,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -24,12 +25,16 @@ import java.util.Map;
 @Conditional(AiProviderCondition.Ollama.class)
 public class OllamaService implements CqlFixService {
 
+    private static final int KB_TOP_K = 3;
+
     private final AiProperties properties;
+    private final CqlKnowledgeBase knowledgeBase;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public OllamaService(AiProperties properties) {
+    public OllamaService(AiProperties properties, CqlKnowledgeBase knowledgeBase) {
         this.properties = properties;
+        this.knowledgeBase = knowledgeBase;
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
@@ -52,10 +57,16 @@ public class OllamaService implements CqlFixService {
     @Retry(name = "ollamaService")
     public CqlFixSuggestionResponse suggestFix(String cql, CqlError error) {
         String prompt = CqlFixPromptHelper.buildPrompt(cql, error);
+        List<KnowledgeEntry> relevant = knowledgeBase.findRelevant(error.getMessage(), cql, KB_TOP_K);
+        String systemPrompt = CqlFixPromptHelper.buildSystemPrompt(relevant);
+        if (!relevant.isEmpty()) {
+            log.debug("AI fix — matched {} knowledge entries: {}", relevant.size(),
+                    relevant.stream().map(KnowledgeEntry::id).toList());
+        }
 
         Map<String, Object> requestBody = Map.of(
                 "model", properties.getOllamaModel(),
-                "system", CqlFixPromptHelper.SYSTEM_PROMPT,
+                "system", systemPrompt,
                 "prompt", prompt,
                 "stream", false,
                 "options", Map.of(

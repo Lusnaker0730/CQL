@@ -1,0 +1,135 @@
+# Common CQL compilation errors and their fixes.
+# Sourced from frontend/src/components/learn/TroubleshootingGuide.tsx.
+
+- id: resolve-type-missing-using
+  topic: "'Could not resolve type name' — missing FHIR model declaration"
+  severity: high
+  keywords:
+    - "Could not resolve type"
+    - "resolve type"
+    - "type name"
+    - "using FHIR"
+    - "missing model"
+  explanation: |
+    Every CQL library using FHIR resources must declare the FHIR model at
+    the top with `using FHIR version '4.0.1'`. Without it, `[Patient]`,
+    `[Observation]`, etc. cannot be resolved.
+  examples:
+    - title: Add the using declaration
+      bad: |
+        library MyLibrary version '1.0.0'
+        context Patient
+        define "All Conditions":
+          [Condition]
+      good: |
+        library MyLibrary version '1.0.0'
+        using FHIR version '4.0.1'
+        include FHIRHelpers version '4.0.1'
+        context Patient
+        define "All Conditions":
+          [Condition]
+
+- id: resolve-context-name
+  topic: "'Could not resolve context name' — wrong context spelling"
+  severity: medium
+  keywords:
+    - "Could not resolve context"
+    - "context name"
+    - "context Patients"
+  explanation: |
+    Valid CQL contexts are `Patient`, `Practitioner`, `Encounter`, and
+    `Unfiltered`. All are singular and capitalized. `Patients` (plural) is
+    a common typo.
+  examples:
+    - title: Correct context name
+      bad: "context Patients"
+      good: "context Patient"
+
+- id: invoke-member-on-list
+  topic: "'Cannot invoke member X on type List<…>' — missing query alias"
+  severity: high
+  keywords:
+    - "Cannot invoke member"
+    - "on type List"
+    - "List<FHIR"
+  explanation: |
+    A retrieve like `[Observation]` returns a list. You cannot access a
+    property directly on a list — you must introduce a query alias and
+    iterate with `where` / `return`.
+  examples:
+    - title: Use a query alias
+      bad: |
+        define "ObservationValues":
+          [Observation].value
+      good: |
+        define "ObservationValues":
+          [Observation] O
+            where O.value is not null
+            return O.value
+
+- id: resolve-code-system
+  topic: "'Could not resolve code system name' — missing codesystem declaration"
+  severity: medium
+  keywords:
+    - "Could not resolve code system"
+    - "code system name"
+    - codesystem
+  explanation: |
+    Code systems must be declared with their canonical URL before any
+    `code` or `valueset` references them. Declare near the top, after
+    `include FHIRHelpers`.
+  examples:
+    - title: Declare codesystem before use
+      good: |
+        codesystem "LOINC": 'http://loinc.org'
+        codesystem "ICD10": 'http://hl7.org/fhir/sid/icd-10-cm'
+        code "HbA1c": '4548-4' from "LOINC"
+
+- id: translation-timeout
+  topic: "CQL translation timeout — decompose complex expressions"
+  severity: low
+  keywords:
+    - "Translation timed out"
+    - timeout
+    - "too complex"
+    - "nested queries"
+  explanation: |
+    Deeply nested queries (exists-within-exists-within-exists) can exceed
+    the translator's budget. Split the expression into multiple named
+    `define` statements and compose them.
+  examples:
+    - title: Decompose nested exists
+      bad: |
+        define "Complex":
+          [Observation] O where exists (
+            [Condition] C where exists (
+              [MedicationRequest] M where M.subject = C.subject))
+      good: |
+        define "Active Medications":
+          [MedicationRequest] M where M.status = 'active'
+        define "Active Conditions":
+          [Condition] C where C.clinicalStatus.coding[0].code = 'active'
+        define "Has Both":
+          exists "Active Medications" and exists "Active Conditions"
+
+- id: no-results-returned
+  topic: "All definitions return empty — data, dates, or codes mismatch"
+  severity: low
+  keywords:
+    - "no results"
+    - "empty results"
+    - "all null"
+    - "returned null"
+  explanation: |
+    If retrieves return nothing: (1) verify the FHIR server actually has
+    resources; (2) check Measurement Period dates overlap resource dates;
+    (3) confirm code system URIs and value set OIDs match the data;
+    (4) temporarily remove filters and use Count() to confirm data exists.
+  examples:
+    - title: Start simple, add filters gradually
+      good: |
+        // First, confirm data exists:
+        define "Condition Count": Count([Condition])
+        // Then add filters one at a time:
+        define "Active Conditions":
+          [Condition] C where C.clinicalStatus.coding[0].code = 'active'

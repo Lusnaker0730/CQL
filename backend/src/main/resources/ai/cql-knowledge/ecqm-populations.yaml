@@ -1,0 +1,62 @@
+# eCQM population logic — how IP / Denom / Numer interact.
+# Sourced from frontend/src/components/learn/EcqmTutorial.tsx.
+
+- id: ecqm-population-hierarchy
+  topic: Proportion measure population hierarchy
+  severity: high
+  keywords:
+    - "Initial Population"
+    - Denominator
+    - Numerator
+    - "Denominator Exclusions"
+    - "Denominator Exceptions"
+    - "Numerator Exclusions"
+    - population hierarchy
+  explanation: |
+    Proportion measures enforce this hierarchy:
+      1. Initial Population (IP): who is considered at all
+      2. Denominator (D): subset of IP eligible for measure
+      3. Denominator Exclusions: removed from D (never counted)
+      4. Numerator (N): subset of D who met the criterion
+      5. Numerator Exclusions: removed from N
+      6. Denominator Exceptions: in D but not in N AND exception applies
+         (removed from D for scoring)
+
+    A patient can ONLY be in Denominator if in Initial Population.
+    A patient can ONLY be in Numerator if in (effective) Denominator.
+    Always define each population as a Boolean or a filtered list.
+  examples:
+    - title: Boolean-style definitions
+      good: |
+        define "Initial Population":
+          AgeInYearsAt(start of "Measurement Period") >= 18
+        define "Denominator":
+          "Initial Population" and exists [Condition: "Hypertension"]
+        define "Denominator Exclusions":
+          exists [Condition: "Pregnancy"]
+        define "Numerator":
+          "Denominator" and exists [Observation: "BP Controlled"]
+
+- id: ecqm-continuous-variable
+  topic: Continuous-variable measure populations
+  severity: medium
+  keywords:
+    - "continuous variable"
+    - "Measure Population"
+    - "Measure Observation"
+    - CV measure
+  explanation: |
+    Continuous-variable (CV) measures track observation VALUES, not
+    patient counts. Populations: Initial Population, Measure Population,
+    Measure Population Exclusion, plus a "Measure Observation" function
+    that returns a number per subject (e.g., length of stay). Aggregates
+    (median, mean) are computed over Measure Observation results.
+  examples:
+    - title: CV measure skeleton
+      good: |
+        define "Initial Population":
+          exists [Encounter] E where E.status = 'finished'
+        define "Measure Population":
+          "Initial Population"
+        define function "Measure Observation"(E Encounter):
+          duration in days of E.period
