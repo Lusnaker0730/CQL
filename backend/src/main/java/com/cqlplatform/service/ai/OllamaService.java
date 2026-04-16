@@ -25,8 +25,6 @@ import java.util.Map;
 @Conditional(AiProviderCondition.Ollama.class)
 public class OllamaService implements CqlFixService {
 
-    private static final int KB_TOP_K = 3;
-
     private final AiProperties properties;
     private final CqlKnowledgeBase knowledgeBase;
     private final RestTemplate restTemplate;
@@ -57,12 +55,7 @@ public class OllamaService implements CqlFixService {
     @Retry(name = "ollamaService")
     public CqlFixSuggestionResponse suggestFix(String cql, CqlError error) {
         String prompt = CqlFixPromptHelper.buildPrompt(cql, error);
-        List<KnowledgeEntry> relevant = knowledgeBase.findRelevant(error.getMessage(), cql, KB_TOP_K);
-        String systemPrompt = CqlFixPromptHelper.buildSystemPrompt(relevant);
-        if (!relevant.isEmpty()) {
-            log.debug("AI fix — matched {} knowledge entries: {}", relevant.size(),
-                    relevant.stream().map(KnowledgeEntry::id).toList());
-        }
+        String systemPrompt = CqlFixPromptHelper.buildSystemPromptFor(knowledgeBase, cql, error);
 
         Map<String, Object> requestBody = Map.of(
                 "model", properties.getOllamaModel(),

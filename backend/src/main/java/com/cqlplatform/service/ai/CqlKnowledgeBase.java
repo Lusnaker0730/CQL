@@ -8,6 +8,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,22 +32,26 @@ public class CqlKnowledgeBase {
 
     private static final String KNOWLEDGE_PATTERN = "classpath:ai/cql-knowledge/*.yaml";
 
-    private volatile List<KnowledgeEntry> entries = List.of();
+    /** Default number of top entries returned by {@link #findRelevant}. */
+    public static final int DEFAULT_TOP_K = 3;
+
+    private List<KnowledgeEntry> entries = List.of();
 
     @PostConstruct
     void load() {
         List<KnowledgeEntry> loaded = new ArrayList<>();
         ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Yaml yaml = new Yaml();
         try {
             Resource[] resources = resolver.getResources(KNOWLEDGE_PATTERN);
             for (Resource resource : resources) {
-                loaded.addAll(parseResource(resource));
+                loaded.addAll(parseResource(yaml, resource));
             }
             this.entries = Collections.unmodifiableList(loaded);
             log.info("Loaded {} CQL AI knowledge entries from {} files",
                     loaded.size(), resources.length);
-        } catch (Exception e) {
-            log.error("Failed to load CQL AI knowledge base — AI fix will use base prompt only", e);
+        } catch (IOException e) {
+            log.error("Failed to scan CQL AI knowledge base — AI fix will use base prompt only", e);
             this.entries = List.of();
         }
     }
@@ -69,7 +74,7 @@ public class CqlKnowledgeBase {
                 .filter(s -> s.score > 0)
                 .sorted(Comparator
                         .comparingInt((Scored s) -> s.score).reversed()
-                        .thenComparingInt(s -> severityRank(s.entry.severity())))
+                        .thenComparingInt(s -> s.entry.severity().rank()))
                 .limit(topK)
                 .map(Scored::entry)
                 .toList();
@@ -83,16 +88,15 @@ public class CqlKnowledgeBase {
     // --- Internals ---
 
     @SuppressWarnings("unchecked")
-    private List<KnowledgeEntry> parseResource(Resource resource) {
+    private List<KnowledgeEntry> parseResource(Yaml yaml, Resource resource) {
         String filename = resource.getFilename();
         try (InputStream in = resource.getInputStream()) {
-            Yaml yaml = new Yaml();
             Object root = yaml.load(in);
             if (!(root instanceof List<?> list)) {
                 log.warn("Knowledge file {} is not a YAML list — skipping", filename);
                 return List.of();
             }
-            List<KnowledgeEntry> out = new ArrayList<>();
+            List<KnowledgeEntry> out = new ArrayList<>(list.size());
             for (Object item : list) {
                 if (!(item instanceof Map<?, ?> map)) continue;
                 KnowledgeEntry entry = toEntry((Map<String, Object>) map);
@@ -112,8 +116,14 @@ public class CqlKnowledgeBase {
         String explanation = asString(raw.get("explanation"));
         if (id == null || topic == null || explanation == null) return null;
 
-        String severity = asString(raw.get("severity"));
-        List<String> keywords = asStringList(raw.get("keywords"));
+        // Pre-normalize keywords once at load: lowercase, trim, drop blanks.
+        // Stored in this form so per-request scoring is allocation-free.
+        List<String> keywords = asStringList(raw.get("keywords")).stream()
+                .filter(k -> k != null && !k.isBlank())
+                .map(k -> k.toLowerCase(Locale.ROOT))
+                .toList();
+
+        KnowledgeEntry.Severity severity = KnowledgeEntry.Severity.parse(asString(raw.get("severity")));
 
         List<KnowledgeEntry.Example> examples = new ArrayList<>();
         Object exObj = raw.get("examples");
@@ -129,15 +139,13 @@ public class CqlKnowledgeBase {
             }
         }
 
-        return new KnowledgeEntry(id, topic, severity == null ? "medium" : severity,
-                keywords, explanation.trim(), examples);
+        return new KnowledgeEntry(id, topic, severity, keywords, explanation.trim(), examples);
     }
 
     private static String asString(Object o) {
         return o == null ? null : o.toString();
     }
 
-    @SuppressWarnings("unchecked")
     private static List<String> asStringList(Object o) {
         if (o instanceof List<?> list) {
             List<String> out = new ArrayList<>(list.size());
@@ -152,21 +160,8 @@ public class CqlKnowledgeBase {
     private static int scoreKeywords(List<String> keywords, String query) {
         int score = 0;
         for (String kw : keywords) {
-            if (kw != null && !kw.isBlank() && query.contains(kw.toLowerCase(Locale.ROOT))) {
-                score++;
-            }
+            if (query.contains(kw)) score++;
         }
         return score;
-    }
-
-    /** Lower rank = higher priority. */
-    private static int severityRank(String severity) {
-        if (severity == null) return 2;
-        return switch (severity.toLowerCase(Locale.ROOT)) {
-            case "high" -> 0;
-            case "medium" -> 1;
-            case "low" -> 2;
-            default -> 3;
-        };
     }
 }
