@@ -1,5 +1,6 @@
 package com.cqlplatform.service.measure;
 
+import ca.uhn.fhir.context.FhirContext;
 import com.cqlplatform.entity.TestCaseEntity;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
@@ -35,6 +36,13 @@ class TestCaseServiceTest {
 
     @Mock
     private DateShiftService dateShiftService;
+
+    @Mock
+    private PopulationEvaluator populationEvaluator;
+
+    // Real FhirContext so parseBundleResources can parse the test bundle JSON.
+    @org.mockito.Spy
+    private FhirContext fhirContext = FhirContext.forR4();
 
     @InjectMocks
     private TestCaseService service;

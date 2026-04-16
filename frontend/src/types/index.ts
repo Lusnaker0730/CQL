@@ -880,6 +880,11 @@ export interface TestCaseRunResult {
   comparisons?: PopulationComparison[]
   errorMessage?: string
   executionTimeMs?: number
+  // Debug mode additions (only populated when run with debugMode=true)
+  debugTrace?: DebugTrace
+  populationTrace?: PopulationMembershipTrace
+  coverage?: CoverageResult
+  phaseError?: PhaseError
 }
 
 export interface PopulationComparison {
@@ -887,6 +892,33 @@ export interface PopulationComparison {
   expected?: boolean
   actual?: boolean
   match: boolean
+}
+
+export interface PhaseError {
+  phase: string
+  message: string
+  stackHint?: string[]
+}
+
+export interface PopulationMembershipTrace {
+  groups: GroupTrace[]
+}
+
+export interface GroupTrace {
+  groupId?: string
+  description?: string
+  scoringType?: string
+  populations: PopulationTraceEntry[]
+}
+
+export interface PopulationTraceEntry {
+  populationType: string
+  displayName: string
+  criteriaExpression?: string
+  rawResult?: boolean | null
+  effectiveResult?: boolean | null
+  reasonCode: string
+  reasonInputs?: Record<string, boolean>
 }
 
 export interface BatchTestCaseImportResult {

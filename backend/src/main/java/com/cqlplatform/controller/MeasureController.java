@@ -597,18 +597,21 @@ public class MeasureController {
     @Operation(summary = "Run Test Case", description = "Execute a single test case against the measure's CQL")
     public ResponseEntity<TestCaseRunResult> runTestCase(
             @PathVariable Long measureId,
-            @PathVariable Long testCaseId) {
+            @PathVariable Long testCaseId,
+            @RequestParam(defaultValue = "false") boolean debugMode) {
         requireOwnedMeasure(measureId);
         verifyTestCaseBelongsToMeasure(measureId, testCaseId);
-        TestCaseRunResult result = testCaseService.runTestCase(testCaseId);
+        TestCaseRunResult result = testCaseService.runTestCase(testCaseId, debugMode);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/{measureId}/test-cases/run")
     @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure")
-    public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(@PathVariable Long measureId) {
+    public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(
+            @PathVariable Long measureId,
+            @RequestParam(defaultValue = "false") boolean debugMode) {
         requireOwnedMeasure(measureId);
-        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId);
+        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId, debugMode);
         return ResponseEntity.ok(results);
     }
 

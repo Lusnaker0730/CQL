@@ -440,9 +440,14 @@
     "emptyTitle": "尚無測試案例",
     "emptyDescription": "建立具有預期族群結果的測試案例，以驗證您的指標邏輯。",
     "createFirst": "建立第一個測試案例",
+    "debugMode": "除錯模式",
+    "debugPanelTitle": "CQL 執行追蹤",
+    "populationTraceTitle": "族群歸屬追蹤",
+    "coverageTitle": "表達式覆蓋率",
     "tooltips": {
       "runWithCoverage": "執行並計算覆蓋率",
       "runTestCase": "執行此測試案例",
+      "runTestCaseDebug": "執行並顯示除錯追蹤（族群歸屬、執行細節、覆蓋率）",
       "exportJson": "匯出 JSON",
       "edit": "編輯",
       "delete": "刪除"
@@ -453,6 +458,42 @@
       "exportJson": "匯出測試案例 JSON",
       "edit": "編輯測試案例",
       "delete": "刪除測試案例"
+    }
+  },
+  "populationTrace": {
+    "defaultGroupName": "群組 {{index}}",
+    "columns": {
+      "population": "族群",
+      "raw": "CQL",
+      "effective": "實際",
+      "reason": "原因"
+    },
+    "phases": {
+      "BUNDLE_PARSE": "Bundle 解析",
+      "CQL_TRANSLATION": "CQL 翻譯",
+      "CQL_EXECUTION": "CQL 執行",
+      "POPULATION_EVAL": "族群評估",
+      "UNKNOWN": "未知"
+    },
+    "reasons": {
+      "ip_true": "病患符合起始族群條件",
+      "ip_false": "病患不符合起始族群條件",
+      "denom_gatedByIpFalse": "因起始族群為 false，無法進入分母",
+      "denom_exprFalse": "分母條件評估為 false",
+      "denom_true": "進入分母（起始族群 AND 分母皆為 true）",
+      "denom_excludedOut": "被分母排除條件移出分母",
+      "numer_gatedByDenomFalse": "因不在有效分母中，無法進入分子",
+      "numer_exprFalse": "分子條件評估為 false",
+      "numer_true": "進入分子",
+      "numer_excludedOut": "被分子排除條件移出分子",
+      "denomException_gatedByDenomFalse": "分母例外不適用（不在分母中）",
+      "denomException_gatedByNumerTrue": "分母例外不適用（已在分子中）",
+      "denomException_applied": "套用分母例外",
+      "denomException_exprFalse": "分母例外條件評估為 false",
+      "cv_mp_gatedByIpFalse": "因起始族群為 false，無法進入量測族群",
+      "cv_mp_exprFalse": "量測族群條件評估為 false",
+      "cv_mp_true": "進入量測族群",
+      "cv_mp_excludedOut": "被排除條件移出量測族群"
     }
   },
   "importDialog": {
