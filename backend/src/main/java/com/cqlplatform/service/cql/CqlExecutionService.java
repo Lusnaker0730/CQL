@@ -128,11 +128,13 @@ public class CqlExecutionService {
             }
         }
 
-        // Register the source so the engine can find it
         org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
         if (libraryId != null) {
             libraryManager.getLibrarySourceLoader().registerProvider(
                     new InMemoryLibrarySourceProvider(libraryId.getId(), libraryId.getVersion(), cql));
+            if (translator.getTranslatedLibrary() != null) {
+                seedCompiledLibrary(libraryManager, libraryId, translator.getTranslatedLibrary());
+            }
         }
 
         return new PreTranslatedContext(elmLibrary, libraryManager, cql);
@@ -243,6 +245,17 @@ public class CqlExecutionService {
             } else {
                 translator = CqlTranslator.fromText(request.getCql(), libraryManager);
                 elmLibrary = translator.toELM();
+            }
+
+            // Critical: register the freshly-translated library in libraryManager's cache.
+            // Otherwise engine.evaluate() looks up the library by VersionedIdentifier via
+            // DatabaseLibrarySourceProvider and re-compiles whatever is stored in the DB —
+            // which may be a stale version (e.g. with old sort clauses) that contradicts
+            // the editor's current text. The engine executes the cached compiled library,
+            // so without this seeding the fresh translation is silently ignored.
+            if (translator != null && translator.getTranslatedLibrary() != null
+                    && elmLibrary != null && elmLibrary.getIdentifier() != null) {
+                seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTranslatedLibrary());
             }
 
             // Check for translation errors — previously these were silently swallowed,
@@ -541,6 +554,7 @@ public class CqlExecutionService {
                     if (runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
                         runtimeErrors.add(formatted);
                     }
+                    log.warn("Engine CqlException at [{}]: {}", loc, msg);
                 }
             }
 
@@ -935,6 +949,36 @@ public class CqlExecutionService {
      * Walk the exception cause chain looking for a CqlException with a SourceLocator.
      * Returns a locator string like "5:1-5:42" or null if none found.
      */
+    /**
+     * Register a freshly-translated library in the LibraryManager's compiled-library cache
+     * so the engine picks it up instead of re-compiling from a stored (possibly stale) DB copy
+     * via {@code DatabaseLibrarySourceProvider}.
+     *
+     * <p>Also sorts {@code statements.def} by name to match the invariant that
+     * {@link org.opencds.cqf.cql.engine.execution.CqlEngine} assumes when doing
+     * {@code binarySearch} in {@code Libraries.resolveExpressionRef}. The translator produces
+     * defs in source order; only {@code LibraryManager.compileLibrary} sorts. Seeding without
+     * sorting causes "Could not resolve expression reference" at runtime.</p>
+     *
+     * <p>This is the single entry point for all "translate + evaluate with fresh CQL"
+     * flows — do not seed the cache manually elsewhere.</p>
+     */
+    private static void seedCompiledLibrary(
+            LibraryManager libraryManager,
+            VersionedIdentifier libraryId,
+            org.cqframework.cql.cql2elm.model.CompiledLibrary compiled) {
+        if (compiled == null || libraryId == null || libraryManager == null) return;
+        if (compiled.getLibrary() != null
+                && compiled.getLibrary().getStatements() != null
+                && compiled.getLibrary().getStatements().getDef() != null) {
+            compiled.getLibrary().getStatements().getDef().sort(
+                    Comparator.comparing(
+                            org.hl7.elm.r1.ExpressionDef::getName,
+                            Comparator.nullsFirst(String::compareTo)));
+        }
+        libraryManager.getCompiledLibraries().put(libraryId, compiled);
+    }
+
     private String extractRuntimeLocator(Throwable e) {
         Throwable current = e;
         while (current != null) {
