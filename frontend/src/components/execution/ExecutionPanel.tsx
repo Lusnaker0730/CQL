@@ -47,7 +47,7 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
   const cqlContentFromRedux = useSelector((state: RootState) => state.editor.cqlContent)
-  const { patientId, fhirServerUrl, isExecuting, results, errors, executionTimeMs, debugTrace } = useSelector(
+  const { patientId, fhirServerUrl, isExecuting, results, errors, warnings, executionTimeMs, debugTrace } = useSelector(
     (state: RootState) => state.execution
   )
   const { preferences } = usePreferences()
@@ -206,6 +206,17 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
           <Alert severity="error">
             {errors?.map((error, i) => (
               <div key={i}>{error}</div>
+            ))}
+          </Alert>
+        )}
+
+        {warnings.length > 0 && (
+          <Alert severity="warning">
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              {t('execution.warnings')}
+            </Typography>
+            {warnings.map((warning, i) => (
+              <div key={i}>{warning}</div>
             ))}
           </Alert>
         )}

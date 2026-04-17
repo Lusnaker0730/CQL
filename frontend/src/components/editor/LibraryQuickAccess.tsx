@@ -134,7 +134,7 @@ export default function LibraryQuickAccess() {
             {t('quickAccess.noFavorites')}
           </Typography>
         ) : (
-          <List dense disablePadding>
+          <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
             {favoritesList.map((item) => (
               <ListItemButton key={item.libraryId} onClick={() => handleLoadLibrary(String(item.libraryId))} sx={{ py: 0.25 }}>
                 <ListItemIcon sx={{ minWidth: 28 }}>
@@ -198,7 +198,7 @@ export default function LibraryQuickAccess() {
             {t('quickAccess.noRecent')}
           </Typography>
         ) : (
-          <List dense disablePadding>
+          <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
             {recent.map((item) => (
               <ListItemButton key={item.id} onClick={() => handleLoadLibrary(item.id)} sx={{ py: 0.25 }}>
                 <ListItemIcon sx={{ minWidth: 28 }}>
@@ -354,7 +354,7 @@ export default function LibraryQuickAccess() {
         {twcdiOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
       <Collapse in={twcdiOpen}>
-        <List dense disablePadding>
+        <List dense disablePadding sx={{ maxHeight: 300, overflow: 'auto' }}>
           {TWCDI_TEMPLATES.map((template) => (
             <ListItemButton
               key={template.name}

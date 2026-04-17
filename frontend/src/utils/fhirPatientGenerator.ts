@@ -97,7 +97,7 @@ function generateMedicationPair(
   dateTo?: string,
 ): { medication: FhirResource; request: FhirResource } {
   const med = generateMedication(item)
-  const request = generateMedicationRequest(patientId, med.id as string, item, dateFrom, dateTo)
+  const request = generateMedicationRequest(patientId, item, dateFrom, dateTo)
   return { medication: med, request }
 }
 
@@ -283,7 +283,6 @@ export function generateMedication(item: MedicationItem): FhirResource {
 
 export function generateMedicationRequest(
   patientId: string,
-  medicationId: string,
   item: MedicationItem,
   dateFrom?: string,
   dateTo?: string,
@@ -313,7 +312,6 @@ export function generateMedicationRequest(
       coding: medicationCoding,
       text: item.display,
     },
-    medicationReference: { reference: `Medication/${medicationId}` },
     subject: { reference: `Patient/${patientId}` },
     authoredOn: date,
     dosageInstruction: [

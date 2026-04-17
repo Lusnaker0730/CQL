@@ -216,6 +216,8 @@ public class CqlExecutionService {
     }
 
     private CqlExecutionResponse doExecute(CqlExecutionRequest request, RetrieveProvider prefetchProvider, long startTime) {
+        List<String> warnings = new ArrayList<>();
+        List<String> runtimeErrors = new ArrayList<>();
         try {
             LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
 
@@ -258,11 +260,12 @@ public class CqlExecutionService {
                     throw new CqlExecutionException("CQL translation failed with " + errors.size()
                             + " error(s): " + errorSummary);
                 }
-                long warnCount = translator.getExceptions().stream()
+                translator.getExceptions().stream()
                         .filter(e -> e.getSeverity() == CqlCompilerException.ErrorSeverity.Warning)
-                        .count();
-                if (warnCount > 0) {
-                    log.warn("CQL translation produced {} warning(s)", warnCount);
+                        .map(CqlCompilerException::getMessage)
+                        .forEach(warnings::add);
+                if (!warnings.isEmpty()) {
+                    log.warn("CQL translation produced {} warning(s)", warnings.size());
                 }
             }
 
@@ -341,8 +344,14 @@ public class CqlExecutionService {
             // Create environment using libraryManager
             Environment environment = new Environment(libraryManager, dataProviders, terminologyProvider);
 
-            // Create CQL Engine
+            // Create CQL Engine with a DebugMap so the engine records per-expression
+            // exceptions into State.debugResult (otherwise shouldDebug(Exception) returns
+            // NONE and errors are silently swallowed — they only appear in engine logs).
             CqlEngine engine = new CqlEngine(environment);
+            org.opencds.cqf.cql.engine.debug.DebugMap debugMap =
+                    new org.opencds.cqf.cql.engine.debug.DebugMap();
+            debugMap.setLoggingEnabled(true);
+            engine.getState().setDebugMap(debugMap);
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
 
@@ -406,6 +415,7 @@ public class CqlExecutionService {
                                 .valueType("Error")
                                 .displayValue(errorDisplay)
                                 .build());
+                        runtimeErrors.add(expressionName + ": " + e.getMessage());
                         expressionTraces.add(ExpressionTrace.builder()
                                 .name(expressionName)
                                 .resultType("Error")
@@ -481,6 +491,7 @@ public class CqlExecutionService {
                                     .valueType("Error")
                                     .displayValue(errorDisplay)
                                     .build());
+                            runtimeErrors.add(expressionName + ": " + e.getMessage());
                         }
                     }
                 } else {
@@ -510,7 +521,21 @@ public class CqlExecutionService {
                                     .valueType("Error")
                                     .displayValue(errorDisplay)
                                     .build());
+                            runtimeErrors.add(expressionName + ": " + e.getMessage());
                         }
+                    }
+                }
+            }
+
+            // Harvest any engine-captured exceptions that didn't surface via direct
+            // throw (e.g. when the engine's batch evaluator swallows per-expression
+            // failures and returns null/partial results).
+            org.opencds.cqf.cql.engine.debug.DebugResult engineDebug = engine.getState().getDebugResult();
+            if (engineDebug != null && engineDebug.getMessages() != null) {
+                for (org.opencds.cqf.cql.engine.exception.CqlException ce : engineDebug.getMessages()) {
+                    String msg = ce.getMessage();
+                    if (msg != null && runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
+                        runtimeErrors.add(msg);
                     }
                 }
             }
@@ -533,6 +558,8 @@ public class CqlExecutionService {
                     .success(true)
                     .patientId(request.getPatientId())
                     .results(results)
+                    .warnings(warnings.isEmpty() ? null : warnings)
+                    .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
                     .debugTrace(debugTrace)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
@@ -568,6 +595,10 @@ public class CqlExecutionService {
 
         EvaluationParams params = new EvaluationParams(exprMap, ctxParam, parameters, null, null);
         EvaluationResults results = engine.evaluate(params);
+        RuntimeException engineException = results.getExceptionFor(libraryId);
+        if (engineException != null) {
+            throw engineException;
+        }
         return results.getResultFor(libraryId);
     }
 
