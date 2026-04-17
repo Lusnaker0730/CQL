@@ -471,9 +471,13 @@ class CqlExecutionIntegrationTest {
             staleEntity.setName("ScratchLib");
             staleEntity.setVersion("1.0.0");
             staleEntity.setCqlContent(staleCqlInDb);
-            when(libraryRepository.findByNameAndVersion("ScratchLib", "1.0.0"))
+            // Lenient: these stubs represent what the DB WOULD return if the bug regresses.
+            // Strict mode marks them unused on green — which is the whole point: fresh CQL
+            // wins, engine never falls back to DatabaseLibrarySourceProvider. If either
+            // stub starts being called, the bug is back and the Answer assertion will fail.
+            lenient().when(libraryRepository.findByNameAndVersion("ScratchLib", "1.0.0"))
                     .thenReturn(Optional.of(staleEntity));
-            when(libraryRepository.findByName("ScratchLib"))
+            lenient().when(libraryRepository.findByName("ScratchLib"))
                     .thenReturn(List.of(staleEntity));
 
             // Act
