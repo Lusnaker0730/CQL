@@ -529,13 +529,17 @@ public class CqlExecutionService {
 
             // Harvest any engine-captured exceptions that didn't surface via direct
             // throw (e.g. when the engine's batch evaluator swallows per-expression
-            // failures and returns null/partial results).
+            // failures and returns null/partial results). Attribute each message to
+            // its source locator so users can pinpoint the failing expression.
             org.opencds.cqf.cql.engine.debug.DebugResult engineDebug = engine.getState().getDebugResult();
             if (engineDebug != null && engineDebug.getMessages() != null) {
                 for (org.opencds.cqf.cql.engine.exception.CqlException ce : engineDebug.getMessages()) {
                     String msg = ce.getMessage();
-                    if (msg != null && runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
-                        runtimeErrors.add(msg);
+                    if (msg == null) continue;
+                    org.opencds.cqf.cql.engine.debug.SourceLocator loc = ce.getSourceLocator();
+                    String formatted = (loc != null) ? ("[" + loc + "] " + msg) : msg;
+                    if (runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
+                        runtimeErrors.add(formatted);
                     }
                 }
             }
