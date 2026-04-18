@@ -4,6 +4,7 @@ import com.cqlplatform.repository.CqlLibraryRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlCompilerOptions;
+import org.cqframework.cql.cql2elm.LibraryBuilder;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.ModelManager;
 import org.springframework.stereotype.Component;
@@ -113,14 +114,25 @@ public class LibraryManagerFactory {
         if (enableAnnotations) options = options.withOptions(CqlCompilerOptions.Options.EnableAnnotations);
         if (enableResultTypes) options = options.withOptions(CqlCompilerOptions.Options.EnableResultTypes);
         options = options.withValidateUnits(validateUnits);
+        options = options.withSignatureLevel(LibraryBuilder.SignatureLevel.Overloads);
         return options;
     }
 
+    /**
+     * SignatureLevel.Overloads embeds parameter-type signatures in ELM function refs for
+     * any function with multiple overloads (e.g. {@code FHIRHelpers.ToString},
+     * {@code FHIRHelpers.ToDateTime}, {@code FHIRHelpers.ToInterval}). Without this the
+     * engine has to pick an overload by runtime argument type — which fails on null or
+     * base-type arguments (same dispatch-ambiguity family as BUG-110 / BUG-112).
+     * Narrower than {@code All} (doesn't bloat ELM for single-definition functions),
+     * wider than {@code Differing} (catches every multi-overload case, not just those
+     * the translator flags as "differing").
+     */
     private static CqlCompilerOptions defaultOptions() {
         return new CqlCompilerOptions(
                 CqlCompilerOptions.Options.EnableLocators,
                 CqlCompilerOptions.Options.EnableAnnotations,
                 CqlCompilerOptions.Options.EnableResultTypes
-        );
+        ).withSignatureLevel(LibraryBuilder.SignatureLevel.Overloads);
     }
 }
