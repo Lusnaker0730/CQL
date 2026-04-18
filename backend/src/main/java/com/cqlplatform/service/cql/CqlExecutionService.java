@@ -109,7 +109,11 @@ public class CqlExecutionService {
      * Call this once before a batch of patient evaluations.
      */
     public PreTranslatedContext translateOnce(String cql) {
-        LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
+        // createContext gives us a handle to the DB provider so we can suppress it
+        // for the library we're about to translate — the fresh source is the truth,
+        // not whatever happens to sit in cql_library with the same name+version.
+        LibraryManagerFactory.LibraryContext libCtx = LibraryManagerFactory.createContext(libraryRepository);
+        LibraryManager libraryManager = libCtx.libraryManager;
         CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
         org.hl7.elm.r1.Library elmLibrary = translator.toELM();
 
@@ -134,6 +138,14 @@ public class CqlExecutionService {
                     new InMemoryLibrarySourceProvider(libraryId.getId(), libraryId.getVersion(), cql));
             if (translator.getTranslatedLibrary() != null) {
                 seedCompiledLibrary(libraryManager, libraryId, translator.getTranslatedLibrary());
+            }
+            // Defense-in-depth (BUG-107 regression lock): even if the compiled-library
+            // cache is cleared or bypassed by a future engine-level lookup, the DB
+            // provider will refuse to hand back its stored copy of THIS library id.
+            // Other libraries the CQL includes (e.g. DFLR, FHIRHelpers) remain
+            // resolvable from DB normally.
+            if (libCtx.databaseProvider != null) {
+                libCtx.databaseProvider.excludeIdentifier(libraryId);
             }
         }
 
