@@ -164,6 +164,7 @@
     "returnType": "回傳類型：",
     "modifiers": "修飾器",
     "selectModifiers": "選擇修飾器",
+    "insertHere": "在此處插入修飾器",
     "buildNewModifier": "建立新修飾器",
     "selectModifiersTitle": "選擇修飾器",
     "withModifiers": "使用修飾器",
