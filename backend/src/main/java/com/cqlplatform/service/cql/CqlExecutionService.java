@@ -633,20 +633,39 @@ public class CqlExecutionService {
     }
 
     /**
-     * Extract FHIR retrieve types directly from a pre-translated ELM Library object.
-     * Same-library ExpressionRefs are covered by the outer loop over {@code statements.def};
-     * cross-library ExpressionRefs require resolving the included library via {@code libraryManager}
-     * so we can walk its own ExpressionDefs (otherwise bulk-fetch misses resource types that are
-     * only retrieved inside included libraries — e.g. a main measure that delegates its Initial
-     * Population to an external library containing the actual [Encounter]/[Condition] retrieves).
+     * Extract FHIR retrieve types from a pre-translated ELM Library — legacy single-arg
+     * variant. Does NOT follow cross-library ExpressionRefs, so libraries that delegate
+     * retrieve logic to an included library (e.g. main measure → {@code DFLR."Initial
+     * Population"} → {@code [Encounter]}) will report an INCOMPLETE retrieve set,
+     * leading to silently-wrong bulk-fetch results (BUG-111).
+     *
+     * <p>If the library contains any cross-library ExpressionRef / FunctionRef, this
+     * method emits a loud WARN to make the inevitable wrong-result visible in
+     * operator telemetry. New callers MUST pass a LibraryManager via
+     * {@link #extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library, LibraryManager)}.
+     *
+     * @deprecated use {@link #extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library, LibraryManager)}
+     * with a non-null {@code LibraryManager}. This overload exists only for test
+     * scenarios that deliberately exercise the pre-BUG-111 behavior.
      */
+    @Deprecated(forRemoval = true)
     public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library) {
+        if (hasCrossLibraryReference(library)) {
+            log.warn("extractRetrieveTypesFromLibrary(library) called on a library that contains "
+                    + "cross-library ExpressionRef/FunctionRef — the returned retrieve-type set is "
+                    + "INCOMPLETE and bulk-fetch will silently miss resource types (BUG-111). "
+                    + "Call the 2-arg overload with a LibraryManager instead. "
+                    + "Library: {}|{}",
+                    library.getIdentifier() != null ? library.getIdentifier().getId() : "?",
+                    library.getIdentifier() != null ? library.getIdentifier().getVersion() : "?");
+        }
         return extractRetrieveTypesFromLibrary(library, null);
     }
 
     /**
-     * Variant that follows cross-library ExpressionRefs through the given LibraryManager.
-     * Passing {@code null} reverts to the legacy behavior (skips cross-lib refs).
+     * Preferred: extract FHIR retrieve types including those reached through cross-library
+     * refs. {@code libraryManager} must be the one used to translate {@code library}; its
+     * compiled-library cache supplies the included library bodies this walker recurses into.
      */
     public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library, LibraryManager libraryManager) {
         Set<String> types = new HashSet<>();
@@ -657,6 +676,50 @@ public class CqlExecutionService {
             }
         }
         return types;
+    }
+
+    /**
+     * True when the library contains any {@link org.hl7.elm.r1.ExpressionRef} or
+     * {@link org.hl7.elm.r1.FunctionRef} whose {@code libraryName} is non-null — i.e. a
+     * reference into an included library. Used by the deprecated single-arg
+     * {@link #extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library)} to warn when the
+     * result will be silently incomplete.
+     */
+    private static boolean hasCrossLibraryReference(org.hl7.elm.r1.Library library) {
+        if (library == null || library.getStatements() == null
+                || library.getStatements().getDef() == null) {
+            return false;
+        }
+        for (org.hl7.elm.r1.ExpressionDef def : library.getStatements().getDef()) {
+            if (containsCrossLibRef(def.getExpression())) return true;
+        }
+        return false;
+    }
+
+    private static boolean containsCrossLibRef(org.hl7.elm.r1.Element element) {
+        if (element == null) return false;
+        if (element instanceof org.hl7.elm.r1.ExpressionRef ref) {
+            if (ref.getLibraryName() != null) return true;
+            // ExpressionRef without libraryName is same-library — no descent needed.
+        }
+        if (element instanceof org.hl7.elm.r1.Query query) {
+            if (query.getSource() != null) {
+                for (var src : query.getSource()) if (containsCrossLibRef(src.getExpression())) return true;
+            }
+            if (query.getWhere() != null && containsCrossLibRef(query.getWhere())) return true;
+        } else if (element instanceof org.hl7.elm.r1.FunctionRef funcRef) {
+            if (funcRef.getLibraryName() != null) return true;
+            if (funcRef.getOperand() != null) {
+                for (var op : funcRef.getOperand()) if (containsCrossLibRef(op)) return true;
+            }
+        } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
+            return containsCrossLibRef(ue.getOperand());
+        } else if (element instanceof org.hl7.elm.r1.BinaryExpression be) {
+            for (var op : be.getOperand()) if (containsCrossLibRef(op)) return true;
+        } else if (element instanceof org.hl7.elm.r1.NaryExpression ne) {
+            for (var op : ne.getOperand()) if (containsCrossLibRef(op)) return true;
+        }
+        return false;
     }
 
     private void collectRetrieveTypes(org.hl7.elm.r1.Element element, Set<String> types) {
