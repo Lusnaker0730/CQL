@@ -30,6 +30,11 @@
     "unknownError": "Unknown error",
     "inReview": "In Review",
     "scoreTrend": "Score Trend",
+    "chartMode": {
+      "label": "Chart mode",
+      "multiples": "Small multiples",
+      "overlay": "Overlay"
+    },
     "noDepartmentData": "No department data available",
     "periodType": "Period",
     "monthly": "Monthly",
