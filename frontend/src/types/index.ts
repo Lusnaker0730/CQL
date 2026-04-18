@@ -154,6 +154,7 @@ export interface CqlExecutionResponse {
   patientId?: string
   results: Record<string, ExpressionResult>
   errors?: string[]
+  warnings?: string[]
   metadata?: ExecutionMetadata
   debugTrace?: DebugTrace
 }

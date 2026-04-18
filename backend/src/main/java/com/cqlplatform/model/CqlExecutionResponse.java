@@ -13,6 +13,7 @@ public class CqlExecutionResponse {
     private String patientId;
     private Map<String, ExpressionResult> results;
     private List<String> errors;
+    private List<String> warnings;
     private ExecutionMetadata metadata;
     private DebugTrace debugTrace;
 

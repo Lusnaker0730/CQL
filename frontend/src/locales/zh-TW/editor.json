@@ -65,6 +65,7 @@
     "executeCql": "執行 CQL",
     "debugMode": "除錯模式",
     "results": "結果",
+    "warnings": "警告",
     "expression": "運算式",
     "type": "類型",
     "value": "值",

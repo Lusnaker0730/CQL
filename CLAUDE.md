@@ -112,6 +112,25 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 - 拋出領域例外（`ResourceNotFoundException`, `ValidationException` 等），GlobalExceptionHandler 統一處理
 - CQL 產生：`CqlArtifactBuilder` 組裝 context Map → 呼叫 FreeMarker 模板
 
+### CQL 執行（BUG-107 規範）
+**翻譯 + 執行使用者 CQL 一律走 `seedCompiledLibrary(...)` helper**（`CqlExecutionService` 中）：
+```java
+translator = CqlTranslator.fromText(cql, libraryManager);
+elmLibrary = translator.toELM();
+seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTranslatedLibrary());
+// ... 然後才呼叫 engine.evaluate()
+```
+- **禁止**直接 `CqlTranslator.fromText(cql, libraryManager)` 後就 `engine.evaluate()`，否則引擎會走 `DatabaseLibrarySourceProvider` 撈 `cql_library` 表同名同版本舊版 CQL 執行，而不是你剛翻譯的文字
+- helper 內部同時 (1) `put` 入 `libraryManager.compiledLibraries` cache，(2) 對 `statements.def` 按 name 排序（engine 的 `Libraries.resolveExpressionRef` 用 binarySearch，不排會爆 `Could not resolve expression reference`）
+- Regression 測試：`CqlExecutionIntegrationTest.LibraryResolutionRegressionTest` 鎖住此不變式
+
+### CQL 執行錯誤/警告曝露（PAT-066）
+`CqlExecutionResponse` 除 `results` 外另含：
+- `errors: List<String>` — per-define runtime exception 摘要（從 `CqlEngine` 的 DebugResult harvest，附帶 `SourceLocator` 前綴）
+- `warnings: List<String>` — CQL 翻譯期 warnings
+- `CqlEngine` 初始化時掛 `DebugMap(loggingEnabled=true)`，否則引擎內部例外會被 `shouldDebug()` 返回 NONE 而靜默吞掉
+- 前端 `ExecutionPanel` 以 MUI Alert 分別以 `severity="error"` / `"warning"` 顯示
+
 ### Frontend 模式
 - 純函數式元件 + Hooks（無 class components）
 - MUI + `sx` prop 做樣式，遵循專案 theme
@@ -246,3 +265,5 @@ regulatory_docs/
 - 假病人產生器: 純前端實作，臨床資料由 `config/twcore/*.json` 驅動，新增/修改病症只需改 JSON 不需改程式碼
 - `utils/random.ts` 提供共用隨機函數（`randomInt`, `randomElement`, `pickRandom`），禁止在其他檔案重複定義
 - Docker 部署: `docker/docker-compose.yml`（postgres, backend, frontend, hapi-fhir, monitoring stack）
+- 病人產生器上傳 Bundle 用 `PUT ResourceType/id` 保留 client-side ID（`GenerationResultPanel.tsx`）；不要改回 `POST ResourceType`，否則 HAPI 重配 ID 而前端搜尋原 id 會找不到
+- TWCDI CQL 範本語法慣例（`constants/twcdiTemplates.json`）：choice type 用 `(X.value as Quantity)` / `(X.medication as CodeableConcept)` 存取；日期排序用 `return { ..., date: X.dateField.value } sort by date desc` 而不要 `sort by X.dateField desc`（HAPI DateTimeType 不實作 Comparable 會爆）；避免 `FHIRHelpers.ToDateTime(X)` 直接當欄位值（null 時 dispatcher 在 dateTime/instant 重載間歧義）

@@ -30,6 +30,11 @@
     "unknownError": "未知錯誤",
     "inReview": "審核中",
     "scoreTrend": "分數趨勢",
+    "chartMode": {
+      "label": "圖表模式",
+      "multiples": "指標網格",
+      "overlay": "疊圖比較"
+    },
     "noDepartmentData": "無部門資料",
     "periodType": "期間",
     "monthly": "月度",

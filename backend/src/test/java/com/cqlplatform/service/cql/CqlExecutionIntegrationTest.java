@@ -449,6 +449,47 @@ class CqlExecutionIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Regression guard for BUG-106 (fresh CQL vs DB stored version)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("Library resolution — fresh CQL must win over DB-stored version")
+    class LibraryResolutionRegressionTest {
+
+        @Test
+        @DisplayName("Editor CQL is executed even when DB has a stale version with same name+version")
+        void freshCql_shouldOverrideSavedDbVersion() {
+            // Arrange: simulate a library saved in the DB earlier with a contradicting value.
+            // If the engine accidentally re-compiled the DB source instead of using the fresh
+            // translation, the result would be 1 and the test fails.
+            String staleCqlInDb = "library ScratchLib version '1.0.0'\n"
+                    + "define \"Answer\": 1\n";
+            String freshCqlFromEditor = "library ScratchLib version '1.0.0'\n"
+                    + "define \"Answer\": 2\n";
+
+            com.cqlplatform.entity.CqlLibraryEntity staleEntity = new com.cqlplatform.entity.CqlLibraryEntity();
+            staleEntity.setName("ScratchLib");
+            staleEntity.setVersion("1.0.0");
+            staleEntity.setCqlContent(staleCqlInDb);
+            // Lenient: these stubs represent what the DB WOULD return if the bug regresses.
+            // Strict mode marks them unused on green — which is the whole point: fresh CQL
+            // wins, engine never falls back to DatabaseLibrarySourceProvider. If either
+            // stub starts being called, the bug is back and the Answer assertion will fail.
+            lenient().when(libraryRepository.findByNameAndVersion("ScratchLib", "1.0.0"))
+                    .thenReturn(Optional.of(staleEntity));
+            lenient().when(libraryRepository.findByName("ScratchLib"))
+                    .thenReturn(List.of(staleEntity));
+
+            // Act
+            CqlExecutionResponse response = executeWithNoData(freshCqlFromEditor);
+
+            // Assert: result must reflect the editor's CQL, not the DB version.
+            assertThat(response.isSuccess()).isTrue();
+            assertExpressionEquals(response, "Answer", 2);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Helpers
     // ═══════════════════════════════════════════════════════════════════════
 

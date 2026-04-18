@@ -14,6 +14,7 @@ import {
   setIsExecuting,
   setResults,
   setExecutionErrors,
+  setExecutionWarnings,
   setExecutionTimeMs,
 } from '../store/executionSlice'
 import type { CqlTranslationRequest, CqlExecutionRequest, CqlTranslationResponse, CqlExecutionResponse, CqlError } from '../types'
@@ -80,18 +81,21 @@ export function useExecute() {
       dispatch(setIsExecuting(false))
       if (data.success) {
         dispatch(setResults(data.results))
-        dispatch(setExecutionErrors([]))
+        dispatch(setExecutionErrors(data.errors || []))
+        dispatch(setExecutionWarnings(data.warnings || []))
         dispatch(setExecutionTimeMs(data.metadata?.executionTimeMs || null))
         dispatch(setDebugTrace(data.debugTrace || null))
       } else {
         dispatch(setResults({}))
         dispatch(setExecutionErrors(data.errors || ['Execution failed']))
+        dispatch(setExecutionWarnings(data.warnings || []))
         dispatch(setDebugTrace(null))
       }
     },
     onError: (error: Error) => {
       dispatch(setIsExecuting(false))
       dispatch(setExecutionErrors([error.message]))
+      dispatch(setExecutionWarnings([]))
       dispatch(setDebugTrace(null))
     },
   })

@@ -15,6 +15,7 @@ interface ExecutionState {
   isExecuting: boolean
   results: Record<string, ExecutionResult>
   errors: string[]
+  warnings: string[]
   executionTimeMs: number | null
   debugTrace: DebugTrace | null
 }
@@ -25,6 +26,7 @@ const initialState: ExecutionState = {
   isExecuting: false,
   results: {},
   errors: [],
+  warnings: [],
   executionTimeMs: null,
   debugTrace: null,
 }
@@ -48,6 +50,9 @@ const executionSlice = createSlice({
     setExecutionErrors: (state, action: PayloadAction<string[]>) => {
       state.errors = action.payload
     },
+    setExecutionWarnings: (state, action: PayloadAction<string[]>) => {
+      state.warnings = action.payload
+    },
     setExecutionTimeMs: (state, action: PayloadAction<number | null>) => {
       state.executionTimeMs = action.payload
     },
@@ -57,6 +62,7 @@ const executionSlice = createSlice({
     clearResults: (state) => {
       state.results = {}
       state.errors = []
+      state.warnings = []
       state.executionTimeMs = null
       state.debugTrace = null
     },
@@ -69,6 +75,7 @@ export const {
   setIsExecuting,
   setResults,
   setExecutionErrors,
+  setExecutionWarnings,
   setExecutionTimeMs,
   setDebugTrace,
   clearResults,

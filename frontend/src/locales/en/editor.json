@@ -65,6 +65,7 @@
     "executeCql": "Execute CQL",
     "debugMode": "Debug Mode",
     "results": "Results",
+    "warnings": "Warnings",
     "expression": "Expression",
     "type": "Type",
     "value": "Value",

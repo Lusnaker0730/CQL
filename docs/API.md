@@ -346,7 +346,8 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
       "displayValue": "true"
     }
   },
-  "errors": [],
+  "errors": ["Active Medications: <runtime error message>"],
+  "warnings": ["FHIRHelpers.ToString(FHIR.code) resolves to multiple overloads"],
   "metadata": {
     "executionTimeMs": 150,
     "libraryId": "Test",
@@ -356,6 +357,21 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
   }
 }
 ```
+
+**回應欄位**：
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `success` | boolean | 翻譯成功且引擎無頂層例外時為 true；per-define runtime error 仍可能出現在 `errors[]` |
+| `results` | `Map<String, ExpressionResult>` | 每個 `define` 的結果，key 為 define 名稱 |
+| `results[name].value` | any | 實際值；失敗的 define 為 null，`valueType` 為 `"Error"` |
+| `results[name].displayValue` | string | 人類可讀字串；失敗時為 `Error at <loc>: <msg>` |
+| `errors` | `string[]` \| null | per-define runtime error 摘要（PAT-066 新增）。batch 引擎失敗 + 後備 per-expression 再失敗時填入此欄位 |
+| `warnings` | `string[]` \| null | CQL 翻譯期 warning 列表（PAT-066 新增），例如 deprecated function、choice-type ambiguity |
+| `metadata.resourcesRetrieved` | int | 實際從 FHIR 撈取的資源筆數 |
+| `debugTrace` | object \| null | 僅在 `debugMode=true` 時回傳，含 per-expression 時間、retrieve 追蹤、ELM JSON |
+
+**執行語意保證（BUG-107 後）**：請求送出的 `cql` 文字**保證**就是引擎實際翻譯與執行的內容；即使 `cql_library` 表中有同名同版本舊版紀錄，引擎不會回退去執行舊版。驗證紀錄：`CqlExecutionIntegrationTest.LibraryResolutionRegressionTest`。
 
 ---
 

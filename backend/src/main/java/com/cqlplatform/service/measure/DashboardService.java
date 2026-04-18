@@ -81,10 +81,24 @@ public class DashboardService {
         // Reverse to show chronological order
         Collections.reverse(reports);
 
+        // Resolve display name: prefer MeasureDefinition.title, fallback to name, fallback to report.measureName
+        Set<Long> defIds = reports.stream()
+                .map(MeasureReportEntity::getMeasureDefinitionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> displayNameById = definitionRepository.findAllById(defIds).stream()
+                .collect(Collectors.toMap(
+                        MeasureDefinitionEntity::getId,
+                        d -> {
+                            String title = d.getTitle();
+                            if (title != null && !title.isBlank()) return title;
+                            return d.getName() != null ? d.getName() : String.valueOf(d.getId());
+                        }));
+
         return reports.stream()
                 .map(r -> EnhancedDashboardData.TrendDataPoint.builder()
                         .period(formatPeriodLabel(r.getPeriodStart(), r.getPeriodEnd()))
-                        .measureName(r.getMeasureName())
+                        .measureName(displayNameById.getOrDefault(r.getMeasureDefinitionId(), r.getMeasureName()))
                         .measureId(r.getMeasureDefinitionId())
                         .score(r.getMeasureScore())
                         .build())

@@ -128,11 +128,13 @@ public class CqlExecutionService {
             }
         }
 
-        // Register the source so the engine can find it
         org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
         if (libraryId != null) {
             libraryManager.getLibrarySourceLoader().registerProvider(
                     new InMemoryLibrarySourceProvider(libraryId.getId(), libraryId.getVersion(), cql));
+            if (translator.getTranslatedLibrary() != null) {
+                seedCompiledLibrary(libraryManager, libraryId, translator.getTranslatedLibrary());
+            }
         }
 
         return new PreTranslatedContext(elmLibrary, libraryManager, cql);
@@ -216,6 +218,8 @@ public class CqlExecutionService {
     }
 
     private CqlExecutionResponse doExecute(CqlExecutionRequest request, RetrieveProvider prefetchProvider, long startTime) {
+        List<String> warnings = new ArrayList<>();
+        List<String> runtimeErrors = new ArrayList<>();
         try {
             LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
 
@@ -243,6 +247,17 @@ public class CqlExecutionService {
                 elmLibrary = translator.toELM();
             }
 
+            // Critical: register the freshly-translated library in libraryManager's cache.
+            // Otherwise engine.evaluate() looks up the library by VersionedIdentifier via
+            // DatabaseLibrarySourceProvider and re-compiles whatever is stored in the DB —
+            // which may be a stale version (e.g. with old sort clauses) that contradicts
+            // the editor's current text. The engine executes the cached compiled library,
+            // so without this seeding the fresh translation is silently ignored.
+            if (translator != null && translator.getTranslatedLibrary() != null
+                    && elmLibrary != null && elmLibrary.getIdentifier() != null) {
+                seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTranslatedLibrary());
+            }
+
             // Check for translation errors — previously these were silently swallowed,
             // causing null EvaluationResult downstream
             if (translator != null && translator.getExceptions() != null) {
@@ -258,11 +273,12 @@ public class CqlExecutionService {
                     throw new CqlExecutionException("CQL translation failed with " + errors.size()
                             + " error(s): " + errorSummary);
                 }
-                long warnCount = translator.getExceptions().stream()
+                translator.getExceptions().stream()
                         .filter(e -> e.getSeverity() == CqlCompilerException.ErrorSeverity.Warning)
-                        .count();
-                if (warnCount > 0) {
-                    log.warn("CQL translation produced {} warning(s)", warnCount);
+                        .map(CqlCompilerException::getMessage)
+                        .forEach(warnings::add);
+                if (!warnings.isEmpty()) {
+                    log.warn("CQL translation produced {} warning(s)", warnings.size());
                 }
             }
 
@@ -341,8 +357,14 @@ public class CqlExecutionService {
             // Create environment using libraryManager
             Environment environment = new Environment(libraryManager, dataProviders, terminologyProvider);
 
-            // Create CQL Engine
+            // Create CQL Engine with a DebugMap so the engine records per-expression
+            // exceptions into State.debugResult (otherwise shouldDebug(Exception) returns
+            // NONE and errors are silently swallowed — they only appear in engine logs).
             CqlEngine engine = new CqlEngine(environment);
+            org.opencds.cqf.cql.engine.debug.DebugMap debugMap =
+                    new org.opencds.cqf.cql.engine.debug.DebugMap();
+            debugMap.setLoggingEnabled(true);
+            engine.getState().setDebugMap(debugMap);
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
 
@@ -406,6 +428,7 @@ public class CqlExecutionService {
                                 .valueType("Error")
                                 .displayValue(errorDisplay)
                                 .build());
+                        runtimeErrors.add(expressionName + ": " + e.getMessage());
                         expressionTraces.add(ExpressionTrace.builder()
                                 .name(expressionName)
                                 .resultType("Error")
@@ -481,6 +504,7 @@ public class CqlExecutionService {
                                     .valueType("Error")
                                     .displayValue(errorDisplay)
                                     .build());
+                            runtimeErrors.add(expressionName + ": " + e.getMessage());
                         }
                     }
                 } else {
@@ -510,8 +534,27 @@ public class CqlExecutionService {
                                     .valueType("Error")
                                     .displayValue(errorDisplay)
                                     .build());
+                            runtimeErrors.add(expressionName + ": " + e.getMessage());
                         }
                     }
+                }
+            }
+
+            // Harvest any engine-captured exceptions that didn't surface via direct
+            // throw (e.g. when the engine's batch evaluator swallows per-expression
+            // failures and returns null/partial results). Attribute each message to
+            // its source locator so users can pinpoint the failing expression.
+            org.opencds.cqf.cql.engine.debug.DebugResult engineDebug = engine.getState().getDebugResult();
+            if (engineDebug != null && engineDebug.getMessages() != null) {
+                for (org.opencds.cqf.cql.engine.exception.CqlException ce : engineDebug.getMessages()) {
+                    String msg = ce.getMessage();
+                    if (msg == null) continue;
+                    org.opencds.cqf.cql.engine.debug.SourceLocator loc = ce.getSourceLocator();
+                    String formatted = (loc != null) ? ("[" + loc + "] " + msg) : msg;
+                    if (runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
+                        runtimeErrors.add(formatted);
+                    }
+                    log.warn("Engine CqlException at [{}]: {}", loc, msg);
                 }
             }
 
@@ -533,6 +576,8 @@ public class CqlExecutionService {
                     .success(true)
                     .patientId(request.getPatientId())
                     .results(results)
+                    .warnings(warnings.isEmpty() ? null : warnings)
+                    .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
                     .debugTrace(debugTrace)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
@@ -568,6 +613,10 @@ public class CqlExecutionService {
 
         EvaluationParams params = new EvaluationParams(exprMap, ctxParam, parameters, null, null);
         EvaluationResults results = engine.evaluate(params);
+        RuntimeException engineException = results.getExceptionFor(libraryId);
+        if (engineException != null) {
+            throw engineException;
+        }
         return results.getResultFor(libraryId);
     }
 
@@ -900,6 +949,36 @@ public class CqlExecutionService {
      * Walk the exception cause chain looking for a CqlException with a SourceLocator.
      * Returns a locator string like "5:1-5:42" or null if none found.
      */
+    /**
+     * Register a freshly-translated library in the LibraryManager's compiled-library cache
+     * so the engine picks it up instead of re-compiling from a stored (possibly stale) DB copy
+     * via {@code DatabaseLibrarySourceProvider}.
+     *
+     * <p>Also sorts {@code statements.def} by name to match the invariant that
+     * {@link org.opencds.cqf.cql.engine.execution.CqlEngine} assumes when doing
+     * {@code binarySearch} in {@code Libraries.resolveExpressionRef}. The translator produces
+     * defs in source order; only {@code LibraryManager.compileLibrary} sorts. Seeding without
+     * sorting causes "Could not resolve expression reference" at runtime.</p>
+     *
+     * <p>This is the single entry point for all "translate + evaluate with fresh CQL"
+     * flows — do not seed the cache manually elsewhere.</p>
+     */
+    private static void seedCompiledLibrary(
+            LibraryManager libraryManager,
+            VersionedIdentifier libraryId,
+            org.cqframework.cql.cql2elm.model.CompiledLibrary compiled) {
+        if (compiled == null || libraryId == null || libraryManager == null) return;
+        if (compiled.getLibrary() != null
+                && compiled.getLibrary().getStatements() != null
+                && compiled.getLibrary().getStatements().getDef() != null) {
+            compiled.getLibrary().getStatements().getDef().sort(
+                    Comparator.comparing(
+                            org.hl7.elm.r1.ExpressionDef::getName,
+                            Comparator.nullsFirst(String::compareTo)));
+        }
+        libraryManager.getCompiledLibraries().put(libraryId, compiled);
+    }
+
     private String extractRuntimeLocator(Throwable e) {
         Throwable current = e;
         while (current != null) {
