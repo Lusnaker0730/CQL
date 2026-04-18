@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ExpressionCqlEngineTest {
 
@@ -603,8 +604,6 @@ class ExpressionCqlEngineTest {
         // value-extracting modifier, the skip is NOT silent — ctx.warnings captures
         // a human-readable explanation that the frontend CQL preview panel surfaces.
         BuildContext ctx = new BuildContext(null, null);
-        ctx.preserveListReturn = true;
-        ctx.episodeResourceType = "Observation";
 
         Map<String, Object> element = new LinkedHashMap<>();
         element.put("id", "GenericObservation_vsac");
@@ -621,9 +620,60 @@ class ExpressionCqlEngineTest {
         mostRecentMod.put("cqlLibraryFunction", "C3F.MostRecent");
         element.put("modifiers", List.of(mostRecentMod));
 
-        engine.buildExpression(element, ctx);
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation",
+                () -> engine.buildExpression(element, ctx));
 
         assertThat(ctx.warnings).anyMatch(w ->
                 w.contains("Most Recent") && w.contains("Measure Population") && w.contains("collapses-list"));
+    }
+
+    @Test
+    void withRenderMode_shouldRestoreModeAfterBody() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            assertThat(ctx.episodeResourceType).isEqualTo("Observation");
+            return null;
+        });
+
+        // Outer scope restored
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+        assertThat(ctx.episodeResourceType).isNull();
+    }
+
+    @Test
+    void withRenderMode_shouldRestoreEvenIfBodyThrows() {
+        BuildContext ctx = new BuildContext(null, null);
+
+        assertThatThrownBy(() -> ctx.withRenderMode(
+                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Encounter", () -> {
+                    throw new RuntimeException("boom");
+                })).hasMessage("boom");
+
+        // Mode restored despite exception — this is what makes withRenderMode safer than
+        // manual flag flipping (which would leak state on exception)
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+        assertThat(ctx.episodeResourceType).isNull();
+    }
+
+    @Test
+    void withRenderMode_shouldNestAndRestoreInnerModeOnly() {
+        BuildContext ctx = new BuildContext(null, null);
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
+            ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER, () -> {
+                assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER);
+                assertThat(ctx.episodeResourceType).isEqualTo("Observation"); // inherited via overload
+                return null;
+            });
+            // Inner restored to outer's CV_MEASURE_POPULATION
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            assertThat(ctx.episodeResourceType).isEqualTo("Observation");
+            return null;
+        });
+
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
     }
 }

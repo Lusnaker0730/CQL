@@ -385,7 +385,6 @@ class ExpressionCqlEngineEdgeCaseTest {
         @Test
         void listReturnType_withPreserve_shouldNotWrapInExists() {
             BuildContext ctx = new BuildContext(null, null);
-            ctx.preserveListReturn = true;
 
             Map<String, Object> element = new LinkedHashMap<>();
             element.put("type", "GenericEncounter_vsac");
@@ -396,7 +395,8 @@ class ExpressionCqlEngineEdgeCaseTest {
                     Map.of("id", "encounter", "type", "encounter_vsac",
                             "valueSets", List.of(Map.of("name", "Inpatient")))));
 
-            String result = engine.buildExpression(element, ctx);
+            String result = ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Encounter",
+                    () -> engine.buildExpression(element, ctx));
             assertThat(result).doesNotStartWith("exists(");
         }
     }
@@ -705,7 +705,6 @@ class ExpressionCqlEngineEdgeCaseTest {
         @Test
         void listCollapsingModifier_shouldBeSkippedWhenPreserveListReturn() {
             BuildContext ctx = new BuildContext(null, null);
-            ctx.preserveListReturn = true;
 
             Map<String, Object> element = new LinkedHashMap<>();
             element.put("type", "GenericObservation_vsac");
@@ -723,7 +722,8 @@ class ExpressionCqlEngineEdgeCaseTest {
             mostRecentMod.put("returnType", "observation");
             element.put("modifiers", List.of(mostRecentMod));
 
-            String result = engine.buildExpression(element, ctx);
+            String result = ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation",
+                    () -> engine.buildExpression(element, ctx));
             // MostRecent should be skipped; result should NOT contain C3F.MostRecent
             assertThat(result).doesNotContain("C3F.MostRecent");
         }
