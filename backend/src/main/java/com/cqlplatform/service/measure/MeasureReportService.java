@@ -20,6 +20,7 @@ import java.util.Optional;
 public class MeasureReportService {
 
     private final MeasureReportRepository repository;
+    private final MeasureReportNormalizer normalizer;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
@@ -53,6 +54,19 @@ public class MeasureReportService {
                     .build();
 
             entity = repository.save(entity);
+
+            // Dual-write (Phase 1 of ADR-001): populate the normalized child tables alongside
+            // result_json. Consumers keep reading result_json until Phase 2 migrates each one.
+            // Any failure here does NOT abort the save — the report itself is canonical in
+            // result_json, and the backfill service can retry the normalized write later.
+            try {
+                normalizer.persist(entity.getId(), result);
+            } catch (Exception normErr) {
+                log.warn("Dual-write to normalized measure_report_* tables failed for report {}: {}. "
+                                + "Primary result_json is saved; backfill will retry on next startup.",
+                        entity.getId(), normErr.getMessage(), normErr);
+            }
+
             log.info("Saved measure report {} for measure {}", entity.getId(), entity.getMeasureName());
             return entity;
         } catch (Exception e) {
