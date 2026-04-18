@@ -490,6 +490,62 @@ class CqlExecutionIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // 10. Cross-library retrieve discovery (BUG-111)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("10. Cross-library retrieve discovery (BUG-111)")
+    class CrossLibraryRetrieveDiscovery {
+
+        @Test
+        @DisplayName("extractRetrieveTypesFromLibrary follows cross-library ExpressionRef into included library")
+        void crossLibraryRef_shouldDiscoverRetrievesInIncludedLib() {
+            // Arrange: included library that declares [Encounter] and [Condition] retrieves
+            String includedCql = "library ExternalLib version '1.0.0'\n"
+                    + "using FHIR version '4.0.1'\n"
+                    + "include FHIRHelpers version '4.0.1' called FHIRHelpers\n"
+                    + "context Patient\n"
+                    + "define \"Qualifying Encounters\": [Encounter] E where E.status = 'finished'\n"
+                    + "define \"Active Conditions\": [Condition] C where C.clinicalStatus is not null\n";
+
+            com.cqlplatform.entity.CqlLibraryEntity includedEntity = new com.cqlplatform.entity.CqlLibraryEntity();
+            includedEntity.setName("ExternalLib");
+            includedEntity.setVersion("1.0.0");
+            includedEntity.setCqlContent(includedCql);
+            lenient().when(libraryRepository.findByNameAndVersion("ExternalLib", "1.0.0"))
+                    .thenReturn(Optional.of(includedEntity));
+            lenient().when(libraryRepository.findByName("ExternalLib"))
+                    .thenReturn(List.of(includedEntity));
+
+            // Main library delegates its Initial Population to the included library via libref
+            String mainCql = "library MainLib version '1.0.0'\n"
+                    + "using FHIR version '4.0.1'\n"
+                    + "include FHIRHelpers version '4.0.1' called FHIRHelpers\n"
+                    + "include ExternalLib version '1.0.0' called EL\n"
+                    + "context Patient\n"
+                    + "define \"Initial Population\": exists(EL.\"Qualifying Encounters\")\n"
+                    + "define \"Measure Population\": [Observation]\n";
+
+            // Act
+            CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(mainCql);
+
+            // Legacy (no libraryManager): misses Encounter/Condition from included lib
+            Set<String> typesWithoutLibMgr = executionService.extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+            assertThat(typesWithoutLibMgr).contains("Observation");
+            // Assert that the pre-fix behavior demonstrably omits Encounter
+            // (this is the bug signature — patients would see 0 Encounters during bulk fetch)
+            assertThat(typesWithoutLibMgr).doesNotContain("Encounter");
+
+            // New behavior (with libraryManager): follows the cross-library ExpressionRef
+            Set<String> typesWithLibMgr = executionService.extractRetrieveTypesFromLibrary(
+                    ctx.elmLibrary(), ctx.libraryManager());
+            assertThat(typesWithLibMgr)
+                    .contains("Observation")
+                    .contains("Encounter");  // now discovered via EL."Qualifying Encounters"
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Helpers
     // ═══════════════════════════════════════════════════════════════════════
 

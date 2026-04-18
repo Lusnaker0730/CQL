@@ -128,7 +128,7 @@ public class MeasureEvaluationService {
                 long bulkStart = System.currentTimeMillis();
                 try {
                     Set<String> retrieveTypes = cqlExecutionService.extractRetrieveTypesFromLibrary(
-                            preTranslated.elmLibrary());
+                            preTranslated.elmLibrary(), preTranslated.libraryManager());
                     retrieveTypes.add("Patient");
                     bulkData = fhirDataProviderService.bulkFetchAllPatients(
                             context.getFhirServerUrl(), patients, retrieveTypes);
