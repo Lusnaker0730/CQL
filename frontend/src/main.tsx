@@ -16,6 +16,7 @@ import { NotificationProvider } from './contexts/NotificationContext'
 import { LibraryHistoryProvider } from './contexts/LibraryHistoryContext'
 import { TerminologyDrawerProvider } from './contexts/TerminologyDrawerContext'
 import GlobalNotification from './components/common/GlobalNotification'
+import VersionCheckProvider from './components/common/VersionCheckProvider'
 import { usePreferences } from './hooks/usePreferences'
 import { STALE_5M } from './constants/queryConstants'
 
@@ -63,7 +64,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <NotificationProvider>
               <TerminologyDrawerProvider>
                 <LibraryHistoryProvider>
-                  <ThemedApp />
+                  <VersionCheckProvider>
+                    <ThemedApp />
+                  </VersionCheckProvider>
                 </LibraryHistoryProvider>
               </TerminologyDrawerProvider>
             </NotificationProvider>

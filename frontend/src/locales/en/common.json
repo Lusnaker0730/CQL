@@ -262,5 +262,8 @@
     "ssoStateMismatch": "Security validation failed. Please try logging in again.",
     "authProviderLocal": "Local",
     "authProviderOkta": "Okta SSO"
+  },
+  "versionCheck": {
+    "newVersionAvailable": "A new version is available. Refresh the page to get the latest UI."
   }
 }

@@ -114,7 +114,9 @@ public class SecurityConfig {
                 // User API key management
                 .requestMatchers("/api/user/api-keys/**").authenticated()
                 // Actuator: health is always public
-                .requestMatchers("/actuator/health").permitAll();
+                .requestMatchers("/actuator/health").permitAll()
+                // Deploy-change detection for SPA cache-bust — no sensitive data exposed
+                .requestMatchers(HttpMethod.GET, "/api/version").permitAll();
 
         // Prometheus: public only when management.prometheus.public=true (docker/internal network)
         if (prometheusPublic) {
