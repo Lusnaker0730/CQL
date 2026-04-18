@@ -257,6 +257,17 @@ public class ExpressionCqlEngine {
                 // to a single item or extract non-resource values, so the population returns
                 // a resource list for the Measure Observation wrapper to iterate over.
                 if (ctx.preserveListReturn && isListCollapsingOrValueExtractingModifier(mod)) {
+                    String modName = getStr(mod, "name", getStr(mod, "id", "?"));
+                    String behavior = classifyListBehavior(mod);
+                    // Surface the silent skip to the author: the UI's CQL preview warns panel
+                    // picks up ctx.warnings so the user sees WHY their modifier chain was shortened.
+                    ctx.warn(String.format(
+                            "Modifier '%s' (%s) skipped in Measure Population: "
+                                    + "continuous-variable measures require a resource list for the "
+                                    + "Measure Observation function to iterate over. This modifier is "
+                                    + "applied inside the observation function body, not at the "
+                                    + "population level.",
+                            modName, behavior));
                     continue;
                 }
                 expr = applyModifier(expr, mod, ctx);
@@ -960,25 +971,46 @@ public class ExpressionCqlEngine {
     }
 
     /**
-     * Returns true if the modifier collapses a list to a single item (e.g. MostRecent, First)
-     * or extracts a scalar value from a resource (e.g. QuantityValue, ConceptValue).
-     * These must be skipped when preserveListReturn is true so that the Measure Population
-     * returns a resource list for the Measure Observation function to iterate over.
+     * Classify a modifier's effect on its list input:
+     * <ul>
+     *   <li>{@code "preserves-list"} — list → list (default; most modifiers)</li>
+     *   <li>{@code "collapses-list"} — list → single resource (MostRecent, First, Last)</li>
+     *   <li>{@code "extracts-value"} — list or resource → scalar/Quantity/Concept (QuantityValue, AverageObservation, etc.)</li>
+     * </ul>
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>Explicit {@code listBehavior} on the modifier instance (future escape hatch)</li>
+     *   <li>Inferred from {@code returnType}:
+     *     {@code list_of_*} → preserves-list,
+     *     {@code system_*} → extracts-value,
+     *     anything else (single-resource type) → collapses-list</li>
+     * </ol>
+     *
+     * <p>This replaces the earlier heuristic that matched substrings in
+     * {@code cqlLibraryFunction}. The heuristic silently misclassified
+     * {@code C3F.AverageObservation} (no matching substring) — it was applied in Measure
+     * Population despite returning a scalar, corrupting the Measure Observation wrapper
+     * for any CV measure that used it.
+     */
+    String classifyListBehavior(Map<String, Object> modifier) {
+        String explicit = getStr(modifier, "listBehavior", null);
+        if (explicit != null) return explicit;
+        String rt = getStr(modifier, "returnType", "");
+        if (rt.startsWith("list_of_")) return "preserves-list";
+        if (rt.startsWith("system_")) return "extracts-value";
+        if (rt.isEmpty()) return "preserves-list";  // unknown → safest default
+        return "collapses-list";  // single resource type (observation/condition/procedure/...)
+    }
+
+    /**
+     * Returns true if the modifier should be skipped in the CV Measure Population path
+     * (where preserveListReturn = true). Both {@code collapses-list} and {@code extracts-value}
+     * strip the list shape the Measure Observation wrapper needs to iterate over.
      */
     private boolean isListCollapsingOrValueExtractingModifier(Map<String, Object> modifier) {
-        String cqlLibFunc = getStr(modifier, "cqlLibraryFunction", "");
-        // List-collapsing: picks one item from a list
-        if (cqlLibFunc.contains("MostRecent") || cqlLibFunc.contains("First")
-                || cqlLibFunc.contains("Last") || cqlLibFunc.contains("Highest")
-                || cqlLibFunc.contains("Lowest")) {
-            return true;
-        }
-        // Value-extracting: converts a resource to a scalar type
-        if (cqlLibFunc.contains("QuantityValue") || cqlLibFunc.contains("ConceptValue")
-                || cqlLibFunc.contains("DateTimeValue")) {
-            return true;
-        }
-        return false;
+        String behavior = classifyListBehavior(modifier);
+        return "collapses-list".equals(behavior) || "extracts-value".equals(behavior);
     }
 
     public String getFinalReturnType(Map<String, Object> element, List<Map<String, Object>> modifiers) {
