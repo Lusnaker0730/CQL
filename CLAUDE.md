@@ -156,6 +156,13 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - Frontend: Vitest + React Testing Library，56 個測試檔案
 - 型別安全: 修改 tsx 後執行 `npx tsc --noEmit` 驗證
 
+### 本機整合 Smoke Test（push 前必跑）
+```bash
+scripts/smoke/run.sh          # 全部 scenarios，~60-120s
+scripts/smoke/run.sh --keep   # debug 時保留 stack
+```
+每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort），走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。
+
 ## 關鍵檔案速查
 
 | 用途 | 檔案 |

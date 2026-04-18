@@ -1,0 +1,8 @@
+# Shell scripts must keep LF line endings — CRLF breaks `#!/usr/bin/env bash`
+# parsing on Linux (CI runners, Docker containers, VM).
+*.sh text eol=lf
+
+# Keep Docker-related files LF (same reason).
+Dockerfile* text eol=lf
+docker-compose*.yml text eol=lf
+compose*.yml text eol=lf

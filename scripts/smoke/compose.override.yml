@@ -1,0 +1,51 @@
+# Isolated compose overlay for the smoke test harness.
+#
+# Run via scripts/smoke/run.sh — the wrapper handles port-conflict detection,
+# env wiring, and teardown.
+#
+# Rationale:
+#   - Project name "smoke" (set by run.sh via `docker compose -p smoke`)
+#     prefixes containers/networks/volumes so teardown is clean and nothing
+#     leaks into a regular dev stack.
+#   - `tmpfs` on postgres makes teardown instant and guarantees no
+#     cross-run state leaks. Flyway re-runs on every `up`; DataInitializer
+#     re-seeds admin/demo users.
+#   - Monitoring + frontend disabled via `profiles: [disabled]` — we hit the
+#     backend API directly.
+#   - Host ports default to the 18xxx range to avoid colliding with dev stacks
+#     or local postgres on 5432. Override per-run via env:
+#       SMOKE_BACKEND_PORT=18080 SMOKE_FHIR_PORT=18081 SMOKE_PG_PORT=18432 run.sh
+
+services:
+  postgres:
+    ports: !override
+      - "${SMOKE_PG_PORT:-18432}:5432"
+    volumes: !override
+      - smoke_pg_data:/var/lib/postgresql/data
+
+  backend:
+    ports: !override
+      - "${SMOKE_BACKEND_PORT:-18080}:8080"
+    environment:
+      - APP_COMMIT_SHA=smoke-test
+
+  hapi-fhir:
+    ports: !override
+      - "${SMOKE_FHIR_PORT:-18081}:8080"
+
+  frontend:
+    profiles:
+      - disabled
+  prometheus:
+    profiles:
+      - disabled
+  grafana:
+    profiles:
+      - disabled
+  alertmanager:
+    profiles:
+      - disabled
+
+# Fresh volume per smoke project; `docker compose down -v` wipes it cleanly.
+volumes:
+  smoke_pg_data:
