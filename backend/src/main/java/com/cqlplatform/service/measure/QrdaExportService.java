@@ -22,6 +22,14 @@ import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
 @Slf4j
 public class QrdaExportService {
 
+    /** Phase 2 of ADR-001: prefer normalized tables over result_json for read. */
+    private final NormalizedMeasureReportReader reportReader;
+
+    private MeasureEvaluationResult loadResult(MeasureReportEntity report) {
+        return reportReader.reconstruct(report.getId())
+                .orElseGet(report::getEvaluationResult);
+    }
+
     private static final Map<String, String> POPULATION_TYPE_OIDS = Map.of(
             INITIAL_POPULATION, "2.16.840.1.113883.10.20.27.3.14",
             DENOMINATOR, "2.16.840.1.113883.10.20.27.3.15",
@@ -94,7 +102,7 @@ public class QrdaExportService {
         xml.append("          <code code=\"55186-1\" codeSystem=\"2.16.840.1.113883.6.1\"/>\n");
         xml.append("          <title>Measure Section</title>\n");
 
-        MeasureEvaluationResult result = report.getEvaluationResult();
+        MeasureEvaluationResult result = loadResult(report);
         if (result != null && result.getGroups() != null) {
             for (GroupResult group : result.getGroups()) {
                 xml.append("          <entry>\n");
