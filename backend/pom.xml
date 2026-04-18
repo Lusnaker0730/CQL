@@ -23,8 +23,8 @@
         <java.version>21</java.version>
         <cql.version>4.5.0</cql.version>
         <hapi.fhir.version>8.6.6</hapi.fhir.version>
-        <mockito.version>5.14.2</mockito.version>
-        <byte-buddy.version>1.15.10</byte-buddy.version>
+        <mockito.version>5.23.0</mockito.version>
+        <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.2.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
         <jackson-bom.version>2.21.1</jackson-bom.version>
@@ -385,7 +385,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- @{argLine} is filled in by jacoco prepare-agent; keep EnableDynamicAgentLoading -->
+                    <!-- @{argLine} is filled in by jacoco prepare-agent; keep EnableDynamicAgentLoading
+                         for the Mockito subclass mock maker to access protected fields/methods. -->
                     <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
             </plugin>
@@ -422,9 +423,11 @@
                     </execution>
                     <execution>
                         <!-- Regression gate: fail the build if coverage drops below the measured
-                             baseline from PAT-071 (Lines 26.8%, Branches 21.6%).
-                             Values below are set to 0.26 / 0.21 — a floor, not a target.
-                             Raise these as coverage improves; never lower them. -->
+                             baseline with ALL tests passing (Mockito subclass mock maker
+                             unblocked 462 previously-silently-failing tests on JDK 25).
+                             Real baseline: Lines 49.2%, Branches 35.4%, Methods 54.8%.
+                             Floor values below are set slightly lower (0.48 / 0.34) to avoid
+                             flake on small per-class variance. Raise as coverage improves. -->
                         <id>check-baseline</id>
                         <phase>verify</phase>
                         <goals><goal>check</goal></goals>
@@ -445,12 +448,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.26</minimum>
+                                            <minimum>0.48</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.21</minimum>
+                                            <minimum>0.34</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
