@@ -622,18 +622,40 @@ public class CqlExecutionService {
 
     /**
      * Extract FHIR retrieve types directly from a pre-translated ELM Library object.
+     * Same-library ExpressionRefs are covered by the outer loop over {@code statements.def};
+     * cross-library ExpressionRefs require resolving the included library via {@code libraryManager}
+     * so we can walk its own ExpressionDefs (otherwise bulk-fetch misses resource types that are
+     * only retrieved inside included libraries — e.g. a main measure that delegates its Initial
+     * Population to an external library containing the actual [Encounter]/[Condition] retrieves).
      */
     public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library) {
+        return extractRetrieveTypesFromLibrary(library, null);
+    }
+
+    /**
+     * Variant that follows cross-library ExpressionRefs through the given LibraryManager.
+     * Passing {@code null} reverts to the legacy behavior (skips cross-lib refs).
+     */
+    public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library, LibraryManager libraryManager) {
         Set<String> types = new HashSet<>();
+        Set<String> visited = new HashSet<>();
         if (library.getStatements() != null && library.getStatements().getDef() != null) {
             for (org.hl7.elm.r1.ExpressionDef def : library.getStatements().getDef()) {
-                collectRetrieveTypes(def.getExpression(), types);
+                collectRetrieveTypes(def.getExpression(), types, library, libraryManager, visited);
             }
         }
         return types;
     }
 
     private void collectRetrieveTypes(org.hl7.elm.r1.Element element, Set<String> types) {
+        collectRetrieveTypes(element, types, null, null, new HashSet<>());
+    }
+
+    private void collectRetrieveTypes(org.hl7.elm.r1.Element element,
+                                      Set<String> types,
+                                      org.hl7.elm.r1.Library currentLibrary,
+                                      LibraryManager libraryManager,
+                                      Set<String> visitedCrossLibRefs) {
         if (element == null) return;
         if (element instanceof org.hl7.elm.r1.Retrieve retrieve) {
             javax.xml.namespace.QName dt = retrieve.getDataType();
@@ -644,23 +666,81 @@ public class CqlExecutionService {
         // Recurse into child expressions using reflection-free approach
         if (element instanceof org.hl7.elm.r1.Query query) {
             if (query.getSource() != null) {
-                for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types);
+                for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types, currentLibrary, libraryManager, visitedCrossLibRefs);
             }
-            if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types);
+            if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types, currentLibrary, libraryManager, visitedCrossLibRefs);
         } else if (element instanceof org.hl7.elm.r1.FunctionRef funcRef) {
             // FunctionRef extends ExpressionRef but carries operands from THIS library
             // (e.g. C3F.Verified([Observation: ...]) — the [Observation] Retrieve is our operand)
             if (funcRef.getOperand() != null) {
-                for (var op : funcRef.getOperand()) collectRetrieveTypes(op, types);
+                for (var op : funcRef.getOperand()) collectRetrieveTypes(op, types, currentLibrary, libraryManager, visitedCrossLibRefs);
             }
-        } else if (element instanceof org.hl7.elm.r1.ExpressionRef) {
-            // Skip — will be resolved by the defining expression
+            // Cross-library function calls also need to walk into the included library body
+            // in case the function references retrieves internally (e.g. C3F.ObservationLookBack
+            // which wraps [Observation]). Only follow when we have libraryManager context.
+            if (funcRef.getLibraryName() != null && libraryManager != null && currentLibrary != null) {
+                followCrossLibraryRef(funcRef.getLibraryName(), funcRef.getName(),
+                        types, currentLibrary, libraryManager, visitedCrossLibRefs);
+            }
+        } else if (element instanceof org.hl7.elm.r1.ExpressionRef ref) {
+            // Same-library refs are covered by the outer loop; cross-library refs must be followed
+            if (ref.getLibraryName() != null && libraryManager != null && currentLibrary != null) {
+                followCrossLibraryRef(ref.getLibraryName(), ref.getName(),
+                        types, currentLibrary, libraryManager, visitedCrossLibRefs);
+            }
         } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
-            collectRetrieveTypes(ue.getOperand(), types);
+            collectRetrieveTypes(ue.getOperand(), types, currentLibrary, libraryManager, visitedCrossLibRefs);
         } else if (element instanceof org.hl7.elm.r1.BinaryExpression be) {
-            for (var op : be.getOperand()) collectRetrieveTypes(op, types);
+            for (var op : be.getOperand()) collectRetrieveTypes(op, types, currentLibrary, libraryManager, visitedCrossLibRefs);
         } else if (element instanceof org.hl7.elm.r1.NaryExpression ne) {
-            for (var op : ne.getOperand()) collectRetrieveTypes(op, types);
+            for (var op : ne.getOperand()) collectRetrieveTypes(op, types, currentLibrary, libraryManager, visitedCrossLibRefs);
+        }
+    }
+
+    /**
+     * Resolve {@code alias.defName} via the current library's IncludeDefs, then walk the referenced
+     * define in the included library. Guards against recursion cycles via {@code visited}.
+     */
+    private void followCrossLibraryRef(String libraryAlias,
+                                       String defName,
+                                       Set<String> types,
+                                       org.hl7.elm.r1.Library currentLibrary,
+                                       LibraryManager libraryManager,
+                                       Set<String> visited) {
+        if (libraryAlias == null || defName == null) return;
+        // Find the include def that maps this alias to a library path/version
+        if (currentLibrary.getIncludes() == null || currentLibrary.getIncludes().getDef() == null) return;
+        org.hl7.elm.r1.IncludeDef includeDef = null;
+        for (var inc : currentLibrary.getIncludes().getDef()) {
+            if (libraryAlias.equals(inc.getLocalIdentifier())) { includeDef = inc; break; }
+        }
+        if (includeDef == null) return;
+
+        String includedPath = includeDef.getPath();
+        String includedVersion = includeDef.getVersion();
+        String visitKey = includedPath + "|" + includedVersion + "|" + defName;
+        if (visited.contains(visitKey)) return;
+        visited.add(visitKey);
+
+        // Locate the compiled library in the libraryManager cache
+        org.hl7.elm.r1.Library includedLibrary = null;
+        for (var entry : libraryManager.getCompiledLibraries().entrySet()) {
+            org.hl7.elm.r1.VersionedIdentifier vid = entry.getKey();
+            if (vid == null || vid.getId() == null) continue;
+            if (vid.getId().equals(includedPath)
+                    && (includedVersion == null || includedVersion.equals(vid.getVersion()))) {
+                includedLibrary = entry.getValue().getLibrary();
+                break;
+            }
+        }
+        if (includedLibrary == null || includedLibrary.getStatements() == null) return;
+
+        // Find the ExpressionDef by name and recurse
+        for (org.hl7.elm.r1.ExpressionDef def : includedLibrary.getStatements().getDef()) {
+            if (defName.equals(def.getName())) {
+                collectRetrieveTypes(def.getExpression(), types, includedLibrary, libraryManager, visited);
+                break;
+            }
         }
     }
 
@@ -705,7 +785,7 @@ public class CqlExecutionService {
                 retrieveProvider = prefetchProvider;
             } else if (request.getPatientId() != null) {
                 // Extract retrieve types directly from pre-translated ELM Library object
-                Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+                Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary(), ctx.libraryManager());
                 retrieveTypes.add("Patient");
                 String pid = request.getPatientId();
                 if (pid.startsWith("Patient/")) pid = pid.substring("Patient/".length());
