@@ -498,6 +498,7 @@ class CqlExecutionIntegrationTest {
 
         @Test
         @DisplayName("extractRetrieveTypesFromLibrary follows cross-library ExpressionRef into included library")
+        @SuppressWarnings("removal")
         void crossLibraryRef_shouldDiscoverRetrievesInIncludedLib() {
             // Arrange: included library that declares [Encounter] and [Condition] retrieves
             String includedCql = "library ExternalLib version '1.0.0'\n"
@@ -541,6 +542,81 @@ class CqlExecutionIntegrationTest {
             assertThat(typesWithLibMgr)
                     .contains("Observation")
                     .contains("Encounter");  // now discovered via EL."Qualifying Encounters"
+        }
+
+        @Test
+        @DisplayName("deprecated single-arg overload emits WARN when library has cross-library refs (regression lock for silent-wrong-result)")
+        @SuppressWarnings("removal")
+        void legacySingleArg_shouldWarnOnCrossLibraryReference() {
+            // Attach a Logback ListAppender to capture log events from CqlExecutionService
+            ch.qos.logback.classic.Logger logger =
+                    (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CqlExecutionService.class);
+            ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                    new ch.qos.logback.core.read.ListAppender<>();
+            appender.start();
+            logger.addAppender(appender);
+
+            try {
+                // Same setup as above — MainLib references ExternalLib's define
+                String includedCql = "library ExternalLib version '1.0.0'\n"
+                        + "using FHIR version '4.0.1'\ncontext Patient\n"
+                        + "define \"Qualifying Encounters\": [Encounter]\n";
+                com.cqlplatform.entity.CqlLibraryEntity includedEntity = new com.cqlplatform.entity.CqlLibraryEntity();
+                includedEntity.setName("ExternalLib");
+                includedEntity.setVersion("1.0.0");
+                includedEntity.setCqlContent(includedCql);
+                lenient().when(libraryRepository.findByNameAndVersion("ExternalLib", "1.0.0"))
+                        .thenReturn(Optional.of(includedEntity));
+                lenient().when(libraryRepository.findByName("ExternalLib"))
+                        .thenReturn(List.of(includedEntity));
+
+                String mainCql = "library MainWarnLib version '1.0.0'\n"
+                        + "using FHIR version '4.0.1'\n"
+                        + "include ExternalLib version '1.0.0' called EL\n"
+                        + "context Patient\n"
+                        + "define \"IP\": exists(EL.\"Qualifying Encounters\")\n";
+
+                CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(mainCql);
+
+                // Act: call the deprecated 1-arg overload
+                executionService.extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+
+                // Assert: a WARN about BUG-111 / incomplete retrieve set must have been logged.
+                // This lock prevents future "helpful" refactors from silencing the warning.
+                assertThat(appender.list).anyMatch(ev ->
+                        ev.getLevel() == ch.qos.logback.classic.Level.WARN
+                                && ev.getFormattedMessage().contains("BUG-111")
+                                && ev.getFormattedMessage().contains("INCOMPLETE"));
+            } finally {
+                logger.detachAppender(appender);
+            }
+        }
+
+        @Test
+        @DisplayName("deprecated single-arg overload does NOT warn when library has no cross-library refs (no false alarms)")
+        @SuppressWarnings("removal")
+        void legacySingleArg_shouldNotWarnOnSelfContainedLibrary() {
+            ch.qos.logback.classic.Logger logger =
+                    (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CqlExecutionService.class);
+            ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                    new ch.qos.logback.core.read.ListAppender<>();
+            appender.start();
+            logger.addAppender(appender);
+
+            try {
+                String selfContainedCql = "library SelfContained version '1.0.0'\n"
+                        + "using FHIR version '4.0.1'\ncontext Patient\n"
+                        + "define \"Obs\": [Observation]\n";
+                CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(selfContainedCql);
+
+                executionService.extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+
+                assertThat(appender.list).noneMatch(ev ->
+                        ev.getLevel() == ch.qos.logback.classic.Level.WARN
+                                && ev.getFormattedMessage().contains("BUG-111"));
+            } finally {
+                logger.detachAppender(appender);
+            }
         }
     }
 
