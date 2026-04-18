@@ -385,8 +385,42 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <!-- @{argLine} is filled in by jacoco prepare-agent; keep EnableDynamicAgentLoading -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration>
+                            <!-- Exclude classes that are not meaningful to cover:
+                                 - Main (Spring Boot entry point)
+                                 - DTOs / model records (Lombok-generated getters/setters / toString)
+                                 - Configuration classes (Spring @Configuration wiring, not logic)
+                                 - Entities (JPA pojos)
+                                 This keeps the % number focused on actual business logic. -->
+                            <excludes>
+                                <exclude>com/cqlplatform/CqlPlatformApplication.class</exclude>
+                                <exclude>com/cqlplatform/model/**</exclude>
+                                <exclude>com/cqlplatform/entity/**</exclude>
+                                <exclude>com/cqlplatform/config/**</exclude>
+                                <exclude>**/*Request.class</exclude>
+                                <exclude>**/*Response.class</exclude>
+                                <exclude>**/*Dto.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
