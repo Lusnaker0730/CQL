@@ -586,7 +586,7 @@
     "returnType": "list_of_encounters",
     "cqlTemplate": "DuringMeasurementPeriod",
     "resourceAlias": "E",
-    "whereClause": "E.period is not null and FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\""
+    "whereClause": "(case when E.period is null then false else FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\" end)"
   },
   {
     "id": "DuringMeasurementPeriodProcedure",
@@ -606,7 +606,7 @@
     "returnType": "list_of_medication_requests",
     "cqlTemplate": "DuringMeasurementPeriod",
     "resourceAlias": "M",
-    "whereClause": "M.authoredOn is not null and FHIRHelpers.ToDateTime(M.authoredOn) in \"Measurement Period\""
+    "whereClause": "(case when M.authoredOn is null then false else FHIRHelpers.ToDateTime(M.authoredOn) in \"Measurement Period\" end)"
   },
   {
     "id": "DuringMeasurementPeriodMedicationStatement",

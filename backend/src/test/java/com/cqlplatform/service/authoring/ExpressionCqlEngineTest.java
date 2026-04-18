@@ -338,7 +338,7 @@ class ExpressionCqlEngineTest {
         String out = eng.applyModifier("[Encounter]", mod, ctx);
 
         assertThat(out).contains("([Encounter]) E")
-                .contains("E.period is not null and FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\"");
+                .contains("case when E.period is null then false else FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\" end");
     }
 
     @Test
