@@ -306,7 +306,7 @@ class ExpressionCqlEngineTest {
 
     @Test
     void applyModifier_duringMeasurementPeriod_observation() {
-        // Real ModifierService so the DuringMeasurementPeriod catalog (resourceAlias + whereClause) resolves.
+        // Real ModifierService so the DuringMeasurementPeriod catalog (resourceAlias + dateFieldSpec) resolves.
         ModifierService modSvc = new ModifierService();
         modSvc.init();
         ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
@@ -338,8 +338,10 @@ class ExpressionCqlEngineTest {
 
         String out = eng.applyModifier("[Encounter]", mod, ctx);
 
+        // Encounter.period is a non-choice Period field; generator emits the compact
+        // `case when X is null then false else ... end` form (null-dispatch-safe by construction).
         assertThat(out).contains("([Encounter]) E")
-                .contains("E.period is not null and FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\"");
+                .contains("case when E.period is null then false else FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\" end");
     }
 
     @Test
