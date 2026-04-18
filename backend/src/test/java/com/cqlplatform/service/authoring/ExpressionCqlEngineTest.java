@@ -317,10 +317,11 @@ class ExpressionCqlEngineTest {
 
         String out = eng.applyModifier("C3F.Verified([Observation: \"Hemoglobin A1c\"])", mod, ctx);
 
+        // Null-safe case expression: dispatch on effective type first to avoid ToInterval(null) ambiguity
         assertThat(out)
                 .contains("(C3F.Verified([Observation: \"Hemoglobin A1c\"])) O")
-                .contains("(O.effective as Period) overlaps \"Measurement Period\"")
-                .contains("(O.effective as dateTime) during \"Measurement Period\"");
+                .contains("when O.effective is FHIR.Period then FHIRHelpers.ToInterval(O.effective as FHIR.Period) overlaps \"Measurement Period\"")
+                .contains("when O.effective is FHIR.dateTime then FHIRHelpers.ToDateTime(O.effective as FHIR.dateTime) in \"Measurement Period\"");
     }
 
     @Test
@@ -337,7 +338,7 @@ class ExpressionCqlEngineTest {
         String out = eng.applyModifier("[Encounter]", mod, ctx);
 
         assertThat(out).contains("([Encounter]) E")
-                .contains("E.period overlaps \"Measurement Period\"");
+                .contains("E.period is not null and FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\"");
     }
 
     @Test
