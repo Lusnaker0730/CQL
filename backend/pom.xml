@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.10</version>
+        <version>3.5.12</version>
         <relativePath/>
     </parent>
 
@@ -28,6 +28,10 @@
         <resilience4j.version>2.2.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
         <jackson-bom.version>2.21.1</jackson-bom.version>
+        <!-- CVE overrides above the versions shipped with Spring Boot 3.5.12 -->
+        <tomcat.version>10.1.54</tomcat.version>
+        <thymeleaf.version>3.1.4.RELEASE</thymeleaf.version>
+        <spring-security.version>6.5.9</spring-security.version>
     </properties>
 
     <dependencyManagement>
@@ -302,11 +306,16 @@
             <artifactId>logstash-logback-encoder</artifactId>
             <version>9.0</version>
         </dependency>
-        <!-- Override Jackson 3.x transitive from logstash-logback-encoder (CVE-2026-29062) -->
+        <!-- Override Jackson 3.x transitive from logstash-logback-encoder (CVE-2026-29062 + GHSA-2m67-wjpj-xhg9) -->
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>3.1.0</version>
+            <version>3.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>3.1.1</version>
         </dependency>
 
         <!-- Observability: Prometheus Metrics -->
