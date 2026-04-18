@@ -262,5 +262,8 @@
     "ssoStateMismatch": "安全驗證失敗，請重新登入。",
     "authProviderLocal": "本機",
     "authProviderOkta": "Okta SSO"
+  },
+  "versionCheck": {
+    "newVersionAvailable": "系統已更新，重新整理頁面以取得最新版本"
   }
 }
