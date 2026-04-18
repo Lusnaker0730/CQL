@@ -164,6 +164,7 @@
     "returnType": "Return Type:",
     "modifiers": "Modifiers",
     "selectModifiers": "SELECT MODIFIERS",
+    "insertHere": "Insert modifier here",
     "buildNewModifier": "BUILD NEW MODIFIER",
     "selectModifiersTitle": "Select Modifiers",
     "withModifiers": "WITH MODIFIERS",

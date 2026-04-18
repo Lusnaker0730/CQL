@@ -5,7 +5,7 @@ import {
 } from '@mui/material'
 import {
   Build as ModifierIcon, Close as CloseIcon, Check as CheckIcon, Handyman as BuildIcon,
-  ArrowForward as ArrowIcon, ChevronLeft as BackIcon,
+  ArrowForward as ArrowIcon, ChevronLeft as BackIcon, AddCircleOutline as AddIcon,
 } from '@mui/icons-material'
 import { useTranslation, Trans } from 'react-i18next'
 import StringField from '../fields/StringField'
@@ -17,7 +17,7 @@ import ModifierCard from './ModifierCard'
 import GradientButton from '../../common/GradientButton'
 import CustomModifierBuilder from './CustomModifierBuilder'
 import type { ElementInstance, ElementField, Modifier, ModifierDefinition } from '../../../types/authoring'
-import { getEffectiveReturnType as getEffectiveRT } from '../../../utils/modifierUtils'
+import { getEffectiveReturnType as getEffectiveRT, getReturnTypeAtPosition } from '../../../utils/modifierUtils'
 
 const DEMOGRAPHIC_SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
   'demographics/units_of_time': [
@@ -50,6 +50,7 @@ export default function ArtifactElementBody({
 }: ArtifactElementBodyProps) {
   const { t } = useTranslation('authoring')
   const [modifierDialogOpen, setModifierDialogOpen] = useState(false)
+  const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null) // null = append at end
   const [customBuilderOpen, setCustomBuilderOpen] = useState(false)
   const currentReturnType = getEffectiveReturnType(element)
   const applicableModifiers = allModifiers.filter(
@@ -66,6 +67,16 @@ export default function ArtifactElementBody({
     onUpdate({ fields: updatedFields })
   }
 
+  const openInsertDialog = (position: number | null) => {
+    setInsertAtIndex(position)
+    setModifierDialogOpen(true)
+  }
+
+  const closeModifierDialog = () => {
+    setModifierDialogOpen(false)
+    setInsertAtIndex(null)
+  }
+
   const handleAddModifier = (modDef: ModifierDefinition) => {
     const newModifier: Modifier = {
       id: modDef.id,
@@ -76,7 +87,13 @@ export default function ArtifactElementBody({
       cqlLibraryFunction: modDef.cqlLibraryFunction,
       values: modDef.values ? { ...modDef.values } : undefined,
     }
-    onUpdate({ modifiers: [...(element.modifiers || []), newModifier] })
+    const existing = element.modifiers || []
+    // Insert at position if specified, else append at end
+    const target = insertAtIndex !== null ? insertAtIndex : existing.length
+    const next = [...existing.slice(0, target), newModifier, ...existing.slice(target)]
+    // Prune any downstream modifiers that are no longer type-compatible after the insertion
+    const cleaned = validateModifierChain(element.returnType, next)
+    onUpdate({ modifiers: cleaned })
   }
 
   const handleRemoveModifier = (index: number) => {
@@ -138,14 +155,21 @@ export default function ArtifactElementBody({
           <Typography variant="subtitle2" color="text.secondary" mb={1}>
             {t('elementBody.modifiers')}
           </Typography>
-          <Stack spacing={1} mb={1}>
+          <Stack spacing={0.5} mb={1}>
             {element.modifiers.map((mod, i) => (
-              <ModifierCard
-                key={`${mod.id}-${i}`}
-                modifier={mod}
-                onRemove={() => handleRemoveModifier(i)}
-                onUpdateValues={(values) => handleUpdateModifier(i, values)}
-              />
+              <Box key={`${mod.id}-${i}`}>
+                {canHaveModifiers && (
+                  <InsertModifierButton
+                    onClick={() => openInsertDialog(i)}
+                    label={t('elementBody.insertHere', 'Insert modifier here')}
+                  />
+                )}
+                <ModifierCard
+                  modifier={mod}
+                  onRemove={() => handleRemoveModifier(i)}
+                  onUpdateValues={(values) => handleUpdateModifier(i, values)}
+                />
+              </Box>
             ))}
           </Stack>
         </>
@@ -156,7 +180,7 @@ export default function ArtifactElementBody({
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
           {applicableModifiers.length > 0 && (
             <GradientButton
-              onClick={() => setModifierDialogOpen(true)}
+              onClick={() => openInsertDialog(null)}
               size="small"
               startIcon={<ModifierIcon />}
             >
@@ -179,9 +203,10 @@ export default function ArtifactElementBody({
       {/* Modifier Selection Dialog */}
       <SelectModifiersDialog
         open={modifierDialogOpen}
-        onClose={() => setModifierDialogOpen(false)}
+        onClose={closeModifierDialog}
         element={element}
         allModifiers={allModifiers}
+        insertAtIndex={insertAtIndex}
         onAdd={handleAddModifier}
         onRemove={handleRemoveModifier}
       />
@@ -200,6 +225,32 @@ export default function ArtifactElementBody({
   )
 }
 
+// ----- Insert Modifier Inline Button -----
+
+function InsertModifierButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        opacity: 0.5,
+        transition: 'opacity 0.15s',
+        '&:hover': { opacity: 1 },
+        my: 0.25,
+      }}
+    >
+      <IconButton
+        size="small"
+        onClick={onClick}
+        aria-label={label}
+        sx={{ p: 0.25 }}
+      >
+        <AddIcon fontSize="small" color="primary" />
+      </IconButton>
+    </Box>
+  )
+}
+
 // ----- Modifier Selection Dialog -----
 
 interface SelectModifiersDialogProps {
@@ -207,6 +258,8 @@ interface SelectModifiersDialogProps {
   onClose: () => void
   element: ElementInstance
   allModifiers: ModifierDefinition[]
+  /** Position to insert at (null = append at end). */
+  insertAtIndex: number | null
   onAdd: (mod: ModifierDefinition) => void
   onRemove: (index: number) => void
 }
@@ -216,6 +269,7 @@ function SelectModifiersDialog({
   onClose,
   element,
   allModifiers,
+  insertAtIndex,
   onAdd,
   onRemove,
 }: SelectModifiersDialogProps) {
@@ -223,7 +277,11 @@ function SelectModifiersDialog({
   const [selectedModId, setSelectedModId] = useState<string>('')
   const [filterText, setFilterText] = useState('')
 
-  const currentReturnType = getEffectiveReturnType(element)
+  // Type exposed at the insertion slot (end-of-chain if insertAtIndex is null)
+  const typeAtSlot = insertAtIndex !== null
+    ? getReturnTypeAtPosition(element.returnType, element.modifiers, insertAtIndex)
+    : getEffectiveReturnType(element)
+  const currentReturnType = typeAtSlot
   const applicableModifiers = allModifiers.filter(
     (m) =>
       m.inputTypes.includes(currentReturnType) &&

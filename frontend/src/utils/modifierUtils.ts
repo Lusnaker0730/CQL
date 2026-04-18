@@ -62,3 +62,22 @@ export function getEffectiveReturnType(baseReturnType: string, modifiers?: Modif
   }
   return baseReturnType
 }
+
+/**
+ * Compute the type exposed at a specific insertion position in the modifier chain.
+ * `insertAtIndex = 0` means "before all existing modifiers" → baseReturnType.
+ * `insertAtIndex = N` means "after modifier[N-1]" → effective type of modifiers[0..N-1].
+ * `insertAtIndex >= modifiers.length` means "at end" → getEffectiveReturnType of the whole chain.
+ *
+ * Used by the UI to determine which modifiers are applicable at that insertion slot.
+ */
+export function getReturnTypeAtPosition(
+  baseReturnType: string,
+  modifiers: Modifier[] | undefined,
+  insertAtIndex: number,
+): string {
+  if (!modifiers || modifiers.length === 0) return baseReturnType
+  if (insertAtIndex <= 0) return baseReturnType
+  const slice = modifiers.slice(0, insertAtIndex)
+  return getEffectiveReturnType(baseReturnType, slice)
+}
