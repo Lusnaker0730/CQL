@@ -23,8 +23,8 @@
         <java.version>21</java.version>
         <cql.version>4.5.0</cql.version>
         <hapi.fhir.version>8.6.6</hapi.fhir.version>
-        <mockito.version>5.14.2</mockito.version>
-        <byte-buddy.version>1.15.10</byte-buddy.version>
+        <mockito.version>5.23.0</mockito.version>
+        <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.2.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
         <jackson-bom.version>2.21.1</jackson-bom.version>
@@ -385,8 +385,82 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <!-- @{argLine} is filled in by jacoco prepare-agent; keep EnableDynamicAgentLoading
+                         for the Mockito subclass mock maker to access protected fields/methods. -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration>
+                            <!-- Exclude classes that are not meaningful to cover:
+                                 - Main (Spring Boot entry point)
+                                 - DTOs / model records (Lombok-generated getters/setters / toString)
+                                 - Configuration classes (Spring @Configuration wiring, not logic)
+                                 - Entities (JPA pojos)
+                                 This keeps the % number focused on actual business logic. -->
+                            <excludes>
+                                <exclude>com/cqlplatform/CqlPlatformApplication.class</exclude>
+                                <exclude>com/cqlplatform/model/**</exclude>
+                                <exclude>com/cqlplatform/entity/**</exclude>
+                                <exclude>com/cqlplatform/config/**</exclude>
+                                <exclude>**/*Request.class</exclude>
+                                <exclude>**/*Response.class</exclude>
+                                <exclude>**/*Dto.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!-- Regression gate: fail the build if coverage drops below the measured
+                             baseline with ALL tests passing (Mockito subclass mock maker
+                             unblocked 462 previously-silently-failing tests on JDK 25).
+                             Real baseline: Lines 49.2%, Branches 35.4%, Methods 54.8%.
+                             Floor values below are set slightly lower (0.48 / 0.34) to avoid
+                             flake on small per-class variance. Raise as coverage improves. -->
+                        <id>check-baseline</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>com/cqlplatform/CqlPlatformApplication.class</exclude>
+                                <exclude>com/cqlplatform/model/**</exclude>
+                                <exclude>com/cqlplatform/entity/**</exclude>
+                                <exclude>com/cqlplatform/config/**</exclude>
+                                <exclude>**/*Request.class</exclude>
+                                <exclude>**/*Response.class</exclude>
+                                <exclude>**/*Dto.class</exclude>
+                            </excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.48</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.34</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
