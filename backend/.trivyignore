@@ -1,8 +1,23 @@
-# CVE-2026-33180: HAPI FHIR HTTP authentication leak in redirects
-# These org.hl7.fhir.* packages (6.6.7) are tightly coupled to hapi-fhir-validation 8.6.6
-# and cannot be upgraded independently without AbstractMethodError.
-# The vulnerable packages we CAN upgrade (convertors, dstu2, dstu2016may, dstu3, r4b) are
-# already overridden to 6.9.0 in pom.xml dependencyManagement.
+# HAPI FHIR org.hl7.fhir.* 6.6.7 transitive CVEs
+# -----------------------------------------------
+# The org.hl7.fhir.* packages at version 6.6.7 are transitive dependencies of
+# hapi-fhir-validation 8.6.6 and are tightly coupled to hapi-fhir core — attempting
+# to upgrade them independently results in AbstractMethodError at runtime.
+#
+# The vulnerable packages we CAN upgrade (convertors, dstu2, dstu2016may, dstu3, r4b)
+# are already overridden to 6.9.0 in pom.xml dependencyManagement.
 # Remaining packages (model, support, utilities, r4, r5, validation) require a full
-# hapi-fhir major version upgrade to resolve.
+# hapi-fhir major version upgrade (to 9.x or a version that bundles 6.9.4+) to resolve.
+#
+# Exposure assessment (VEX):
+# - CVE-2026-33180 (auth leak in redirects): not exposed — we do not use HAPI's
+#   HTTP client redirect-following in any authenticated flow; all FHIR calls go
+#   through our own Spring-managed HTTP stack.
+# - CVE-2026-34359 (Authentication Credential Leakage via …): same rationale; no
+#   FHIR server acting as HTTP client with credential-bearing outbound requests.
+# - CVE-2026-34361 (FHIR Validator /loadIG SSRF): not exposed — we do not expose
+#   HAPI's FHIR Validator HTTP service (/loadIG endpoint is not mounted).
+# Risk: LOW. Tracked in issue (TODO: file issue) for the eventual HAPI 9.x upgrade.
 CVE-2026-33180
+CVE-2026-34359
+CVE-2026-34361
