@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CqlArtifactBuilderEdgeCaseTest {
 
     private final CqlTemplateEngine templateEngine = new CqlTemplateEngine();
-    private final ExpressionCqlEngine engine = new ExpressionCqlEngine(templateEngine);
+    private final ExpressionCqlEngine engine = new ExpressionCqlEngine(templateEngine, null);
     private final CqlArtifactBuilder builder = new CqlArtifactBuilder(engine, templateEngine);
 
     private Map<String, Object> emptyTree() {

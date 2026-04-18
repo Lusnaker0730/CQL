@@ -60,4 +60,12 @@ public class ModifierService {
                 .filter(m -> m.getInputTypes() != null && m.getInputTypes().contains(inputType))
                 .collect(Collectors.toList());
     }
+
+    public ModifierDefinition getById(String id) {
+        if (id == null) return null;
+        return modifiers.stream()
+                .filter(m -> id.equals(m.getId()))
+                .findFirst()
+                .orElse(null);
+    }
 }

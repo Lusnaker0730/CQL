@@ -557,5 +557,65 @@
     "values": { "value": null },
     "validator": { "type": "require", "fields": ["value"] },
     "cqlTemplate": "AfterInterval"
+  },
+  {
+    "id": "DuringMeasurementPeriodObservation",
+    "name": "During Measurement Period",
+    "type": "DuringMeasurementPeriod",
+    "inputTypes": ["list_of_observations"],
+    "returnType": "list_of_observations",
+    "cqlTemplate": "DuringMeasurementPeriod",
+    "resourceAlias": "O",
+    "whereClause": "(O.effective as Period) overlaps \"Measurement Period\" or (O.effective as dateTime) during \"Measurement Period\""
+  },
+  {
+    "id": "DuringMeasurementPeriodCondition",
+    "name": "During Measurement Period",
+    "type": "DuringMeasurementPeriod",
+    "inputTypes": ["list_of_conditions"],
+    "returnType": "list_of_conditions",
+    "cqlTemplate": "DuringMeasurementPeriod",
+    "resourceAlias": "C",
+    "whereClause": "(C.onset as Period) overlaps \"Measurement Period\" or (C.onset as dateTime) during \"Measurement Period\" or C.recordedDate during \"Measurement Period\""
+  },
+  {
+    "id": "DuringMeasurementPeriodEncounter",
+    "name": "During Measurement Period",
+    "type": "DuringMeasurementPeriod",
+    "inputTypes": ["list_of_encounters"],
+    "returnType": "list_of_encounters",
+    "cqlTemplate": "DuringMeasurementPeriod",
+    "resourceAlias": "E",
+    "whereClause": "E.period overlaps \"Measurement Period\""
+  },
+  {
+    "id": "DuringMeasurementPeriodProcedure",
+    "name": "During Measurement Period",
+    "type": "DuringMeasurementPeriod",
+    "inputTypes": ["list_of_procedures"],
+    "returnType": "list_of_procedures",
+    "cqlTemplate": "DuringMeasurementPeriod",
+    "resourceAlias": "P",
+    "whereClause": "(P.performed as Period) overlaps \"Measurement Period\" or (P.performed as dateTime) during \"Measurement Period\""
+  },
+  {
+    "id": "DuringMeasurementPeriodMedicationRequest",
+    "name": "During Measurement Period",
+    "type": "DuringMeasurementPeriod",
+    "inputTypes": ["list_of_medication_requests"],
+    "returnType": "list_of_medication_requests",
+    "cqlTemplate": "DuringMeasurementPeriod",
+    "resourceAlias": "M",
+    "whereClause": "M.authoredOn during \"Measurement Period\""
+  },
+  {
+    "id": "DuringMeasurementPeriodMedicationStatement",
+    "name": "During Measurement Period",
+    "type": "DuringMeasurementPeriod",
+    "inputTypes": ["list_of_medication_statements"],
+    "returnType": "list_of_medication_statements",
+    "cqlTemplate": "DuringMeasurementPeriod",
+    "resourceAlias": "MS",
+    "whereClause": "(MS.effective as Period) overlaps \"Measurement Period\" or (MS.effective as dateTime) during \"Measurement Period\""
   }
 ]

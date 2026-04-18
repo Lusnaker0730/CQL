@@ -23,4 +23,8 @@ public class ModifierDefinition {
     private Map<String, Object> values;
     private Map<String, Object> validator;
     private String comparisonOperator;
+    /** For DuringMeasurementPeriod: query alias (O/C/E/P/M/MS). */
+    private String resourceAlias;
+    /** For DuringMeasurementPeriod: pre-formed where clause using resourceAlias. */
+    private String whereClause;
 }

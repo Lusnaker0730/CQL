@@ -17,6 +17,7 @@ import java.util.*;
 public class ExpressionCqlEngine {
 
     private final CqlTemplateEngine templateEngine;
+    private final ModifierService modifierService;
 
     private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
@@ -487,6 +488,19 @@ public class ExpressionCqlEngine {
                     return renderModifier("LookBackModifier.ftl", Map.of(
                             "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", "", "unit", ""));
                 return expr;
+            }
+            case "DuringMeasurementPeriod": {
+                // Resolve resource alias + where clause from the modifier definition
+                // (these aren't stored in the saved artifact tree — only `id` is).
+                var def = modifierService.getById(modId);
+                if (def == null || def.getResourceAlias() == null || def.getWhereClause() == null) {
+                    ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing resourceAlias/whereClause in catalog");
+                    return expr;
+                }
+                return renderModifier("DuringMeasurementPeriod.ftl", Map.of(
+                        "expression", expr,
+                        "alias", def.getResourceAlias(),
+                        "whereClause", def.getWhereClause()));
             }
             case "EqualsString": {
                 if (values != null) {
