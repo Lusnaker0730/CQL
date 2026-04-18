@@ -14,7 +14,7 @@ class ExpressionCqlEngineTest {
 
     ExpressionCqlEngineTest() {
         templateEngine = new CqlTemplateEngine();
-        engine = new ExpressionCqlEngine(templateEngine);
+        engine = new ExpressionCqlEngine(templateEngine, null);
     }
 
     // ===== Helpers =====
@@ -301,6 +301,61 @@ class ExpressionCqlEngineTest {
         assertThat(engine.applyModifier("[Condition]",
                 modifier("LookBackModifier", "C3F.ObservationLookBack", Map.of("value", "3", "unit", "years")), ctx))
                 .isEqualTo("C3F.ObservationLookBack([Condition], 3 years)");
+    }
+
+    @Test
+    void applyModifier_duringMeasurementPeriod_observation() {
+        // Real ModifierService so the DuringMeasurementPeriod catalog (resourceAlias + whereClause) resolves.
+        ModifierService modSvc = new ModifierService();
+        modSvc.init();
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        BuildContext ctx = new BuildContext(null, null);
+
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("id", "DuringMeasurementPeriodObservation");
+        mod.put("cqlTemplate", "DuringMeasurementPeriod");
+
+        String out = eng.applyModifier("C3F.Verified([Observation: \"Hemoglobin A1c\"])", mod, ctx);
+
+        assertThat(out)
+                .contains("(C3F.Verified([Observation: \"Hemoglobin A1c\"])) O")
+                .contains("(O.effective as Period) overlaps \"Measurement Period\"")
+                .contains("(O.effective as dateTime) during \"Measurement Period\"");
+    }
+
+    @Test
+    void applyModifier_duringMeasurementPeriod_encounter() {
+        ModifierService modSvc = new ModifierService();
+        modSvc.init();
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        BuildContext ctx = new BuildContext(null, null);
+
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("id", "DuringMeasurementPeriodEncounter");
+        mod.put("cqlTemplate", "DuringMeasurementPeriod");
+
+        String out = eng.applyModifier("[Encounter]", mod, ctx);
+
+        assertThat(out).contains("([Encounter]) E")
+                .contains("E.period overlaps \"Measurement Period\"");
+    }
+
+    @Test
+    void applyModifier_duringMeasurementPeriod_unknownIdWarns() {
+        ModifierService modSvc = new ModifierService();
+        modSvc.init();
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        BuildContext ctx = new BuildContext(null, null);
+
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("id", "DuringMeasurementPeriodBogus");
+        mod.put("cqlTemplate", "DuringMeasurementPeriod");
+
+        String out = eng.applyModifier("[Encounter]", mod, ctx);
+
+        // Falls back to original expression + logs a warning
+        assertThat(out).isEqualTo("[Encounter]");
+        assertThat(ctx.warnings).anyMatch(w -> w.contains("DuringMeasurementPeriod"));
     }
 
     @Test

@@ -18,7 +18,7 @@ class EcqmCqlBuilderTest {
 
     EcqmCqlBuilderTest() {
         templateEngine = new CqlTemplateEngine();
-        engine = new ExpressionCqlEngine(templateEngine);
+        engine = new ExpressionCqlEngine(templateEngine, null);
         builder = new EcqmCqlBuilder(engine, templateEngine);
     }
 

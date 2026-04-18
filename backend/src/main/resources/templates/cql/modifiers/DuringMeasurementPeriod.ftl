@@ -1,0 +1,2 @@
+(${expression}) ${alias}
+  where ${whereClause}
