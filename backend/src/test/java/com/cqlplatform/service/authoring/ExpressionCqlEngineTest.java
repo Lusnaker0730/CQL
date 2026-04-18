@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ExpressionCqlEngineTest {
 
@@ -551,5 +552,128 @@ class ExpressionCqlEngineTest {
         element.put("modifiers", List.of(existsMod));
         String result = engine.buildExpression(element, ctx);
         assertThat(result).isEqualTo("exists([Observation: \"Blood Pressure\"])");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // classifyListBehavior — declarative replacement for the old string-match heuristic
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void classifyListBehavior_listReturnType_isPreservesList() {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "list_of_observations");
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("preserves-list");
+    }
+
+    @Test
+    void classifyListBehavior_systemReturnType_isExtractsValue() {
+        // This is the invariant that fixes the C3F.AverageObservation bug — a modifier whose
+        // returnType is system_quantity now correctly maps to extracts-value regardless of
+        // whether its cqlLibraryFunction contains any specific substring.
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "system_quantity");
+        mod.put("cqlLibraryFunction", "C3F.AverageObservation");  // the old heuristic missed this
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("extracts-value");
+    }
+
+    @Test
+    void classifyListBehavior_singleResourceReturnType_isCollapsesList() {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "observation");
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("collapses-list");
+    }
+
+    @Test
+    void classifyListBehavior_explicitOverride_winsOverInference() {
+        // Escape hatch: explicit listBehavior in the catalog always beats returnType inference.
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "list_of_observations");  // would infer preserves-list
+        mod.put("listBehavior", "collapses-list");       // but we explicitly say collapses
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("collapses-list");
+    }
+
+    @Test
+    void classifyListBehavior_missingReturnType_defaultsToPreservesList() {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("preserves-list");
+    }
+
+    @Test
+    void cvMeasurePopulation_skippedModifierSurfacesUserWarning() {
+        // Invariant under test: when preserveListReturn skips a list-collapsing or
+        // value-extracting modifier, the skip is NOT silent — ctx.warnings captures
+        // a human-readable explanation that the frontend CQL preview panel surfaces.
+        BuildContext ctx = new BuildContext(null, null);
+
+        Map<String, Object> element = new LinkedHashMap<>();
+        element.put("id", "GenericObservation_vsac");
+        element.put("name", "Observation");
+        element.put("type", "GenericObservation_vsac");
+        element.put("returnType", "list_of_observations");
+        element.put("fields", List.of(Map.of("id", "element_name", "type", "string", "value", "x")));
+
+        Map<String, Object> mostRecentMod = new LinkedHashMap<>();
+        mostRecentMod.put("id", "MostRecentObservation");
+        mostRecentMod.put("name", "Most Recent");
+        mostRecentMod.put("returnType", "observation");  // single resource → collapses-list
+        mostRecentMod.put("cqlTemplate", "BaseModifier");
+        mostRecentMod.put("cqlLibraryFunction", "C3F.MostRecent");
+        element.put("modifiers", List.of(mostRecentMod));
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation",
+                () -> engine.buildExpression(element, ctx));
+
+        assertThat(ctx.warnings).anyMatch(w ->
+                w.contains("Most Recent") && w.contains("Measure Population") && w.contains("collapses-list"));
+    }
+
+    @Test
+    void withRenderMode_shouldRestoreModeAfterBody() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            assertThat(ctx.episodeResourceType).isEqualTo("Observation");
+            return null;
+        });
+
+        // Outer scope restored
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+        assertThat(ctx.episodeResourceType).isNull();
+    }
+
+    @Test
+    void withRenderMode_shouldRestoreEvenIfBodyThrows() {
+        BuildContext ctx = new BuildContext(null, null);
+
+        assertThatThrownBy(() -> ctx.withRenderMode(
+                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Encounter", () -> {
+                    throw new RuntimeException("boom");
+                })).hasMessage("boom");
+
+        // Mode restored despite exception — this is what makes withRenderMode safer than
+        // manual flag flipping (which would leak state on exception)
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+        assertThat(ctx.episodeResourceType).isNull();
+    }
+
+    @Test
+    void withRenderMode_shouldNestAndRestoreInnerModeOnly() {
+        BuildContext ctx = new BuildContext(null, null);
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
+            ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER, () -> {
+                assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER);
+                assertThat(ctx.episodeResourceType).isEqualTo("Observation"); // inherited via overload
+                return null;
+            });
+            // Inner restored to outer's CV_MEASURE_POPULATION
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            assertThat(ctx.episodeResourceType).isEqualTo("Observation");
+            return null;
+        });
+
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
     }
 }

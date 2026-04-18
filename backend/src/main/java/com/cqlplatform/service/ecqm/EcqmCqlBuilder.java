@@ -171,12 +171,16 @@ public class EcqmCqlBuilder {
 
                     // Episode-based CV: Measure Population should return resource list, not boolean
                     if (isCvEpisode && "measure-population".equals(popKey)) {
-                        ctx.preserveListReturn = true;
-                        ctx.episodeResourceType = populationBasis;
+                        ctx.withRenderMode(
+                                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION,
+                                populationBasis,
+                                () -> {
+                                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
+                                    return null;
+                                });
+                    } else {
+                        appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
                     }
-                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
-                    ctx.preserveListReturn = false;
-                    ctx.episodeResourceType = null;
                 }
 
                 // Observations
