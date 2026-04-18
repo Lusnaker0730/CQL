@@ -11,12 +11,10 @@ import com.cqlplatform.service.fhir.FhirTerminologyService;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.runtime.Code;
 import org.opencds.cqf.cql.engine.runtime.Interval;
+import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -36,19 +34,16 @@ import static org.mockito.Mockito.*;
  * This validates that CQL logic actually produces correct clinical results,
  * not just that methods are called correctly.
  */
-@ExtendWith(MockitoExtension.class)
 @DisplayName("CQL Execution Integration Tests (Real Engine)")
 class CqlExecutionIntegrationTest {
 
     private CqlExecutionService executionService;
 
-    @Mock
+    // Real stubs: only libraryRepository needs selective behavior — interface mocking uses
+    // JDK dynamic proxy (no bytecode agent), so it works on any JDK. The two FHIR services
+    // use minimal real implementations because executeWithProvider() never hits their hot paths.
     private FhirDataProviderService dataProviderService;
-
-    @Mock
     private FhirTerminologyService terminologyService;
-
-    @Mock
     private CqlLibraryRepository libraryRepository;
 
     private static final FhirContext FHIR_CONTEXT = FhirContext.forR4();
@@ -168,6 +163,10 @@ class CqlExecutionIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        dataProviderService = new FhirDataProviderService(null, null, null);
+        terminologyService = new NoOpTerminologyService();
+        libraryRepository = org.mockito.Mockito.mock(CqlLibraryRepository.class);
+
         executionService = new CqlExecutionService(
                 dataProviderService,
                 terminologyService,
@@ -625,6 +624,22 @@ class CqlExecutionIntegrationTest {
             field.set(target, value);
         } catch (Exception e) {
             throw new RuntimeException("Failed to set field " + fieldName, e);
+        }
+    }
+
+    /**
+     * Minimal terminology service — returns null TerminologyProvider. The CQL engine's
+     * Environment tolerates a null provider; our test CQL uses direct {@code code}
+     * declarations (no ValueSet expansion) so this is sufficient.
+     */
+    static class NoOpTerminologyService extends FhirTerminologyService {
+        NoOpTerminologyService() {
+            super(FhirContext.forR4(), null, null, null);
+        }
+
+        @Override
+        public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
+            return null;
         }
     }
 }

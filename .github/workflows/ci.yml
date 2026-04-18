@@ -36,6 +36,33 @@ jobs:
           path: backend/target/surefire-reports/TEST-*.xml
           retention-days: 30
 
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: |
+            backend/target/site/jacoco/
+            backend/target/jacoco.exec
+          retention-days: 30
+
+      - name: Summarize coverage in job log
+        if: always()
+        working-directory: backend
+        run: |
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            echo "### JaCoCo Coverage" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk -F',' 'NR>1 { im+=$4; ic+=$5; bm+=$6; bc+=$7; lm+=$8; lc+=$9; mm+=$12; mc+=$13; }
+              END {
+                printf "Instructions: %.1f%% (%d/%d)\n", 100*ic/(im+ic), ic, im+ic;
+                printf "Branches:     %.1f%% (%d/%d)\n", 100*bc/(bm+bc), bc, bm+bc;
+                printf "Lines:        %.1f%% (%d/%d)\n", 100*lc/(lm+lc), lc, lm+lc;
+                printf "Methods:      %.1f%% (%d/%d)\n", 100*mc/(mm+mc), mc, mm+mc;
+              }' target/site/jacoco/jacoco.csv >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
   frontend-lint:
     name: Frontend Lint & Type Check
     runs-on: ubuntu-latest
