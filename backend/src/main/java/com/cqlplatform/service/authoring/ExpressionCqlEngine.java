@@ -542,17 +542,21 @@ public class ExpressionCqlEngine {
                 return expr;
             }
             case "DuringMeasurementPeriod": {
-                // Resolve resource alias + where clause from the modifier definition
-                // (these aren't stored in the saved artifact tree — only `id` is).
+                // The catalog entry's nested `during` block carries alias + dateFieldSpec.
+                // The saved artifact tree only keeps the modifier id — we look up the typed
+                // config here and let the engine generate the null-safe case CQL.
                 var def = modifierService.getById(modId);
-                if (def == null || def.getResourceAlias() == null || def.getWhereClause() == null) {
-                    ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing resourceAlias/whereClause in catalog");
+                var cfg = def == null ? null : def.getDuring();
+                if (cfg == null || cfg.getAlias() == null || cfg.getDateFieldSpec() == null) {
+                    ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing during.{alias,dateFieldSpec} in catalog");
                     return expr;
                 }
+                String whereClause = buildDuringMeasurementPeriodWhereClause(
+                        cfg.getAlias(), cfg.getDateFieldSpec());
                 return renderModifier("DuringMeasurementPeriod.ftl", Map.of(
                         "expression", expr,
-                        "alias", def.getResourceAlias(),
-                        "whereClause", def.getWhereClause()));
+                        "alias", cfg.getAlias(),
+                        "whereClause", whereClause));
             }
             case "EqualsString": {
                 if (values != null) {
@@ -678,6 +682,93 @@ public class ExpressionCqlEngine {
 
     private String renderElement(String templateFile, Map<String, Object> model) {
         return templateEngine.render("elements/" + templateFile, model);
+    }
+
+    /**
+     * Generate a null-safe {@code case when ... end} CQL expression that checks whether
+     * a resource's date field overlaps/lies within "Measurement Period".
+     *
+     * <p>Output structure (for choice types):
+     * <pre>{@code
+     * (case
+     *   when A.field is FHIR.Period then FHIRHelpers.ToInterval(A.field as FHIR.Period) overlaps "Measurement Period"
+     *   when A.field is FHIR.dateTime then FHIRHelpers.ToDateTime(A.field as FHIR.dateTime) in "Measurement Period"
+     *   when A.field is FHIR.instant then FHIRHelpers.ToDateTime(A.field as FHIR.instant) in "Measurement Period"
+     *   when A.fallback is not null then FHIRHelpers.ToDateTime(A.fallback) in "Measurement Period"
+     *   else false
+     * end)
+     * }</pre>
+     *
+     * <p>For single-type (non-choice) fields, emits a simpler guard:
+     * <pre>{@code (case when A.field is null then false else <cmp> end)}</pre>
+     *
+     * <p><b>Invariant:</b> every branch that invokes {@code FHIRHelpers.ToInterval(x)} or
+     * {@code FHIRHelpers.ToDateTime(x)} is gated behind a {@code when ... is T then}
+     * check, so {@code x} is never null when dispatched. This is what kept us from
+     * reintroducing BUG-110 / BUG-112 and the reason we moved from JSON whereClause
+     * strings to this structured generator.
+     */
+    String buildDuringMeasurementPeriodWhereClause(
+            String alias,
+            com.cqlplatform.model.authoring.ModifierDefinition.DateFieldSpec spec) {
+        if (alias == null || spec == null || spec.getField() == null
+                || spec.getTypes() == null || spec.getTypes().isEmpty()) {
+            return "false";  // defensive — catalog misconfiguration
+        }
+
+        // Single, non-choice primary field: compact form, no case-choice needed.
+        boolean isSingleType = spec.getTypes().size() == 1
+                && (spec.getFallbacks() == null || spec.getFallbacks().isEmpty());
+        if (isSingleType) {
+            String cmp = buildTypeComparison(alias + "." + spec.getField(), spec.getTypes().get(0));
+            return "(case when " + alias + "." + spec.getField() + " is null then false else " + cmp + " end)";
+        }
+
+        // Choice type / with fallbacks: emit one `when ... is TYPE then ...` per branch.
+        StringBuilder sb = new StringBuilder("(case ");
+        String fieldPath = alias + "." + spec.getField();
+        for (String type : spec.getTypes()) {
+            String castedRef = fieldPath + " as FHIR." + type;
+            sb.append("when ").append(fieldPath).append(" is FHIR.").append(type)
+                    .append(" then ").append(buildPeriodCheck(castedRef, type)).append(" ");
+        }
+        if (spec.getFallbacks() != null) {
+            for (var fb : spec.getFallbacks()) {
+                String fbPath = alias + "." + fb.getField();
+                // Fallbacks are used when the primary field is absent. Guard with is-not-null.
+                sb.append("when ").append(fbPath).append(" is not null then ")
+                        .append(buildPeriodCheck(fbPath, fb.getType())).append(" ");
+            }
+        }
+        sb.append("else false end)");
+        return sb.toString();
+    }
+
+    /** Direct comparison with Measurement Period for a FHIR value of a specific type. */
+    private static String buildPeriodCheck(String valueRef, String fhirType) {
+        switch (fhirType) {
+            case "Period":
+                return "FHIRHelpers.ToInterval(" + valueRef + ") overlaps \"Measurement Period\"";
+            case "dateTime":
+            case "instant":
+                return "FHIRHelpers.ToDateTime(" + valueRef + ") in \"Measurement Period\"";
+            default:
+                // Unknown type — treat as no-match rather than generate broken CQL.
+                return "false";
+        }
+    }
+
+    /** Non-choice field: no cast needed, just the comparison. */
+    private static String buildTypeComparison(String valueRef, String fhirType) {
+        switch (fhirType) {
+            case "Period":
+                return "FHIRHelpers.ToInterval(" + valueRef + ") overlaps \"Measurement Period\"";
+            case "dateTime":
+            case "instant":
+                return "FHIRHelpers.ToDateTime(" + valueRef + ") in \"Measurement Period\"";
+            default:
+                return "false";
+        }
     }
 
     // ── Declaration collection ───────────────────────────────────────────
