@@ -1,12 +1,12 @@
 {
   "periodStart": "2020-07-01",
   "periodEnd": "2020-12-31",
-  "score": 66.67,
+  "score": 150.0,
   "scoreTolerance": 0.5,
   "populations": {
     "initial-population": 5,
-    "denominator": 3,
-    "numerator": 2
+    "denominator": 2,
+    "numerator": 3
   },
-  "_note": "Denom=seniors (>=65 at period end 2020-12-31) = 3 patients (p1 age 75, p2 age 72, p3 age 66). Numer=very elderly (>=72) = 2 (p1, p2). Ratio = 2/3 ~= 66.67. Numer is subset of Denom because backend currently generates Numerator CQL with Denominator intersection — ratio and proportion share this codegen, only score calculation differs."
+  "_note": "Denom=young-adults (18-49) = 2 patients (p4 age 30, p5 age 25). Numer=seniors (>=65) = 3 patients (p1 age 75, p2 age 72, p3 age 66). Disjoint! Ratio score = 3/2 = 1.5 = 150.0 as percentage — proves ratio evaluator treats Numer independent of Denom (proportion would gate Numer by Denom and report Numer=0, score=0)."
 }

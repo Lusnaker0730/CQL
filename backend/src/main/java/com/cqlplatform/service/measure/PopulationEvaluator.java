@@ -86,6 +86,37 @@ public class PopulationEvaluator {
         if (denomException) increment(counts, "Denominator Exceptions");
     }
 
+    /**
+     * Aggregates a single patient's CQL results for RATIO measures. Ratio differs from
+     * proportion in one key way per FHIR MeasureReport R4 spec: Numerator is NOT gated
+     * by Denominator. Both populations are independent filters within Initial Population.
+     *
+     * <p>Canonical example: "encounters per patient". Denom = adult patients,
+     * Numer = any encounter in period. Numer must be able to count events for patients
+     * who aren't in Denom, and vice versa — a single patient can contribute multiple
+     * encounters to Numer without appearing in Denom at all.
+     *
+     * <p>Denominator Exceptions don't exist for ratio (proportion-only concept per FHIR
+     * spec) — we intentionally don't check for them here. If a ratio measure includes
+     * them in its populationGroups definition they're silently ignored.
+     */
+    public void aggregateRatioPatientResults(Map<String, Integer> counts,
+                                             Map<String, CqlExecutionResponse.ExpressionResult> results) {
+        boolean inInitPop = isPopulationTrue(results, "Initial Population");
+        boolean inDenom = inInitPop && isPopulationTrue(results, "Denominator");
+        boolean denomExcluded = inDenom && isPopulationTrue(results, "Denominator Exclusions");
+        // Ratio: Numer is gated by IP only, NOT by Denom (the key difference from proportion)
+        boolean inNumer = inInitPop && isPopulationTrue(results, "Numerator");
+        boolean numerExcluded = inNumer && isPopulationTrue(results, "Numerator Exclusions");
+        boolean effectiveNumer = inNumer && !numerExcluded;
+
+        if (inInitPop) increment(counts, "Initial Population");
+        if (inDenom) increment(counts, "Denominator");
+        if (denomExcluded) increment(counts, "Denominator Exclusions");
+        if (effectiveNumer) increment(counts, "Numerator");
+        if (numerExcluded) increment(counts, "Numerator Exclusions");
+    }
+
     private boolean isPopulationTrue(Map<String, CqlExecutionResponse.ExpressionResult> results,
                                      String populationName) {
         Integer count = extractPopulationCount(results, populationName);
@@ -262,7 +293,8 @@ public class PopulationEvaluator {
         switch (scoringType.toLowerCase(Locale.ROOT)) {
             case "continuous-variable" -> entries = buildCvEntries(results);
             case "cohort" -> entries = buildCohortEntries(results);
-            case "proportion", "ratio" -> entries = buildProportionEntries(results);
+            case "ratio" -> entries = buildRatioEntries(results);
+            case "proportion" -> entries = buildProportionEntries(results);
             default -> entries = buildProportionEntries(results);
         }
         return GroupTrace.builder()
@@ -332,6 +364,61 @@ public class PopulationEvaluator {
                     denomExceptRaw, applied, reason,
                     Map.of("denom", effectiveDenom, "numer", effectiveNumer,
                             "exception", Boolean.TRUE.equals(denomExceptRaw))));
+        }
+
+        return entries;
+    }
+
+    /**
+     * Per-patient trace for RATIO scoring. Mirrors proportion's trace except Numerator is
+     * gated by Initial Population, not Denominator — see {@link #aggregateRatioPatientResults}
+     * for rationale. Also omits Denominator Exceptions (ratio doesn't have them per FHIR spec).
+     */
+    private List<PopulationTraceEntry> buildRatioEntries(
+            Map<String, CqlExecutionResponse.ExpressionResult> results) {
+        List<PopulationTraceEntry> entries = new ArrayList<>();
+
+        boolean ip = isPopulationTrue(results, "Initial Population");
+        entries.add(populationEntry("Initial Population", "initial-population", results,
+                ip, ip,
+                ip ? "ip_true" : "ip_false",
+                Map.of("ip", ip)));
+
+        Boolean denomRaw = rawBool(results, "Denominator");
+        boolean denom = ip && Boolean.TRUE.equals(denomRaw);
+        entries.add(populationEntry("Denominator", "denominator", results,
+                denomRaw, denom,
+                !ip ? "denom_gatedByIpFalse" :
+                        (Boolean.FALSE.equals(denomRaw) ? "denom_exprFalse" : "denom_true"),
+                Map.of("ip", ip, "denom", Boolean.TRUE.equals(denomRaw))));
+
+        Boolean denomExclRaw = rawBool(results, "Denominator Exclusions");
+        boolean denomExcluded = denom && Boolean.TRUE.equals(denomExclRaw);
+        if (hasPopulation(results, "Denominator Exclusions")) {
+            String denomExclReason = !denom ? "denomExcl_gatedByDenomFalse"
+                    : (denomExcluded ? "denom_excludedOut" : "denom_exprFalse");
+            entries.add(populationEntry("Denominator Exclusions", "denominator-exclusion", results,
+                    denomExclRaw, denomExcluded, denomExclReason,
+                    Map.of("denom", denom, "exclusion", Boolean.TRUE.equals(denomExclRaw))));
+        }
+
+        // Ratio: Numerator gated by IP, NOT by Denom.
+        Boolean numerRaw = rawBool(results, "Numerator");
+        boolean numer = ip && Boolean.TRUE.equals(numerRaw);
+        entries.add(populationEntry("Numerator", "numerator", results,
+                numerRaw, numer,
+                !ip ? "numer_gatedByIpFalse" :
+                        (Boolean.FALSE.equals(numerRaw) ? "numer_exprFalse" : "numer_true"),
+                Map.of("ip", ip, "numer", Boolean.TRUE.equals(numerRaw))));
+
+        Boolean numerExclRaw = rawBool(results, "Numerator Exclusions");
+        boolean numerExcluded = numer && Boolean.TRUE.equals(numerExclRaw);
+        if (hasPopulation(results, "Numerator Exclusions")) {
+            String numerExclReason = !numer ? "numerExcl_gatedByNumerFalse"
+                    : (numerExcluded ? "numer_excludedOut" : "numer_exprFalse");
+            entries.add(populationEntry("Numerator Exclusions", "numerator-exclusion", results,
+                    numerExclRaw, numerExcluded, numerExclReason,
+                    Map.of("numer", numer, "exclusion", Boolean.TRUE.equals(numerExclRaw))));
         }
 
         return entries;

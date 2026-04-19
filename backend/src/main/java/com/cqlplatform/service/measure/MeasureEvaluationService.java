@@ -201,6 +201,7 @@ public class MeasureEvaluationService {
         String scoringType = context.getMeasureDefinition() != null
                 ? context.getMeasureDefinition().getScoringType() : null;
         boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
+        boolean isRatio = ScoringTypeConstants.RATIO.equals(scoringType);
 
         Map<String, Integer> populationCounts = isCv
                 ? populationEvaluator.initializeCvPopulationCounts()
@@ -259,6 +260,15 @@ public class MeasureEvaluationService {
             Map<String, CqlExecutionResponse.ExpressionResult> results = pr.response().getResults();
             if (isCv) {
                 populationEvaluator.aggregateCvPatientResults(populationCounts, results, observationValues);
+            } else if (isRatio) {
+                populationEvaluator.aggregateRatioPatientResults(populationCounts, results);
+                // Ratio measures with observation wrappers (e.g. "encounters per person-year") —
+                // still collect observation values for rate-based scoring calculations below.
+                List<Double> patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Value");
+                if (patientObs.isEmpty()) {
+                    patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Values");
+                }
+                observationValues.addAll(patientObs);
             } else {
                 populationEvaluator.aggregatePatientResults(populationCounts, results);
                 // Also collect observation values for ratio measures with observations
@@ -378,7 +388,12 @@ public class MeasureEvaluationService {
                     state.observationValues, aggregateMethod, scoringUnit);
             scoreUnit = scoringUnit != null ? scoringUnit : "per " + (int) rateMultiplier;
         } else {
-            measureScore = scoreCalculator.calculateProportionScore(
+            // Ratio (without observations) and proportion diverge here: ratio allows the
+            // score to exceed 100% (Numer can be larger than Denom since they're
+            // independent counts per FHIR spec); proportion caps at 100% by construction
+            // (Numer ⊆ Denom enforced upstream). calculateRatioScore skips the
+            // denom-exclusion subtraction too — ratio uses raw denom as the divisor.
+            measureScore = scoreCalculator.calculateScore(scoringType,
                     counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
         }
 
