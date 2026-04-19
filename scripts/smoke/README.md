@@ -24,9 +24,16 @@ is why we need all four, not just one:
 | Scenario | Scoring | What it exercises |
 |----------|---------|-------------------|
 | `01-proportion-age-cohort` | `proportion` | IP / Denom / Numer; `measureScore = numer/denom` as percentage. Locked at IP=7 / Denom=5 / Numer=3 / score=60.0. |
-| `02-ratio-age-comparison` | `ratio` | Ratio score calculation. Numer ⊆ Denom (backend currently emits Numer CQL with Denom intersection for both ratio and proportion — the distinction is in score calc, not codegen). IP=5 / Denom=3 / Numer=2 / score=66.67. |
-| `03-cv-count-adults` | `continuous-variable` | Patient-based CV. Exercises `populations.measure-population` key + `observations[]` block with `aggregateMethod=Count`. Hits the `RenderMode.CV_MEASURE_POPULATION` path from #239. IP=3 / MeasurePop=3. |
-| `04-cohort-adult-count` | `cohort` | IP-only; cohort score semantics. Backend currently returns `measureScore=null` for cohort (the score IS the IP count per FHIR spec; potential backend gap), so assertion locks IP count directly. IP=4. |
+| `02-ratio-age-comparison` | `ratio` | Ratio with independent Numer / Denom (fixed in #PAT-084). Disjoint cohorts: Denom=young-adults (2 patients), Numer=seniors (3 patients). score=150.0 (3/2 > 100%) — proves ratio evaluator treats Numer independently of Denom. |
+| `03-cv-count-adults` | `continuous-variable` (patient-based, Count) | Patient-based CV with boolean Measure Observation. Exercises `populations.measure-population` key + `observations[]` block with `aggregateMethod=Count`. Boolean → 1.0 extraction (fixed in #PAT-085). IP=3 / MP=3 / score=3.0. |
+| `04-cohort-adult-count` | `cohort` | IP-only; cohort score = IP count (fixed in #PAT-083). IP=4 / score=4.0 / measureScoreUnit=\"count\". |
+| `05-cv-avg-encounter-duration` | `continuous-variable` (episode-based, Average) | Episode-based CV on Encounter. `populationBasis=Encounter`, Measure Observation = `duration in days of Encounter.period`. 5 encounters with durations {2,4,6,8,10} days → Average = 6.0. Exercises the episode-based `Measure Observation Values` emit: `(\"Measure Population\") MP return \"Measure Observation\"(MP)`. |
+| `06-cv-sum-encounter-duration` | `continuous-variable` (episode-based, Sum) | Same fixture as 05, aggregateMethod=Sum. Expected 2+4+6+8+10 = 30.0. |
+| `07-cv-median-encounter-duration` | `continuous-variable` (episode-based, Median) | Same fixture, aggregateMethod=Median. Middle value of sorted list = 6.0. |
+| `08-cv-min-encounter-duration` | `continuous-variable` (episode-based, Minimum) | Same fixture, aggregateMethod=Minimum (**not** \"Min\" — see below). min{...} = 2.0. |
+| `09-cv-max-encounter-duration` | `continuous-variable` (episode-based, Maximum) | Same fixture, aggregateMethod=Maximum (**not** \"Max\"). max{...} = 10.0. |
+
+> **⚠️ aggregateMethod naming**: The backend's `MeasureScoreCalculator.calculateContinuousVariableScore` matches on lowercase case keys `\"sum\"` / `\"median\"` / `\"minimum\"` / `\"maximum\"` / `\"count\"`. The abbreviated forms `\"Min\"` / `\"Max\"` fall through to the default **Average** branch — silently wrong. Always use the full names.
 
 **Out of scope**: element / modifier / value-set CQL generation. Those are
 locked by `ModifierGeneratedCqlGoldenTest` (in-process, fast, 15 scenarios).
