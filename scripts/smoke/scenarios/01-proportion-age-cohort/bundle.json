@@ -38,7 +38,7 @@
         "resourceType": "Patient",
         "id": "smoke-01-p4",
         "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-01"}]},
-        "birthDate": "1965-03-15"
+        "birthDate": "1960-03-15"
       },
       "request": {"method": "PUT", "url": "Patient/smoke-01-p4"}
     },

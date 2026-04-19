@@ -63,6 +63,19 @@ public class ExpressionCqlEngine {
         /** Resource type to preserve as a list when {@code renderMode = CV_MEASURE_POPULATION}. */
         String episodeResourceType = null;
 
+        /**
+         * Whether the output library declares a {@code "Measurement Period"} parameter. eCQM
+         * artifacts always do; CDS artifacts never do. When {@code true}, time-dependent
+         * elements like {@code AgeRange} bind their age function to the period end
+         * ({@code AgeInYearsAt(end of "Measurement Period")}) so results are reproducible
+         * regardless of when the measure is evaluated. When {@code false}, they fall back to
+         * {@code AgeInYears()} (system clock).
+         *
+         * <p>Set by {@link EcqmCqlBuilder} at the top of {@code buildEcqmCql}; stays
+         * {@code false} for CDS/authoring paths where no Measurement Period exists.
+         */
+        public boolean hasMeasurementPeriod = false;
+
         public BuildContext(List<Map<String, Object>> baseElements, List<Map<String, Object>> parameters) {
             this.baseElements = baseElements;
             Map<String, String> beIdx = new HashMap<>();
@@ -223,7 +236,7 @@ public class ExpressionCqlEngine {
         String expr;
         switch (type) {
             case "AgeRange":
-                expr = buildAgeRangeExpression(fields);
+                expr = buildAgeRangeExpression(fields, ctx);
                 break;
             case "Gender":
                 expr = buildGenderExpression(fields);
@@ -346,11 +359,11 @@ public class ExpressionCqlEngine {
         return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
     }
 
-    public String buildAgeRangeExpression(List<Map<String, Object>> fields) {
+    public String buildAgeRangeExpression(List<Map<String, Object>> fields, BuildContext ctx) {
         String minAge = getFieldValue(fields, "min_age", null);
         String maxAge = getFieldValue(fields, "max_age", null);
         String unit = getFieldValue(fields, "unit_of_time", "year");
-        String ageFunction = mapUnitToAgeFunction(unit);
+        String ageFunction = mapUnitToAgeFunction(unit, ctx.hasMeasurementPeriod);
 
         Map<String, Object> model = new HashMap<>();
         model.put("ageFunction", ageFunction);
@@ -359,28 +372,50 @@ public class ExpressionCqlEngine {
         return templateEngine.render("elements/AgeRange.ftl", model);
     }
 
-    public String mapUnitToAgeFunction(String unit) {
-        if (unit == null)
-            return "AgeInYears()";
-        switch (unit.toLowerCase()) {
-            case "year":
-            case "years":
-                return "AgeInYears()";
-            case "month":
-            case "months":
-                return "AgeInMonths()";
-            case "week":
-            case "weeks":
-                return "AgeInWeeks()";
-            case "day":
-            case "days":
-                return "AgeInDays()";
-            case "hour":
-            case "hours":
-                return "AgeInHours()";
-            default:
-                return "AgeInYears()";
+    /**
+     * Deprecated — kept for callers that can't supply a {@link BuildContext}. Emits the
+     * system-clock form ({@code AgeInYears()}) which is wrong for eCQM (results drift with
+     * wall-clock time). Use {@link #buildAgeRangeExpression(List, BuildContext)} instead.
+     */
+    @Deprecated(forRemoval = true)
+    public String buildAgeRangeExpression(List<Map<String, Object>> fields) {
+        return buildAgeRangeExpression(fields, new BuildContext(null, null));
+    }
+
+    /**
+     * Maps a unit-of-time string to a CQL age function. When {@code bindToMeasurementPeriod}
+     * is true (eCQM context), returns the period-bound form {@code AgeInYearsAt(end of "Measurement Period")}
+     * so age is computed at a reproducible point. When false (CDS / authoring), returns the
+     * plain {@code AgeInYears()} form which uses the system clock.
+     */
+    public String mapUnitToAgeFunction(String unit, boolean bindToMeasurementPeriod) {
+        String base;
+        if (unit == null) {
+            base = "Years";
+        } else {
+            switch (unit.toLowerCase()) {
+                case "year": case "years":   base = "Years"; break;
+                case "month": case "months": base = "Months"; break;
+                case "week": case "weeks":   base = "Weeks"; break;
+                case "day": case "days":     base = "Days"; break;
+                case "hour": case "hours":   base = "Hours"; break;
+                default:                     base = "Years"; break;
+            }
         }
+        if (bindToMeasurementPeriod) {
+            return "AgeIn" + base + "At(end of \"Measurement Period\")";
+        }
+        return "AgeIn" + base + "()";
+    }
+
+    /**
+     * Backward-compat overload — defaults to the non-period-bound form. Existing callers
+     * that don't know about {@code BuildContext} continue to work; new code should use
+     * the two-arg form to get correct eCQM semantics.
+     */
+    @Deprecated(forRemoval = true)
+    public String mapUnitToAgeFunction(String unit) {
+        return mapUnitToAgeFunction(unit, false);
     }
 
     public String buildGenderExpression(List<Map<String, Object>> fields) {

@@ -96,16 +96,12 @@ period window. We suggest:
 | `03-cv-*`         | 2021-H1 (2021-01-01 → 2021-06-30) |
 | `04-cohort-*`     | 2021-H2 (2021-07-01 → 2021-12-31) |
 
-### Age-bracket stability (applies to AgeRange scenarios)
+### Age-bracket stability
 
-`AgeRange` elements currently emit `AgeInYears()` — which in CQL uses the
-system clock, **not** Measurement Period end. For a smoke test to produce
-stable results over time, pick birth dates where the age-bracket categorization
-(adult / senior / child / etc.) is stable for at least the next several years.
-`01-proportion-age-cohort/bundle.json` has worked examples with an inline note.
-
-(If/when `AgeRange` starts using `AgeInYearsAt(end of "Measurement Period")`,
-this caveat goes away.)
+No special handling needed. `AgeRange` elements in eCQM artifacts emit
+`AgeInYearsAt(end of "Measurement Period")` (since #PAT-081), so ages are
+computed at the period-end reference point and are reproducible regardless of
+when the scenario runs.
 
 ## Exit codes
 
