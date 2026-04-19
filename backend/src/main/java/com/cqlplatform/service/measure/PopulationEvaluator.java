@@ -165,8 +165,22 @@ public class PopulationEvaluator {
     }
 
     /**
-     * Extracts numeric observation values from CQL expression results.
-     * Handles single Number, Iterable of Numbers, and nested Quantity types.
+     * Extracts numeric observation values from CQL expression results for CV / ratio
+     * aggregation. Handles:
+     * <ul>
+     *   <li>single Number — returned as a one-item Double list</li>
+     *   <li>Iterable of Numbers — each mapped to Double</li>
+     *   <li>Boolean TRUE — mapped to {@code 1.0}; FALSE is skipped</li>
+     * </ul>
+     *
+     * <p>Boolean handling exists because authoring trees with boolean criteria (e.g.
+     * {@code AgeRange}) produce boolean Measure Observations. For Count aggregate the
+     * semantic is "count of patients whose observation returned a value" — a non-null
+     * TRUE observation IS one such value. Without this, CV measures with boolean
+     * criteria returned score=null regardless of data (observed in #PAT-082 scenario 03).
+     * Aggregate methods that don't semantically apply to 1-valued booleans (Average /
+     * Median will just be 1.0, Sum will equal Count) are still technically correct
+     * and don't return null.
      */
     public List<Double> extractObservationValues(Map<String, CqlExecutionResponse.ExpressionResult> results,
                                                   String expressionName) {
@@ -176,11 +190,16 @@ public class PopulationEvaluator {
         Object value = result.getValue();
         if (value instanceof Number num) {
             return List.of(num.doubleValue());
+        } else if (value instanceof Boolean bool) {
+            // TRUE = observation "observed" (contributes 1.0); FALSE = not observed (skip).
+            return bool ? List.of(1.0) : List.of();
         } else if (value instanceof Iterable<?> iterable) {
             List<Double> values = new ArrayList<>();
             for (Object item : iterable) {
                 if (item instanceof Number num) {
                     values.add(num.doubleValue());
+                } else if (item instanceof Boolean bool && bool) {
+                    values.add(1.0);
                 }
             }
             return values;

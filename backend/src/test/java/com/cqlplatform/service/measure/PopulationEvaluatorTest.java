@@ -134,6 +134,53 @@ class PopulationEvaluatorTest {
         assertThat(counts.get("Numerator")).isEqualTo(1); // NOT affected by denom excl
     }
 
+    // ── extractObservationValues (CV Count on boolean observations) ─────────
+    //
+    // Before this fix, boolean Measure Observation values (emitted by the CQL
+    // generator when the observation criteria tree is a boolean-returning element
+    // like AgeRange) were silently dropped — extractObservationValues only accepted
+    // Number / Iterable-of-Number. That made CV measures with boolean criteria
+    // return measureScore=null regardless of data. Now TRUE maps to 1.0 so Count
+    // aggregate correctly counts matching patients.
+
+    @Test
+    void extractObservationValues_booleanTrue_shouldReturnOne() {
+        Map<String, CqlExecutionResponse.ExpressionResult> input = Map.of(
+                "Measure Observation Value", boolResult(true));
+        assertThat(evaluator.extractObservationValues(input, "Measure Observation Value"))
+                .containsExactly(1.0);
+    }
+
+    @Test
+    void extractObservationValues_booleanFalse_shouldReturnEmpty() {
+        // FALSE = observation not observed for this patient; don't contribute to list.
+        Map<String, CqlExecutionResponse.ExpressionResult> input = Map.of(
+                "Measure Observation Value", boolResult(false));
+        assertThat(evaluator.extractObservationValues(input, "Measure Observation Value"))
+                .isEmpty();
+    }
+
+    @Test
+    void extractObservationValues_numericValue_unchangedByFix() {
+        // Regression lock: numeric observations (e.g. HbA1c value) still work.
+        CqlExecutionResponse.ExpressionResult numResult = CqlExecutionResponse.ExpressionResult.builder()
+                .value(7.5)
+                .valueType("Decimal")
+                .build();
+        Map<String, CqlExecutionResponse.ExpressionResult> input = Map.of("Measure Observation Value", numResult);
+        assertThat(evaluator.extractObservationValues(input, "Measure Observation Value"))
+                .containsExactly(7.5);
+    }
+
+    @Test
+    void extractObservationValues_nullValue_shouldReturnEmpty() {
+        CqlExecutionResponse.ExpressionResult nullResult = CqlExecutionResponse.ExpressionResult.builder()
+                .value(null)
+                .build();
+        Map<String, CqlExecutionResponse.ExpressionResult> input = Map.of("Measure Observation Value", nullResult);
+        assertThat(evaluator.extractObservationValues(input, "Measure Observation Value")).isEmpty();
+    }
+
     @Test
     void ratio_noDenomExceptionsConcept() {
         // Ratio doesn't have Denominator Exceptions (proportion-only per FHIR spec).
