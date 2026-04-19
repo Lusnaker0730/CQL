@@ -51,10 +51,54 @@ public class EcqmExpressionTreeValidator {
 
         // ── eCQM-specific structural validation ──────────────────────────
         validateDefineNameUniqueness(request, errors);
+        validateAggregateMethods(request, errors);
 
         if (!errors.isEmpty()) {
             log.warn("eCQM expression tree validation errors: {}", errors);
             throw new ValidationException("Invalid eCQM artifact data", errors);
+        }
+    }
+
+    /**
+     * Rejects unknown {@code aggregateMethod} values on CV / ratio observations before
+     * the measure reaches the database. Accepts canonical forms + aliases
+     * ({@code Min}, {@code Max}, {@code Avg}, {@code Mean}) via
+     * {@link com.cqlplatform.service.measure.MeasureScoreCalculator#normalizeAggregateMethod}.
+     *
+     * <p>Rationale: #PAT-088 added runtime handling where unknown aggregateMethod
+     * yields null score + a log warning. That's the right behavior at evaluation time
+     * (other measures in the request shouldn't suffer from one typo), but it's far
+     * better to catch the typo at save time so the author sees an immediate error and
+     * can fix it before anyone ever runs the measure. Saved measures with null
+     * aggregateMethod silently run with "average" semantics (preserving the existing
+     * "no aggregate specified" default); saved measures with a VALUE for
+     * aggregateMethod that's NOT one of the known canonicals/aliases are user error.
+     */
+    @SuppressWarnings("unchecked")
+    private void validateAggregateMethods(EcqmArtifactRequest request, List<String> errors) {
+        List<Map<String, Object>> groups = request.getPopulationGroups();
+        if (groups == null) return;
+        for (int gi = 0; gi < groups.size(); gi++) {
+            Map<String, Object> group = groups.get(gi);
+            if (group == null) continue;
+            Object obsObj = group.get("observations");
+            if (!(obsObj instanceof List<?> observations)) continue;
+            for (int oi = 0; oi < observations.size(); oi++) {
+                Object item = observations.get(oi);
+                if (!(item instanceof Map<?, ?> rawMap)) continue;
+                Map<String, Object> obs = (Map<String, Object>) rawMap;
+                Object rawMethod = obs.get("aggregateMethod");
+                // A null / missing aggregateMethod is acceptable — preserves the
+                // "no aggregate specified → average" semantic. Only non-null VALUES
+                // that fail normalization are user errors.
+                if (!(rawMethod instanceof String str) || str.isBlank()) continue;
+                if (com.cqlplatform.service.measure.MeasureScoreCalculator.normalizeAggregateMethod(str) == null) {
+                    errors.add(String.format(
+                            "populationGroups[%d].observations[%d].aggregateMethod: '%s' is not a recognized aggregate method. "
+                                    + "Supported: count, sum, average, median, minimum, maximum (aliases: avg, mean, min, max).",
+                            gi, oi, str));
+                }
+            }
         }
     }
 
