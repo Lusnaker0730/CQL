@@ -29,6 +29,12 @@ export default function LandingPage() {
     <Helmet>
       <title>{`${tc('app.title')} — Clinical Quality Language`}</title>
       <meta name="description" content={`${tc('app.title')} — ${t('seoDescription')}`} />
+      {/* Login/landing page is an auth gateway, not a content page — tell crawlers
+          to skip it. Indexing auth pages just dilutes search signal for the real
+          content pages (/ and /learn) and creates "Discovered – not indexed"
+          backlog in Search Console. Keep the canonical tag so if the page IS
+          found via a link, the canonical is still self-consistent. */}
+      <meta name="robots" content="noindex, follow" />
       <link rel="canonical" href="https://twcql.com/login" />
       <meta property="og:title" content={`${tc('app.title')} — Clinical Quality Language`} />
       <meta property="og:url" content="https://twcql.com/login" />
