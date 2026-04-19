@@ -321,6 +321,13 @@ public class MeasureEvaluationService {
             return buildCvResult(context, state, totalPatients);
         }
 
+        // Cohort measures: only Initial Population exists; score is IP count.
+        // Keeping this OUT of the proportion/ratio flow below avoids emitting
+        // zero-valued Denominator / Numerator rows that don't exist for cohort per FHIR spec.
+        if (ScoringTypeConstants.COHORT.equals(scoringType)) {
+            return buildCohortResult(context, state, totalPatients);
+        }
+
         // Check if measure has multiple group definitions
         if (def != null && def.getGroupDefinitions() != null && def.getGroupDefinitions().size() > 1) {
             return buildMultiGroupResult(context, state, totalPatients);
@@ -391,6 +398,47 @@ public class MeasureEvaluationService {
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .measureName(context.getMeasureId())
+                .status(EvaluationStatusConstants.COMPLETE)
+                .periodStart(context.getPeriodStart())
+                .periodEnd(context.getPeriodEnd())
+                .reportType(context.getReportType())
+                .groups(List.of(groupResult))
+                .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .build();
+    }
+
+    /**
+     * Cohort-scoring result: only Initial Population is meaningful. Score IS the IP count
+     * per FHIR spec. We deliberately omit Denominator / Numerator rows because they
+     * don't exist in cohort measures — emitting zero-valued ones (as the
+     * proportion/ratio path did before) was a code-review-surfaced gap from #PAT-082.
+     */
+    private MeasureEvaluationResult buildCohortResult(MeasureEvaluationContext context,
+                                                      AggregationState state, int totalPatients) {
+        Map<String, Integer> counts = state.populationCounts;
+        Integer ipCount = counts.getOrDefault("Initial Population", 0);
+
+        List<PopulationResult> populations = new ArrayList<>();
+        populations.add(populationResult(INITIAL_POPULATION, ipCount));
+
+        Double measureScore = scoreCalculator.calculateCohortScore(ipCount);
+
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
+
+        GroupResult groupResult = GroupResult.builder()
+                .groupId("group-1")
+                .description("Primary measure group")
+                .populations(populations)
+                .measureScore(measureScore)
+                .measureScoreUnit("count")
+                .stratifiers(stratifierResults.isEmpty() ? null : stratifierResults)
+                .totalPatients(totalPatients)
+                .build();
+
+        MeasureDefinition def = context.getMeasureDefinition();
+        return MeasureEvaluationResult.builder()
+                .measureId(context.getMeasureId())
+                .measureName(def != null && def.getName() != null ? def.getName() : context.getMeasureId())
                 .status(EvaluationStatusConstants.COMPLETE)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
