@@ -15,14 +15,22 @@ if [ ! -f "$MEASURE" ]; then
     exit 1
 fi
 
-# Save
-save_response=$(curl -sf -X POST "$API_BASE/ecqm/artifacts" \
+# Save — curl without -f so we see error bodies (validation errors etc) on stderr.
+# The save endpoint returns 4xx with a JSON error payload we want to surface.
+save_response=$(curl -s -X POST "$API_BASE/ecqm/artifacts" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $TOKEN" \
-    --data-binary "@$MEASURE" 2>&1) || {
-    echo "save failed: $save_response" >&2
+    -w "\n__HTTP_STATUS__%{http_code}" \
+    --data-binary "@$MEASURE") || {
+    echo "save curl failed: $save_response" >&2
     exit 1
 }
+http_status=$(echo "$save_response" | tail -1 | sed 's/__HTTP_STATUS__//')
+save_response=$(echo "$save_response" | sed '$d')
+if [ "$http_status" != "200" ] && [ "$http_status" != "201" ]; then
+    echo "save failed with HTTP $http_status: $save_response" >&2
+    exit 1
+fi
 
 artifact_id=$(echo "$save_response" | jq -r '.id // empty')
 if [ -z "$artifact_id" ]; then

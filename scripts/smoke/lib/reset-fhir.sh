@@ -17,21 +17,31 @@ set -euo pipefail
 
 FHIR_BASE="${FHIR_BASE:-http://localhost:8081/fhir}"
 
-RESOURCE_TYPES=(Patient Encounter Observation Condition Procedure MedicationRequest MedicationStatement AllergyIntolerance)
+# Order matters: HAPI enforces referential integrity on DELETE (with
+# enforce_referential_integrity_on_delete=true which is HAPI's default). Resources
+# that reference Patient (Encounter, Observation, etc.) MUST be deleted first;
+# otherwise the Patient DELETE fails with a constraint violation.
+# Patient goes last so nothing is pointing at it by the time we try to remove it.
+RESOURCE_TYPES=(Encounter Observation Condition Procedure MedicationRequest MedicationStatement AllergyIntolerance Patient)
 
-deleted_any=0
 for rtype in "${RESOURCE_TYPES[@]}"; do
     # `_lastUpdated=gt2000-01-01` is a predicate that matches everything — HAPI
     # rejects predicate-less conditional DELETE as too dangerous.
-    response=$(curl -sf -X DELETE "$FHIR_BASE/${rtype}?_lastUpdated=gt2000-01-01" \
-        -H "Accept: application/fhir+json" 2>&1) || {
-        # Only fail hard for actual errors; "nothing to delete" responds 200 with an OO,
-        # so a curl failure here means auth/network/config broke.
-        echo "conditional DELETE on $rtype failed: $response" >&2
-        echo "Hint: hapi.fhir.allow_multiple_delete must be true (compose.override.yml)" >&2
+    # Drop -f so we see HAPI's response body on failure (referential integrity
+    # violations report via HTTP 409 / 412 with an OperationOutcome body).
+    response=$(curl -s -X DELETE "$FHIR_BASE/${rtype}?_lastUpdated=gt2000-01-01" \
+        -H "Accept: application/fhir+json" \
+        -w "\n__HTTP_STATUS__%{http_code}")
+    http_status=$(echo "$response" | tail -1 | sed 's/__HTTP_STATUS__//')
+    body=$(echo "$response" | sed '$d')
+    # 200 = deleted something; 204 = nothing to delete (also OK)
+    if [ "$http_status" != "200" ] && [ "$http_status" != "204" ]; then
+        echo "conditional DELETE on $rtype failed with HTTP $http_status:" >&2
+        echo "$body" >&2
+        echo "Hint: hapi.fhir.allow_multiple_delete must be true (compose.override.yml);" >&2
+        echo "  and RESOURCE_TYPES order must delete referring resources before referenced ones" >&2
         exit 1
-    }
-    deleted_any=1
+    fi
 done
 
 echo "  reset FHIR — cleared ${#RESOURCE_TYPES[@]} resource types"
