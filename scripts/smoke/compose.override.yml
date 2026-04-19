@@ -32,6 +32,13 @@ services:
   hapi-fhir:
     ports: !override
       - "${SMOKE_FHIR_PORT:-18081}:8080"
+    # Enable server-level $expunge so the smoke harness can wipe FHIR state between
+    # scenarios without restarting the container. These settings are intentionally
+    # ONLY in the smoke overlay — production HAPI keeps them off (allow_multiple_delete
+    # and expunge_enabled are destructive operations that shouldn't exist in prod).
+    environment:
+      - hapi.fhir.expunge_enabled=true
+      - hapi.fhir.allow_multiple_delete=true
 
   frontend:
     profiles:

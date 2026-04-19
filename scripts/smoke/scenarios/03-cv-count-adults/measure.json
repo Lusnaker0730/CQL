@@ -1,0 +1,93 @@
+{
+  "name": "SmokeCvCountAdults",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — continuous-variable scoring (patient-based). IP+MeasurePopulation = adults; MeasureObservation = Count. Exercises the CV scoring pipeline, including the MeasureObservation wrapper emission (related to #239 / RenderMode.CV_MEASURE_POPULATION).",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "continuous-variable",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Adult patient count (CV)",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "measure-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      },
+      "observations": [
+        {
+          "observationId": "obs-adult-count",
+          "aggregateMethod": "Count",
+          "populationRef": "measure-population",
+          "criteria": {
+            "id": "And",
+            "name": "And",
+            "conjunction": true,
+            "returnType": "boolean",
+            "childInstances": [
+              {
+                "id": "AgeRange",
+                "name": "Age Range",
+                "type": "AgeRange",
+                "returnType": "boolean",
+                "fields": [
+                  {"id": "element_name", "type": "string", "value": "Adult"},
+                  {"id": "min_age", "type": "string", "value": "18"},
+                  {"id": "max_age", "type": "string", "value": ""},
+                  {"id": "unit_of_time", "type": "string", "value": "year"}
+                ],
+                "modifiers": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

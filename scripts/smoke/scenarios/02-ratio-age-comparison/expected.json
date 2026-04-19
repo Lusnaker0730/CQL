@@ -1,0 +1,12 @@
+{
+  "periodStart": "2020-07-01",
+  "periodEnd": "2020-12-31",
+  "score": 66.67,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 5,
+    "denominator": 3,
+    "numerator": 2
+  },
+  "_note": "Denom=seniors (>=65 at period end 2020-12-31) = 3 patients (p1 age 75, p2 age 72, p3 age 66). Numer=very elderly (>=72) = 2 (p1, p2). Ratio = 2/3 ~= 66.67. Numer is subset of Denom because backend currently generates Numerator CQL with Denominator intersection — ratio and proportion share this codegen, only score calculation differs."
+}

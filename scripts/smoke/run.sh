@@ -123,6 +123,14 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
     period_start=$(jq -r '.periodStart' "$expected_file")
     period_end=$(jq -r '.periodEnd' "$expected_file")
 
+    # Reset FHIR state so scenarios can't see each other's patients — pure-demographic
+    # criteria (AgeRange, Gender) don't self-filter by measurement period so without this
+    # scenario N would match scenario N-1's patients.
+    if ! bash "$SCRIPT_DIR/lib/reset-fhir.sh"; then
+        failed_scenarios+=("$name")
+        continue
+    fi
+
     if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
         failed_scenarios+=("$name")
         continue
