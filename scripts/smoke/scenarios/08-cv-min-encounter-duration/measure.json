@@ -56,7 +56,7 @@
           "observationType": "duration",
           "observationUnit": "days",
           "observationProperty": "period",
-          "aggregateMethod": "Minimum",
+          "aggregateMethod": "Min",
           "populationRef": "measure-population"
         }
       ]
