@@ -1,7 +1,7 @@
 {
   "name": "SmokeRatioAgeComparison",
   "version": "1.0.0",
-  "description": "Smoke test scenario — ratio scoring. Denom=seniors (>=65), Numer=very elderly (>=72). Numer is a subset of Denom because the backend generates Numerator CQL as 'Denominator and <numer criteria>' — intersection semantics currently shared with proportion. Scenario exercises the ratio score-calculation path; proportion vs ratio semantic divergence (Numer could exceed Denom) is a backend-limitation follow-up.",
+  "description": "Smoke test scenario — ratio scoring. Denom=young adults (18-49), Numer=seniors (>=65). Denom and Numer are DISJOINT age cohorts, proving the ratio evaluator treats them independently (Numer is NOT gated by Denom — the key FHIR-spec distinction from proportion). Fixed in #PAT-084.",
   "status": "draft",
   "fhirVersion": "4.0.1",
   "scoringType": "ratio",
@@ -46,9 +46,9 @@
               "type": "AgeRange",
               "returnType": "boolean",
               "fields": [
-                {"id": "element_name", "type": "string", "value": "Senior"},
-                {"id": "min_age", "type": "string", "value": "65"},
-                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "element_name", "type": "string", "value": "Young Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": "49"},
                 {"id": "unit_of_time", "type": "string", "value": "year"}
               ],
               "modifiers": []
@@ -67,8 +67,8 @@
               "type": "AgeRange",
               "returnType": "boolean",
               "fields": [
-                {"id": "element_name", "type": "string", "value": "Very Elderly"},
-                {"id": "min_age", "type": "string", "value": "72"},
+                {"id": "element_name", "type": "string", "value": "Senior"},
+                {"id": "min_age", "type": "string", "value": "65"},
                 {"id": "max_age", "type": "string", "value": ""},
                 {"id": "unit_of_time", "type": "string", "value": "year"}
               ],
