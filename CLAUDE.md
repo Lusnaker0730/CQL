@@ -94,10 +94,11 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 ## 開發慣例
 
 ### Commit 與 Changelog
-- Commit 格式: `feat|fix|docs|refactor: 描述 (#NNN)`
+- Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）
-- Changelog 更新完後追加一個 `docs: add commit hash to CHANGE_LOG #NNN` commit
+- **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
 - ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）
+- 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 
 ### i18n（必須遵守）
 - 所有 UI 文字使用 `useTranslation('namespace')`，**禁止硬編碼字串**
