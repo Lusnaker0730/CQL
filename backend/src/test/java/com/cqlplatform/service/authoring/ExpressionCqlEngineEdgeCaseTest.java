@@ -169,6 +169,91 @@ class ExpressionCqlEngineEdgeCaseTest {
         void mixedCase_shouldMatch() {
             assertThat(engine.mapUnitToAgeFunction("MONTHS")).isEqualTo("AgeInMonths()");
         }
+
+        // ── period-bound form (eCQM context) ────────────────────────────────
+        // When hasMeasurementPeriod=true the generator must emit the *At(end of "Measurement Period")
+        // form so measure evaluations are reproducible regardless of when they run. Without this,
+        // a measure evaluated today and the same measure evaluated next year against the same
+        // FHIR data could return different population counts as patients cross age brackets.
+
+        @ParameterizedTest
+        @CsvSource({
+                "year,AgeInYearsAt(end of \"Measurement Period\")",
+                "months,AgeInMonthsAt(end of \"Measurement Period\")",
+                "weeks,AgeInWeeksAt(end of \"Measurement Period\")",
+                "days,AgeInDaysAt(end of \"Measurement Period\")",
+                "hours,AgeInHoursAt(end of \"Measurement Period\")"
+        })
+        void periodBound_knownUnits_shouldEmitAtForm(String unit, String expected) {
+            assertThat(engine.mapUnitToAgeFunction(unit, true)).isEqualTo(expected);
+        }
+
+        @Test
+        void periodBound_nullUnit_shouldDefaultToYearsAt() {
+            assertThat(engine.mapUnitToAgeFunction(null, true))
+                    .isEqualTo("AgeInYearsAt(end of \"Measurement Period\")");
+        }
+
+        @Test
+        void periodBound_unknownUnit_shouldDefaultToYearsAt() {
+            assertThat(engine.mapUnitToAgeFunction("centuries", true))
+                    .isEqualTo("AgeInYearsAt(end of \"Measurement Period\")");
+        }
+
+        @Test
+        void nonPeriodBound_shouldStillEmitPlainForm() {
+            // CDS / authoring path — no Measurement Period exists in the output library,
+            // so we must NOT emit the *At form (would reference an undeclared parameter).
+            assertThat(engine.mapUnitToAgeFunction("year", false)).isEqualTo("AgeInYears()");
+        }
+    }
+
+    // ========================================================================
+    // buildAgeRangeExpression — period-binding end-to-end
+    // ========================================================================
+
+    @Nested
+    class BuildAgeRangeExpressionTests {
+
+        @Test
+        void cdsContext_shouldEmitPlainAgeInYears() {
+            BuildContext ctx = new BuildContext(null, null);
+            // hasMeasurementPeriod defaults to false for the CDS / authoring path
+            String cql = engine.buildAgeRangeExpression(
+                    List.of(
+                            Map.of("id", "min_age", "value", "18"),
+                            Map.of("id", "unit_of_time", "value", "year")),
+                    ctx);
+            assertThat(cql).isEqualTo("AgeInYears() >= 18");
+        }
+
+        @Test
+        void ecqmContext_shouldBindToMeasurementPeriod() {
+            // eCQM measures MUST compute age at a reproducible point (period end), otherwise
+            // the same FHIR data produces different population counts year-over-year.
+            BuildContext ctx = new BuildContext(null, null);
+            ctx.hasMeasurementPeriod = true;
+            String cql = engine.buildAgeRangeExpression(
+                    List.of(
+                            Map.of("id", "min_age", "value", "65"),
+                            Map.of("id", "unit_of_time", "value", "year")),
+                    ctx);
+            assertThat(cql).isEqualTo("AgeInYearsAt(end of \"Measurement Period\") >= 65");
+        }
+
+        @Test
+        void ecqmContext_withRange_shouldBindBothBounds() {
+            BuildContext ctx = new BuildContext(null, null);
+            ctx.hasMeasurementPeriod = true;
+            String cql = engine.buildAgeRangeExpression(
+                    List.of(
+                            Map.of("id", "min_age", "value", "18"),
+                            Map.of("id", "max_age", "value", "64"),
+                            Map.of("id", "unit_of_time", "value", "year")),
+                    ctx);
+            assertThat(cql).contains("AgeInYearsAt(end of \"Measurement Period\") >= 18");
+            assertThat(cql).contains("AgeInYearsAt(end of \"Measurement Period\") <= 64");
+        }
     }
 
     // ========================================================================

@@ -45,6 +45,11 @@ public class EcqmCqlBuilder {
             String fhirVersion) {
 
         BuildContext ctx = new BuildContext(baseElements, parameters);
+        // eCQM artifacts always declare a "Measurement Period" parameter (emitted by the
+        // master template), so time-dependent elements can — and should — bind to it.
+        // Without this, AgeRange emits AgeInYears() which uses the system clock and produces
+        // different counts every year for the same input data.
+        ctx.hasMeasurementPeriod = true;
 
         String resolvedFhirVersion = engine.resolveFhirVersion(fhirVersion != null ? fhirVersion : "R4");
         String resolvedHelpersVersion = engine.resolveHelpersVersion(fhirVersion != null ? fhirVersion : "R4");
