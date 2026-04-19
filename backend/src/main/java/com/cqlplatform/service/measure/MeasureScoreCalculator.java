@@ -54,10 +54,23 @@ public class MeasureScoreCalculator {
         return switch (scoringType.toLowerCase()) {
             case com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION -> calculateProportionScore(denominator, exclusions, numerator);
             case com.cqlplatform.model.measure.ScoringTypeConstants.RATIO -> calculateRatioScore(denominator, exclusions, numerator);
-            case com.cqlplatform.model.measure.ScoringTypeConstants.COHORT -> null; // Cohort measures don't have a numeric score
+            // Cohort doesn't fit this signature (needs IP count, not denom). Callers
+            // evaluating a cohort measure must dispatch directly to calculateCohortScore.
+            case com.cqlplatform.model.measure.ScoringTypeConstants.COHORT -> null;
             case com.cqlplatform.model.measure.ScoringTypeConstants.CONTINUOUS_VARIABLE -> null; // Requires observation values, not simple counts
             default -> calculateProportionScore(denominator, exclusions, numerator);
         };
+    }
+
+    /**
+     * Cohort score per FHIR MeasureReport spec: the count of the Initial Population.
+     * Upcast to Double because MeasureReport.group.measureScore is a Quantity with a
+     * decimal value. Null IP → null score; zero IP → 0.0 (zero is a valid cohort score —
+     * it means "no patients matched", distinct from "couldn't compute").
+     */
+    public Double calculateCohortScore(Integer initialPopulationCount) {
+        if (initialPopulationCount == null) return null;
+        return (double) initialPopulationCount;
     }
 
     /**
