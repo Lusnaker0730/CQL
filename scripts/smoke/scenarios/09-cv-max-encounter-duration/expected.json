@@ -7,5 +7,5 @@
     "initial-population": 5,
     "measure-population": 5
   },
-  "_note": "Episode-based CV Maximum aggregate. max{2,4,6,8,10} = 10.0. aggregateMethod spelled 'Maximum' for same reason as scenario 08."
+  "_note": "Episode-based CV Maximum aggregate. max{2,4,6,8,10} = 10.0. aggregateMethod=\"Max\" works since #PAT-088 added alias normalization."
 }

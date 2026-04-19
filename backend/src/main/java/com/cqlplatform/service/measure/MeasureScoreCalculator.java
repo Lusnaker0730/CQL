@@ -1,18 +1,60 @@
 package com.cqlplatform.service.measure;
 
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Calculates measure scores based on scoring type.
  * Pure function — fully testable with no external dependencies.
  */
 @Component
+@Slf4j
 public class MeasureScoreCalculator {
+
+    /** Canonical aggregate method names accepted by {@link #calculateContinuousVariableScore}. */
+    private static final Set<String> CANONICAL_AGGREGATE_METHODS =
+            Set.of("count", "sum", "average", "median", "minimum", "maximum");
+
+    /**
+     * Normalizes an author-supplied aggregate method string to a canonical form. Accepts
+     * common aliases so measure authors don't silently get the wrong score:
+     *
+     * <pre>
+     *   Min, min, MIN          → minimum
+     *   Max, max, MAX          → maximum
+     *   Avg, avg, mean, Mean   → average
+     *   (canonical forms pass through unchanged, case-normalized)
+     * </pre>
+     *
+     * <p>Returns the canonical form if recognized, or {@code null} if the input is not a
+     * known aggregate method. Callers treat {@code null} as an error condition — the
+     * silent fall-through to "average" (previous behavior) would return a wrong-but-
+     * plausible score for typos like {@code "Minumum"}, which is worse than returning
+     * null and making the problem visible.
+     *
+     * <p>Null / blank input maps to {@code "average"} because that was the pre-existing
+     * default for "no aggregate method specified" — don't change that semantic as part of
+     * the normalization fix.
+     */
+    public static String normalizeAggregateMethod(String input) {
+        if (input == null || input.isBlank()) {
+            return "average";
+        }
+        String s = input.trim().toLowerCase();
+        String canonical = switch (s) {
+            case "min" -> "minimum";
+            case "max" -> "maximum";
+            case "avg", "mean" -> "average";
+            default -> s;
+        };
+        return CANONICAL_AGGREGATE_METHODS.contains(canonical) ? canonical : null;
+    }
 
     /**
      * Calculates the proportion score: (numerator / (denominator - exclusions)) * 100.
@@ -75,16 +117,30 @@ public class MeasureScoreCalculator {
 
     /**
      * Calculates continuous-variable score by aggregating observation values.
+     *
+     * <p>Accepts aggregate method aliases via {@link #normalizeAggregateMethod} —
+     * {@code "Min"} works as well as {@code "Minimum"}, {@code "Avg"} as {@code "Average"},
+     * etc. Unknown values (typos, unsupported methods) return {@code null} with a
+     * warning logged — previously silent fall-through to Average gave wrong-but-
+     * plausible results.
      */
     public Double calculateContinuousVariableScore(List<Double> values, String aggregateMethod) {
         if (values == null || values.isEmpty()) return null;
-        return switch (aggregateMethod != null ? aggregateMethod.toLowerCase() : "average") {
+        String method = normalizeAggregateMethod(aggregateMethod);
+        if (method == null) {
+            log.warn("Unknown aggregate method '{}' — returning null score. "
+                    + "Supported methods: count, sum, average, median, minimum, maximum "
+                    + "(aliases: avg, mean, min, max).", aggregateMethod);
+            return null;
+        }
+        return switch (method) {
             case "sum" -> values.stream().mapToDouble(Double::doubleValue).sum();
             case "median" -> calculateMedian(values);
             case "minimum" -> values.stream().mapToDouble(Double::doubleValue).min().orElse(0);
             case "maximum" -> values.stream().mapToDouble(Double::doubleValue).max().orElse(0);
             case "count" -> (double) values.size();
-            default -> values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            case "average" -> values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            default -> null; // unreachable — normalize filters to CANONICAL_AGGREGATE_METHODS
         };
     }
 
@@ -94,9 +150,16 @@ public class MeasureScoreCalculator {
     public MeasureEvaluationResult.ObservationStatistics computeObservationStats(
             List<Double> values, String aggregateMethod, String unit) {
         if (values == null || values.isEmpty()) return null;
+        // Canonical form for the response — normalizes "Min" / "Avg" / "Mean" etc. so
+        // downstream consumers see a stable vocabulary. Falls back to the raw lowercase
+        // form if un-normalizable (consistent with pre-fix behavior for display).
+        String canonical = normalizeAggregateMethod(aggregateMethod);
+        String displayMethod = canonical != null
+                ? canonical
+                : (aggregateMethod != null ? aggregateMethod.toLowerCase() : "average");
         double avg = values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         return MeasureEvaluationResult.ObservationStatistics.builder()
-                .aggregateMethod(aggregateMethod != null ? aggregateMethod.toLowerCase() : "average")
+                .aggregateMethod(displayMethod)
                 .aggregateValue(calculateContinuousVariableScore(values, aggregateMethod))
                 .observationCount(values.size())
                 .minimum(values.stream().mapToDouble(Double::doubleValue).min().orElse(0))

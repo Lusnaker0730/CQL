@@ -56,7 +56,7 @@
           "observationType": "duration",
           "observationUnit": "days",
           "observationProperty": "period",
-          "aggregateMethod": "Maximum",
+          "aggregateMethod": "Max",
           "populationRef": "measure-population"
         }
       ]

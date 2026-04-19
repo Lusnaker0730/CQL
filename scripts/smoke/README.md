@@ -30,10 +30,10 @@ is why we need all four, not just one:
 | `05-cv-avg-encounter-duration` | `continuous-variable` (episode-based, Average) | Episode-based CV on Encounter. `populationBasis=Encounter`, Measure Observation = `duration in days of Encounter.period`. 5 encounters with durations {2,4,6,8,10} days → Average = 6.0. Exercises the episode-based `Measure Observation Values` emit: `(\"Measure Population\") MP return \"Measure Observation\"(MP)`. |
 | `06-cv-sum-encounter-duration` | `continuous-variable` (episode-based, Sum) | Same fixture as 05, aggregateMethod=Sum. Expected 2+4+6+8+10 = 30.0. |
 | `07-cv-median-encounter-duration` | `continuous-variable` (episode-based, Median) | Same fixture, aggregateMethod=Median. Middle value of sorted list = 6.0. |
-| `08-cv-min-encounter-duration` | `continuous-variable` (episode-based, Minimum) | Same fixture, aggregateMethod=Minimum (**not** \"Min\" — see below). min{...} = 2.0. |
-| `09-cv-max-encounter-duration` | `continuous-variable` (episode-based, Maximum) | Same fixture, aggregateMethod=Maximum (**not** \"Max\"). max{...} = 10.0. |
+| `08-cv-min-encounter-duration` | `continuous-variable` (episode-based, Minimum) | Same fixture, aggregateMethod=\"Min\" (alias — #PAT-088). min{...} = 2.0. |
+| `09-cv-max-encounter-duration` | `continuous-variable` (episode-based, Maximum) | Same fixture, aggregateMethod=\"Max\" (alias). max{...} = 10.0. |
 
-> **⚠️ aggregateMethod naming**: The backend's `MeasureScoreCalculator.calculateContinuousVariableScore` matches on lowercase case keys `\"sum\"` / `\"median\"` / `\"minimum\"` / `\"maximum\"` / `\"count\"`. The abbreviated forms `\"Min\"` / `\"Max\"` fall through to the default **Average** branch — silently wrong. Always use the full names.
+> **aggregateMethod naming (since #PAT-088)**: Canonical forms are `count` / `sum` / `average` / `median` / `minimum` / `maximum`. Case-insensitive aliases accepted: `Min`→`minimum`, `Max`→`maximum`, `Avg`/`Mean`→`average`. Unknown methods (typos like `\"Minumum\"`) return `null` score with a logged warning — they no longer silently fall through to Average.
 
 **Out of scope**: element / modifier / value-set CQL generation. Those are
 locked by `ModifierGeneratedCqlGoldenTest` (in-process, fast, 15 scenarios).
