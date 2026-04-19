@@ -1,0 +1,56 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-03-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-03-p1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-03"}]},
+        "birthDate": "1971-02-10"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-03-p1"}
+    },
+    {
+      "fullUrl": "Patient/smoke-03-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-03-p2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-03"}]},
+        "birthDate": "1991-03-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-03-p2"}
+    },
+    {
+      "fullUrl": "Patient/smoke-03-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-03-p3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-03"}]},
+        "birthDate": "2001-04-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-03-p3"}
+    },
+    {
+      "fullUrl": "Patient/smoke-03-p4",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-03-p4",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-03"}]},
+        "birthDate": "2011-05-25"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-03-p4"}
+    },
+    {
+      "fullUrl": "Patient/smoke-03-p5",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-03-p5",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-03"}]},
+        "birthDate": "2016-06-29"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-03-p5"}
+    }
+  ]
+}

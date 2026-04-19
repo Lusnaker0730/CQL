@@ -1,0 +1,66 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-04-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-04-p1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-04"}]},
+        "birthDate": "1971-06-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-04-p1"}
+    },
+    {
+      "fullUrl": "Patient/smoke-04-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-04-p2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-04"}]},
+        "birthDate": "1981-04-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-04-p2"}
+    },
+    {
+      "fullUrl": "Patient/smoke-04-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-04-p3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-04"}]},
+        "birthDate": "1991-08-10"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-04-p3"}
+    },
+    {
+      "fullUrl": "Patient/smoke-04-p4",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-04-p4",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-04"}]},
+        "birthDate": "2001-12-01"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-04-p4"}
+    },
+    {
+      "fullUrl": "Patient/smoke-04-p5",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-04-p5",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-04"}]},
+        "birthDate": "2011-05-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-04-p5"}
+    },
+    {
+      "fullUrl": "Patient/smoke-04-p6",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-04-p6",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-04"}]},
+        "birthDate": "2016-11-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-04-p6"}
+    }
+  ]
+}

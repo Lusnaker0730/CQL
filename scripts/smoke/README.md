@@ -23,10 +23,10 @@ is why we need all four, not just one:
 
 | Scenario | Scoring | What it exercises |
 |----------|---------|-------------------|
-| `01-proportion-*` | `proportion` | IP / Denom / Numer; `measureScore = numer/denom` |
-| `02-ratio-*` (TODO) | `ratio` | Dual IP; exclusion populations |
-| `03-cv-*` (TODO) | `continuous-variable` | MeasurePopulation list preservation (`RenderMode.CV_MEASURE_POPULATION` — the #239 refactor), MeasureObservation aggregate |
-| `04-cohort-*` (TODO) | `cohort` | IP-only; `measureScore = count(IP)` |
+| `01-proportion-age-cohort` | `proportion` | IP / Denom / Numer; `measureScore = numer/denom` as percentage. Locked at IP=7 / Denom=5 / Numer=3 / score=60.0. |
+| `02-ratio-age-comparison` | `ratio` | Ratio score calculation. Numer ⊆ Denom (backend currently emits Numer CQL with Denom intersection for both ratio and proportion — the distinction is in score calc, not codegen). IP=5 / Denom=3 / Numer=2 / score=66.67. |
+| `03-cv-count-adults` | `continuous-variable` | Patient-based CV. Exercises `populations.measure-population` key + `observations[]` block with `aggregateMethod=Count`. Hits the `RenderMode.CV_MEASURE_POPULATION` path from #239. IP=3 / MeasurePop=3. |
+| `04-cohort-adult-count` | `cohort` | IP-only; cohort score semantics. Backend currently returns `measureScore=null` for cohort (the score IS the IP count per FHIR spec; potential backend gap), so assertion locks IP count directly. IP=4. |
 
 **Out of scope**: element / modifier / value-set CQL generation. Those are
 locked by `ModifierGeneratedCqlGoldenTest` (in-process, fast, 15 scenarios).
