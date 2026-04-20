@@ -126,7 +126,9 @@ if [ -n "$expect_err_phase" ]; then
     fi
 fi
 
-# Debug error required fields — each must be non-null
+# Debug error required fields — each must be non-null. Skip "phase" when
+# debugErrorPhase already did an exact-match check above (avoids duplicate
+# print; exact match covers non-null as a side effect).
 err_fields_count=$(jq -r '.debugErrorRequiredFields | length // 0' "$EXPECTED" 2>/dev/null)
 if [ "$err_fields_count" != "0" ] && [ "$err_fields_count" != "null" ]; then
     err_obj=$(echo "$RESPONSE" | jq -c '.debug.error // null')
@@ -136,6 +138,9 @@ if [ "$err_fields_count" != "0" ] && [ "$err_fields_count" != "null" ]; then
     else
         for i in $(seq 0 $((err_fields_count - 1))); do
             field=$(jq -r ".debugErrorRequiredFields[$i]" "$EXPECTED" | tr -d '\r')
+            if [ "$field" = "phase" ] && [ -n "$expect_err_phase" ]; then
+                continue
+            fi
             value=$(echo "$err_obj" | jq -r ".$field // \"__MISSING__\"")
             if [ "$value" = "__MISSING__" ] || [ "$value" = "null" ]; then
                 echo "    ✗ debug.error.$field: missing or null" >&2
