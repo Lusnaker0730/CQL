@@ -85,7 +85,7 @@
 - **現況**：`UserEntity` 沒 `failed_login_attempts` / `lockout_until` column
 - **風險**：brute-force；醫療系統帳號是高價值目標
 - **修法**：column + filter 計數 + 暫鎖（如 5 次失敗 30 分鐘）+ email alert；Admin 可手動解鎖
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-094`（Flyway V53 + LoginAttemptListener + /api/admin/users/{id}/unlock；email 通知延後至 Tier 3，目前靠 admin unlock endpoint + lockout UX 訊息）
 
 ### #6 `@SuppressWarnings("unchecked")` 15 處沒說明
 - **現況**：`EcqmPublishService`、`EcqmExpressionTreeValidator` 等 15 處，多半是 `Map<String, Object>` cast

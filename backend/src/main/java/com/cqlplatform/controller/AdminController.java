@@ -139,6 +139,27 @@ public class AdminController {
                         .build());
     }
 
+    /**
+     * Admin unlock: clears the failed-login counter and lockout timestamp, letting
+     * the user log in immediately instead of waiting for the lockout window to expire.
+     * Intended for support flows where the user phoned in and identified themselves.
+     *
+     * <p>Always returns success even if the user wasn't locked — avoids leaking
+     * account state to admins who shouldn't need to know the exact lock/unlock state.
+     * Admin-only endpoint per existing SecurityConfig `/api/admin/**` matcher.
+     */
+    @PostMapping("/users/{userId}/unlock")
+    public ResponseEntity<?> unlockUser(@PathVariable Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        user.setFailedLoginAttempts(0);
+        user.setLockoutUntil(null);
+        userRepository.save(user);
+        return ResponseEntity.ok(java.util.Map.of(
+                "username", user.getUsername(),
+                "message", "Account unlocked. User may sign in immediately."));
+    }
+
     private UserSummary toUserSummary(UserEntity user) {
         return UserSummary.builder()
                 .id(user.getId())
