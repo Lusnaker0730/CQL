@@ -1,0 +1,6 @@
+{
+  "type": "cds-hook",
+  "expectNoCards": true,
+  "debugPrefetchNonEmpty": true,
+  "_note": "dryRun: true + debugMode: true → CQL execution skipped, 0 cards, but debug.prefetchStatus populated. Proves the dryRun short-circuit works and prefetch resolution is independent of CQL run."
+}

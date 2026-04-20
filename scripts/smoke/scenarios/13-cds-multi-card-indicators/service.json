@@ -1,0 +1,11 @@
+{
+  "id": "smoke-13-multi-card",
+  "hook": "patient-view",
+  "title": "Smoke 13 - Multi Card Indicators",
+  "description": "Emits 3 cards one each at info/warning/critical.",
+  "enabled": true,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke13Multi\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"InfoCard\":\n  Tuple {\n    summary: 'Info card',\n    detail: 'info indicator',\n    indicator: 'info',\n    sourceLabel: 'Smoke 13'\n  }\n\ndefine \"WarningCard\":\n  Tuple {\n    summary: 'Warning card',\n    detail: 'warning indicator',\n    indicator: 'warning',\n    sourceLabel: 'Smoke 13'\n  }\n\ndefine \"CriticalCard\":\n  Tuple {\n    summary: 'Critical card',\n    detail: 'critical indicator',\n    indicator: 'critical',\n    sourceLabel: 'Smoke 13'\n  }\n",
+  "prefetch": {}
+}
