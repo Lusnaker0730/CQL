@@ -1,0 +1,11 @@
+{
+  "id": "smoke-18-error-debug",
+  "hook": "patient-view",
+  "title": "Smoke 18 - Error Debug Trace",
+  "description": "Invoked with broken CQL so CQL_TRANSLATION phase fires at runtime. With debugMode=true the response must carry structured debug.error (phase/errorType/message) instead of a bare 5xx.",
+  "enabled": true,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke18ErrorDebug\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"WillNotTranslate\":\n  ThisFunctionDoesNotExist('oops')\n",
+  "prefetch": {}
+}

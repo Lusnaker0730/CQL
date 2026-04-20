@@ -1,0 +1,7 @@
+{
+  "type": "cds-hook",
+  "invocationStatus": 200,
+  "debugErrorPhase": "cql_execution",
+  "debugErrorRequiredFields": ["phase", "errorType", "message"],
+  "_note": "Broken CQL (undefined function call) must surface as structured debug.error instead of a raw 5xx. Protects the 'debug returns HTTP 200 with structured error' contract — silent regression forces EHR integrators to parse stack traces. Phase is asserted as 'cql_execution' (not cql_translation) because CdsInvocationService.looksLikeTranslationError() heuristic matches on exception class simple name — CqlExecutionException wraps the translator error, so the heuristic misses. That's a separate classification quirk worth a follow-up but not a blocker for this debug-contract smoke."
+}

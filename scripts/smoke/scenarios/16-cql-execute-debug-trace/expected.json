@@ -1,0 +1,9 @@
+{
+  "type": "cql-execute",
+  "success": true,
+  "expressionTracesMinCount": 3,
+  "expressionTraceRequiredFields": ["name", "resultType", "evaluationTimeMs", "order"],
+  "elmJsonNonEmpty": true,
+  "totalTimeMsPresent": true,
+  "_note": "debugMode=true on /api/cql/execute must populate debugTrace.expressionTraces[] with at least as many entries as defines in the library, each carrying name/resultType/evaluationTimeMs/order. elmJson must be populated (debug-only field). Assertions validate field presence + type, not exact values — debug trace schema may evolve and we don't want to lock authoring UX changes behind this smoke."
+}
