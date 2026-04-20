@@ -73,6 +73,27 @@ public class UserEntity {
     @Builder.Default
     private Integer tokenVersion = 0;
 
+    /**
+     * Consecutive failed login attempts since the last successful login. Reset to 0
+     * when the user authenticates successfully or when an admin unlocks the account.
+     * Incremented by {@code LoginAttemptListener} on each {@link
+     * org.springframework.security.authentication.event.AbstractAuthenticationFailureEvent}.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
+
+    /**
+     * Wall-clock time until which the account is locked. {@code null} means unlocked.
+     * {@code CustomUserDetailsService} reads this to populate the {@code UserDetails.
+     * accountNonLocked} flag so Spring Security rejects login with {@code LockedException}
+     * — we never reach the password-compare path while locked.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "lockout_until")
+    private LocalDateTime lockoutUntil;
+
     public enum Role {
         ADMIN, USER, DEPARTMENT_ADMIN
     }

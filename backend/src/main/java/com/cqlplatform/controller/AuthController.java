@@ -26,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -66,6 +67,14 @@ public class AuthController {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
+        } catch (LockedException e) {
+            // Distinct from BadCredentials so the client can render a lockout-specific
+            // message ("try again later / contact admin") instead of implying the
+            // password itself is wrong. HTTP 423 (Locked) communicates the state
+            // semantically; body doesn't leak exact unlock time to avoid helping
+            // attackers time their next attempt.
+            return ResponseEntity.status(HttpStatus.LOCKED)
+                    .body(Map.of("error", "Account is temporarily locked due to too many failed login attempts. Try again later or contact an administrator."));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid username or password"));
