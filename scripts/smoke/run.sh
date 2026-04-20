@@ -210,8 +210,28 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        cql-execute)
+            # Debug-mode smoke for POST /api/cql/execute. Scenario contributes
+            # a pre-built request.json (CQL body + flags); assertion is on
+            # debugTrace field presence, NOT evaluation semantics.
+            request_file="$scenario_dir/request.json"
+            if [ ! -f "$request_file" ]; then
+                echo "    ✗ missing $request_file" >&2
+                failed_scenarios+=("$name")
+                continue
+            fi
+            if ! response=$(bash "$SCRIPT_DIR/lib/execute-cql.sh" "$request_file"); then
+                failed_scenarios+=("$name"); continue
+            fi
+            if echo "$response" | bash "$SCRIPT_DIR/lib/assert-cql-debug.sh" - "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

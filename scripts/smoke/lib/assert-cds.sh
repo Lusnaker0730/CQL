@@ -15,6 +15,9 @@
 #       }
 #     ],
 #     "debugPrefetchNonEmpty": true,          # optional — assert .debug.prefetchStatus has entries (dry-run test)
+#     "debugErrorPhase": "cql_translation",   # optional — assert .debug.error.phase equals this value
+#     "debugErrorRequiredFields":              # optional — each field in list must be non-null on .debug.error
+#         ["phase", "errorType", "message"],
 #     "expectNoCards": true                    # optional — explicit no-cards assertion (overrides cardCount)
 #   }
 #
@@ -108,6 +111,39 @@ if [ "$expect_debug_prefetch" = "true" ]; then
     else
         echo "    ✗ debug.prefetchStatus is empty or missing (dry-run should populate this)" >&2
         fail=1
+    fi
+fi
+
+# Debug error phase (error-path scenarios with debugMode=true)
+expect_err_phase=$(jq -r '.debugErrorPhase // empty' "$EXPECTED" | tr -d '\r')
+if [ -n "$expect_err_phase" ]; then
+    act_phase=$(echo "$RESPONSE" | jq -r '.debug.error.phase // empty' | tr -d '\r')
+    if [ "$act_phase" = "$expect_err_phase" ]; then
+        echo "    ✓ debug.error.phase: $act_phase"
+    else
+        echo "    ✗ debug.error.phase: got '$act_phase', expected '$expect_err_phase'" >&2
+        fail=1
+    fi
+fi
+
+# Debug error required fields — each must be non-null
+err_fields_count=$(jq -r '.debugErrorRequiredFields | length // 0' "$EXPECTED" 2>/dev/null)
+if [ "$err_fields_count" != "0" ] && [ "$err_fields_count" != "null" ]; then
+    err_obj=$(echo "$RESPONSE" | jq -c '.debug.error // null')
+    if [ "$err_obj" = "null" ]; then
+        echo "    ✗ debugErrorRequiredFields: .debug.error is null — cannot validate fields" >&2
+        fail=1
+    else
+        for i in $(seq 0 $((err_fields_count - 1))); do
+            field=$(jq -r ".debugErrorRequiredFields[$i]" "$EXPECTED" | tr -d '\r')
+            value=$(echo "$err_obj" | jq -r ".$field // \"__MISSING__\"")
+            if [ "$value" = "__MISSING__" ] || [ "$value" = "null" ]; then
+                echo "    ✗ debug.error.$field: missing or null" >&2
+                fail=1
+            else
+                echo "    ✓ debug.error.$field: ${value:0:60}"
+            fi
+        done
     fi
 fi
 

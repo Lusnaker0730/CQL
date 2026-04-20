@@ -1,0 +1,5 @@
+{
+  "cql": "library \"Smoke16DebugTrace\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"SimpleTrue\": true\n\ndefine \"SimpleString\": 'hello'\n\ndefine \"DependsOnBoth\": \"SimpleTrue\" and \"SimpleString\" is not null\n",
+  "contextType": "Patient",
+  "debugMode": true
+}
