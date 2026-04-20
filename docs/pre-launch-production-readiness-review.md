@@ -39,7 +39,7 @@
   3. HSTS header 設 6+ 月
   4. CSP / X-Content-Type-Options / X-Frame-Options headers
 - **驗證**：`curl -I http://twcql.com/` 應 redirect 到 https；SSL Labs 測試達 A 級
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-096`（Cloudflare Origin CA 15 年 cert 安裝在 VM `/etc/ssl/cloudflare/`；nginx sites-enabled 強制 80→443 redirect + HSTS 6 個月 + TLS 1.2/1.3 only + X-Content-Type-Options/X-Frame-Options；canonical config 存在 `docker/nginx-vm/twcql.com.conf`。需使用者手動把 Cloudflare SSL mode 從 Flexible 改成 Full strict + 打開 Always Use HTTPS，以關閉 redirect loop。`APP_BASE_URL` fail-fast + SMART endpoints 預設 https 尚未做，留 Tier 2）
 
 ### #2 Draft measure 能跑真病人資料
 
