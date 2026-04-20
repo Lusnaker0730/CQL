@@ -53,6 +53,33 @@ public class MeasureReportEntity {
     @Column(name = "measure_definition_id")
     private Long measureDefinitionId;
 
+    /**
+     * Snapshot of {@code MeasureDefinition.version} at evaluation time. Lets an auditor
+     * answer "which version of measure X produced this result" without depending on
+     * the (mutable) definition row — measures can be edited or deleted; the report's
+     * self-contained provenance survives. Null for legacy rows created before PAT-095.
+     */
+    @Column(name = "measure_version", length = 50)
+    private String measureVersion;
+
+    /**
+     * SHA-256 hex digest of the CQL source string that was executed. Two identical CQL
+     * strings produce the same hash; any byte-level change (including whitespace) bumps
+     * it. Pairs with {@code measureVersion} — the version is human-readable, the hash
+     * is forensic-grade. Null for legacy rows created before PAT-095.
+     */
+    @Column(name = "cql_hash", length = 64)
+    private String cqlHash;
+
+    /**
+     * SHA-256 hex digest of the translated ELM JSON. More stable than cql_hash across
+     * cosmetic CQL changes (comment updates, whitespace) because the translator
+     * normalizes to ELM semantics — if two cql_hashes differ but elm_hashes match, the
+     * measure logic is semantically equivalent. Null for legacy rows.
+     */
+    @Column(name = "elm_hash", length = 64)
+    private String elmHash;
+
     @Column(name = "measure_name", nullable = false, length = 200)
     private String measureName;
 

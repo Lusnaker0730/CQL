@@ -62,7 +62,7 @@
   3. Evaluation 前驗證 snapshot 是否還存在（unbound snapshot → reject）
   4. 歷史 report 回顧 UI 顯示 "evaluated with CQL version X (hash Y)"
 - **驗證**：更新一個 measure 後跑 evaluation，check report.measure_version 不同於修改前
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-095`（V54 migration + MeasureReportEntity 三欄 + ContentHash util + saveReport 在 evaluation 時 snapshot version/cqlHash/elmHash。修法步驟 3「evaluation 前驗證 snapshot 存在」留待 Tier 2；步驟 4 UI 顯示另行前端 PR）
 
 ### #4 PHI 在 DB 以 plain text 儲存
 
