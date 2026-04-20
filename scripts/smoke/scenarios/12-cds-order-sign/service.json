@@ -1,0 +1,11 @@
+{
+  "id": "smoke-12-med-prescribe",
+  "hook": "order-sign",
+  "title": "Smoke 12 - Medication Prescribe",
+  "description": "Fires when a medication order is drafted.",
+  "enabled": true,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke12MedPrescribe\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"PrescribeCard\":\n  Tuple {\n    summary: 'Medication order drafted',\n    detail: 'Hook fired for order-sign — exercises non-patient-view hook dispatch.',\n    indicator: 'info',\n    sourceLabel: 'Smoke 12'\n  }\n",
+  "prefetch": {}
+}

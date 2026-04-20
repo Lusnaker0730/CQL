@@ -1,0 +1,15 @@
+{
+  "hook": "patient-view",
+  "hookInstance": "smoke-13-invocation",
+  "context": {
+    "userId": "smoke-user",
+    "patientId": "smoke-13-patient"
+  },
+  "prefetch": {
+    "Patient": {
+      "resourceType": "Patient",
+      "id": "smoke-13-patient",
+      "birthDate": "1985-07-20"
+    }
+  }
+}

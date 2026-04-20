@@ -1,0 +1,34 @@
+{
+  "hook": "order-sign",
+  "hookInstance": "smoke-12-invocation",
+  "context": {
+    "userId": "smoke-user",
+    "patientId": "smoke-12-patient",
+    "draftOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "MedicationRequest",
+            "status": "draft",
+            "intent": "order",
+            "medicationCodeableConcept": {
+              "coding": [
+                {"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "617314", "display": "Metformin"}
+              ]
+            },
+            "subject": {"reference": "Patient/smoke-12-patient"}
+          }
+        }
+      ]
+    }
+  },
+  "prefetch": {
+    "Patient": {
+      "resourceType": "Patient",
+      "id": "smoke-12-patient",
+      "birthDate": "1970-03-10"
+    }
+  }
+}

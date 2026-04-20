@@ -1,0 +1,13 @@
+{
+  "type": "cds-hook",
+  "cardCount": 1,
+  "cards": [
+    {
+      "summary": "Medication order drafted",
+      "indicator": "info",
+      "sourceLabel": "Smoke 12",
+      "detail": "order-sign"
+    }
+  ],
+  "_note": "Exercises a non-patient-view hook (order-sign — the modern CDS Hooks spec replacement for the deprecated medication-prescribe) + draftOrders context field. HookTypeValidator must accept it; CdsRequest DTO must deserialize the draftOrders Object correctly."
+}

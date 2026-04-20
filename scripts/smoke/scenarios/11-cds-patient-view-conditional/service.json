@@ -1,0 +1,11 @@
+{
+  "id": "smoke-11-diabetes-alert",
+  "hook": "patient-view",
+  "title": "Smoke 11 - Diabetes Alert",
+  "description": "Emits warning card if patient has diabetes condition in prefetch.",
+  "enabled": true,
+  "defaultIndicator": "warning",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke11Diabetes\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"HasCondition\":\n  exists([Condition])\n\ndefine \"ConditionCard\":\n  if \"HasCondition\" then\n    Tuple {\n      summary: 'Patient has active condition',\n      detail: 'CQL saw a Condition resource in prefetch — conditional card logic confirmed.',\n      indicator: 'warning',\n      sourceLabel: 'Smoke 11'\n    }\n  else null\n",
+  "prefetch": {}
+}

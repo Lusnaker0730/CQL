@@ -32,6 +32,14 @@ is why we need all four, not just one:
 | `07-cv-median-encounter-duration` | `continuous-variable` (episode-based, Median) | Same fixture, aggregateMethod=Median. Middle value of sorted list = 6.0. |
 | `08-cv-min-encounter-duration` | `continuous-variable` (episode-based, Minimum) | Same fixture, aggregateMethod=\"Min\" (alias — #PAT-088). min{...} = 2.0. |
 | `09-cv-max-encounter-duration` | `continuous-variable` (episode-based, Maximum) | Same fixture, aggregateMethod=\"Max\" (alias). max{...} = 10.0. |
+| `10-cds-patient-view-basic` | CDS Hook (patient-view) | Minimal hardcoded Tuple card → info indicator. Proves save → discover → invoke → CQL → card pipeline. |
+| `11-cds-patient-view-conditional` | CDS Hook (patient-view) | `exists([Condition])` on prefetch → warning card when patient has a condition. Proves prefetch-driven clinical logic. |
+| `12-cds-order-sign` | CDS Hook (order-sign) | Non-patient-view hook + `draftOrders` context. Tests hook dispatch beyond the default patient-view. (Uses `order-sign`, the modern CDS Hooks replacement for deprecated `medication-prescribe`.) |
+| `13-cds-multi-card-indicators` | CDS Hook (patient-view) | 3 independent Tuple defines → 3 cards (info/warning/critical). Per-card field assertions omitted because `CqlTupleCardStrategy` Map-iteration order isn't guaranteed. |
+| `14-cds-disabled-service-not-listed` | CDS Hook | Service saved with `enabled: false`. Backend returns **HTTP 200 + info card** `\"Service not found\"` (not 404). Discovery omits the service (only `enabled=true` services populate `serviceConfigs`). |
+| `15-cds-dryrun-mode` | CDS Hook (patient-view) | Invoked with `dryRun: true` + `debugMode: true`. 0 cards (CQL skipped) but `debug.prefetchStatus` populated. Proves dryRun short-circuit and prefetch resolution are independent of CQL run. |
+
+**CDS scenario files**: `service.json` (CdsServiceConfigRequest), `invocation.json` (CdsRequest — hook + context + prefetch), `expected.json` with `type: \"cds-hook\"` plus `cardCount` / `cards[]` / `expectNoCards` / `debugPrefetchNonEmpty` assertions. `run.sh` dispatches by the `type` field (default `ecqm`).
 
 > **aggregateMethod naming (since #PAT-088)**: Canonical forms are `count` / `sum` / `average` / `median` / `minimum` / `maximum`. Case-insensitive aliases accepted: `Min`→`minimum`, `Max`→`maximum`, `Avg`/`Mean`→`average`. Unknown methods (typos like `\"Minumum\"`) return `null` score with a logged warning — they no longer silently fall through to Average.
 

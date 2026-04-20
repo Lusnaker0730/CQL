@@ -1,0 +1,11 @@
+{
+  "id": "smoke-14-disabled",
+  "hook": "patient-view",
+  "title": "Smoke 14 - Disabled Service",
+  "description": "Saved with enabled=false — should NOT appear in discovery and should reject invocation.",
+  "enabled": false,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke14Disabled\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"Unreachable\":\n  Tuple {\n    summary: 'Should never fire',\n    detail: 'If this card appears, the disabled flag was ignored.',\n    indicator: 'info',\n    sourceLabel: 'Smoke 14'\n  }\n",
+  "prefetch": {}
+}
