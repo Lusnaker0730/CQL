@@ -337,8 +337,29 @@ public class CdsInvocationService {
     }
 
     private static boolean looksLikeTranslationError(Throwable t) {
-        String cls = t.getClass().getSimpleName();
-        return cls.contains("Translation") || cls.contains("Parse") || cls.contains("Syntax");
+        // Walk the cause chain AND inspect messages. CqlExecutionService wraps
+        // translator failures as CqlExecutionException("Execution failed: CQL
+        // translation failed with N error(s): ..."), so the simple-class-name
+        // heuristic alone misses translator errors that surface at invoke time.
+        // Bounded depth defends against cause loops.
+        Throwable current = t;
+        int depth = 0;
+        while (current != null && depth < 10) {
+            String cls = current.getClass().getSimpleName();
+            if (cls.contains("Translation") || cls.contains("Parse") || cls.contains("Syntax")
+                    || cls.contains("Compiler") || cls.contains("Lexer")) {
+                return true;
+            }
+            String msg = current.getMessage();
+            if (msg != null && (msg.contains("CQL translation failed")
+                    || msg.contains("translation error")
+                    || msg.contains("parse error"))) {
+                return true;
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return false;
     }
 
     private static CdsResponse.CdsErrorInfo buildErrorInfo(Phase phase, Throwable t) {
