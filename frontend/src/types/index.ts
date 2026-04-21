@@ -304,7 +304,7 @@ export interface CdsResponse {
 
 export interface CdsDebugInfo {
   debugTrace?: DebugTrace
-  error?: CdsErrorInfo
+  error?: ExecutionErrorInfo
   invocationContext?: Record<string, unknown>
   prefetchStatus?: PrefetchStatus[]
   contextWarnings?: string[]
@@ -313,12 +313,20 @@ export interface CdsDebugInfo {
   resourcesByType?: Record<string, number>
 }
 
-export interface CdsErrorInfo {
+/**
+ * Structured error info shared by CDS invocation, CQL editor execute, and
+ * eCQM measure evaluation debug responses. Matches backend
+ * `com.cqlplatform.model.debug.ExecutionErrorInfo` (PAT-098).
+ */
+export interface ExecutionErrorInfo {
   phase: string
   errorType: string
   message: string
   stackTraceSummary?: string[]
 }
+
+/** @deprecated Use ExecutionErrorInfo — CDS-specific name kept only for existing imports. */
+export type CdsErrorInfo = ExecutionErrorInfo
 
 export interface PrefetchStatus {
   key: string

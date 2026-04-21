@@ -265,5 +265,31 @@
   },
   "versionCheck": {
     "newVersionAvailable": "A new version is available. Refresh the page to get the latest UI."
+  },
+  "debug": {
+    "expressionTrace": "Expression Trace",
+    "fhirRetrieveTrace": "FHIR Retrieve Trace",
+    "index": "#",
+    "expression": "Expression",
+    "result": "Result",
+    "type": "Type",
+    "time": "Time",
+    "resourceType": "Resource Type",
+    "count": "Count",
+    "totalTime": "Total execution time: {{ms}}ms",
+    "sourceLine": "Source: line {{line}}",
+    "dependsOn": "Depends on:",
+    "compiledElm": "Compiled ELM (JSON)",
+    "stackTrace": "Stack trace (top frames)",
+    "phase": {
+      "prefetch_resolution": "Prefetch Resolution",
+      "prefetch_provider_build": "Prefetch Provider",
+      "fhir_retrieval": "FHIR Retrieval",
+      "cql_translation": "CQL Translation",
+      "cql_execution": "CQL Execution",
+      "population_evaluation": "Population Evaluation",
+      "card_generation": "Card Generation",
+      "unknown": "Unknown"
+    }
   }
 }

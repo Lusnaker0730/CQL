@@ -265,5 +265,31 @@
   },
   "versionCheck": {
     "newVersionAvailable": "系統已更新，重新整理頁面以取得最新版本"
+  },
+  "debug": {
+    "expressionTrace": "運算式追蹤",
+    "fhirRetrieveTrace": "FHIR 回撈追蹤",
+    "index": "#",
+    "expression": "運算式",
+    "result": "結果",
+    "type": "型別",
+    "time": "時間",
+    "resourceType": "資源類型",
+    "count": "數量",
+    "totalTime": "總執行時間：{{ms}}ms",
+    "sourceLine": "來源:第 {{line}} 行",
+    "dependsOn": "依賴:",
+    "compiledElm": "編譯後 ELM (JSON)",
+    "stackTrace": "堆疊追蹤(前幾層)",
+    "phase": {
+      "prefetch_resolution": "Prefetch 解析",
+      "prefetch_provider_build": "Prefetch 資料建立",
+      "fhir_retrieval": "FHIR 資料抓取",
+      "cql_translation": "CQL 翻譯",
+      "cql_execution": "CQL 執行",
+      "population_evaluation": "族群評估",
+      "card_generation": "卡片生成",
+      "unknown": "未知"
+    }
   }
 }
