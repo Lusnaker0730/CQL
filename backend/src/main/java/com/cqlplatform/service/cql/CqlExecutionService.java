@@ -384,76 +384,28 @@ public class CqlExecutionService {
             List<ExpressionTrace> expressionTraces = new ArrayList<>();
             int traceOrder = 0;
 
-            if (request.isDebugMode()) {
-                // Debug mode: evaluate each expression individually for per-expression timing
-                for (String expressionName : expressions) {
-                    long exprStart = System.currentTimeMillis();
-                    try {
-                        Set<String> singleExpr = Set.of(expressionName);
-                        String pid = null;
-                        if (request.getPatientId() != null) {
-                            pid = request.getPatientId();
-                            if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
-                        }
-                        EvaluationResult evalResult = evaluateWithEngine(engine,
-                                elmLibrary.getIdentifier(), singleExpr,
-                                request.getContextType(), pid, request.getParameters());
-                        long exprTime = System.currentTimeMillis() - exprStart;
+            // Per-expression wall-clock timings captured during the per-expression fallback
+            // path (if batch eval throws). Empty in the common batch-eval path — there we
+            // can't measure individual timings without breaking the retrieve cache, so
+            // traces show 0ms per expression and totalTimeMs carries the authoritative total.
+            Map<String, Long> perExpressionTimings = new HashMap<>();
 
-                        Object value = null;
-                        if (evalResult != null && evalResult.getExpressionResults() != null) {
-                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                                    evalResult.getExpressionResults().get(expressionName);
-                            value = exprResult != null ? exprResult.getValue() : null;
-                        }
-                        String valueType = value != null ? value.getClass().getSimpleName() : "null";
-
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(toSerializable(value))
-                                .valueType(valueType)
-                                .displayValue(formatDisplayValue(value))
-                                .build());
-
-                        expressionTraces.add(ExpressionTrace.builder()
-                                .name(expressionName)
-                                .resultType(valueType)
-                                .resultDisplay(formatDisplayValue(value))
-                                .evaluationTimeMs(exprTime)
-                                .order(traceOrder++)
-                                .sourceLocator(sourceLocators.get(expressionName))
-                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
-                                .build());
-                    } catch (Exception e) {
-                        long exprTime = System.currentTimeMillis() - exprStart;
-                        log.warn("Failed to evaluate expression in debug mode: {}", expressionName, e);
-                        // Try to extract runtime source locator from CqlException
-                        String runtimeLocator = extractRuntimeLocator(e);
-                        String errorLocator = runtimeLocator != null
-                                ? runtimeLocator : sourceLocators.get(expressionName);
-                        String errorDisplay = runtimeLocator != null
-                                ? "Error at " + runtimeLocator + ": " + e.getMessage()
-                                : "Error: " + e.getMessage();
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(null)
-                                .valueType("Error")
-                                .displayValue(errorDisplay)
-                                .build());
-                        runtimeErrors.add(expressionName + ": " + e.getMessage());
-                        expressionTraces.add(ExpressionTrace.builder()
-                                .name(expressionName)
-                                .resultType("Error")
-                                .resultDisplay(errorDisplay)
-                                .evaluationTimeMs(exprTime)
-                                .order(traceOrder++)
-                                .sourceLocator(errorLocator)
-                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
-                                .build());
-                    }
-                }
-            } else {
-                // Normal mode: evaluate all expressions at once
+            // Batch eval for BOTH normal and debug mode. The previous debug-mode path
+            // evaluated each expression in its own engine.evaluate() call so it could
+            // measure individual timings — but the CQL engine doesn't preserve its
+            // retrieve cache across separate evaluate() calls, so every expression that
+            // referenced the same [Observation: valueset] triggered a fresh FHIR fetch.
+            // With a BMI CDS hook that has 4 expressions each referencing one retrieve,
+            // authors saw the same Observation listed 4-10 times in the debug panel and
+            // the origin FHIR server took 4-10× the traffic in debug mode vs prod.
+            //
+            // The unified batch approach matches prod behavior exactly and dedupes
+            // retrieves naturally. Individual expression timing isn't measurable in
+            // batch mode (set to 0 below); totalTimeMs captures the wall-clock total.
+            // If batch eval fails, the per-expression fallback path runs and restores
+            // individual timings — rare case, acceptable trade-off.
+            {
+                // Normal mode + debug mode: evaluate all expressions at once
                 EvaluationResult evaluationResult = null;
                 boolean batchFailed = false;
 
@@ -482,6 +434,7 @@ public class CqlExecutionService {
                         log.warn("CQL engine returned null EvaluationResult for library, falling back to per-expression evaluation");
                     }
                     for (String expressionName : expressions) {
+                        long exprStart = System.currentTimeMillis();
                         try {
                             Set<String> singleExpr = Set.of(expressionName);
                             String pid = null;
@@ -517,6 +470,8 @@ public class CqlExecutionService {
                                     .displayValue(errorDisplay)
                                     .build());
                             runtimeErrors.add(expressionName + ": " + e.getMessage());
+                        } finally {
+                            perExpressionTimings.put(expressionName, System.currentTimeMillis() - exprStart);
                         }
                     }
                 } else {
@@ -549,6 +504,31 @@ public class CqlExecutionService {
                             runtimeErrors.add(expressionName + ": " + e.getMessage());
                         }
                     }
+                }
+            }
+
+            // Build expression traces for debug mode. Done post-eval so the same
+            // loop serves both the batch-success path and the per-expression-fallback
+            // path. Individual timings come from perExpressionTimings (populated only
+            // in the fallback path); batch-success path leaves them at 0 to signal
+            // "not measured — see totalTimeMs". This is the Option-C unification —
+            // previously debug mode ran its own per-expression loop that broke the
+            // retrieve cache and produced N× the trace rows + N× the FHIR server hits.
+            if (request.isDebugMode()) {
+                for (String expressionName : expressions) {
+                    ExpressionResult r = results.get(expressionName);
+                    String valueType = r != null ? r.getValueType() : "null";
+                    String display = r != null ? r.getDisplayValue() : null;
+                    long elapsed = perExpressionTimings.getOrDefault(expressionName, 0L);
+                    expressionTraces.add(ExpressionTrace.builder()
+                            .name(expressionName)
+                            .resultType(valueType)
+                            .resultDisplay(display)
+                            .evaluationTimeMs(elapsed)
+                            .order(traceOrder++)
+                            .sourceLocator(sourceLocators.get(expressionName))
+                            .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
+                            .build());
                 }
             }
 
