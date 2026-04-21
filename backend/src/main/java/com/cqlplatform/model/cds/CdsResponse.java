@@ -1,6 +1,7 @@
 package com.cqlplatform.model.cds;
 
 import com.cqlplatform.model.CqlExecutionResponse;
+import com.cqlplatform.model.debug.ExecutionErrorInfo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
@@ -25,8 +26,9 @@ public class CdsResponse {
         /** CQL execution trace (expressions + FHIR retrieves). Null on early-phase failures. */
         private CqlExecutionResponse.DebugTrace debugTrace;
 
-        /** Structured error info when invocation failed. Null on success. */
-        private CdsErrorInfo error;
+        /** Structured error info when invocation failed. Null on success.
+         *  Shared with CQL editor + eCQM paths via model/debug/ExecutionErrorInfo. */
+        private ExecutionErrorInfo error;
 
         /** Context snapshot — service id, hook, patientId, fhir server etc. */
         private Map<String, Object> invocationContext;
@@ -45,19 +47,6 @@ public class CdsResponse {
 
         /** Resource count by FHIR type available to CQL engine (only populated in dry-run). */
         private Map<String, Integer> resourcesByType;
-    }
-
-    @Data
-    @Builder
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class CdsErrorInfo {
-        /** Phase in which the error occurred (see CdsInvocationException.Phase). */
-        private String phase;
-        /** Simple name of the root exception class. */
-        private String errorType;
-        private String message;
-        /** Top N stack frames (own package preferred). */
-        private List<String> stackTraceSummary;
     }
 
     @Data

@@ -6,7 +6,10 @@ import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.cds.CdsRequest;
 import com.cqlplatform.model.cds.CdsResponse;
+import com.cqlplatform.model.debug.ErrorPhase;
+import com.cqlplatform.model.debug.ExecutionErrorInfo;
 import com.cqlplatform.service.cql.CqlExecutionService;
+import com.cqlplatform.util.ExecutionErrorClassifier;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -322,8 +325,12 @@ public class CdsInvocationService {
             }
             return executionService.execute(execRequest);
         } catch (Exception e) {
-            Phase phase = looksLikeTranslationError(e) ? Phase.CQL_TRANSLATION : Phase.CQL_EXECUTION;
-            throw new CdsInvocationException(phase, e);
+            // Delegate phase classification to the shared util so CDS, editor, and
+            // eCQM all agree on what counts as a translation error. Previously this
+            // heuristic lived here; see ExecutionErrorClassifier for BUG-115 history.
+            ErrorPhase phase = ExecutionErrorClassifier.classify(e);
+            Phase cdsPhase = (phase == ErrorPhase.CQL_TRANSLATION) ? Phase.CQL_TRANSLATION : Phase.CQL_EXECUTION;
+            throw new CdsInvocationException(cdsPhase, e);
         }
     }
 
@@ -336,44 +343,11 @@ public class CdsInvocationService {
         }
     }
 
-    private static boolean looksLikeTranslationError(Throwable t) {
-        // Walk the cause chain AND inspect messages. CqlExecutionService wraps
-        // translator failures as CqlExecutionException("Execution failed: CQL
-        // translation failed with N error(s): ..."), so the simple-class-name
-        // heuristic alone misses translator errors that surface at invoke time.
-        // Bounded depth defends against cause loops.
-        Throwable current = t;
-        int depth = 0;
-        while (current != null && depth < 10) {
-            String cls = current.getClass().getSimpleName();
-            if (cls.contains("Translation") || cls.contains("Parse") || cls.contains("Syntax")
-                    || cls.contains("Compiler") || cls.contains("Lexer")) {
-                return true;
-            }
-            String msg = current.getMessage();
-            if (msg != null && (msg.contains("CQL translation failed")
-                    || msg.contains("translation error")
-                    || msg.contains("parse error"))) {
-                return true;
-            }
-            current = current.getCause();
-            depth++;
-        }
-        return false;
-    }
-
-    private static CdsResponse.CdsErrorInfo buildErrorInfo(Phase phase, Throwable t) {
-        List<String> frames = Arrays.stream(t.getStackTrace())
-                .filter(f -> f.getClassName().startsWith("com.cqlplatform"))
-                .limit(5)
-                .map(StackTraceElement::toString)
-                .toList();
-        return CdsResponse.CdsErrorInfo.builder()
-                .phase(phase.name().toLowerCase())
-                .errorType(t.getClass().getSimpleName())
-                .message(t.getMessage())
-                .stackTraceSummary(frames.isEmpty() ? null : frames)
-                .build();
+    private static ExecutionErrorInfo buildErrorInfo(Phase phase, Throwable t) {
+        // Map the legacy CDS-specific Phase onto the shared ErrorPhase and
+        // delegate to the central classifier. This keeps the wire JSON identical
+        // (phase/errorType/message/stackTraceSummary) while DRYing the build logic.
+        return ExecutionErrorClassifier.buildErrorInfo(ExecutionErrorClassifier.fromCdsPhase(phase), t);
     }
 
     private static Map<String, Object> buildInvocationContext(CdsHooksService.CdsServiceConfig config, CdsRequest request) {

@@ -1,5 +1,8 @@
 package com.cqlplatform.exception;
 
+import com.cqlplatform.model.debug.ExecutionErrorInfo;
+import com.cqlplatform.util.ExecutionErrorClassifier;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.Builder;
 import lombok.Data;
@@ -65,7 +68,9 @@ public class GlobalExceptionHandler {
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
-        return buildResponse(status, "CQL Execution Error", msg);
+        // Attach structured errorInfo so editor callers can see phase=cql_translation
+        // vs phase=cql_execution without regex-matching the message string.
+        return buildErrorResponseWithInfo(status, "CQL Execution Error", msg, ExecutionErrorClassifier.buildErrorInfo(ex));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -130,8 +135,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(response);
     }
 
+    private ResponseEntity<ErrorResponse> buildErrorResponseWithInfo(HttpStatus status, String error, String message,
+                                                                      ExecutionErrorInfo errorInfo) {
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(status.value())
+                .error(error)
+                .message(message)
+                .requestId(MDC.get("requestId"))
+                .errorInfo(errorInfo)
+                .build();
+        return ResponseEntity.status(status).body(response);
+    }
+
     @Data
     @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class ErrorResponse {
         private LocalDateTime timestamp;
         private int status;
@@ -139,5 +158,8 @@ public class GlobalExceptionHandler {
         private String message;
         private List<String> details;
         private String requestId;
+        /** Shared structured debug info — populated for CQL execution / measure
+         *  evaluation failures so callers can branch on phase without parsing message. */
+        private ExecutionErrorInfo errorInfo;
     }
 }

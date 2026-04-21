@@ -166,7 +166,7 @@ public class MeasureEvaluationService {
             incrementErrorCounter();
             stopTimer(sample);
             log.error("Measure evaluation failed", e);
-            return errorResult(context, e.getMessage());
+            return errorResult(context, e.getMessage(), e);
         }
     }
 
@@ -593,10 +593,15 @@ public class MeasureEvaluationService {
     }
 
     private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message) {
+        return errorResult(context, message, null);
+    }
+
+    private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message, Throwable cause) {
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .status("error")
                 .errorMessage(message)
+                .errorInfo(cause != null ? com.cqlplatform.util.ExecutionErrorClassifier.buildErrorInfo(cause) : null)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
                 .build();
