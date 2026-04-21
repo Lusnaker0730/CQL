@@ -1,5 +1,6 @@
 package com.cqlplatform.model;
 
+import com.cqlplatform.model.debug.ExecutionErrorInfo;
 import lombok.Builder;
 import lombok.Data;
 
@@ -16,6 +17,14 @@ public class CqlExecutionResponse {
     private List<String> warnings;
     private ExecutionMetadata metadata;
     private DebugTrace debugTrace;
+
+    /**
+     * Structured error classification (phase + errorType + stack frames) — populated
+     * only on terminal failure. Complements the flat {@link #errors} list which
+     * remains for backward compatibility with existing editor consumers that parse
+     * strings. New consumers should prefer this field.
+     */
+    private ExecutionErrorInfo errorInfo;
 
     @Data
     @Builder

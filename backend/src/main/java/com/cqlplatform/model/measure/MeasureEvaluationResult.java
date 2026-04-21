@@ -1,5 +1,6 @@
 package com.cqlplatform.model.measure;
 
+import com.cqlplatform.model.debug.ExecutionErrorInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,6 +33,14 @@ public class MeasureEvaluationResult {
     private List<GroupResult> groups;
     private Map<String, Object> supplementalData;
     private String errorMessage;
+
+    /**
+     * Structured error classification populated on evaluation failure. Complements
+     * the free-form {@link #errorMessage} so measure authors can see whether the
+     * failure came from CQL translation, runtime execution, or population
+     * evaluation without parsing strings. Null on successful evaluations.
+     */
+    private ExecutionErrorInfo errorInfo;
 
     @Data
     @Builder
