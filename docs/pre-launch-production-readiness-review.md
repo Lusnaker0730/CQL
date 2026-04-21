@@ -75,7 +75,7 @@
   4. Backup 也要用加密（pg_dump 加 `-Z` + encryption at rest）
   5. 輪替 encryption key 的程序建立
 - **驗證**：query DB 看不到明文 patient ID；application 透過 converter 正常 read
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Partially Done — PAT-100 Phase 1`（4 entity / 8 欄位：`MeasureReportEntity.result_json`、`MeasureReportPopulationEntity.subject_ids_json`、`PatientImportEntity.{patient_fhir_id, patient_identifier, patient_name, bundle_json}`、`SandboxPresetEntity.{patient_id, prefetch_json}` 全套 `@Convert(EncryptionConverter.class)` + V55 column widen TEXT + 6 新 tests。修法步驟 1 盤點完成；步驟 2 的 8 欄位已套；步驟 3 的 batch 加密既有資料留 Phase 2（encrypt-on-read fallback 讓 legacy row 可讀，漸進式 migrate）；步驟 4 backup 加密 + 步驟 5 key rotation 留 Phase 3。`AuditLogEntity` / `BatchImportJobEntity` / `FailedImportEntity` 的 PHI 欄位也留 Phase 2 — 其中 audit log 需先與 compliance 確認 threat model）
 
 ---
 

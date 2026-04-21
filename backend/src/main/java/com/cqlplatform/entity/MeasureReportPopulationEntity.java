@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.cqlplatform.security.EncryptionConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -35,8 +36,10 @@ public class MeasureReportPopulationEntity {
     @Column(name = "count", nullable = false)
     private Integer count;
 
-    /** Patient IDs belonging to this population, as JSON array. Rarely queried individually. */
+    /** Patient IDs belonging to this population, as JSON array. Rarely queried individually.
+     *  Encrypted at rest — contains direct subject identifiers. */
     @Column(name = "subject_ids_json", columnDefinition = "TEXT")
+    @Convert(converter = EncryptionConverter.class)
     private String subjectIdsJson;
 
     @Column(name = "ordinal", nullable = false)
