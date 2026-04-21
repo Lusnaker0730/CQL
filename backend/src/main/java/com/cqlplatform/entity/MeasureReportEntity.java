@@ -1,6 +1,7 @@
 package com.cqlplatform.entity;
 
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import com.cqlplatform.security.EncryptionConverter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -104,7 +105,14 @@ public class MeasureReportEntity {
     @Column(name = "total_patients")
     private Integer totalPatients;
 
+    /**
+     * Full serialized {@link MeasureEvaluationResult} JSON. Contains subject IDs,
+     * per-population membership, and computed scores — all PHI. Encrypted at rest
+     * via {@link EncryptionConverter}; new writes get `ENC:` prefix, legacy
+     * plaintext rows remain readable via the converter's fallback path.
+     */
     @Column(name = "result_json", columnDefinition = "TEXT", nullable = false)
+    @Convert(converter = EncryptionConverter.class)
     private String resultJson;
 
     @Transient

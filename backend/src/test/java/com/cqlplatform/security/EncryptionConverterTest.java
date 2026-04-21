@@ -85,6 +85,41 @@ class EncryptionConverterTest {
     }
 
     @Test
+    void roundTrip_largeJsonPayload_100kb() {
+        // measure_report.result_json can exceed 100KB for patient-list reports;
+        // BUG-N risk is that cipher operations or Base64 inflation break those writes.
+        // ~100k chars of realistic JSON-like content (mixed ASCII + control chars).
+        StringBuilder sb = new StringBuilder(100_000);
+        for (int i = 0; i < 1000; i++) {
+            sb.append("{\"patientId\":\"p-").append(i)
+                    .append("\",\"populations\":{\"ip\":1,\"denom\":1,\"numer\":")
+                    .append(i % 2).append("},\"date\":\"2026-01-").append(i % 28 + 1)
+                    .append("\",\"notes\":\"Lorem ipsum dolor sit amet consectetur adipiscing elit.\"},");
+        }
+        String original = sb.toString();
+        assertThat(original.length()).isGreaterThan(100_000);
+
+        String encrypted = converter.convertToDatabaseColumn(original);
+        assertThat(encrypted).startsWith("ENC:");
+        // Base64 + GCM tag inflates ~1.33× — sanity check we didn't truncate.
+        assertThat(encrypted.length()).isGreaterThan(original.length());
+
+        String decrypted = converter.convertToEntityAttribute(encrypted);
+        assertThat(decrypted).isEqualTo(original);
+    }
+
+    @Test
+    void roundTrip_utf8MultibytePayload() {
+        // CQL result payloads can contain Traditional Chinese comments + mixed
+        // scripts from patient demographics. UTF-8 re-encoding roundtrip must
+        // preserve byte-exact content.
+        String original = "患者 王小明 | HbA1c 7.2% | 診斷: 第2型糖尿病 ✓\n就診日期: 2026-04-21";
+        String encrypted = converter.convertToDatabaseColumn(original);
+        String decrypted = converter.convertToEntityAttribute(encrypted);
+        assertThat(decrypted).isEqualTo(original);
+    }
+
+    @Test
     void shortKey_shouldPad() {
         EncryptionConverter shortKeyConverter = new EncryptionConverter("short");
         String encrypted = shortKeyConverter.convertToDatabaseColumn("test");

@@ -1,5 +1,6 @@
 package com.cqlplatform.entity;
 
+import com.cqlplatform.security.EncryptionConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,10 +33,15 @@ public class SandboxPresetEntity {
     @Column(name = "service_id", length = 100)
     private String serviceId;
 
+    /** FHIR patient ID used as the CDS sandbox test context. Encrypted at rest — PHI. */
     @Column(name = "patient_id", length = 100)
+    @Convert(converter = EncryptionConverter.class)
     private String patientId;
 
+    /** Prefetched FHIR resources bundled with the preset (demographics, vitals,
+     *  conditions). Encrypted at rest — full clinical context. */
     @Column(name = "prefetch_json", nullable = false, columnDefinition = "TEXT")
+    @Convert(converter = EncryptionConverter.class)
     private String prefetchJson;
 
     @Builder.Default
