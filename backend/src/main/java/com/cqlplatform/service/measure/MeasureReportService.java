@@ -1,8 +1,11 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.entity.MeasureReportEntity;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.repository.MeasureReportRepository;
+import com.cqlplatform.util.ContentHash;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ public class MeasureReportService {
 
     private final MeasureReportRepository repository;
     private final MeasureReportNormalizer normalizer;
+    private final MeasureDefinitionRepository measureDefinitionRepository;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
@@ -37,8 +41,30 @@ public class MeasureReportService {
                 totalPatients = result.getGroups().get(0).getTotalPatients();
             }
 
+            // Capture measure provenance (PAT-095): snapshot the version + CQL/ELM
+            // hashes so this report can always be linked back to the exact bytes that
+            // produced it, even after the measure definition is updated or deleted.
+            // Lookup is best-effort — definition may have been deleted between
+            // evaluation and save; in that case we record what we have and leave the
+            // rest null rather than failing the whole save.
+            String measureVersion = null;
+            String cqlHash = null;
+            String elmHash = null;
+            if (measureDefinitionId != null) {
+                Optional<MeasureDefinitionEntity> defOpt = measureDefinitionRepository.findById(measureDefinitionId);
+                if (defOpt.isPresent()) {
+                    MeasureDefinitionEntity def = defOpt.get();
+                    measureVersion = def.getVersion();
+                    cqlHash = ContentHash.sha256Hex(def.getCqlContent());
+                    elmHash = ContentHash.sha256Hex(def.getElmJson());
+                }
+            }
+
             MeasureReportEntity entity = MeasureReportEntity.builder()
                     .measureDefinitionId(measureDefinitionId)
+                    .measureVersion(measureVersion)
+                    .cqlHash(cqlHash)
+                    .elmHash(elmHash)
                     .measureName(result.getMeasureName() != null ? result.getMeasureName() : result.getMeasureId())
                     .status(result.getStatus())
                     .reportType(result.getReportType())
