@@ -1,0 +1,6 @@
+{
+  "type": "cds-hook",
+  "cardCount": 1,
+  "retrieveTracesCount": 1,
+  "_note": "BUG-116 regression lock: 3 defines + 1 top-level Card reference [Observation]. Before the batch-eval unification this produced 4+ retrieve trace rows because debug mode re-evaluated each expression independently. After the fix, all 4 share one engine.evaluate() call and its retrieve cache → exactly 1 trace row. If this assertion fails the likely cause is a regression of the per-expression debug loop; inspect CqlExecutionService.doExecute and verify debug mode goes through the same batch-first-with-fallback path as normal mode."
+}

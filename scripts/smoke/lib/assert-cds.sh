@@ -102,6 +102,23 @@ if [ "$card_spec_count" != "0" ] && [ "$card_spec_count" != "null" ]; then
     done
 fi
 
+# Retrieve traces count (BUG-116 regression — batch eval should share retrieve
+# cache across expressions so count matches unique retrieves, not total expression
+# references). Asserted on .debug.debugTrace.retrieveTraces, the nested trace
+# produced by TracingRetrieveProvider when debugMode=true.
+expected_retrieves=$(jq -r '.retrieveTracesCount // empty' "$EXPECTED" | tr -d '\r')
+if [ -n "$expected_retrieves" ]; then
+    actual_retrieves=$(echo "$RESPONSE" | jq -r '.debug.debugTrace.retrieveTraces | length // 0')
+    if [ "$actual_retrieves" = "$expected_retrieves" ]; then
+        echo "    ✓ retrieveTracesCount: $actual_retrieves"
+    else
+        echo "    ✗ retrieveTracesCount: got $actual_retrieves, expected $expected_retrieves" >&2
+        # Surface the actual retrieve rows for debugging (e.g. if dedupe regressed)
+        echo "      actual rows: $(echo "$RESPONSE" | jq -c '.debug.debugTrace.retrieveTraces // []')" >&2
+        fail=1
+    fi
+fi
+
 # Debug prefetch status (dry-run scenarios)
 expect_debug_prefetch=$(jq -r '.debugPrefetchNonEmpty // false' "$EXPECTED" | tr -d '\r')
 if [ "$expect_debug_prefetch" = "true" ]; then

@@ -155,7 +155,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             if ! response=$(bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end"); then
                 failed_scenarios+=("$name"); continue
             fi
-            if echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file"; then
+            if echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
                 passed_scenarios+=("$name")
             else
                 failed_scenarios+=("$name")
