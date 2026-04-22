@@ -1,37 +1,60 @@
 #!/usr/bin/env bash
 # Assert a CqlExecutionResponse against expected.json for cql-execute scenarios.
 #
+# Input format: `HTTP_STATUS|BODY_JSON` from execute-cql.sh. The split lets
+# one script cover both success (200 → CqlExecutionResponse) and error
+# (500 → GlobalExceptionHandler.ErrorResponse with errorInfo) paths.
+#
 # expected.json shape (type: "cql-execute"):
 #   {
 #     "type": "cql-execute",
-#     "success": true,                                         # optional — assert .success
+#     "expectedHttpStatus": 200,                               # optional — asserts HTTP status (default 200)
+#     "success": true,                                         # optional — asserts .success
 #     "expressionTracesMinCount": 3,                           # optional — .debugTrace.expressionTraces|length >= N
 #     "expressionTraceRequiredFields":                         # optional — each entry must have these keys non-null
 #         ["name", "resultType", "evaluationTimeMs", "order"],
 #     "retrieveTracesMinCount": 0,                             # optional — .debugTrace.retrieveTraces|length >= N
 #     "elmJsonNonEmpty": true,                                 # optional — .debugTrace.elmJson must be a non-empty string
-#     "totalTimeMsPresent": true                               # optional — .debugTrace.totalTimeMs must be a number
+#     "totalTimeMsPresent": true,                              # optional — .debugTrace.totalTimeMs must be a number
+#     "errorInfoPhase": "cql_translation",                     # optional — exact match on .errorInfo.phase (500 response)
+#     "errorInfoRequiredFields": ["phase", "errorType", "message"]  # optional — non-null checks on .errorInfo
 #   }
 #
 # Assertions target field *presence and type*, not specific values — debug
 # trace schema is diagnostic UX, not clinical output. Over-locking forces
 # smoke churn on every authoring-UX improvement.
 #
-# Usage:  lib/assert-cql-debug.sh <response.json|-> <expected.json>
+# Usage:  lib/assert-cql-debug.sh <status|body-or-stdin> <expected.json>
 set -euo pipefail
 
-RESPONSE_INPUT="${1:?usage: assert-cql-debug.sh <response.json|-> <expected.json>}"
+RESPONSE_INPUT="${1:?usage: assert-cql-debug.sh <status|body|-> <expected.json>}"
 EXPECTED="${2:?expected.json path missing}"
 
 if [ "$RESPONSE_INPUT" = "-" ]; then
-    RESPONSE=$(cat)
+    RAW=$(cat)
 else
-    RESPONSE=$(cat "$RESPONSE_INPUT")
+    RAW=$(cat "$RESPONSE_INPUT")
 fi
+
+# Response format (from execute-cql.sh): first line is HTTP status, then a
+# sentinel line `---HTTP_STATUS_BODY---`, then the JSON body. The sentinel
+# avoids ambiguity with JSON content.
+HTTP_STATUS=$(echo "$RAW" | head -n1)
+RESPONSE=$(echo "$RAW" | awk '/^---HTTP_STATUS_BODY---$/{seen=1; next} seen')
 
 [ -f "$EXPECTED" ] || { echo "expected.json not found: $EXPECTED" >&2; exit 1; }
 
 fail=0
+
+# HTTP status check (default 200)
+exp_status=$(jq -r '.expectedHttpStatus // 200' "$EXPECTED" | tr -d '\r')
+if [ "$HTTP_STATUS" = "$exp_status" ]; then
+    echo "    ✓ httpStatus: $HTTP_STATUS"
+else
+    echo "    ✗ httpStatus: got $HTTP_STATUS, expected $exp_status" >&2
+    echo "      body: $(echo "$RESPONSE" | head -c 200)" >&2
+    fail=1
+fi
 
 # success
 exp_success=$(jq -r '.success // empty' "$EXPECTED" | tr -d '\r')
@@ -115,6 +138,45 @@ if [ "$exp_total" = "true" ]; then
     else
         echo "    ✗ debugTrace.totalTimeMs: got type '$total_type', expected number" >&2
         fail=1
+    fi
+fi
+
+# errorInfoPhase — exact match on .errorInfo.phase (500 response from GlobalExceptionHandler
+# after PAT-098). Same semantics as assert-cds.sh's debugErrorPhase but reading from the
+# top-level ErrorResponse body rather than CdsResponse.debug.error.
+exp_err_phase=$(jq -r '.errorInfoPhase // empty' "$EXPECTED" | tr -d '\r')
+if [ -n "$exp_err_phase" ]; then
+    act_phase=$(echo "$RESPONSE" | jq -r '.errorInfo.phase // empty' | tr -d '\r')
+    if [ "$act_phase" = "$exp_err_phase" ]; then
+        echo "    ✓ errorInfo.phase: $act_phase"
+    else
+        echo "    ✗ errorInfo.phase: got '$act_phase', expected '$exp_err_phase'" >&2
+        fail=1
+    fi
+fi
+
+# errorInfoRequiredFields — each must be non-null on .errorInfo. Skip "phase" when
+# errorInfoPhase already did an exact match (avoids duplicate print).
+err_fields_count=$(jq -r '.errorInfoRequiredFields | length // 0' "$EXPECTED" 2>/dev/null)
+if [ "$err_fields_count" != "0" ] && [ "$err_fields_count" != "null" ]; then
+    err_obj=$(echo "$RESPONSE" | jq -c '.errorInfo // null')
+    if [ "$err_obj" = "null" ]; then
+        echo "    ✗ errorInfoRequiredFields: .errorInfo is null — cannot validate fields" >&2
+        fail=1
+    else
+        for i in $(seq 0 $((err_fields_count - 1))); do
+            field=$(jq -r ".errorInfoRequiredFields[$i]" "$EXPECTED" | tr -d '\r')
+            if [ "$field" = "phase" ] && [ -n "$exp_err_phase" ]; then
+                continue
+            fi
+            value=$(echo "$err_obj" | jq -r ".$field // \"__MISSING__\"")
+            if [ "$value" = "__MISSING__" ] || [ "$value" = "null" ]; then
+                echo "    ✗ errorInfo.$field: missing or null" >&2
+                fail=1
+            else
+                echo "    ✓ errorInfo.$field: ${value:0:60}"
+            fi
+        done
     fi
 fi
 

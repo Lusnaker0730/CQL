@@ -1,0 +1,5 @@
+{
+  "cql": "library \"Smoke20ErrorInfo\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"WillNotTranslate\":\n  ThisFunctionDoesNotExist('oops')\n",
+  "contextType": "Patient",
+  "debugMode": true
+}

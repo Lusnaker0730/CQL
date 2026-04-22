@@ -1,0 +1,38 @@
+{
+  "hook": "patient-view",
+  "hookInstance": "smoke-17-invocation",
+  "context": {
+    "userId": "smoke-user",
+    "patientId": "smoke-17-patient"
+  },
+  "prefetch": {
+    "Patient": {
+      "resourceType": "Patient",
+      "id": "smoke-17-patient",
+      "birthDate": "1980-01-01"
+    },
+    "Observations": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "Observation",
+            "id": "obs-1",
+            "status": "final",
+            "subject": { "reference": "Patient/smoke-17-patient" }
+          }
+        },
+        {
+          "resource": {
+            "resourceType": "Observation",
+            "id": "obs-2",
+            "status": "final",
+            "subject": { "reference": "Patient/smoke-17-patient" }
+          }
+        }
+      ]
+    }
+  },
+  "debugMode": true
+}

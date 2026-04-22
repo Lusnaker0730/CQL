@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# POST a CQL body to /api/cql/execute. Writes the full CqlExecutionResponse
-# JSON to stdout for the caller's assert step. Used by cql-execute scenarios
-# (debug-mode smoke coverage) — NOT by eCQM/CDS scenarios which go through
-# dedicated pipelines.
+# POST a CQL body to /api/cql/execute. Writes `HTTP_STATUS|BODY` to stdout so
+# the caller's assert step can branch on status without a second parser pass.
+# Used by cql-execute scenarios (debug-mode + error-path smoke coverage) —
+# NOT by eCQM/CDS scenarios which go through dedicated pipelines.
+#
+# Exit behaviour:
+#   - Network / auth / transport errors: exit 1 (can't call API)
+#   - HTTP 2xx/4xx/5xx application responses: exit 0 (caller decides)
 #
 # Usage:  lib/execute-cql.sh <request.json>
 set -euo pipefail
@@ -20,12 +24,13 @@ response=$(curl -s -X POST "$API_BASE/cql/execute" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $TOKEN" \
     -w "\n__HTTP_STATUS__%{http_code}" \
-    --data-binary "@$REQUEST")
+    --data-binary "@$REQUEST") || {
+    echo "execute-cql transport error (curl failed)" >&2
+    exit 1
+}
 http_status=$(echo "$response" | tail -1 | sed 's/__HTTP_STATUS__//')
 body=$(echo "$response" | sed '$d')
-if [ "$http_status" != "200" ]; then
-    echo "execute-cql failed with HTTP $http_status: $body" >&2
-    exit 1
-fi
 
-echo "$body"
+# Emit as two segments separated by the line `---HTTP_STATUS_BODY---`, which can't
+# appear inside a JSON response. Simpler parsers can take `head -n1` for status.
+printf '%s\n---HTTP_STATUS_BODY---\n%s\n' "$http_status" "$body"

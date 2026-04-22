@@ -9,14 +9,19 @@
 #       "initial-population": 7,
 #       "denominator": 5,
 #       "numerator": 3
-#     }
+#     },
+#     "checkProvenance": true    # optional — follow-up GET /api/measures/{id}/reports
+#                                # to verify PAT-095 provenance fields (measureVersion,
+#                                # cqlHash, elmHash) are non-null on the saved report.
+#                                # Requires measureId as the optional 3rd arg.
 #   }
 #
-# Usage:  lib/assert.sh <response.json-or-stdin> <expected.json>
+# Usage:  lib/assert.sh <response.json-or-stdin> <expected.json> [measureId]
 set -euo pipefail
 
-RESPONSE_INPUT="${1:?usage: assert.sh <response.json|-> <expected.json>}"
+RESPONSE_INPUT="${1:?usage: assert.sh <response.json|-> <expected.json> [measureId]}"
 EXPECTED="${2:?expected.json path missing}"
+MEASURE_ID="${3:-}"
 
 if [ "$RESPONSE_INPUT" = "-" ]; then
     RESPONSE=$(cat)
@@ -69,5 +74,47 @@ while IFS= read -r pop_key; do
         fail=1
     fi
 done < <(jq -r '.populations // {} | keys[]?' "$EXPECTED" | tr -d '\r')
+
+# Provenance check (PAT-095 regression lock). Fetches reports for the measure
+# and validates the latest row has non-null measureVersion + cqlHash + elmHash.
+# Requires MEASURE_ID passed as 3rd arg.
+check_provenance=$(jq -r '.checkProvenance // false' "$EXPECTED" | tr -d '\r')
+if [ "$check_provenance" = "true" ]; then
+    if [ -z "$MEASURE_ID" ]; then
+        echo "    ✗ checkProvenance set but measureId not passed to assert.sh" >&2
+        fail=1
+    else
+        API_BASE="${API_BASE:-http://localhost:8080/api}"
+        reports_response=$(curl -sf \
+            -H "Authorization: Bearer ${TOKEN:-}" \
+            "$API_BASE/measures/$MEASURE_ID/reports" 2>&1) || {
+            echo "    ✗ checkProvenance: GET /measures/$MEASURE_ID/reports failed: $reports_response" >&2
+            fail=1
+            exit $fail
+        }
+        # Take the first element (most recent — repo uses findByMeasureDefinitionIdOrderByCreatedAtDesc).
+        cql_hash=$(echo "$reports_response" | jq -r '.[0].cqlHash // empty' | tr -d '\r')
+        elm_hash=$(echo "$reports_response" | jq -r '.[0].elmHash // empty' | tr -d '\r')
+        measure_version=$(echo "$reports_response" | jq -r '.[0].measureVersion // empty' | tr -d '\r')
+        if [ -z "$cql_hash" ] || [ "$cql_hash" = "null" ]; then
+            echo "    ✗ provenance.cqlHash: missing on latest report" >&2
+            fail=1
+        else
+            echo "    ✓ provenance.cqlHash: ${cql_hash:0:16}…"
+        fi
+        if [ -z "$elm_hash" ] || [ "$elm_hash" = "null" ]; then
+            echo "    ✗ provenance.elmHash: missing on latest report" >&2
+            fail=1
+        else
+            echo "    ✓ provenance.elmHash: ${elm_hash:0:16}…"
+        fi
+        if [ -z "$measure_version" ] || [ "$measure_version" = "null" ]; then
+            echo "    ✗ provenance.measureVersion: missing on latest report" >&2
+            fail=1
+        else
+            echo "    ✓ provenance.measureVersion: $measure_version"
+        fi
+    fi
+fi
 
 exit $fail
