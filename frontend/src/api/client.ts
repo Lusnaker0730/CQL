@@ -1,4 +1,15 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios'
+import { notifyEhrOutage, type UpstreamEnvelope } from './ehrOutageBridge'
+
+interface FhirUpstreamEnvelope {
+  errorType?: string
+  upstream?: {
+    connectionId?: number | null
+    connectionName?: string | null
+    reason?: UpstreamEnvelope['reason']
+    retryAfterSeconds?: number
+  }
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -98,6 +109,22 @@ api.interceptors.response.use(
       localStorage.removeItem('user')
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
+      }
+    }
+
+    // PAT-110: surface structured FHIR upstream outages to the global banner.
+    // The envelope is only populated when the backend threw FhirServerUnavailableException
+    // or Resilience4j CallNotPermittedException — generic 5xx still flows through
+    // existing error handling (red snackbar) unchanged.
+    if (status === 503) {
+      const envelope = error.response?.data as FhirUpstreamEnvelope | undefined
+      if (envelope?.errorType === 'FHIR_UPSTREAM_UNAVAILABLE' && envelope.upstream) {
+        notifyEhrOutage({
+          connectionId: envelope.upstream.connectionId ?? null,
+          connectionName: envelope.upstream.connectionName ?? null,
+          reason: envelope.upstream.reason ?? 'OTHER',
+          retryAfterSeconds: envelope.upstream.retryAfterSeconds ?? 30,
+        })
       }
     }
 

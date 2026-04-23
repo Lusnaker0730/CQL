@@ -14,6 +14,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminRoute from './components/auth/AdminRoute'
 import ForcePasswordChangeDialog from './components/auth/ForcePasswordChangeDialog'
 import ErrorBoundary from './components/common/ErrorBoundary'
+import EhrOutageBanner from './components/common/EhrOutageBanner'
 import PageLoadingFallback from './components/common/PageLoadingFallback'
 
 const EditorPage = lazy(() => import('./pages/EditorPage'))
@@ -61,6 +62,7 @@ export default function App() {
             <ProtectedRoute>
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
                 <Header />
+                <EhrOutageBanner />
                 <Box
                   component="main"
                   sx={{

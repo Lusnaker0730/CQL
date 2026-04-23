@@ -13,6 +13,7 @@ import { createAppTheme } from './theme'
 import { extractApiError } from './utils/errorUtils'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { EhrOutageProvider } from './contexts/EhrOutageContext'
 import { LibraryHistoryProvider } from './contexts/LibraryHistoryContext'
 import { TerminologyDrawerProvider } from './contexts/TerminologyDrawerContext'
 import GlobalNotification from './components/common/GlobalNotification'
@@ -62,13 +63,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <QueryClientProvider client={queryClient}>
           <PreferencesProvider>
             <NotificationProvider>
-              <TerminologyDrawerProvider>
-                <LibraryHistoryProvider>
-                  <VersionCheckProvider>
-                    <ThemedApp />
-                  </VersionCheckProvider>
-                </LibraryHistoryProvider>
-              </TerminologyDrawerProvider>
+              <EhrOutageProvider>
+                <TerminologyDrawerProvider>
+                  <LibraryHistoryProvider>
+                    <VersionCheckProvider>
+                      <ThemedApp />
+                    </VersionCheckProvider>
+                  </LibraryHistoryProvider>
+                </TerminologyDrawerProvider>
+              </EhrOutageProvider>
             </NotificationProvider>
           </PreferencesProvider>
         </QueryClientProvider>

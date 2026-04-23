@@ -115,7 +115,7 @@
 - **現況**：Circuit breaker 有設（Resilience4j `application.yml:283-287`），但 UX 沒定義
 - **風險**：真 EHR 的 FHIR server 偶爾 timeout / 5xx 是日常；使用者看到 raw error 會誤以為 platform bug
 - **修法**：統一 fallback response（如 "EHR 暫時離線、已自動重試 N 次"）；per-EHR connection health status UI
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Phase 1 Done — PAT-110`（BE 結構化 `FHIR_UPSTREAM_UNAVAILABLE` envelope 帶 `connectionId`/`reason`/`retryAfterSeconds` + `Retry-After` header；FE Axios interceptor → `EhrOutageProvider` 黃色 persistent banner（非紅色 error snackbar）+ zh-TW/en i18n。**Phase 2 待做**：`EhrConnectionList.tsx` 接 `/api/ehr/health/*` 做即時 health polling UI → PAT-111。**Phase 3 需產品/臨床討論**：per-hook fallback（CDS 空 card / measure skip population 的臨床語意）→ PAT-112）
 
 ### #11 Regulatory docs 只有模板、沒實際 artifacts
 - **現況**：`regulatory_docs/templates/` 有 6 個 `.md` 模板；`regulatory_docs/output/` 空的

@@ -267,5 +267,19 @@
     "active": "Active",
     "inactive": "Inactive",
     "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
+  },
+  "degradation": {
+    "titleGeneric": "EHR FHIR server is temporarily unavailable",
+    "titleWithName": "EHR \"{{name}}\" is temporarily unavailable",
+    "dismiss": "Dismiss",
+    "failureCount_one": "{{count}} failure",
+    "failureCount_other": "{{count}} consecutive failures",
+    "reason": {
+      "TIMEOUT": "Upstream response timed out — the EHR server may be slow. Retrying automatically.",
+      "CIRCUIT_BREAKER_OPEN": "Too many recent failures — calls are paused briefly while the EHR recovers.",
+      "UPSTREAM_5XX": "The EHR server returned a server error. This is usually transient.",
+      "CONNECTION_REFUSED": "Cannot reach the EHR server. Verify the connection URL and network.",
+      "OTHER": "The EHR server returned an unexpected error."
+    }
   }
 }
