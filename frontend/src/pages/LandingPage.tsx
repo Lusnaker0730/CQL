@@ -228,6 +228,27 @@ export default function LandingPage() {
             </Typography>
           ))}
         </Box>
+        <Typography
+          variant="caption"
+          sx={(theme) => ({
+            display: 'block',
+            mb: 0.5,
+            color: alpha(theme.palette.common.white, 0.5),
+          })}
+        >
+          {t('footer.contactPrompt')}{' '}
+          <Box
+            component="a"
+            href="mailto:aluminum001@gmail.com"
+            sx={(theme) => ({
+              color: alpha(theme.palette.common.white, 0.75),
+              textDecoration: 'none',
+              '&:hover': { color: theme.palette.primary.light, textDecoration: 'underline' },
+            })}
+          >
+            aluminum001@gmail.com
+          </Box>
+        </Typography>
         <Typography variant="caption" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.35) })}>
           {tc('app.title')} — Clinical Quality Language
         </Typography>

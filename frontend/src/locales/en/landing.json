@@ -719,5 +719,8 @@
       "reset": "Reset Progress",
       "resetConfirm": "Are you sure you want to reset all learning progress?"
     }
+  },
+  "footer": {
+    "contactPrompt": "Business inquiries / bug reports:"
   }
 }
