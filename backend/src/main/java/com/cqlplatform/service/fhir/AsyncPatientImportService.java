@@ -59,7 +59,7 @@ public class AsyncPatientImportService {
     /**
      * Execute the batch import asynchronously.
      */
-    @Async("cqlExecutionExecutor")
+    @Async("patientImportExecutor")
     public void executeBatchImport(Long jobId) {
         BatchImportJobEntity job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new ResourceNotFoundException("Batch import job not found: " + jobId));

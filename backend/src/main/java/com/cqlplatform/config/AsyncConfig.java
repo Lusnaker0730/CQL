@@ -21,6 +21,15 @@ public class AsyncConfig {
     @Value("${cql.execution.queue-capacity:50}")
     private int queueCapacity;
 
+    @Value("${ehr.import.thread-pool-size:4}")
+    private int importCorePoolSize;
+
+    @Value("${ehr.import.max-pool-size:8}")
+    private int importMaxPoolSize;
+
+    @Value("${ehr.import.queue-capacity:100}")
+    private int importQueueCapacity;
+
     @Bean(name = "cqlExecutionExecutor")
     public ExecutorService cqlExecutionExecutor() {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
@@ -38,6 +47,29 @@ public class AsyncConfig {
                     return t;
                 },
                 new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
+
+    // Dedicated pool for bulk patient import. Previously shared cqlExecutionExecutor,
+    // which meant a 100-patient import could starve /api/cql/execute requests.
+    // AbortPolicy (not CallerRunsPolicy) so the submitting request fails fast if the
+    // queue overflows rather than blocking the API thread for minutes.
+    @Bean(name = "patientImportExecutor")
+    public ExecutorService patientImportExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                importCorePoolSize,
+                importMaxPoolSize,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(importQueueCapacity),
+                r -> {
+                    Thread t = new Thread(r);
+                    t.setName("patient-import-" + t.getId());
+                    t.setDaemon(false);
+                    t.setContextClassLoader(Thread.currentThread().getContextClassLoader());
+                    return t;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
         executor.allowCoreThreadTimeOut(true);
         return executor;
     }
