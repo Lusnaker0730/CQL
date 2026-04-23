@@ -1,0 +1,49 @@
+{
+  "version": "1.0.0",
+  "commit_sha": "3e2b313ed6397bf38efb8b53c7e9003703469864",
+  "generated_at": "2026-04-23T03:42:21.073669+00:00",
+  "generator": "generate_manifest.py",
+  "file_count": 8,
+  "files": [
+    {
+      "file": "變更管制紀錄_CCR.md",
+      "sha256": "118e0371de64218367063a0ea8325159ab948b9b3f5f4f9cef0d945abf706386",
+      "size_bytes": 22488
+    },
+    {
+      "file": "軟體測試報告_STR.html",
+      "sha256": "9b7d1e443f304e1f43e7039eaac45ed2424c19a03ef66fd2b06c7392bc9e62fc",
+      "size_bytes": 179845
+    },
+    {
+      "file": "軟體測試報告_STR.md",
+      "sha256": "82635945f29443d9b2579b035cc6aec315c07aa4b0eb414e9ddd456217383ef7",
+      "size_bytes": 122715
+    },
+    {
+      "file": "軟體設計規格書_SDS.md",
+      "sha256": "0aa27436ffab470bac9f0fc0c4785d067987ce5a6c036c8c3938fbab31b3fa78",
+      "size_bytes": 74759
+    },
+    {
+      "file": "軟體需求規格書_SRS.md",
+      "sha256": "2ab460d380e63903eca3c12f8665150542617a4ddbe631057d2d96b47c2e8edf",
+      "size_bytes": 135686
+    },
+    {
+      "file": "軟體驗證報告_SVR.md",
+      "sha256": "61495585d22fdfaff784715dbe4584a9684312a817e13c723de0dbb9d5d309f6",
+      "size_bytes": 77359
+    },
+    {
+      "file": "追溯矩陣_TM.md",
+      "sha256": "75eb9eecd9224c27653ac527fbe91724c7bdcd81525a6cd69d0d488bb854ca97",
+      "size_bytes": 24701
+    },
+    {
+      "file": "風險管理報告_RMR.md",
+      "sha256": "3630e0ae41f8082c4cdbda6a54bef3f1055428f2d79f65bd36a84f054e2ccc6c",
+      "size_bytes": 77921
+    }
+  ]
+}
