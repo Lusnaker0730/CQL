@@ -82,15 +82,54 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", "Invalid request parameters", errors);
     }
 
+    // PAT-110: structured FHIR-upstream error envelope. Frontend detects
+    // errorType="FHIR_UPSTREAM_UNAVAILABLE" and renders a yellow degradation
+    // banner rather than a generic red error. Retry-After header lets the
+    // browser's fetch retry policy (and any proxying API client) back off.
     @ExceptionHandler(FhirServerUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleFhirServerUnavailableException(FhirServerUnavailableException ex) {
-        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "FHIR Server Unavailable", ex.getMessage());
+        UpstreamInfo upstream = UpstreamInfo.builder()
+                .connectionId(ex.getConnectionId())
+                .connectionName(ex.getConnectionName())
+                .reason(ex.getReason().name())
+                .retryAfterSeconds(30)
+                .build();
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("FHIR Server Unavailable")
+                .errorType("FHIR_UPSTREAM_UNAVAILABLE")
+                .message(ex.getMessage())
+                .upstream(upstream)
+                .requestId(MDC.get("requestId"))
+                .build();
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "30")
+                .body(body);
     }
 
     @ExceptionHandler(CallNotPermittedException.class)
     public ResponseEntity<ErrorResponse> handleCircuitBreakerOpenException(CallNotPermittedException ex) {
-        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "Service Circuit Breaker Open",
-                "FHIR service is temporarily unavailable due to repeated failures. Please try again later.");
+        UpstreamInfo upstream = UpstreamInfo.builder()
+                .connectionId(com.cqlplatform.fhir.FhirRequestContext.getConnectionId())
+                .connectionName(com.cqlplatform.fhir.FhirRequestContext.getConnectionName())
+                .reason(FhirServerUnavailableException.Reason.CIRCUIT_BREAKER_OPEN.name())
+                .retryAfterSeconds(60)
+                .build();
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("Service Circuit Breaker Open")
+                .errorType("FHIR_UPSTREAM_UNAVAILABLE")
+                .message("FHIR service is temporarily unavailable due to repeated failures. Please try again later.")
+                .upstream(upstream)
+                .requestId(MDC.get("requestId"))
+                .build();
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "60")
+                .body(body);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -177,8 +216,29 @@ public class GlobalExceptionHandler {
         private String message;
         private List<String> details;
         private String requestId;
+        /** PAT-110: machine-readable error category. Today we only populate
+         *  {@code "FHIR_UPSTREAM_UNAVAILABLE"} for structured FHIR degradation;
+         *  kept generic so future error classes can slot in without wire break. */
+        private String errorType;
+        /** PAT-110: populated for {@code errorType=FHIR_UPSTREAM_UNAVAILABLE}. */
+        private UpstreamInfo upstream;
         /** Shared structured debug info — populated for CQL execution / measure
          *  evaluation failures so callers can branch on phase without parsing message. */
         private ExecutionErrorInfo errorInfo;
+    }
+
+    @Data
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class UpstreamInfo {
+        /** The EHR connection that failed, or null if the failing call is not
+         *  tied to a specific connection (translation-time VSAC, background jobs). */
+        private Long connectionId;
+        /** Human-readable connection name, null when connectionId is null. */
+        private String connectionName;
+        /** One of {@link FhirServerUnavailableException.Reason} as a string. */
+        private String reason;
+        /** Seconds the client should wait before retrying. Mirrors Retry-After header. */
+        private Integer retryAfterSeconds;
     }
 }

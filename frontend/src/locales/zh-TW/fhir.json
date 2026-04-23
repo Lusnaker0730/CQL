@@ -267,5 +267,19 @@
     "active": "啟用",
     "inactive": "停用",
     "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
+  },
+  "degradation": {
+    "titleGeneric": "EHR FHIR 伺服器暫時無法使用",
+    "titleWithName": "EHR「{{name}}」暫時無法使用",
+    "dismiss": "關閉",
+    "failureCount_one": "{{count}} 次失敗",
+    "failureCount_other": "{{count}} 次連續失敗",
+    "reason": {
+      "TIMEOUT": "上游回應逾時 — EHR 伺服器可能較慢，系統正在自動重試。",
+      "CIRCUIT_BREAKER_OPEN": "近期失敗次數過多 — 系統暫停呼叫該 EHR 以待其恢復。",
+      "UPSTREAM_5XX": "EHR 伺服器回傳伺服器錯誤，通常為短暫現象。",
+      "CONNECTION_REFUSED": "無法連接 EHR 伺服器，請檢查連線網址與網路。",
+      "OTHER": "EHR 伺服器回傳未預期的錯誤。"
+    }
   }
 }

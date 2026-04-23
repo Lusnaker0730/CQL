@@ -124,7 +124,7 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getStatus()).isEqualTo(504);
     }
 
-    // ===== FhirServerUnavailableException → 503 =====
+    // ===== FhirServerUnavailableException → 503 with structured envelope (PAT-110) =====
 
     @Test
     void handleFhirServerUnavailableException_shouldReturn503() {
@@ -136,6 +136,37 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(503);
         assertThat(response.getBody().getMessage()).isEqualTo("FHIR server is down");
+    }
+
+    @Test
+    void handleFhirServerUnavailableException_shouldCarryStructuredEnvelope() {
+        // PAT-110: the FE discriminates yellow vs red banners by errorType.
+        // Populate FhirRequestContext so the exception captures connection identity.
+        com.cqlplatform.fhir.FhirRequestContext.set(42L, "台大 HIS");
+        try {
+            FhirServerUnavailableException ex = new FhirServerUnavailableException(
+                    "FHIR search failed",
+                    FhirServerUnavailableException.Reason.TIMEOUT);
+
+            ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                    handler.handleFhirServerUnavailableException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(response.getHeaders().getFirst("Retry-After"))
+                    .as("Retry-After header drives HTTP-aware client backoff")
+                    .isEqualTo("30");
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getErrorType())
+                    .as("machine-readable category the FE interceptor pattern-matches on")
+                    .isEqualTo("FHIR_UPSTREAM_UNAVAILABLE");
+            assertThat(response.getBody().getUpstream()).isNotNull();
+            assertThat(response.getBody().getUpstream().getConnectionId()).isEqualTo(42L);
+            assertThat(response.getBody().getUpstream().getConnectionName()).isEqualTo("台大 HIS");
+            assertThat(response.getBody().getUpstream().getReason()).isEqualTo("TIMEOUT");
+            assertThat(response.getBody().getUpstream().getRetryAfterSeconds()).isEqualTo(30);
+        } finally {
+            com.cqlplatform.fhir.FhirRequestContext.clear();
+        }
     }
 
     // ===== CallNotPermittedException → 503 =====
@@ -150,6 +181,23 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(503);
         assertThat(response.getBody().getMessage()).contains("temporarily unavailable");
+    }
+
+    @Test
+    void handleCircuitBreakerOpenException_shouldSurfaceCircuitBreakerOpenEnvelope() {
+        // PAT-110: breaker-open gets its own reason value so the FE can say
+        // "已自動重試 N 次、暫停中" instead of the generic TIMEOUT message.
+        CallNotPermittedException ex = mock(CallNotPermittedException.class);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleCircuitBreakerOpenException(ex);
+
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("60");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getErrorType()).isEqualTo("FHIR_UPSTREAM_UNAVAILABLE");
+        assertThat(response.getBody().getUpstream()).isNotNull();
+        assertThat(response.getBody().getUpstream().getReason()).isEqualTo("CIRCUIT_BREAKER_OPEN");
+        assertThat(response.getBody().getUpstream().getRetryAfterSeconds()).isEqualTo(60);
     }
 
     // ===== AccessDeniedException → 403 =====
