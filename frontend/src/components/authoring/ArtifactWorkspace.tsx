@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip, Tooltip, Alert, FormControlLabel, Switch } from '@mui/material'
 import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon, Public as PublicIcon, LibraryBooks as LibraryIcon } from '@mui/icons-material'
-import LibraryDefinitionPicker, { type LibraryDefinitionReference } from '../cql-libraries/LibraryDefinitionPicker'
-import { libraryReferenceToElement } from '../../utils/libraryReference'
+import LibraryDefinitionPicker from '../cql-libraries/LibraryDefinitionPicker'
+import { useArtifactLibraryPicker } from '../../hooks/useArtifactLibraryPicker'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { useArtifactHistory } from '../../hooks/useArtifactHistory'
 import ArtifactWorkspaceHeader from './ArtifactWorkspaceHeader'
@@ -463,24 +463,13 @@ export default function ArtifactWorkspace({
     [updateLocal]
   )
 
-  // Library definition picker — lets authors insert stored CQL library references
-  // into the inclusion/exclusion trees. The target tracks whether the picker was
-  // opened from the Inclusions tab or Exclusions tab so onSelect dispatches to
-  // the right handler. Backend support for the resulting externalCqlElement node
-  // is contract-locked by CqlGenerationServiceLibraryIntegrationTest (PAT-102).
-  const [libPickerTarget, setLibPickerTarget] = useState<null | 'include' | 'exclude'>(null)
-  const handleLibrarySelect = useCallback(
-    (reference: LibraryDefinitionReference) => {
-      const element = libraryReferenceToElement(reference)
-      if (libPickerTarget === 'include') {
-        handleAddIncludeElement(element)
-      } else if (libPickerTarget === 'exclude') {
-        handleAddExcludeElement(element)
-      }
-      setLibPickerTarget(null)
-    },
-    [libPickerTarget, handleAddIncludeElement, handleAddExcludeElement]
-  )
+  // Library definition picker — delegated to useArtifactLibraryPicker so the
+  // inclusion/exclusion dispatch logic is independently testable without
+  // mounting the full workspace. Backend contract for the resulting
+  // externalCqlElement tree node is covered by
+  // CqlGenerationServiceLibraryIntegrationTest (PAT-102) +
+  // ArtifactServiceLibraryRefIntegrationTest (PAT-103).
+  const libraryPicker = useArtifactLibraryPicker(handleAddIncludeElement, handleAddExcludeElement)
   const handleBaseElementsChange = useCallback(
     (baseElements: Artifact['baseElements']) => updateLocal({ baseElements }),
     [updateLocal]
@@ -683,7 +672,7 @@ export default function ArtifactWorkspace({
               <Button
                 size="small"
                 startIcon={<LibraryIcon />}
-                onClick={() => setLibPickerTarget('include')}
+                onClick={libraryPicker.openForInclude}
                 sx={{ textTransform: 'none' }}
               >
                 {t('workspace.useLibraryDefinition')}
@@ -709,7 +698,7 @@ export default function ArtifactWorkspace({
               <Button
                 size="small"
                 startIcon={<LibraryIcon />}
-                onClick={() => setLibPickerTarget('exclude')}
+                onClick={libraryPicker.openForExclude}
                 sx={{ textTransform: 'none' }}
               >
                 {t('workspace.useLibraryDefinition')}
@@ -730,9 +719,9 @@ export default function ArtifactWorkspace({
           </Box>
         )}
         <LibraryDefinitionPicker
-          open={libPickerTarget !== null}
-          onClose={() => setLibPickerTarget(null)}
-          onSelect={handleLibrarySelect}
+          open={libraryPicker.target !== null}
+          onClose={libraryPicker.close}
+          onSelect={libraryPicker.handleSelect}
         />
         {tab === 2 && (
           <Subpopulations

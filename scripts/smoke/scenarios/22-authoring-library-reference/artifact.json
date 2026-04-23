@@ -1,0 +1,27 @@
+{
+  "name": "Smoke22LibraryRef",
+  "version": "1.0.0",
+  "status": "draft",
+  "description": "Smoke: ArtifactRequest containing an externalCqlElement node (shape the CDS LibraryDefinitionPicker emits). Verifies the full Jackson deserialize → DTO mapping → entity @PrePersist → generateCql round-trip produces the expected include statement and body reference.",
+  "expTreeInclude": {
+    "id": "And",
+    "name": "And",
+    "conjunction": true,
+    "returnType": "boolean",
+    "childInstances": [
+      {
+        "uniqueId": "libref-smoke22",
+        "type": "externalCqlElement",
+        "name": "shared.\"HasDiabetes\"",
+        "returnType": "boolean",
+        "fields": [
+          { "id": "libraryName",    "type": "string", "name": "Library Name",    "value": "SharedLogic",  "static": true },
+          { "id": "libraryVersion", "type": "string", "name": "Library Version", "value": "1.2.0",        "static": true },
+          { "id": "definitionName", "type": "string", "name": "Definition Name", "value": "HasDiabetes",  "static": true },
+          { "id": "alias",          "type": "string", "name": "Alias",           "value": "shared",       "static": true }
+        ],
+        "modifiers": []
+      }
+    ]
+  }
+}

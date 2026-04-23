@@ -48,8 +48,9 @@ interface LibraryDefinitionPickerProps {
   onSelect: (reference: LibraryDefinitionReference) => void
 }
 
-/** Generate a short alias from a library name (uppercase first letters of camel/pascal words) */
-function generateAlias(name: string): string {
+/** Generate a short alias from a library name (uppercase first letters of camel/pascal words).
+ *  Exported for unit testing — not intended as a general utility. */
+export function generateAlias(name: string): string {
   // Split on uppercase boundaries: "DiabetesCohort" -> ["Diabetes", "Cohort"]
   const words = name.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/)
   const alias = words
