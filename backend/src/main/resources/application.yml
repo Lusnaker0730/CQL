@@ -113,6 +113,7 @@ rate-limit:
   execute-rpm: ${RATE_LIMIT_EXECUTE_RPM:10}
   fix-suggestion-rpm: ${RATE_LIMIT_FIX_SUGGESTION_RPM:5}
   library-read-rpm: ${RATE_LIMIT_LIBRARY_READ_RPM:120}
+  cds-discovery-rpm: ${RATE_LIMIT_CDS_DISCOVERY_RPM:20}
   # Per-user limits
   user-limit-enabled: ${RATE_LIMIT_USER_ENABLED:true}
   user-translate-rpm: ${RATE_LIMIT_USER_TRANSLATE_RPM:15}
