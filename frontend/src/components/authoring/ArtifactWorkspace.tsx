@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip, Tooltip, Alert, FormControlLabel, Switch } from '@mui/material'
-import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon, Public as PublicIcon } from '@mui/icons-material'
+import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon, Public as PublicIcon, LibraryBooks as LibraryIcon } from '@mui/icons-material'
+import LibraryDefinitionPicker, { type LibraryDefinitionReference } from '../cql-libraries/LibraryDefinitionPicker'
+import { libraryReferenceToElement } from '../../utils/libraryReference'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { useArtifactHistory } from '../../hooks/useArtifactHistory'
 import ArtifactWorkspaceHeader from './ArtifactWorkspaceHeader'
@@ -460,6 +462,25 @@ export default function ArtifactWorkspace({
     (subpopulations: Artifact['subpopulations']) => updateLocal({ subpopulations }),
     [updateLocal]
   )
+
+  // Library definition picker — lets authors insert stored CQL library references
+  // into the inclusion/exclusion trees. The target tracks whether the picker was
+  // opened from the Inclusions tab or Exclusions tab so onSelect dispatches to
+  // the right handler. Backend support for the resulting externalCqlElement node
+  // is contract-locked by CqlGenerationServiceLibraryIntegrationTest (PAT-102).
+  const [libPickerTarget, setLibPickerTarget] = useState<null | 'include' | 'exclude'>(null)
+  const handleLibrarySelect = useCallback(
+    (reference: LibraryDefinitionReference) => {
+      const element = libraryReferenceToElement(reference)
+      if (libPickerTarget === 'include') {
+        handleAddIncludeElement(element)
+      } else if (libPickerTarget === 'exclude') {
+        handleAddExcludeElement(element)
+      }
+      setLibPickerTarget(null)
+    },
+    [libPickerTarget, handleAddIncludeElement, handleAddExcludeElement]
+  )
   const handleBaseElementsChange = useCallback(
     (baseElements: Artifact['baseElements']) => updateLocal({ baseElements }),
     [updateLocal]
@@ -657,33 +678,62 @@ export default function ArtifactWorkspace({
           </Alert>
         )}
         {tab === 0 && (
-          <ConjunctionGroup
-            group={includeTree}
-            treeName="Inclusions"
-            templates={templates}
-            modifiers={allModifiers}
-            dynamicEntries={dynamicEntries}
-            twcoreMode={twcoreMode}
-            onUpdateGroup={handleUpdateInclude}
-            onAddElement={handleAddIncludeElement}
-            onRemoveElement={handleRemoveIncludeElement}
-            onUpdateElement={handleUpdateIncludeElement}
-          />
+          <Box>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+              <Button
+                size="small"
+                startIcon={<LibraryIcon />}
+                onClick={() => setLibPickerTarget('include')}
+                sx={{ textTransform: 'none' }}
+              >
+                {t('workspace.useLibraryDefinition')}
+              </Button>
+            </Stack>
+            <ConjunctionGroup
+              group={includeTree}
+              treeName="Inclusions"
+              templates={templates}
+              modifiers={allModifiers}
+              dynamicEntries={dynamicEntries}
+              twcoreMode={twcoreMode}
+              onUpdateGroup={handleUpdateInclude}
+              onAddElement={handleAddIncludeElement}
+              onRemoveElement={handleRemoveIncludeElement}
+              onUpdateElement={handleUpdateIncludeElement}
+            />
+          </Box>
         )}
         {tab === 1 && (
-          <ConjunctionGroup
-            group={excludeTree}
-            treeName="Exclusions"
-            templates={templates}
-            modifiers={allModifiers}
-            dynamicEntries={dynamicEntries}
-            twcoreMode={twcoreMode}
-            onUpdateGroup={handleUpdateExclude}
-            onAddElement={handleAddExcludeElement}
-            onRemoveElement={handleRemoveExcludeElement}
-            onUpdateElement={handleUpdateExcludeElement}
-          />
+          <Box>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+              <Button
+                size="small"
+                startIcon={<LibraryIcon />}
+                onClick={() => setLibPickerTarget('exclude')}
+                sx={{ textTransform: 'none' }}
+              >
+                {t('workspace.useLibraryDefinition')}
+              </Button>
+            </Stack>
+            <ConjunctionGroup
+              group={excludeTree}
+              treeName="Exclusions"
+              templates={templates}
+              modifiers={allModifiers}
+              dynamicEntries={dynamicEntries}
+              twcoreMode={twcoreMode}
+              onUpdateGroup={handleUpdateExclude}
+              onAddElement={handleAddExcludeElement}
+              onRemoveElement={handleRemoveExcludeElement}
+              onUpdateElement={handleUpdateExcludeElement}
+            />
+          </Box>
         )}
+        <LibraryDefinitionPicker
+          open={libPickerTarget !== null}
+          onClose={() => setLibPickerTarget(null)}
+          onSelect={handleLibrarySelect}
+        />
         {tab === 2 && (
           <Subpopulations
             subpopulations={localArtifact.subpopulations || []}

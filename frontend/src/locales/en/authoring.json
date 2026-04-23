@@ -64,7 +64,8 @@
       "message": "This artifact was modified in another tab or session. You can reload the latest version (your unsaved changes will be lost) or keep editing your current version.",
       "reload": "Reload",
       "keepEditing": "Keep Editing"
-    }
+    },
+    "useLibraryDefinition": "Use library definition"
   },
   "header": {
     "backToList": "Back to artifact list",

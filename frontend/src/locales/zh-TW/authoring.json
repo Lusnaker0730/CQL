@@ -64,7 +64,8 @@
       "message": "此人工製品已在另一個分頁或工作階段中被修改。您可以重新載入最新版本（未儲存的變更將會遺失），或繼續編輯您目前的版本。",
       "reload": "重新載入",
       "keepEditing": "繼續編輯"
-    }
+    },
+    "useLibraryDefinition": "引用程式庫定義"
   },
   "header": {
     "backToList": "返回人工製品清單",
