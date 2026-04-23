@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -67,6 +67,11 @@ describe('generateAlias', () => {
 // ── Dialog: library list → detail → confirm ──────────────────────────────
 
 describe('LibraryDefinitionPicker dialog', () => {
+  // Force English so text matchers (e.g. /alias/i, /^select$/i) are
+  // stable — i18n defaults to zh-TW per app config.
+  beforeAll(async () => {
+    await i18n.changeLanguage('en')
+  })
   beforeEach(() => {
     vi.clearAllMocks()
   })
