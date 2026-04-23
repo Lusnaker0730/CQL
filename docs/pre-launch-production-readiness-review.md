@@ -97,7 +97,7 @@
 - **現況**：`MeasureReportEntity` 有 `DESERIALIZATION_FAILURES` counter（BUG-114 加的），production 只 log warning
 - **風險**：DB 資料損壞 / schema drift 沒人發現，report 讀出來少欄位
 - **修法**：counter 接 Prometheus → Grafana alert；或 healthcheck degrade
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-108`（`measure.report.deserialization.failures` Micrometer gauge + Prometheus critical alert on `increase(... [10m]) > 0` + Grafana panel）
 
 ### #8 CDS Hooks discovery public 但沒 rate limit
 - **現況**：`GET /cds-services` unauth（spec 允許）+ `POST /cds-services/{id}` 無 rate limit

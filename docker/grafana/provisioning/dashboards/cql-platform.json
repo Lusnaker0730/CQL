@@ -261,6 +261,30 @@
           "unit": "reqps"
         }
       }
+    },
+    {
+      "title": "Measure Report Deserialization Failures",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 40 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "measure_report_deserialization_failures",
+          "legendFormat": "Cumulative failures"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
     }
   ],
   "schemaVersion": 39,

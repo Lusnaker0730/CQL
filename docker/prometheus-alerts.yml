@@ -113,3 +113,15 @@ groups:
         annotations:
           summary: "CQL execution queue is saturated"
           description: "CQL execution queue depth is {{ $value }} (capacity: 50). Consider scaling."
+
+      # Measure Report Deserialization Failure — silent data corruption / schema drift.
+      # Counter is cumulative per JVM; any increase in a 10-minute window means at least
+      # one historical report can no longer be loaded (null evaluationResult → empty dashboard).
+      - alert: MeasureReportDeserializationFailure
+        expr: increase(measure_report_deserialization_failures[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "measure_report deserialization failure detected"
+          description: "{{ $value }} measure_report row(s) failed JSON deserialization in the last 10m. Likely schema drift in MeasureEvaluationResult — check backend logs for WARN entries with report id and run the corresponding data migration."

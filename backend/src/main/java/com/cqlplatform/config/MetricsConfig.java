@@ -1,5 +1,6 @@
 package com.cqlplatform.config;
 
+import com.cqlplatform.entity.MeasureReportEntity;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -134,6 +135,17 @@ public class MetricsConfig {
         return Gauge.builder("cql.execution.pool.size", executor,
                 e -> ((ThreadPoolExecutor) e).getPoolSize())
                 .description("Current CQL execution pool size")
+                .register(registry);
+    }
+
+    // Non-zero means a measure_report row's result_json failed to deserialize at
+    // @PostLoad — silent schema drift or data corruption. Alertable in Prometheus.
+    @Bean
+    public Gauge measureReportDeserializationFailures(MeterRegistry registry) {
+        return Gauge.builder("measure.report.deserialization.failures",
+                MeasureReportEntity.class,
+                c -> MeasureReportEntity.getDeserializationFailureCount())
+                .description("Cumulative count of measure_report rows whose result_json failed JSON deserialization at load time")
                 .register(registry);
     }
 }
