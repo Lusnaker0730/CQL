@@ -125,7 +125,7 @@
   2. 由 domain expert 填充每份文件
   3. Review + sign-off 流程定義
   4. 版本控制與 revision tracking
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Partially Done — PAT-106`（跑 generator 產出 v1.0.0 artifacts 6 份：SRS、SDS、RMR、SVR、TM、CCR；另加 STR 測試報告（1341/1342 pass = 99.9% 通過率）與 MANIFEST.sha256 + MANIFEST.json 完整性 manifest 於 `regulatory_docs/output/`。修法步驟 1 + 4 完成；步驟 2 domain expert 填充 + 步驟 3 review/sign-off 流程為後續組織層工作，非工程可完成 — 列入 Tier 2 follow-up。Generator 亦揭露 ~50 個 pre-TFDA 時代的舊 requirement issues 缺 design/risk/verify 追溯連結；歷史資料，不在本 PR backfill 範圍）
 
 ---
 
