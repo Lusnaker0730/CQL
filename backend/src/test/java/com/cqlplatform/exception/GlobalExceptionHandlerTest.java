@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -177,6 +178,29 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(400);
         assertThat(response.getBody().getMessage()).isEqualTo("Invalid FHIR resource type");
+    }
+
+    // ===== RejectedExecutionException → 503 with Retry-After =====
+    // PAT-109: when patientImportExecutor AbortPolicy rejects a bulk-import submit,
+    // the API should return a retry-able 503 rather than the generic 500 fallback.
+
+    @Test
+    void handleRejectedExecutionException_shouldReturn503WithRetryAfterHeader() {
+        RejectedExecutionException ex = new RejectedExecutionException(
+                "Task rejected from ThreadPoolExecutor[...]");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleRejectedExecutionException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("30");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(503);
+        assertThat(response.getBody().getError()).isEqualTo("Service Overloaded");
+        assertThat(response.getBody().getMessage())
+                .as("user-facing message must be retry-oriented, not leak internals like 'ThreadPoolExecutor'")
+                .contains("retry")
+                .doesNotContain("ThreadPoolExecutor");
     }
 
     // ===== Generic Exception → 500, no leak =====

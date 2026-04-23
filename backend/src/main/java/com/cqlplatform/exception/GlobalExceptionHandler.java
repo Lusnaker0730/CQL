@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 @RestControllerAdvice
 @Slf4j
@@ -109,6 +110,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    // Thrown when an AbortPolicy-backed thread pool is saturated. Today that's
+    // patientImportExecutor (bulk EHR import). 503 + Retry-After lets the client
+    // back off rather than interpret a 500 as a platform bug.
+    @ExceptionHandler(RejectedExecutionException.class)
+    public ResponseEntity<ErrorResponse> handleRejectedExecutionException(RejectedExecutionException ex) {
+        log.warn("Task rejected by executor (pool saturated): {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "30")
+                .body(ErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                        .error("Service Overloaded")
+                        .message("The server is currently handling too many concurrent requests. Please retry in a few seconds.")
+                        .requestId(MDC.get("requestId"))
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)
