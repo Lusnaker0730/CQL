@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nextProvider } from 'react-i18next'
 import LibraryDefinitionPicker, {
-  generateAlias,
   type LibraryDefinitionReference,
 } from '../LibraryDefinitionPicker'
+import { generateAlias } from '../../../utils/libraryAlias'
 import { render } from '@testing-library/react'
 import i18n from '../../../i18n'
 

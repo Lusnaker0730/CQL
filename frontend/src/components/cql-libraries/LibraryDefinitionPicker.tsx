@@ -33,6 +33,7 @@ import { useCqlLibrary } from '../../hooks/useCqlLibraries'
 import { cqlApi } from '../../api'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import StatusChip from '../common/StatusChip'
+import { generateAlias } from '../../utils/libraryAlias'
 import type { CqlLibrary } from '../../types'
 
 export interface LibraryDefinitionReference {
@@ -46,17 +47,6 @@ interface LibraryDefinitionPickerProps {
   open: boolean
   onClose: () => void
   onSelect: (reference: LibraryDefinitionReference) => void
-}
-
-/** Generate a short alias from a library name (uppercase first letters of camel/pascal words).
- *  Exported for unit testing — not intended as a general utility. */
-export function generateAlias(name: string): string {
-  // Split on uppercase boundaries: "DiabetesCohort" -> ["Diabetes", "Cohort"]
-  const words = name.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/)
-  const alias = words
-    .map((w) => w.charAt(0).toUpperCase())
-    .join('')
-  return alias || name.substring(0, 3).toUpperCase()
 }
 
 export default function LibraryDefinitionPicker({
