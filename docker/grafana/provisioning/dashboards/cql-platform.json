@@ -261,6 +261,118 @@
           "unit": "reqps"
         }
       }
+    },
+    {
+      "title": "Measure Report Deserialization Failures",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 40 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "measure_report_deserialization_failures",
+          "legendFormat": "Cumulative failures"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "HikariCP Connection Pool",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{application=\"cql-platform\"}",
+          "legendFormat": "active"
+        },
+        {
+          "expr": "hikaricp_connections_idle{application=\"cql-platform\"}",
+          "legendFormat": "idle"
+        },
+        {
+          "expr": "hikaricp_connections_pending{application=\"cql-platform\"}",
+          "legendFormat": "pending (waiting)"
+        },
+        {
+          "expr": "hikaricp_connections_max{application=\"cql-platform\"}",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "title": "HikariCP Connection Timeouts (5m rate)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "increase(hikaricp_connections_timeout_total{application=\"cql-platform\"}[5m])",
+          "legendFormat": "timeouts"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Patient Import Pool",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "patient_import_queue_size",
+          "legendFormat": "queue depth"
+        },
+        {
+          "expr": "patient_import_pool_active",
+          "legendFormat": "active threads"
+        },
+        {
+          "expr": "patient_import_pool_size",
+          "legendFormat": "pool size"
+        }
+      ]
+    },
+    {
+      "title": "CQL Execution Pool",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "cql_execution_queue_size",
+          "legendFormat": "queue depth"
+        },
+        {
+          "expr": "cql_execution_pool_active",
+          "legendFormat": "active threads"
+        },
+        {
+          "expr": "cql_execution_pool_size",
+          "legendFormat": "pool size"
+        }
+      ]
     }
   ],
   "schemaVersion": 39,
