@@ -5,6 +5,7 @@ import { LibraryBooks as LibraryIcon } from '@mui/icons-material'
 import type { ConjunctionGroup as ConjunctionGroupType, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../types/authoring'
 import ConjunctionGroup from '../authoring/builder/ConjunctionGroup'
 import LibraryDefinitionPicker, { type LibraryDefinitionReference } from '../cql-libraries/LibraryDefinitionPicker'
+import { libraryReferenceToElement } from '../../utils/libraryReference'
 
 interface Props {
   label: string
@@ -50,20 +51,9 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
   }, [onUpdateTree])
 
   const handleLibrarySelect = useCallback((reference: LibraryDefinitionReference) => {
-    // Create an element instance representing the library definition reference
-    const element: ElementInstance = {
-      uniqueId: `libref-${Date.now().toString(36)}`,
-      type: 'externalCqlElement',
-      name: `${reference.alias}."${reference.definitionName}"`,
-      returnType: 'boolean',
-      fields: [
-        { id: 'libraryName', type: 'string', name: 'Library Name', value: reference.libraryName, static: true },
-        { id: 'libraryVersion', type: 'string', name: 'Library Version', value: reference.libraryVersion, static: true },
-        { id: 'definitionName', type: 'string', name: 'Definition Name', value: reference.definitionName, static: true },
-        { id: 'alias', type: 'string', name: 'Alias', value: reference.alias, static: true },
-      ],
-      modifiers: [],
-    }
+    // Convert via shared factory so eCQM and CDS authoring produce identical
+    // `externalCqlElement` shapes (PAT-103). See utils/libraryReference.ts.
+    const element = libraryReferenceToElement(reference)
     onUpdateTree({
       ...treeRef.current,
       childInstances: [...treeRef.current.childInstances, element],
