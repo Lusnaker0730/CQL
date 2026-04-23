@@ -221,6 +221,12 @@ ehr:
     max-retry-attempts: ${EHR_IMPORT_MAX_RETRIES:3}
     retry-initial-delay-seconds: ${EHR_IMPORT_RETRY_DELAY:60}
     retry-check-interval-ms: ${EHR_IMPORT_RETRY_CHECK_INTERVAL:60000}
+    # Dedicated thread pool for bulk patient imports so they cannot starve the CQL execution
+    # pool. AbortPolicy: if queue (100) overflows, the submitting /api/ehr/import request
+    # fails fast with 503 rather than blocking a Tomcat thread for minutes.
+    thread-pool-size: ${EHR_IMPORT_THREAD_POOL_SIZE:4}
+    max-pool-size: ${EHR_IMPORT_MAX_POOL_SIZE:8}
+    queue-capacity: ${EHR_IMPORT_QUEUE_CAPACITY:100}
   health:
     check-interval-ms: ${EHR_HEALTH_CHECK_INTERVAL:900000}
     check-interval-minutes: ${EHR_HEALTH_CHECK_MINUTES:15}

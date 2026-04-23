@@ -109,7 +109,7 @@
 - **現況**：`application.yml:48` `maximum-pool-size: 20`；measure pool 也 20
 - **風險**：100 concurrent EHR users + bulk patient import = 連線池爆、API 超時
 - **修法**：依實際 concurrent user 估算（一般建議 2× CPU + spindles）；bulk 操作走 background queue 不占 API pool
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-109`（bulk import 獨立 `patientImportExecutor` + Hikari/patient-import 全套 Micrometer metrics + Prometheus 3 條 saturation alert + Grafana 4 panel；pool size 數字等 production load metrics 再調，observability 先就位）
 
 ### #10 FHIR server outage 沒 graceful degradation
 - **現況**：Circuit breaker 有設（Resilience4j `application.yml:283-287`），但 UX 沒定義
