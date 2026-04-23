@@ -719,5 +719,8 @@
       "reset": "重設進度",
       "resetConfirm": "確定要重設所有學習進度嗎？"
     }
+  },
+  "footer": {
+    "contactPrompt": "商業合作 / 錯誤回報："
   }
 }
