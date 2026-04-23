@@ -266,7 +266,20 @@
     "resourceCount": "Resources",
     "active": "Active",
     "inactive": "Inactive",
-    "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
+    "fhirUrlPlaceholder": "https://fhir.example.com/fhir",
+    "health": {
+      "column": "Live Health",
+      "columnTooltip": "Auto-refreshes every 30s from the latest scheduled health check and circuit-breaker state.",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "unknown": "Unknown",
+      "availability24h": "Availability (24h): {{pct}}%",
+      "avgResponseMs": "Avg response: {{ms}} ms",
+      "errorCount24h": "Errors (24h): {{count}}",
+      "lastCheckedAt": "Last checked: {{at}}",
+      "noData": "No health checks recorded yet"
+    }
   },
   "degradation": {
     "titleGeneric": "EHR FHIR server is temporarily unavailable",
