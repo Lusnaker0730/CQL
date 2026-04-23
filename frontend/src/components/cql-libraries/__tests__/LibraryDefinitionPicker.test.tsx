@@ -72,11 +72,13 @@ describe('LibraryDefinitionPicker dialog', () => {
   })
 
   function mockLibrariesListWith(libraries: unknown[]) {
-    ;(cqlApi.getLibraries as ReturnType<typeof vi.fn>).mockResolvedValue(libraries)
+    const getLibsMock = cqlApi.getLibraries as ReturnType<typeof vi.fn>
+    getLibsMock.mockResolvedValue(libraries)
   }
 
   function mockLibraryDetailWith(cqlContent: string, loading = false) {
-    ;(useCqlLibrary as ReturnType<typeof vi.fn>).mockReturnValue({
+    const useLibMock = useCqlLibrary as ReturnType<typeof vi.fn>
+    useLibMock.mockReturnValue({
       data: { cqlContent },
       isLoading: loading,
     })
@@ -102,7 +104,7 @@ describe('LibraryDefinitionPicker dialog', () => {
     mockLibrariesListWith([
       { id: 1, name: 'SharedLogic', version: '1.2.0', status: 'active', ownerUsername: 'u' },
     ])
-    mockLibraryDetailWith('library SharedLogic version \'1.2.0\'\ndefine HasDiabetes: true\n', false)
+    mockLibraryDetailWith('library SharedLogic version \'1.2.0\'\ndefine "HasDiabetes": true\n', false)
 
     const user = userEvent.setup()
     renderPicker()
@@ -121,7 +123,7 @@ describe('LibraryDefinitionPicker dialog', () => {
     mockLibrariesListWith([
       { id: 1, name: 'SharedLogic', version: '1.2.0', status: 'active', ownerUsername: 'u' },
     ])
-    mockLibraryDetailWith('library SharedLogic version \'1.2.0\'\ndefine HasDiabetes: true\n', false)
+    mockLibraryDetailWith('library SharedLogic version \'1.2.0\'\ndefine "HasDiabetes": true\n', false)
 
     const user = userEvent.setup()
     const { onSelect } = renderPicker()
@@ -147,7 +149,7 @@ describe('LibraryDefinitionPicker dialog', () => {
     mockLibrariesListWith([
       { id: 1, name: 'SharedLogic', version: '1.2.0', status: 'active', ownerUsername: 'u' },
     ])
-    mockLibraryDetailWith('define HasDiabetes: true\n', false)
+    mockLibraryDetailWith('define "HasDiabetes": true\n', false)
 
     const user = userEvent.setup()
     renderPicker()
@@ -172,7 +174,7 @@ describe('LibraryDefinitionPicker dialog', () => {
     mockLibrariesListWith([
       { id: 1, name: 'SharedLogic', version: '1.2.0', status: 'active', ownerUsername: 'u' },
     ])
-    mockLibraryDetailWith('define HasDiabetes: true\n', false)
+    mockLibraryDetailWith('define "HasDiabetes": true\n', false)
 
     const user = userEvent.setup()
     const { onSelect } = renderPicker()
