@@ -52,9 +52,14 @@ describe('EhrConnectionList — Live Health column (PAT-111)', () => {
     render(<EhrConnectionList />)
 
     await waitFor(() => {
-      // One chip per row shows the availability % (100% and 0%).
-      expect(screen.getByText(/100%/)).toBeInTheDocument()
-      expect(screen.getByText(/0%/)).toBeInTheDocument()
+      // Two chips, one per row. Match the full "<i18n-key> <pct>%" label shape
+      // produced by HealthCell — a loose regex like /0%/ would greedy-match
+      // both "100%" and "0%" and fail as non-unique.
+      const chips = screen.getAllByText(/ehr\.health\.(healthy|down|degraded|unknown) \d+%/)
+      expect(chips).toHaveLength(2)
+      const labels = chips.map(c => c.textContent ?? '')
+      expect(labels.some(t => t.endsWith(' 100%'))).toBe(true)
+      expect(labels.some(t => t.endsWith(' 0%'))).toBe(true)
     })
   })
 
