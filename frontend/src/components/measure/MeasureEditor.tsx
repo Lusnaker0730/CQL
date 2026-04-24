@@ -438,7 +438,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         )}
         {tab === 6 && (
           <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-            <MeasureReportHistory />
+            <MeasureReportHistory measureId={measure.id} />
           </Box>
         )}
         {tab === 7 && (

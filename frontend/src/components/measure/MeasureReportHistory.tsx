@@ -30,20 +30,33 @@ import { downloadBlob } from '../../utils/download'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
 
-export default function MeasureReportHistory() {
+interface MeasureReportHistoryProps {
+  /** PAT-122: when provided, the Reports tab only shows reports for this
+   *  specific measure (via /measures/{id}/reports). When absent, falls back
+   *  to the unfiltered /measures/reports for any standalone usage. */
+  measureId?: number
+}
+
+export default function MeasureReportHistory({ measureId }: MeasureReportHistoryProps = {}) {
   const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [exportAnchor, setExportAnchor] = useState<{ el: HTMLElement; id: number } | null>(null)
 
+  const queryKey = measureId != null
+    ? ['measureReports', 'measure', measureId]
+    : ['measureReports']
   const { data: reports = [], isLoading } = useQuery({
-    queryKey: ['measureReports'],
-    queryFn: () => measureApi.getReports(),
+    queryKey,
+    queryFn: () => measureId != null
+      ? measureApi.getReportsForMeasure(measureId)
+      : measureApi.getReports(),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => measureApi.deleteReport(id),
+    // Invalidate both scoped and unscoped keys so any open tab refreshes.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measureReports'] }),
   })
 
