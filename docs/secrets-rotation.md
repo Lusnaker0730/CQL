@@ -39,6 +39,7 @@ All secrets are managed via Bitnami Sealed Secrets. Plaintext values live in `sc
 | `OKTA_CLIENT_ID` | Rarely | Only when rotating Okta app |
 | `OKTA_CLIENT_SECRET` | 180 days | Regenerate in Okta admin console |
 | `OKTA_ISSUER` | Rarely | Only if Okta org/auth server changes |
+| `METRICS_SCRAPE_PASSWORD` | 90 days | **See special procedure below** (must stay in sync between backend + prometheus containers) |
 
 ## Special: ENCRYPTION_KEY Rotation
 
@@ -51,6 +52,61 @@ The `ENCRYPTION_KEY` is used to encrypt sensitive data at rest in the database. 
 5. Rotate the secret as per normal procedure
 
 **Do not rotate ENCRYPTION_KEY without completing the re-encryption step**, or encrypted data will become unreadable.
+
+## Special: METRICS_SCRAPE_PASSWORD Rotation (PAT-113)
+
+This secret protects `/actuator/prometheus` with HTTP Basic auth. It is consumed by
+**two containers simultaneously** (`backend` signs auth, `prometheus` scrape sends it),
+so a mid-rotation window where backend has the new password but prometheus has the old
+(or vice versa) causes scrape failures and the `ServiceDown` alert fires. The rotation
+must restart both containers in one shot.
+
+### VM (docker-compose) procedure
+
+```bash
+# 1. SSH in
+ssh root@<VM>
+
+# 2. Generate new secret
+NEW=$(openssl rand -base64 24)
+# Intentionally NOT echoed — prevents the password leaking into shell history
+
+# 3. Update .env atomically (sed -i in-place, no stdout echo)
+cd /opt/CQL/docker
+sed -i "/^METRICS_SCRAPE_PASSWORD=/d" .env
+echo "METRICS_SCRAPE_PASSWORD=$NEW" >> .env
+unset NEW   # scrub from shell env
+
+# 4. Force-recreate both containers (MUST be done together)
+docker compose -f docker-compose.yml up -d --force-recreate prometheus backend
+
+# 5. Verify scrape resumes
+sleep 15
+docker exec docker-prometheus-1 sh -c \
+  "wget -q -O- 'http://localhost:9090/api/v1/query?query=up{job=\"cql-platform\"}'" \
+  | jq '.data.result[0].value[1]'
+# Expected: "1"
+```
+
+### Kubernetes procedure
+
+Update both the backend and prometheus deployments in the same sealed-secrets bundle,
+apply, then:
+```bash
+kubectl rollout restart deployment/backend deployment/prometheus -n cql-platform
+```
+
+### Safety notes
+
+- **Never paste the password on the command line as an argument to `curl -u` or
+  `wget --password=` to verify** — BusyBox (alpine containers) prints unknown flags
+  with their values to stderr, leaking the secret into logs. Trust the Prometheus
+  `up{job="cql-platform"}=1` signal instead.
+- If the rotation fails halfway (backend restarts but prometheus doesn't), the
+  `ServiceDown` alert will fire. This is loud by design. Complete the rotation or
+  roll back both.
+- The password is present in `docker inspect` output — treat the VM's docker socket
+  as secret-sensitive.
 
 ## Special: JWT_SECRET Rotation
 
