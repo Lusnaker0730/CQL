@@ -116,6 +116,13 @@ export interface StratifierElement {
 export interface SupplementalDataElement {
   name: string
   criteria?: ConjunctionGroup
+  /** Stable client-side id for React keys on custom SDEs. Absent on legacy
+   *  rows; EcqmSdeTab falls back to array index for those. */
+  id?: string
+  /** Marks the row as a custom SDE (not one of the standard SDE
+   *  Ethnicity/Race/Sex/Payer templates). Lets name collisions with
+   *  standard SDE names stay in the custom list instead of disappearing. */
+  custom?: boolean
 }
 
 export interface PublishResult {
