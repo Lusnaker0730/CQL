@@ -1161,6 +1161,9 @@ export interface DataRequirementInfo {
   profile?: string[]
   codeFilter?: CodeFilterInfo[]
   dateFilter?: DateFilterInfo[]
+  /** PAT-121a: populated only on the Patient entry when the measure has
+   *  age / gender constraints (e.g. adult-only cohort). */
+  patientFilter?: PatientFilterInfo
 }
 
 export interface CodeFilterInfo {
@@ -1170,6 +1173,16 @@ export interface CodeFilterInfo {
   codeSystemUrl?: string
   codeSystemName?: string
   code?: CodingInfo[]
+  /** PAT-121b: code prefixes captured from `StartsWith(code, 'E08')` patterns.
+   *  Clinical CQL often groups ICD ranges by prefix rather than enumerating codes. */
+  codePrefixes?: string[]
+}
+
+export interface PatientFilterInfo {
+  minAge?: number
+  maxAge?: number
+  ageUnit?: string
+  gender?: string[]
 }
 
 export interface DateFilterInfo {

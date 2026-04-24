@@ -162,8 +162,12 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
   const { t } = useTranslation('measures')
   const hasCodeFilter = requirement.codeFilter && requirement.codeFilter.length > 0
   const hasDateFilter = requirement.dateFilter && requirement.dateFilter.length > 0
+  const hasPatientFilter = requirement.patientFilter
+    && (requirement.patientFilter.minAge != null
+        || requirement.patientFilter.maxAge != null
+        || (requirement.patientFilter.gender && requirement.patientFilter.gender.length > 0))
 
-  if (!hasCodeFilter && !hasDateFilter) {
+  if (!hasCodeFilter && !hasDateFilter && !hasPatientFilter) {
     return (
       <TableRow>
         <TableCell colSpan={3}>
@@ -177,6 +181,50 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
 
   return (
     <>
+      {/* PAT-121a: Patient demographic filter (age / gender). Only appears on the
+          Patient row when the measure has demographic constraints — measures
+          applicable to all patients keep the row minimal. */}
+      {hasPatientFilter && requirement.patientFilter && (
+        <TableRow>
+          <TableCell>
+            <Chip label={t('dataRequirements.filterTypes.patient')} size="small" variant="outlined" color="secondary" sx={{ fontSize: '0.75rem' }} />
+          </TableCell>
+          <TableCell>
+            <Typography variant="body2" fontFamily="monospace">
+              {requirement.patientFilter.minAge != null || requirement.patientFilter.maxAge != null
+                ? 'age / gender'
+                : 'gender'}
+            </Typography>
+          </TableCell>
+          <TableCell>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              {(requirement.patientFilter.minAge != null || requirement.patientFilter.maxAge != null) && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  label={t('dataRequirements.ageRange', {
+                    min: requirement.patientFilter.minAge ?? '–',
+                    max: requirement.patientFilter.maxAge ?? '–',
+                    unit: requirement.patientFilter.ageUnit || 'Year',
+                  })}
+                  sx={{ fontSize: '0.7rem' }}
+                />
+              )}
+              {requirement.patientFilter.gender?.map((g) => (
+                <Chip
+                  key={g}
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  label={t('dataRequirements.gender', { value: g })}
+                  sx={{ fontSize: '0.7rem' }}
+                />
+              ))}
+            </Stack>
+          </TableCell>
+        </TableRow>
+      )}
       {requirement.codeFilter?.map((cf, i) => (
         <TableRow key={`code-${i}`}>
           <TableCell>
@@ -226,6 +274,24 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
                     size="small"
                     variant="outlined"
                     title={c.system ? `${c.system}|${c.code}` : c.code}
+                    sx={{ fontSize: '0.7rem' }}
+                  />
+                ))}
+              </Stack>
+            )}
+            {/* PAT-121b: code prefixes from StartsWith patterns ("any ICD-10 code
+                starting with E08"). Rendered distinct from exact-code chips so
+                authors see this is a range match, not an enumerated list. */}
+            {cf.codePrefixes && cf.codePrefixes.length > 0 && (
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                {cf.codePrefixes.map((p, j) => (
+                  <Chip
+                    key={`prefix-${j}`}
+                    label={`${p}*`}
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    title={t('dataRequirements.prefixTooltip', { prefix: p })}
                     sx={{ fontSize: '0.7rem' }}
                   />
                 ))}

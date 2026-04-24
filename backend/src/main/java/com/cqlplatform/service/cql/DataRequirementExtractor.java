@@ -4,6 +4,7 @@ import com.cqlplatform.model.measure.DataRequirementInfo;
 import com.cqlplatform.model.measure.DataRequirementInfo.CodeFilterInfo;
 import com.cqlplatform.model.measure.DataRequirementInfo.CodingInfo;
 import com.cqlplatform.model.measure.DataRequirementInfo.DateFilterInfo;
+import com.cqlplatform.model.measure.DataRequirementInfo.PatientFilterInfo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -57,8 +58,14 @@ public class DataRequirementExtractor {
             List<RetrieveInfo> retrieves = new ArrayList<>();
             collectRetrieves(root, retrieves, codeSystemMap, codeDefMap, conceptDefMap, new HashSet<>());
 
+            // PAT-121a: scan the whole ELM once for Patient demographic filters
+            // (age / gender). They usually live in "Initial Population" or similar
+            // expressions, not inside a Patient retrieve — so we walk the entire
+            // tree separately rather than expecting per-retrieve where clauses.
+            PatientFilterInfo patientFilter = collectPatientFilter(root);
+
             // Convert to DataRequirementInfo and deduplicate
-            return deduplicateRequirements(retrieves, valueSetMap);
+            return deduplicateRequirements(retrieves, valueSetMap, patientFilter);
         } catch (Exception e) {
             log.warn("Failed to extract data requirements from ELM JSON: {}", e.getMessage());
             return Collections.emptyList();
@@ -130,6 +137,167 @@ public class DataRequirementExtractor {
             }
         }
         return map;
+    }
+
+    /**
+     * PAT-121a: walk all statement expressions collecting Patient demographic
+     * filters. CQL usually expresses these at measure-level (e.g. in an
+     * "Initial Population" define: {@code AgeInYearsAt(...) >= 18 and
+     * AgeInYearsAt(...) <= 64} and/or {@code Patient.gender = 'male'}), not
+     * inside individual Retrieve where clauses — so we scan the whole tree
+     * separately and aggregate the constraints.
+     *
+     * <p>Returns null when no demographic filters are detected so the emitted
+     * Patient entry stays minimal for measures that apply to all demographics.
+     */
+    private PatientFilterInfo collectPatientFilter(JsonNode root) {
+        PatientFilterInfo acc = new PatientFilterInfo();
+        acc.setGender(new ArrayList<>());
+        walkForPatientFilter(root, acc);
+        boolean hasAny = acc.getMinAge() != null || acc.getMaxAge() != null
+                || !acc.getGender().isEmpty();
+        if (!hasAny) return null;
+        if (acc.getGender().isEmpty()) acc.setGender(null);
+        return acc;
+    }
+
+    private void walkForPatientFilter(JsonNode node, PatientFilterInfo acc) {
+        if (node == null) return;
+        if (node.isObject()) {
+            String type = node.path("type").asText("");
+            if (!type.isEmpty()) {
+                tryMatchAgeFilter(node, type, acc);
+                tryMatchGenderFilter(node, type, acc);
+            }
+            for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+                walkForPatientFilter(it.next(), acc);
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) walkForPatientFilter(child, acc);
+        }
+    }
+
+    /**
+     * PAT-121a: match {@code GreaterOrEqual/LessOrEqual/Greater/Less/Equal}
+     * where one operand is a {@code CalculateAge}/{@code CalculateAgeAt} call
+     * and the other is an integer Literal. Narrows min/max conservatively —
+     * {@code >= 18} tightens minAge to max(existing, 18).
+     */
+    private void tryMatchAgeFilter(JsonNode node, String type, PatientFilterInfo acc) {
+        boolean isComparison = "GreaterOrEqual".equals(type) || "LessOrEqual".equals(type)
+                || "Greater".equals(type) || "Less".equals(type) || "Equal".equals(type);
+        if (!isComparison) return;
+        JsonNode ops = node.get("operand");
+        if (ops == null || !ops.isArray() || ops.size() < 2) return;
+        JsonNode a = ops.get(0);
+        JsonNode b = ops.get(1);
+        // Detect which side is CalculateAge, which is Literal
+        Integer ageLiteral;
+        String precision;
+        boolean ageOnLeft;
+        if (isCalculateAgeCall(a) && isIntLiteral(b)) {
+            precision = a.path("precision").asText(null);
+            ageLiteral = parseIntLiteral(b);
+            ageOnLeft = true;
+        } else if (isCalculateAgeCall(b) && isIntLiteral(a)) {
+            precision = b.path("precision").asText(null);
+            ageLiteral = parseIntLiteral(a);
+            ageOnLeft = false;
+        } else {
+            return;
+        }
+        if (ageLiteral == null) return;
+        if (acc.getAgeUnit() == null && precision != null) acc.setAgeUnit(precision);
+
+        // Normalize so comparison reads "age <op> literal"
+        String effective = ageOnLeft ? type : flipComparison(type);
+        switch (effective) {
+            case "GreaterOrEqual": // age >= N → minAge = max(existing, N)
+                if (acc.getMinAge() == null || ageLiteral > acc.getMinAge()) acc.setMinAge(ageLiteral);
+                break;
+            case "Greater": // age > N → minAge = max(existing, N+1)
+                int inclusive = ageLiteral + 1;
+                if (acc.getMinAge() == null || inclusive > acc.getMinAge()) acc.setMinAge(inclusive);
+                break;
+            case "LessOrEqual":
+                if (acc.getMaxAge() == null || ageLiteral < acc.getMaxAge()) acc.setMaxAge(ageLiteral);
+                break;
+            case "Less":
+                int maxIncl = ageLiteral - 1;
+                if (acc.getMaxAge() == null || maxIncl < acc.getMaxAge()) acc.setMaxAge(maxIncl);
+                break;
+            case "Equal":
+                acc.setMinAge(ageLiteral);
+                acc.setMaxAge(ageLiteral);
+                break;
+            default: // no-op
+        }
+    }
+
+    private boolean isCalculateAgeCall(JsonNode node) {
+        if (node == null || !node.isObject()) return false;
+        String t = node.path("type").asText("");
+        return "CalculateAge".equals(t) || "CalculateAgeAt".equals(t);
+    }
+
+    private boolean isIntLiteral(JsonNode node) {
+        if (node == null || !node.isObject()) return false;
+        if (!"Literal".equals(node.path("type").asText(""))) return false;
+        String vt = node.path("valueType").asText("");
+        return vt.contains("Integer");
+    }
+
+    private Integer parseIntLiteral(JsonNode node) {
+        try {
+            return Integer.parseInt(node.path("value").asText(""));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String flipComparison(String op) {
+        switch (op) {
+            case "GreaterOrEqual": return "LessOrEqual";
+            case "LessOrEqual": return "GreaterOrEqual";
+            case "Greater": return "Less";
+            case "Less": return "Greater";
+            default: return op; // Equal stays Equal
+        }
+    }
+
+    /**
+     * PAT-121a: match {@code Equal(Property(path=gender, ...), Literal("male"|"female"|...))}
+     * where the Property is rooted at an ExpressionRef("Patient") or the Patient
+     * context. Collects all literal gender values seen across the library.
+     */
+    private void tryMatchGenderFilter(JsonNode node, String type, PatientFilterInfo acc) {
+        if (!"Equal".equals(type) && !"Equivalent".equals(type)) return;
+        JsonNode ops = node.get("operand");
+        if (ops == null || !ops.isArray() || ops.size() < 2) return;
+        String literal = extractGenderLiteral(ops.get(0), ops.get(1));
+        if (literal == null) literal = extractGenderLiteral(ops.get(1), ops.get(0));
+        if (literal != null && !acc.getGender().contains(literal)) {
+            acc.getGender().add(literal);
+        }
+    }
+
+    private String extractGenderLiteral(JsonNode propNode, JsonNode litNode) {
+        if (propNode == null || litNode == null) return null;
+        if (!"Literal".equals(litNode.path("type").asText(""))) return null;
+        JsonNode unwrapped = unwrapToProperty(propNode);
+        if (unwrapped == null) return null;
+        // Accept Property(path=gender) OR Property(path=value, source=Property(path=gender))
+        String path = unwrapped.path("path").asText("");
+        if ("value".equals(path)) {
+            JsonNode inner = unwrapped.get("source");
+            if (inner != null && "Property".equals(inner.path("type").asText(""))
+                    && "gender".equals(inner.path("path").asText(""))) {
+                return litNode.path("value").asText(null);
+            }
+        } else if ("gender".equals(path)) {
+            return litNode.path("value").asText(null);
+        }
+        return null;
     }
 
     /**
@@ -500,6 +668,48 @@ public class DataRequirementExtractor {
                 }
             }
         }
+
+        // PAT-121b: detect StartsWith(Coding.code.value, 'E08') and capture the prefix.
+        // Very common in clinical CQL to match ICD-10 code ranges without enumerating
+        // every code ("E08-E13" = diabetes). Accept the built-in StartsWith ELM node
+        // AND user-defined function wrappers such as `CodeStartsWith` (case
+        // insensitive "startsWith" substring) that many shared libraries provide.
+        boolean isStartsWith = "StartsWith".equals(type)
+                || ("FunctionRef".equals(type)
+                        && node.path("name").asText("").toLowerCase().contains("startswith"));
+        if (isStartsWith) {
+            JsonNode ops = node.get("operand");
+            if (ops != null && ops.isArray() && ops.size() >= 2) {
+                String prefix = extractStartsWithPrefix(ops.get(0), ops.get(1), innerAlias);
+                if (prefix != null && !info.codePrefixes.contains(prefix)) {
+                    info.codePrefixes.add(prefix);
+                }
+            }
+        }
+    }
+
+    /**
+     * PAT-121b: match {@code StartsWith(Property(value → code on alias), Literal("E08"))}
+     * and return the prefix literal. Returns null if the shape doesn't match.
+     */
+    private String extractStartsWithPrefix(JsonNode propertyNode, JsonNode literalNode, String innerAlias) {
+        if (propertyNode == null || literalNode == null) return null;
+        if (!"Literal".equals(literalNode.path("type").asText(""))) return null;
+        JsonNode unwrapped = unwrapToProperty(propertyNode);
+        if (unwrapped == null) return null;
+        // Expect Property(path=value, source=Property(path=code, scope=alias))
+        // (or Property(path=code) directly — some translator versions skip the .value)
+        String outerPath = unwrapped.path("path").asText("");
+        if ("value".equals(outerPath)) {
+            JsonNode inner = unwrapped.get("source");
+            if (inner != null && "Property".equals(inner.path("type").asText(""))
+                    && "code".equals(inner.path("path").asText(""))) {
+                return literalNode.path("value").asText(null);
+            }
+        } else if ("code".equals(outerPath)) {
+            return literalNode.path("value").asText(null);
+        }
+        return null;
     }
 
     /**
@@ -518,8 +728,20 @@ public class DataRequirementExtractor {
             return null;
         }
 
-        // Check unwrapped is a Property with path "system" (or "url")
+        // Check unwrapped is a Property with path "system" (or "url").
+        // PAT-121c: CQL `Coding.system.value = 'http://...'` produces ELM
+        // Property(path="value", source=Property(path="system")). Unwrap the
+        // outer .value accessor so the actual system/url property is visible.
         String path = unwrapped.path("path").asText("");
+        if ("value".equals(path)) {
+            JsonNode inner = unwrapped.get("source");
+            if (inner != null && "Property".equals(inner.path("type").asText(""))) {
+                String innerPath = inner.path("path").asText("");
+                if ("system".equals(innerPath) || "url".equals(innerPath)) {
+                    path = innerPath;
+                }
+            }
+        }
         if (!"system".equals(path) && !"url".equals(path)) {
             return null;
         }
@@ -1032,13 +1254,24 @@ public class DataRequirementExtractor {
      * and convert to DataRequirementInfo objects.
      */
     private List<DataRequirementInfo> deduplicateRequirements(
-            List<RetrieveInfo> retrieves, Map<String, String> valueSetMap) {
+            List<RetrieveInfo> retrieves, Map<String, String> valueSetMap,
+            PatientFilterInfo patientFilter) {
 
         Map<String, DataRequirementInfo> dedupMap = new LinkedHashMap<>();
 
         for (RetrieveInfo ri : retrieves) {
             String dedupKey = buildDedupKey(ri);
             if (dedupMap.containsKey(dedupKey)) {
+                // PAT-121b: merge prefixes from duplicate Retrieves with the same codeProperty
+                // so "[Condition] C where StartsWith(C.code, 'E08') or StartsWith(C.code, 'E11')"
+                // ends up with both prefixes visible in the UI.
+                DataRequirementInfo existing = dedupMap.get(dedupKey);
+                if (!ri.codePrefixes.isEmpty() && existing.getCodeFilter() != null && !existing.getCodeFilter().isEmpty()) {
+                    CodeFilterInfo cf = existing.getCodeFilter().get(0);
+                    List<String> merged = cf.getCodePrefixes() == null ? new ArrayList<>() : new ArrayList<>(cf.getCodePrefixes());
+                    for (String p : ri.codePrefixes) if (!merged.contains(p)) merged.add(p);
+                    cf.setCodePrefixes(merged);
+                }
                 continue;
             }
 
@@ -1047,7 +1280,8 @@ public class DataRequirementExtractor {
 
             // Code filter from inline codes or Where clause code system
             boolean hasCodeFilter = ri.codeProperty != null
-                    && (ri.valueSetRefName != null || !ri.directCodes.isEmpty() || ri.codeSystemUrl != null);
+                    && (ri.valueSetRefName != null || !ri.directCodes.isEmpty()
+                            || ri.codeSystemUrl != null || !ri.codePrefixes.isEmpty());
             if (hasCodeFilter) {
                 CodeFilterInfo.CodeFilterInfoBuilder cfBuilder = CodeFilterInfo.builder()
                         .path(ri.codeProperty);
@@ -1067,6 +1301,10 @@ public class DataRequirementExtractor {
                     cfBuilder.code(ri.directCodes);
                 }
 
+                if (!ri.codePrefixes.isEmpty()) {
+                    cfBuilder.codePrefixes(new ArrayList<>(ri.codePrefixes));
+                }
+
                 builder.codeFilter(List.of(cfBuilder.build()));
             }
 
@@ -1075,6 +1313,11 @@ public class DataRequirementExtractor {
                 builder.dateFilter(List.of(
                         DateFilterInfo.builder().path(ri.dateProperty).build()
                 ));
+            }
+
+            // PAT-121a: attach Patient demographic filters to the Patient entry only
+            if (patientFilter != null && "Patient".equals(ri.resourceType)) {
+                builder.patientFilter(patientFilter);
             }
 
             dedupMap.put(dedupKey, builder.build());
@@ -1114,6 +1357,8 @@ public class DataRequirementExtractor {
         String codeSystemUrl;
         String codeSystemName;
         List<CodingInfo> directCodes = new ArrayList<>();
+        /** PAT-121b: prefixes captured from {@code StartsWith(Coding.code.value, 'E08')} patterns. */
+        List<String> codePrefixes = new ArrayList<>();
     }
 
     /**

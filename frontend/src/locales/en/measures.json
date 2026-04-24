@@ -413,8 +413,12 @@
       "valueSet": "Value Set",
       "codeSystem": "Code System",
       "date": "Date",
-      "dateFilter": "Date filter"
-    }
+      "dateFilter": "Date filter",
+      "patient": "Patient"
+    },
+    "ageRange": "Age {{min}}–{{max}} {{unit}}",
+    "gender": "Gender: {{value}}",
+    "prefixTooltip": "Codes starting with '{{prefix}}' (range match, not an enumerated list)"
   },
   "evaluation": {
     "title": "Evaluate: {{name}}",
