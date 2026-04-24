@@ -1165,4 +1165,169 @@ class DataRequirementExtractorTest {
         assertThat(result.get(0).getCodeFilter().get(0).getCodeSystemUrl())
                 .isEqualTo("http://hl7.org/fhir/sid/icd-10-cm");
     }
+
+    @Test
+    void extract_retrieveWithConceptRef_expandsAllMemberCodes() {
+        // PAT-120: CQL `concept "MyConcept": { "c1", "c2" }` declares a logical
+        // concept containing multiple CodeRef members. Where clauses like
+        // `P.code ~ "MyConcept"` (Equivalent(prop, ConceptRef)) must expand to
+        // all member codes — before this patch the ConceptRef was silently
+        // dropped and the retrieve came out with zero codes.
+        String elmJson = """
+                {
+                  "library": {
+                    "codeSystems": {
+                      "def": [
+                        { "name": "NHI", "id": "http://nhi.example.com" },
+                        { "name": "LOINC", "id": "http://loinc.org" }
+                      ]
+                    },
+                    "codes": {
+                      "def": [
+                        { "name": "c1", "id": "64164B", "display": "Knee A", "codeSystem": { "name": "NHI" } },
+                        { "name": "c2", "id": "97805K", "display": "Knee B", "codeSystem": { "name": "NHI" } },
+                        { "name": "c3", "id": "17856-6", "display": "Lab", "codeSystem": { "name": "LOINC" } }
+                      ]
+                    },
+                    "concepts": {
+                      "def": [
+                        {
+                          "name": "MixedConcept",
+                          "code": [
+                            { "type": "CodeRef", "name": "c1" },
+                            { "type": "CodeRef", "name": "c2" },
+                            { "type": "CodeRef", "name": "c3" }
+                          ]
+                        }
+                      ]
+                    },
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "KneeProcs",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "P", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Procedure" } }],
+                            "where": {
+                              "type": "Equivalent",
+                              "operand": [
+                                { "type": "FunctionRef", "name": "ToConcept", "operand": [
+                                    { "type": "Property", "path": "code", "scope": "P" }
+                                ]},
+                                { "type": "ConceptRef", "name": "MixedConcept" }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        var codes = result.get(0).getCodeFilter().get(0).getCode();
+        assertThat(codes).hasSize(3);
+        // Each member code is resolved with its real code + correct system URL
+        assertThat(codes).extracting("code").containsExactlyInAnyOrder("64164B", "97805K", "17856-6");
+        assertThat(codes).extracting("system").containsExactlyInAnyOrder(
+                "http://nhi.example.com", "http://nhi.example.com", "http://loinc.org");
+    }
+
+    @Test
+    void extract_retrieveWithInConceptRef_expandsAllMemberCodes() {
+        // PAT-120: `x in "Concept"` (In type) should expand too, not just `~` (Equivalent).
+        // ELM shape has ToList(ConceptRef) on the RHS of In.
+        String elmJson = """
+                {
+                  "library": {
+                    "codeSystems": {
+                      "def": [{ "name": "ATC", "id": "http://www.whocc.no/atc" }]
+                    },
+                    "codes": {
+                      "def": [
+                        { "name": "atc_X", "id": "J01CA12", "codeSystem": { "name": "ATC" } },
+                        { "name": "atc_Y", "id": "J01CF01", "codeSystem": { "name": "ATC" } }
+                      ]
+                    },
+                    "concepts": {
+                      "def": [
+                        {
+                          "name": "Antibiotics",
+                          "code": [
+                            { "type": "CodeRef", "name": "atc_X" },
+                            { "type": "CodeRef", "name": "atc_Y" }
+                          ]
+                        }
+                      ]
+                    },
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "AntibioticReqs",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "MR", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}MedicationRequest" } }],
+                            "where": {
+                              "type": "In",
+                              "operand": [
+                                { "type": "FunctionRef", "name": "ToConcept", "operand": [
+                                    { "type": "Property", "path": "medication", "scope": "MR" }
+                                ]},
+                                { "type": "ToList", "operand": { "type": "ConceptRef", "name": "Antibiotics" } }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        var codes = result.get(0).getCodeFilter().get(0).getCode();
+        assertThat(codes).hasSize(2);
+        assertThat(codes).extracting("code").containsExactlyInAnyOrder("J01CA12", "J01CF01");
+        assertThat(result.get(0).getCodeFilter().get(0).getCodeSystemUrl())
+                .isEqualTo("http://www.whocc.no/atc");
+    }
+
+    @Test
+    void extract_retrieveWithUnresolvableConceptRef_leavesNoCodes() {
+        // When the ConceptRef name has no matching concept in library.concepts.def
+        // (e.g. declared in an external library), we should gracefully extract
+        // nothing for it — not throw, not fall back to using the ref name as code.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "X",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "P", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Procedure" } }],
+                            "where": {
+                              "type": "Equivalent",
+                              "operand": [
+                                { "type": "Property", "path": "code", "scope": "P" },
+                                { "type": "ConceptRef", "name": "UnknownExternalConcept" }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        // No code filter created for unresolvable ConceptRef (no fallback pollution)
+        assertThat(result.get(0).getCodeFilter()).isNullOrEmpty();
+    }
 }
