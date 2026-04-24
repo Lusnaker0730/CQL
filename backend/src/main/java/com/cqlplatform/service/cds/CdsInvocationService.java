@@ -239,28 +239,38 @@ public class CdsInvocationService {
     private RetrieveProvider resolvePrefetchTemplates(
             CdsHooksService.CdsServiceConfig config, CdsRequest request, InvocationDiagnostics diagnostics) {
         log.info("Attempting dynamic prefetch template resolution for service: {}", config.getId());
+        // PAT-112b (strict mode): template resolution exception used to log.warn and
+        // return null, which silently fell back to CQL-driven FHIR calls. That path
+        // can render an empty CDS response — clinician sees "no alerts" indistinguishable
+        // from actual safety. Strict mode: rethrow so buildPrefetchProviderSafe wraps
+        // it into CdsInvocationException → 5xx response → FE yellow banner.
+        // An empty ResolutionResult (no templates to resolve) is NOT an error and
+        // still returns null — CQL will do its own FHIR retrieves against the server.
+        PrefetchResolver.ResolutionResult result;
         try {
-            PrefetchResolver.ResolutionResult result = prefetchResolver.resolveWithStatus(config.getPrefetch(), request);
-            diagnostics.getPrefetchStatus().addAll(result.getStatuses());
-
-            Map<String, Resource> resolvedResources = result.getResources();
-            if (resolvedResources.isEmpty()) {
-                return null;
-            }
-            String pid = request.getContext() != null ? request.getContext().getPatientId() : null;
-            List<Resource> resources = new ArrayList<>(resolvedResources.values());
-            if (pid != null) {
-                Reference patRef = new Reference("Patient/" + pid);
-                for (Resource r : resources) {
-                    ensureSubjectReference(r, patRef);
-                }
-            }
-            log.info("Built prefetch provider from {} resolved templates", resolvedResources.size());
-            return new PrefetchRetrieveProvider(resources, pid);
+            result = prefetchResolver.resolveWithStatus(config.getPrefetch(), request);
         } catch (Exception e) {
-            log.warn("Prefetch template resolution failed, falling back to FHIR server: {}", e.getMessage());
+            log.error("Prefetch template resolution failed for service {}: {}", config.getId(), e.getMessage());
+            throw new RuntimeException(
+                    "Prefetch template resolution failed for service " + config.getId()
+                            + ": " + e.getMessage(), e);
+        }
+        diagnostics.getPrefetchStatus().addAll(result.getStatuses());
+
+        Map<String, Resource> resolvedResources = result.getResources();
+        if (resolvedResources.isEmpty()) {
             return null;
         }
+        String pid = request.getContext() != null ? request.getContext().getPatientId() : null;
+        List<Resource> resources = new ArrayList<>(resolvedResources.values());
+        if (pid != null) {
+            Reference patRef = new Reference("Patient/" + pid);
+            for (Resource r : resources) {
+                ensureSubjectReference(r, patRef);
+            }
+        }
+        log.info("Built prefetch provider from {} resolved templates", resolvedResources.size());
+        return new PrefetchRetrieveProvider(resources, pid);
     }
 
     /** Feature 4: collect non-fatal context warnings. */
@@ -408,12 +418,20 @@ public class CdsInvocationService {
                         .elapsedMs(System.currentTimeMillis() - start)
                         .build());
             } catch (Exception e) {
-                log.warn("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
+                // PAT-112b (strict mode): a failed prefetch parse used to log.warn and
+                // continue; CDS would then run with partial prefetch, risking missing
+                // critical data (e.g. the patient's allergy list) and rendering a false
+                // "no alert" card. Strict: record the failure in diagnostics so the
+                // caller can see which key broke, then rethrow so the whole invocation
+                // fails loud and the FE yellow banner surfaces the outage.
+                log.error("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
                 diagnostics.getPrefetchStatus().add(CdsResponse.PrefetchStatus.builder()
                         .key(entry.getKey()).status("failed").count(0)
                         .elapsedMs(System.currentTimeMillis() - start)
                         .error(e.getClass().getSimpleName() + ": " + e.getMessage())
                         .build());
+                throw new RuntimeException(
+                        "Prefetch key '" + entry.getKey() + "' failed to parse: " + e.getMessage(), e);
             }
         }
 

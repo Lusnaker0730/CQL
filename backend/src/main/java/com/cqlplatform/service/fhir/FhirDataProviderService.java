@@ -5,6 +5,7 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import com.cqlplatform.exception.FhirServerUnavailableException;
+import com.cqlplatform.fhir.FhirErrorInspector;
 import com.cqlplatform.service.cql.CircuitBreakerRetrieveProvider;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -132,6 +133,10 @@ public class FhirDataProviderService {
                         .returnBundle(Bundle.class)
                         .execute();
 
+                // PAT-112c: 200 OK with embedded OperationOutcome(severity=error|fatal)
+                // must not be treated as valid data.
+                FhirErrorInspector.assertNoErrors(searchResult, "bulk fetch " + resourceType);
+
                 // Distribute resources to their patient buckets
                 if (searchResult.hasEntry()) {
                     for (Bundle.BundleEntryComponent entry : searchResult.getEntry()) {
@@ -162,6 +167,9 @@ public class FhirDataProviderService {
         }
         try {
             Bundle patientResponse = executeTransaction(fhirServerUrl, patientBatch);
+            // PAT-112c: batch transaction responses carry per-entry outcomes; reject any
+            // fatal/error before distributing resources.
+            FhirErrorInspector.assertNoErrors(patientResponse, "bulk Patient batch");
             if (patientResponse.hasEntry()) {
                 for (Bundle.BundleEntryComponent entry : patientResponse.getEntry()) {
                     if (entry.getResource() instanceof Patient patient && patient.hasId()) {
@@ -706,6 +714,9 @@ public class FhirDataProviderService {
                 }
 
                 Bundle bundle = search.returnBundle(Bundle.class).execute();
+
+                // PAT-112c: upstream may embed OperationOutcome error in a 200 response.
+                FhirErrorInspector.assertNoErrors(bundle, "fallback search " + dataType);
 
                 if (bundle.hasEntry()) {
                     for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
