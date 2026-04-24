@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import {
   Box,
   Paper,
@@ -80,7 +80,14 @@ export default function MeasureReportHistory() {
           </TableHead>
           <TableBody>
             {reports.map((report: MeasureReport) => (
-              <Box component="tbody" key={report.id}>
+              // PAT-118 (bug fix): each report was wrapped in `<Box component="tbody">`
+              // which produced nested <tbody> inside <TableBody> — invalid HTML.
+              // Browsers couldn't compute consistent column widths across the
+              // broken sections, so the table header cells collapsed to min width
+              // and Chinese headers wrapped one character per line while body
+              // rows misaligned. Fragment keeps the key on a logical pair of
+              // rows without emitting an extra DOM element.
+              <Fragment key={report.id}>
                 <TableRow hover>
                   <TableCell>
                     <IconButton size="small" aria-label={t('reports.toggleDetails')} onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
@@ -163,7 +170,7 @@ export default function MeasureReportHistory() {
                     </Collapse>
                   </TableCell>
                 </TableRow>
-              </Box>
+              </Fragment>
             ))}
             {!isLoading && reports.length === 0 && (
               <TableRow>
