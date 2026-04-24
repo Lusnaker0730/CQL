@@ -1,5 +1,6 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.exception.FhirServerUnavailableException;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
@@ -134,8 +135,19 @@ public class MeasureEvaluationService {
                             context.getFhirServerUrl(), patients, retrieveTypes);
                     log.info("Bulk data fetch: {} patients in {}ms",
                             patients.size(), System.currentTimeMillis() - bulkStart);
+                } catch (FhirServerUnavailableException e) {
+                    // PAT-112a: upstream FHIR is down — don't fall back to per-patient
+                    // (which hits the same server). Fail loud so the caller gets a
+                    // FHIR_UPSTREAM_UNAVAILABLE envelope instead of partial results.
+                    stopTimer(sample);
+                    incrementErrorCounter();
+                    log.error("Measure evaluation aborted: bulk fetch detected upstream FHIR outage", e);
+                    return errorResult(context,
+                            "Measure evaluation aborted: upstream FHIR server unavailable. " + e.getMessage(), e);
                 } catch (Exception e) {
-                    log.warn("Bulk fetch failed, will fall back to per-patient fetch: {}", e.getMessage());
+                    // Non-availability error — e.g. malformed bulk query, patient list too large.
+                    // Per-patient fallback is safe because it's a different request shape.
+                    log.warn("Bulk fetch failed (non-availability), will fall back to per-patient fetch: {}", e.getMessage());
                 }
             }
 
@@ -144,7 +156,25 @@ public class MeasureEvaluationService {
             final java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bd = bulkData;
             AggregationState state = executeAndAggregate(context, patients, pt, bd);
 
-            // 3. Check if all patients failed
+            // PAT-112a: if ANY patient evaluation failed because of a FHIR outage,
+            // abort the entire measure rather than returning a falsified denominator.
+            // This is the clinical-safety rule: partial measure scores are worse than
+            // no score — a half-populated denominator silently inflates the quality
+            // rate and can mislead P4P / QI reporting.
+            if (state.fhirOutageError != null) {
+                stopTimer(sample);
+                incrementErrorCounter();
+                log.error("Measure evaluation aborted: {} patient(s) failed due to FHIR outage",
+                        state.errorCount, state.fhirOutageError);
+                return errorResult(context,
+                        "Measure evaluation aborted: upstream FHIR server unavailable during "
+                                + state.errorCount + " of " + patients.size() + " patient evaluations. "
+                                + state.fhirOutageError.getMessage(),
+                        state.fhirOutageError);
+            }
+
+            // 3. Check if all patients failed (non-FHIR reasons — e.g. CQL runtime errors
+            // on every patient, data-model mismatch, pre-translation issue surfacing per-patient)
             if (state.errorCount == patients.size()) {
                 stopTimer(sample);
                 incrementErrorCounter();
@@ -242,18 +272,30 @@ public class MeasureEvaluationService {
 
         // Aggregate results sequentially (thread-safe)
         int errorCount = 0;
+        // PAT-112a: track FHIR-outage errors separately so the caller can abort
+        // the whole measure evaluation rather than return a partial (falsified)
+        // denominator. Non-FHIR errors still follow the existing errorCount path.
+        Throwable fhirOutageError = null;
         for (CompletableFuture<PatientResult> future : futures) {
             PatientResult pr;
             try {
                 pr = future.getNow(null);
             } catch (Exception e) {
                 errorCount++;
+                if (fhirOutageError == null) {
+                    Throwable outage = findFhirOutageCause(e);
+                    if (outage != null) fhirOutageError = outage;
+                }
                 continue;
             }
             if (pr == null || pr.error() != null) {
                 errorCount++;
                 if (pr != null) {
                     log.error("Failed evaluation for patient {}", pr.patientId(), pr.error());
+                    if (fhirOutageError == null) {
+                        Throwable outage = findFhirOutageCause(pr.error());
+                        if (outage != null) fhirOutageError = outage;
+                    }
                 }
                 continue;
             }
@@ -285,7 +327,8 @@ public class MeasureEvaluationService {
             }
         }
 
-        return new AggregationState(populationCounts, customExpressions, stratificationData, errorCount, observationValues);
+        return new AggregationState(populationCounts, customExpressions, stratificationData,
+                errorCount, observationValues, fhirOutageError);
     }
 
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
@@ -631,6 +674,25 @@ public class MeasureEvaluationService {
             Map<String, Object> customExpressions,
             Map<String, Map<String, Map<String, Integer>>> stratificationData,
             int errorCount,
-            List<Double> observationValues
+            List<Double> observationValues,
+            /** PAT-112a: non-null when any patient evaluation threw a FhirServerUnavailableException
+             *  (in its cause chain). The caller aborts the whole measure evaluation rather than
+             *  returning a partial denominator. */
+            Throwable fhirOutageError
     ) {}
+
+    /**
+     * PAT-112a: walk a Throwable's cause chain (max 10 hops) and return the first
+     * {@link FhirServerUnavailableException}, or null if none. CQL engine and
+     * CqlExecutionService wrap underlying retrieve failures in their own exception
+     * types, so the outage marker is typically buried a few causes deep.
+     */
+    private static Throwable findFhirOutageCause(Throwable t) {
+        int depth = 0;
+        while (t != null && depth++ < 10) {
+            if (t instanceof FhirServerUnavailableException) return t;
+            t = t.getCause();
+        }
+        return null;
+    }
 }
