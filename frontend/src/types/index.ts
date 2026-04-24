@@ -965,6 +965,11 @@ export interface ValueSetSummary {
   title: string
   status: string
   conceptCount: number
+  /** PAT-119: true when the ValueSet uses compose.include.filter or
+   *  compose.include.valueSet (e.g. "all SNOMED CT descendants of X"),
+   *  so it needs terminology-server $expand to enumerate actual codes.
+   *  Frontend should render a hint chip instead of "0 concepts". */
+  hasComposeRules?: boolean
 }
 
 export interface CodeSystemSummary {

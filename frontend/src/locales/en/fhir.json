@@ -185,6 +185,8 @@
     "valueSetCount_one": "{{count}} ValueSet",
     "valueSetLoadError": "Failed to load ValueSets: {{error}}",
     "noValueSets": "No ValueSets found.",
+    "needsExpansion": "Needs expansion",
+    "needsExpansionTooltip": "This ValueSet uses compose rules (filters or referenced ValueSets) and needs terminology-server expansion to enumerate concrete codes.",
     "searchCodeSystems": "Search CodeSystems",
     "searchCodeSystemsPlaceholder": "e.g., LOINC, SNOMED",
     "codeSystemCount": "{{count}} CodeSystems",

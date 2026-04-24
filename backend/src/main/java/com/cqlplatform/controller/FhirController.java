@@ -56,8 +56,31 @@ public class FhirController {
         return ResponseEntity.ok(igService.getProfiles(resourceType, search));
     }
 
+    // PAT-119: Tomcat's default URI parser rejects `%2F` inside path segments
+    // (StrictSecurity: block path-traversal), so the old `/ig/profiles/{url}` path
+    // variant 400'd on every real IG URL (all canonical URLs contain slashes).
+    // The new endpoint takes the canonical URL as a query param where encoded
+    // slashes are permitted.
+    @GetMapping("/ig/profiles/detail")
+    @Operation(summary = "Get IG Profile", description = "Get a StructureDefinition by canonical URL (query param)")
+    public ResponseEntity<String> getIgProfileDetail(@RequestParam("url") String url) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.notFound().build();
+        }
+        InputValidator.requireValidFhirCanonicalUrl(url);
+        StructureDefinition sd = igService.getProfileByUrl(url);
+        if (sd == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(sd);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
+
     @GetMapping("/ig/profiles/{url}")
-    @Operation(summary = "Get IG Profile", description = "Get a StructureDefinition by URL")
+    @Operation(summary = "(Deprecated) Get IG Profile by path URL",
+            description = "Kept for backwards compatibility; prefer /ig/profiles/detail?url=")
     public ResponseEntity<String> getIgProfile(@PathVariable String url) {
         if (igService == null || !igService.isLoaded()) {
             return ResponseEntity.notFound().build();
@@ -83,8 +106,26 @@ public class FhirController {
         return ResponseEntity.ok(igService.getValueSets(search));
     }
 
+    @GetMapping("/ig/valuesets/detail")
+    @Operation(summary = "Get IG ValueSet", description = "Get a ValueSet by canonical URL (query param) — PAT-119")
+    public ResponseEntity<String> getIgValueSetDetail(@RequestParam("url") String url) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.notFound().build();
+        }
+        InputValidator.requireValidFhirCanonicalUrl(url);
+        ValueSet vs = igService.getValueSetByUrl(url);
+        if (vs == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(vs);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
+
     @GetMapping("/ig/valuesets/{url}")
-    @Operation(summary = "Get IG ValueSet", description = "Get a ValueSet by URL with expansion")
+    @Operation(summary = "(Deprecated) Get IG ValueSet by path URL",
+            description = "Kept for backwards compatibility; prefer /ig/valuesets/detail?url=")
     public ResponseEntity<String> getIgValueSet(@PathVariable String url) {
         if (igService == null || !igService.isLoaded()) {
             return ResponseEntity.notFound().build();
@@ -110,8 +151,26 @@ public class FhirController {
         return ResponseEntity.ok(igService.getCodeSystems(search));
     }
 
+    @GetMapping("/ig/codesystems/detail")
+    @Operation(summary = "Get IG CodeSystem", description = "Get a CodeSystem by canonical URL (query param) — PAT-119")
+    public ResponseEntity<String> getIgCodeSystemDetail(@RequestParam("url") String url) {
+        if (igService == null || !igService.isLoaded()) {
+            return ResponseEntity.notFound().build();
+        }
+        InputValidator.requireValidFhirCanonicalUrl(url);
+        CodeSystem cs = igService.getCodeSystemByUrl(url);
+        if (cs == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(cs);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
+
     @GetMapping("/ig/codesystems/{url}")
-    @Operation(summary = "Get IG CodeSystem", description = "Get a CodeSystem by URL")
+    @Operation(summary = "(Deprecated) Get IG CodeSystem by path URL",
+            description = "Kept for backwards compatibility; prefer /ig/codesystems/detail?url=")
     public ResponseEntity<String> getIgCodeSystem(@PathVariable String url) {
         if (igService == null || !igService.isLoaded()) {
             return ResponseEntity.notFound().build();
