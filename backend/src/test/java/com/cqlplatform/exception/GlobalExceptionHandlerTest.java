@@ -200,6 +200,33 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getUpstream().getRetryAfterSeconds()).isEqualTo(60);
     }
 
+    // ===== HttpMessageNotReadableException → 400 (PAT-117) =====
+
+    @Test
+    void handleHttpMessageNotReadable_shouldReturn400_notGeneric500() {
+        // Before PAT-117 this fell through to handleGenericException → 500
+        // "An internal error occurred", which surfaced in the UI as broken buttons
+        // on lock / submit-for-review / share flows when the FE sent an unknown
+        // field that Jackson rejected. Must be 400 — malformed client request is
+        // not a server error.
+        org.springframework.http.converter.HttpMessageNotReadableException ex =
+                new org.springframework.http.converter.HttpMessageNotReadableException(
+                        "JSON parse error: Unrecognized field \"currentUser\"",
+                        (org.springframework.http.HttpInputMessage) null);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleHttpMessageNotReadable(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(400);
+        assertThat(response.getBody().getMessage())
+                .as("user-facing message must be actionable, not leak Jackson internals")
+                .contains("Request body")
+                .doesNotContain("Jackson")
+                .doesNotContain("HttpMessageNotReadableException");
+    }
+
     // ===== AccessDeniedException → 403 =====
 
     @Test
