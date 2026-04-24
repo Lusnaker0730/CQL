@@ -3,6 +3,23 @@ import type { EhrConnection, PatientSearchResult, PatientImportPreview, PatientI
 
 const BASE = '/ehr'
 
+// PAT-111: snapshot of one EHR connection's live health, emitted by
+// GET /api/ehr/health/overview. Fields mirror
+// ConnectionHealthService#ConnectionHealthOverview (Java record).
+export interface ConnectionHealthOverview {
+  connectionId: number
+  connectionName: string
+  fhirServerUrl: string
+  /** 'healthy' | 'degraded' | 'down' | 'unknown' — wire value, use the healthStatusColor helper to map. */
+  currentStatus: string
+  lastResponseTimeMs: number | null
+  lastCheckedAt: string | null
+  avgResponseTimeMs24h: number | null
+  availability24h: number | null
+  totalChecks24h: number
+  errorCount24h: number
+}
+
 export const ehrApi = {
   // Connections
   getConnections: async (department?: string): Promise<EhrConnection[]> => {
@@ -66,6 +83,13 @@ export const ehrApi = {
   getImportHistory: async (importedBy?: string): Promise<PatientImport[]> => {
     const params = importedBy ? { importedBy } : {}
     const { data } = await api.get(`${BASE}/imports`, { params })
+    return data
+  },
+
+  // PAT-111: live health overview across all configured EHR connections.
+  // Polled by the admin table every 30s via React Query refetchInterval.
+  getHealthOverview: async (): Promise<ConnectionHealthOverview[]> => {
+    const { data } = await api.get(`${BASE}/health/overview`)
     return data
   },
 }
