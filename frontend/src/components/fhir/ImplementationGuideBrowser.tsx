@@ -324,7 +324,22 @@ function ValueSetsTab() {
                       <StatusChip status={vs.status || 'draft'} />
                     </TableCell>
                     <TableCell>
-                      <Chip label={vs.conceptCount} size="small" sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }} />
+                      {vs.conceptCount > 0 ? (
+                        <Chip label={vs.conceptCount} size="small" sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }} />
+                      ) : vs.hasComposeRules ? (
+                        // PAT-119: VS uses compose.include.filter or compose.include.valueSet
+                        // (e.g. "all SNOMED CT descendants of X"); no inline concepts to count.
+                        // Previously rendered as "0", which read as "empty / broken".
+                        <Chip
+                          label={t('ig.needsExpansion')}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}
+                          title={t('ig.needsExpansionTooltip')}
+                        />
+                      ) : (
+                        <Chip label={0} size="small" sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }} />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
