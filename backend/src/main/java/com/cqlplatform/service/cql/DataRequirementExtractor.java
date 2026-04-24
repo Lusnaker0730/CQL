@@ -161,7 +161,7 @@ public class DataRequirementExtractor {
             }
 
             if ("Retrieve".equals(type) && !handledRetrieves.contains(node)) {
-                RetrieveInfo info = parseRetrieve(node);
+                RetrieveInfo info = parseRetrieve(node, codeDefMap, codeSystemMap);
                 if (info != null) {
                     retrieves.add(info);
                     handledRetrieves.add(node);
@@ -211,7 +211,7 @@ public class DataRequirementExtractor {
                 continue;
             }
 
-            RetrieveInfo info = parseRetrieve(sourceExpr);
+            RetrieveInfo info = parseRetrieve(sourceExpr, codeDefMap, codeSystemMap);
             if (info == null) {
                 continue;
             }
@@ -794,7 +794,14 @@ public class DataRequirementExtractor {
     /**
      * Parse a single Retrieve node into an intermediate RetrieveInfo object.
      */
-    private RetrieveInfo parseRetrieve(JsonNode retrieveNode) {
+    // PAT-116: signature extended to accept codeDefMap + codeSystemMap so
+    // extractCodeRef can resolve a CQL CodeRef (just a name like
+    // "Hemoglobin A1c") into the actual {code="17856-6", system="http://loinc.org"}
+    // that downstream FHIR clients need. Before PAT-116 the ref name was
+    // stored as if it were the literal code, producing unusable data requirements.
+    private RetrieveInfo parseRetrieve(JsonNode retrieveNode,
+                                       Map<String, CodeDefInfo> codeDefMap,
+                                       Map<String, String> codeSystemMap) {
         String dataType = retrieveNode.path("dataType").asText(null);
         if (dataType == null) {
             return null;
@@ -822,19 +829,19 @@ public class DataRequirementExtractor {
                 case "ToList":
                     JsonNode operand = codesNode.get("operand");
                     if (operand != null) {
-                        extractCodeRef(operand, directCodes);
+                        extractCodeRef(operand, directCodes, codeDefMap, codeSystemMap);
                     }
                     break;
                 case "List":
                     JsonNode elements = codesNode.get("element");
                     if (elements != null && elements.isArray()) {
                         for (JsonNode elem : elements) {
-                            extractCodeRef(elem, directCodes);
+                            extractCodeRef(elem, directCodes, codeDefMap, codeSystemMap);
                         }
                     }
                     break;
                 default:
-                    extractCodeRef(codesNode, directCodes);
+                    extractCodeRef(codesNode, directCodes, codeDefMap, codeSystemMap);
                     break;
             }
         }
@@ -850,19 +857,49 @@ public class DataRequirementExtractor {
 
     /**
      * Extract a code reference from a CodeRef or code literal node.
+     *
+     * <p>PAT-116: CodeRef names are resolved against {@code codeDefMap} (built
+     * from {@code library.codes.def}) and {@code codeSystemMap} (built from
+     * {@code library.codeSystems.def}) to recover the real (code, system)
+     * pair. Downstream consumers treat the output as "what to ask a FHIR
+     * server for" — the ref name alone (e.g. "Hemoglobin A1c") cannot drive
+     * a real FHIR query; only the resolved code "17856-6" + system URL can.
+     *
+     * <p>Unresolvable refs (ref name not in {@code codeDefMap}) fall back to
+     * storing the raw name as the code — matches legacy behavior and is the
+     * best guess for external-library refs whose def lives in another ELM
+     * we cannot see.
      */
-    private void extractCodeRef(JsonNode node, List<CodingInfo> codes) {
+    private void extractCodeRef(JsonNode node, List<CodingInfo> codes,
+                                Map<String, CodeDefInfo> codeDefMap,
+                                Map<String, String> codeSystemMap) {
         if (node == null) {
             return;
         }
         String nodeType = node.path("type").asText("");
         if ("CodeRef".equals(nodeType)) {
-            codes.add(CodingInfo.builder()
-                    .code(node.path("name").asText(null))
-                    .build());
+            String refName = node.path("name").asText(null);
+            CodeDefInfo def = refName != null ? codeDefMap.get(refName) : null;
+            CodingInfo.CodingInfoBuilder b = CodingInfo.builder();
+            if (def != null) {
+                b.code(def.code);
+                b.display(def.display);
+                if (def.codeSystemName != null) {
+                    String systemUrl = codeSystemMap.get(def.codeSystemName);
+                    b.system(systemUrl != null ? systemUrl : def.codeSystemName);
+                }
+            } else {
+                // Fallback: keep the ref name as code — covers external-library
+                // refs whose CodeDef lives outside the current ELM. Legacy behavior.
+                b.code(refName);
+            }
+            codes.add(b.build());
         } else if ("Code".equals(nodeType)) {
+            // Code literal has `system: CodeSystemRef{ name }`; resolve to URL.
+            String systemName = node.path("system").path("name").asText(null);
+            String systemUrl = systemName != null ? codeSystemMap.get(systemName) : null;
             codes.add(CodingInfo.builder()
-                    .system(node.path("system").path("name").asText(null))
+                    .system(systemUrl != null ? systemUrl : systemName)
                     .code(node.path("code").asText(null))
                     .display(node.path("display").asText(null))
                     .build());

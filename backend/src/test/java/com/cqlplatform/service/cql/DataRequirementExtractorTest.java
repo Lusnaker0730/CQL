@@ -278,10 +278,29 @@ class DataRequirementExtractorTest {
     }
 
     @Test
-    void extract_retrieveWithCodeRef_shouldCaptureDirectCode() {
+    void extract_retrieveWithCodeRef_resolvesAgainstCodeDefs() {
+        // PAT-116: CodeRef resolution. The ELM carries CodeRef { name: "BloodPressure" },
+        // and the library defines code "BloodPressure": '85354-9' from "LOINC" with
+        // codesystem "LOINC": 'http://loinc.org'. Extractor must yield the resolved
+        // pair (code=85354-9, system=http://loinc.org), not the ref name.
         String elmJson = """
                 {
                   "library": {
+                    "codeSystems": {
+                      "def": [
+                        { "name": "LOINC", "id": "http://loinc.org" }
+                      ]
+                    },
+                    "codes": {
+                      "def": [
+                        {
+                          "name": "BloodPressure",
+                          "id": "85354-9",
+                          "display": "Blood pressure panel",
+                          "codeSystem": { "name": "LOINC" }
+                        }
+                      ]
+                    },
                     "statements": {
                       "def": [
                         {
@@ -307,10 +326,93 @@ class DataRequirementExtractorTest {
 
         List<DataRequirementInfo> result = extractor.extract(elmJson);
         assertThat(result).hasSize(1);
-        DataRequirementInfo req = result.get(0);
-        assertThat(req.getCodeFilter()).hasSize(1);
-        assertThat(req.getCodeFilter().get(0).getCode()).hasSize(1);
-        assertThat(req.getCodeFilter().get(0).getCode().get(0).getCode()).isEqualTo("BloodPressure");
+        var coding = result.get(0).getCodeFilter().get(0).getCode().get(0);
+        assertThat(coding.getCode()).isEqualTo("85354-9");
+        assertThat(coding.getSystem()).isEqualTo("http://loinc.org");
+        assertThat(coding.getDisplay()).isEqualTo("Blood pressure panel");
+    }
+
+    @Test
+    void extract_retrieveWithUnresolvableCodeRef_fallsBackToRefName() {
+        // Fallback: when the ref name is not in library.codes.def (e.g. the code
+        // is declared in an included external library we don't have ELM for),
+        // preserve the ref name as the code — matches legacy behavior so downstream
+        // consumers at least see a human-readable hint.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "SpecificObs",
+                          "expression": {
+                            "type": "Retrieve",
+                            "dataType": "{http://hl7.org/fhir}Observation",
+                            "codeProperty": "code",
+                            "codes": {
+                              "type": "ToList",
+                              "operand": {
+                                "type": "CodeRef",
+                                "name": "ExternalLibCode"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        var coding = result.get(0).getCodeFilter().get(0).getCode().get(0);
+        assertThat(coding.getCode()).isEqualTo("ExternalLibCode");
+        assertThat(coding.getSystem()).isNull();
+    }
+
+    @Test
+    void extract_retrieveWithCodeLiteral_resolvesSystemNameToUrl() {
+        // The `Code` literal node has system: CodeSystemRef { name }; resolve to URL.
+        String elmJson = """
+                {
+                  "library": {
+                    "codeSystems": {
+                      "def": [
+                        { "name": "ICD10CM", "id": "http://hl7.org/fhir/sid/icd-10-cm" }
+                      ]
+                    },
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "DiabetesObs",
+                          "expression": {
+                            "type": "Retrieve",
+                            "dataType": "{http://hl7.org/fhir}Condition",
+                            "codeProperty": "code",
+                            "codes": {
+                              "type": "List",
+                              "element": [
+                                {
+                                  "type": "Code",
+                                  "code": "E11",
+                                  "display": "Type 2 diabetes mellitus",
+                                  "system": { "type": "CodeSystemRef", "name": "ICD10CM" }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        var coding = result.get(0).getCodeFilter().get(0).getCode().get(0);
+        assertThat(coding.getCode()).isEqualTo("E11");
+        assertThat(coding.getSystem()).isEqualTo("http://hl7.org/fhir/sid/icd-10-cm");
+        assertThat(coding.getDisplay()).isEqualTo("Type 2 diabetes mellitus");
     }
 
     @Test
