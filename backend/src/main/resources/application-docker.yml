@@ -59,10 +59,16 @@ ai:
 ollama:
   enabled: ${OLLAMA_ENABLED:false}
 
-# Prometheus: allow unauthenticated scraping on docker network
+# Prometheus scrape auth (PAT-113): default-secure. Prometheus authenticates via
+# HTTP Basic using credentials from env. If both env vars are blank the chain
+# refuses all requests — intentional fail-loud so misconfigured deployments
+# surface via the ServiceDown alert rather than silently exposing metrics.
 management:
   prometheus:
-    public: true
+    public: false
+    auth:
+      username: ${METRICS_SCRAPE_USER:}
+      password: ${METRICS_SCRAPE_PASSWORD:}
 
 # Logging
 logging:

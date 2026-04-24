@@ -14,6 +14,13 @@ scrape_configs:
   - job_name: 'cql-platform'
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
+    # PAT-113: HTTP Basic auth. The username ships in the committed config;
+    # the password is written to /tmp/scrape_password at container start by
+    # the docker-compose entrypoint override (reads METRICS_SCRAPE_PASSWORD env).
+    # If either side of auth is misconfigured the scrape fails → ServiceDown alert fires.
+    basic_auth:
+      username: 'prometheus'
+      password_file: '/tmp/scrape_password'
     static_configs:
       - targets: ['backend:8080']
         labels:

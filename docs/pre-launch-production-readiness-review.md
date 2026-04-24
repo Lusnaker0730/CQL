@@ -147,7 +147,7 @@
 - **現況**：`application-docker.yml` `management.prometheus.public: true`
 - **風險**：若 backend container 意外暴露到 internet → latencies / error rates / JVM 內部訊息全露
 - **修法**：維持 `false` + 走內網 Prometheus；或加 basic auth / IP allowlist
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-113`（`application-docker.yml` 預設翻為 `public: false`；新 `@Order(0)` `prometheusSecurityChain` 掛 HTTP Basic on `/actuator/prometheus`；credentials 未設時 chain 拒絕所有請求（fail-loud）；`docker/prometheus.yml` 改 `basic_auth.password_file`，prometheus container entrypoint 從 env 產 `/tmp/scrape_password`；`.env.example` 加 `METRICS_SCRAPE_USER/PASSWORD`；6 個 `@SpringBootTest` 鎖 3 個 mode）
 
 ### #15 Expensive endpoints 無 rate limit
 - **現況**：`/api/measures/{id}/$evaluate-measure` 沒 per-user rate limit

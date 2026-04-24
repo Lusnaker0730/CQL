@@ -68,6 +68,11 @@ services:
       - AI_CLOUD_API_URL=${AI_CLOUD_API_URL:-}
       - AI_CLOUD_MODEL=${AI_CLOUD_MODEL:-}
       - AI_CLOUD_API_KEY=${AI_CLOUD_API_KEY:-}
+      # PAT-113: Prometheus scrape auth. Default-secure — if unset, /actuator/prometheus
+      # returns 401 (and Prometheus logs scrape failures loudly). Generate with
+      # `openssl rand -base64 24`; must match the value in the prometheus container env.
+      - METRICS_SCRAPE_USER=${METRICS_SCRAPE_USER:-prometheus}
+      - METRICS_SCRAPE_PASSWORD=${METRICS_SCRAPE_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,13 +168,33 @@ services:
   prometheus:
     image: prom/prometheus:v2.51.0
     restart: unless-stopped
+    environment:
+      - METRICS_SCRAPE_PASSWORD=${METRICS_SCRAPE_PASSWORD}
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
       - prometheus-data:/prometheus
+    # PAT-113: materialise the scrape password into a file the Prometheus binary
+    # can read (basic_auth.password_file in prometheus.yml points at /tmp/scrape_password).
+    # Doing this at entrypoint time keeps the plaintext out of any committed config
+    # and out of the container's image layer.
+    entrypoint:
+      - /bin/sh
+      - -c
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention.time=30d'
+      - |
+        if [ -z "$$METRICS_SCRAPE_PASSWORD" ]; then
+          echo "FATAL: METRICS_SCRAPE_PASSWORD env var is unset — Prometheus scrape will fail. Set it in docker/.env." >&2
+          exit 1
+        fi
+        printf '%s' "$$METRICS_SCRAPE_PASSWORD" > /tmp/scrape_password
+        chmod 600 /tmp/scrape_password
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.retention.time=30d \
+          --storage.tsdb.path=/prometheus \
+          --web.console.libraries=/usr/share/prometheus/console_libraries \
+          --web.console.templates=/usr/share/prometheus/consoles
     depends_on:
       backend:
         condition: service_healthy
