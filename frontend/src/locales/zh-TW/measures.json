@@ -413,8 +413,12 @@
       "valueSet": "值集",
       "codeSystem": "代碼系統",
       "date": "日期",
-      "dateFilter": "日期篩選"
-    }
+      "dateFilter": "日期篩選",
+      "patient": "病人"
+    },
+    "ageRange": "年齡 {{min}}–{{max}} {{unit}}",
+    "gender": "性別：{{value}}",
+    "prefixTooltip": "代碼以「{{prefix}}」開頭（範圍比對，非列舉清單）"
   },
   "evaluation": {
     "title": "評估：{{name}}",

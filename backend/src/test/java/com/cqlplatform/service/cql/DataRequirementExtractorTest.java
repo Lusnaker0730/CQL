@@ -1296,6 +1296,251 @@ class DataRequirementExtractorTest {
     }
 
     @Test
+    void extract_existsWithStartsWith_capturesCodePrefix() {
+        // PAT-121b: match `exists(C.code.coding where StartsWith(Coding.code.value, 'E08'))`
+        // — common ICD-10 range pattern. The ELM shape is Exists → Query(source=coding chain)
+        // → Where(StartsWith(Property(value → code), Literal("E08"))).
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "DiabeticConds",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "C", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Condition" } }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{ "alias": "Coding",
+                                    "expression": { "type": "Property", "path": "coding", "source": { "type": "Property", "path": "code", "scope": "C" } } }],
+                                "where": {
+                                  "type": "Or",
+                                  "operand": [
+                                    { "type": "StartsWith",
+                                      "operand": [
+                                        { "type": "Property", "path": "value",
+                                          "source": { "type": "Property", "path": "code", "scope": "Coding" } },
+                                        { "type": "Literal", "value": "E08" }
+                                      ]
+                                    },
+                                    { "type": "StartsWith",
+                                      "operand": [
+                                        { "type": "Property", "path": "value",
+                                          "source": { "type": "Property", "path": "code", "scope": "Coding" } },
+                                        { "type": "Literal", "value": "E11" }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCodeFilter().get(0).getCodePrefixes())
+                .containsExactlyInAnyOrder("E08", "E11");
+    }
+
+    @Test
+    void extract_existsWithCustomStartsWithFunction_capturesCodePrefix() {
+        // PAT-121b: user-defined CodeStartsWith(prop, literal) function — the
+        // shared-library helper that wraps the built-in StartsWith. We match
+        // FunctionRef with a name containing "startsWith" (case-insensitive).
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "X",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "C", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Condition" } }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{ "alias": "Coding",
+                                    "expression": { "type": "Property", "path": "coding", "source": { "type": "Property", "path": "code", "scope": "C" } } }],
+                                "where": {
+                                  "type": "FunctionRef", "name": "CodeStartsWith",
+                                  "operand": [
+                                    { "type": "Property", "path": "value",
+                                      "source": { "type": "Property", "path": "code", "scope": "Coding" } },
+                                    { "type": "Literal", "value": "J18" }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCodeFilter().get(0).getCodePrefixes())
+                .containsExactly("J18");
+    }
+
+    @Test
+    void extract_existsWithCodingSystemValue_resolvesSystemUrlViaValueUnwrap() {
+        // PAT-121c: CQL `Coding.system.value = 'http://...'` produces
+        // Property(path="value", source=Property(path="system")). Previously the
+        // extractor only matched Property(path="system") directly and missed the
+        // .value wrapper — measure 3's Condition came out with system=null.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "X",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "C", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Condition" } }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{ "alias": "Coding",
+                                    "expression": { "type": "Property", "path": "coding", "source": { "type": "Property", "path": "code", "scope": "C" } } }],
+                                "where": {
+                                  "type": "Equal",
+                                  "operand": [
+                                    { "type": "Property", "path": "value",
+                                      "source": { "type": "Property", "path": "system", "scope": "Coding" } },
+                                    { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "http://hl7.org/fhir/sid/icd-10-cm" }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCodeFilter().get(0).getCodeSystemUrl())
+                .isEqualTo("http://hl7.org/fhir/sid/icd-10-cm");
+    }
+
+    @Test
+    void extract_patientFilter_collectsAgeRange() {
+        // PAT-121a: `AgeInYearsAt(...) >= 18 and AgeInYearsAt(...) <= 64`
+        // — ELM uses CalculateAge(precision=Year). minAge/maxAge are inclusive.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "Initial Population",
+                          "expression": {
+                            "type": "And",
+                            "operand": [
+                              { "type": "GreaterOrEqual", "operand": [
+                                  { "type": "CalculateAge", "precision": "Year",
+                                    "operand": { "type": "Property", "path": "birthDate.value", "source": { "type": "ExpressionRef", "name": "Patient" } } },
+                                  { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}Integer", "value": "18" }
+                              ]},
+                              { "type": "LessOrEqual", "operand": [
+                                  { "type": "CalculateAge", "precision": "Year",
+                                    "operand": { "type": "Property", "path": "birthDate.value", "source": { "type": "ExpressionRef", "name": "Patient" } } },
+                                  { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}Integer", "value": "64" }
+                              ]}
+                            ]
+                          }
+                        },
+                        {
+                          "name": "PatRetrieve",
+                          "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Patient" }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo patient = result.stream()
+                .filter(r -> "Patient".equals(r.getType())).findFirst().orElseThrow();
+        assertThat(patient.getPatientFilter()).isNotNull();
+        assertThat(patient.getPatientFilter().getMinAge()).isEqualTo(18);
+        assertThat(patient.getPatientFilter().getMaxAge()).isEqualTo(64);
+        assertThat(patient.getPatientFilter().getAgeUnit()).isEqualTo("Year");
+    }
+
+    @Test
+    void extract_patientFilter_collectsGender() {
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "MaleOnly",
+                          "expression": {
+                            "type": "Equal",
+                            "operand": [
+                              { "type": "Property", "path": "value",
+                                "source": { "type": "Property", "path": "gender", "source": { "type": "ExpressionRef", "name": "Patient" } } },
+                              { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "male" }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "PatRetrieve",
+                          "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Patient" }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo patient = result.stream()
+                .filter(r -> "Patient".equals(r.getType())).findFirst().orElseThrow();
+        assertThat(patient.getPatientFilter()).isNotNull();
+        assertThat(patient.getPatientFilter().getGender()).containsExactly("male");
+    }
+
+    @Test
+    void extract_patientFilter_noConstraints_leavesPatientFilterNull() {
+        // Without any age or gender comparison in the library, patientFilter
+        // stays null so measures applicable to all demographics don't show an
+        // empty filter panel.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        { "name": "PatRetrieve", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Patient" } }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo patient = result.stream()
+                .filter(r -> "Patient".equals(r.getType())).findFirst().orElseThrow();
+        assertThat(patient.getPatientFilter()).isNull();
+    }
+
+    @Test
     void extract_retrieveWithUnresolvableConceptRef_leavesNoCodes() {
         // When the ConceptRef name has no matching concept in library.concepts.def
         // (e.g. declared in an external library), we should gracefully extract
