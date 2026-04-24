@@ -115,7 +115,7 @@
 - **現況**：Circuit breaker 有設（Resilience4j `application.yml:283-287`），但 UX 沒定義
 - **風險**：真 EHR 的 FHIR server 偶爾 timeout / 5xx 是日常；使用者看到 raw error 會誤以為 platform bug
 - **修法**：統一 fallback response（如 "EHR 暫時離線、已自動重試 N 次"）；per-EHR connection health status UI
-- **Status**: `[x] Phase 1+2 Done — PAT-110 + PAT-111`（Phase 1 PAT-110：BE 結構化 `FHIR_UPSTREAM_UNAVAILABLE` envelope 帶 `connectionId`/`reason`/`retryAfterSeconds` + `Retry-After` header；FE Axios interceptor → `EhrOutageProvider` 黃色 persistent banner + zh-TW/en i18n。Phase 2 PAT-111：`EhrConnectionList.tsx` 新「Live Health」欄位，React Query 每 30 秒 poll `/api/ehr/health/overview`，顯示綠/黃/紅/灰 Chip + availability %、tooltip 含 24h uptime/avg response/error count/last checked。**Phase 3 需產品/臨床討論**：per-hook fallback（CDS 空 card / measure skip population 的臨床語意）→ PAT-112）
+- **Status**: `[x] Done — PAT-110 + PAT-111 + PAT-112a`（Phase 1 PAT-110：BE 結構化 `FHIR_UPSTREAM_UNAVAILABLE` envelope + FE 黃色 persistent banner。Phase 2 PAT-111：admin EHR table Live Health 欄位 + 30s polling。Phase 3a PAT-112a：臨床決策「fail-loud 不靜默 fallback」確定；`FhirDataProviderService` + `CountingRetrieveProvider` 6 處 catch-and-return-empty 改 rethrow；`MeasureEvaluationService` 混合 FHIR 失敗時整個 evaluation 回 error result 不 partial-aggregate；`findFhirOutageCause` cause-chain walker 辨識 CQL engine 包裝後的 outage。CDS 遇 FHIR 掛回 error（非空 card）、measure 遇 FHIR 掛整個 fail（非 partial）= patient-safety 決策已落地。）
 
 ### #11 Regulatory docs 只有模板、沒實際 artifacts
 - **現況**：`regulatory_docs/templates/` 有 6 個 `.md` 模板；`regulatory_docs/output/` 空的
