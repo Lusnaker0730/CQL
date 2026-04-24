@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { getDefaultMeasurePeriod, getDefaultComparisonPeriods } from '../dateDefaults'
+import { getDefaultMeasurePeriod, getDefaultComparisonPeriods, computeTrendSlots } from '../dateDefaults'
 
 describe('getDefaultMeasurePeriod', () => {
   afterEach(() => {
@@ -47,5 +47,44 @@ describe('getDefaultComparisonPeriods', () => {
     expect(result.period1End).toBe('2025-06-30')
     expect(result.period2Start).toBe('2025-07-01')
     expect(result.period2End).toBe('2025-12-31')
+  })
+})
+
+describe('computeTrendSlots', () => {
+  it('splits monthly range into N contiguous calendar-month slots oldest-first', () => {
+    const slots = computeTrendSlots('2026-04-30', 4, 'monthly')
+    expect(slots).toEqual([
+      { periodStart: '2026-01-01', periodEnd: '2026-01-31' },
+      { periodStart: '2026-02-01', periodEnd: '2026-02-28' },
+      { periodStart: '2026-03-01', periodEnd: '2026-03-31' },
+      { periodStart: '2026-04-01', periodEnd: '2026-04-30' },
+    ])
+  })
+
+  it('quarterly slots span three calendar months each', () => {
+    const slots = computeTrendSlots('2026-12-31', 4, 'quarterly')
+    expect(slots).toEqual([
+      { periodStart: '2026-01-01', periodEnd: '2026-03-31' },
+      { periodStart: '2026-04-01', periodEnd: '2026-06-30' },
+      { periodStart: '2026-07-01', periodEnd: '2026-09-30' },
+      { periodStart: '2026-10-01', periodEnd: '2026-12-31' },
+    ])
+  })
+
+  it('yearly slots wrap the calendar year containing the end date', () => {
+    const slots = computeTrendSlots('2026-12-31', 3, 'yearly')
+    expect(slots).toEqual([
+      { periodStart: '2024-01-01', periodEnd: '2024-12-31' },
+      { periodStart: '2025-01-01', periodEnd: '2025-12-31' },
+      { periodStart: '2026-01-01', periodEnd: '2026-12-31' },
+    ])
+  })
+
+  it('handles leap-year February correctly', () => {
+    const slots = computeTrendSlots('2024-03-31', 2, 'monthly')
+    expect(slots).toEqual([
+      { periodStart: '2024-02-01', periodEnd: '2024-02-29' },
+      { periodStart: '2024-03-01', periodEnd: '2024-03-31' },
+    ])
   })
 })
