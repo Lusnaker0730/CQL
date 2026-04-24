@@ -180,6 +180,32 @@ docker compose up -d --build
 |------|------|--------|
 | `GF_SECURITY_ADMIN_USER` | Grafana 管理員帳號 | `admin` |
 | `GF_SECURITY_ADMIN_PASSWORD` | Grafana 管理員密碼 | **必須設定** |
+| `METRICS_SCRAPE_USER` | Prometheus scrape HTTP Basic username | `prometheus` |
+| `METRICS_SCRAPE_PASSWORD` | Prometheus scrape HTTP Basic password（PAT-113） | **必須設定** |
+
+> **⚠️ PAT-113 之後**：`/actuator/prometheus` 預設要求 HTTP Basic 認證。`METRICS_SCRAPE_PASSWORD` 未設 → prometheus container 啟動時 FATAL exit，整個監控鏈斷掉（但 backend / frontend 不受影響）。
+>
+> 產生指令：
+> ```bash
+> openssl rand -base64 24
+> ```
+> 把輸出值填入 `.env` 的 `METRICS_SCRAPE_PASSWORD=`。`METRICS_SCRAPE_USER` 可留 `prometheus` 預設值。兩個變數的值必須在 backend 和 prometheus 兩個 container 之間一致（docker-compose 都從同一個 `.env` 讀）。
+
+### 4.6 Thread pool 調校（PAT-109）
+
+Backend 有兩個主要 thread pool：CQL 執行池（同步 API）與 bulk patient import 池（背景 EHR 匯入）。兩者刻意獨立以避免 bulk import 癱瘓 API。
+
+| 變數 | 說明 | 預設值 |
+|------|------|--------|
+| `RATE_LIMIT_TRANSLATE_RPM` | CQL 翻譯 per-IP 速率 | `20` |
+| `RATE_LIMIT_EXECUTE_RPM` | CQL 執行 per-IP 速率 | `10` |
+| `RATE_LIMIT_FIX_SUGGESTION_RPM` | AI 修正建議 per-IP 速率 | `5` |
+| `RATE_LIMIT_CDS_DISCOVERY_RPM` | CDS discovery 端點 per-IP 速率（PAT-107） | `20` |
+| `EHR_IMPORT_THREAD_POOL_SIZE` | Bulk import 核心 thread 數 | `4` |
+| `EHR_IMPORT_MAX_POOL_SIZE` | Bulk import 最大 thread 數 | `8` |
+| `EHR_IMPORT_QUEUE_CAPACITY` | Bulk import queue 容量 | `100` |
+
+> **調校時機**：Grafana 的「Patient Import Pool」panel 顯示 queue depth 持續接近 80、或 HikariCP `pending` > 3 持續數分鐘，代表 pool 飽和，可上調對應變數。調大前先確認資料庫 `max_connections`（預設 100）還夠用。
 
 ---
 
