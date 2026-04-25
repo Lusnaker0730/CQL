@@ -30,6 +30,18 @@ public class EnhancedDashboardData {
         private String measureName;
         private Long measureId;
         private Double score;
+        /**
+         * FHIR scoring type of the measure that produced this point — proportion, ratio,
+         * continuous-variable, cohort, composite. Lets the dashboard render per-type charts:
+         * proportion/ratio/composite share the 0–100% axis, continuous-variable needs auto
+         * Y-axis (raw clinical values like HbA1c=5.6), cohort is a patient count.
+         */
+        private String scoringType;
+        /**
+         * Optional unit string for the score (typically populated for continuous-variable —
+         * e.g. "mmol/L", "mg/dL"). Sourced from the report's group {@code measureScoreUnit}.
+         */
+        private String unit;
     }
 
     @Data

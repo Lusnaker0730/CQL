@@ -35,6 +35,16 @@
       "multiples": "指標網格",
       "overlay": "疊圖比較"
     },
+    "trendSections": {
+      "proportion": "比例 / 比率 / 複合（0–100%）",
+      "proportionHint": "分數天生在 0–100% 範圍的指標；可以安全地疊在同一張圖上。",
+      "continuousVariable": "連續型變數（原始臨床值）",
+      "continuousVariableHint": "每個指標各有自己的臨床範圍與單位（例如 HbA1c 用 mmol/L）；每個指標獨立一張圖，Y 軸自動縮放。",
+      "cohort": "群體計數（人數）",
+      "cohortHint": "符合條件的病人人數（非分數）；每個指標一張人數趨勢圖。",
+      "noTrendData": "此計分類型尚無趨勢資料。",
+      "unknownUnit": "數值"
+    },
     "noDepartmentData": "無部門資料",
     "periodType": "期間",
     "monthly": "月度",
