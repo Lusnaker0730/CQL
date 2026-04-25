@@ -1222,6 +1222,10 @@ export interface TrendSeriesPoint {
   measureName: string
   measureId?: number
   score?: number
+  /** FHIR scoring type: proportion, ratio, continuous-variable, cohort, composite. */
+  scoringType?: string
+  /** Unit string for the score (typically populated for continuous-variable, e.g. "mmol/L"). */
+  unit?: string
 }
 
 export interface MeasureThreshold {

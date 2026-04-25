@@ -35,6 +35,16 @@
       "multiples": "Small multiples",
       "overlay": "Overlay"
     },
+    "trendSections": {
+      "proportion": "Proportion / Ratio / Composite (0–100%)",
+      "proportionHint": "Measures whose score is naturally on a 0–100% scale; safe to overlay on one chart.",
+      "continuousVariable": "Continuous Variable (raw clinical values)",
+      "continuousVariableHint": "Each measure has its own clinical range and unit (e.g. HbA1c in mmol/L); rendered one chart per measure with auto-scaled Y axis.",
+      "cohort": "Cohort (patient counts)",
+      "cohortHint": "Counts of patients in a defined cohort — not a score; rendered as a count trend per measure.",
+      "noTrendData": "No trend data for this scoring type.",
+      "unknownUnit": "value"
+    },
     "noDepartmentData": "No department data available",
     "periodType": "Period",
     "monthly": "Monthly",
