@@ -12,7 +12,6 @@ import {
 } from '@mui/material'
 import {
   LocalHospital as MedicalIcon,
-  GitHub as GitHubIcon,
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
   Logout as LogoutIcon,
@@ -230,17 +229,6 @@ export default function Header() {
               sx={toolbarIconBtnSx}
             >
               <HelpIcon sx={{ fontSize: 20 }} />
-            </IconButton>
-            <IconButton
-              color="inherit"
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t('toolbar.github')}
-              title={t('toolbar.github')}
-              sx={toolbarIconBtnSx}
-            >
-              <GitHubIcon sx={{ fontSize: 20 }} />
             </IconButton>
             <IconButton
               color="inherit"
