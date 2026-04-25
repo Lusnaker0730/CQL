@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyScoring } from '../ScoreTrendChart'
+import { classifyScoring } from '../scoringFamily'
 
 describe('classifyScoring', () => {
   it('treats proportion / ratio / composite as the proportion family (0–100% scale)', () => {
