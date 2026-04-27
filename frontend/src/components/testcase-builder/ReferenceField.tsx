@@ -3,6 +3,7 @@ import { Box, TextField, Typography, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import FieldWrapper from './FieldWrapper'
 import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
+import { asObject } from '../../utils/fhirGuards'
 import type { ElementMetadata } from '../../types'
 
 interface Reference {
@@ -19,7 +20,7 @@ interface ReferenceFieldProps {
 export default function ReferenceField({ element, value, onChange }: ReferenceFieldProps) {
   const { t } = useTranslation('measures')
   const { state } = useBundleBuilder()
-  const ref = (value as Reference) || {}
+  const ref = asObject(value) as Reference
 
   // Build reference options from bundle entries, filtered by allowed target types
   const targets = useMemo(() => element.referenceTargets || [], [element.referenceTargets])
