@@ -91,32 +91,38 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   }
 
   const handleGenerate = async () => {
+    if (generateMutation.isPending) return
     try { await saveFirst() } catch { return }
-    generateMutation.mutate(artifactId, {
-      onSuccess: (data) => {
-        setCql(data.cql)
-        setValidation(null)
-        setCqlIsStale(false)
-      },
-    })
+    try {
+      const data = await generateMutation.mutateAsync(artifactId)
+      setCql(data.cql)
+      setValidation(null)
+      setCqlIsStale(false)
+    } catch {
+      // mutation surface error via mutation.error UI
+    }
   }
 
   const handleValidate = async () => {
+    // Bail if either step is in flight — prevents duplicate validate→generate
+    // chains where last writer wins on setValidation/setCql, and avoids
+    // setting state on an unmounted component if the user navigates away.
+    if (validateMutation.isPending || generateMutation.isPending) return
     try { await saveFirst() } catch { return }
-    validateMutation.mutate(artifactId, {
-      onSuccess: (data) => {
-        setValidation(data)
-        if (!cql) {
-          generateMutation.mutate(artifactId, {
-            onSuccess: (genData) => setCql(genData.cql),
-          })
-        }
-      },
-    })
+    try {
+      const validateData = await validateMutation.mutateAsync(artifactId)
+      setValidation(validateData)
+      if (!cql) {
+        const genData = await generateMutation.mutateAsync(artifactId)
+        setCql(genData.cql)
+      }
+    } catch {
+      // mutation error surfaces via the validateMutation.error UI
+    }
   }
 
   const handleFormat = () => {
-    if (!cql) return
+    if (!cql || formatMutation.isPending) return
     formatMutation.mutate(cql, {
       onSuccess: (data) => setCql(data.cql),
     })
