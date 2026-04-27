@@ -61,11 +61,13 @@
     "shortcutsTitle": "Keyboard Shortcuts",
     "conflict": {
       "title": "Save Conflict",
-      "message": "This artifact was modified in another tab or session. You can reload the latest version (your unsaved changes will be lost) or keep editing your current version.",
+      "message": "This artifact was modified in another tab or session. You can reload the latest version (your unsaved changes will be saved to local recovery storage and you may copy them back manually) or keep editing your current version.",
       "reload": "Reload",
-      "keepEditing": "Keep Editing"
+      "keepEditing": "Keep Editing",
+      "reloadFailed": "Reload failed. Your local edits are still here — try again, or copy out anything you need before reloading."
     },
-    "useLibraryDefinition": "Use library definition"
+    "useLibraryDefinition": "Use library definition",
+    "dataLoadFailed": "Failed to load templates, modifiers, or external CQL libraries. Some editing surfaces may be empty — check your connection and reload."
   },
   "header": {
     "backToList": "Back to artifact list",
@@ -90,6 +92,7 @@
     "cqlGenHint": "Check that all elements have required fields filled in and modifier chains are compatible.",
     "generatedCql": "Generated CQL",
     "fhirVersion": "FHIR Version:",
+    "fhirVersionLine": "FHIR Version: {{version}}",
     "regenerating": "Regenerating...",
     "regenerate": "Regenerate",
     "noCqlGenerated": "No CQL generated.",
@@ -162,6 +165,17 @@
     "modifierChainError": "Modifier \"{{name}}\" expects {{expected}} but receives {{actual}}"
   },
   "elementBody": {
+    "demographics": {
+      "year": "Year",
+      "month": "Month",
+      "week": "Week",
+      "day": "Day",
+      "hour": "Hour",
+      "male": "Male",
+      "female": "Female",
+      "other": "Other",
+      "unknown": "Unknown"
+    },
     "returnType": "Return Type:",
     "modifiers": "Modifiers",
     "selectModifiers": "SELECT MODIFIERS",
@@ -186,6 +200,8 @@
     "atLeast": "at least ",
     "atMost": "at most ",
     "anyAge": "any age",
+    "andConnective": " and ",
+    "ageBetween": "{{min}} {{unit}} and {{max}} {{unit}}",
     "genderIs": "The patient's <strong>gender</strong> is ",
     "notSet": "not set",
     "matching": " matching ",
@@ -202,6 +218,13 @@
     "max": "Max:",
     "value": "Value",
     "comparison": "Comparison",
+    "operatorPlaceholder": "Op",
+    "boolIsNull": "Is Null",
+    "boolIsNotNull": "Is Not Null",
+    "boolIsTrue": "Is True",
+    "boolIsNotTrue": "Is Not True",
+    "boolIsFalse": "Is False",
+    "boolIsNotFalse": "Is Not False",
     "matchBy": "Match by:",
     "valueSetName": "Value Set Name",
     "enterValueSet": "Enter value set name...",
@@ -244,6 +267,20 @@
     "operatorLabel": "Operator",
     "valueLabel": "Value",
     "removeRule": "Remove rule",
+    "defaultName": "Custom Filter",
+    "ops": {
+      "equals": "equals",
+      "notEquals": "does not equal",
+      "in": "is in",
+      "isNull": "is null",
+      "isNotNull": "is not null",
+      "startsWith": "starts with",
+      "endsWith": "ends with",
+      "contains": "contains",
+      "before": "is before",
+      "after": "is after",
+      "withinLast": "within the last"
+    },
     "days": "days",
     "weeks": "weeks",
     "months": "months",
@@ -267,7 +304,26 @@
     "GenericImmunization_vsac": "Vaccination records",
     "GenericServiceRequest_vsac": "Diagnostic or service requests",
     "GenericDevice_vsac": "Medical devices",
-    "BooleanParameter": "Configurable true/false parameter"
+    "BooleanParameter": "Configurable true/false parameter",
+    "TwcoreBMI_vsac": "TWCORE BMI observation (LOINC 39156-5)",
+    "TwcoreBloodPressure_vsac": "TWCORE blood pressure panel (LOINC 85354-9)",
+    "TwcoreBodyWeight_vsac": "TWCORE body weight (LOINC 29463-7)",
+    "TwcoreBodyHeight_vsac": "TWCORE body height (LOINC 8302-2)",
+    "TwcoreBodyTemperature_vsac": "TWCORE body temperature (LOINC 8310-5)",
+    "TwcoreHeartRate_vsac": "TWCORE heart rate (LOINC 8867-4)",
+    "TwcoreBloodGlucose_vsac": "TWCORE blood glucose (LOINC 2345-7)",
+    "TwcoreHbA1c_vsac": "TWCORE HbA1c (LOINC 4548-4)",
+    "TwcoreLabResult_vsac": "TWCORE lab result — pick code from catalog",
+    "TwcoreDiabetes_vsac": "TWCORE diabetes mellitus (SNOMED 44054006)",
+    "TwcoreHypertension_vsac": "TWCORE hypertension (SNOMED 38341003)",
+    "TwcoreHeartFailure_vsac": "TWCORE heart failure (SNOMED 84114007)",
+    "TwcoreCKD_vsac": "TWCORE chronic kidney disease (SNOMED 709044004)",
+    "TwcoreAsthma_vsac": "TWCORE asthma (SNOMED 195967001)",
+    "TwcoreCOPD_vsac": "TWCORE COPD (SNOMED 13645005)",
+    "TwcoreCondition_vsac": "TWCORE condition — pick code from catalog",
+    "TwcoreMedicationRequest_vsac": "TWCORE medication prescription",
+    "TwcoreMedicationStatement_vsac": "TWCORE medication usage record",
+    "TwcoreAllergyIntolerance_vsac": "TWCORE allergy or intolerance"
   },
   "valueSetField": {
     "vsacAuthenticated": "VSAC AUTHENTICATED",
@@ -310,6 +366,7 @@
     "codeLabel": "Code",
     "codeSystemLabel": "Code system",
     "other": "Other",
+    "selectedSystemFallback": "selected system",
     "validate": "VALIDATE",
     "codeSystemUrl": "Code system URL",
     "codeSystemPlaceholder": "e.g. http://example.org/fhir/CodeSystem/my-codes",
@@ -336,7 +393,9 @@
     "deleteTitle": "Delete Subpopulation",
     "deleteConfirm": "Are you sure you want to delete <strong>{{name}}</strong>? This will also remove it from any recommendations that reference it.",
     "nameRequired": "Name is required",
-    "duplicateName": "Duplicate subpopulation name"
+    "duplicateName": "Duplicate subpopulation name",
+    "defaultName": "Subpopulation {{number}}",
+    "fallbackName": "this subpopulation"
   },
   "recommendations": {
     "title": "Recommendations",
@@ -353,6 +412,9 @@
     "detailLabel": "Detail (Card Body)",
     "detailPlaceholder": "Markdown-formatted body text for the card...",
     "indicatorLabel": "Indicator",
+    "indicatorInfo": "Info",
+    "indicatorWarning": "Warning",
+    "indicatorCritical": "Critical",
     "sourceLabelLabel": "Source Label",
     "sourcePlaceholder": "e.g. CDS Connect",
     "selectionBehavior": "Selection Behavior",
@@ -412,7 +474,10 @@
     "deleteTitle": "Delete Base Element",
     "deleteConfirm": "Are you sure you want to delete <strong>{{name}}</strong>? Any references to this element in other parts of the artifact will break.",
     "nameRequired": "Name is required",
-    "duplicateName": "Duplicate base element name"
+    "duplicateName": "Duplicate base element name",
+    "defaultName": "Base Element {{number}}",
+    "calculatedDefaultName": "Calculated Value {{number}}",
+    "fallbackName": "this base element"
   },
   "arithmetic": {
     "logicElement": "Logic Element",
@@ -549,6 +614,10 @@
     "generatedCql": "Generated CQL"
   },
   "summary": {
+    "ifLabel": "if",
+    "elseIfLabel": "else if",
+    "elseLabel": "else",
+    "gradeLabel": "Grade {{grade}}",
     "title": "Artifact Summary",
     "metadata": "Metadata",
     "name": "Name",
@@ -576,6 +645,11 @@
     "cdsCard": "CDS Card"
   },
   "importCql": {
+    "descriptionDefault": "Imported from CQL: {{name}}",
+    "libraryChip": "Library: {{name}}",
+    "versionChip": "Version: {{version}}",
+    "fhirChip": "FHIR: {{version}}",
+    "fileTooLarge": "File is too large (limit: {{limit}}). Please upload a smaller .cql file.",
     "title": "Import CQL",
     "description": "Paste CQL code below or upload a .cql file. The parser will extract library metadata, value sets, parameters, and define statements.",
     "uploadFile": "Upload .cql File",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import DOMPurify from 'dompurify'
 import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
@@ -18,6 +18,13 @@ interface CqlPreviewPanelProps {
   isDirty?: boolean
 }
 
+// Module-scope guards: Monaco's setTheme is global so the previous unguarded
+// call repainted every editor on the page on every keystroke; cqlRegistered
+// belongs at module scope (not per-mount) since the language registration
+// is global to monaco.
+let cqlLanguageRegistered = false
+let lastAppliedTheme: string | null = null
+
 export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDirty }: CqlPreviewPanelProps) {
   const { t } = useTranslation('authoring')
   const [cql, setCql] = useState<string | null>(null)
@@ -36,19 +43,21 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   const isDark = preferences.themeMode === 'dark'
 
   // Register CQL language and colorize when cql or theme changes
-  const cqlRegistered = useRef(false)
   useEffect(() => {
     if (!cql || !monaco) {
       setColorizedHtml('')
       return
     }
     let cancelled = false
-    if (!cqlRegistered.current) {
+    if (!cqlLanguageRegistered) {
       registerCqlLanguage(monaco)
-      cqlRegistered.current = true
+      cqlLanguageRegistered = true
     }
     const themeName = isDark ? 'cql-theme-dark' : 'cql-theme'
-    monaco.editor.setTheme(themeName)
+    if (lastAppliedTheme !== themeName) {
+      monaco.editor.setTheme(themeName)
+      lastAppliedTheme = themeName
+    }
 
     monaco.editor.colorize(cql, 'cql', { tabSize: 2 }).then((html) => {
       if (!cancelled) setColorizedHtml(html)

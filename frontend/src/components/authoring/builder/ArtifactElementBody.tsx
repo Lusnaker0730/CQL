@@ -19,20 +19,10 @@ import CustomModifierBuilder from './CustomModifierBuilder'
 import type { ElementInstance, ElementField, Modifier, ModifierDefinition } from '../../../types/authoring'
 import { getEffectiveReturnType as getEffectiveRT, getReturnTypeAtPosition } from '../../../utils/modifierUtils'
 
-const DEMOGRAPHIC_SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
-  'demographics/units_of_time': [
-    { value: 'year', label: 'Year' },
-    { value: 'month', label: 'Month' },
-    { value: 'week', label: 'Week' },
-    { value: 'day', label: 'Day' },
-    { value: 'hour', label: 'Hour' },
-  ],
-  'demographics/gender': [
-    { value: 'male', label: 'Male' },
-    { value: 'female', label: 'Female' },
-    { value: 'other', label: 'Other' },
-    { value: 'unknown', label: 'Unknown' },
-  ],
+// Values are stable wire identifiers; labels resolve via i18n at render time.
+const DEMOGRAPHIC_SELECT_VALUES: Record<string, string[]> = {
+  'demographics/units_of_time': ['year', 'month', 'week', 'day', 'hour'],
+  'demographics/gender': ['male', 'female', 'other', 'unknown'],
 }
 
 interface ArtifactElementBodyProps {
@@ -509,8 +499,8 @@ function FieldRenderer({
         />
       )
     case 'valueset': {
-      const selectOptions = field.select ? DEMOGRAPHIC_SELECT_OPTIONS[field.select] : undefined
-      if (selectOptions) {
+      const selectValues = field.select ? DEMOGRAPHIC_SELECT_VALUES[field.select] : undefined
+      if (selectValues) {
         return (
           <FormControl size="small" fullWidth>
             <InputLabel>{field.name}</InputLabel>
@@ -519,8 +509,8 @@ function FieldRenderer({
               label={field.name}
               onChange={(e) => onChange(e.target.value)}
             >
-              {selectOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              {selectValues.map((value) => (
+                <MenuItem key={value} value={value}>{t(`elementBody.demographics.${value}`)}</MenuItem>
               ))}
             </Select>
           </FormControl>
