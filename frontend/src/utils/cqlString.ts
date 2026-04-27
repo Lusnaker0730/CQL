@@ -9,6 +9,14 @@ export function escapeCqlString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
 
+/**
+ * Escape a value for safe embedding inside a CQL delimited identifier ("...").
+ * CQL identifier delimiters require escaping of `\` and `"`.
+ */
+export function escapeCqlIdentifier(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
 export interface FieldState {
   value: string
   mode: 'literal' | 'expression'

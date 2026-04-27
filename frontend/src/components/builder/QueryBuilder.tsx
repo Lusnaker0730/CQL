@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FHIR_RESOURCE_TYPES } from '../../constants/fhirResources'
 import { extractCqlName } from '../../utils/cqlNames'
@@ -62,9 +62,22 @@ const OPERATORS = [
 
 const CQL_LITERAL_RE = /^("[^"]*"|'[^']*'|true|false|null|-?\d+(\.\d+)?|@\S+|Interval\b.*)$/
 
-let clauseIdCounter = 0
-function nextClauseId(): string {
-  return `wc_${++clauseIdCounter}`
+/**
+ * Choice-typed date fields whose raw HAPI value isn't safely Comparable.
+ * Sort expressions for these must extract a primitive via cast + .value
+ * (per CLAUDE.md TWCDI: HAPI DateTimeType doesn't implement Comparable).
+ */
+const CHOICE_DATE_FIELDS = new Set([
+  'effective', 'onset', 'performed', 'occurrence',
+])
+
+function buildSortExpr(field: string, alias: string): string {
+  if (CHOICE_DATE_FIELDS.has(field)) {
+    return `(${alias}.${field} as FHIR.dateTime).value`
+  }
+  // period (Encounter) is a Period, not a choice — use start
+  if (field === 'period') return `${alias}.${field}.start.value`
+  return field
 }
 
 function generateAlias(resourceType: string): string {
@@ -137,7 +150,7 @@ function generateQueryCql(
   }
 
   if (enableSort && sortField) {
-    cql += `\n    sort by ${sortField} ${sortDir}`
+    cql += `\n    sort by ${buildSortExpr(sortField, alias)} ${sortDir}`
   }
 
   return cql
@@ -161,6 +174,8 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
   const [enableReturn, setEnableReturn] = useState(false)
   const [returnExpr, setReturnExpr] = useState('')
   const [enableDistinct, setEnableDistinct] = useState(false)
+  const clauseIdRef = useRef(0)
+  const nextClauseId = useCallback(() => `wc_${++clauseIdRef.current}`, [])
 
   const terminologyOptions = useMemo(() => {
     const vsOptions = valueSets.map((vs) => ({ raw: vs, label: `VS: ${extractCqlName(vs)}` }))
