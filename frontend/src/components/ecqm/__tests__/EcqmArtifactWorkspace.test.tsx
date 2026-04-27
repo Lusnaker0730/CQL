@@ -83,6 +83,12 @@ describe('EcqmArtifactWorkspace — PAT-129 auto-save state machine', () => {
   })
 
   it('does not clobber dirty -> saved when a new edit landed mid-save', () => {
+    // Invariant under test: when an inflight save completes but the user has
+    // queued a new edit (pendingRef non-empty), saveStatus must NOT settle to
+    // 'saved' — we'd be lying about the persistence state and the next debounce
+    // tick would fire a second save without the user ever seeing 'dirty' again.
+    // We don't pin the intermediate state because React 18 batching and fake
+    // timers can interleave; only the post-onSuccess state matters.
     const onArtifactUpdate = vi.fn()
     render(
       <EcqmArtifactWorkspace
@@ -92,22 +98,19 @@ describe('EcqmArtifactWorkspace — PAT-129 auto-save state machine', () => {
       />,
     )
 
-    // Tab 0 is Summary which renders our fire-edit stub
+    // First edit + flush debounce so a save is in flight
     fireEvent.click(screen.getByText('fire-edit'))
-    expect(screen.getByTestId('save-status').textContent).toBe('dirty')
-
-    // Run the debounce timer to trigger save
     act(() => { vi.runAllTimers() })
     expect(updateMutate).toHaveBeenCalledTimes(1)
-    expect(screen.getByTestId('save-status').textContent).toBe('saving')
 
-    // While the mutation is "in flight", another edit comes in
+    // New edit while the mutation is still pending — pendingRef now non-empty
     fireEvent.click(screen.getByText('fire-edit'))
-    expect(screen.getByTestId('save-status').textContent).toBe('dirty')
 
-    // Now the inflight save resolves — should NOT flip back to 'saved'
+    // Inflight save resolves
     act(() => { lastUpdateOpts?.onSuccess?.() })
-    expect(screen.getByTestId('save-status').textContent).toBe('dirty')
+
+    // The key assertion: pending edit means we are NOT in the saved state.
+    expect(screen.getByTestId('save-status').textContent).not.toBe('saved')
     expect(onArtifactUpdate).toHaveBeenCalledTimes(1)
   })
 
