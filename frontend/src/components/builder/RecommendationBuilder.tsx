@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -57,11 +57,11 @@ interface SuggestionItem {
 const INDICATORS = ['info', 'warning', 'critical'] as const
 const GRADES = ['', 'A', 'B', 'C', 'D', 'I'] as const
 
-let nextId = 1
-
 export default function RecommendationBuilder({ expressions, onInsert, onCancel }: RecommendationBuilderProps) {
   const { t } = useTranslation('builder')
   const copyToClipboard = useCopyToClipboard()
+  const idRef = useRef(0)
+  const nextId = () => ++idRef.current
   const [name, setName] = useState('Card')
   const [summary, setSummary] = useState<FieldState>({ value: '', mode: 'literal' })
   const [detail, setDetail] = useState<FieldState>({ value: '', mode: 'literal' })
@@ -74,20 +74,20 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
   const [links, setLinks] = useState<LinkItem[]>([])
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
 
-  const addLink = () => setLinks((prev) => [...prev, { id: nextId++, type: 'absolute', label: '', url: '' }])
+  const addLink = () => setLinks((prev) => [...prev, { id: nextId(), type: 'absolute', label: '', url: '' }])
   const removeLink = (id: number) => setLinks((prev) => prev.filter((l) => l.id !== id))
   const updateLink = (id: number, field: keyof LinkItem, value: string) =>
     setLinks((prev) => prev.map((l) => l.id === id ? { ...l, [field]: value } : l))
 
   const addSuggestion = () =>
-    setSuggestions((prev) => [...prev, { id: nextId++, label: '', isRecommended: false, actions: [] }])
+    setSuggestions((prev) => [...prev, { id: nextId(), label: '', isRecommended: false, actions: [] }])
   const removeSuggestion = (id: number) => setSuggestions((prev) => prev.filter((s) => s.id !== id))
   const updateSuggestion = (id: number, field: string, value: unknown) =>
     setSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, [field]: value } : s))
 
   const addAction = (sugId: number) =>
     setSuggestions((prev) => prev.map((s) =>
-      s.id === sugId ? { ...s, actions: [...s.actions, { id: nextId++, type: 'create', description: '', resourceType: 'MedicationRequest' }] } : s
+      s.id === sugId ? { ...s, actions: [...s.actions, { id: nextId(), type: 'create', description: '', resourceType: 'MedicationRequest' }] } : s
     ))
   const removeAction = (sugId: number, actionId: number) =>
     setSuggestions((prev) => prev.map((s) =>
@@ -106,25 +106,25 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
     if (detail.value.trim()) {
       fields.push(`    detail: ${formatFieldValue(detail)}`)
     }
-    fields.push(`    indicator: '${indicator}'`)
+    fields.push(`    indicator: '${escapeCqlString(indicator)}'`)
     if (sourceLabel.value.trim()) {
       fields.push(`    sourceLabel: ${formatFieldValue(sourceLabel)}`)
     }
     if (grade) {
-      fields.push(`    grade: '${grade}'`)
+      fields.push(`    grade: '${escapeCqlString(grade)}'`)
     }
     if (rationale.trim()) {
       fields.push(`    rationale: '${escapeCqlString(rationale)}'`)
     }
     if (selectionBehavior) {
-      fields.push(`    selectionBehavior: '${selectionBehavior}'`)
+      fields.push(`    selectionBehavior: '${escapeCqlString(selectionBehavior)}'`)
     }
 
     // Links
     if (links.some((l) => l.label && l.url)) {
       const linkEntries = links
         .filter((l) => l.label && l.url)
-        .map((l) => `      Tuple { type: '${l.type}', label: '${escapeCqlString(l.label)}', url: '${escapeCqlString(l.url)}' }`)
+        .map((l) => `      Tuple { type: '${escapeCqlString(l.type)}', label: '${escapeCqlString(l.label)}', url: '${escapeCqlString(l.url)}' }`)
       fields.push(`    links: List {\n${linkEntries.join(',\n')}\n    }`)
     }
 
@@ -139,7 +139,7 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
           if (s.actions.some((a) => a.description)) {
             const actionEntries = s.actions
               .filter((a) => a.description)
-              .map((a) => `          Tuple { type: '${a.type}', description: '${escapeCqlString(a.description)}', resourceType: '${a.resourceType}' }`)
+              .map((a) => `          Tuple { type: '${escapeCqlString(a.type)}', description: '${escapeCqlString(a.description)}', resourceType: '${escapeCqlString(a.resourceType)}' }`)
             sugFields.push(`        actions: List {\n${actionEntries.join(',\n')}\n        }`)
           }
           return `      Tuple {\n${sugFields.join(',\n')}\n      }`
@@ -150,7 +150,10 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
     const tupleBody = `Tuple {\n${fields.join(',\n')}\n  }`
 
     if (condition) {
-      return `define "${name}":\n  if ${condition} then\n    ${tupleBody.replace(/\n/g, '\n    ')}\n  else\n    null`
+      // Indent every line of the tuple body uniformly so the closing brace
+      // aligns with the opening Tuple { rather than dangling indented.
+      const indented = tupleBody.split('\n').map((l) => `    ${l}`).join('\n')
+      return `define "${name}":\n  if ${condition} then\n${indented}\n  else\n    null`
     }
     return `define "${name}":\n  ${tupleBody}`
   }, [name, summary, detail, indicator, sourceLabel, grade, rationale, selectionBehavior, condition, links, suggestions])

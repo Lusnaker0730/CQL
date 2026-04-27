@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import {
   Stack,
   TextField,
@@ -49,18 +50,13 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
   const [showForm, setShowForm] = useState(false)
   const [browseMode, setBrowseMode] = useState<BrowseMode>('vsac')
   const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, SEARCH_DEBOUNCE_CODE_MS)
   const [expandedUrl, setExpandedUrl] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editUrl, setEditUrl] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), SEARCH_DEBOUNCE_CODE_MS)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
 
   const { data: searchResults = [], isLoading: isSearching } = useSearchValueSets(
     browseMode === 'vsac' && debouncedSearchTerm.length >= 2 ? debouncedSearchTerm : undefined
@@ -109,7 +105,6 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
     setShowForm(false)
     setBrowseMode('vsac')
     setSearchTerm('')
-    setDebouncedSearchTerm('')
     setEditingItem(null)
     setEditName('')
     setEditUrl('')
