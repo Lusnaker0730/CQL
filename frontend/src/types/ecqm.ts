@@ -105,6 +105,12 @@ export interface ObservationEntry {
   observationUnit?: string
   /** FHIR property path for duration/quantity (e.g. 'period', 'value') */
   observationProperty?: string
+  /**
+   * PAT-129: percentile rank (0–100) when {@link aggregateMethod} === 'Percentile'.
+   * Required for that method to produce valid CQL; absent / out-of-range values
+   * are flagged in the editor.
+   */
+  percentileValue?: number
 }
 
 export interface StratifierElement {

@@ -93,7 +93,13 @@
     "aggregateMethod": "聚合方法",
     "populationRef": "族群參考",
     "populationRefPlaceholder": "measure-population",
+    "populationRefRequired": "必須指定族群參考",
     "criteria": "觀測條件",
+    "remove": "移除觀測",
+    "percentileValue": "百分位數（0–100）",
+    "percentileHint": "0–100",
+    "percentileRequired": "請填入百分位數值",
+    "percentileRange": "必須介於 0 到 100 之間",
     "observationType": "計算類型",
     "observationTypeHelp": "選擇如何計算每個事件的觀測值",
     "types": {
@@ -115,6 +121,7 @@
     "standardSdes": "標準 SDE",
     "customSdes": "自訂 SDE",
     "addCustom": "新增自訂",
+    "removeCustom": "移除 SDE「{{name}}」",
     "sdeName": "SDE 名稱",
     "sdeCriteria": "SDE 條件",
     "defaultName": "自訂 SDE {{number}}"
@@ -122,10 +129,12 @@
   "stratifiers": {
     "title": "分層器",
     "addStratifier": "新增分層器",
+    "removeStratifier": "移除分層器 {{number}}",
     "emptyState": "尚未定義分層器。",
     "label": "分層器 {{number}}",
     "description": "描述",
-    "criteria": "分層條件"
+    "criteria": "分層條件",
+    "disabledByDualIp": "當此 Ratio 量測為分母與分子各自使用獨立的 Initial Population 時，不允許使用分層器。請先在「母群體群組」分頁關閉雙 IP，才能新增或編輯分層器。"
   },
   "cqlPreview": {
     "generate": "產生 CQL",
@@ -139,7 +148,8 @@
     "validFailed": "CQL 驗證失敗",
     "publishedSuccess": "已發佈至 MeasureDefinition（ID: {{id}}）",
     "publishFailed": "發佈失敗",
-    "warnings": "警告："
+    "warnings": "警告：",
+    "staleWarning": "此 CQL 產生後 artifact 已被編輯。請按「產生 CQL」以重新產生最新版本。"
   },
   "scoring": {
     "proportion": "Proportion（比例）",

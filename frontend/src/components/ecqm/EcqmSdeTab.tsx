@@ -133,7 +133,12 @@ export default function EcqmSdeTab({
               value={sde.name}
               onChange={(e) => updateCustom(idx, { ...sde, name: e.target.value })}
             />
-            <IconButton size="small" color="error" onClick={() => removeCustom(idx)}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => removeCustom(idx)}
+              aria-label={t('sde.removeCustom', { name: sde.name })}
+            >
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Stack>

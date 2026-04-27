@@ -64,10 +64,17 @@ export default function EcqmObservationEditor({
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
         <Typography variant="subtitle2" fontWeight={600}>{t('observation.title')}</Typography>
-        <IconButton size="small" color="error" onClick={onRemove}><DeleteIcon fontSize="small" /></IconButton>
+        <IconButton
+          size="small"
+          color="error"
+          onClick={onRemove}
+          aria-label={t('observation.remove')}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
       </Stack>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
         <TextField
           label={t('observation.aggregateMethod')} select size="small" sx={{ width: 200 }}
           value={observation.aggregateMethod}
@@ -77,11 +84,40 @@ export default function EcqmObservationEditor({
             <MenuItem key={m} value={m}>{m}</MenuItem>
           ))}
         </TextField>
+        {observation.aggregateMethod === 'Percentile' && (
+          <TextField
+            label={t('observation.percentileValue')}
+            type="number"
+            size="small"
+            sx={{ width: 140 }}
+            value={observation.percentileValue ?? ''}
+            onChange={(e) => {
+              const raw = e.target.value
+              const v = raw === '' ? undefined : Number(raw)
+              onChange({ ...observation, percentileValue: v })
+            }}
+            inputProps={{ min: 0, max: 100, step: 1 }}
+            error={
+              observation.percentileValue == null ||
+              observation.percentileValue < 0 ||
+              observation.percentileValue > 100
+            }
+            helperText={
+              observation.percentileValue == null
+                ? t('observation.percentileRequired')
+                : observation.percentileValue < 0 || observation.percentileValue > 100
+                  ? t('observation.percentileRange')
+                  : t('observation.percentileHint')
+            }
+          />
+        )}
         <TextField
-          label={t('observation.populationRef')} size="small" sx={{ flex: 1 }}
+          label={t('observation.populationRef')} size="small" sx={{ flex: 1, minWidth: 200 }}
           value={observation.populationRef || ''}
           onChange={(e) => onChange({ ...observation, populationRef: e.target.value })}
           placeholder={t('observation.populationRefPlaceholder')}
+          error={!observation.populationRef}
+          helperText={!observation.populationRef ? t('observation.populationRefRequired') : ' '}
         />
       </Stack>
 
