@@ -10,6 +10,8 @@ import { elementToConjunctionGroup, createConjunctionElement } from '../../../ty
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 import { generateId } from '../../../utils/validation'
 import { changeConnectorAt, addSubGroup, resolveKind, nextConjunction, conjColor } from '../../../utils/conjunctionTreeUtils'
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
+import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../../constants/timing'
 
 function elementMatchesFilter(element: ElementInstance, term: string): boolean {
   const name = element.fields?.find((f) => f.id === 'element_name')?.value as string
@@ -58,12 +60,15 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
 }: ConjunctionGroupProps) {
   const { t } = useTranslation('authoring')
   const [localSearch, setLocalSearch] = useState('')
+  // Debounce so the recursive elementMatchesFilter walk doesn't re-run on
+  // every keystroke when the tree has hundreds of nodes.
+  const debouncedSearch = useDebouncedValue(localSearch, SEARCH_DEBOUNCE_GENERAL_MS)
 
   const isRoot = depth === 0
   const conjunctionId: ConjunctionKind = resolveKind(group.id)
   const borderColor = conjColor(conjunctionId)
 
-  const activeFilter = isRoot ? localSearch.trim().toLowerCase() : (searchFilter || '')
+  const activeFilter = isRoot ? debouncedSearch.trim().toLowerCase() : (searchFilter || '')
   const filteredChildren = useMemo(() => {
     if (!activeFilter) return group.childInstances
     return group.childInstances.filter((child) => elementMatchesFilter(child, activeFilter))
@@ -288,10 +293,10 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
                   element={child}
                   modifiers={modifiers}
                   hideElementName={hideElementName}
-                  onUpdate={(updates) => onUpdateElement(child.uniqueId, updates)}
-                  onRemove={() => onRemoveElement(child.uniqueId)}
-                  onIndent={() => handleIndent(child.uniqueId)}
-                  onOutdent={onOutdentElement ? () => onOutdentElement(child) : undefined}
+                  onUpdate={onUpdateElement}
+                  onRemove={onRemoveElement}
+                  onIndent={handleIndent}
+                  onOutdent={onOutdentElement}
                 />
               )}
               {index < filteredChildren.length - 1 && (
