@@ -100,24 +100,42 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const isLockedByOther = !!measure.lockedBy && measure.lockedBy !== currentUser
   const isLockedByMe = !!measure.lockedBy && measure.lockedBy === currentUser
 
-  const handleWorkflowAction = (
+  /**
+   * PAT-130: shared workflow / lock action runner. Original code had two
+   * shapes — `handleWorkflowAction` used by submit/approve/retire (showing a
+   * success alert) and inline `mutate` calls for lock/unlock (no success
+   * message + ad-hoc error fallback text). The split made it easy for new
+   * actions to drift, and PAT-117 was a regression of that drift. Now every
+   * workflow button funnels through this single helper. `successMsg` may be
+   * null when we want a quiet success (lock/unlock) but errors always alert.
+   */
+  const runWorkflowMutation = (
     mutation: typeof submitMutation,
-    successMsg: string
+    successMsg: string | null,
+    errorFallback?: string,
   ) => {
     if (!measure.id) return
     mutation.mutate(measure.id, {
       onSuccess: (updated) => {
         onMeasureUpdate(updated)
-        setWorkflowAlert({ severity: 'success', message: successMsg })
         queryClient.invalidateQueries({ queryKey: ['measures'] })
-        setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
+        if (successMsg) {
+          setWorkflowAlert({ severity: 'success', message: successMsg })
+          setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
+        }
       },
       onError: (err) => {
-        setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.actionFailed') })
+        const fallback = errorFallback || t('editor.errors.actionFailed')
+        setWorkflowAlert({ severity: 'error', message: extractApiError(err) || fallback })
         setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
       },
     })
   }
+
+  const handleWorkflowAction = (
+    mutation: typeof submitMutation,
+    successMsg: string,
+  ) => runWorkflowMutation(mutation, successMsg)
 
   const versionMutation = useMutation({
     mutationFn: (type: string) => measureApi.createMeasureVersion(measure.id!, type),
@@ -262,19 +280,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             <Button
               size="small"
               startIcon={<LockIcon />}
-              onClick={() => {
-                if (!measure.id) return
-                lockMutation.mutate(measure.id, {
-                  onSuccess: (updated) => {
-                    onMeasureUpdate(updated)
-                    queryClient.invalidateQueries({ queryKey: ['measures'] })
-                  },
-                  onError: (err) => {
-                    setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.lockFailed') })
-                    setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
-                  },
-                })
-              }}
+              onClick={() => runWorkflowMutation(lockMutation, null, t('editor.errors.lockFailed'))}
               disabled={lockMutation.isPending}
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
             >
@@ -285,19 +291,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             <Button
               size="small"
               startIcon={<LockOpenIcon />}
-              onClick={() => {
-                if (!measure.id) return
-                unlockMutation.mutate(measure.id, {
-                  onSuccess: (updated) => {
-                    onMeasureUpdate(updated)
-                    queryClient.invalidateQueries({ queryKey: ['measures'] })
-                  },
-                  onError: (err) => {
-                    setWorkflowAlert({ severity: 'error', message: extractApiError(err) || t('editor.errors.unlockFailed') })
-                    setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_MS)
-                  },
-                })
-              }}
+              onClick={() => runWorkflowMutation(unlockMutation, null, t('editor.errors.unlockFailed'))}
               disabled={unlockMutation.isPending}
               color="warning"
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}

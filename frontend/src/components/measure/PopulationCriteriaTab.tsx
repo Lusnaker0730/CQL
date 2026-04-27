@@ -103,7 +103,13 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
   const [scoringChanged, setScoringChanged] = useState(false)
   const [addMenuAnchor, setAddMenuAnchor] = useState<{ el: HTMLElement; groupIdx: number } | null>(null)
   const [autoMapAlert, setAutoMapAlert] = useState<string | null>(null)
-  const autoMapDoneRef = useRef(false)
+  // PAT-130: track the *exact set* of expression names we last attempted to
+  // auto-map against. The previous boolean ref latched once and never reset,
+  // so if the user added new CQL defines after the first auto-map (or the
+  // initial run found nothing matching), the new expressions never got
+  // proposed. Storing a sorted-join key lets us re-run only when the
+  // expression set actually changed.
+  const autoMapAttemptedNamesRef = useRef<string>('')
 
   useUnsavedChangesGuard(isDirty)
 
@@ -164,15 +170,21 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
   // Auto-map effect
   useEffect(() => {
-    if (autoMapDoneRef.current) return
     if (expressionNames.length === 0) return
+
+    // Re-run only when the underlying CQL define set actually changed. Sorted
+    // join is a stable key for set equality.
+    const key = [...expressionNames].sort().join('|')
+    if (autoMapAttemptedNamesRef.current === key) return
+
     const currentGroups = groupsRef.current
-    // Skip if any population already has an expression assigned
+    // Don't second-guess existing manual mappings — the user has touched at
+    // least one population, treat the rest as intentional.
     const anyFilled = currentGroups.some((g) =>
       (g.populations || []).some((p) => !!p.criteriaExpression)
     )
     if (anyFilled) {
-      autoMapDoneRef.current = true
+      autoMapAttemptedNamesRef.current = key
       return
     }
 
@@ -183,7 +195,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       return { ...g, populations: mapped }
     })
 
-    autoMapDoneRef.current = true
+    autoMapAttemptedNamesRef.current = key
     if (totalCount > 0) {
       setGroups(newGroups)
       setIsDirty(true)
