@@ -2,6 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
 import EcqmCqlPreviewTab from '../EcqmCqlPreviewTab'
 
+// i18next isn't initialized in the shared test-utils wrapper, so `useTranslation`
+// would return raw keys; mock to make queries stable.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (!opts) return key
+      return Object.entries(opts).reduce(
+        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+        key,
+      )
+    },
+    i18n: { changeLanguage: vi.fn() },
+  }),
+}))
+
 // Mock the React Query hooks the component depends on so we can drive states.
 const generateMutate = vi.fn()
 const validateMutate = vi.fn()
@@ -28,8 +43,6 @@ describe('EcqmCqlPreviewTab — PAT-129 cache invalidation', () => {
   })
 
   it('shows the stale warning and disables Validate / Publish when artifact updated after last generate', async () => {
-    // Generate succeeds with the original updatedAt — the stamp recorded by the
-    // component must match exactly to be "fresh"; any divergence flips it to stale.
     generateMutate.mockImplementation((_id, opts) => {
       opts?.onSuccess?.({ cql: 'library X version 1', warnings: [] })
     })
@@ -38,7 +51,8 @@ describe('EcqmCqlPreviewTab — PAT-129 cache invalidation', () => {
       <EcqmCqlPreviewTab artifactId={1} artifactUpdatedAt="2026-04-25T10:00:00Z" />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /generate cql/i }))
+    // Find the Generate button — its label is the i18n key 'cqlPreview.generate'
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.generate' }))
     await waitFor(() => expect(screen.getByText(/library X version 1/)).toBeInTheDocument())
 
     // No stale alert yet — generated against the same version
@@ -47,11 +61,9 @@ describe('EcqmCqlPreviewTab — PAT-129 cache invalidation', () => {
     // Simulate the artifact being edited after generate by changing the prop.
     rerender(<EcqmCqlPreviewTab artifactId={1} artifactUpdatedAt="2026-04-25T11:00:00Z" />)
 
-    // Stale warning appears
     expect(screen.getByRole('alert')).toBeInTheDocument()
-    // Validate / Publish should be disabled until user regenerates
-    expect(screen.getByRole('button', { name: /^validate$/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /publish to measure/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'cqlPreview.validate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'cqlPreview.publishToMeasure' })).toBeDisabled()
   })
 
   it('clears the stale warning after a fresh regenerate against the latest updatedAt', async () => {
@@ -63,16 +75,14 @@ describe('EcqmCqlPreviewTab — PAT-129 cache invalidation', () => {
     const { rerender } = render(
       <EcqmCqlPreviewTab artifactId={1} artifactUpdatedAt={currentUpdatedAt} />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /generate cql/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.generate' }))
     await waitFor(() => expect(screen.getByText(/library Y version 1/)).toBeInTheDocument())
 
-    // Edit happens
     currentUpdatedAt = '2026-04-25T11:00:00Z'
     rerender(<EcqmCqlPreviewTab artifactId={1} artifactUpdatedAt={currentUpdatedAt} />)
     expect(screen.getByRole('alert')).toBeInTheDocument()
 
-    // Re-generate against the new version
-    fireEvent.click(screen.getByRole('button', { name: /generate cql/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.generate' }))
     rerender(<EcqmCqlPreviewTab artifactId={1} artifactUpdatedAt={currentUpdatedAt} />)
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
   })

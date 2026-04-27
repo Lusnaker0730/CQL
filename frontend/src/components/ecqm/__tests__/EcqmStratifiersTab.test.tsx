@@ -2,6 +2,23 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '../../../test/test-utils'
 import EcqmStratifiersTab from '../EcqmStratifiersTab'
 
+// The shared test-utils wrapper does NOT initialize i18next — `useTranslation`
+// falls back to returning the key string verbatim. Mock it so we can both
+// drive simple interpolation (`{{number}}` etc.) and rely on stable, English
+// — independent label strings in our queries.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (!opts) return key
+      return Object.entries(opts).reduce(
+        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+        key,
+      )
+    },
+    i18n: { changeLanguage: vi.fn() },
+  }),
+}))
+
 // The tree editor is heavy and unrelated to interlock behavior; stub it out.
 vi.mock('../EcqmPopulationTreeEditor', () => ({
   default: ({ label }: { label: string }) => (
@@ -30,7 +47,7 @@ describe('EcqmStratifiersTab — PAT-129 dual-IP interlock', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('dual-IP active')
 
-    const addButton = screen.getByRole('button', { name: /add stratifier/i })
+    const addButton = screen.getByRole('button', { name: 'stratifiers.addStratifier' })
     expect(addButton).toBeDisabled()
 
     fireEvent.click(addButton)
@@ -50,7 +67,7 @@ describe('EcqmStratifiersTab — PAT-129 dual-IP interlock', () => {
     // Existing row still rendered (tree editor stub still mounted)
     expect(screen.getByTestId('tree-editor')).toBeInTheDocument()
 
-    const deleteButton = screen.getByRole('button', { name: /remove stratifier 1/i })
+    const deleteButton = screen.getByRole('button', { name: 'stratifiers.removeStratifier' })
     expect(deleteButton).toBeDisabled()
     fireEvent.click(deleteButton)
     expect(onChange).not.toHaveBeenCalled()
@@ -60,15 +77,14 @@ describe('EcqmStratifiersTab — PAT-129 dual-IP interlock', () => {
     const onChange = vi.fn()
     render(<EcqmStratifiersTab {...baseProps} onChange={onChange} />)
 
-    // No alert
     expect(screen.queryByRole('alert')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /add stratifier/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.addStratifier' }))
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange.mock.calls[0][0]).toHaveLength(2)
 
     onChange.mockClear()
-    fireEvent.click(screen.getByRole('button', { name: /remove stratifier 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.removeStratifier' }))
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange.mock.calls[0][0]).toHaveLength(0)
   })
