@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '../../../test/test-utils'
+import { render, screen, fireEvent, waitFor, act, within } from '../../../test/test-utils'
 import MeasureComparison from '../MeasureComparison'
+
+// test-utils does NOT initialize i18next; useTranslation falls back to raw
+// keys. Mock so queries match the i18n key strings.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (!opts) return key
+      return Object.entries(opts).reduce(
+        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+        key,
+      )
+    },
+    i18n: { changeLanguage: vi.fn() },
+  }),
+}))
 
 let getMeasuresMock: ReturnType<typeof vi.fn>
 let evaluateMeasureMock: ReturnType<typeof vi.fn>
@@ -28,8 +43,8 @@ describe('MeasureComparison — PAT-130 live-eval cleanup', () => {
     // The fix wraps every post-await setState in `if (isMountedRef.current)`.
     // We verify the mechanic by holding the first evaluate forever and then
     // unmounting; after the promise resolves there must be no thrown error
-    // and the comparePeriods follow-up must NOT fire (mount guard short-circuits
-    // before the second await chain).
+    // and the comparePeriods follow-up must NOT fire (mount guard
+    // short-circuits before the second await chain).
     let resolveEval: ((v: unknown) => void) | undefined
     evaluateMeasureMock.mockImplementation(
       () => new Promise((res) => { resolveEval = res }),
@@ -37,14 +52,19 @@ describe('MeasureComparison — PAT-130 live-eval cleanup', () => {
 
     const { unmount } = render(<MeasureComparison />)
 
-    // Select the measure
-    const combobox = await screen.findByRole('combobox')
-    fireEvent.change(combobox, { target: { value: 'Measure 1' } })
+    // The page has multiple comboboxes (Autocomplete + the trend-interval
+    // select). Scope to the measure-name field by its label key.
+    const measureGroup = await screen.findByLabelText('comparison.measureName')
+    // The MUI Autocomplete renders an input child inside the wrapping label
+    // — we type into it to filter, then click the matching option.
+    const measureInput = within(measureGroup.closest('.MuiFormControl-root') ?? measureGroup as HTMLElement)
+      .getByRole('combobox')
+    fireEvent.change(measureInput, { target: { value: 'Measure 1' } })
     const option = await screen.findByRole('option', { name: /Measure 1/i })
     fireEvent.click(option)
 
-    // Click Evaluate Live & Compare — kicks off the first evaluate
-    fireEvent.click(screen.getByRole('button', { name: /Evaluate Live & Compare|即時評估並比較/i }))
+    // Live-compare button — label key is 'comparison.compareLive'
+    fireEvent.click(screen.getByRole('button', { name: 'comparison.compareLive' }))
     expect(evaluateMeasureMock).toHaveBeenCalledTimes(1)
 
     // Unmount while the first evaluate is still pending.
@@ -63,12 +83,6 @@ describe('MeasureComparison — PAT-130 live-eval cleanup', () => {
   })
 
   it('uses a finite staleTime for the measures list (not Infinity)', async () => {
-    // We assert behavior indirectly: getMeasures is called once on first
-    // render; if staleTime were Infinity this would still hold for a single
-    // render. The real intent — that a remount within ~5 min will reuse the
-    // cache while a remount beyond that refetches — is enforced by React
-    // Query, so this test just guarantees the measure list renders without
-    // hanging forever.
     getMeasuresMock = vi.fn().mockResolvedValue([{ id: 1, name: 'M1', title: 'Measure 1' }])
     render(<MeasureComparison />)
     await waitFor(() => expect(getMeasuresMock).toHaveBeenCalled())

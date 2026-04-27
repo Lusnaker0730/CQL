@@ -3,6 +3,21 @@ import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
 import MeasureEditor from '../MeasureEditor'
 import type { MeasureDefinition } from '../../../types'
 
+// test-utils does NOT initialize i18next; useTranslation falls back to raw
+// keys. Mock so queries match the key strings (with simple {{var}} interp).
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (!opts) return key
+      return Object.entries(opts).reduce(
+        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+        key,
+      )
+    },
+    i18n: { changeLanguage: vi.fn() },
+  }),
+}))
+
 // Workspace tabs are large + unrelated to workflow button behavior; stub them
 // so the test focuses on the toolbar.
 vi.mock('../MeasureDetailsTab', () => ({ default: () => <div data-testid="details-tab" /> }))
@@ -82,11 +97,11 @@ describe('MeasureEditor — PAT-130 workflow button unification', () => {
     const onMeasureUpdate = vi.fn()
     render(<MeasureEditor measure={baseMeasure} onMeasureUpdate={onMeasureUpdate} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^lock$/i }))
+    // Buttons render with t('editor.buttons.lock') → 'editor.buttons.lock'
+    fireEvent.click(screen.getByRole('button', { name: 'editor.buttons.lock' }))
     expect(lockMutation.mutate).toHaveBeenCalledTimes(1)
     expect(lockMutation.mutate.mock.calls[0][0]).toBe(7)
 
-    // Drive onSuccess
     const opts = lockMutation.calls[0].opts!
     const updated = { ...baseMeasure, lockedBy: 'alice' }
     opts.onSuccess!(updated)
@@ -97,19 +112,17 @@ describe('MeasureEditor — PAT-130 workflow button unification', () => {
     const lockedByMe = { ...baseMeasure, lockedBy: 'alice', lockedAt: '2026-04-27T00:00:00Z' }
     render(<MeasureEditor measure={lockedByMe} onMeasureUpdate={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^unlock$/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'editor.buttons.unlock' }))
     expect(unlockMutation.mutate).toHaveBeenCalledTimes(1)
 
-    // Trigger success — should NOT show a workflow alert (quiet success)
     unlockMutation.calls[0].opts!.onSuccess!({ ...lockedByMe, lockedBy: null })
-    // Submit-for-review-style alerts use role=alert; there should be none
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('Submit-for-review still shows the success alert (loud success)', async () => {
     render(<MeasureEditor measure={baseMeasure} onMeasureUpdate={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /submit for review/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'editor.buttons.submitForReview' }))
     expect(submitMutation.mutate).toHaveBeenCalledTimes(1)
 
     submitMutation.calls[0].opts!.onSuccess!({
@@ -122,8 +135,10 @@ describe('MeasureEditor — PAT-130 workflow button unification', () => {
 
   it('runner surfaces API error message on failure for lock action', async () => {
     render(<MeasureEditor measure={baseMeasure} onMeasureUpdate={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /^lock$/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'editor.buttons.lock' }))
     lockMutation.calls[0].opts!.onError!(new Error('Database is locked'))
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Database is locked|Lock failed/))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/Database is locked|editor\.errors\.lockFailed/),
+    )
   })
 })

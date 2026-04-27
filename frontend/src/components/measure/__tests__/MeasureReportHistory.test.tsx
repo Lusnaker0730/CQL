@@ -2,6 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
 import MeasureReportHistory from '../MeasureReportHistory'
 
+// test-utils does NOT initialize i18next; useTranslation falls back to raw
+// keys. Mock so queries match the i18n key strings.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (!opts) return key
+      return Object.entries(opts).reduce(
+        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+        key,
+      )
+    },
+    i18n: { changeLanguage: vi.fn() },
+  }),
+}))
+
 let getReportsForMeasureMock: ReturnType<typeof vi.fn>
 let getReportsMock: ReturnType<typeof vi.fn>
 let deleteReportMock: ReturnType<typeof vi.fn>
@@ -39,7 +54,7 @@ describe('MeasureReportHistory — PAT-130 delete confirmation', () => {
       expect(screen.getByText('Diabetes Screening')).toBeInTheDocument(),
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /delete report/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'reports.deleteReport' }))
 
     // Dialog visible, but no delete request fired yet
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -49,20 +64,20 @@ describe('MeasureReportHistory — PAT-130 delete confirmation', () => {
   it('cancels without deleting when the Cancel button is pressed', async () => {
     render(<MeasureReportHistory measureId={1} />)
     await screen.findByText('Diabetes Screening')
-    fireEvent.click(screen.getByRole('button', { name: /delete report/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'reports.deleteReport' }))
+    fireEvent.click(screen.getByRole('button', { name: 'reports.cancel' }))
     expect(deleteReportMock).not.toHaveBeenCalled()
   })
 
   it('actually deletes only after explicit confirmation', async () => {
     render(<MeasureReportHistory measureId={1} />)
     await screen.findByText('Diabetes Screening')
-    fireEvent.click(screen.getByRole('button', { name: /delete report/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'reports.deleteReport' }))
 
-    // Find the dialog's confirm button (label "Delete" / "刪除")
+    // Find the dialog's confirm button — label key is 'reports.confirmDelete'
     const dialog = screen.getByRole('dialog')
     const confirmBtn = Array.from(dialog.querySelectorAll('button')).find(
-      (b) => /^(Delete|刪除)$/.test(b.textContent || ''),
+      (b) => b.textContent?.includes('reports.confirmDelete'),
     )
     expect(confirmBtn).toBeTruthy()
     fireEvent.click(confirmBtn!)
