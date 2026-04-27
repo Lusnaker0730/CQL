@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
@@ -18,6 +18,14 @@ export default function CdsPanel() {
   const { t } = useTranslation('cds')
   const userRole = useSelector((state: RootState) => state.auth.user?.role)
   const isAdmin = userRole === 'ADMIN' || userRole === 'DEPARTMENT_ADMIN'
+
+  // If the user loses ADMIN mid-session (token rotation, role change), the
+  // Recent Invocations tab disappears but tabValue may still point at it,
+  // which leaves an empty content area and a MUI warning. Reset to the first
+  // tab when the admin-only index becomes invalid.
+  useEffect(() => {
+    if (!isAdmin && tabValue >= 5) setTabValue(0)
+  }, [isAdmin, tabValue])
 
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>

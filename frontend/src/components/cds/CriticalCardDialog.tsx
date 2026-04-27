@@ -58,12 +58,17 @@ export default function CriticalCardDialog({
   return (
     <Dialog
       open={open}
+      // Critical cards must be acted on (Accept / Override). Block both Esc
+      // and backdrop-click via the canonical onClose-reason guard rather than
+      // a backdrop preventDefault hack.
       disableEscapeKeyDown
+      onClose={(_event, reason) => {
+        if (reason === 'backdropClick') return
+        // No other dismissal paths today, but if MUI adds one we want the
+        // dialog to stay open until the user accepts or overrides.
+      }}
       maxWidth="sm"
       fullWidth
-      slotProps={{
-        backdrop: { onClick: (e: React.MouseEvent) => e.preventDefault() },
-      }}
     >
       <DialogTitle>
         <Stack direction="row" spacing={1} alignItems="center">

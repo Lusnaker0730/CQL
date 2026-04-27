@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { alpha } from '@mui/material/styles'
 import {
@@ -34,6 +34,7 @@ import { getStoredUsername } from '../../utils/validation'
 import { useNotification } from '../../hooks/useNotification'
 import GradientButton from '../common/GradientButton'
 import TableSkeleton from '../common/TableSkeleton'
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 
 export default function ApiKeyManager() {
   const { data: keys, isLoading, isError } = useApiKeys()
@@ -46,29 +47,47 @@ export default function ApiKeyManager() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [keyName, setKeyName] = useState('')
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null)
+  const [pendingRevokeId, setPendingRevokeId] = useState<number | null>(null)
 
-  const username = getStoredUsername()
+  // localStorage read shouldn't run on every render.
+  const username = useMemo(() => getStoredUsername(), [])
   const baseUrl = window.location.origin
   const perUserEndpoint = `${baseUrl}/cds-services/u/${username}`
+
+  // Guards post-await setState calls when the user navigates away mid-flight.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const handleGenerate = async () => {
     if (!keyName.trim()) return
     try {
       const result = await generateMutation.mutateAsync(keyName.trim())
+      if (!isMountedRef.current) return
       setNewlyCreatedKey(result.key || null)
       setKeyName('')
       showNotification(t('apiKeys.generateSuccess'), 'success')
     } catch {
+      if (!isMountedRef.current) return
       showNotification(t('apiKeys.generateFailed'), 'error')
     }
   }
 
-  const handleRevoke = async (id: number) => {
-    if (!window.confirm(t('apiKeys.revokeConfirm'))) return
+  const handleConfirmRevoke = async () => {
+    if (pendingRevokeId == null) return
+    const id = pendingRevokeId
     try {
       await revokeMutation.mutateAsync(id)
+      if (!isMountedRef.current) return
+      setPendingRevokeId(null)
       showNotification(t('apiKeys.revokeSuccess'), 'success')
     } catch {
+      if (!isMountedRef.current) return
+      setPendingRevokeId(null)
       showNotification(t('apiKeys.revokeFailed'), 'error')
     }
   }
@@ -168,7 +187,7 @@ export default function ApiKeyManager() {
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => handleRevoke(key.id)}
+                        onClick={() => setPendingRevokeId(key.id)}
                         disabled={revokeMutation.isPending}
                         aria-label={t('apiKeys.revokeAriaLabel')}
                       >
@@ -182,6 +201,16 @@ export default function ApiKeyManager() {
           </Table>
         </TableContainer>
       )}
+
+      <ConfirmDeleteDialog
+        open={pendingRevokeId != null}
+        title={t('apiKeys.revokeDialogTitle')}
+        itemName={t('apiKeys.revokeItemName')}
+        message={t('apiKeys.revokeDialogMessage')}
+        onCancel={() => setPendingRevokeId(null)}
+        onConfirm={handleConfirmRevoke}
+        isPending={revokeMutation.isPending}
+      />
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('apiKeys.generateDialogTitle')}</DialogTitle>

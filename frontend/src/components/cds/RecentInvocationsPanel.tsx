@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import { Refresh as RefreshIcon } from '@mui/icons-material'
 import { api } from '../../api/client'
+import { REFETCH_10S } from '../../constants/queryConstants'
 
 interface InvocationRecord {
   timestamp: string
@@ -36,7 +37,7 @@ export default function RecentInvocationsPanel() {
     queryKey: ['cds-recent-invocations'],
     queryFn: () =>
       api.get<InvocationRecord[]>('/admin/cds/recent-invocations?limit=100').then((r) => r.data),
-    refetchInterval: 10_000,
+    refetchInterval: REFETCH_10S,
   })
 
   if (isLoading) return <CircularProgress />
