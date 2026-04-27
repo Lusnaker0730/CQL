@@ -82,6 +82,10 @@ export default function ArtifactWorkspaceHeader({
       description: artifact.description,
       status: artifact.status,
       fhirVersion: artifact.fhirVersion,
+      // lockVersion drives the backend optimistic-lock check; dropping it
+      // makes concurrent-edit conflicts overwrite silently (the workspace's
+      // 409 conflict-dialog flow can never trigger).
+      lockVersion: artifact.lockVersion,
       expTreeInclude: artifact.expTreeInclude,
       expTreeExclude: artifact.expTreeExclude,
       recommendations: artifact.recommendations,
@@ -364,7 +368,7 @@ export default function ArtifactWorkspaceHeader({
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t('header.fhirVersion')}: R4 (4.0.1)
+            {t('header.fhirVersionLine', { version: artifact.fhirVersion || 'R4 (4.0.1)' })}
           </Typography>
           {viewCqlContent ? (
             <Box

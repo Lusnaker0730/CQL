@@ -106,8 +106,19 @@ export const codeBlockSx = {
 
 // --- Keyboard shortcuts ---
 
+/** Stable wire value → i18n key mapping for ErrorStatement if-condition.
+ *  Lookup at render time so locale switches reflect immediately. */
+export const ERROR_CONDITION_VALUE_TO_KEY: Record<string, string> = {
+  null: 'errorStatement.condNull',
+  doesnt_meet_inclusion: 'errorStatement.condNoInclusion',
+  meets_exclusion: 'errorStatement.condMeetsExclusion',
+  errors: 'errorStatement.condErrors',
+}
+
 /** Tab index for the "Review CQL" tab in ArtifactWorkspace */
 export const TAB_INDEX_REVIEW_CQL = 8
+/** Tab index for the "Testing" tab in ArtifactWorkspace */
+export const TAB_INDEX_TESTING = 9
 /** Tab index for the "Summary" tab in ArtifactWorkspace */
 export const TAB_INDEX_SUMMARY = 10
 
@@ -117,7 +128,8 @@ export const KEYBOARD_SHORTCUTS = [
   { key: 'Ctrl + Z', description: 'Undo last change' },
   { key: 'Ctrl + Y', description: 'Redo last change' },
   { key: 'Ctrl + G', description: 'Go to Review CQL' },
-  { key: 'Ctrl + 1–9', description: 'Switch to tab 1–9' },
+  { key: 'Ctrl + 1–8', description: 'Switch to tab 1–8 (Inclusions..External CQL)' },
+  { key: 'Ctrl + 9', description: 'Switch to Testing' },
   { key: 'Ctrl + 0', description: 'Switch to Summary' },
   { key: 'Ctrl + /', description: 'Toggle this help' },
 ] as const

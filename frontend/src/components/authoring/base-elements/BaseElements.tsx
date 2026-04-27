@@ -38,7 +38,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
-    ? baseElements.find((be) => be.uniqueId === pendingDeleteId)?.name || 'this base element'
+    ? baseElements.find((be) => be.uniqueId === pendingDeleteId)?.name || t('baseElements.fallbackName')
     : ''
 
   const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null)
@@ -48,7 +48,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
       ...baseElements,
       {
         uniqueId: generateId(),
-        name: 'Base Element ' + (baseElements.length + 1),
+        name: t('baseElements.defaultName', { number: baseElements.length + 1 }),
         type: 'baseElement',
         returnType: 'boolean',
         childInstances: [],
@@ -63,7 +63,7 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
       ...baseElements,
       {
         uniqueId: generateId(),
-        name: 'Calculated Value ' + (baseElements.filter((be) => be.type === 'arithmeticExpression').length + 1),
+        name: t('baseElements.calculatedDefaultName', { number: baseElements.filter((be) => be.type === 'arithmeticExpression').length + 1 }),
         type: 'arithmeticExpression',
         returnType: 'system_quantity',
         fields: [

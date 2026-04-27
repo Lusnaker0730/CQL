@@ -9,6 +9,7 @@ import GradientButton from '../../common/GradientButton'
 import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
 import { generateId } from '../../../utils/validation'
 import { codeBlockSx } from '../../../constants/authoringConstants'
+import { escapeCqlString, escapeCqlIdentifier } from '../../../utils/cqlString'
 
 interface QueryCondition {
   id: string
@@ -65,12 +66,20 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
     return allOperators.filter((op) => op.applicableTypes.includes(type))
   }
 
+  // Property paths come from the resource metadata API; still split + validate
+  // so a typo like `code['evil']` can't escape the dotted-identifier shape.
+  const safeAccessor = (path: string): string =>
+    path
+      .split('.')
+      .map((part) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(part) ? part : `"${escapeCqlIdentifier(part)}"`)
+      .join('.')
+
   const buildCqlQuery = (): string => {
     if (!resourceType) return ''
 
     let query = `[${resourceType}`
     if (valueSetName) {
-      query += `: "${valueSetName}"`
+      query += `: "${escapeCqlIdentifier(valueSetName)}"`
     }
     query += ']'
 
@@ -79,12 +88,13 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
       .map((c) => {
         const op = allOperators.find((o) => o.id === c.operator)
         if (!op) return ''
+        const accessor = safeAccessor(c.property)
 
-        if (op.id === 'is_null') return `${c.property} is null`
-        if (op.id === 'is_not_null') return `${c.property} is not null`
-        if (op.id === 'in') return `${c.property} in "${c.value}"`
+        if (op.id === 'is_null') return `${accessor} is null`
+        if (op.id === 'is_not_null') return `${accessor} is not null`
+        if (op.id === 'in') return `${accessor} in "${escapeCqlIdentifier(c.value)}"`
 
-        return `${c.property} ${op.symbol} ${formatValue(c.value, c.propertyType)}`
+        return `${accessor} ${op.symbol} ${formatValue(c.value, c.propertyType)}`
       })
       .filter(Boolean)
 
@@ -100,14 +110,14 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
     switch (type) {
       case 'code':
       case 'string':
-        return `'${value}'`
+        return `'${escapeCqlString(value)}'`
       case 'integer':
       case 'decimal':
-        return value
+        return /^-?\d+(\.\d+)?$/.test(value.trim()) ? value.trim() : `'${escapeCqlString(value)}'`
       case 'boolean':
-        return value
+        return value === 'true' || value === 'false' ? value : `'${escapeCqlString(value)}'`
       default:
-        return `'${value}'`
+        return `'${escapeCqlString(value)}'`
     }
   }
 

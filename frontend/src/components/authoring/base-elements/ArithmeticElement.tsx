@@ -6,6 +6,9 @@ import {
 import { alpha } from '@mui/material/styles'
 import { Delete as DeleteIcon } from '@mui/icons-material'
 import type { BaseElement } from '../../../types/authoring'
+import { escapeCqlIdentifier } from '../../../utils/cqlString'
+
+const NUMERIC_LITERAL_RE = /^-?\d+(\.\d+)?$/
 
 const OPERATORS = [
   { value: '+', label: '+' },
@@ -58,12 +61,20 @@ export default function ArithmeticElement({ element, availableOperands, onUpdate
     onUpdate({ fields: updateFields(element, updates) })
   }
 
-  // Build preview
-  const leftName = leftMode === 'literal' ? leftLiteral : availableOperands.find((o) => o.uniqueId === leftId)?.name
-  const rightName = rightMode === 'literal' ? rightLiteral : availableOperands.find((o) => o.uniqueId === rightId)?.name
-  const leftCql = leftMode === 'literal' && leftLiteral ? leftLiteral : leftName ? `"${leftName}"` : ''
-  const rightCql = rightMode === 'literal' && rightLiteral ? rightLiteral : rightName ? `"${rightName}"` : ''
+  // Build preview. Identifier names get escaped (`"` / `\` safe). Literals
+  // are emitted only if they parse as a CQL numeric literal — otherwise the
+  // preview shows nothing rather than producing un-translatable CQL.
+  const leftElementName = availableOperands.find((o) => o.uniqueId === leftId)?.name
+  const rightElementName = availableOperands.find((o) => o.uniqueId === rightId)?.name
+  const literalToCql = (raw: string): string => NUMERIC_LITERAL_RE.test(raw.trim()) ? raw.trim() : ''
+  const leftCql = leftMode === 'literal'
+    ? literalToCql(leftLiteral)
+    : leftElementName ? `"${escapeCqlIdentifier(leftElementName)}"` : ''
+  const rightCql = rightMode === 'literal'
+    ? literalToCql(rightLiteral)
+    : rightElementName ? `"${escapeCqlIdentifier(rightElementName)}"` : ''
   const preview = leftCql && rightCql ? `${leftCql} ${operator} ${rightCql}` : ''
+  const safeNameDisplay = element.name ? escapeCqlIdentifier(element.name) : ''
 
   return (
     <Card variant="outlined" sx={{ borderLeft: 3, borderLeftColor: 'secondary.main' }}>
@@ -140,7 +151,7 @@ export default function ArithmeticElement({ element, availableOperands, onUpdate
           <Box sx={(theme) => ({ mt: 1.5, p: 1, bgcolor: alpha(theme.palette.primary.main, 0.04), borderRadius: 1 })}>
             <Typography variant="caption" color="text.secondary">{t('arithmetic.cqlPreview')}</Typography>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-              define &quot;{element.name}&quot;: {preview}
+              define &quot;{safeNameDisplay}&quot;: {preview}
             </Typography>
           </Box>
         )}

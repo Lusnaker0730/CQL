@@ -128,7 +128,7 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, twcor
                             </Box>
                           ) : entry.name
                         }
-                        secondary={t(`elementDescriptions.${entry.id}`, { defaultValue: '' }) || ELEMENT_DESCRIPTIONS[entry.id] || entry.returnType?.replace(/_/g, ' ') || category.name}
+                        secondary={t(`elementDescriptions.${entry.id}`, { defaultValue: '' }) || entry.returnType?.replace(/_/g, ' ') || category.name}
                         primaryTypographyProps={{ variant: 'body2' }}
                         secondaryTypographyProps={{ variant: 'caption' }}
                       />
@@ -182,41 +182,5 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, twcor
       )}
     </Box>
   )
-}
-
-const ELEMENT_DESCRIPTIONS: Record<string, string> = {
-  AgeRange: 'Filter by patient age range',
-  Gender: 'Filter by patient gender',
-  GenericObservation_vsac: 'Lab results, vital signs, or other observations',
-  GenericCondition_vsac: 'Diagnoses, problems, or health conditions',
-  GenericMedicationStatement_vsac: 'Reported medication usage',
-  GenericMedicationRequest_vsac: 'Medication prescriptions or orders',
-  GenericProcedure_vsac: 'Surgical or clinical procedures',
-  GenericEncounter_vsac: 'Patient visits or encounters',
-  GenericAllergyIntolerance_vsac: 'Allergies or intolerances',
-  GenericImmunization_vsac: 'Vaccination records',
-  GenericServiceRequest_vsac: 'Diagnostic or service requests',
-  GenericDevice_vsac: 'Medical devices',
-  BooleanParameter: 'Configurable true/false parameter',
-  // TWCORE templates
-  TwcoreBMI_vsac: 'TWCORE BMI observation (LOINC 39156-5)',
-  TwcoreBloodPressure_vsac: 'TWCORE blood pressure panel (LOINC 85354-9)',
-  TwcoreBodyWeight_vsac: 'TWCORE body weight (LOINC 29463-7)',
-  TwcoreBodyHeight_vsac: 'TWCORE body height (LOINC 8302-2)',
-  TwcoreBodyTemperature_vsac: 'TWCORE body temperature (LOINC 8310-5)',
-  TwcoreHeartRate_vsac: 'TWCORE heart rate (LOINC 8867-4)',
-  TwcoreBloodGlucose_vsac: 'TWCORE blood glucose (LOINC 2345-7)',
-  TwcoreHbA1c_vsac: 'TWCORE HbA1c (LOINC 4548-4)',
-  TwcoreLabResult_vsac: 'TWCORE lab result — pick code from catalog',
-  TwcoreDiabetes_vsac: 'TWCORE diabetes mellitus (SNOMED 44054006)',
-  TwcoreHypertension_vsac: 'TWCORE hypertension (SNOMED 38341003)',
-  TwcoreHeartFailure_vsac: 'TWCORE heart failure (SNOMED 84114007)',
-  TwcoreCKD_vsac: 'TWCORE chronic kidney disease (SNOMED 709044004)',
-  TwcoreAsthma_vsac: 'TWCORE asthma (SNOMED 195967001)',
-  TwcoreCOPD_vsac: 'TWCORE COPD (SNOMED 13645005)',
-  TwcoreCondition_vsac: 'TWCORE condition — pick code from catalog',
-  TwcoreMedicationRequest_vsac: 'TWCORE medication prescription',
-  TwcoreMedicationStatement_vsac: 'TWCORE medication usage record',
-  TwcoreAllergyIntolerance_vsac: 'TWCORE allergy or intolerance',
 }
 
