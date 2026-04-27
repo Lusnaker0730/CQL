@@ -2,6 +2,11 @@ import { Box, TextField, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import FieldWrapper from './FieldWrapper'
 import { getChildBoundCodes, IDENTIFIER_USE_CODES } from './constants'
+import { asObject } from '../../utils/fhirGuards'
+import {
+  TW_IDENTIFIER_PRESETS,
+  TW_IDENTIFIER_TYPE_SYSTEM,
+} from '../../config/twcore/identifierPresets'
 import type { ElementMetadata } from '../../types'
 
 interface IdentifierType {
@@ -26,50 +31,9 @@ interface IdentifierFieldProps {
   onChange: (value: unknown) => void
 }
 
-interface TwIdentifierPreset {
-  labelKey: string
-  use: string
-  system: string
-  typeCode: string
-  typeDisplay: string
-  hintKey?: string
-}
-
-const TW_IDENTIFIER_PRESETS: TwIdentifierPreset[] = [
-  {
-    labelKey: 'testCaseBuilder.identifierPresets.nationalId',
-    use: 'official',
-    system: 'http://www.moi.gov.tw/',
-    typeCode: 'NNxxx',
-    typeDisplay: 'National Person Identifier',
-    hintKey: 'testCaseBuilder.identifierPresets.nationalIdHint',
-  },
-  {
-    labelKey: 'testCaseBuilder.identifierPresets.passport',
-    use: 'official',
-    system: 'http://www.boca.gov.tw/',
-    typeCode: 'PPN',
-    typeDisplay: 'Passport Number',
-  },
-  {
-    labelKey: 'testCaseBuilder.identifierPresets.residentCert',
-    use: 'official',
-    system: 'http://www.immigration.gov.tw/',
-    typeCode: 'PRC',
-    typeDisplay: 'Permanent Resident Card Number',
-  },
-  {
-    labelKey: 'testCaseBuilder.identifierPresets.medicalRecord',
-    use: 'usual',
-    system: '',
-    typeCode: 'MR',
-    typeDisplay: 'Medical Record Number',
-  },
-]
-
 export default function IdentifierField({ element, value, onChange }: IdentifierFieldProps) {
   const { t } = useTranslation('measures')
-  const ident = (value as Identifier) || {}
+  const ident = asObject(value) as Identifier
   const useOptions = getChildBoundCodes(element, 'use', IDENTIFIER_USE_CODES)
 
   const handlePresetChange = (presetIndex: string) => {
@@ -83,7 +47,7 @@ export default function IdentifierField({ element, value, onChange }: Identifier
       type: {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            system: TW_IDENTIFIER_TYPE_SYSTEM,
             code: preset.typeCode,
             display: preset.typeDisplay,
           },
@@ -95,10 +59,8 @@ export default function IdentifierField({ element, value, onChange }: Identifier
   const currentPresetIndex = TW_IDENTIFIER_PRESETS.findIndex(
     (p) => ident.type?.coding?.[0]?.code === p.typeCode
   )
-
-  const activeHint = currentPresetIndex >= 0
-    ? TW_IDENTIFIER_PRESETS[currentPresetIndex].hintKey
-    : undefined
+  const activePreset = currentPresetIndex >= 0 ? TW_IDENTIFIER_PRESETS[currentPresetIndex] : null
+  const activeHint = activePreset?.hintKey
 
   return (
     <FieldWrapper name={element.name} isRequired={element.isRequired}>

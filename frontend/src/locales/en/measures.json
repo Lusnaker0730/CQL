@@ -965,6 +965,9 @@
     "array": "(array)",
     "addCount": "Add ({{count}})",
     "available": "({{count}} available)",
+    "addAttributeAria": "Add attribute ({{count}} optional fields available)",
+    "metadataLoadError": "Failed to load metadata for {{resourceType}}.",
+    "requiredAria": "required",
     "idLabel": "ID:",
     "idPlaceholder": "resource-id",
     "twcore": {
@@ -972,7 +975,9 @@
       "searchPlaceholder": "Search code, display, or Chinese name...",
       "noMatchingCodes": "No matching codes found.",
       "noTerminology": "No TWCORE terminology available.",
-      "use": "Use"
+      "loadError": "Failed to load TWCORE terminology: {{message}}",
+      "use": "Use",
+      "useAria": "Use code {{code}}"
     },
     "identifierPresets": {
       "label": "Identifier Type",
@@ -1028,14 +1033,20 @@
       "country": "country",
       "hideSystemCode": "Hide system / code",
       "showSystemCode": "Show system / code",
-      "identifierSystemPlaceholder": "e.g. http://hospital.org/mrn"
+      "identifierSystemPlaceholder": "e.g. http://hospital.org/mrn",
+      "selectCode": "Select…",
+      "noCodings": "No codings yet — add one below.",
+      "codeSearchError": "Code lookup failed: {{message}}",
+      "jsonSuffix": "(JSON)",
+      "jsonParseError": "Invalid JSON — changes not saved: {{message}}"
     },
     "arrayField": {
       "add": "Add",
       "removeItem": "Remove item"
     },
     "choiceType": {
-      "type": "Type"
+      "type": "Type",
+      "noChoices": "No choice types available for this element."
     }
   }
 }

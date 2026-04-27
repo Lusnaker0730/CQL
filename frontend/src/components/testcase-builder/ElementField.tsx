@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
-import { Box, Typography, useTheme, CircularProgress } from '@mui/material'
+import { lazy, Suspense, useState } from 'react'
+import { Box, Typography, useTheme, CircularProgress, Alert } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import PrimitiveField from './PrimitiveField'
 
 const Editor = lazy(() => import('@monaco-editor/react'))
@@ -15,10 +16,9 @@ import IdentifierField from './IdentifierField'
 import ChoiceTypeField from './ChoiceTypeField'
 import GenericComplexField from './GenericComplexField'
 import ArrayFieldWrapper from './ArrayFieldWrapper'
+import { QUANTITY_TYPES } from '../../constants/fhirTypes'
+import { getDefaultValue } from '../../utils/fhirDefaults'
 import type { ElementMetadata } from '../../types'
-
-// Quantity profile types that all render as QuantityField
-const QUANTITY_TYPES = new Set(['Quantity', 'SimpleQuantity', 'Age', 'Duration', 'Distance', 'Count'])
 
 interface ElementFieldProps {
   element: ElementMetadata
@@ -31,14 +31,16 @@ interface ElementFieldProps {
 }
 
 export default function ElementField({ element, path, value, onChange, initialChoiceType, depth }: ElementFieldProps) {
+  const { t } = useTranslation('measures')
   const theme = useTheme()
+  const [parseError, setParseError] = useState<string | null>(null)
 
   // Deep fallback: render inline JSON editor
   if (depth >= 3) {
     return (
       <Box sx={{ mb: 1 }}>
         <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-          {element.name} (JSON)
+          {element.name} {t('testCaseBuilder.fields.jsonSuffix')}
         </Typography>
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
           <Suspense fallback={<Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress size={20} /></Box>}>
@@ -48,10 +50,17 @@ export default function ElementField({ element, path, value, onChange, initialCh
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
               value={value !== undefined ? JSON.stringify(value, null, 2) : ''}
               onChange={(v) => {
+                if (!v) {
+                  setParseError(null)
+                  onChange(undefined)
+                  return
+                }
                 try {
-                  onChange(v ? JSON.parse(v) : undefined)
-                } catch {
-                  // Don't update on invalid JSON
+                  onChange(JSON.parse(v))
+                  setParseError(null)
+                } catch (e) {
+                  // Surface parse errors so users know edits aren't being committed.
+                  setParseError(e instanceof Error ? e.message : String(e))
                 }
               }}
               options={{
@@ -65,6 +74,11 @@ export default function ElementField({ element, path, value, onChange, initialCh
             />
           </Suspense>
         </Box>
+        {parseError && (
+          <Alert severity="error" variant="outlined" sx={{ mt: 0.5, py: 0, fontSize: '0.7rem' }}>
+            {t('testCaseBuilder.fields.jsonParseError', { message: parseError })}
+          </Alert>
+        )}
       </Box>
     )
   }
@@ -158,30 +172,10 @@ export default function ElementField({ element, path, value, onChange, initialCh
   }
 
   // Generic complex type with children
-  if (element.children && element.children.length > 0) {
+  if ((element.children?.length ?? 0) > 0) {
     return <GenericComplexField element={element} value={value} onChange={onChange} depth={depth} />
   }
 
   // All other types (primitives + unknown) — PrimitiveField handles the rendering
   return <PrimitiveField element={element} value={value} onChange={onChange} />
-}
-
-// eslint-disable-next-line react-refresh/only-export-components -- utility function co-located with component
-export function getDefaultValue(element: ElementMetadata): unknown {
-  const type = element.type
-  if (type === 'boolean') return false
-  // Specialized complex types
-  if (type === 'CodeableConcept') return { coding: [{ system: '', code: '', display: '' }] }
-  if (type === 'Coding') return { system: '', code: '', display: '' }
-  if (type === 'Period') return { start: '', end: '' }
-  if (QUANTITY_TYPES.has(type)) return { value: 0, unit: '' }
-  if (type === 'Reference') return { reference: '' }
-  if (type === 'Identifier') return { system: '', value: '' }
-  if (type === 'HumanName') return { family: '', given: [] }
-  if (type === 'ContactPoint') return { value: '' }
-  if (type === 'Address') return { line: [], city: '' }
-  // Complex with children → empty object
-  if (element.children?.length > 0) return {}
-  // Primitives → empty string
-  return ''
 }
