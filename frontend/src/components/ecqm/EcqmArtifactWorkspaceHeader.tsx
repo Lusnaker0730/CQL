@@ -64,7 +64,9 @@ export default function EcqmArtifactWorkspaceHeader({
     <Box sx={{ px: 3, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Stack direction="row" alignItems="center" spacing={2}>
         <Tooltip title={t('header.backToList')}>
-          <IconButton onClick={onBack}><BackIcon /></IconButton>
+          <IconButton onClick={onBack} aria-label={t('header.backToList')}>
+            <BackIcon />
+          </IconButton>
         </Tooltip>
         <Box sx={{ flex: 1 }}>
           <Stack direction="row" alignItems="center" spacing={1.5}>
