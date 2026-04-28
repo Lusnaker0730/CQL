@@ -31,6 +31,8 @@ import GradientButton from '../common/GradientButton'
 import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 import { useIgCodeSystems } from '../../hooks/useImplementationGuide'
 import { COMMON_CODE_SYSTEMS } from '../../constants/codeSystems'
+import { extractApiError } from '../../utils/errorUtils'
+import { escapeCqlIdentifier, escapeCqlString } from '../../utils/cqlString'
 
 export default function CodeLookupTab() {
   const { t } = useTranslation('terminology')
@@ -68,7 +70,9 @@ export default function CodeLookupTab() {
     if (!lookupMutation.data) return
     const d = lookupMutation.data
     const systemLabel = ALL_CODE_SYSTEMS.find((cs) => cs.url === d.system)?.label || d.system
-    const cql = `code "${d.display}": '${d.code}' from "${systemLabel}"`
+    // Escape every server-provided string going into CQL identifiers / literals
+    // so a `"` in the display label or system name doesn't break the snippet.
+    const cql = `code "${escapeCqlIdentifier(d.display)}": '${escapeCqlString(d.code)}' from "${escapeCqlIdentifier(systemLabel)}"`
     navigator.clipboard.writeText(cql)
   }
 
@@ -192,7 +196,7 @@ export default function CodeLookupTab() {
                               e.stopPropagation()
                               const label = ALL_CODE_SYSTEMS.find((cs) => cs.url === r.system)?.label || r.system
                               navigator.clipboard.writeText(
-                                `code "${r.display}": '${r.code}' from "${label}"`
+                                `code "${escapeCqlIdentifier(r.display)}": '${escapeCqlString(r.code)}' from "${escapeCqlIdentifier(label)}"`,
                               )
                             }}
                             aria-label={t('codeLookup.copyCode')}
@@ -240,7 +244,7 @@ export default function CodeLookupTab() {
 
       {lookupMutation.isError && (
         <Alert severity="error">
-          {t('codeLookup.lookupFailed', { error: (lookupMutation.error as Error).message })}
+          {t('codeLookup.lookupFailed', { error: extractApiError(lookupMutation.error) })}
         </Alert>
       )}
 

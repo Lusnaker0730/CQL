@@ -32,7 +32,8 @@
     "colSystem": "系統",
     "colCode": "代碼",
     "colDisplay": "顯示名稱",
-    "noCodesFound": "找不到代碼。"
+    "noCodesFound": "找不到代碼。",
+    "previewTruncated": "顯示前 {{shown}} / 共 {{total}} 筆"
   },
   "codeLookup": {
     "twCoreSystems": "TW Core IG 代碼系統",

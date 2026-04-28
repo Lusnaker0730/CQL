@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getScoreThemeColor } from '../../utils/scoreColors'
 import { extractApiError } from '../../utils/errorUtils'
@@ -45,10 +45,21 @@ export default function MeasureComparison() {
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureOption | null>(null)
 
   const { data: measures = [] } = useQuery({
+    // PAT-130: do not pin staleTime to Infinity. The list goes stale within
+    // the same session if the user shares / renames a measure in another tab;
+    // 5 minutes is a reasonable balance between freshness and refetch noise.
     queryKey: ['measures'],
     queryFn: () => measureApi.getMeasures(),
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000,
   })
+
+  // PAT-130: live-eval flows can run for minutes; if the user navigates away
+  // we must skip any setState that would land on an unmounted component.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
   const measureOptions = useMemo<MeasureOption[]>(
     () => measures.map((m) => ({ id: m.id!, label: m.title || m.name })),
     [measures],
@@ -87,10 +98,12 @@ export default function MeasureComparison() {
     setLiveCompareError(null)
     setComparison(null)
     try {
-      setLiveCompareStep(1)
+      if (isMountedRef.current) setLiveCompareStep(1)
       await measureApi.evaluateMeasure(String(selectedMeasure.id), undefined, p1Start, p1End)
+      if (!isMountedRef.current) return
       setLiveCompareStep(2)
       await measureApi.evaluateMeasure(String(selectedMeasure.id), undefined, p2Start, p2End)
+      if (!isMountedRef.current) return
       setLiveCompareStep(3)
       const result = await measureApi.comparePeriods(
         selectedMeasure.id,
@@ -100,11 +113,12 @@ export default function MeasureComparison() {
         p2Start,
         p2End,
       )
+      if (!isMountedRef.current) return
       setComparison(result)
     } catch (err) {
-      setLiveCompareError(extractApiError(err))
+      if (isMountedRef.current) setLiveCompareError(extractApiError(err))
     } finally {
-      setLiveCompareStep(0)
+      if (isMountedRef.current) setLiveCompareStep(0)
     }
   }
 
@@ -114,9 +128,12 @@ export default function MeasureComparison() {
     setTrend(null)
     const slots = computeTrendSlots(trendEndDate, Math.max(1, Math.min(periods, 12)), trendInterval)
     const dataPoints: TrendDataPoint[] = []
+    let lastSlotIdx = 0
     try {
       for (let i = 0; i < slots.length; i++) {
-        setLiveTrendStep(i + 1)
+        if (!isMountedRef.current) return
+        lastSlotIdx = i + 1
+        setLiveTrendStep(lastSlotIdx)
         const slot = slots[i]
         const result = await measureApi.evaluateMeasure(
           String(selectedMeasure.id),
@@ -124,6 +141,7 @@ export default function MeasureComparison() {
           slot.periodStart,
           slot.periodEnd,
         )
+        if (!isMountedRef.current) return
         const score = result.groups?.[0]?.measureScore
         dataPoints.push({
           periodStart: slot.periodStart,
@@ -131,16 +149,19 @@ export default function MeasureComparison() {
           score: score != null ? score : undefined,
         })
       }
-      setTrend({ measureName: selectedMeasure.label, dataPoints })
+      if (isMountedRef.current) {
+        setTrend({ measureName: selectedMeasure.label, dataPoints })
+      }
     } catch (err) {
+      if (!isMountedRef.current) return
       setLiveTrendError(
-        t('comparison.slotFailed', { current: liveTrendStep, error: extractApiError(err) }),
+        t('comparison.slotFailed', { current: lastSlotIdx, error: extractApiError(err) }),
       )
       if (dataPoints.length > 0) {
         setTrend({ measureName: selectedMeasure.label, dataPoints })
       }
     } finally {
-      setLiveTrendStep(0)
+      if (isMountedRef.current) setLiveTrendStep(0)
     }
   }
 
