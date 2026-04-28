@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -24,7 +24,8 @@ import {
 import { ALL_CODE_SYSTEMS, type CodeSystemEntry } from '../../constants/codeSystems'
 import { useSearchCodes } from '../../hooks/useTerminology'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { COPY_FEEDBACK_TIMEOUT_MS, SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { SelectedCoding } from '../../contexts/TerminologyDrawerContext'
 
 interface DrawerCodeSearchPanelProps {
@@ -41,8 +42,7 @@ export default function DrawerCodeSearchPanel({
   const { t } = useTranslation('terminology')
   const [system, setSystem] = useState(initialSystem || '')
   const [searchText, setSearchText] = useState(initialSearchText || '')
-  const [copiedCode, setCopiedCode] = useState<string | null>(null)
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const { isCopied, markCopied } = useCopyFeedback()
 
   // Apply initial values when they change (e.g. opened from a field)
   useEffect(() => {
@@ -55,9 +55,7 @@ export default function DrawerCodeSearchPanel({
 
   const handleCopy = async (coding: SelectedCoding) => {
     await navigator.clipboard.writeText(`${coding.system}|${coding.code}`)
-    setCopiedCode(coding.code)
-    clearTimeout(copyTimerRef.current)
-    copyTimerRef.current = setTimeout(() => setCopiedCode(null), COPY_FEEDBACK_TIMEOUT_MS)
+    markCopied(coding.code)
   }
 
   const selectedEntry = ALL_CODE_SYSTEMS.find((cs) => cs.url === system) || null
@@ -147,12 +145,13 @@ export default function DrawerCodeSearchPanel({
                   <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>{r.display}</TableCell>
                   <TableCell sx={{ py: 0.5 }}>
                     <Stack direction="row" spacing={0}>
-                      <Tooltip title={copiedCode === r.code ? t('drawer.copied') : t('drawer.copyTooltip')}>
+                      <Tooltip title={isCopied(r.code) ? t('drawer.copied') : t('drawer.copyTooltip')}>
                         <IconButton
                           size="small"
                           onClick={() => handleCopy({ system: r.system, code: r.code, display: r.display })}
+                          aria-label={t('drawer.copyTooltip')}
                         >
-                          {copiedCode === r.code ? <CheckIcon sx={{ fontSize: 16 }} /> : <CopyIcon sx={{ fontSize: 16 }} />}
+                          {isCopied(r.code) ? <CheckIcon sx={{ fontSize: 16 }} /> : <CopyIcon sx={{ fontSize: 16 }} />}
                         </IconButton>
                       </Tooltip>
                       {onSelect && (

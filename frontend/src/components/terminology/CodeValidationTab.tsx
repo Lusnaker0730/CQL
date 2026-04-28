@@ -9,6 +9,7 @@ import {
 import { CheckCircle as ValidateIcon } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import { useValidateCode } from '../../hooks/useTerminology'
+import { extractApiError } from '../../utils/errorUtils'
 
 export default function CodeValidationTab() {
   const { t } = useTranslation('terminology')
@@ -65,7 +66,7 @@ export default function CodeValidationTab() {
 
       {validateMutation.isError && (
         <Alert severity="error">
-          {t('codeValidation.validationFailed', { error: (validateMutation.error as Error).message })}
+          {t('codeValidation.validationFailed', { error: extractApiError(validateMutation.error) })}
         </Alert>
       )}
 
