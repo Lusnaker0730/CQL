@@ -20,6 +20,7 @@ import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
+import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 
 const SEVERITY_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -92,7 +93,7 @@ export default function ValidateTab() {
 
       {validateMutation.isError && (
         <Alert severity="error">
-          {t('validate.validationFailed', { error: (validateMutation.error as Error).message })}
+          {t('validate.validationFailed', { error: extractApiError(validateMutation.error) })}
         </Alert>
       )}
 

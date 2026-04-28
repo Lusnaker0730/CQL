@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
+import { extractApiError } from '../../utils/errorUtils'
 import {
   getResourceCount,
   getDisplayFields,
@@ -78,10 +79,16 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
       const p = params?.raw ?? searchParams
       return fhirApi.search(rt, p, fhirServer)
     },
-    onSuccess: (data) => {
+    // Read the actual params we searched with from `variables` rather than
+    // closure-captured React state — `setSearchParams` from history-replay
+    // hasn't necessarily committed yet when this fires, so reading state
+    // would record the *previous* search and history would drift.
+    onSuccess: (data, variables) => {
       setSearchResult(data as FhirBundle)
       setCurrentPage(0)
-      addEntry(resourceType, searchParams, fhirServer)
+      const recordedType = variables?.type || resourceType
+      const recordedParams = variables?.raw ?? searchParams
+      addEntry(recordedType, recordedParams, fhirServer)
     },
   })
 
@@ -169,7 +176,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
 
       {searchMutation.isError && (
         <Alert severity="error">
-          {t('search.searchFailed', { error: (searchMutation.error as Error).message })}
+          {t('search.searchFailed', { error: extractApiError(searchMutation.error) })}
         </Alert>
       )}
 

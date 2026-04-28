@@ -52,6 +52,19 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
   const [exportError, setExportError] = useState<string | null>(null)
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Guards setState calls inside async pollStatus when the user navigates
+  // away mid-flight. The interval cleanup below stops *future* polls but
+  // can't cancel an in-flight `fhirApi.pollExportStatus` request — its
+  // resolution still calls setExportStatus on an unmounted component
+  // without this ref.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
@@ -63,6 +76,7 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
   const pollStatus = useCallback(async (statusUrl: string) => {
     try {
       const result = await fhirApi.pollExportStatus(statusUrl)
+      if (!isMountedRef.current) return
       setExportStatus(result)
       if (result.status === 'completed' || result.status === 'error') {
         stopPolling()
@@ -71,6 +85,7 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
         }
       }
     } catch (err) {
+      if (!isMountedRef.current) return
       stopPolling()
       setExportError(err instanceof Error ? err.message : 'Polling failed')
     }

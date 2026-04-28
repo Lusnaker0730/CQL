@@ -131,7 +131,13 @@ export default function ResourceEditorDialog({
           )}
 
           <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
+            {/* MUI Dialog keeps children mounted across open/close, so Monaco's
+                `defaultValue` (only honoured on first mount) becomes stale when
+                the same dialog is reused for a different resource. Forcing
+                remount via key={mode-resourceType-resourceId} resets the editor
+                cleanly each time it's opened with new initial JSON. */}
             <Editor
+              key={`${mode}-${resourceType}-${resourceId ?? 'new'}`}
               height="400px"
               language="json"
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
