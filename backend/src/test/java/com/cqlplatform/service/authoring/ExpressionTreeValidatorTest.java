@@ -361,4 +361,184 @@ class ExpressionTreeValidatorTest {
                             d.contains("parameters") && d.contains("system-generated") && d.contains("InPopulation"));
                 });
     }
+
+    // =====================================================================
+    // PAT-137 — Modifier values whitelist (defense-in-depth)
+    // =====================================================================
+
+    /** Build a single-element artifact carrying one modifier with the given values. */
+    private static ArtifactRequest withModifier(String cqlTemplate, Map<String, Object> values) {
+        Map<String, Object> modifier = new HashMap<>();
+        modifier.put("id", "test-mod");
+        modifier.put("name", "Test Modifier");
+        modifier.put("cqlTemplate", cqlTemplate);
+        if (values != null) modifier.put("values", values);
+        return ArtifactRequest.builder()
+                .name("Test")
+                .expTreeInclude(Map.of(
+                        "childInstances", List.of(
+                                Map.of("type", "GenericObservation_vsac", "name", "X",
+                                        "modifiers", List.of(modifier))
+                        )))
+                .build();
+    }
+
+    @Test
+    void validateModifierValues_validValueComparisonNumber_shouldPass() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("ValueComparisonNumber", Map.of(
+                "minOperator", ">=",
+                "minValue", "5",
+                "maxOperator", "<=",
+                "maxValue", "10",
+                "unit", "mg/dL"));
+
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void validateModifierValues_invalidComparisonOperator_shouldThrow() {
+        // Frontend dropdown only offers <, <=, >, >=, =, !=. A malicious client
+        // bypassing the UI could send "); /* injected */" — backend must reject.
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("ValueComparisonNumber", Map.of(
+                "minOperator", "); DROP TABLE",
+                "minValue", "5"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getDetails()).anyMatch(d ->
+                            d.contains("minOperator") && d.contains("COMPARISON_OP"));
+                });
+    }
+
+    @Test
+    void validateModifierValues_nonNumericValue_shouldThrow() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("ContainsInteger",
+                Map.of("value", "5; injected"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getDetails()).anyMatch(d ->
+                            d.contains("value") && d.contains("NUMERIC"));
+                });
+    }
+
+    @Test
+    void validateModifierValues_invalidUnit_shouldThrow() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        // Quotes in unit would let the caller break out of the 'unit' string literal
+        // in generated CQL.
+        ArtifactRequest request = withModifier("ConvertUnits",
+                Map.of("unit", "mg/dL'; injected"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getDetails()).anyMatch(d ->
+                            d.contains("unit") && d.contains("UNIT"));
+                });
+    }
+
+    @Test
+    void validateModifierValues_invalidBooleanComparison_shouldThrow() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("BooleanComparison",
+                Map.of("value", "is exactly bogus"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getDetails()).anyMatch(d ->
+                            d.contains("BOOLEAN_COMPARISON_VALUE"));
+                });
+    }
+
+    @Test
+    void validateModifierValues_invalidQualifierType_shouldThrow() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("Qualifier",
+                Map.of("qualifier", "arbitrary"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getDetails()).anyMatch(d ->
+                            d.contains("qualifier") && d.contains("QUALIFIER_TYPE"));
+                });
+    }
+
+    @Test
+    void validateModifierValues_validDateTime_shouldPass() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("BeforeDateTimePrecise",
+                Map.of("value", "2025-01-15T10:30:00Z"));
+
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void validateModifierValues_invalidDateTime_shouldThrow() {
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("BeforeDateTimePrecise",
+                Map.of("value", "tomorrow"));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getDetails()).anyMatch(d ->
+                            d.contains("value") && d.contains("DATETIME"));
+                });
+    }
+
+    @Test
+    void validateModifierValues_emptyOptionalField_shouldPass() {
+        // Empty value fields are legitimate — the engine just skips them.
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("ValueComparisonNumber",
+                Map.of("minOperator", ">=", "minValue", "5",
+                        "maxOperator", "", "maxValue", "", "unit", ""));
+
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void validateModifierValues_unknownTemplateOrNoValuesMap_shouldNotFail() {
+        // CheckExistence has no values; Foo is unknown — neither should error.
+        when(templateService.isValidElementType("GenericObservation_vsac")).thenReturn(true);
+        when(modifierService.isValidModifierId(anyString())).thenReturn(true);
+
+        ArtifactRequest request = withModifier("CheckExistence", null);
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+
+        ArtifactRequest unknown = withModifier("Foo", Map.of("anything", "goes"));
+        assertThatCode(() -> validator.validate(unknown)).doesNotThrowAnyException();
+    }
 }
