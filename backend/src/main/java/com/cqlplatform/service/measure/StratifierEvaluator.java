@@ -5,6 +5,7 @@ import com.cqlplatform.model.measure.GroupDefinition;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.PopulationResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.StratifierResult;
+import com.cqlplatform.model.measure.PopulationTypeConstants;
 import com.cqlplatform.model.measure.StratifierDefinition;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,9 +99,7 @@ public class StratifierEvaluator {
 
                 List<PopulationResult> stratPops = new ArrayList<>();
                 for (Map.Entry<String, Integer> popEntry : popCounts.entrySet()) {
-                    String popType = popEntry.getKey().toLowerCase().replace(" ", "-")
-                            .replace("exclusions", "exclusion")
-                            .replace("exceptions", "exception");
+                    String popType = PopulationTypeConstants.cqlNameToFhirCode(popEntry.getKey());
                     stratPops.add(PopulationResult.builder()
                             .populationType(popType)
                             .populationId(popType)

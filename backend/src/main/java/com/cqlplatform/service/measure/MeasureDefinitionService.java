@@ -2,12 +2,14 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
+import com.cqlplatform.exception.CqlTranslationException;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.NotificationService;
 import com.cqlplatform.model.CqlTranslationRequest;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.service.cql.CqlTranslationService;
 import com.cqlplatform.service.cql.SemanticVersionComparator;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,11 @@ public class MeasureDefinitionService {
         }
 
         MeasureDefinitionEntity entity = modelToEntity(definition);
+        // Pre-compile CQL on create, same as update — surfaces translation errors at
+        // save time rather than at first evaluation.
+        if (definition.getCqlContent() != null && !definition.getCqlContent().isBlank()) {
+            entity.setElmJson(preCompileElm(definition.getCqlContent()));
+        }
         entity = repository.save(entity);
         log.info("Created measure definition: {} v{}", entity.getName(), entity.getVersion());
         recordAudit(entity.getId(), "CREATE", entity.getCreatedBy(), "Created " + entity.getName() + " v" + entity.getVersion(), null, null);
@@ -661,17 +668,34 @@ public class MeasureDefinitionService {
                 .build();
     }
 
-    /** Pre-compile CQL to ELM JSON. Returns null if CQL is blank or translation fails. */
+    /**
+     * Pre-compile CQL to ELM JSON. Returns null if CQL is blank.
+     *
+     * <p>Translation errors are propagated as {@link CqlTranslationException} so the
+     * controller layer maps to HTTP 400 with the error list, rather than silently
+     * persisting the measure with a null {@code elmJson} — the previous behaviour
+     * meant a save with broken CQL appeared to succeed and only failed later during
+     * evaluation with a cryptic "library not found" / runtime translation error
+     * (BUG-110/111 family). The transactional boundary on {@code create}/{@code update}
+     * rolls the save back so users see the error before any state change.
+     */
     private String preCompileElm(String cql) {
         if (cql == null || cql.isBlank()) return null;
+        CqlTranslationResponse resp;
         try {
             var req = new CqlTranslationRequest();
             req.setCql(cql);
-            var resp = cqlTranslationService.translate(req);
-            return resp.isSuccess() ? resp.getElmJson() : null;
+            resp = cqlTranslationService.translate(req);
         } catch (Exception e) {
-            log.warn("Failed to pre-compile ELM: {}", e.getMessage());
-            return null;
+            // Translator threw — wrap so the caller gets a structured error envelope
+            // rather than the raw stack-trace 500.
+            throw new CqlTranslationException(
+                    "CQL translation failed: " + e.getMessage());
         }
+        if (resp.isSuccess()) {
+            return resp.getElmJson();
+        }
+        throw new CqlTranslationException(
+                "CQL translation failed; measure not saved", resp.getErrors());
     }
 }
