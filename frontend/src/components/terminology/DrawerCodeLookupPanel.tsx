@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -21,8 +21,11 @@ import {
 import GradientButton from '../common/GradientButton'
 import { ALL_CODE_SYSTEMS, type CodeSystemEntry } from '../../constants/codeSystems'
 import { useLookupCode } from '../../hooks/useTerminology'
-import { COPY_FEEDBACK_TIMEOUT_MS } from '../../constants/timing'
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
+import { extractApiError } from '../../utils/errorUtils'
 import type { SelectedCoding } from '../../contexts/TerminologyDrawerContext'
+
+const COPIED_KEY = 'lookup-result'
 
 interface DrawerCodeLookupPanelProps {
   onSelect?: (coding: SelectedCoding) => void
@@ -32,16 +35,18 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
   const { t } = useTranslation('terminology')
   const [system, setSystem] = useState('')
   const [code, setCode] = useState('')
-  const [copied, setCopied] = useState(false)
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const { isCopied, markCopied } = useCopyFeedback()
 
   const lookupMutation = useLookupCode()
 
   const handleLookup = () => {
     if (!system || !code) return
-    // Extract URL from display label "LABEL — URL" if selected from dropdown
-    const entry = ALL_CODE_SYSTEMS.find((cs) => system.includes(cs.url))
-    lookupMutation.mutate({ system: entry?.url || system, code })
+    // Pass `system` verbatim. The previous `system.includes(cs.url)` heuristic
+    // could pick the wrong CodeSystem when the user-entered URL happens to
+    // contain a known CS URL as a substring (e.g. a wrapping proxy URL with
+    // `http://snomed.info/sct` inside). Exact-match in the Autocomplete value
+    // path already normalizes well-known systems.
+    lookupMutation.mutate({ system, code })
   }
 
   const result = lookupMutation.data
@@ -49,9 +54,7 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
   const handleCopy = async () => {
     if (!result) return
     await navigator.clipboard.writeText(`${result.system}|${result.code}`)
-    setCopied(true)
-    clearTimeout(copyTimerRef.current)
-    copyTimerRef.current = setTimeout(() => setCopied(false), COPY_FEEDBACK_TIMEOUT_MS)
+    markCopied(COPIED_KEY)
   }
 
   const selectedEntry = ALL_CODE_SYSTEMS.find((cs) => cs.url === system) || null
@@ -107,7 +110,7 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
 
       {lookupMutation.isError && (
         <Typography variant="body2" color="error">
-          {t('codeLookup.lookupFailed', { error: (lookupMutation.error as Error).message })}
+          {t('codeLookup.lookupFailed', { error: extractApiError(lookupMutation.error) })}
         </Typography>
       )}
 
@@ -116,9 +119,9 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
             <Typography variant="subtitle2">{t('codeLookup.codeDetails')}</Typography>
             <Stack direction="row" spacing={0.5}>
-              <Tooltip title={copied ? t('drawer.copied') : t('drawer.copyTooltip')}>
+              <Tooltip title={isCopied(COPIED_KEY) ? t('drawer.copied') : t('drawer.copyTooltip')}>
                 <IconButton size="small" onClick={handleCopy}>
-                  {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <CopyIcon sx={{ fontSize: 16 }} />}
+                  {isCopied(COPIED_KEY) ? <CheckIcon sx={{ fontSize: 16 }} /> : <CopyIcon sx={{ fontSize: 16 }} />}
                 </IconButton>
               </Tooltip>
               {onSelect && (
