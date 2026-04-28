@@ -57,7 +57,9 @@ class CqlPipelineIntegrationTest {
         artifactBuilder = new CqlArtifactBuilder(expressionEngine, templateEngine);
 
         // Real translation service
-        translationService = new CqlTranslationService();
+        translationService = new CqlTranslationService(
+                java.util.Optional.empty(), java.util.Optional.empty(),
+                java.util.Optional.empty(), java.util.Optional.empty());
         setField(translationService, "translationTimeoutSeconds", 30);
 
         // Real execution service
