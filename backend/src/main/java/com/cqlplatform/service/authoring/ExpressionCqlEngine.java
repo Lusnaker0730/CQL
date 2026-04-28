@@ -486,229 +486,234 @@ public class ExpressionCqlEngine {
     // ── Modifier application ─────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
+    /**
+     * Functional interface for one modifier kind's CQL-fragment generator.
+     * Every entry of {@link #modifierAppliers} matches this shape; the kind is
+     * dispatched by {@code cqlTemplate} string.
+     */
+    @FunctionalInterface
+    private interface ModifierApplier {
+        String apply(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx);
+    }
+
+    /**
+     * Registry of {@code cqlTemplate} → {@link ModifierApplier}. Replaces the
+     * earlier 224-line switch in {@code applyModifier} which made adding a new
+     * modifier kind a copy-paste-into-a-wall ritual. Each case is now a small
+     * named helper that's individually testable.
+     */
+    private final Map<String, ModifierApplier> modifierAppliers = buildModifierAppliers();
+
+    private Map<String, ModifierApplier> buildModifierAppliers() {
+        Map<String, ModifierApplier> m = new HashMap<>();
+
+        // Trivial wrappers — only need expression
+        ModifierApplier checkExistence = (expr, v, fn, id, ctx) ->
+                renderModifier("CheckExistence.ftl", Map.of("expression", expr));
+        m.put("CheckExistence", checkExistence);
+        m.put("BooleanExists", checkExistence);
+        m.put("BooleanNot", (expr, v, fn, id, ctx) ->
+                renderModifier("BooleanNot.ftl", Map.of("expression", expr)));
+        m.put("Count", (expr, v, fn, id, ctx) ->
+                renderModifier("Count.ftl", Map.of("expression", expr)));
+        m.put("AllTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("AllTrue.ftl", Map.of("expression", expr)));
+        m.put("AnyTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("AnyTrue.ftl", Map.of("expression", expr)));
+        m.put("IsTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("IsTrue.ftl", Map.of("expression", expr)));
+        m.put("IsNotTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("IsNotTrue.ftl", Map.of("expression", expr)));
+        m.put("IsFalse", (expr, v, fn, id, ctx) ->
+                renderModifier("IsFalse.ftl", Map.of("expression", expr)));
+        m.put("IsNotFalse", (expr, v, fn, id, ctx) ->
+                renderModifier("IsNotFalse.ftl", Map.of("expression", expr)));
+
+        // Field-based — delegated to named instance methods
+        m.put("BooleanComparison", this::applyBooleanComparison);
+        m.put("ValueComparisonNumber", this::applyValueComparison);
+        m.put("ValueComparisonObservation", this::applyValueComparison);
+        m.put("ConvertUnits", this::applyConvertUnits);
+        m.put("WithUnit", this::applyWithUnit);
+        m.put("LookBackModifier", this::applyLookBack);
+        m.put("DuringMeasurementPeriod", this::applyDuringMeasurementPeriod);
+        m.put("EqualsString", (expr, v, fn, id, ctx) -> applyStringMatch(expr, v, "EqualsString.ftl"));
+        m.put("StartsWithString", (expr, v, fn, id, ctx) -> applyStringMatch(expr, v, "StartsWithString.ftl"));
+        m.put("EndsWithString", (expr, v, fn, id, ctx) -> applyStringMatch(expr, v, "EndsWithString.ftl"));
+        m.put("BeforeTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "BeforeTime.ftl"));
+        m.put("BeforeDateTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "BeforeTime.ftl"));
+        m.put("AfterTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "AfterTime.ftl"));
+        m.put("AfterDateTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "AfterTime.ftl"));
+        m.put("ContainsInteger", (expr, v, fn, id, ctx) -> applyContainsLiteral(expr, v, false));
+        m.put("ContainsDecimal", (expr, v, fn, id, ctx) -> applyContainsLiteral(expr, v, false));
+        m.put("ContainsQuantity", (expr, v, fn, id, ctx) -> applyContainsLiteral(expr, v, true));
+        m.put("ContainsDateTime", this::applyContainsDateTime);
+        m.put("BeforeInterval", (expr, v, fn, id, ctx) -> applyIntervalBound(expr, v, "BeforeTime.ftl"));
+        m.put("AfterInterval", (expr, v, fn, id, ctx) -> applyIntervalBound(expr, v, "AfterTime.ftl"));
+        m.put("Qualifier", this::applyQualifier);
+
+        return m;
+    }
+
     public String applyModifier(String expr, Map<String, Object> modifier, BuildContext ctx) {
         String cqlLibFunc = getStr(modifier, "cqlLibraryFunction", null);
         String cqlTemplate = getStr(modifier, "cqlTemplate", "");
         String modId = getStr(modifier, "id", "");
         Map<String, Object> values = (Map<String, Object>) modifier.get("values");
 
-        switch (cqlTemplate) {
-            case "CheckExistence":
-            case "BooleanExists":
-                return renderModifier("CheckExistence.ftl", Map.of("expression", expr));
-            case "BooleanNot":
-                return renderModifier("BooleanNot.ftl", Map.of("expression", expr));
-            case "Count":
-                return renderModifier("Count.ftl", Map.of("expression", expr));
-            case "AllTrue":
-                return renderModifier("AllTrue.ftl", Map.of("expression", expr));
-            case "AnyTrue":
-                return renderModifier("AnyTrue.ftl", Map.of("expression", expr));
-            case "BooleanComparison": {
-                if (values != null) {
-                    String comp = getStr(values, "value", "is not null");
-                    return renderModifier("BooleanComparison.ftl", Map.of("expression", expr, "value", comp));
-                }
-                return expr;
-            }
-            case "ValueComparisonNumber":
-            case "ValueComparisonObservation": {
-                if (values != null) {
-                    String minOp = getStr(values, "minOperator", null);
-                    String minVal = getStr(values, "minValue", null);
-                    String maxOp = getStr(values, "maxOperator", null);
-                    String maxVal = getStr(values, "maxValue", null);
-                    String unit = getStr(values, "unit", null);
-
-                    List<String> conditions = new ArrayList<>();
-                    if (minOp != null && minVal != null && !minVal.isEmpty()) {
-                        String valExpr = unit != null && !unit.isEmpty()
-                                ? String.format("%s '%s'", minVal, escapeCqlString(unit))
-                                : minVal;
-                        conditions.add(String.format("(%s) %s %s", expr, minOp, valExpr));
-                    }
-                    if (maxOp != null && maxVal != null && !maxVal.isEmpty()) {
-                        String valExpr = unit != null && !unit.isEmpty()
-                                ? String.format("%s '%s'", maxVal, escapeCqlString(unit))
-                                : maxVal;
-                        conditions.add(String.format("(%s) %s %s", expr, maxOp, valExpr));
-                    }
-                    if (!conditions.isEmpty()) {
-                        String joined = String.join(" and ", conditions);
-                        return conditions.size() > 1 ? "(" + joined + ")" : joined;
-                    }
-                }
-                return expr;
-            }
-            case "ConvertUnits": {
-                if (values != null) {
-                    String unit = getStr(values, "unit", "");
-                    if (!unit.isEmpty()) {
-                        return renderModifier("ConvertUnits.ftl", Map.of("expression", expr, "unit", escapeCqlString(unit)));
-                    }
-                }
-                return expr;
-            }
-            case "WithUnit": {
-                if (cqlLibFunc != null && values != null) {
-                    String unit = getStr(values, "unit", "");
-                    if (!unit.isEmpty()) {
-                        return renderModifier("WithUnit.ftl", Map.of(
-                                "expression", expr, "cqlLibraryFunction", cqlLibFunc, "unit", escapeCqlString(unit)));
-                    }
-                }
-                if (cqlLibFunc != null)
-                    return renderModifier("WithUnit.ftl", Map.of(
-                            "expression", expr, "cqlLibraryFunction", cqlLibFunc, "unit", ""));
-                return expr;
-            }
-            case "LookBackModifier": {
-                if (cqlLibFunc != null && values != null) {
-                    String val = getStr(values, "value", "");
-                    String unit = getStr(values, "unit", "years");
-                    if (!val.isEmpty()) {
-                        return renderModifier("LookBackModifier.ftl", Map.of(
-                                "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", val, "unit", escapeCqlString(unit)));
-                    }
-                }
-                if (cqlLibFunc != null)
-                    return renderModifier("LookBackModifier.ftl", Map.of(
-                            "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", "", "unit", ""));
-                return expr;
-            }
-            case "DuringMeasurementPeriod": {
-                // The catalog entry's nested `during` block carries alias + dateFieldSpec.
-                // The saved artifact tree only keeps the modifier id — we look up the typed
-                // config here and let the engine generate the null-safe case CQL.
-                var def = modifierService.getById(modId);
-                var cfg = def == null ? null : def.getDuring();
-                if (cfg == null || cfg.getAlias() == null || cfg.getDateFieldSpec() == null) {
-                    ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing during.{alias,dateFieldSpec} in catalog");
-                    return expr;
-                }
-                String whereClause = buildDuringMeasurementPeriodWhereClause(
-                        cfg.getAlias(), cfg.getDateFieldSpec());
-                return renderModifier("DuringMeasurementPeriod.ftl", Map.of(
-                        "expression", expr,
-                        "alias", cfg.getAlias(),
-                        "whereClause", whereClause));
-            }
-            case "EqualsString": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("EqualsString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
-                }
-                return expr;
-            }
-            case "StartsWithString": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("StartsWithString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
-                }
-                return expr;
-            }
-            case "EndsWithString": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("EndsWithString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
-                }
-                return expr;
-            }
-            case "BeforeTimePrecise":
-            case "BeforeDateTimePrecise": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("BeforeTime.ftl", Map.of("expression", expr, "value", formatDateTimeValue(val)));
-                }
-                return expr;
-            }
-            case "AfterTimePrecise":
-            case "AfterDateTimePrecise": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("AfterTime.ftl", Map.of("expression", expr, "value", formatDateTimeValue(val)));
-                }
-                return expr;
-            }
-            case "ContainsInteger":
-            case "ContainsDecimal": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("ContainsValue.ftl", Map.of("expression", expr, "value", val, "unit", ""));
-                }
-                return expr;
-            }
-            case "ContainsQuantity": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    String unit = getStr(values, "unit", "");
-                    return renderModifier("ContainsValue.ftl", Map.of("expression", expr, "value", val, "unit", escapeCqlString(unit)));
-                }
-                return expr;
-            }
-            case "ContainsDateTime": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("ContainsValue.ftl", Map.of(
-                            "expression", expr, "value", formatDateTimeValue(val), "unit", ""));
-                }
-                return expr;
-            }
-            case "IsTrue":
-                return renderModifier("IsTrue.ftl", Map.of("expression", expr));
-            case "IsNotTrue":
-                return renderModifier("IsNotTrue.ftl", Map.of("expression", expr));
-            case "IsFalse":
-                return renderModifier("IsFalse.ftl", Map.of("expression", expr));
-            case "IsNotFalse":
-                return renderModifier("IsNotFalse.ftl", Map.of("expression", expr));
-            case "BeforeInterval": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    if (!val.isEmpty()) {
-                        return renderModifier("BeforeTime.ftl", Map.of("expression", expr, "value", val));
-                    }
-                }
-                return expr;
-            }
-            case "AfterInterval": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    if (!val.isEmpty()) {
-                        return renderModifier("AfterTime.ftl", Map.of("expression", expr, "value", val));
-                    }
-                }
-                return expr;
-            }
-            case "Qualifier": {
-                if (values != null) {
-                    String qualifier = getStr(values, "qualifier", "value set");
-                    String valueSet = getStr(values, "valueSet", null);
-                    String code = getStr(values, "code", null);
-                    Map<String, Object> model = new HashMap<>();
-                    model.put("expression", expr);
-                    model.put("qualifier", qualifier);
-                    model.put("valueSet", valueSet != null ? valueSet : "");
-                    model.put("code", code != null ? code : "");
-                    return renderModifier("Qualifier.ftl", model);
-                }
-                return expr;
-            }
-            default:
-                break;
+        ModifierApplier applier = modifierAppliers.get(cqlTemplate);
+        if (applier != null) {
+            return applier.apply(expr, values, cqlLibFunc, modId, ctx);
         }
 
+        // Generic fallbacks for modifiers not in the registry.
         if (cqlTemplate != null && cqlTemplate.contains("{expression}")) {
             return cqlTemplate.replace("{expression}", expr);
         }
-
         if (cqlLibFunc != null) {
-            return renderModifier("BaseModifier.ftl", Map.of("expression", expr, "cqlLibraryFunction", cqlLibFunc));
+            return renderModifier("BaseModifier.ftl",
+                    Map.of("expression", expr, "cqlLibraryFunction", cqlLibFunc));
         }
 
         ctx.warn(String.format("Unknown modifier template '%s' (id='%s'); modifier skipped", cqlTemplate, modId));
         log.warn("Unknown modifier template '{}' (id='{}')", cqlTemplate, modId);
         return expr;
+    }
+
+    // ------------------------------------------------------------------
+    // Modifier appliers — one private method per "kind".
+    // ------------------------------------------------------------------
+
+    private String applyBooleanComparison(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String comp = getStr(values, "value", "is not null");
+        return renderModifier("BooleanComparison.ftl", Map.of("expression", expr, "value", comp));
+    }
+
+    private String applyValueComparison(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String minOp = getStr(values, "minOperator", null);
+        String minVal = getStr(values, "minValue", null);
+        String maxOp = getStr(values, "maxOperator", null);
+        String maxVal = getStr(values, "maxValue", null);
+        String unit = getStr(values, "unit", null);
+
+        List<String> conditions = new ArrayList<>();
+        if (minOp != null && minVal != null && !minVal.isEmpty()) {
+            String valExpr = unit != null && !unit.isEmpty()
+                    ? String.format("%s '%s'", minVal, escapeCqlString(unit))
+                    : minVal;
+            conditions.add(String.format("(%s) %s %s", expr, minOp, valExpr));
+        }
+        if (maxOp != null && maxVal != null && !maxVal.isEmpty()) {
+            String valExpr = unit != null && !unit.isEmpty()
+                    ? String.format("%s '%s'", maxVal, escapeCqlString(unit))
+                    : maxVal;
+            conditions.add(String.format("(%s) %s %s", expr, maxOp, valExpr));
+        }
+        if (conditions.isEmpty()) return expr;
+        String joined = String.join(" and ", conditions);
+        return conditions.size() > 1 ? "(" + joined + ")" : joined;
+    }
+
+    private String applyConvertUnits(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String unit = getStr(values, "unit", "");
+        if (unit.isEmpty()) return expr;
+        return renderModifier("ConvertUnits.ftl",
+                Map.of("expression", expr, "unit", escapeCqlString(unit)));
+    }
+
+    private String applyWithUnit(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (cqlLibFunc == null) return expr;
+        String unit = values == null ? "" : getStr(values, "unit", "");
+        return renderModifier("WithUnit.ftl", Map.of(
+                "expression", expr,
+                "cqlLibraryFunction", cqlLibFunc,
+                "unit", unit.isEmpty() ? "" : escapeCqlString(unit)));
+    }
+
+    private String applyLookBack(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (cqlLibFunc == null) return expr;
+        String val = values == null ? "" : getStr(values, "value", "");
+        String unit = values == null ? "years" : getStr(values, "unit", "years");
+        if (val.isEmpty()) {
+            return renderModifier("LookBackModifier.ftl", Map.of(
+                    "expression", expr, "cqlLibraryFunction", cqlLibFunc,
+                    "value", "", "unit", ""));
+        }
+        return renderModifier("LookBackModifier.ftl", Map.of(
+                "expression", expr, "cqlLibraryFunction", cqlLibFunc,
+                "value", val, "unit", escapeCqlString(unit)));
+    }
+
+    private String applyDuringMeasurementPeriod(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        // The catalog entry's nested `during` block carries alias + dateFieldSpec.
+        // The saved artifact tree only keeps the modifier id — we look up the typed
+        // config here and let the engine generate the null-safe case CQL.
+        var def = modifierService.getById(modId);
+        var cfg = def == null ? null : def.getDuring();
+        if (cfg == null || cfg.getAlias() == null || cfg.getDateFieldSpec() == null) {
+            ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing during.{alias,dateFieldSpec} in catalog");
+            return expr;
+        }
+        String whereClause = buildDuringMeasurementPeriodWhereClause(
+                cfg.getAlias(), cfg.getDateFieldSpec());
+        return renderModifier("DuringMeasurementPeriod.ftl", Map.of(
+                "expression", expr,
+                "alias", cfg.getAlias(),
+                "whereClause", whereClause));
+    }
+
+    /** Shared helper for EqualsString / StartsWithString / EndsWithString — they only differ in template name. */
+    private String applyStringMatch(String expr, Map<String, Object> values, String templateFile) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        return renderModifier(templateFile, Map.of("expression", expr, "value", escapeCqlString(val)));
+    }
+
+    /** Shared helper for the four BeforeTime / AfterTime / Precise variants. */
+    private String applyTimeBound(String expr, Map<String, Object> values, String templateFile) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        return renderModifier(templateFile, Map.of("expression", expr, "value", formatDateTimeValue(val)));
+    }
+
+    /** Shared helper for ContainsInteger / ContainsDecimal / ContainsQuantity. */
+    private String applyContainsLiteral(String expr, Map<String, Object> values, boolean withUnit) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        String unit = withUnit ? escapeCqlString(getStr(values, "unit", "")) : "";
+        return renderModifier("ContainsValue.ftl",
+                Map.of("expression", expr, "value", val, "unit", unit));
+    }
+
+    private String applyContainsDateTime(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        return renderModifier("ContainsValue.ftl",
+                Map.of("expression", expr, "value", formatDateTimeValue(val), "unit", ""));
+    }
+
+    /** Shared helper for BeforeInterval / AfterInterval — value is an interval expression, not formatted. */
+    private String applyIntervalBound(String expr, Map<String, Object> values, String templateFile) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        if (val.isEmpty()) return expr;
+        return renderModifier(templateFile, Map.of("expression", expr, "value", val));
+    }
+
+    private String applyQualifier(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String qualifier = getStr(values, "qualifier", "value set");
+        String valueSet = getStr(values, "valueSet", null);
+        String code = getStr(values, "code", null);
+        Map<String, Object> model = new HashMap<>();
+        model.put("expression", expr);
+        model.put("qualifier", qualifier);
+        model.put("valueSet", valueSet != null ? valueSet : "");
+        model.put("code", code != null ? code : "");
+        return renderModifier("Qualifier.ftl", model);
     }
 
     private String renderModifier(String templateFile, Map<String, Object> model) {
