@@ -794,6 +794,11 @@
     "defaultStatus": "complete",
     "downloadReport": "Download report",
     "deleteReport": "Delete report",
+    "deleteConfirmTitle": "Delete this report?",
+    "deleteConfirmBody": "Permanently delete the report for {{measure}} ({{periodStart}} – {{periodEnd}})? This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete",
+    "deleting": "Deleting...",
     "emptyState": "No reports yet. Evaluate a measure to generate reports.",
     "exportFormats": {
       "fhirJson": "FHIR MeasureReport (JSON)",

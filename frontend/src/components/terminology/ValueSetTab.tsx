@@ -31,6 +31,8 @@ import {
 } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
 import { useIgValueSets } from '../../hooks/useImplementationGuide'
+import { extractApiError } from '../../utils/errorUtils'
+import { escapeCqlIdentifier, escapeCqlString } from '../../utils/cqlString'
 import type { ValueSetSearchResult, ValueSetSummary } from '../../types'
 
 type SourceMode = 'remote' | 'local' | 'both'
@@ -47,7 +49,7 @@ export default function ValueSetTab() {
   const { data: remoteResults, isLoading: isSearchingRemote, error: remoteError } = useSearchValueSets(
     (source === 'remote' || source === 'both') ? debouncedTitle : undefined
   )
-  const { data: localResults, isLoading: isSearchingLocal } = useIgValueSets(
+  const { data: localResults, isLoading: isSearchingLocal, error: localError } = useIgValueSets(
     (source === 'local' || source === 'both') ? (debouncedTitle || undefined) : undefined
   )
   const expandMutation = useExpandValueSet()
@@ -79,7 +81,7 @@ export default function ValueSetTab() {
     return results
   }, [source, remoteResults, localResults])
 
-  const searchError = remoteError
+  const searchError = remoteError ?? localError
 
   const handleExpand = (vs: ValueSetSearchResult) => {
     setSelectedVs(vs)
@@ -88,11 +90,23 @@ export default function ValueSetTab() {
   }
 
   const handleCopyCql = (vs: ValueSetSearchResult) => {
-    const cql = `valueset "${vs.title || vs.name}": '${vs.url}'`
+    // Server-provided title/name/url could contain `"` or `\` and break the
+    // CQL identifier / string literal. Escape both consistently with the
+    // builder and authoring modules (PAT-126/127 family).
+    const identifier = escapeCqlIdentifier(vs.title || vs.name)
+    const url = escapeCqlString(vs.url)
+    const cql = `valueset "${identifier}": '${url}'`
     navigator.clipboard.writeText(cql)
   }
 
+  // Race-guard: only show the expansion if it matches the currently-selected
+  // ValueSet. The mutation is shared, so a stale response from a previously
+  // clicked VS could otherwise overwrite the active selection.
+  const expansionMatchesSelection =
+    expandMutation.variables?.url === selectedVs?.url
+
   const filteredCodes = useMemo(() => {
+    if (!expansionMatchesSelection) return []
     const codes = expandMutation.data?.expansion?.contains
     if (!codes) return []
     if (!codeFilter) return codes
@@ -103,7 +117,7 @@ export default function ValueSetTab() {
         c.display.toLowerCase().includes(q) ||
         c.system.toLowerCase().includes(q)
     )
-  }, [expandMutation.data, codeFilter])
+  }, [expandMutation.data, codeFilter, expansionMatchesSelection])
 
   return (
     <Stack spacing={2}>
@@ -149,7 +163,7 @@ export default function ValueSetTab() {
       </Stack>
 
       {searchError && (
-        <Alert severity="error">{t('valueSet.searchFailed', { error: (searchError as Error).message })}</Alert>
+        <Alert severity="error">{t('valueSet.searchFailed', { error: extractApiError(searchError) })}</Alert>
       )}
 
       {searchResults && searchResults.length > 0 && (
@@ -223,13 +237,13 @@ export default function ValueSetTab() {
         </Box>
       )}
 
-      {expandMutation.isError && (
+      {expandMutation.isError && expansionMatchesSelection && (
         <Alert severity="error">
-          {t('valueSet.expandFailed', { error: (expandMutation.error as Error).message })}
+          {t('valueSet.expandFailed', { error: extractApiError(expandMutation.error) })}
         </Alert>
       )}
 
-      {expandMutation.data && selectedVs && (
+      {expandMutation.data && selectedVs && expansionMatchesSelection && (
         <Box>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
             <Typography variant="subtitle2">

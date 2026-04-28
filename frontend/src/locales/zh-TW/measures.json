@@ -794,6 +794,11 @@
     "defaultStatus": "完成",
     "downloadReport": "下載報告",
     "deleteReport": "刪除報告",
+    "deleteConfirmTitle": "確定要刪除此報告嗎？",
+    "deleteConfirmBody": "永久刪除 {{measure}}（{{periodStart}} – {{periodEnd}}）的報告？此操作無法復原。",
+    "cancel": "取消",
+    "confirmDelete": "刪除",
+    "deleting": "刪除中...",
     "emptyState": "尚無報告。評估指標以產生報告。",
     "exportFormats": {
       "fhirJson": "FHIR MeasureReport (JSON)",

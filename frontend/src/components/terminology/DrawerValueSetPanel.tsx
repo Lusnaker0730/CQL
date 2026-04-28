@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  Alert,
   Box,
   TextField,
   Typography,
@@ -28,44 +29,54 @@ import {
 } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { COPY_FEEDBACK_TIMEOUT_MS, SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
+import { extractApiError } from '../../utils/errorUtils'
+import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
 import type { SelectedCoding } from '../../contexts/TerminologyDrawerContext'
 
 interface DrawerValueSetPanelProps {
   onSelect?: (coding: SelectedCoding) => void
 }
 
+const PREVIEW_CODE_LIMIT = 50
+
 export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelProps) {
   const { t } = useTranslation('terminology')
   const [search, setSearch] = useState('')
   const [expandedUrl, setExpandedUrl] = useState<string | null>(null)
-  const [copiedCode, setCopiedCode] = useState<string | null>(null)
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const { isCopied, markCopied } = useCopyFeedback()
 
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_CODE_MS)
   const { data: valueSets = [], isLoading } = useSearchValueSets(debouncedSearch)
   const expandMutation = useExpandValueSet()
 
-  const expandedCodes = expandMutation.data?.expansion?.contains || []
+  // Race-guard: a single expandMutation is shared across rows. Only render
+  // results when the variables.url that produced them matches the row the
+  // user is currently looking at — otherwise switching rows mid-flight could
+  // briefly show A's codes inside B's collapse panel.
+  const expandedRequestUrl = expandMutation.variables?.url
+  const showExpansion = expandedUrl !== null && expandedRequestUrl === expandedUrl
+  const expandedCodes = showExpansion ? (expandMutation.data?.expansion?.contains || []) : []
+  const expandError = showExpansion && expandMutation.isError
+    ? extractApiError(expandMutation.error)
+    : null
+  const previewCodes = expandedCodes.slice(0, PREVIEW_CODE_LIMIT)
+  const isTruncated = expandedCodes.length > PREVIEW_CODE_LIMIT
 
-  const handleToggle = async (url: string) => {
+  const handleToggle = (url: string) => {
     if (expandedUrl === url) {
       setExpandedUrl(null)
       return
     }
     setExpandedUrl(url)
-    try {
-      await expandMutation.mutateAsync({ url })
-    } catch {
-      // expansion failed
-    }
+    // Surface failures via the in-panel Alert (catch is handled by the
+    // mutation hook's error state, no need to await/try here).
+    expandMutation.mutate({ url })
   }
 
   const handleCopy = async (coding: SelectedCoding) => {
     await navigator.clipboard.writeText(`${coding.system}|${coding.code}`)
-    setCopiedCode(coding.code)
-    clearTimeout(copyTimerRef.current)
-    copyTimerRef.current = setTimeout(() => setCopiedCode(null), COPY_FEEDBACK_TIMEOUT_MS)
+    markCopied(coding.code)
   }
 
   return (
@@ -110,21 +121,36 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
                 </ListItemButton>
                 <Collapse in={expandedUrl === vs.url} timeout="auto" unmountOnExit>
                   <Box sx={{ pl: 4, pr: 1, pb: 1 }}>
-                    {expandMutation.isPending && expandedUrl === vs.url ? (
+                    {expandMutation.isPending && expandedRequestUrl === vs.url ? (
                       <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
                         <CircularProgress size={20} />
                       </Box>
+                    ) : expandError ? (
+                      <Alert severity="error" sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                        {t('valueSet.expandFailed', { error: expandError })}
+                      </Alert>
                     ) : expandedCodes.length === 0 ? (
                       <Typography variant="caption" color="text.secondary">
                         {t('valueSet.noCodesFound')}
                       </Typography>
                     ) : (
                       <>
-                        <Chip
-                          label={t('valueSet.resultCount', { count: expandedCodes.length })}
-                          size="small"
-                          sx={{ mb: 0.5, height: 20, fontSize: '0.65rem' }}
-                        />
+                        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+                          <Chip
+                            label={t('valueSet.resultCount', { count: expandedCodes.length })}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.65rem' }}
+                          />
+                          {isTruncated && (
+                            <Chip
+                              label={t('valueSet.previewTruncated', { shown: PREVIEW_CODE_LIMIT, total: expandedCodes.length })}
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                              sx={{ height: 20, fontSize: '0.65rem' }}
+                            />
+                          )}
+                        </Stack>
                         <Table size="small">
                           <TableHead>
                             <TableRow>
@@ -138,7 +164,7 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {expandedCodes.slice(0, 50).map((code) => (
+                            {previewCodes.map((code) => (
                               <TableRow key={`${code.system}-${code.code}`} hover>
                                 <TableCell sx={{ py: 0.25, fontSize: '0.75rem', fontFamily: 'monospace' }}>
                                   {code.code}
@@ -148,12 +174,13 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
                                 </TableCell>
                                 <TableCell sx={{ py: 0.25 }}>
                                   <Stack direction="row" spacing={0}>
-                                    <Tooltip title={copiedCode === code.code ? t('drawer.copied') : t('drawer.copyTooltip')}>
+                                    <Tooltip title={isCopied(code.code) ? t('drawer.copied') : t('drawer.copyTooltip')}>
                                       <IconButton
                                         size="small"
                                         onClick={() => handleCopy({ system: code.system, code: code.code, display: code.display })}
+                                        aria-label={t('drawer.copyTooltip')}
                                       >
-                                        {copiedCode === code.code ? <CheckIcon sx={{ fontSize: 14 }} /> : <CopyIcon sx={{ fontSize: 14 }} />}
+                                        {isCopied(code.code) ? <CheckIcon sx={{ fontSize: 14 }} /> : <CopyIcon sx={{ fontSize: 14 }} />}
                                       </IconButton>
                                     </Tooltip>
                                     {onSelect && (
@@ -162,6 +189,7 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
                                           size="small"
                                           color="primary"
                                           onClick={() => onSelect({ system: code.system, code: code.code, display: code.display })}
+                                          aria-label={t('drawer.useCodeTooltip')}
                                         >
                                           <UseIcon sx={{ fontSize: 14 }} />
                                         </IconButton>
