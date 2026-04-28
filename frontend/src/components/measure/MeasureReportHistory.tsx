@@ -14,6 +14,12 @@ import {
   Collapse,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
@@ -43,6 +49,10 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
   const { showNotification } = useNotification()
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [exportAnchor, setExportAnchor] = useState<{ el: HTMLElement; id: number } | null>(null)
+  // PAT-130: confirm before destructive delete — clicking the trash icon used
+  // to fire the mutation immediately, so a stray click could quietly throw
+  // away historical evaluation results that aren't recoverable.
+  const [pendingDelete, setPendingDelete] = useState<MeasureReport | null>(null)
 
   const queryKey = measureId != null
     ? ['measureReports', 'measure', measureId]
@@ -140,7 +150,7 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
                     <IconButton size="small" aria-label={t('reports.downloadReport')} onClick={(e) => setExportAnchor({ el: e.currentTarget, id: report.id })}>
                       <DownloadIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" aria-label={t('reports.deleteReport')} color="error" onClick={() => deleteMutation.mutate(report.id)}>
+                    <IconButton size="small" aria-label={t('reports.deleteReport')} color="error" onClick={() => setPendingDelete(report)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
@@ -217,6 +227,41 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
           {t('reports.exportFormats.qrda')}
         </MenuItem>
       </Menu>
+
+      <Dialog
+        open={pendingDelete != null}
+        onClose={() => setPendingDelete(null)}
+        aria-labelledby="report-delete-title"
+      >
+        <DialogTitle id="report-delete-title">{t('reports.deleteConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingDelete && t('reports.deleteConfirmBody', {
+              measure: pendingDelete.measureName,
+              periodStart: pendingDelete.periodStart,
+              periodEnd: pendingDelete.periodEnd,
+            })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)}>
+            {t('reports.cancel')}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={deleteMutation.isPending}
+            onClick={() => {
+              if (!pendingDelete) return
+              deleteMutation.mutate(pendingDelete.id, {
+                onSettled: () => setPendingDelete(null),
+              })
+            }}
+          >
+            {deleteMutation.isPending ? t('reports.deleting') : t('reports.confirmDelete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   )
 }
