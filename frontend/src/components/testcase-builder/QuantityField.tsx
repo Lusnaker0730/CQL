@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import FieldWrapper from './FieldWrapper'
 import type { ElementMetadata } from '../../types'
 import { FHIR_UCUM_SYSTEM } from './constants'
+import { asObject } from '../../utils/fhirGuards'
 import UcumUnitField, { UCUM_UNITS } from '../common/UcumUnitField'
 
 interface Quantity {
@@ -21,7 +22,7 @@ interface QuantityFieldProps {
 
 export default function QuantityField({ element, value, onChange }: QuantityFieldProps) {
   const { t } = useTranslation('measures')
-  const qty = (value as Quantity) || {}
+  const qty = asObject(value) as Quantity
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const handleUnitChange = (unit: string) => {

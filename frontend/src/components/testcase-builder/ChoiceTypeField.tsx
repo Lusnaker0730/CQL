@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Box, TextField, Typography, MenuItem } from '@mui/material'
+import { Box, TextField, Typography, MenuItem, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import type { ElementMetadata } from '../../types'
 import ElementField from './ElementField'
+import { buildChoiceFieldName } from '../../utils/fhirChoice'
 
 interface ChoiceTypeFieldProps {
   element: ElementMetadata
@@ -32,7 +33,7 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
 
   // Create a synthetic ElementMetadata for the chosen type
   const syntheticElement: ElementMetadata = useMemo(() => ({
-    name: element.name + selectedType.charAt(0).toUpperCase() + selectedType.slice(1),
+    name: buildChoiceFieldName(element.name, selectedType),
     path: element.path,
     type: selectedType,
     isArray: false,
@@ -49,6 +50,21 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
     description: element.description,
     referenceTargets: [],
   }), [element, selectedType])
+
+  // Defensive: a metadata-loading bug or empty choice list would otherwise drop us
+  // into a PrimitiveField with type='', silently swallowing edits.
+  if (choiceTypes.length === 0) {
+    return (
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="caption" fontWeight={600} color="text.secondary">
+          {element.name}[x] {element.isRequired && '*'}
+        </Typography>
+        <Alert severity="warning" variant="outlined" sx={{ mt: 0.5, py: 0, fontSize: '0.7rem' }}>
+          {t('testCaseBuilder.choiceType.noChoices')}
+        </Alert>
+      </Box>
+    )
+  }
 
   return (
     <Box sx={{ mb: 1 }}>

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack,
+  Autocomplete, TextField, Typography, Box, IconButton, Tooltip, Stack, Alert,
   FormControl, InputLabel, Select, MenuItem, FormHelperText,
 } from '@mui/material'
 import { MenuBook as MenuBookIcon, Search as SearchIcon } from '@mui/icons-material'
@@ -36,12 +36,36 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   const hasBinding = !!element.bindingValueSetUrl
   const isRequiredBinding = element.bindingStrength === 'required' && element.boundCodes.length > 0
 
-  const { data: options = [] } = useQuery<CodeSearchResult[]>({
+  const { data: options = [], error } = useQuery<CodeSearchResult[]>({
     queryKey: ['code-search', element.bindingValueSetUrl, debouncedInput],
     queryFn: () => fhirApi.searchCodes(element.bindingValueSetUrl || '', debouncedInput, 20),
     enabled: hasBinding && !isRequiredBinding && debouncedInput.length >= 1,
     staleTime: 30_000,
   })
+
+  const renderOption = useCallback(
+    (props: React.HTMLAttributes<HTMLLIElement>, option: string | CodeSearchResult) => (
+      <Box component="li" {...props} key={typeof option === 'string' ? option : option.code}>
+        <Typography variant="body2" fontWeight={500}>
+          {typeof option === 'string' ? option : option.code}
+        </Typography>
+        {typeof option !== 'string' && (
+          <Typography variant="caption" color="text.secondary">
+            {option.display}
+          </Typography>
+        )}
+      </Box>
+    ),
+    [],
+  )
+
+  const errorAlert = error ? (
+    <Alert severity="error" variant="outlined" sx={{ mt: 0.5, py: 0, fontSize: '0.7rem' }}>
+      {t('testCaseBuilder.fields.codeSearchError', {
+        message: error instanceof Error ? error.message : String(error),
+      })}
+    </Alert>
+  ) : null
 
   const searchButton = (
     <Tooltip title={t('testCaseBuilder.fields.searchTerminology')}>
@@ -105,69 +129,64 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
 
   if (!hasBinding) {
     return (
-      <Stack direction="row" alignItems="flex-start" spacing={0.5} sx={{ mb: 1 }}>
-        <TextField
-          label={element.name}
-          size="small"
-          fullWidth
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          required={element.isRequired}
-          helperText={element.description || undefined}
+      <Box sx={{ mb: 1 }}>
+        <Stack direction="row" alignItems="flex-start" spacing={0.5}>
+          <TextField
+            label={element.name}
+            size="small"
+            fullWidth
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value || undefined)}
+            required={element.isRequired}
+            helperText={element.description || undefined}
+          />
+          {searchButton}
+          {twcoreButton}
+          {twcorePicker}
+        </Stack>
+        {errorAlert}
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ mb: 1 }}>
+      <Stack direction="row" alignItems="flex-start" spacing={0.5}>
+        <Autocomplete
+          freeSolo
+          options={options}
+          getOptionLabel={(opt) =>
+            typeof opt === 'string' ? opt : `${opt.code} — ${opt.display}`
+          }
+          inputValue={inputValue}
+          onInputChange={(_, v) => setInputValue(v)}
+          onChange={(_, newVal) => {
+            if (typeof newVal === 'string') {
+              onChange(newVal)
+            } else if (newVal) {
+              onChange(newVal.code)
+            } else {
+              onChange(undefined)
+            }
+          }}
+          renderOption={renderOption}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={element.name}
+              size="small"
+              fullWidth
+              required={element.isRequired}
+              helperText={element.description || t('testCaseBuilder.fields.boundTo', { url: element.bindingValueSetUrl })}
+            />
+          )}
+          sx={{ flex: 1 }}
         />
         {searchButton}
         {twcoreButton}
         {twcorePicker}
       </Stack>
-    )
-  }
-
-  return (
-    <Stack direction="row" alignItems="flex-start" spacing={0.5} sx={{ mb: 1 }}>
-      <Autocomplete
-        freeSolo
-        options={options}
-        getOptionLabel={(opt) =>
-          typeof opt === 'string' ? opt : `${opt.code} — ${opt.display}`
-        }
-        inputValue={inputValue}
-        onInputChange={(_, v) => setInputValue(v)}
-        onChange={(_, newVal) => {
-          if (typeof newVal === 'string') {
-            onChange(newVal)
-          } else if (newVal) {
-            onChange(newVal.code)
-          } else {
-            onChange(undefined)
-          }
-        }}
-        renderOption={(props, option) => (
-          <Box component="li" {...props} key={typeof option === 'string' ? option : option.code}>
-            <Typography variant="body2" fontWeight={500}>
-              {typeof option === 'string' ? option : option.code}
-            </Typography>
-            {typeof option !== 'string' && (
-              <Typography variant="caption" color="text.secondary">
-                {option.display}
-              </Typography>
-            )}
-          </Box>
-        )}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={element.name}
-            size="small"
-            fullWidth
-            required={element.isRequired}
-            helperText={element.description || t('testCaseBuilder.fields.boundTo', { url: element.bindingValueSetUrl })}
-          />
-        )}
-        sx={{ flex: 1 }}
-      />
-      {searchButton}
-      {twcoreButton}
-      {twcorePicker}
-    </Stack>
+      {errorAlert}
+    </Box>
   )
 }

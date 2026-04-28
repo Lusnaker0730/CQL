@@ -14,6 +14,7 @@ import {
   Chip,
   InputAdornment,
   CircularProgress,
+  Alert,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
@@ -33,7 +34,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
 
   const filteredQuery = useTwcoreCatalog(resourceType)
   const fullQuery = useTwcoreFullCatalog(!resourceType)
-  const { data: catalog, isLoading } = resourceType ? filteredQuery : fullQuery
+  const { data: catalog, isLoading, isError, error } = resourceType ? filteredQuery : fullQuery
 
   const filtered = useMemo(() => {
     if (!catalog) return []
@@ -96,7 +97,15 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
           </Box>
         )}
 
-        {!isLoading && filtered.length === 0 && (
+        {isError && (
+          <Alert severity="error" variant="outlined" sx={{ mb: 1 }}>
+            {t('testCaseBuilder.twcore.loadError', {
+              message: error instanceof Error ? error.message : String(error),
+            })}
+          </Alert>
+        )}
+
+        {!isLoading && !isError && filtered.length === 0 && (
           <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 3 }}>
             {search ? t('testCaseBuilder.twcore.noMatchingCodes') : t('testCaseBuilder.twcore.noTerminology')}
           </Typography>
@@ -149,6 +158,7 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
                           variant="outlined"
                           sx={{ flexShrink: 0, textTransform: 'none', minWidth: 48 }}
                           onClick={() => handleSelect(entry.system, code)}
+                          aria-label={t('testCaseBuilder.twcore.useAria', { code: code.code })}
                         >
                           {t('testCaseBuilder.twcore.use')}
                         </Button>
