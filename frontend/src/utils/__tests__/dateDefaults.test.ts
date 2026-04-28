@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { getDefaultMeasurePeriod, getDefaultComparisonPeriods, computeTrendSlots } from '../dateDefaults'
+import {
+  getDefaultMeasurePeriod,
+  getDefaultComparisonPeriods,
+  computeTrendSlots,
+  isDateRangeReversed,
+} from '../dateDefaults'
 
 describe('getDefaultMeasurePeriod', () => {
   afterEach(() => {
@@ -86,5 +91,23 @@ describe('computeTrendSlots', () => {
       { periodStart: '2024-02-01', periodEnd: '2024-02-29' },
       { periodStart: '2024-03-01', periodEnd: '2024-03-31' },
     ])
+  })
+})
+
+describe('isDateRangeReversed (PAT-135)', () => {
+  it('returns false when either side is empty', () => {
+    expect(isDateRangeReversed('', '')).toBe(false)
+    expect(isDateRangeReversed('2024-01-01', '')).toBe(false)
+    expect(isDateRangeReversed('', '2024-01-01')).toBe(false)
+  })
+
+  it('returns false when from <= to', () => {
+    expect(isDateRangeReversed('2024-01-01', '2024-01-01')).toBe(false)
+    expect(isDateRangeReversed('2024-01-01', '2024-12-31')).toBe(false)
+  })
+
+  it('returns true when from > to', () => {
+    expect(isDateRangeReversed('2024-12-31', '2024-01-01')).toBe(true)
+    expect(isDateRangeReversed('2025-01-01', '2024-12-31')).toBe(true)
   })
 })
