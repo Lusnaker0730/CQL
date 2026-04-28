@@ -5,6 +5,7 @@ import com.cqlplatform.model.ecqm.EcqmArtifactRequest;
 import com.cqlplatform.model.ecqm.EcqmConstants;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.TemplateService;
+import com.cqlplatform.validation.ModifierValueValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -131,8 +132,12 @@ public class EcqmExpressionTreeValidator {
         // Check all string values for HTML content (XSS)
         // Skip "fields" — these are form field definitions (type: string/number/textarea/valueset),
         // not expression tree nodes. Recursing into them causes false "unknown element type" errors.
+        // Skip "values" — these are modifier.values fields constrained by
+        // ModifierValueValidator (whitelist + regex; tighter than HTML escape).
+        // The HTML check would falsely flag legitimate operators like ">=" / "<=".
         for (Map.Entry<String, Object> entry : node.entrySet()) {
             if ("fields".equals(entry.getKey())) continue;
+            if ("values".equals(entry.getKey())) continue;
             if (entry.getValue() instanceof String strVal) {
                 checkHtmlContent(path + "." + entry.getKey(), strVal, errors);
             } else if (entry.getValue() instanceof Map) {
@@ -159,7 +164,7 @@ public class EcqmExpressionTreeValidator {
                     path, type, name != null ? " (name: " + name + ")" : ""));
         }
 
-        // ── Structural: modifier ID validation ──────────────────────────
+        // ── Structural: modifier ID + values validation ─────────────────
         Object modifiersObj = node.get("modifiers");
         if (modifiersObj instanceof List<?> modList) {
             for (Object modObj : modList) {
@@ -170,6 +175,11 @@ public class EcqmExpressionTreeValidator {
                         errors.add(String.format("%s: unknown modifier id '%s'%s",
                                 path, modId, modName != null ? " (name: " + modName + ")" : ""));
                     }
+                    // Defense-in-depth whitelist of modifier.values fields that flow
+                    // into ExpressionCqlEngine.applyModifier and generated CQL.
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> mod = (Map<String, Object>) modMap;
+                    ModifierValueValidator.validate(mod, path, errors);
                 }
             }
         }
