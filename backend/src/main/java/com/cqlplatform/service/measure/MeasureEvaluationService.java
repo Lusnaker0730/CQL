@@ -83,6 +83,17 @@ public class MeasureEvaluationService {
     @Value("${cql.execution.measure-timeout-seconds:120}")
     private int measureTimeoutSeconds;
 
+    /**
+     * Fraction of per-patient evaluation failures (errorCount / totalPatients) at or
+     * above which the whole measure run is aborted with errorResult instead of
+     * returning a partial denominator. Default 1.0 preserves the previous behaviour
+     * (only abort when ALL patients fail). Operators wanting stricter clinical
+     * safety should lower this in production yml — e.g. 0.5 means "abort if half
+     * or more of patients failed". PAT-140.
+     */
+    @Value("${measure.error-threshold-ratio:1.0}")
+    private double errorThresholdRatio = 1.0;
+
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request) {
         return evaluateMeasure(request, null, null);
     }
@@ -170,16 +181,22 @@ public class MeasureEvaluationService {
                         "Measure evaluation aborted: upstream FHIR server unavailable during "
                                 + state.errorCount + " of " + patients.size() + " patient evaluations. "
                                 + state.fhirOutageError.getMessage(),
-                        state.fhirOutageError);
+                        state.fhirOutageError, state.errorCount, patients.size());
             }
 
-            // 3. Check if all patients failed (non-FHIR reasons — e.g. CQL runtime errors
-            // on every patient, data-model mismatch, pre-translation issue surfacing per-patient)
-            if (state.errorCount == patients.size()) {
+            // 3. Check non-FHIR partial-failure threshold (PAT-140 — partial scores are
+            // worse than no score, same rationale as the FHIR outage abort). Default
+            // ratio 1.0 preserves old behaviour (only abort on 100% failure); ops can
+            // lower it via measure.error-threshold-ratio.
+            if (state.errorCount > 0 && patients.size() > 0
+                    && (double) state.errorCount / patients.size() >= errorThresholdRatio) {
                 stopTimer(sample);
                 incrementErrorCounter();
-                return errorResult(context,
-                        "All " + state.errorCount + " patient evaluations failed. Check server logs for details.");
+                return errorResult(context, String.format(
+                        "Measure evaluation aborted: %d of %d patient evaluations failed (threshold ratio %.2f). "
+                                + "Check server logs for details.",
+                        state.errorCount, patients.size(), errorThresholdRatio),
+                        null, state.errorCount, patients.size());
             }
 
             // 4. Build final result
@@ -462,6 +479,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .errorCount(state.errorCount)
+                .evaluatedPatientCount(totalPatients)
                 .build();
     }
 
@@ -503,6 +522,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .errorCount(state.errorCount)
+                .evaluatedPatientCount(totalPatients)
                 .build();
     }
 
@@ -561,6 +582,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .errorCount(state.errorCount)
+                .evaluatedPatientCount(totalPatients)
                 .build();
     }
 
@@ -624,6 +647,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(groups)
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .errorCount(state.errorCount)
+                .evaluatedPatientCount(totalPatients)
                 .build();
     }
 
@@ -636,10 +661,15 @@ public class MeasureEvaluationService {
     }
 
     private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message) {
-        return errorResult(context, message, null);
+        return errorResult(context, message, null, null, null);
     }
 
     private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message, Throwable cause) {
+        return errorResult(context, message, cause, null, null);
+    }
+
+    private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message,
+                                                 Throwable cause, Integer errorCount, Integer evaluatedPatients) {
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .status("error")
@@ -647,6 +677,8 @@ public class MeasureEvaluationService {
                 .errorInfo(cause != null ? com.cqlplatform.util.ExecutionErrorClassifier.buildErrorInfo(cause) : null)
                 .periodStart(context.getPeriodStart())
                 .periodEnd(context.getPeriodEnd())
+                .errorCount(errorCount)
+                .evaluatedPatientCount(evaluatedPatients)
                 .build();
     }
 
@@ -681,17 +713,31 @@ public class MeasureEvaluationService {
             Throwable fhirOutageError
     ) {}
 
+    private static final int OUTAGE_CAUSE_CHAIN_MAX_DEPTH = 20;
+
     /**
-     * PAT-112a: walk a Throwable's cause chain (max 10 hops) and return the first
+     * PAT-112a: walk a Throwable's cause chain and return the first
      * {@link FhirServerUnavailableException}, or null if none. CQL engine and
      * CqlExecutionService wrap underlying retrieve failures in their own exception
      * types, so the outage marker is typically buried a few causes deep.
+     *
+     * <p>PAT-140 raised the limit from 10 to 20 to absorb the extra wrapping
+     * layers introduced by {@code CompletableFuture.supplyAsync} +
+     * {@code ExecutionException} in {@link #executeAndAggregate}. If the cause
+     * chain is somehow deeper than that, we now log a WARN so the edge case
+     * surfaces in production logs (previously it silently returned null —
+     * misclassifying an outage as a generic per-patient error).
      */
     private static Throwable findFhirOutageCause(Throwable t) {
         int depth = 0;
-        while (t != null && depth++ < 10) {
+        while (t != null && depth < OUTAGE_CAUSE_CHAIN_MAX_DEPTH) {
             if (t instanceof FhirServerUnavailableException) return t;
             t = t.getCause();
+            depth++;
+        }
+        if (t != null && t.getCause() != null) {
+            log.warn("findFhirOutageCause: cause chain exceeded {} hops without finding outage marker; "
+                    + "an outage may have been misclassified as generic patient-level error", OUTAGE_CAUSE_CHAIN_MAX_DEPTH);
         }
         return null;
     }

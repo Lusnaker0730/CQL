@@ -257,4 +257,87 @@ class MeasureEvaluationServiceTest {
 
         assertThat(result.getReportType()).isEqualTo("summary");
     }
+
+    // =====================================================================
+    // PAT-140 — partial-failure threshold + errorCount surfacing
+    // =====================================================================
+
+    @Test
+    void evaluateMeasure_partialFailures_shouldSurfaceErrorCount() {
+        // 3 patients, 1 fails — default threshold ratio 1.0 keeps existing
+        // behaviour (don't abort), but errorCount + evaluatedPatientCount must
+        // be on the result so the UI can warn the user.
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setFhirServerUrl("http://localhost/fhir");
+
+        when(fhirDataProviderService.getAllPatientIds(any()))
+                .thenReturn(List.of("p1", "p2", "p3"));
+
+        when(cqlExecutionService.execute(any()))
+                .thenThrow(new RuntimeException("p1 failed"))
+                .thenReturn(buildExecResponse(Map.of(
+                        "Initial Population", true,
+                        "Denominator", true,
+                        "Numerator", true)))
+                .thenReturn(buildExecResponse(Map.of(
+                        "Initial Population", true,
+                        "Denominator", true,
+                        "Numerator", true)));
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request);
+
+        assertThat(result.getStatus()).isEqualTo("complete");
+        assertThat(result.getErrorCount()).isEqualTo(1);
+        assertThat(result.getEvaluatedPatientCount()).isEqualTo(3);
+    }
+
+    @Test
+    void evaluateMeasure_failuresAtOrAboveThreshold_shouldAbort() {
+        // Lower threshold to 0.5 — 1 of 2 patients failed (50%) should now
+        // produce errorResult instead of partial denominator.
+        ReflectionTestUtils.setField(measureService, "errorThresholdRatio", 0.5);
+
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setFhirServerUrl("http://localhost/fhir");
+
+        when(fhirDataProviderService.getAllPatientIds(any()))
+                .thenReturn(List.of("p1", "p2"));
+
+        when(cqlExecutionService.execute(any()))
+                .thenThrow(new RuntimeException("p1 failed"))
+                .thenReturn(buildExecResponse(Map.of(
+                        "Initial Population", true, "Denominator", true, "Numerator", true)));
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request);
+
+        assertThat(result.getStatus()).isEqualTo("error");
+        assertThat(result.getErrorCount()).isEqualTo(1);
+        assertThat(result.getEvaluatedPatientCount()).isEqualTo(2);
+        assertThat(result.getErrorMessage()).contains("threshold ratio 0.50");
+    }
+
+    @Test
+    void evaluateMeasure_zeroFailures_shouldNotPopulateErrorCount() {
+        // Successful runs should keep errorCount=0 and evaluatedPatientCount set.
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setFhirServerUrl("http://localhost/fhir");
+
+        when(fhirDataProviderService.getAllPatientIds(any()))
+                .thenReturn(List.of("p1", "p2"));
+        when(cqlExecutionService.execute(any()))
+                .thenReturn(buildExecResponse(Map.of(
+                        "Initial Population", true, "Denominator", true, "Numerator", true)));
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request);
+
+        assertThat(result.getStatus()).isEqualTo("complete");
+        assertThat(result.getErrorCount()).isEqualTo(0);
+        assertThat(result.getEvaluatedPatientCount()).isEqualTo(2);
+    }
 }
