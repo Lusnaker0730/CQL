@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -49,14 +49,33 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
   const [aiSaving, setAiSaving] = useState(false)
   const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Guards post-await setState calls when the user closes the dialog mid-flight.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
   useEffect(() => {
     if (open) {
       settingsApi.getVsacStatus()
-        .then(setVsacStatus)
-        .catch(() => setVsacStatus(null))
+        .then((s) => isMountedRef.current && setVsacStatus(s))
+        .catch(() => isMountedRef.current && setVsacStatus(null))
       settingsApi.getAiStatus()
-        .then(setAiStatus)
-        .catch(() => setAiStatus(null))
+        .then((s) => isMountedRef.current && setAiStatus(s))
+        .catch(() => isMountedRef.current && setAiStatus(null))
+    } else {
+      // Clear typed-but-not-saved API keys when the dialog closes so they
+      // don't survive into the next session — important on shared workstations
+      // and to make the show/hide toggle a one-shot rather than persistent.
+      setVsacApiKey('')
+      setAiApiKey('')
+      setVsacMessage(null)
+      setAiMessage(null)
+      setShowApiKey(false)
+      setShowAiApiKey(false)
     }
   }, [open])
 
@@ -65,13 +84,15 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
     setVsacMessage(null)
     try {
       const result = await settingsApi.updateVsacApiKey(vsacApiKey)
+      if (!isMountedRef.current) return
       setVsacStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
       setVsacApiKey('')
       setVsacMessage({ type: 'success', text: t('preferences.vsacKeySaved') })
     } catch {
+      if (!isMountedRef.current) return
       setVsacMessage({ type: 'error', text: t('preferences.vsacKeySaveFailed') })
     } finally {
-      setVsacSaving(false)
+      if (isMountedRef.current) setVsacSaving(false)
     }
   }
 
@@ -80,13 +101,15 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
     setAiMessage(null)
     try {
       const result = await settingsApi.updateAiApiKey(aiApiKey)
+      if (!isMountedRef.current) return
       setAiStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
       setAiApiKey('')
       setAiMessage({ type: 'success', text: t('preferences.aiKeySaved') })
     } catch {
+      if (!isMountedRef.current) return
       setAiMessage({ type: 'error', text: t('preferences.aiKeySaveFailed') })
     } finally {
-      setAiSaving(false)
+      if (isMountedRef.current) setAiSaving(false)
     }
   }
 
@@ -122,7 +145,7 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
             <InputLabel>{t('preferences.tabSize')}</InputLabel>
             <Select
               value={preferences.editorTabSize}
-              onChange={(e) => updatePreferences({ editorTabSize: e.target.value as number })}
+              onChange={(e) => updatePreferences({ editorTabSize: Number(e.target.value) })}
               label={t('preferences.tabSize')}
             >
               <MenuItem value={2}>{t('preferences.tabSizeSpaces', { count: 2 })}</MenuItem>
