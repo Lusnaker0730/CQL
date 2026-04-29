@@ -4,6 +4,7 @@ import { useInvalidatingMutation } from './useInvalidatingMutation'
 import { useDispatch, useSelector } from 'react-redux'
 import { cqlApi } from '../api'
 import type { RootState } from '../store'
+import { extractApiError } from '../utils/errorUtils'
 import {
   setElmJson,
   setErrors,
@@ -42,9 +43,12 @@ export function useTranslate() {
       }
       queryClient.invalidateQueries({ queryKey: ['libraries'] })
     },
-    onError: (error: Error) => {
+    onError: (error: unknown) => {
+      // PAT-144: extractApiError unwraps AxiosError + structured server errors;
+      // bare error.message returned "Request failed with status 500" hiding the
+      // actual diagnostic from the server response.
       dispatch(setIsTranslating(false))
-      dispatch(setErrors([{ severity: 'Error', message: error.message }]))
+      dispatch(setErrors([{ severity: 'Error', message: extractApiError(error) }]))
     },
   })
 }
@@ -62,9 +66,9 @@ export function useValidate() {
       dispatch(setErrors(data.errors || []))
       dispatch(setWarnings(data.warnings || []))
     },
-    onError: (error: Error) => {
+    onError: (error: unknown) => {
       dispatch(setIsTranslating(false))
-      dispatch(setErrors([{ severity: 'Error', message: error.message }]))
+      dispatch(setErrors([{ severity: 'Error', message: extractApiError(error) }]))
     },
   })
 }
@@ -86,15 +90,20 @@ export function useExecute() {
         dispatch(setExecutionTimeMs(data.metadata?.executionTimeMs || null))
         dispatch(setDebugTrace(data.debugTrace || null))
       } else {
+        // PAT-144: dispatch empty array when server returns no specific errors.
+        // The previous fallback string 'Execution failed' was hardcoded English
+        // and bypassed i18n — the UI layer (ExecutionPanel) renders a generic
+        // i18n message via `t('validation.executionFailed')` when this array
+        // is empty.
         dispatch(setResults({}))
-        dispatch(setExecutionErrors(data.errors || ['Execution failed']))
+        dispatch(setExecutionErrors(data.errors || []))
         dispatch(setExecutionWarnings(data.warnings || []))
         dispatch(setDebugTrace(null))
       }
     },
-    onError: (error: Error) => {
+    onError: (error: unknown) => {
       dispatch(setIsExecuting(false))
-      dispatch(setExecutionErrors([error.message]))
+      dispatch(setExecutionErrors([extractApiError(error)]))
       dispatch(setExecutionWarnings([]))
       dispatch(setDebugTrace(null))
     },
