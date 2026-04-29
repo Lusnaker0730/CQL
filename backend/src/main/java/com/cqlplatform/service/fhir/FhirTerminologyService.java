@@ -257,7 +257,16 @@ public class FhirTerminologyService {
                 }
             }
         } catch (Exception e) {
-            log.debug("Local IG lookup failed for {} {}: {}", system, code, e.getMessage());
+            // PAT-142: distinguish "IG not loaded" (expected — fall through to remote)
+            // from "IG loaded but lookup threw" (unexpected — IG resource may be
+            // corrupt; surface so operators can investigate). Previously both went
+            // to DEBUG and looked identical to a "code not in local IG" miss.
+            if (igService != null && igService.isLoaded()) {
+                log.warn("Local IG lookup unexpectedly threw for {} {} (IG is loaded — possible corrupt resource): {}",
+                        system, code, e.getMessage());
+            } else {
+                log.debug("Local IG lookup skipped for {} {} (IG not loaded): {}", system, code, e.getMessage());
+            }
         }
         return null;
     }
@@ -366,7 +375,13 @@ public class FhirTerminologyService {
                     log.info("Found {} results from local TWCORE IG for '{}' in {}", results.size(), text, system);
                 }
             } catch (Exception e) {
-                log.debug("Local IG code search failed: {}", e.getMessage());
+                // PAT-142: same loaded-vs-not distinction as lookupCodeFromLocalIg.
+                if (igService.isLoaded()) {
+                    log.warn("Local IG code search unexpectedly threw (IG is loaded — possible corrupt resource): {}",
+                            e.getMessage());
+                } else {
+                    log.debug("Local IG code search skipped (IG not loaded): {}", e.getMessage());
+                }
             }
         }
 
