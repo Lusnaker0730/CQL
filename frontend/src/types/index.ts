@@ -742,7 +742,10 @@ export interface CodeValidationResult {
 }
 
 export interface TerminologyValidationItem {
-  type: 'valueset' | 'code' | 'codesystem'
+  // PAT-144: 'parseError' covers the case where ELM JSON is malformed so no
+  // validation could even start (useTerminologyValidation surfaces this so
+  // the UI doesn't silently render an empty result that looks like "all OK").
+  type: 'valueset' | 'code' | 'codesystem' | 'parseError'
   name: string
   url?: string
   system?: string

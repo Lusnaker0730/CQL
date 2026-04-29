@@ -10,6 +10,12 @@ const UNREAD_COUNT_KEY = ['notifications', 'unread-count']
 export function useNotifications() {
   const queryClient = useQueryClient()
   const eventSourceRef = useRef<EventSource | null>(null)
+  // PAT-144: track pending reconnect timer + mount state so cleanup can cancel
+  // a setTimeout fired from the previous SSE error handler, and so a slow
+  // ticket request that resolves after unmount doesn't create an orphan
+  // EventSource that never gets closed.
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isActiveRef = useRef<boolean>(true)
 
   const { data: notifications = [], ...notificationsQuery } = useQuery({
     queryKey: NOTIFICATIONS_KEY,
@@ -48,6 +54,16 @@ export function useNotifications() {
   })
 
   // SSE subscription for real-time updates
+  const scheduleReconnect = useCallback((connect: () => void) => {
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current)
+    }
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null
+      if (isActiveRef.current) connect()
+    }, REFETCH_30S)
+  }, [])
+
   const connectSSE = useCallback(() => {
     const token = localStorage.getItem('token')
     if (!token) return
@@ -59,6 +75,10 @@ export function useNotifications() {
     api
       .post<{ ticket: string }>('/auth/sse-ticket')
       .then(({ data: { ticket } }) => {
+        // PAT-144: hook may have been unmounted while the ticket request was
+        // in flight — refuse to create an EventSource that nothing will close.
+        if (!isActiveRef.current) return
+
         const url = `${baseUrl}/notifications/subscribe?ticket=${encodeURIComponent(ticket)}`
         const es = new EventSource(url)
         eventSourceRef.current = es
@@ -78,19 +98,24 @@ export function useNotifications() {
         es.onerror = () => {
           es.close()
           eventSourceRef.current = null
-          // Retry after 30s
-          setTimeout(connectSSE, REFETCH_30S)
+          scheduleReconnect(connectSSE)
         }
       })
       .catch(() => {
-        // Ticket request failed or SSE not available — rely on polling
-        setTimeout(connectSSE, REFETCH_30S)
+        // Ticket request failed or SSE not available — rely on polling.
+        scheduleReconnect(connectSSE)
       })
-  }, [queryClient])
+  }, [queryClient, scheduleReconnect])
 
   useEffect(() => {
+    isActiveRef.current = true
     connectSSE()
     return () => {
+      isActiveRef.current = false
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
       eventSourceRef.current?.close()
       eventSourceRef.current = null
     }
