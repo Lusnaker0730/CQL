@@ -6,7 +6,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,15 +20,30 @@ import java.util.Optional;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final SseTicketService sseTicketService;
     private final TokenVersionService tokenVersionService;
+    private final UserApiKeyService userApiKeyService;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private UserApiKeyService userApiKeyService;
+    /**
+     * PAT-143 — convert from field-level {@code @Autowired(required=false)} for
+     * {@code UserApiKeyService} to constructor injection with {@link Optional<T>},
+     * matching the convention established by PAT-138 ({@code CdsHooksService}) and
+     * PAT-141 ({@code CqlTranslationService}). Other deps were already constructor-
+     * injected via Lombok; the {@code @RequiredArgsConstructor} couldn't accommodate
+     * the optional bean, so we hand-write the constructor here.
+     */
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+                                    SseTicketService sseTicketService,
+                                    TokenVersionService tokenVersionService,
+                                    Optional<UserApiKeyService> userApiKeyService) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.sseTicketService = sseTicketService;
+        this.tokenVersionService = tokenVersionService;
+        this.userApiKeyService = userApiKeyService.orElse(null);
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
