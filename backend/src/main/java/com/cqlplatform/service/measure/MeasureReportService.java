@@ -106,9 +106,21 @@ public class MeasureReportService {
         return repository.findTop50ByOrderByCreatedAtDesc();
     }
 
+    /**
+     * Hard upper bound on per-measure report list responses. PAT-146 — without
+     * this, a daily-evaluated measure run for a few years (~1000+ reports) would
+     * serialize the entire collection over HTTP, hitting OOM / response-size
+     * limits before the client can paginate. 200 covers the typical UI use case
+     * (latest 50–100) with headroom; if a caller needs the full history it
+     * should switch to a paged endpoint.
+     */
+    private static final int MAX_REPORTS_PER_MEASURE_RESPONSE = 200;
+
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsForMeasure(Long measureDefinitionId) {
-        return repository.findByMeasureDefinitionIdOrderByCreatedAtDesc(measureDefinitionId);
+        return repository.findByMeasureDefinitionIdOrderByCreatedAtDesc(
+                measureDefinitionId,
+                org.springframework.data.domain.PageRequest.of(0, MAX_REPORTS_PER_MEASURE_RESPONSE));
     }
 
     @Transactional(readOnly = true)

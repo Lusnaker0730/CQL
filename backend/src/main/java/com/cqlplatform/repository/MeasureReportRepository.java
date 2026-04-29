@@ -1,6 +1,7 @@
 package com.cqlplatform.repository;
 
 import com.cqlplatform.entity.MeasureReportEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,17 @@ import java.util.List;
 public interface MeasureReportRepository extends JpaRepository<MeasureReportEntity, Long> {
 
     List<MeasureReportEntity> findByMeasureDefinitionIdOrderByCreatedAtDesc(Long measureDefinitionId);
+
+    /**
+     * PAT-146 — bounded variant. The unpaged overload above is preserved for
+     * existing callers that need the full set (e.g. cleanup / cascade), but new
+     * read paths exposed to controllers should always pass a {@link Pageable}
+     * with a hard upper bound; a daily-evaluated measure can accumulate
+     * thousands of reports and serializing the entire collection is an
+     * unbounded-response OOM / DoS vector.
+     */
+    List<MeasureReportEntity> findByMeasureDefinitionIdOrderByCreatedAtDesc(
+            Long measureDefinitionId, Pageable pageable);
 
     List<MeasureReportEntity> findByMeasureNameOrderByCreatedAtDesc(String measureName);
 
