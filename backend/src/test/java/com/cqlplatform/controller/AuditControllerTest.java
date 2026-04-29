@@ -58,6 +58,16 @@ class AuditControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "regular", roles = {"USER"})
+    void getLogs_regularUserAuthenticated_shouldReturn403() throws Exception {
+        // PAT-145 regression: non-admin must NOT read audit logs (they contain
+        // PHI access events, login activity, security events). Locks both the
+        // class-level @PreAuthorize and SecurityConfig path rule together.
+        mockMvc.perform(get("/api/admin/audit/logs"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void getLogs_shouldReturnAuditLogs() throws Exception {
         when(auditService.searchLogs(any())).thenReturn(createLogResponse());

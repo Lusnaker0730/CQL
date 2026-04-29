@@ -60,6 +60,19 @@ public class AuthController {
     @Value("${app.base-url:}")
     private String configuredBaseUrl;
 
+    /**
+     * PAT-145 — controls whether {@link #getBaseUrl(HttpServletRequest)} falls
+     * back to spoofable {@code X-Forwarded-Host} / {@code Host} headers when
+     * {@code app.base-url} is unset. Default {@code true} preserves dev / docker
+     * convenience; production yml MUST set this to {@code false} so a missing
+     * {@code APP_BASE_URL} fails loud (with {@link IllegalStateException}) rather
+     * than silently emitting password-reset emails with an attacker-controlled
+     * link domain (header is not authenticated by the application — it can be
+     * spoofed if the reverse proxy isn't strict).
+     */
+    @Value("${app.allow-base-url-fallback:true}")
+    private boolean allowBaseUrlFallback;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
                                    HttpServletResponse response) {
@@ -354,8 +367,18 @@ public class AuthController {
         if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
             return configuredBaseUrl;
         }
-        // Fallback to request headers — only safe behind trusted reverse proxy
-        log.warn("APP_BASE_URL not configured — deriving base URL from request headers (unsafe in production)");
+        // PAT-145: in production, refuse to derive the base URL from spoofable
+        // headers (X-Forwarded-Host / Host). A misconfigured proxy or a request
+        // with crafted headers would otherwise inject the attacker's domain into
+        // the password-reset email link. Operators must set APP_BASE_URL or
+        // explicitly allow the fallback via app.allow-base-url-fallback=true.
+        if (!allowBaseUrlFallback) {
+            log.error("APP_BASE_URL is not configured and app.allow-base-url-fallback=false — refusing to derive base URL from request headers");
+            throw new IllegalStateException(
+                    "Server misconfiguration: APP_BASE_URL must be set when "
+                            + "app.allow-base-url-fallback=false");
+        }
+        log.warn("APP_BASE_URL not configured — deriving base URL from request headers (only safe behind a trusted reverse proxy)");
         String scheme = request.getHeader("X-Forwarded-Proto");
         if (scheme == null) scheme = request.getScheme();
         String host = request.getHeader("X-Forwarded-Host");

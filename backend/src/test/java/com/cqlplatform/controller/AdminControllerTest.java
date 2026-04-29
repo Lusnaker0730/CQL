@@ -68,6 +68,15 @@ class AdminControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "regular", roles = {"USER"})
+    void listUsers_regularUserAuthenticated_shouldReturn403() throws Exception {
+        // PAT-145 regression: a logged-in non-admin must NOT reach admin endpoints.
+        // Locks the class-level @PreAuthorize + SecurityConfig path rule together.
+        mockMvc.perform(get("/api/admin/users"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void listUsers_authenticated_shouldReturnUsers() throws Exception {
         UserEntity user = createUser(1L, "testuser", UserEntity.Role.USER);

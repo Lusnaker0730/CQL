@@ -15,9 +15,17 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * PAT-145 — class-level {@code @PreAuthorize} as defense-in-depth on top of the
+ * URL-path rule in {@code SecurityConfig:191} ({@code /api/admin/**}). If the
+ * path matcher is ever weakened or the controller's {@code @RequestMapping}
+ * moved outside {@code /api/admin/}, this annotation still guards every public
+ * endpoint. Keep this annotation in sync with the path-based rule.
+ */
 @RestController
 @RequestMapping("/api/admin/audit")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'DEPARTMENT_ADMIN')")
 @Tag(name = "Audit", description = "Audit log query and management APIs")
 public class AuditController {
 
