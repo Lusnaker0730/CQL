@@ -35,16 +35,11 @@ class CdsFeedbackTest {
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
-        cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy);
-
-        // Inject feedbackRepository via reflection since it's @Autowired(required=false)
-        try {
-            var field = CdsHooksService.class.getDeclaredField("feedbackRepository");
-            field.setAccessible(true);
-            field.set(cdsHooksService, feedbackRepository);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        // PAT-138 — feedbackRepository is now a constructor-injected Optional
+        // (no more reflection hack needed). cqlLibraryRepository stays empty
+        // since this test doesn't exercise CQL library sync.
+        cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
+                java.util.Optional.of(feedbackRepository), java.util.Optional.empty());
     }
 
     @Test

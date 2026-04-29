@@ -89,12 +89,10 @@ public class CdsServiceConfigController {
         String username = getCurrentUsername();
         log.info("Updating CDS service: {} by user: {}", id, username);
         try {
-            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
-            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "You can only modify your own services"));
-            }
-            CdsServiceConfigResponse response = cdsHooksService.updateService(id, request);
+            // Service-layer ownership enforcement (PAT-138). AccessDeniedException
+            // propagates to GlobalExceptionHandler → 403; IllegalArgumentException → 400.
+            CdsServiceConfigResponse response =
+                    cdsHooksService.updateServiceIfOwnedBy(id, request, username, isAdmin());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -107,12 +105,7 @@ public class CdsServiceConfigController {
         String username = getCurrentUsername();
         log.info("Deleting CDS service: {} by user: {}", id, username);
         try {
-            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
-            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "You can only delete your own services"));
-            }
-            cdsHooksService.deleteService(id);
+            cdsHooksService.deleteServiceIfOwnedBy(id, username, isAdmin());
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
@@ -125,12 +118,8 @@ public class CdsServiceConfigController {
         String username = getCurrentUsername();
         log.info("Enabling CDS service: {} by user: {}", id, username);
         try {
-            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
-            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "You can only enable your own services"));
-            }
-            CdsServiceConfigResponse response = cdsHooksService.toggleServiceEnabled(id, true);
+            CdsServiceConfigResponse response =
+                    cdsHooksService.toggleServiceEnabledIfOwnedBy(id, true, username, isAdmin());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
@@ -143,12 +132,8 @@ public class CdsServiceConfigController {
         String username = getCurrentUsername();
         log.info("Disabling CDS service: {} by user: {}", id, username);
         try {
-            CdsServiceConfigResponse existing = cdsHooksService.getService(id);
-            if (!isAdmin() && existing.getOwnerUsername() != null && !existing.getOwnerUsername().equals(username)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "You can only disable your own services"));
-            }
-            CdsServiceConfigResponse response = cdsHooksService.toggleServiceEnabled(id, false);
+            CdsServiceConfigResponse response =
+                    cdsHooksService.toggleServiceEnabledIfOwnedBy(id, false, username, isAdmin());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
