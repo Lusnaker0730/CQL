@@ -33,7 +33,12 @@ class CqlTranslationServiceUnitTest {
 
     @BeforeEach
     void setUp() {
-        translationService = new CqlTranslationService();
+        // PAT-141: constructor injection — pass Optional.empty() for the 4 optional beans.
+        translationService = new CqlTranslationService(
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty());
         // Set translation timeout (normally injected by Spring)
         try {
             java.lang.reflect.Field f = CqlTranslationService.class.getDeclaredField("translationTimeoutSeconds");
