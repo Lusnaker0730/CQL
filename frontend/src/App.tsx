@@ -161,7 +161,12 @@ export default function App() {
                       <Route
                         path="/admin/audit"
                         element={
-                          <AdminRoute>
+                          // PAT-147: backend SecurityConfig + AuditController
+                          // @PreAuthorize allow DEPARTMENT_ADMIN to read audit
+                          // logs; the frontend route guard must not be stricter
+                          // than the backend or department admins get redirected
+                          // away from a page they're authorized for.
+                          <AdminRoute allowedRoles={['ADMIN', 'DEPARTMENT_ADMIN']}>
                             <ErrorBoundary fallbackTitle={t('errors.auditDashboardError')}>
                               <AuditDashboardPage />
                             </ErrorBoundary>
