@@ -97,4 +97,46 @@ class AsyncConfigTest {
         assertThat(tpe.getCorePoolSize()).isEqualTo(10);
         assertThat(tpe.getMaximumPoolSize()).isEqualTo(20);
     }
+
+    // =====================================================================
+    // PAT-150 — graceful shutdown via @PreDestroy
+    // =====================================================================
+
+    @Test
+    @DisplayName("PAT-150: shutdownExecutors drains both pools and waits for in-flight tasks")
+    void shutdownDrainsBothPools() throws Exception {
+        configureWith(2, 2, 10, 2, 2, 10);
+
+        // Submit a quick task — must complete before shutdown returns
+        AtomicInteger completed = new AtomicInteger();
+        cqlExec.submit(() -> {
+            try { Thread.sleep(50); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+            completed.incrementAndGet();
+        });
+        importExec.submit(() -> {
+            try { Thread.sleep(50); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+            completed.incrementAndGet();
+        });
+
+        // Invoke @PreDestroy directly (Spring would in production)
+        ReflectionTestUtils.invokeMethod(asyncConfig, "shutdownExecutors");
+
+        assertThat(cqlExec.isShutdown()).isTrue();
+        assertThat(importExec.isShutdown()).isTrue();
+        // Tasks were short — must have run before grace window expired
+        assertThat(completed.get()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("PAT-150: shutdownExecutors is idempotent (safe to call twice)")
+    void shutdownIdempotent() {
+        configureWith(2, 2, 10, 2, 2, 10);
+
+        // Calling twice must not throw
+        ReflectionTestUtils.invokeMethod(asyncConfig, "shutdownExecutors");
+        ReflectionTestUtils.invokeMethod(asyncConfig, "shutdownExecutors");
+
+        assertThat(cqlExec.isShutdown()).isTrue();
+        assertThat(importExec.isShutdown()).isTrue();
+    }
 }
