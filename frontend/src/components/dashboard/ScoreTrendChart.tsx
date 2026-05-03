@@ -83,8 +83,18 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
     [grouped.proportion],
   )
 
-  const targetLines = thresholds.filter((th) => th.thresholdType === 'target')
-  const warningLines = thresholds.filter((th) => th.thresholdType === 'warning')
+  // PAT-151: memoize to match the rest of the derived state in this file. The
+  // filter recreates the array on every render otherwise, which propagates new
+  // identities into ProportionSection's ReferenceLine map and forces recharts
+  // to rebuild those nodes unnecessarily.
+  const targetLines = useMemo(
+    () => thresholds.filter((th) => th.thresholdType === 'target'),
+    [thresholds],
+  )
+  const warningLines = useMemo(
+    () => thresholds.filter((th) => th.thresholdType === 'warning'),
+    [thresholds],
+  )
 
   const handleModeChange = (_: React.MouseEvent<HTMLElement>, next: ChartMode | null) => {
     if (next) setMode(next)
