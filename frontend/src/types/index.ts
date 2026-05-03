@@ -1218,6 +1218,16 @@ export interface ThresholdAlert {
   comparisonOperator: string
   department?: string
   severity: string
+  /**
+   * PAT-151 — FHIR scoring type carried alongside the alert so the panel can
+   * format scores correctly. Without it the UI would always tack {@code %} on
+   * to {@code actualScore} / {@code thresholdValue}, which is wrong for
+   * continuous-variable measures (e.g. HbA1c is mmol/L, not a percentage) and
+   * for cohort measures (raw patient counts).
+   */
+  scoringType?: string
+  /** Unit label for continuous-variable measures (e.g. "mmol/L"). */
+  unit?: string
 }
 
 export interface TrendSeriesPoint {
