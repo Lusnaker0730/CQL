@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, type ReactNode } from 'react'
 import type { BundleEntry, BundleBuilderState, BundleBuilderAction } from '../types'
-import { FHIR_BUNDLE_TYPE } from '../components/testcase-builder/constants'
+import { FHIR_BUNDLE_TYPE } from '../constants/bundle'
 import { generateId } from '../utils/validation'
 
 const initialState: BundleBuilderState = {
@@ -83,16 +83,36 @@ export function serializeToBundle(entries: BundleEntry[]): string {
   return JSON.stringify(bundle, null, 2)
 }
 
-/** Parse a FHIR Bundle JSON string to BundleEntry[] */
+/**
+ * Parse a FHIR Bundle JSON string to BundleEntry[]. Returns an empty array on
+ * malformed JSON, missing/wrong resourceType, or missing entry array — PAT-149,
+ * previously the JSON.parse would throw straight to the caller (typically a
+ * file-upload handler) and crash the whole tab.
+ */
 // eslint-disable-next-line react-refresh/only-export-components
 export function parseFromBundle(json: string): BundleEntry[] {
-  const parsed = JSON.parse(json)
-  if (parsed.resourceType !== 'Bundle' || !Array.isArray(parsed.entry)) {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch (e) {
+    console.warn('parseFromBundle: input is not valid JSON', e)
     return []
   }
-  return parsed.entry
-    .filter((e: Record<string, unknown>) => e.resource && typeof e.resource === 'object')
-    .map((e: Record<string, unknown>) => {
+  if (
+    !parsed
+    || typeof parsed !== 'object'
+    || (parsed as Record<string, unknown>).resourceType !== 'Bundle'
+    || !Array.isArray((parsed as Record<string, unknown>).entry)
+  ) {
+    return []
+  }
+  const entries = (parsed as { entry: unknown[] }).entry
+  return entries
+    .filter((e): e is Record<string, unknown> =>
+      typeof e === 'object' && e !== null
+      && typeof (e as Record<string, unknown>).resource === 'object'
+      && (e as Record<string, unknown>).resource !== null)
+    .map((e) => {
       const resource = e.resource as Record<string, unknown>
       const resourceType = (resource.resourceType as string) || 'Unknown'
       const id = (resource.id as string) || generateId()
