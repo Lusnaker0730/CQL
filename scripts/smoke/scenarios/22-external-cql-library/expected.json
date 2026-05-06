@@ -1,0 +1,13 @@
+{
+  "periodStart": "2024-01-01",
+  "periodEnd": "2024-06-30",
+  "score": 66.67,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 4,
+    "denominator": 3,
+    "numerator": 2
+  },
+  "uploadLibrary": "library.cql",
+  "_note": "End-to-end smoke for the external CQL library include path. The library.cql file is uploaded via POST /api/cql/libraries before save-and-publish so the engine's DatabaseLibrarySourceProvider can resolve `include SmokeExternalUtil version '1.0.0'` at evaluate time. Library defines hardcode @2024-06-30 as the reference date so age computation matches the scenario's measurement period regardless of clock drift. Ages at 2024-06-30: p1(74)/p2(69)/p3(59)/p4(44)/p5(14). IP via lib's IsAdultAtPeriodEnd = adults = 4. Denom via inline AgeRange>=50 = 3 (p1-p3). Numer via lib's IsSeniorAtPeriodEnd = 2 (p1,p2). Score=2/3=66.67. The lib defines used as IP and Numerator force the engine to pull and execute external library expressions, not just include the statement."
+}
