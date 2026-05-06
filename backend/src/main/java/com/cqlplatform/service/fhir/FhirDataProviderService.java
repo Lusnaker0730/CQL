@@ -123,6 +123,13 @@ public class FhirDataProviderService {
         // CDS invocation) propagates the exception to GlobalExceptionHandler which
         // turns it into a FHIR_UPSTREAM_UNAVAILABLE envelope (PAT-110).
         for (String resourceType : resourceTypes) {
+            // Patient resources are fetched separately via batch GET below (L161+).
+            // Querying `Patient?subject=...` or `Patient?patient=...` is invalid (HAPI rejects
+            // with HAPI-0524 — neither is a Patient search param). Callers may legitimately
+            // include Patient in the retrieveTypes set; skipping here keeps the loop safe.
+            if ("Patient".equals(resourceType)) {
+                continue;
+            }
             try {
                 String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
                 String patientList = String.join(",", patientIds.stream()
@@ -524,7 +531,11 @@ public class FhirDataProviderService {
             "MedicationDispense", "FamilyMemberHistory", "Flag", "Consent",
             "AdverseEvent", "QuestionnaireResponse", "ImagingStudy", "Media",
             "Specimen", "BodyStructure", "DetectedIssue", "SupplyDelivery",
-            "SupplyRequest", "VisionPrescription", "Account"
+            "SupplyRequest", "VisionPrescription", "Account",
+            // Coverage is a financial resource that uses `patient` (not `subject`) per FHIR R4.
+            // Surfaced by the smoke harness when SDE Payer's `[Coverage: "..."]` retrieve hit
+            // bulkFetchAllPatients with the wrong search param. HAPI-0524 rejected the request.
+            "Coverage"
     );
 
     private static class CountingRetrieveProvider implements RetrieveProvider {

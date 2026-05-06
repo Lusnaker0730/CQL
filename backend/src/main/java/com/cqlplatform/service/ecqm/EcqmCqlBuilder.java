@@ -261,7 +261,8 @@ public class EcqmCqlBuilder {
                 if (sdeName == null) continue;
                 String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
                 if (oid != null) {
-                    valueSets.add(oid);
+                    // OID was already added to valueSets in collectAllDeclarations so the
+                    // master template's `valueset` block emits the declaration.
                     supplementalDefines.add(buildStandardSde(sdeName, oid));
                 } else {
                     Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
@@ -497,12 +498,25 @@ public class EcqmCqlBuilder {
             }
         }
 
-        // From supplemental data
+        // From supplemental data — both custom (criteria tree) and standard
+        // SDEs whose template references a known value set OID (e.g. SDE Payer
+        // → `[Coverage: "<oid>"]`). Standard SDE OIDs MUST be collected here
+        // because the consumer renders `valueset "X": 'OID'` declarations from a
+        // snapshot of this set before iterating supplementalData; adding the
+        // OID later (in the SDE-define generation loop) was too late and the
+        // resulting CQL referenced an undeclared value set.
         if (supplementalData != null) {
             for (Map<String, Object> sde : supplementalData) {
                 Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
                 if (criteria != null) {
                     engine.collectDeclarations(criteria, valueSets, codeSystems, codes, includes);
+                }
+                String sdeName = engine.getStr(sde, "name", null);
+                if (sdeName != null) {
+                    String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
+                    if (oid != null) {
+                        valueSets.add(oid);
+                    }
                 }
             }
         }

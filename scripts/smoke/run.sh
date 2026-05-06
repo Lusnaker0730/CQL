@@ -149,6 +149,15 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
                 failed_scenarios+=("$name"); continue
             fi
+            # Optional: upload an external CQL library before publish so the
+            # engine's DatabaseLibrarySourceProvider can resolve `include`
+            # statements. Triggered when expected.json carries `uploadLibrary`.
+            upload_lib=$(jq -r '.uploadLibrary // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$upload_lib" ]; then
+                if ! bash "$SCRIPT_DIR/lib/upload-library.sh" "$scenario_dir/$upload_lib"; then
+                    failed_scenarios+=("$name"); continue
+                fi
+            fi
             if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
                 failed_scenarios+=("$name"); continue
             fi

@@ -1,0 +1,14 @@
+{
+  "periodStart": "2023-01-01",
+  "periodEnd": "2023-06-30",
+  "score": 40.0,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 7,
+    "denominator": 6,
+    "denominator-exclusion": 1,
+    "numerator": 2,
+    "numerator-exclusion": 1
+  },
+  "_note": "Locks the 6-population proportion pipeline (PopulationEvaluator.aggregatePatientResults). Ages computed at 2023-06-30: p1(M,73)/p2(F,70)/p3(F,68)/p4(F,63)/p5(F,58)/p6(M,43)/p7(F,83). IP=adults=7. Denom=>=50=6 (p1-p5,p7). DenomExcl=>=80=1 (p7). Numer=>=65 AND in effective Denom=3 (p1,p2,p3). NumerExcl=Male=1 (p1). EffectiveNumer=Numer-NumerExcl=2 (p2,p3). Score=Numer/(Denom-DenomExcl)=2/5=40.0. Note that backend Numerator count is the *post-exclusion* effective count (PopulationEvaluator.java:84 — `if (effectiveNumer) increment Numerator`), so `populations.numerator=2` reflects the 1 exclusion already applied."
+}

@@ -13,10 +13,13 @@ public final class EcqmConstants {
     // ── Standard population define names ──────────────────────────────────
     public static final String INITIAL_POPULATION = "Initial Population";
     public static final String DENOMINATOR = "Denominator";
-    public static final String DENOMINATOR_EXCLUSION = "Denominator Exclusion";
-    public static final String DENOMINATOR_EXCEPTION = "Denominator Exception";
+    // CQL define names use the plural form per CMS eCQM canonical convention; this MUST match
+    // the names PopulationEvaluator looks up by string ("Denominator Exclusions" etc.) — singular
+    // forms produced silently-empty exclusion populations because the evaluator wouldn't find them.
+    public static final String DENOMINATOR_EXCLUSION = "Denominator Exclusions";
+    public static final String DENOMINATOR_EXCEPTION = "Denominator Exceptions";
     public static final String NUMERATOR = "Numerator";
-    public static final String NUMERATOR_EXCLUSION = "Numerator Exclusion";
+    public static final String NUMERATOR_EXCLUSION = "Numerator Exclusions";
     public static final String MEASURE_POPULATION = "Measure Population";
     public static final String MEASURE_POPULATION_EXCLUSION = "Measure Population Exclusion";
     public static final String MEASURE_OBSERVATION = "Measure Observation";
