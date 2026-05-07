@@ -135,6 +135,61 @@ if [ "$expected_groups_count" -gt 0 ] 2>/dev/null; then
                 fi
             fi
         fi
+        # Per-group stratifier assertions (multi-group + stratifier coverage). Each entry:
+        # {strataId, expectedStrata: [{strataValue, populations, score?, scoreTolerance?}]}.
+        # Locks BUG #474 follow-up — verifies per-group stratifier results attach to the
+        # right group rather than mixing into a single shared bucket.
+        gstr_count=$(jq -r ".groups[$gi].stratifiers // [] | length" "$EXPECTED" | tr -d '\r')
+        if [ "$gstr_count" -gt 0 ] 2>/dev/null; then
+            for si in $(seq 0 $((gstr_count - 1))); do
+                gsid=$(jq -r ".groups[$gi].stratifiers[$si].strataId" "$EXPECTED" | tr -d '\r')
+                gstol=$(jq -r ".groups[$gi].stratifiers[$si].scoreTolerance // 0.5" "$EXPECTED" | tr -d '\r')
+                gstr_actual=$(echo "$actual_group" | jq -c ".stratifiers[]? | select(.strataId == \"$gsid\")" 2>/dev/null || echo "")
+                if [ -z "$gstr_actual" ]; then
+                    echo "    ✗ group $gid.stratifier $gsid: not found in response" >&2
+                    fail=1
+                    continue
+                fi
+                strata_count=$(jq -r ".groups[$gi].stratifiers[$si].expectedStrata | length" "$EXPECTED")
+                for sj in $(seq 0 $((strata_count - 1))); do
+                    sv=$(jq -r ".groups[$gi].stratifiers[$si].expectedStrata[$sj].strataValue" "$EXPECTED" | tr -d '\r')
+                    actual_stratum=$(echo "$gstr_actual" | jq -c "select(.strataValue == \"$sv\")" | head -1)
+                    if [ -z "$actual_stratum" ]; then
+                        echo "    ✗ group $gid.stratifier $gsid stratum '$sv': not found" >&2
+                        fail=1
+                        continue
+                    fi
+                    while IFS= read -r pkk; do
+                        [ -z "$pkk" ] && continue
+                        epc=$(jq -r ".groups[$gi].stratifiers[$si].expectedStrata[$sj].populations[\"$pkk\"]" "$EXPECTED" | tr -d '\r')
+                        apc=$(echo "$actual_stratum" | jq -r ".populations[]? | select(.populationType == \"$pkk\") | .count // empty" | tr -d '\r' | head -1)
+                        if [ "${apc:-<null>}" = "$epc" ]; then
+                            echo "    ✓ group $gid.$gsid[$sv].$pkk: $apc"
+                        else
+                            echo "    ✗ group $gid.$gsid[$sv].$pkk: got ${apc:-<null>}, expected $epc" >&2
+                            fail=1
+                        fi
+                    done < <(jq -r ".groups[$gi].stratifiers[$si].expectedStrata[$sj].populations | keys[]?" "$EXPECTED" | tr -d '\r')
+                    expected_ss=$(jq -r ".groups[$gi].stratifiers[$si].expectedStrata[$sj].score // empty" "$EXPECTED" | tr -d '\r')
+                    if [ -n "$expected_ss" ]; then
+                        actual_ss=$(echo "$actual_stratum" | jq -r '.measureScore // empty')
+                        if [ -z "$actual_ss" ] || [ "$actual_ss" = "null" ]; then
+                            echo "    ✗ group $gid.$gsid[$sv].score: expected $expected_ss, got null" >&2
+                            fail=1
+                        else
+                            ssd=$(awk -v a="$actual_ss" -v b="$expected_ss" 'BEGIN{d=a-b; if (d<0) d=-d; print d}')
+                            ssw=$(awk -v d="$ssd" -v t="$gstol" 'BEGIN{print (d<=t)?1:0}')
+                            if [ "$ssw" = "1" ]; then
+                                echo "    ✓ group $gid.$gsid[$sv].score: $actual_ss (Δ=$ssd)"
+                            else
+                                echo "    ✗ group $gid.$gsid[$sv].score: $actual_ss (expected $expected_ss, Δ=$ssd > $gstol)" >&2
+                                fail=1
+                            fi
+                        fi
+                    fi
+                done
+            done
+        fi
     done
 fi
 
