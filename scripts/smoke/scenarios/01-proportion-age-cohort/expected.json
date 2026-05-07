@@ -10,5 +10,6 @@
   },
   "checkProvenance": true,
   "idempotent": true,
+  "maxEvaluationTimeMs": 8000,
   "_note": "Backend returns measureScore as a percentage (0-100), not a fraction (0-1). Ages are computed at the Measurement Period end (2020-06-30) — patient p4 (born 1960-03-15) is age 60 at that point, which puts them in Denom but not Numer, regardless of when this scenario is actually evaluated. checkProvenance asserts PAT-095 (measure_report.cqlHash/elmHash/measureVersion are populated when saveReport runs) — one scenario is enough for this cross-cutting contract; duplicating it across 01-09 would just slow smoke for no added coverage."
 }

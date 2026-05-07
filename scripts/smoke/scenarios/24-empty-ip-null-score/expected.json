@@ -1,0 +1,12 @@
+{
+  "periodStart": "2026-01-01",
+  "periodEnd": "2026-06-30",
+  "expectScoreNull": true,
+  "populations": {
+    "initial-population": 0,
+    "denominator": 0,
+    "numerator": 0
+  },
+  "maxEvaluationTimeMs": 8000,
+  "_note": "Locks the empty-cohort / zero-denominator code path. Patients exist (p1/p2/p3 born 1980-1990, ages 36-46 at 2026-06-30) so PatientDiscoveryService finds them and evaluation runs, but IP criteria `AgeInYearsAt(end of MP) >= 200` rejects all → IP=0. Score must be null per MeasureScoreCalculator.calculateProportionScore line 68-70 (`if (denominator == 0) return null`). Catches regressions where empty cohort produces NaN, 0.0, or a 5xx — all of which would silently corrupt dashboard aggregations downstream."
+}
