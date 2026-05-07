@@ -274,8 +274,13 @@ public class PopulationEvaluator {
     /**
      * Resolves each population's criteriaExpression in this group to its CqlExecutionResponse result.
      * Returns a canonical map keyed by population display name ("Initial Population", etc.).
+     *
+     * <p>Public so {@link MeasureEvaluationService} can canonicalize per-group CQL results
+     * (with suffixes like "Initial Population 1" / "Initial Population 2") before calling
+     * {@link #aggregatePatientResults}, which expects unsuffixed keys. Required for multi-group
+     * eCQM evaluation per BUG #474.
      */
-    private Map<String, CqlExecutionResponse.ExpressionResult> buildExpressionMap(
+    public Map<String, CqlExecutionResponse.ExpressionResult> buildExpressionMap(
             GroupDefinition group, Map<String, CqlExecutionResponse.ExpressionResult> allResults) {
         Map<String, CqlExecutionResponse.ExpressionResult> canonical = new LinkedHashMap<>();
         if (group.getPopulations() == null) return canonical;
