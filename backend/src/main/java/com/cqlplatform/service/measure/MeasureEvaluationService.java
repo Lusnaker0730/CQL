@@ -288,9 +288,12 @@ public class MeasureEvaluationService {
         standardNames.add("Measure Observation Values");
         standardNames.add("Measure Observation Value");
         Map<String, Object> customExpressions = new LinkedHashMap<>();
-        Map<String, Map<String, Map<String, Integer>>> stratificationData = new HashMap<>();
+        // BUG #474 follow-up: stratification data is now per-group. Each group's stratifiers
+        // accumulate into their own bucket so multi-group measures don't cross-contaminate
+        // strata between groups. For single-group / no-GroupDefinition measures the outer
+        // map has one entry keyed by DEFAULT_GROUP_ID (or the lone group's id).
+        Map<String, Map<String, Map<String, Map<String, Integer>>>> perGroupStratData = new HashMap<>();
         List<Double> observationValues = Collections.synchronizedList(new ArrayList<>());
-        List<StratifierDefinition> stratifiers = stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
 
         // Execute CQL for all patients in parallel using cqlExecutionExecutor (10-20 threads).
         // Pre-translated path runs doExecutePreTranslated directly on the caller thread
@@ -375,6 +378,16 @@ public class MeasureEvaluationService {
                     } else {
                         populationEvaluator.aggregatePatientResults(counts, canonical);
                     }
+                    // Per-group stratifiers: evaluate this group's stratifiers using the raw
+                    // results (for the suffixed Stratifier expression itself) plus canonical
+                    // results (for population lookup inside each stratum). Stratification data
+                    // accumulates into the group-local bucket so groups don't share strata.
+                    if (g.getStratifiers() != null && !g.getStratifiers().isEmpty()) {
+                        Map<String, Map<String, Map<String, Integer>>> groupStratData =
+                                perGroupStratData.computeIfAbsent(gid, k -> new HashMap<>());
+                        stratifierEvaluator.evaluatePatientStratifiers(
+                                g.getStratifiers(), results, canonical, groupStratData);
+                    }
                 }
             }
             // Observation values: for now still collected globally across groups. Multi-group
@@ -397,12 +410,20 @@ public class MeasureEvaluationService {
             }
             populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
 
-            if (!stratifiers.isEmpty()) {
-                stratifierEvaluator.evaluatePatientStratifiers(stratifiers, results, stratificationData);
+            // Legacy single-group stratifier path: when no GroupDefinition is wired, fall back
+            // to the global stratifier list so existing ad-hoc evaluation flows continue to work.
+            if (groupDefs.isEmpty()) {
+                List<StratifierDefinition> legacy =
+                        stratifierEvaluator.getStratifiers(context.getMeasureDefinition());
+                if (!legacy.isEmpty()) {
+                    Map<String, Map<String, Map<String, Integer>>> stratData =
+                            perGroupStratData.computeIfAbsent(DEFAULT_GROUP_ID, k -> new HashMap<>());
+                    stratifierEvaluator.evaluatePatientStratifiers(legacy, results, stratData);
+                }
             }
         }
 
-        return new AggregationState(perGroupCounts, customExpressions, stratificationData,
+        return new AggregationState(perGroupCounts, customExpressions, perGroupStratData,
                 errorCount, observationValues, fhirOutageError);
     }
 
@@ -448,6 +469,17 @@ public class MeasureEvaluationService {
             return new HashMap<>();
         }
         return state.populationCounts.values().iterator().next();
+    }
+
+    /**
+     * BUG #474 follow-up: extracts the primary group's stratification data. Single-group
+     * builders use this; {@link #buildMultiGroupResult} reads per-group buckets directly.
+     */
+    private static Map<String, Map<String, Map<String, Integer>>> primaryGroupStratData(AggregationState state) {
+        if (state.stratificationData.isEmpty()) {
+            return Map.of();
+        }
+        return state.stratificationData.values().iterator().next();
     }
 
     private MeasureEvaluationResult buildResult(MeasureEvaluationContext context,
@@ -528,7 +560,7 @@ public class MeasureEvaluationService {
                     counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
         }
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
@@ -571,7 +603,7 @@ public class MeasureEvaluationService {
 
         Double measureScore = scoreCalculator.calculateCohortScore(ipCount);
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
@@ -630,7 +662,7 @@ public class MeasureEvaluationService {
             measureScore = obsStats.getAggregateValue();
         }
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(state.stratificationData);
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
@@ -702,12 +734,23 @@ public class MeasureEvaluationService {
                 desc = groupDef.getRateDescription() + (desc.isEmpty() ? "" : " - " + desc);
             }
 
+            // BUG #474 follow-up: per-group stratifier results. Each group's stratification
+            // bucket builds independently so multi-group + per-group stratifier measures
+            // (e.g. proportion stratified by gender per clinical pathway) report each group's
+            // strata correctly.
+            Map<String, Map<String, Map<String, Integer>>> stratData =
+                    state.stratificationData.getOrDefault(gid, Map.of());
+            List<StratifierResult> stratResults = stratData.isEmpty()
+                    ? List.of()
+                    : stratifierEvaluator.buildStratifierResults(stratData);
+
             groups.add(GroupResult.builder()
                     .groupId(groupDef.getGroupId())
                     .description(desc)
                     .populations(populations)
                     .measureScore(score)
                     .measureScoreUnit("percentage")
+                    .stratifiers(stratResults.isEmpty() ? null : stratResults)
                     .totalPatients(totalPatients)
                     .build());
         }
@@ -810,7 +853,10 @@ public class MeasureEvaluationService {
     private record AggregationState(
             Map<String, Map<String, Integer>> populationCounts,
             Map<String, Object> customExpressions,
-            Map<String, Map<String, Map<String, Integer>>> stratificationData,
+            /** BUG #474 follow-up: per-group stratification data so multi-group stratifiers
+             *  don't cross-contaminate. Outer key is groupId, then the standard
+             *  stratifierId → strataValue → populationName → count nesting. */
+            Map<String, Map<String, Map<String, Map<String, Integer>>>> stratificationData,
             int errorCount,
             List<Double> observationValues,
             /** PAT-112a: non-null when any patient evaluation threw a FhirServerUnavailableException

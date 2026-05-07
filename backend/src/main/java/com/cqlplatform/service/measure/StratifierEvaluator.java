@@ -43,19 +43,41 @@ public class StratifierEvaluator {
 
     /**
      * Evaluates stratifiers for a single patient and accumulates into the stratification data.
-     *
-     * @param stratifiers        stratifier definitions
-     * @param results            CQL results for the current patient
-     * @param stratificationData accumulated data: stratifierId → strataValue → populationType → count
+     * Single-input overload for callers that don't need to distinguish stratifier-expression
+     * lookup from population lookup (single-group measures where the CQL define names match
+     * the canonical population names verbatim).
      */
     public void evaluatePatientStratifiers(List<StratifierDefinition> stratifiers,
                                            Map<String, CqlExecutionResponse.ExpressionResult> results,
+                                           Map<String, Map<String, Map<String, Integer>>> stratificationData) {
+        evaluatePatientStratifiers(stratifiers, results, results, stratificationData);
+    }
+
+    /**
+     * Evaluates stratifiers for a single patient and accumulates into the stratification data.
+     *
+     * <p>BUG #474 follow-up: multi-group measures need two views of the result map.
+     * The stratifier <em>expression</em> name is the suffixed CQL define ("Stratifier gender 1"),
+     * which only exists in the raw CQL results map. The <em>population</em> count lookup
+     * (Initial Population / Denominator / etc.) needs the canonical (unsuffixed) name view
+     * built via {@link PopulationEvaluator#buildExpressionMap}. Single-group callers pass the
+     * same map for both arguments via the convenience overload above.
+     *
+     * @param stratifiers           stratifier definitions for the current group
+     * @param rawResults            full CQL results map; used to resolve stratifier expression names
+     * @param canonicalPopulations  population results re-keyed by canonical name; used to count
+     *                              per-stratum populations
+     * @param stratificationData    accumulated: stratifierId → strataValue → populationType → count
+     */
+    public void evaluatePatientStratifiers(List<StratifierDefinition> stratifiers,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> rawResults,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> canonicalPopulations,
                                            Map<String, Map<String, Map<String, Integer>>> stratificationData) {
         for (StratifierDefinition stratifier : stratifiers) {
             String stratId = stratifier.getStratifierId();
             String expression = stratifier.getCriteriaExpression();
 
-            CqlExecutionResponse.ExpressionResult stratResult = results.get(expression);
+            CqlExecutionResponse.ExpressionResult stratResult = rawResults.get(expression);
             if (stratResult == null) continue;
 
             String strataValue = String.valueOf(stratResult.getValue());
@@ -71,9 +93,9 @@ public class StratifierEvaluator {
                 popCounts.putIfAbsent(popName, 0);
             }
 
-            // Add 1 for each population the patient belongs to
+            // Add 1 for each population the patient belongs to (looked up by canonical name)
             for (String popName : PopulationEvaluator.STANDARD_POPULATIONS) {
-                Integer count = populationEvaluator.extractPopulationCount(results, popName);
+                Integer count = populationEvaluator.extractPopulationCount(canonicalPopulations, popName);
                 if (count != null && count > 0) {
                     popCounts.merge(popName, 1, Integer::sum);
                 }
