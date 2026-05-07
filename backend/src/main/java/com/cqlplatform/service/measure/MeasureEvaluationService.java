@@ -245,15 +245,45 @@ public class MeasureEvaluationService {
     private AggregationState executeAndAggregate(MeasureEvaluationContext context, List<String> patients,
                                                    CqlExecutionService.PreTranslatedContext preTranslated,
                                                    java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData) {
-        String scoringType = context.getMeasureDefinition() != null
-                ? context.getMeasureDefinition().getScoringType() : null;
+        MeasureDefinition def = context.getMeasureDefinition();
+        String scoringType = def != null ? def.getScoringType() : null;
         boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
         boolean isRatio = ScoringTypeConstants.RATIO.equals(scoringType);
 
-        Map<String, Integer> populationCounts = isCv
-                ? populationEvaluator.initializeCvPopulationCounts()
-                : populationEvaluator.initializePopulationCounts();
-        Set<String> standardNames = new HashSet<>(populationCounts.keySet());
+        // BUG #474: per-group counts. For multi-group measures we MUST iterate each group
+        // separately and canonicalize the suffixed CQL define names ("Initial Population 1"
+        // → "Initial Population") via PopulationEvaluator.buildExpressionMap. Tracking
+        // counts per groupId lets buildMultiGroupResult emit one GroupResult per group.
+        // Single-group measures degenerate to a single entry in this outer map.
+        List<GroupDefinition> groupDefs = (def != null && def.getGroupDefinitions() != null
+                && !def.getGroupDefinitions().isEmpty())
+                ? def.getGroupDefinitions()
+                : List.of();
+        Map<String, Map<String, Integer>> perGroupCounts = new LinkedHashMap<>();
+        if (groupDefs.isEmpty()) {
+            perGroupCounts.put(DEFAULT_GROUP_ID, isCv
+                    ? populationEvaluator.initializeCvPopulationCounts()
+                    : populationEvaluator.initializePopulationCounts());
+        } else {
+            for (GroupDefinition g : groupDefs) {
+                String gid = g.getGroupId() != null ? g.getGroupId() : DEFAULT_GROUP_ID;
+                perGroupCounts.put(gid, isCv
+                        ? populationEvaluator.initializeCvPopulationCounts()
+                        : populationEvaluator.initializePopulationCounts());
+            }
+        }
+        // Names treated as "standard population defines" for custom-expression filtering.
+        // Includes both canonical names AND any per-group suffixed names that may appear in
+        // results so multi-group measures don't surface "Initial Population 1" / "Denominator 2"
+        // as if they were custom SDE expressions.
+        Set<String> standardNames = new HashSet<>(populationEvaluator.initializePopulationCounts().keySet());
+        standardNames.addAll(populationEvaluator.initializeCvPopulationCounts().keySet());
+        for (GroupDefinition g : groupDefs) {
+            if (g.getPopulations() == null) continue;
+            for (PopulationDefinition p : g.getPopulations()) {
+                if (p.getCriteriaExpression() != null) standardNames.add(p.getCriteriaExpression());
+            }
+        }
         // Always exclude observation wrapper names from custom expressions
         standardNames.add("Measure Observation Values");
         standardNames.add("Measure Observation Value");
@@ -317,20 +347,48 @@ public class MeasureEvaluationService {
                 continue;
             }
             Map<String, CqlExecutionResponse.ExpressionResult> results = pr.response().getResults();
-            if (isCv) {
-                populationEvaluator.aggregateCvPatientResults(populationCounts, results, observationValues);
-            } else if (isRatio) {
-                populationEvaluator.aggregateRatioPatientResults(populationCounts, results);
-                // Ratio measures with observation wrappers (e.g. "encounters per person-year") —
-                // still collect observation values for rate-based scoring calculations below.
+            // BUG #474: per-group aggregation. For each population group, canonicalize the
+            // suffixed CQL define names ("Initial Population 1" → "Initial Population") and
+            // run the same single-group aggregation logic on the group-local counts map.
+            if (groupDefs.isEmpty()) {
+                // Legacy single-group path (no GroupDefinition wired): use the raw results
+                // directly, matching prior behaviour for measures evaluated without a measure
+                // definition (e.g. ad-hoc CQL execution).
+                Map<String, Integer> counts = perGroupCounts.get(DEFAULT_GROUP_ID);
+                if (isCv) {
+                    populationEvaluator.aggregateCvPatientResults(counts, results, observationValues);
+                } else if (isRatio) {
+                    populationEvaluator.aggregateRatioPatientResults(counts, results);
+                } else {
+                    populationEvaluator.aggregatePatientResults(counts, results);
+                }
+            } else {
+                for (GroupDefinition g : groupDefs) {
+                    String gid = g.getGroupId() != null ? g.getGroupId() : DEFAULT_GROUP_ID;
+                    Map<String, Integer> counts = perGroupCounts.get(gid);
+                    Map<String, CqlExecutionResponse.ExpressionResult> canonical =
+                            populationEvaluator.buildExpressionMap(g, results);
+                    if (isCv) {
+                        populationEvaluator.aggregateCvPatientResults(counts, canonical, observationValues);
+                    } else if (isRatio) {
+                        populationEvaluator.aggregateRatioPatientResults(counts, canonical);
+                    } else {
+                        populationEvaluator.aggregatePatientResults(counts, canonical);
+                    }
+                }
+            }
+            // Observation values: for now still collected globally across groups. Multi-group
+            // measures with per-group observations (rare in proportion/cohort, possible in
+            // ratio/CV) would need per-group observation lists — out of scope for this PR
+            // which lands proportion multi-group. Tracked for follow-up.
+            if (isRatio || (!isCv && !groupDefs.isEmpty())) {
                 List<Double> patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Value");
                 if (patientObs.isEmpty()) {
                     patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Values");
                 }
                 observationValues.addAll(patientObs);
-            } else {
-                populationEvaluator.aggregatePatientResults(populationCounts, results);
-                // Also collect observation values for ratio measures with observations
+            } else if (groupDefs.isEmpty() && !isCv) {
+                // Preserve the legacy fallback for the proportion no-GroupDefinition path.
                 List<Double> patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Value");
                 if (patientObs.isEmpty()) {
                     patientObs = populationEvaluator.extractObservationValues(results, "Measure Observation Values");
@@ -344,7 +402,7 @@ public class MeasureEvaluationService {
             }
         }
 
-        return new AggregationState(populationCounts, customExpressions, stratificationData,
+        return new AggregationState(perGroupCounts, customExpressions, stratificationData,
                 errorCount, observationValues, fhirOutageError);
     }
 
@@ -379,10 +437,23 @@ public class MeasureEvaluationService {
         return cqlExecutionService.execute(execRequest);
     }
 
+    /**
+     * BUG #474: extracts the primary (first) group's population counts from the per-group
+     * AggregationState. Single-group result builders (proportion, ratio, cohort, CV)
+     * always operate on the first group; multi-group measures route through
+     * {@link #buildMultiGroupResult} which iterates groups directly.
+     */
+    private static Map<String, Integer> primaryGroupCounts(AggregationState state) {
+        if (state.populationCounts.isEmpty()) {
+            return new HashMap<>();
+        }
+        return state.populationCounts.values().iterator().next();
+    }
+
     private MeasureEvaluationResult buildResult(MeasureEvaluationContext context,
                                                  AggregationState state,
                                                  int totalPatients) {
-        Map<String, Integer> counts = state.populationCounts;
+        Map<String, Integer> counts = primaryGroupCounts(state);
         MeasureDefinition def = context.getMeasureDefinition();
 
         // Continuous-variable measures use a separate result builder
@@ -492,7 +563,7 @@ public class MeasureEvaluationService {
      */
     private MeasureEvaluationResult buildCohortResult(MeasureEvaluationContext context,
                                                       AggregationState state, int totalPatients) {
-        Map<String, Integer> counts = state.populationCounts;
+        Map<String, Integer> counts = primaryGroupCounts(state);
         Integer ipCount = counts.getOrDefault("Initial Population", 0);
 
         List<PopulationResult> populations = new ArrayList<>();
@@ -529,7 +600,7 @@ public class MeasureEvaluationService {
 
     private MeasureEvaluationResult buildCvResult(MeasureEvaluationContext context,
                                                     AggregationState state, int totalPatients) {
-        Map<String, Integer> counts = state.populationCounts;
+        Map<String, Integer> counts = primaryGroupCounts(state);
         MeasureDefinition def = context.getMeasureDefinition();
 
         List<PopulationResult> populations = new ArrayList<>();
@@ -591,17 +662,21 @@ public class MeasureEvaluationService {
                                                            AggregationState state,
                                                            int totalPatients) {
         MeasureDefinition def = context.getMeasureDefinition();
-        Map<String, Integer> counts = state.populationCounts;
         List<GroupResult> groups = new ArrayList<>();
 
         for (var groupDef : def.getGroupDefinitions()) {
             List<PopulationResult> populations = new ArrayList<>();
+            // BUG #474: read counts from this group's per-group entry. Counts are keyed by
+            // canonical population display name ("Initial Population", "Denominator", ...) —
+            // not by the suffixed CQL define name — because aggregation went through
+            // PopulationEvaluator.buildExpressionMap which canonicalizes per group.
+            String gid = groupDef.getGroupId() != null ? groupDef.getGroupId() : DEFAULT_GROUP_ID;
+            Map<String, Integer> counts = state.populationCounts.getOrDefault(gid, Map.of());
 
             if (groupDef.getPopulations() != null) {
                 for (var popDef : groupDef.getPopulations()) {
-                    // Map population expression name to aggregated count
-                    String exprName = popDef.getCriteriaExpression();
-                    Integer count = counts.getOrDefault(exprName, 0);
+                    String canonical = canonicalPopulationName(popDef.getPopulationType());
+                    Integer count = counts.getOrDefault(canonical, 0);
                     populations.add(populationResult(popDef.getPopulationType(), count));
                 }
             }
@@ -660,6 +735,27 @@ public class MeasureEvaluationService {
                 .build();
     }
 
+    /**
+     * BUG #474: maps a FHIR population type (FHIR code or display name) to the canonical
+     * key used in {@link AggregationState#populationCounts} inner maps. Mirrors
+     * {@code PopulationEvaluator.toDisplayName} but kept here to avoid widening that class's
+     * public surface. Keep these two methods in sync.
+     */
+    private static String canonicalPopulationName(String populationType) {
+        if (populationType == null) return "";
+        return switch (populationType.toLowerCase(java.util.Locale.ROOT)) {
+            case "initial-population", "initial population" -> "Initial Population";
+            case "denominator" -> "Denominator";
+            case "denominator-exclusion", "denominator exclusions" -> "Denominator Exclusions";
+            case "denominator-exception", "denominator exceptions" -> "Denominator Exceptions";
+            case "numerator" -> "Numerator";
+            case "numerator-exclusion", "numerator exclusions" -> "Numerator Exclusions";
+            case "measure-population", "measure population" -> "Measure Population";
+            case "measure-population-exclusion", "measure population exclusion" -> "Measure Population Exclusion";
+            default -> populationType;
+        };
+    }
+
     private MeasureEvaluationResult errorResult(MeasureEvaluationContext context, String message) {
         return errorResult(context, message, null, null, null);
     }
@@ -700,9 +796,19 @@ public class MeasureEvaluationService {
         if (measureEvaluationErrorCounter != null) measureEvaluationErrorCounter.increment();
     }
 
-    /** Internal state holder for the aggregation loop. */
+    /**
+     * Internal state holder for the aggregation loop.
+     *
+     * <p>BUG #474: {@code populationCounts} is now keyed by groupId so multi-population-group
+     * measures (eCQM with stratified clinical pathways) can track per-group counts independently.
+     * For single-group measures the outer map has exactly one entry whose key is either the
+     * measure's group's groupId or {@link #DEFAULT_GROUP_ID} when no GroupDefinition is available.
+     * Inner map remains keyed by canonical population display name ("Initial Population", etc.)
+     * — {@link PopulationEvaluator#buildExpressionMap} bridges the suffixed CQL define names
+     * (e.g. "Initial Population 1" / "Initial Population 2") to canonical keys.
+     */
     private record AggregationState(
-            Map<String, Integer> populationCounts,
+            Map<String, Map<String, Integer>> populationCounts,
             Map<String, Object> customExpressions,
             Map<String, Map<String, Map<String, Integer>>> stratificationData,
             int errorCount,
@@ -712,6 +818,9 @@ public class MeasureEvaluationService {
              *  returning a partial denominator. */
             Throwable fhirOutageError
     ) {}
+
+    /** Synthetic group id used when a measure has no GroupDefinition wired (legacy path). */
+    private static final String DEFAULT_GROUP_ID = "group-1";
 
     private static final int OUTAGE_CAUSE_CHAIN_MAX_DEPTH = 20;
 
