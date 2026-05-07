@@ -161,9 +161,16 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
                 failed_scenarios+=("$name"); continue
             fi
+            # Wall-clock the evaluate call so assert.sh can enforce a per-scenario
+            # `maxEvaluationTimeMs` budget. Catches N+1 query regressions and
+            # bulk-fetch slowdowns that don't change correctness but affect prod cost.
+            eval_start_ns=$(date +%s%N)
             if ! response=$(bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end"); then
                 failed_scenarios+=("$name"); continue
             fi
+            eval_end_ns=$(date +%s%N)
+            EVAL_ELAPSED_MS=$(( (eval_end_ns - eval_start_ns) / 1000000 ))
+            export EVAL_ELAPSED_MS
             if echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
                 passed_scenarios+=("$name")
             else

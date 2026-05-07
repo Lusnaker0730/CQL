@@ -53,6 +53,20 @@ if [ -n "$expected_score" ]; then
     fi
 fi
 
+# Empty-IP / no-eligible-patients edge case: score MUST be null. Asserts the
+# divide-by-zero / empty-cohort path returns null cleanly instead of NaN, 0.0,
+# or a 5xx. Locks MeasureScoreCalculator.calculateProportionScore line 68-70.
+expect_score_null=$(jq -r '.expectScoreNull // false' "$EXPECTED" | tr -d '\r')
+if [ "$expect_score_null" = "true" ]; then
+    actual_score=$(echo "$RESPONSE" | jq -r '.groups[0].measureScore // empty')
+    if [ -z "$actual_score" ] || [ "$actual_score" = "null" ]; then
+        echo "    ✓ score is null (expected for empty IP / zero denominator)"
+    else
+        echo "    ✗ score: expected null (empty IP), got $actual_score" >&2
+        fail=1
+    fi
+fi
+
 # Populations (keyed by population-type).
 # Use `tr -d '\r'` to strip Windows CRLF line endings from jq output — without it,
 # pop_key becomes "denominator\r" and the lookup quietly returns null on both
@@ -74,6 +88,55 @@ while IFS= read -r pop_key; do
         fail=1
     fi
 done < <(jq -r '.populations // {} | keys[]?' "$EXPECTED" | tr -d '\r')
+
+# Multi-group assertions. expected.json `groups[]` lets a scenario lock multiple
+# population groups (eCQM with stratified clinical pathways / ratio dual-IP). Each
+# entry: {groupId, populations, score?, scoreTolerance?}. Groups are matched by
+# groupId; order in the response doesn't matter. Use this when a measure has more
+# than one group; falls back to top-level `populations` + `score` for groups[0].
+expected_groups_count=$(jq -r '.groups // [] | length' "$EXPECTED" | tr -d '\r')
+if [ "$expected_groups_count" -gt 0 ] 2>/dev/null; then
+    for gi in $(seq 0 $((expected_groups_count - 1))); do
+        gid=$(jq -r ".groups[$gi].groupId" "$EXPECTED" | tr -d '\r')
+        actual_group=$(echo "$RESPONSE" | jq -c ".groups[]? | select(.groupId == \"$gid\")" | head -1)
+        if [ -z "$actual_group" ]; then
+            echo "    ✗ group $gid: not found in response" >&2
+            fail=1
+            continue
+        fi
+        # Per-group populations
+        while IFS= read -r pk; do
+            [ -z "$pk" ] && continue
+            exp_pc=$(jq -r ".groups[$gi].populations[\"$pk\"]" "$EXPECTED" | tr -d '\r')
+            act_pc=$(echo "$actual_group" | jq -r ".populations[]? | select(.populationType == \"$pk\") | .count // empty" | tr -d '\r' | head -1)
+            if [ "${act_pc:-<null>}" = "$exp_pc" ]; then
+                echo "    ✓ group $gid.$pk: $act_pc"
+            else
+                echo "    ✗ group $gid.$pk: got ${act_pc:-<null>}, expected $exp_pc" >&2
+                fail=1
+            fi
+        done < <(jq -r ".groups[$gi].populations | keys[]?" "$EXPECTED" | tr -d '\r')
+        # Per-group score (optional)
+        exp_gs=$(jq -r ".groups[$gi].score // empty" "$EXPECTED" | tr -d '\r')
+        if [ -n "$exp_gs" ]; then
+            gtol=$(jq -r ".groups[$gi].scoreTolerance // 0.5" "$EXPECTED" | tr -d '\r')
+            act_gs=$(echo "$actual_group" | jq -r '.measureScore // empty')
+            if [ -z "$act_gs" ] || [ "$act_gs" = "null" ]; then
+                echo "    ✗ group $gid.score: expected $exp_gs, got null" >&2
+                fail=1
+            else
+                gd=$(awk -v a="$act_gs" -v b="$exp_gs" 'BEGIN{d=a-b; if (d<0) d=-d; print d}')
+                gw=$(awk -v d="$gd" -v t="$gtol" 'BEGIN{print (d<=t)?1:0}')
+                if [ "$gw" = "1" ]; then
+                    echo "    ✓ group $gid.score: $act_gs (Δ=$gd)"
+                else
+                    echo "    ✗ group $gid.score: $act_gs (expected $exp_gs, Δ=$gd > $gtol)" >&2
+                    fail=1
+                fi
+            fi
+        fi
+    done
+fi
 
 # Stratifier assertions (StratifierEvaluator regression lock). Each entry asserts a
 # strataId, plus per-stratum populations + score. Strata are matched by strataValue
@@ -299,6 +362,22 @@ if [ "$check_provenance" = "true" ]; then
         else
             echo "    ✓ provenance.measureVersion: $measure_version"
         fi
+    fi
+fi
+
+# Performance budget. run.sh sets EVAL_ELAPSED_MS as wall-clock around the
+# evaluate.sh call; assert here flags scenarios that breach the per-scenario
+# budget. Catches N+1 query regressions and bulk-fetch slowdowns that don't
+# affect correctness but bloat prod cost. Budget is intentionally generous
+# (typical prod scenarios run in 1-2s) — this guards against 10x regressions,
+# not microbenchmarks.
+max_eval_ms=$(jq -r '.maxEvaluationTimeMs // empty' "$EXPECTED" | tr -d '\r')
+if [ -n "$max_eval_ms" ] && [ -n "${EVAL_ELAPSED_MS:-}" ]; then
+    if [ "$EVAL_ELAPSED_MS" -le "$max_eval_ms" ]; then
+        echo "    ✓ evaluation within budget: ${EVAL_ELAPSED_MS}ms (≤ ${max_eval_ms}ms)"
+    else
+        echo "    ✗ evaluation slower than budget: ${EVAL_ELAPSED_MS}ms > ${max_eval_ms}ms" >&2
+        fail=1
     fi
 fi
 
