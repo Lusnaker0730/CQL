@@ -32,6 +32,8 @@
         <tomcat.version>10.1.54</tomcat.version>
         <thymeleaf.version>3.1.4.RELEASE</thymeleaf.version>
         <spring-security.version>6.5.9</spring-security.version>
+        <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10. Fixed in 42.7.11. -->
+        <postgresql.version>42.7.11</postgresql.version>
     </properties>
 
     <dependencyManagement>
