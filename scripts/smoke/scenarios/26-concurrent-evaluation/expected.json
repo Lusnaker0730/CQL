@@ -1,0 +1,14 @@
+{
+  "periodStart": "2026-01-01",
+  "periodEnd": "2026-06-30",
+  "score": 66.67,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 4,
+    "denominator": 3,
+    "numerator": 2
+  },
+  "concurrentEvaluations": 5,
+  "maxEvaluationTimeMs": 15000,
+  "_note": "Concurrency stress test. Fires 5 parallel $evaluate-measure calls and asserts all 5 produce identical score+populations. Catches HikariCP starvation, cqlExecutionExecutor thread leak, HAPI client connection pool race, and concurrent MeasureReportService.saveReport insert collisions. Ages at 2026-06-30: p1(76)/p2(71)/p3(64)/p4(41). IP=adults=4. Denom=>=50=3 (p1,p2,p3). Numer=>=65=2 (p1,p2). Score=2/3=66.67. Budget 15s allows for 5x concurrent contention — single-run is typically <3s."
+}

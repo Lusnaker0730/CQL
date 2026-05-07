@@ -165,8 +165,20 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             # `maxEvaluationTimeMs` budget. Catches N+1 query regressions and
             # bulk-fetch slowdowns that don't change correctness but affect prod cost.
             eval_start_ns=$(date +%s%N)
-            if ! response=$(bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end"); then
-                failed_scenarios+=("$name"); continue
+            # Optional concurrent-eval stress: when expected.json carries
+            # `concurrentEvaluations: N` (>=2), fire N parallel evaluates and
+            # assert all produce identical scores/populations before passing the
+            # first response on to standard assertions.
+            concurrency=$(jq -r '.concurrentEvaluations // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$concurrency" ] && [ "$concurrency" -ge 2 ] 2>/dev/null; then
+                if ! response=$(bash "$SCRIPT_DIR/lib/evaluate-concurrent.sh" \
+                        "$measure_id" "$period_start" "$period_end" "$concurrency"); then
+                    failed_scenarios+=("$name"); continue
+                fi
+            else
+                if ! response=$(bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end"); then
+                    failed_scenarios+=("$name"); continue
+                fi
             fi
             eval_end_ns=$(date +%s%N)
             EVAL_ELAPSED_MS=$(( (eval_end_ns - eval_start_ns) / 1000000 ))

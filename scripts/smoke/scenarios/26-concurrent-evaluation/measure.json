@@ -1,0 +1,62 @@
+{
+  "name": "SmokeConcurrentEvaluation",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — fires multiple evaluations in parallel, asserts all produce identical scores. Stress-tests connection pools and concurrent saveReport inserts.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Concurrent eval target",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Adult"},
+              {"id": "min_age", "type": "string", "value": "18"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "denominator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "At least 50"},
+              {"id": "min_age", "type": "string", "value": "50"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "numerator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "At least 65"},
+              {"id": "min_age", "type": "string", "value": "65"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}
