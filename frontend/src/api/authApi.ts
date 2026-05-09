@@ -18,8 +18,15 @@ export const authApi = {
     return response.data
   },
 
-  register: async (request: RegisterRequest): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/register', request)
+  /**
+   * PAT-157 — register may return EITHER an AuthResponse (when self-registration
+   * is enabled and the username is fresh) OR a plain { message } envelope (when
+   * the feature is disabled OR the username is already taken). Callers must
+   * detect `response.token` to decide whether to dispatch credentials or just
+   * surface the pending-approval message — see LoginPage / LoginForm.
+   */
+  register: async (request: RegisterRequest): Promise<AuthResponse | { message: string }> => {
+    const response = await api.post<AuthResponse | { message: string }>('/auth/register', request)
     return response.data
   },
 

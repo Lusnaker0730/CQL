@@ -101,7 +101,7 @@ class AdminControllerTest {
 
         mockMvc.perform(post("/api/admin/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"newuser\",\"password\":\"password123\",\"role\":\"USER\"}"))
+                        .content("{\"username\":\"newuser\",\"password\":\"Password123\",\"role\":\"USER\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("newuser"))
                 .andExpect(jsonPath("$.role").value("USER"));
@@ -114,7 +114,7 @@ class AdminControllerTest {
 
         mockMvc.perform(post("/api/admin/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"existing\",\"password\":\"password123\",\"role\":\"USER\"}"))
+                        .content("{\"username\":\"existing\",\"password\":\"Password123\",\"role\":\"USER\"}"))
                 .andExpect(status().isConflict());
     }
 

@@ -19,6 +19,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
@@ -28,9 +29,11 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+// PAT-157 — opt in to self-registration for these tests; default is off.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = "auth.self-registration.enabled=true")
 class AuthControllerTest {
 
     @Autowired
@@ -110,27 +113,31 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"newuser\",\"password\":\"password123\",\"email\":\"new@test.com\"}"))
+                        .content("{\"username\":\"newuser\",\"password\":\"Password123\",\"email\":\"new@test.com\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("new-jwt-token"));
     }
 
     @Test
-    void register_existingUser_shouldReturn400() throws Exception {
+    void register_existingUser_returnsUniformResponse() throws Exception {
+        // PAT-157 — endpoint no longer differentiates "username taken" from
+        // "self-registration disabled"; both return 200 with the same pending-
+        // approval message. Closes CWE-200 user enumeration.
         when(userRepository.existsByUsername("existing")).thenReturn(true);
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"existing\",\"password\":\"password123\",\"email\":\"existing@test.com\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Username already exists"));
+                        .content("{\"username\":\"existing\",\"password\":\"Password123\",\"email\":\"existing@test.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("Registration request received")));
     }
 
     @Test
     void register_shortUsername_shouldReturn400() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"ab\",\"password\":\"password123\"}"))
+                        .content("{\"username\":\"ab\",\"password\":\"Password123\"}"))
                 .andExpect(status().isBadRequest());
     }
 

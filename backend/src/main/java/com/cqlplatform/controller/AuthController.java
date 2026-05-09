@@ -73,6 +73,19 @@ public class AuthController {
     @Value("${app.allow-base-url-fallback:true}")
     private boolean allowBaseUrlFallback;
 
+    /**
+     * PAT-157 — controls whether the public {@code /api/auth/register} endpoint
+     * accepts new accounts. Default {@code false}: medical / TFDA-regulated
+     * software typically requires admin-controlled provisioning (IEC 62304
+     * access control). Operators who need self-service registration (e.g. dev
+     * environments) opt in via {@code AUTH_SELF_REGISTRATION_ENABLED=true}.
+     * When disabled, the endpoint returns the same uniform response as a
+     * duplicate-username attempt so it never leaks the difference between
+     * "registration off" and "username taken" (CWE-200 user enumeration).
+     */
+    @Value("${auth.self-registration.enabled:false}")
+    private boolean selfRegistrationEnabled;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
                                    HttpServletResponse response) {
@@ -109,11 +122,34 @@ public class AuthController {
                 .build());
     }
 
+    /**
+     * PAT-157 uniform "registration submitted" response for self-registration.
+     * Returned both when the feature is disabled and when the username is taken,
+     * so the caller cannot distinguish the two states (CWE-200). Phrased as a
+     * pending-approval message so legitimate users who hit a disabled instance
+     * know to contact an admin without learning whether their chosen username
+     * is free.
+     */
+    private static final Map<String, String> REGISTRATION_PENDING_RESPONSE = Map.of(
+            "message", "Registration request received. If approved, you will receive confirmation by email or from an administrator.");
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request,
                                       HttpServletResponse response) {
+        // PAT-157 — self-registration off by default. Return the same uniform
+        // pending-approval response we use for duplicate usernames, so an
+        // attacker probing the endpoint cannot tell whether the feature is on
+        // (and the username is taken) vs. off (and registration is closed).
+        if (!selfRegistrationEnabled) {
+            log.debug("Self-registration is disabled; rejecting register request silently");
+            return ResponseEntity.ok(REGISTRATION_PENDING_RESPONSE);
+        }
+
         if (userRepository.existsByUsername(request.getUsername())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Username already exists"));
+            // PAT-157 — was 400 "Username already exists" (CWE-200 user enumeration).
+            // Now uniform with the disabled-feature response above.
+            log.debug("Register attempted with duplicate username; returning uniform response");
+            return ResponseEntity.ok(REGISTRATION_PENDING_RESPONSE);
         }
 
         UserEntity user = UserEntity.builder()
