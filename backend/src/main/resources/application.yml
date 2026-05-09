@@ -17,6 +17,16 @@ app:
       max-attempts: ${APP_SECURITY_LOCKOUT_MAX_ATTEMPTS:5}
       duration-minutes: ${APP_SECURITY_LOCKOUT_DURATION_MINUTES:30}
 
+# PAT-157 — public self-registration via /api/auth/register is OFF by default.
+# Medical / TFDA-regulated software typically provisions accounts through an
+# admin (IEC 62304 access control). Set AUTH_SELF_REGISTRATION_ENABLED=true to
+# opt in for environments that genuinely need open registration; the endpoint
+# then accepts new accounts but still returns a uniform "registration request
+# received" response on duplicate usernames to close CWE-200 user enumeration.
+auth:
+  self-registration:
+    enabled: ${AUTH_SELF_REGISTRATION_ENABLED:false}
+
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful

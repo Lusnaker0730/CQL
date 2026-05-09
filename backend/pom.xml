@@ -141,11 +141,17 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 Database (dev/test) -->
+        <!--
+          H2 Database — test scope only. Previously runtime, which baked H2 into
+          the production JAR. H2 has had a history of CVEs (most notably CVE-2022-23221
+          RCE via the H2 console); shipping it in production widens the attack
+          surface even when dormant. PAT-157 dropped it to test scope; production
+          uses Postgres exclusively (see application-docker.yml).
+        -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <!-- Flyway Database Migrations -->

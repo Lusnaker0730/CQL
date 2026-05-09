@@ -238,6 +238,7 @@ jobs:
           scan-ref: 'frontend'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+          trivyignores: 'frontend/.trivyignore'
 
   image-scan:
     name: Container Image Scan

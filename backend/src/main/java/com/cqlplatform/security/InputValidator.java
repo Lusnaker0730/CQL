@@ -67,9 +67,18 @@ public final class InputValidator {
         return IS_LOCAL_DEV;
     }
 
+    /**
+     * PAT-157 — drop {@code docker} from local-development detection. Production
+     * deployments run with {@code SPRING_PROFILES_ACTIVE=docker}, so previously
+     * the SSRF allow-list (loopback / link-local / site-local IPs) opened up in
+     * production: an authenticated user could point {@code ?fhirServer=...} at
+     * 169.254.169.254 (cloud metadata) or sibling internal services. {@code docker}
+     * is no longer treated as "local"; only {@code dev} and {@code test} bypass
+     * the private-IP check.
+     */
     private static boolean computeIsLocalDevelopment() {
         String profile = System.getProperty("spring.profiles.active", System.getenv().getOrDefault("SPRING_PROFILES_ACTIVE", ""));
-        return profile.contains("dev") || profile.contains("docker") || profile.contains("test");
+        return profile.contains("dev") || profile.contains("test");
     }
 
     public static void requireValidUrl(String url) {
