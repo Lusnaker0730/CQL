@@ -422,6 +422,7 @@
     "filterTypes": {
       "code": "Code",
       "valueSet": "Value Set",
+      "codePrefix": "Code Prefix",
       "codeSystem": "Code System",
       "date": "Date",
       "dateFilter": "Date filter",
