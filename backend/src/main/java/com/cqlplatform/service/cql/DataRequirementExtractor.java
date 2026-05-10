@@ -396,6 +396,13 @@ public class DataRequirementExtractor {
             return;
         }
 
+        // PAT-158: build a map of let-binding identifier → expression for this Query.
+        // Used by `extractCodePathFromPropertyChain` to follow `QueryLetRef` nodes
+        // back to their source property (the recommended FHIR choice-type access
+        // pattern `let medCC: MR.medication as FHIR.CodeableConcept` produces ELM
+        // source chains that bottom out at QueryLetRef, not at the outer alias).
+        Map<String, JsonNode> letBindings = buildLetBindings(queryNode);
+
         // Process each source in the Query
         for (JsonNode source : sources) {
             JsonNode sourceExpr = source.get("expression");
@@ -427,11 +434,32 @@ public class DataRequirementExtractor {
             boolean hasInlineCodes = (info.valueSetRefName != null || !info.directCodes.isEmpty());
             JsonNode where = queryNode.get("where");
             if (where != null && alias != null) {
-                enhanceFromWhere(where, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes);
+                enhanceFromWhere(where, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
             }
 
             retrieves.add(info);
         }
+    }
+
+    /**
+     * PAT-158 — collect a Query's {@code let} clauses into an identifier → expression
+     * map. Used downstream by {@link #extractCodePathFromPropertyChain} to follow
+     * {@code QueryLetRef} references back to their source properties. Returns an
+     * empty map (not null) so callers can pass it through without null-checking.
+     */
+    private Map<String, JsonNode> buildLetBindings(JsonNode queryNode) {
+        Map<String, JsonNode> bindings = new HashMap<>();
+        JsonNode lets = queryNode.get("let");
+        if (lets != null && lets.isArray()) {
+            for (JsonNode let : lets) {
+                String identifier = let.path("identifier").asText(null);
+                JsonNode expression = let.get("expression");
+                if (identifier != null && expression != null) {
+                    bindings.put(identifier, expression);
+                }
+            }
+        }
+        return bindings;
     }
 
     /**
@@ -441,8 +469,9 @@ public class DataRequirementExtractor {
     private void enhanceFromWhere(JsonNode where, RetrieveInfo info, String alias,
                                   Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
                                   Map<String, List<String>> conceptDefMap,
-                                  boolean hasInlineCodes) {
-        walkWhereClause(where, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes);
+                                  boolean hasInlineCodes,
+                                  Map<String, JsonNode> letBindings) {
+        walkWhereClause(where, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
     }
 
     /**
@@ -451,7 +480,8 @@ public class DataRequirementExtractor {
     private void walkWhereClause(JsonNode node, RetrieveInfo info, String alias,
                                  Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
                                   Map<String, List<String>> conceptDefMap,
-                                 boolean hasInlineCodes) {
+                                 boolean hasInlineCodes,
+                                 Map<String, JsonNode> letBindings) {
         if (node == null || !node.isObject()) {
             return;
         }
@@ -465,7 +495,7 @@ public class DataRequirementExtractor {
                 JsonNode andOps = node.get("operand");
                 if (andOps != null && andOps.isArray()) {
                     for (JsonNode op : andOps) {
-                        walkWhereClause(op, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes);
+                        walkWhereClause(op, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
                     }
                 }
                 break;
@@ -473,7 +503,7 @@ public class DataRequirementExtractor {
             case "Not":
                 JsonNode notOp = node.get("operand");
                 if (notOp != null) {
-                    walkWhereClause(notOp, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes);
+                    walkWhereClause(notOp, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
                 }
                 break;
 
@@ -481,7 +511,7 @@ public class DataRequirementExtractor {
                 // exists(C.code.coding Y where Y.system = "url" ...) pattern
                 JsonNode existsOp = node.get("operand");
                 if (existsOp != null && !hasInlineCodes) {
-                    handleExistsPattern(existsOp, info, alias, codeSystemMap);
+                    handleExistsPattern(existsOp, info, alias, codeSystemMap, letBindings);
                 }
                 break;
 
@@ -532,7 +562,8 @@ public class DataRequirementExtractor {
      * Looks for: Exists → Query(source: Property chain) → Where(Equal/Equivalent(.system, Literal))
      */
     private void handleExistsPattern(JsonNode existsOperand, RetrieveInfo info, String alias,
-                                     Map<String, String> codeSystemMap) {
+                                     Map<String, String> codeSystemMap,
+                                     Map<String, JsonNode> letBindings) {
         String opType = existsOperand.path("type").asText("");
 
         if ("Query".equals(opType)) {
@@ -540,7 +571,7 @@ public class DataRequirementExtractor {
             JsonNode innerSources = existsOperand.get("source");
             if (innerSources != null && innerSources.isArray() && !innerSources.isEmpty()) {
                 JsonNode innerSourceExpr = innerSources.get(0).get("expression");
-                String codePath = extractCodePathFromPropertyChain(innerSourceExpr, alias);
+                String codePath = extractCodePathFromPropertyChain(innerSourceExpr, alias, letBindings);
                 if (codePath != null && info.codeProperty == null) {
                     info.codeProperty = codePath;
                 }
@@ -556,7 +587,7 @@ public class DataRequirementExtractor {
         } else if ("Filter".equals(opType)) {
             // Filter node: source + condition
             JsonNode filterSource = existsOperand.get("source");
-            String codePath = extractCodePathFromPropertyChain(filterSource, alias);
+            String codePath = extractCodePathFromPropertyChain(filterSource, alias, letBindings);
             if (codePath != null && info.codeProperty == null) {
                 info.codeProperty = codePath;
             }
@@ -570,8 +601,25 @@ public class DataRequirementExtractor {
     /**
      * Extract the code path from a property chain like C.code.coding -> "code".
      * Returns the first property after the alias (e.g., "code" from C.code.coding).
+     *
+     * <p>PAT-158 — when the chain bottoms out at a {@code QueryLetRef}, follow the
+     * referenced let binding's expression and continue the walk. CQL that uses the
+     * recommended choice-type access pattern produces this shape:
+     * <pre>
+     *   [MedicationRequest] MR
+     *     let medCC: MR.medication as FHIR.CodeableConcept
+     *     where exists (from medCC.coding Coding where ...)
+     * </pre>
+     * The inner Query's source is {@code Property("coding") → QueryLetRef("medCC")}
+     * — the chain doesn't reach an AliasRef on its own. Resolving the let yields
+     * {@code As(Property("medication", scope="MR"))}, which after unwrapping
+     * gives {@code "medication"} as the code property on the outer alias.
+     * Without this, the entire code filter (system URL + StartsWith prefixes)
+     * gets dropped in {@link #deduplicateRequirements} because {@code codeProperty}
+     * stays null.
      */
-    private String extractCodePathFromPropertyChain(JsonNode node, String alias) {
+    private String extractCodePathFromPropertyChain(JsonNode node, String alias,
+                                                    Map<String, JsonNode> letBindings) {
         if (node == null || !node.isObject()) {
             return null;
         }
@@ -597,6 +645,18 @@ public class DataRequirementExtractor {
             String refName = current.path("name").asText("");
             if ("AliasRef".equals(refType) && alias.equals(refName) && !chain.isEmpty()) {
                 return chain.get(0); // Return first property (e.g., "code" from code.coding)
+            }
+            // PAT-158: when the chain bottoms at a QueryLetRef, resolve the let
+            // binding's expression and continue. The let is typically
+            // `As(Property(path="medication", scope="MR"))` for choice-type casts.
+            if ("QueryLetRef".equals(refType) && letBindings != null) {
+                JsonNode letExpr = letBindings.get(refName);
+                if (letExpr != null) {
+                    JsonNode unwrapped = unwrapToProperty(letExpr);
+                    if (unwrapped != null) {
+                        return extractCodePathFromPropertyChain(unwrapped, alias, letBindings);
+                    }
+                }
             }
         }
 

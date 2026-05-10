@@ -1575,4 +1575,116 @@ class DataRequirementExtractorTest {
         // No code filter created for unresolvable ConceptRef (no fallback pollution)
         assertThat(result.get(0).getCodeFilter()).isNullOrEmpty();
     }
+
+    @Test
+    void extract_letPattern_resolvesQueryLetRefToOuterAliasProperty() {
+        // PAT-158 — choice-type access using the recommended `let` pattern:
+        //   [MedicationRequest] MR
+        //     let medCC: MR.medication as FHIR.CodeableConcept
+        //     where exists (from medCC.coding Coding
+        //       where Coding.system.value = 'http://www.whocc.no/atc'
+        //         and StartsWith(Coding.code.value, 'A10'))
+        // Inner Query's source bottoms at QueryLetRef("medCC") instead of an
+        // AliasRef. Pre-fix, extractCodePathFromPropertyChain returned null,
+        // codeProperty stayed null, and deduplicateRequirements dropped the
+        // entire code filter (system URL + StartsWith prefix) — the
+        // MedicationRequest entry came back with codeFilter=null even though
+        // the where clause clearly described an ATC A10* filter.
+        // Production HbA1c measure (id=3) reproduced this exactly.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "Diabetes Medications",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{
+                              "alias": "MR",
+                              "expression": {
+                                "type": "Retrieve",
+                                "dataType": "{http://hl7.org/fhir}MedicationRequest"
+                              }
+                            }],
+                            "let": [{
+                              "identifier": "medCC",
+                              "expression": {
+                                "type": "As",
+                                "operand": {
+                                  "type": "Property",
+                                  "path": "medication",
+                                  "scope": "MR"
+                                }
+                              }
+                            }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{
+                                  "alias": "Coding",
+                                  "expression": {
+                                    "type": "Property",
+                                    "path": "coding",
+                                    "source": { "type": "QueryLetRef", "name": "medCC" }
+                                  }
+                                }],
+                                "where": {
+                                  "type": "And",
+                                  "operand": [
+                                    {
+                                      "type": "Equal",
+                                      "operand": [
+                                        {
+                                          "type": "Property",
+                                          "path": "value",
+                                          "source": {
+                                            "type": "Property",
+                                            "path": "system",
+                                            "scope": "Coding"
+                                          }
+                                        },
+                                        { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "http://www.whocc.no/atc" }
+                                      ]
+                                    },
+                                    {
+                                      "type": "StartsWith",
+                                      "operand": [
+                                        {
+                                          "type": "Property",
+                                          "path": "value",
+                                          "source": {
+                                            "type": "Property",
+                                            "path": "code",
+                                            "scope": "Coding"
+                                          }
+                                        },
+                                        { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "A10" }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo medReq = result.stream()
+                .filter(r -> "MedicationRequest".equals(r.getType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("MedicationRequest not in extracted requirements"));
+        assertThat(medReq.getCodeFilter()).hasSize(1);
+        DataRequirementInfo.CodeFilterInfo cf = medReq.getCodeFilter().get(0);
+        assertThat(cf.getPath())
+                .as("codeProperty must resolve to the outer-alias property the let binding targets")
+                .isEqualTo("medication");
+        assertThat(cf.getCodeSystemUrl()).isEqualTo("http://www.whocc.no/atc");
+        assertThat(cf.getCodePrefixes()).containsExactly("A10");
+    }
 }
