@@ -3,6 +3,8 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.ecqm.EcqmArtifactRequest;
 import com.cqlplatform.model.ecqm.EcqmConstants;
+import com.cqlplatform.service.authoring.CustomModifierBuildException;
+import com.cqlplatform.service.authoring.CustomModifierCqlBuilder;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.TemplateService;
 import com.cqlplatform.validation.ModifierValueValidator;
@@ -32,6 +34,7 @@ public class EcqmExpressionTreeValidator {
 
     private final TemplateService templateService;
     private final ModifierService modifierService;
+    private final CustomModifierCqlBuilder customModifierCqlBuilder;
 
     /** Max allowed nesting depth to prevent stack overflow on deeply nested payloads. */
     private static final int MAX_DEPTH = 50;
@@ -170,7 +173,20 @@ public class EcqmExpressionTreeValidator {
             for (Object modObj : modList) {
                 if (modObj instanceof Map<?, ?> modMap) {
                     String modId = toStr(modMap.get("id"));
-                    if (modId != null && !modId.isBlank() && !modifierService.isValidModifierId(modId)) {
+                    if (modId != null && modId.startsWith("custom_")) {
+                        // Custom modifier — validate structured rules tree (CqlInjection sink
+                        // when the client-supplied cqlTemplate string was trusted). Backend
+                        // rebuilds CQL from values.rules; this dry-run rejects malformed payloads.
+                        Object valuesObj = modMap.get("values");
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> values = valuesObj instanceof Map ? (Map<String, Object>) valuesObj : null;
+                        try {
+                            customModifierCqlBuilder.validate(values);
+                        } catch (CustomModifierBuildException ex) {
+                            errors.add(String.format("%s: custom modifier '%s' invalid — %s",
+                                    path, modId, ex.getMessage()));
+                        }
+                    } else if (modId != null && !modId.isBlank() && !modifierService.isValidModifierId(modId)) {
                         String modName = toStr(modMap.get("name"));
                         errors.add(String.format("%s: unknown modifier id '%s'%s",
                                 path, modId, modName != null ? " (name: " + modName + ")" : ""));

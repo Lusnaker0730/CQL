@@ -18,6 +18,7 @@ public class ExpressionCqlEngine {
 
     private final CqlTemplateEngine templateEngine;
     private final ModifierService modifierService;
+    private final CustomModifierCqlBuilder customModifierCqlBuilder;
 
     private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
@@ -560,6 +561,19 @@ public class ExpressionCqlEngine {
         String cqlTemplate = getStr(modifier, "cqlTemplate", "");
         String modId = getStr(modifier, "id", "");
         Map<String, Object> values = (Map<String, Object>) modifier.get("values");
+
+        // Custom modifiers (built via the UI's rule builder) are rebuilt server-side from
+        // values.rules. The client-supplied cqlTemplate string is ignored — it was the CQL
+        // injection sink for modifiers that bypassed the named-modifier registry.
+        if (modId != null && modId.startsWith("custom_")) {
+            try {
+                return customModifierCqlBuilder.build(expr, values);
+            } catch (CustomModifierBuildException ex) {
+                ctx.warn("Custom modifier '" + modId + "' rebuild failed: " + ex.getMessage() + "; modifier skipped");
+                log.warn("Custom modifier '{}' rebuild failed: {}", modId, ex.getMessage());
+                return expr;
+            }
+        }
 
         ModifierApplier applier = modifierAppliers.get(cqlTemplate);
         if (applier != null) {
@@ -1113,17 +1127,7 @@ public class ExpressionCqlEngine {
     }
 
     public String escapeCqlString(String value) {
-        if (value == null) return "";
-        String cleaned = stripNonAscii(value);
-        return cleaned.replace("\\", "\\\\").replace("'", "\\'");
-    }
-
-    /** Strips non-ASCII characters and cleans up residual empty parentheses/whitespace. */
-    private String stripNonAscii(String value) {
-        return value.replaceAll("[^\\x00-\\x7F]", "")
-                .replaceAll("\\(\\s*\\)", "")
-                .replaceAll("\\s{2,}", " ")
-                .trim();
+        return com.cqlplatform.util.CqlEscapeUtil.escapeCqlString(value);
     }
 
     /**
@@ -1133,9 +1137,7 @@ public class ExpressionCqlEngine {
      * to avoid CQL engine compatibility issues.
      */
     public String escapeCqlIdentifier(String value) {
-        if (value == null) return "";
-        String ascii = stripNonAscii(value);
-        return ascii.replace("\\", "\\\\").replace("\"", "\\\"");
+        return com.cqlplatform.util.CqlEscapeUtil.escapeCqlIdentifier(value);
     }
 
     public String getCodeSystemDisplayName(String systemUrl) {

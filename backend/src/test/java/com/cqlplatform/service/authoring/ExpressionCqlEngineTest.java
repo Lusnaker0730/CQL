@@ -15,7 +15,7 @@ class ExpressionCqlEngineTest {
 
     ExpressionCqlEngineTest() {
         templateEngine = new CqlTemplateEngine();
-        engine = new ExpressionCqlEngine(templateEngine, null);
+        engine = new ExpressionCqlEngine(templateEngine, null, new CustomModifierCqlBuilder());
     }
 
     // ===== Helpers =====
@@ -309,7 +309,7 @@ class ExpressionCqlEngineTest {
         // Real ModifierService so the DuringMeasurementPeriod catalog (resourceAlias + dateFieldSpec) resolves.
         ModifierService modSvc = new ModifierService();
         modSvc.init();
-        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc, new CustomModifierCqlBuilder());
         BuildContext ctx = new BuildContext(null, null);
 
         Map<String, Object> mod = new LinkedHashMap<>();
@@ -329,7 +329,7 @@ class ExpressionCqlEngineTest {
     void applyModifier_duringMeasurementPeriod_encounter() {
         ModifierService modSvc = new ModifierService();
         modSvc.init();
-        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc, new CustomModifierCqlBuilder());
         BuildContext ctx = new BuildContext(null, null);
 
         Map<String, Object> mod = new LinkedHashMap<>();
@@ -348,7 +348,7 @@ class ExpressionCqlEngineTest {
     void applyModifier_duringMeasurementPeriod_unknownIdWarns() {
         ModifierService modSvc = new ModifierService();
         modSvc.init();
-        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc, new CustomModifierCqlBuilder());
         BuildContext ctx = new BuildContext(null, null);
 
         Map<String, Object> mod = new LinkedHashMap<>();
