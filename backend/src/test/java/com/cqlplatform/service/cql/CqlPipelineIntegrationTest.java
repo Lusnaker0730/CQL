@@ -53,7 +53,7 @@ class CqlPipelineIntegrationTest {
     void setUp() {
         // Real CQL generation engine (FreeMarker templates)
         CqlTemplateEngine templateEngine = new CqlTemplateEngine();
-        ExpressionCqlEngine expressionEngine = new ExpressionCqlEngine(templateEngine, null);
+        ExpressionCqlEngine expressionEngine = new ExpressionCqlEngine(templateEngine, null, new com.cqlplatform.service.authoring.CustomModifierCqlBuilder());
         artifactBuilder = new CqlArtifactBuilder(expressionEngine, templateEngine);
 
         // Real translation service

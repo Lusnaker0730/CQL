@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ExpressionCqlEngineEdgeCaseTest {
 
     private final CqlTemplateEngine templateEngine = new CqlTemplateEngine();
-    private final ExpressionCqlEngine engine = new ExpressionCqlEngine(templateEngine, null);
+    private final ExpressionCqlEngine engine = new ExpressionCqlEngine(templateEngine, null, new CustomModifierCqlBuilder());
 
     private Map<String, Object> emptyTree() {
         Map<String, Object> tree = new LinkedHashMap<>();

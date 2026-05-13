@@ -2,6 +2,7 @@ package com.cqlplatform.service.ecqm;
 
 import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.ecqm.EcqmArtifactRequest;
+import com.cqlplatform.service.authoring.CustomModifierCqlBuilder;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.TemplateService;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +44,7 @@ class EcqmExpressionTreeValidatorTest {
         // Permissive modifier id check — PAT-139 modifier-values tests use a
         // synthetic id; the structural id check is exercised elsewhere.
         Mockito.when(modifierService.isValidModifierId(Mockito.anyString())).thenReturn(true);
-        validator = new EcqmExpressionTreeValidator(templateService, modifierService);
+        validator = new EcqmExpressionTreeValidator(templateService, modifierService, new CustomModifierCqlBuilder());
     }
 
     private EcqmArtifactRequest requestWithObservations(List<Map<String, Object>> observations) {

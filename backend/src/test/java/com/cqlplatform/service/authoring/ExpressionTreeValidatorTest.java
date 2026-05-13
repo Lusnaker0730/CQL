@@ -29,7 +29,7 @@ class ExpressionTreeValidatorTest {
 
     @BeforeEach
     void setUp() {
-        validator = new ExpressionTreeValidator(templateService, modifierService);
+        validator = new ExpressionTreeValidator(templateService, modifierService, new CustomModifierCqlBuilder());
     }
 
     // ===== Element type / modifier ID validation =====
