@@ -40,6 +40,12 @@ public class ExpressionCqlEngine {
     private static final Set<String> ARITHMETIC_OPERATORS = Set.of(
             "+", "-", "*", "/", "mod", "div", "^");
 
+    // PAT-162: arithmeticUnary function allow-list. All are CQL 1.5 built-ins
+    // taking a single Decimal/Integer/Quantity argument. Failsafe to "Abs" for
+    // anything outside this set (defensive fallback, mirrors ARITHMETIC_OPERATORS).
+    private static final Set<String> UNARY_FUNCTIONS = Set.of(
+            "Abs", "Ceiling", "Floor", "Negate", "Round", "Truncate");
+
     /**
      * Per-build context holding base elements for cross-reference lookups
      * and a warnings collector. Created fresh for each build invocation
@@ -314,6 +320,24 @@ public class ExpressionCqlEngine {
                 }
                 break;
             }
+            case "arithmeticUnary": {
+                // PAT-162: unary CQL function applied to a single operand
+                // (Abs/Floor/Ceiling/Round/Truncate/Negate). Function name is
+                // allow-listed; operand reuses the PAT-161 3-mode resolver
+                // (element / literal / quantity) with side="operand".
+                String fn = getFieldValue(fields, "function", "Abs");
+                if (!UNARY_FUNCTIONS.contains(fn)) {
+                    fn = "Abs";
+                }
+                String operandCql = resolveArithmeticOperand(fields, "operand", ctx);
+                if (operandCql != null) {
+                    expr = String.format("%s(%s)", fn, operandCql);
+                } else {
+                    ctx.warn(String.format("Unary element '%s' has unresolved operand", elementName));
+                    expr = "null /* unresolved unary operand */";
+                }
+                break;
+            }
             default:
                 if (type.startsWith("Generic")) {
                     expr = buildGenericResourceExpression(type, fields);
@@ -390,8 +414,11 @@ public class ExpressionCqlEngine {
             if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(unit).matches()) return null;
             return String.format("%s '%s'", value, unit);
         }
-        // Element reference mode
-        String refId = getFieldValue(fields, side + "_operand_id", "");
+        // Element reference mode. Binary arithmetic uses `<side>_operand_id`
+        // (left_operand_id / right_operand_id), but PAT-162's unary uses just
+        // `operand_id` (avoiding the ugly `operand_operand_id`). Both work here.
+        String operandIdField = "operand".equals(side) ? "operand_id" : side + "_operand_id";
+        String refId = getFieldValue(fields, operandIdField, "");
         if (refId == null || refId.isEmpty()) return null;
         String refName = ctx.findBaseElementName(refId);
         return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;

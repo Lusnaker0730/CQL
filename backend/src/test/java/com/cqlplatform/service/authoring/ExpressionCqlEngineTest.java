@@ -810,6 +810,143 @@ class ExpressionCqlEngineTest {
         assertThat(out).isEqualTo("\"Weight\" + \"Weight\"");
     }
 
+    // ===== PAT-162: arithmeticUnary (Abs/Floor/Ceiling/Round/Truncate/Negate) =====
+
+    private Map<String, Object> unaryElement(String name, String function,
+                                             List<Map<String, Object>> fields) {
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "unary_" + name);
+        el.put("uniqueId", "unary_" + name);
+        el.put("name", name);
+        el.put("type", "arithmeticUnary");
+        el.put("returnType", "decimal");
+        List<Map<String, Object>> allFields = new ArrayList<>();
+        allFields.add(Map.of("id", "function", "type", "string", "name", "function", "value", function));
+        allFields.addAll(fields);
+        el.put("fields", allFields);
+        return el;
+    }
+
+    @Test
+    void unary_absFunction_emitsAbsCall() {
+        Map<String, Object> el = unaryElement("Diff", "Abs", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "-5")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Abs(-5)");
+    }
+
+    @Test
+    void unary_floorFunction_emitsFloorCall() {
+        Map<String, Object> el = unaryElement("RoundDown", "Floor", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.7")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Floor(3.7)");
+    }
+
+    @Test
+    void unary_ceilingFunction_emitsCeilingCall() {
+        Map<String, Object> el = unaryElement("RoundUp", "Ceiling", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Ceiling(3.2)");
+    }
+
+    @Test
+    void unary_roundFunction_emitsRoundCall() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.5")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.5)");
+    }
+
+    @Test
+    void unary_truncateFunction_emitsTruncateCall() {
+        Map<String, Object> el = unaryElement("Truncated", "Truncate", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.9")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Truncate(3.9)");
+    }
+
+    @Test
+    void unary_negateFunction_emitsNegateCall() {
+        Map<String, Object> el = unaryElement("Negated", "Negate", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "10")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Negate(10)");
+    }
+
+    @Test
+    void unary_quantityOperand_emitsQuantity() {
+        Map<String, Object> el = unaryElement("FloorYears", "Floor", List.of(
+                field("operand_mode", "quantity"),
+                field("operand_literal_value", "5.7"),
+                field("operand_literal_unit", "a")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Floor(5.7 'a')");
+    }
+
+    @Test
+    void unary_elementReferenceOperand_emitsEscapedIdentifier() {
+        Map<String, Object> referenced = new LinkedHashMap<>();
+        referenced.put("uniqueId", "be_egfr");
+        referenced.put("name", "eGFR");
+        BuildContext ctx = new BuildContext(List.of(referenced), null);
+        Map<String, Object> el = unaryElement("RoundedEgfr", "Round", List.of(
+                field("operand_mode", "element"),
+                field("operand_id", "be_egfr")));
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).isEqualTo("Round(\"eGFR\")");
+    }
+
+    @Test
+    void unary_invalidFunction_fallsBackToAbs() {
+        // Regression: anything outside UNARY_FUNCTIONS set becomes "Abs",
+        // never reaches the emitted CQL.
+        Map<String, Object> el = unaryElement("Evil", "; DROP TABLE", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "5")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Abs(5)");
+    }
+
+    @Test
+    void unary_quantityWithSingleQuoteInUnit_isFiltered() {
+        // Sanity: reuses PAT-161 operand resolver — single quote in unit
+        // makes the operand unresolvable, expression becomes the unresolved
+        // sentinel (callers don't get malformed CQL).
+        Map<String, Object> el = unaryElement("BadUnit", "Abs", List.of(
+                field("operand_mode", "quantity"),
+                field("operand_literal_value", "5"),
+                field("operand_literal_unit", "mg' OR '1")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved unary operand");
+    }
+
+    @Test
+    void unary_missingOperand_emitsUnresolved() {
+        Map<String, Object> el = unaryElement("NoOp", "Abs", List.of(
+                field("operand_mode", "element"),
+                field("operand_id", "")));
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved unary operand");
+        assertThat(ctx.warnings).isNotEmpty();
+    }
+
+    @Test
+    void unary_defaultFunctionWhenMissing_isAbs() {
+        // Regression: if `function` field is missing entirely, fallback to Abs.
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "unary_default");
+        el.put("uniqueId", "unary_default");
+        el.put("name", "Default");
+        el.put("type", "arithmeticUnary");
+        el.put("returnType", "decimal");
+        el.put("fields", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "7")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Abs(7)");
+    }
+
     @Test
     void arithmetic_bmiFormula_quantityAndElementMixed() {
         // End-to-end shape sanity: BMI = "Weight" / ("Height in m" ^ 2). Built as

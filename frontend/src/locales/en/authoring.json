@@ -477,6 +477,7 @@
     "duplicateName": "Duplicate base element name",
     "defaultName": "Base Element {{number}}",
     "calculatedDefaultName": "Calculated Value {{number}}",
+    "unaryDefaultName": "Unary Value {{number}}",
     "fallbackName": "this base element"
   },
   "arithmetic": {
@@ -494,6 +495,13 @@
     "modeQuantity": "Quantity",
     "quantityValue": "Value",
     "quantityUnit": "Unit"
+  },
+  "arithmeticUnary": {
+    "unaryElement": "Unary Function",
+    "function": "Function",
+    "operand": "Operand",
+    "namePlaceholder": "Unary Result Name",
+    "cqlPreview": "CQL Preview:"
   },
   "parameters": {
     "title": "Parameters",
