@@ -4,7 +4,11 @@ import {
   ToggleButtonGroup, ToggleButton,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { Delete as DeleteIcon } from '@mui/icons-material'
+// Sub-path import (not barrel): keeps vitest from pre-bundling all 10k icons.
+// `import { Delete } from '@mui/icons-material'` forces Vite to scan the
+// entire barrel at collection time, which hangs on Windows (EMFILE) and
+// is very slow in CI. Per-icon imports resolve to one file only.
+import DeleteIcon from '@mui/icons-material/Delete'
 import type { BaseElement } from '../../../types/authoring'
 import { escapeCqlIdentifier } from '../../../utils/cqlString'
 import UcumUnitField from '../fields/UcumUnitField'
