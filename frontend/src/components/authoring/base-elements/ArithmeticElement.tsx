@@ -10,7 +10,8 @@ import { alpha } from '@mui/material/styles'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { BaseElement } from '../../../types/authoring'
 import { escapeCqlIdentifier } from '../../../utils/cqlString'
-import OperandField, { NUMERIC_LITERAL_RE, quantityToCql, type OperandMode } from './OperandField'
+import OperandField from './OperandField'
+import { NUMERIC_LITERAL_RE, quantityToCql, type OperandMode } from './operandValidation'
 
 const OPERATORS = [
   { value: '+', label: '+' },

@@ -3,28 +3,7 @@ import {
   ToggleButtonGroup, ToggleButton,
 } from '@mui/material'
 import UcumUnitField from '../fields/UcumUnitField'
-
-// PAT-161: NUMERIC must be a plain CQL numeric literal; UCUM unit must use
-// UCUM-safe chars only (no single-quote → can't escape the Quantity literal
-// delimiter; no whitespace/backslash → can't smuggle CQL fragments). Mirrors
-// the backend ARITHMETIC_NUMERIC_PATTERN / ARITHMETIC_UCUM_UNIT_PATTERN.
-export const NUMERIC_LITERAL_RE = /^-?\d+(\.\d+)?$/
-export const UCUM_UNIT_RE = /^[A-Za-z0-9./*+\-()[\]{}%_]{1,32}$/
-
-export type OperandMode = 'element' | 'literal' | 'quantity'
-
-/**
- * Convert a Quantity operand's separate value + unit to a CQL string literal
- * `<value> '<unit>'`. Returns empty string if either side fails validation —
- * callers treat empty as "preview not renderable" rather than emitting
- * malformed CQL.
- */
-export function quantityToCql(value: string, unit: string): string {
-  const v = value.trim()
-  const u = unit.trim()
-  if (!NUMERIC_LITERAL_RE.test(v) || !UCUM_UNIT_RE.test(u)) return ''
-  return `${v} '${u}'`
-}
+import type { OperandMode } from './operandValidation'
 
 interface OperandFieldProps {
   mode: OperandMode
