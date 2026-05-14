@@ -112,13 +112,18 @@ public class CqlArtifactBuilder {
         }
         dataModel.put("params", paramModels);
 
-        // Base Elements — emit non-arithmetic first, then arithmetic (which may reference other base elements)
+        // Base Elements — emit non-arithmetic first, then arithmetic-like
+        // (arithmeticExpression and PAT-162 arithmeticUnary; both may reference
+        // other base elements). Within the arithmetic bucket, user-defined order
+        // is preserved — sufficient for unary-of-binary or binary-of-binary
+        // chains but not for general DAG references (deferred to PAT-163/164).
         List<Map<String, String>> baseElementModels = new ArrayList<>();
         if (baseElements != null) {
             List<Map<String, Object>> nonArithmetic = new ArrayList<>();
             List<Map<String, Object>> arithmetic = new ArrayList<>();
             for (Map<String, Object> be : baseElements) {
-                if ("arithmeticExpression".equals(engine.getStr(be, "type", ""))) {
+                String beType = engine.getStr(be, "type", "");
+                if ("arithmeticExpression".equals(beType) || "arithmeticUnary".equals(beType)) {
                     arithmetic.add(be);
                 } else {
                     nonArithmetic.add(be);

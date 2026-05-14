@@ -477,6 +477,7 @@
     "duplicateName": "基礎元素名稱重複",
     "defaultName": "基礎元素 {{number}}",
     "calculatedDefaultName": "計算值 {{number}}",
+    "unaryDefaultName": "一元值 {{number}}",
     "fallbackName": "此基礎元素"
   },
   "arithmetic": {
@@ -494,6 +495,13 @@
     "modeQuantity": "帶單位數值",
     "quantityValue": "數值",
     "quantityUnit": "單位"
+  },
+  "arithmeticUnary": {
+    "unaryElement": "一元函式元素",
+    "function": "函式",
+    "operand": "運算元",
+    "namePlaceholder": "一元結果名稱",
+    "cqlPreview": "CQL 預覽："
   },
   "parameters": {
     "title": "參數",
