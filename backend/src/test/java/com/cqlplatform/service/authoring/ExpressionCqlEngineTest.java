@@ -678,4 +678,153 @@ class ExpressionCqlEngineTest {
 
         assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
     }
+
+    // ===== PAT-161: arithmeticExpression operator + Quantity literal extensions =====
+
+    private Map<String, Object> arithmeticElement(String name, String operator,
+                                                  List<Map<String, Object>> fields) {
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "arith_" + name);
+        el.put("uniqueId", "arith_" + name);
+        el.put("name", name);
+        el.put("type", "arithmeticExpression");
+        el.put("returnType", "decimal");
+        List<Map<String, Object>> allFields = new ArrayList<>();
+        allFields.add(Map.of("id", "operator", "type", "string", "name", "operator", "value", operator));
+        allFields.addAll(fields);
+        el.put("fields", allFields);
+        return el;
+    }
+
+    private Map<String, Object> field(String id, String value) {
+        return Map.of("id", id, "type", "string", "name", id, "value", value);
+    }
+
+    @Test
+    void arithmetic_modOperator_emitsModKeyword() {
+        Map<String, Object> el = arithmeticElement("DoseInterval", "mod", List.of(
+                field("left_mode", "literal"), field("left_literal", "5"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("5 mod 2");
+    }
+
+    @Test
+    void arithmetic_divOperator_emitsDivKeyword() {
+        Map<String, Object> el = arithmeticElement("Quotient", "div", List.of(
+                field("left_mode", "literal"), field("left_literal", "10"),
+                field("right_mode", "literal"), field("right_literal", "3")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("10 div 3");
+    }
+
+    @Test
+    void arithmetic_powerOperator_emitsCaret() {
+        Map<String, Object> el = arithmeticElement("Squared", "^", List.of(
+                field("left_mode", "literal"), field("left_literal", "2"),
+                field("right_mode", "literal"), field("right_literal", "3")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("2 ^ 3");
+    }
+
+    @Test
+    void arithmetic_quantityLiteral_emitsValueAndUnit() {
+        Map<String, Object> el = arithmeticElement("DoseMinusBuffer", "-", List.of(
+                field("left_mode", "literal"), field("left_literal", "50"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg/dL")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("50 - 5 'mg/dL'");
+    }
+
+    @Test
+    void arithmetic_quantityWithSingleQuoteInUnit_isFiltered() {
+        // Unit contains a single quote — would terminate the CQL Quantity literal
+        // early. Allow-list rejects it; operand is null; whole expression resolves
+        // to the "unresolved" fallback, which keeps the emitted CQL parseable.
+        Map<String, Object> el = arithmeticElement("BadUnit", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg' OR '1")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_quantityWithBackslashInUnit_isFiltered() {
+        Map<String, Object> el = arithmeticElement("BadUnit", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg\\inj")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_quantityWithNonNumericValue_isFiltered() {
+        Map<String, Object> el = arithmeticElement("BadValue", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "abc"), field("right_literal_unit", "mg")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_quantityWithSpaceInUnit_isFiltered() {
+        // UCUM units are space-free; whitespace in unit indicates user typo or
+        // injection attempt — fail safe.
+        Map<String, Object> el = arithmeticElement("BadUnit", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg dL")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_invalidOperator_fallsBackToPlus() {
+        // Regression: PAT-159-era safety net. Anything outside the allow-list
+        // becomes "+", never reaches CQL.
+        Map<String, Object> el = arithmeticElement("Evil", "; DROP TABLE", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("1 + 2");
+    }
+
+    @Test
+    void arithmetic_legacyArtifactWithoutMode_defaultsToElement() {
+        // Regression: artifacts saved before mode-tracking existed have no
+        // `<side>_mode` field. Default must remain "element" — the rest of the
+        // pipeline depends on operand_id resolution there.
+        Map<String, Object> referencedElement = new LinkedHashMap<>();
+        referencedElement.put("uniqueId", "be_weight");
+        referencedElement.put("name", "Weight");
+        BuildContext ctx = new BuildContext(List.of(referencedElement), null);
+        Map<String, Object> el = arithmeticElement("Legacy", "+", List.of(
+                // No left_mode/right_mode — should still resolve via element ref
+                field("left_operand_id", "be_weight"),
+                field("right_operand_id", "be_weight")));
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).isEqualTo("\"Weight\" + \"Weight\"");
+    }
+
+    @Test
+    void arithmetic_bmiFormula_quantityAndElementMixed() {
+        // End-to-end shape sanity: BMI = "Weight" / ("Height in m" ^ 2). Built as
+        // two arithmetic elements that reference each other through the index.
+        Map<String, Object> weight = new LinkedHashMap<>();
+        weight.put("uniqueId", "be_weight");
+        weight.put("name", "Weight");
+        Map<String, Object> height = new LinkedHashMap<>();
+        height.put("uniqueId", "be_height");
+        height.put("name", "Height in m");
+        BuildContext ctx = new BuildContext(List.of(weight, height), null);
+        Map<String, Object> heightSquared = arithmeticElement("HeightSquared", "^", List.of(
+                field("left_mode", "element"), field("left_operand_id", "be_height"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(heightSquared, ctx);
+        assertThat(out).isEqualTo("\"Height in m\" ^ 2");
+    }
 }

@@ -490,7 +490,10 @@
     "cqlPreview": "CQL 預覽：",
     "literalValue": "數值",
     "modeElement": "元素",
-    "modeLiteral": "常數"
+    "modeLiteral": "常數",
+    "modeQuantity": "帶單位數值",
+    "quantityValue": "數值",
+    "quantityUnit": "單位"
   },
   "parameters": {
     "title": "參數",
