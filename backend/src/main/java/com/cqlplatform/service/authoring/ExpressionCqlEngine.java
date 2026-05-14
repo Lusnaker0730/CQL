@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Shared engine for converting expression trees into CQL fragments.
@@ -22,6 +23,22 @@ public class ExpressionCqlEngine {
 
     private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
+
+    // PAT-161: arithmetic Quantity-literal operand validation.
+    // value must be a plain CQL numeric literal; unit must be UCUM-safe characters
+    // only (no single-quote → can't escape the Quantity literal delimiter; no
+    // whitespace/backslash → can't smuggle CQL fragments).
+    private static final Pattern ARITHMETIC_NUMERIC_PATTERN =
+            Pattern.compile("-?\\d+(\\.\\d+)?");
+    private static final Pattern ARITHMETIC_UCUM_UNIT_PATTERN =
+            Pattern.compile("[A-Za-z0-9./*+\\-()\\[\\]{}%_]{1,32}");
+
+    // PAT-161: arithmetic operator allow-list. mod/div are CQL keyword operators
+    // (word-style); ^ is the CQL exponentiation operator. Failsafe to "+" for
+    // anything outside this set so a malicious operator string can never reach
+    // the emitted CQL.
+    private static final Set<String> ARITHMETIC_OPERATORS = Set.of(
+            "+", "-", "*", "/", "mod", "div", "^");
 
     /**
      * Per-build context holding base elements for cross-reference lookups
@@ -281,9 +298,10 @@ public class ExpressionCqlEngine {
             }
             case "arithmeticExpression": {
                 String operator = getFieldValue(fields, "operator", "+");
-                // Validate operator to prevent injection
-                if (!"+".equals(operator) && !"-".equals(operator)
-                        && !"*".equals(operator) && !"/".equals(operator)) {
+                // Validate operator against allow-list to prevent injection; anything
+                // outside the set fails safe to "+". See ARITHMETIC_OPERATORS — adding
+                // an operator without updating that set is intentionally hard.
+                if (!ARITHMETIC_OPERATORS.contains(operator)) {
                     operator = "+";
                 }
                 String leftCql = resolveArithmeticOperand(fields, "left", ctx);
@@ -340,7 +358,15 @@ public class ExpressionCqlEngine {
 
     /**
      * Resolve one side (left or right) of an arithmetic expression.
-     * Supports element references and literal numeric values.
+     * Supports three modes:
+     * <ul>
+     *   <li>{@code element} (default) — reference to another base element by id</li>
+     *   <li>{@code literal} — raw numeric / Quantity string (legacy single-field form)</li>
+     *   <li>{@code quantity} — PAT-161: structured Quantity from separate value + UCUM unit fields</li>
+     * </ul>
+     * Returns {@code null} when the operand is missing or fails validation —
+     * caller emits {@code null /* unresolved arithmetic operands *&#47;} for the
+     * whole expression so the CQL stays parseable and the warning surfaces in UI.
      */
     private String resolveArithmeticOperand(List<Map<String, Object>> fields, String side, BuildContext ctx) {
         String mode = getFieldValue(fields, side + "_mode", "element");
@@ -352,6 +378,17 @@ public class ExpressionCqlEngine {
                 return null;
             }
             return literal;
+        }
+        if ("quantity".equals(mode)) {
+            String rawValue = getFieldValue(fields, side + "_literal_value", "");
+            String rawUnit = getFieldValue(fields, side + "_literal_unit", "");
+            if (rawValue == null || rawUnit == null) return null;
+            String value = rawValue.trim();
+            String unit = rawUnit.trim();
+            if (value.isEmpty() || unit.isEmpty()) return null;
+            if (!ARITHMETIC_NUMERIC_PATTERN.matcher(value).matches()) return null;
+            if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(unit).matches()) return null;
+            return String.format("%s '%s'", value, unit);
         }
         // Element reference mode
         String refId = getFieldValue(fields, side + "_operand_id", "");

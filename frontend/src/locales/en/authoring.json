@@ -490,7 +490,10 @@
     "cqlPreview": "CQL Preview:",
     "literalValue": "Value",
     "modeElement": "Element",
-    "modeLiteral": "Literal"
+    "modeLiteral": "Literal",
+    "modeQuantity": "Quantity",
+    "quantityValue": "Value",
+    "quantityUnit": "Unit"
   },
   "parameters": {
     "title": "Parameters",
