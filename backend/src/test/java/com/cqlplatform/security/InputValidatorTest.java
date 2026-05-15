@@ -119,4 +119,30 @@ class InputValidatorTest {
     void isValidSearchParams_shouldRejectSqlInjection() {
         assertThat(InputValidator.isValidSearchParams("'; DROP TABLE users;--")).isFalse();
     }
+
+    // --- PAT-165 follow-up: internal hostname allow-list ---
+
+    @Test
+    void isValidUrl_shouldAllowDockerInternalHapiFhirHost() {
+        // hapi-fhir is the platform's own FHIR server (Docker compose service
+        // name). It resolves to a private IP but is explicitly allow-listed.
+        assertThat(InputValidator.isValidUrl("http://hapi-fhir:8080/fhir")).isTrue();
+    }
+
+    @Test
+    void isValidUrl_shouldAllowDockerInternalTwFhirGenerator() {
+        assertThat(InputValidator.isValidUrl("http://taiwan-fhir-generator:5000/fhir")).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://169.254.169.254/latest/meta-data",  // AWS metadata (link-local)
+            "http://192.168.1.1/admin",                 // site-local
+            "http://10.0.0.1/internal",                 // site-local
+    })
+    void isValidUrl_shouldStillRejectOtherPrivateIps(String url) {
+        // The allow-list is ONLY for known internal hostnames; literal private
+        // IPs are still blocked (SSRF surface stays narrow).
+        assertThat(InputValidator.isValidUrl(url)).isFalse();
+    }
 }

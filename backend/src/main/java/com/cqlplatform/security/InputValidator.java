@@ -38,6 +38,18 @@ public final class InputValidator {
         return params == null || SAFE_PARAMS_PATTERN.matcher(params).matches();
     }
 
+    /**
+     * PAT-165 follow-up: platform-internal FHIR services that are reachable
+     * only via the Docker network. Their hostnames resolve to private IPs
+     * (172.x range) which the post-PAT-157 SSRF check would otherwise block —
+     * but they ARE the platform's own backends, so we explicitly allow-list
+     * them. Anything outside this set still goes through the private-IP block.
+     */
+    private static final java.util.Set<String> INTERNAL_FHIR_HOSTNAMES = java.util.Set.of(
+            "hapi-fhir",
+            "taiwan-fhir-generator"
+    );
+
     public static boolean isValidUrl(String url) {
         if (url == null || url.isBlank()) return false;
         if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
@@ -47,6 +59,9 @@ public final class InputValidator {
             if (host == null) return false;
             // Block URLs with embedded credentials
             if (uri.getUserInfo() != null) return false;
+            // Explicit allow-list for known-safe internal Docker services.
+            // These resolve to private IPs but are the platform's own backends.
+            if (INTERNAL_FHIR_HOSTNAMES.contains(host)) return true;
             // Resolve and check for private IPs
             java.net.InetAddress addr = java.net.InetAddress.getByName(host);
             if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() ||
