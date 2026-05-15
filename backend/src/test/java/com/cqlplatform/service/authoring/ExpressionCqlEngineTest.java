@@ -947,6 +947,67 @@ class ExpressionCqlEngineTest {
         assertThat(out).isEqualTo("Abs(7)");
     }
 
+    // ===== PAT-164: Round(x, precision) optional 2-arg variant =====
+
+    @Test
+    void unary_roundWithPrecision_emitsTwoArg() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14, 2)");
+    }
+
+    @Test
+    void unary_roundWithoutPrecision_emitsOneArg() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_roundWithEmptyPrecision_emitsOneArg() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_roundWithBadPrecision_fallsBackToOneArg() {
+        // Non-numeric precision -> regex fails -> falls back to Round(x).
+        // Defense-in-depth against tampered input bypassing the UI validator.
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "; DROP TABLE")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_roundWithNegativePrecision_fallsBackToOneArg() {
+        // ROUND_PRECISION_PATTERN matches only \\d+ (non-negative), so a
+        // leading minus is rejected.
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "-1")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_floorIgnoresPrecisionField() {
+        // Precision field only applies to Round; other functions emit as before
+        // even if precision is present (defensive — don't pollute their CQL).
+        Map<String, Object> el = unaryElement("Floored", "Floor", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.9"),
+                field("precision", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Floor(3.9)");
+    }
+
     // ===== PAT-163: N-ary arithmetic + precedence parens =====
 
     private Map<String, Object> naryArithmeticElement(String name,

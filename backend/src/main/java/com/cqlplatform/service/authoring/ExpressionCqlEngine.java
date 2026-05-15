@@ -46,6 +46,11 @@ public class ExpressionCqlEngine {
     private static final Set<String> UNARY_FUNCTIONS = Set.of(
             "Abs", "Ceiling", "Floor", "Negate", "Round", "Truncate");
 
+    // PAT-164: Round precision argument validation. CQL spec allows
+    // Round(x, precision) where precision is a non-negative Integer; anything
+    // failing this regex falls back to single-arg Round(x).
+    private static final Pattern ROUND_PRECISION_PATTERN = Pattern.compile("\\d+");
+
     /**
      * Per-build context holding base elements for cross-reference lookups
      * and a warnings collector. Created fresh for each build invocation
@@ -336,13 +341,25 @@ public class ExpressionCqlEngine {
                 // (Abs/Floor/Ceiling/Round/Truncate/Negate). Function name is
                 // allow-listed; operand reuses the PAT-161 3-mode resolver
                 // (element / literal / quantity) with side="operand".
+                // PAT-164: Round accepts an optional Integer precision arg —
+                // emit Round(x, N) when 'precision' field is a non-negative
+                // integer; otherwise emit single-arg Round(x).
                 String fn = getFieldValue(fields, "function", "Abs");
                 if (!UNARY_FUNCTIONS.contains(fn)) {
                     fn = "Abs";
                 }
                 String operandCql = resolveArithmeticOperand(fields, "operand", ctx);
                 if (operandCql != null) {
-                    expr = String.format("%s(%s)", fn, operandCql);
+                    if ("Round".equals(fn)) {
+                        String precision = getFieldValue(fields, "precision", "").trim();
+                        if (!precision.isEmpty() && ROUND_PRECISION_PATTERN.matcher(precision).matches()) {
+                            expr = String.format("Round(%s, %s)", operandCql, precision);
+                        } else {
+                            expr = String.format("Round(%s)", operandCql);
+                        }
+                    } else {
+                        expr = String.format("%s(%s)", fn, operandCql);
+                    }
                 } else {
                     ctx.warn(String.format("Unary element '%s' has unresolved operand", elementName));
                     expr = "null /* unresolved unary operand */";

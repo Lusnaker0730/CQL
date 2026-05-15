@@ -183,4 +183,132 @@ describe('ArithmeticUnaryElement (PAT-162)', () => {
     expect(screen.getByText(/Abs\(5\)/)).toBeInTheDocument()
     expect(screen.queryByText(/NotARealFunction/)).not.toBeInTheDocument()
   })
+
+  // ===== PAT-164: type-aware function filtering + Round precision =====
+
+  it('PAT-164: quantity operand restricts dropdown to Abs + Negate', () => {
+    let el = makeElement()
+    el = setField(el, 'function', 'Abs')
+    el = setField(el, 'operand_mode', 'quantity')
+    el = setField(el, 'operand_literal_value', '5')
+    el = setField(el, 'operand_literal_unit', 'mg/dL')
+
+    render(
+      <ArithmeticUnaryElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    const fnSelect = screen.getByRole('combobox', { name: 'arithmeticUnary.function' })
+    fireEvent.mouseDown(fnSelect)
+    const listbox = screen.getByRole('listbox')
+    const options = within(listbox).getAllByRole('option')
+    const labels = options.map((o) => o.textContent?.trim())
+    expect(labels).toEqual(['Abs', 'Negate'])
+  })
+
+  it('PAT-164: previously-selected Floor with quantity operand renders flagged invalid', () => {
+    // Floor isn't valid for quantity; should still appear in the dropdown
+    // with the (invalid) marker so the user can see and correct it.
+    let el = makeElement()
+    el = setField(el, 'function', 'Floor')
+    el = setField(el, 'operand_mode', 'quantity')
+    el = setField(el, 'operand_literal_value', '5')
+    el = setField(el, 'operand_literal_unit', 'mg/dL')
+
+    render(
+      <ArithmeticUnaryElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    const fnSelect = screen.getByRole('combobox', { name: 'arithmeticUnary.function' })
+    fireEvent.mouseDown(fnSelect)
+    const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getByText(/arithmetic.invalidForTypes/)).toBeInTheDocument()
+  })
+
+  it('PAT-164: Round with no precision emits Round(x)', () => {
+    let el = makeElement()
+    el = setField(el, 'function', 'Round')
+    el = setField(el, 'operand_mode', 'literal')
+    el = setField(el, 'operand_literal', '3.14')
+
+    render(
+      <ArithmeticUnaryElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/Round\(3\.14\)/)).toBeInTheDocument()
+    // Precision input is rendered for Round
+    expect(screen.getByLabelText('arithmeticUnary.precision')).toBeInTheDocument()
+  })
+
+  it('PAT-164: Round with valid precision emits Round(x, N)', () => {
+    let el = makeElement()
+    el = setField(el, 'function', 'Round')
+    el = setField(el, 'operand_mode', 'literal')
+    el = setField(el, 'operand_literal', '3.14')
+    el = setField(el, 'precision', '2')
+
+    render(
+      <ArithmeticUnaryElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/Round\(3\.14, 2\)/)).toBeInTheDocument()
+  })
+
+  it('PAT-164: Round with invalid precision falls back to Round(x)', () => {
+    let el = makeElement()
+    el = setField(el, 'function', 'Round')
+    el = setField(el, 'operand_mode', 'literal')
+    el = setField(el, 'operand_literal', '3.14')
+    el = setField(el, 'precision', 'abc')
+
+    render(
+      <ArithmeticUnaryElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    // Preview should fall back to 1-arg Round (defense-in-depth)
+    expect(screen.getByText(/Round\(3\.14\)/)).toBeInTheDocument()
+    expect(screen.queryByText(/Round\(3\.14, abc\)/)).not.toBeInTheDocument()
+  })
+
+  it('PAT-164: non-Round function does not show precision input', () => {
+    let el = makeElement()
+    el = setField(el, 'function', 'Floor')
+    el = setField(el, 'operand_mode', 'literal')
+    el = setField(el, 'operand_literal', '3.9')
+
+    render(
+      <ArithmeticUnaryElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByLabelText('arithmeticUnary.precision')).not.toBeInTheDocument()
+  })
 })
