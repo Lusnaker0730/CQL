@@ -34,6 +34,35 @@ import type {
   DiffEditorProps,
 } from '@monaco-editor/react'
 
+// PAT-165 follow-up: explicit Monaco worker configuration.
+// When Monaco was loaded from jsdelivr CDN (pre-PAT-157), its loader.js
+// configured MonacoEnvironment for us automatically. After self-hosting via
+// PR #521 and lazy-loading via PR #526, no one tells Monaco where to find
+// its workers — the editor then logs "Could not create web worker(s)" and
+// falls back to running worker code on the main thread (UI freezes on
+// heavy ops). Below uses Vite's `?worker` query so each worker is bundled
+// as a separate chunk loaded lazily on demand.
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+
+// `self.MonacoEnvironment` is the contract Monaco looks for. Set at module
+// scope so it's in place before any Editor mounts. Workers map by language
+// label; the default catch-all is the core editor worker (handles syntax
+// highlighting and tokenization for languages without a dedicated worker —
+// our custom CQL syntax falls into this bucket).
+;(globalThis as unknown as { MonacoEnvironment: monaco.Environment }).MonacoEnvironment = {
+  getWorker(_workerId: string, label: string) {
+    if (label === 'json') return new jsonWorker()
+    if (label === 'css' || label === 'scss' || label === 'less') return new cssWorker()
+    if (label === 'html' || label === 'handlebars' || label === 'razor') return new htmlWorker()
+    if (label === 'typescript' || label === 'javascript') return new tsWorker()
+    return new editorWorker()
+  },
+}
+
 // Module-scope side effect — runs once when this module is first imported by
 // any editor component, before Editor mounts.
 loader.config({ monaco })
