@@ -6,19 +6,14 @@ import { ThemeProvider, CssBaseline } from '@mui/material'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { useTranslation } from 'react-i18next'
-import { loader } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor'
 import './i18n'
 import App from './App'
 
-// Use the bundled monaco-editor package instead of the default jsdelivr CDN.
-// PAT-157 removed cdn.jsdelivr.net from the script-src CSP allow-list; without
-// this call @monaco-editor/react falls back to its CDN loader, the script tag
-// is blocked by CSP, and every Monaco-backed editor (CQL editor, library editor,
-// CDS sandbox, FHIR resource editor, CQL preview boxes) fails to initialize.
-// Bundling Monaco also means we ship a known version (no surprise upgrades from
-// jsdelivr's latest) and works offline.
-loader.config({ monaco })
+// Monaco editor loader.config({ monaco }) moved to
+// `components/common/MonacoEditor.tsx` so the monaco-editor chunk only loads
+// on editor-bearing pages (lazy via existing route code-splitting) instead
+// of eagerly on Landing / Login etc. See PR #521 for the CDN-CSP regression
+// this fixes, and the PR adding this comment for the lazy-load follow-up.
 import { store } from './store'
 import { createAppTheme } from './theme'
 import { extractApiError } from './utils/errorUtils'

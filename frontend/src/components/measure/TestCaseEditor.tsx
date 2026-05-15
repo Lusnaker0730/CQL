@@ -25,7 +25,7 @@ import {
   Code as JsonIcon,
   CloudDownload as EhrImportIcon,
 } from '@mui/icons-material'
-import Editor from '@monaco-editor/react'
+import Editor from '../common/MonacoEditor'
 import GradientButton from '../common/GradientButton'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
