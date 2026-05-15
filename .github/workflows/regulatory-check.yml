@@ -6,6 +6,7 @@ on:
     types: [opened, edited, synchronize, labeled, unlabeled]
 
 permissions:
+  contents: read       # required for actions/checkout to clone the repo
   issues: read
   pull-requests: read
 
