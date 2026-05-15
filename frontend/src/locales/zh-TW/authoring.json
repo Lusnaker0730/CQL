@@ -494,7 +494,10 @@
     "modeLiteral": "常數",
     "modeQuantity": "帶單位數值",
     "quantityValue": "數值",
-    "quantityUnit": "單位"
+    "quantityUnit": "單位",
+    "addOperand": "新增運算元",
+    "removeOperand": "刪除運算元",
+    "operandLabel": "運算元 {{number}}"
   },
   "arithmeticUnary": {
     "unaryElement": "一元函式元素",

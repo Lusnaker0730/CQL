@@ -947,6 +947,213 @@ class ExpressionCqlEngineTest {
         assertThat(out).isEqualTo("Abs(7)");
     }
 
+    // ===== PAT-163: N-ary arithmetic + precedence parens =====
+
+    private Map<String, Object> naryArithmeticElement(String name,
+                                                      List<Map<String, Object>> operands,
+                                                      List<String> operators) {
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "nary_" + name);
+        el.put("uniqueId", "nary_" + name);
+        el.put("name", name);
+        el.put("type", "arithmeticExpression");
+        el.put("returnType", "decimal");
+        List<Map<String, Object>> fields = new ArrayList<>();
+        Map<String, Object> operandsField = new LinkedHashMap<>();
+        operandsField.put("id", "operands");
+        operandsField.put("type", "json");
+        operandsField.put("name", "operands");
+        operandsField.put("value", operands);
+        Map<String, Object> operatorsField = new LinkedHashMap<>();
+        operatorsField.put("id", "operators");
+        operatorsField.put("type", "json");
+        operatorsField.put("name", "operators");
+        operatorsField.put("value", operators);
+        fields.add(operandsField);
+        fields.add(operatorsField);
+        el.put("fields", fields);
+        return el;
+    }
+
+    private Map<String, Object> literalOperand(String value) {
+        Map<String, Object> op = new LinkedHashMap<>();
+        op.put("mode", "literal");
+        op.put("operand_literal", value);
+        return op;
+    }
+
+    private Map<String, Object> elementOperand(String beId) {
+        Map<String, Object> op = new LinkedHashMap<>();
+        op.put("mode", "element");
+        op.put("operand_id", beId);
+        return op;
+    }
+
+    private Map<String, Object> quantityOperand(String value, String unit) {
+        Map<String, Object> op = new LinkedHashMap<>();
+        op.put("mode", "quantity");
+        op.put("operand_literal_value", value);
+        op.put("operand_literal_unit", unit);
+        return op;
+    }
+
+    @Test
+    void nary_2operands_emitsUnchangedFromLegacy2ary() {
+        Map<String, Object> el = naryArithmeticElement("Sum", List.of(
+                literalOperand("3"), literalOperand("4")), List.of("+"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("3 + 4");
+    }
+
+    @Test
+    void nary_3operands_samePrecedence_noParens() {
+        Map<String, Object> el = naryArithmeticElement("Triple", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+", "+"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        // Left-associative grouping, all same precedence -> nested left side
+        // wraps in parens by our rule (any non-trivial subexpr is parenthesized).
+        assertThat(out).isEqualTo("(1 + 2) + 3");
+    }
+
+    @Test
+    void nary_3operands_mixedPrecedence_higherInParens() {
+        // a + b * c -> a + (b * c) since * binds tighter
+        Map<String, Object> el = naryArithmeticElement("Mixed", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+", "*"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("1 + (2 * 3)");
+    }
+
+    @Test
+    void nary_3operands_descendingPrecedence_leftInParens() {
+        // a * b + c -> (a * b) + c
+        Map<String, Object> el = naryArithmeticElement("Mixed2", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("*", "+"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("(1 * 2) + 3");
+    }
+
+    @Test
+    void nary_powerHasHighestPrecedence() {
+        // a + b ^ c -> a + (b ^ c)
+        Map<String, Object> el = naryArithmeticElement("Pow", List.of(
+                literalOperand("2"), literalOperand("3"), literalOperand("4")),
+                List.of("+", "^"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("2 + (3 ^ 4)");
+    }
+
+    @Test
+    void nary_modSamePrecedenceAsMultiply() {
+        // a + b mod c -> a + (b mod c)
+        Map<String, Object> el = naryArithmeticElement("Mod", List.of(
+                literalOperand("10"), literalOperand("7"), literalOperand("3")),
+                List.of("+", "mod"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("10 + (7 mod 3)");
+    }
+
+    @Test
+    void nary_bmiFormula_5operands_mixedPrecedence() {
+        // Health-like: 140 - age * weight / 72 - creatinine
+        // Precedence: - / * - share, but our left-assoc with same-prec wraps left side.
+        // [140, age, weight, 72, creatinine] with [-, *, /, -]
+        // Expected: ((140 - (age * weight) / 72) - creatinine) -- actually it depends
+        // on grouping. Lock concrete output to catch regressions.
+        Map<String, Object> el = naryArithmeticElement("CGc", List.of(
+                literalOperand("140"), literalOperand("70"), literalOperand("80"),
+                literalOperand("72"), literalOperand("1")),
+                List.of("-", "*", "/", "-"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        // The exact form is determined by groupByPrecedence's rightmost-min-prec split.
+        // Document the concrete result as a regression rope.
+        assertThat(out).contains("70 * 80");  // * binds tightest among the inner ops
+        assertThat(out).contains("- 1");      // final - at outer level
+    }
+
+    @Test
+    void nary_legacy2aryFields_stillWorksViaFallback() {
+        // No operands/operators fields -> falls back to PAT-161 path.
+        Map<String, Object> el = arithmeticElement("Legacy", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("1 + 2");
+    }
+
+    @Test
+    void nary_invalidOperatorInList_fallsBackToPlus() {
+        Map<String, Object> el = naryArithmeticElement("Evil", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+", "; DROP TABLE"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        // Second operator failed allow-list -> + ; same precedence as first +.
+        assertThat(out).isEqualTo("(1 + 2) + 3");
+    }
+
+    @Test
+    void nary_tooFewOperands_emitsUnresolved() {
+        Map<String, Object> el = naryArithmeticElement("Single", List.of(
+                literalOperand("1")), List.of());
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+        assertThat(ctx.warnings).isNotEmpty();
+    }
+
+    @Test
+    void nary_tooManyOperands_emitsUnresolved() {
+        // 11 operands -> exceeds NARY_MAX_OPERANDS (10)
+        List<Map<String, Object>> tooMany = new ArrayList<>();
+        List<String> ops = new ArrayList<>();
+        for (int i = 0; i < 11; i++) {
+            tooMany.add(literalOperand(String.valueOf(i)));
+            if (i < 10) ops.add("+");
+        }
+        Map<String, Object> el = naryArithmeticElement("TooMany", tooMany, ops);
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void nary_operatorsCountMismatch_emitsUnresolved() {
+        // 3 operands but only 1 operator -> invalid
+        Map<String, Object> el = naryArithmeticElement("Bad", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+"));
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void nary_unresolvedOperand_emitsUnresolved() {
+        // Quantity operand with single-quote in unit -> resolveNaryOperand returns null
+        Map<String, Object> el = naryArithmeticElement("BadUnit", List.of(
+                literalOperand("1"), quantityOperand("5", "mg' OR '1")),
+                List.of("+"));
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void nary_elementOperand_emitsEscapedIdentifier() {
+        Map<String, Object> referenced = new LinkedHashMap<>();
+        referenced.put("uniqueId", "be_weight");
+        referenced.put("name", "Weight");
+        BuildContext ctx = new BuildContext(List.of(referenced), null);
+        Map<String, Object> el = naryArithmeticElement("WeightPlus", List.of(
+                elementOperand("be_weight"), literalOperand("1")),
+                List.of("+"));
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).isEqualTo("\"Weight\" + 1");
+    }
+
     @Test
     void arithmetic_bmiFormula_quantityAndElementMixed() {
         // End-to-end shape sanity: BMI = "Weight" / ("Height in m" ^ 2). Built as

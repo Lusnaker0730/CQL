@@ -494,7 +494,10 @@
     "modeLiteral": "Literal",
     "modeQuantity": "Quantity",
     "quantityValue": "Value",
-    "quantityUnit": "Unit"
+    "quantityUnit": "Unit",
+    "addOperand": "Add operand",
+    "removeOperand": "Remove operand",
+    "operandLabel": "Operand {{number}}"
   },
   "arithmeticUnary": {
     "unaryElement": "Unary Function",
