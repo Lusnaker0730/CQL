@@ -302,7 +302,8 @@ describe('ArithmeticElement (PAT-163 N-ary)', () => {
 
   // ===== Operator dropdown still has all 7 =====
 
-  it('operator dropdown exposes all 7 operators', () => {
+  it('operator dropdown exposes all 7 operators with literal (decimal) operands and unknown filter', () => {
+    // Two literal operands -> both decimal -> filter drops mod/div, keeps 5
     const el = makeNaryElement(
       [{ mode: 'literal', operand_literal: '1' },
        { mode: 'literal', operand_literal: '2' }],
@@ -320,6 +321,78 @@ describe('ArithmeticElement (PAT-163 N-ary)', () => {
     fireEvent.mouseDown(operatorSelect)
     const listbox = screen.getByRole('listbox')
     const labels = within(listbox).getAllByRole('option').map((o) => o.textContent?.trim())
+    // PAT-164: decimal+decimal -> 5 operators (no mod/div)
+    expect(labels).toEqual(['+', '−', '×', '÷', '^'])
+  })
+
+  // ===== PAT-164: type-aware operator filtering =====
+
+  it('PAT-164: integer+integer operands -> all 7 operators incl mod/div', () => {
+    const el = makeNaryElement(
+      [{ mode: 'element', operand_id: 'age' },
+       { mode: 'element', operand_id: 'age' }],
+      ['+'],
+    )
+    render(
+      <ArithmeticElement
+        element={el}
+        availableOperands={[
+          { uniqueId: 'age', name: 'Age', returnType: 'system_integer' },
+        ]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+    const operatorSelect = screen.getByRole('combobox', { name: 'arithmetic.operator' })
+    fireEvent.mouseDown(operatorSelect)
+    const listbox = screen.getByRole('listbox')
+    const labels = within(listbox).getAllByRole('option').map((o) => o.textContent?.trim())
     expect(labels).toEqual(['+', '−', '×', '÷', 'mod', 'div', '^'])
+  })
+
+  it('PAT-164: string operand -> only + (concat)', () => {
+    const el = makeNaryElement(
+      [{ mode: 'element', operand_id: 'name' },
+       { mode: 'element', operand_id: 'name' }],
+      ['+'],
+    )
+    render(
+      <ArithmeticElement
+        element={el}
+        availableOperands={[
+          { uniqueId: 'name', name: 'PatientName', returnType: 'system_string' },
+        ]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+    const operatorSelect = screen.getByRole('combobox', { name: 'arithmetic.operator' })
+    fireEvent.mouseDown(operatorSelect)
+    const listbox = screen.getByRole('listbox')
+    const labels = within(listbox).getAllByRole('option').map((o) => o.textContent?.trim())
+    expect(labels).toEqual(['+'])
+  })
+
+  it('PAT-164: previously-selected mod with decimal operands renders as flagged invalid', () => {
+    // User had mod selected, then switched operands to decimal — mod is now
+    // out of the allowed list. Dropdown should still include mod with an
+    // (invalid) marker so the prior choice isn't silently dropped.
+    const el = makeNaryElement(
+      [{ mode: 'literal', operand_literal: '5' },
+       { mode: 'literal', operand_literal: '2' }],
+      ['mod'],
+    )
+    render(
+      <ArithmeticElement
+        element={el}
+        availableOperands={[]}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+    const operatorSelect = screen.getByRole('combobox', { name: 'arithmetic.operator' })
+    fireEvent.mouseDown(operatorSelect)
+    const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getByText(/arithmetic.invalidForTypes/)).toBeInTheDocument()
   })
 })

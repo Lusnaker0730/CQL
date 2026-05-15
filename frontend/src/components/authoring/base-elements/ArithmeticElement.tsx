@@ -14,13 +14,13 @@ import { escapeCqlIdentifier } from '../../../utils/cqlString'
 import OperandField from './OperandField'
 import type { OperandMode } from './operandValidation'
 import {
-  ARITHMETIC_OPERATORS,
   NARY_MAX_OPERANDS,
   NARY_MIN_OPERANDS,
   convertLegacy2aryToNary,
   emitNaryArithmeticCql,
   type NaryOperand,
 } from './arithmeticEmit'
+import { allowedOperators, inferOperandType } from './arithmeticTypes'
 
 // PAT-163: operator display labels. CQL keyword operators (mod/div) and the
 // power symbol stay as-is; +/-/*/÷ get unicode display chars for clarity.
@@ -78,6 +78,16 @@ export default function ArithmeticElement({
 
   const { operands, operators } = useMemo(() => readOperandsAndOperators(element), [element])
   const numericOperands = availableOperands.filter((op) => op.uniqueId !== element.uniqueId)
+
+  // PAT-164: infer operand types + restrict operator dropdown to legal subset.
+  // Already-selected operators that fall outside the allowed list are still
+  // rendered (and flagged) — never silently coerce a user's prior choice.
+  const operandTypes = useMemo(
+    () => operands.map((o) => inferOperandType(o, numericOperands)),
+    [operands, numericOperands],
+  )
+  const allowedOps = useMemo(() => allowedOperators(operandTypes), [operandTypes])
+  const allowedOpsSet = useMemo(() => new Set<string>(allowedOps), [allowedOps])
 
   // Single write path: replace operands + operators fields atomically. Anything
   // legacy (left_x / right_x / operator scalars) gets stripped so the on-disk
@@ -169,13 +179,29 @@ export default function ArithmeticElement({
                     label={t('arithmetic.operator')}
                     value={operators[idx - 1]}
                     onChange={(e) => updateOperator(idx - 1, e.target.value)}
-                    sx={{ width: 110 }}
+                    sx={{ width: 130 }}
                   >
-                    {ARITHMETIC_OPERATORS.map((op) => (
+                    {/* PAT-164: only legal operators for current operand types.
+                        If the already-selected operator falls outside the legal
+                        set we still render it (with `(invalid)` suffix) so the
+                        user's prior choice isn't silently changed. */}
+                    {allowedOps.map((op) => (
                       <MenuItem key={op} value={op} sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
                         {OPERATOR_LABELS[op]}
                       </MenuItem>
                     ))}
+                    {!allowedOpsSet.has(operators[idx - 1]) && (
+                      <MenuItem
+                        key={operators[idx - 1]}
+                        value={operators[idx - 1]}
+                        sx={{ fontSize: '1.05rem', fontWeight: 600, color: 'warning.main' }}
+                      >
+                        {OPERATOR_LABELS[operators[idx - 1]] ?? operators[idx - 1]}{' '}
+                        <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'warning.main' }}>
+                          {t('arithmetic.invalidForTypes')}
+                        </Typography>
+                      </MenuItem>
+                    )}
                   </TextField>
                 </Stack>
               )}

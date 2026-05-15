@@ -8,11 +8,12 @@ import type { BaseElement } from '../../../types/authoring'
 import { escapeCqlIdentifier } from '../../../utils/cqlString'
 import OperandField from './OperandField'
 import { NUMERIC_LITERAL_RE, quantityToCql, type OperandMode } from './operandValidation'
-
-// PAT-162: unary CQL functions taking one Decimal/Integer/Quantity argument.
-// Kept alphabetical for predictable dropdown order; mirrors the backend
-// UNARY_FUNCTIONS set in ExpressionCqlEngine.
-const UNARY_FUNCTIONS = ['Abs', 'Ceiling', 'Floor', 'Negate', 'Round', 'Truncate'] as const
+import {
+  UNARY_FUNCTIONS,
+  ROUND_PRECISION_RE,
+  allowedUnaryFunctions,
+  inferOperandType,
+} from './arithmeticTypes'
 
 interface ArithmeticUnaryElementProps {
   element: BaseElement
@@ -50,8 +51,27 @@ export default function ArithmeticUnaryElement({
   const operandLiteral = getFieldValue(element, 'operand_literal')
   const operandQuantityValue = getFieldValue(element, 'operand_literal_value')
   const operandQuantityUnit = getFieldValue(element, 'operand_literal_unit')
+  // PAT-164: Round overload — optional precision (Integer ≥ 0).
+  const roundPrecision = getFieldValue(element, 'precision')
 
   const numericOperands = availableOperands.filter((op) => op.uniqueId !== element.uniqueId)
+
+  // PAT-164: filter the function dropdown based on the operand's inferred
+  // type. The dropdown only shows valid functions for the current operand
+  // type; if the already-selected function is now invalid we still render it
+  // (flagged) so the user's prior choice isn't silently replaced.
+  const operandType = inferOperandType(
+    {
+      mode: operandMode,
+      operand_id: operandId,
+      operand_literal: operandLiteral,
+      operand_literal_value: operandQuantityValue,
+      operand_literal_unit: operandQuantityUnit,
+    },
+    numericOperands,
+  )
+  const allowedFns = allowedUnaryFunctions(operandType)
+  const allowedFnsSet = new Set<string>(allowedFns)
 
   const handleFieldChange = (updates: Record<string, string>) => {
     onUpdate({ fields: updateFields(element, updates) })
@@ -69,7 +89,15 @@ export default function ArithmeticUnaryElement({
       ? quantityToCql(operandQuantityValue, operandQuantityUnit)
       : operandElementName ? `"${escapeCqlIdentifier(operandElementName)}"` : ''
   const safeFn = (UNARY_FUNCTIONS as readonly string[]).includes(fn) ? fn : 'Abs'
-  const preview = operandCql ? `${safeFn}(${operandCql})` : ''
+  // PAT-164: emit Round(x, N) when function=Round and precision is a
+  // non-negative integer; otherwise Round(x). Other functions never accept a
+  // precision argument.
+  const isRound = safeFn === 'Round'
+  const precisionTrim = roundPrecision.trim()
+  const validPrecision = isRound && precisionTrim.length > 0 && ROUND_PRECISION_RE.test(precisionTrim)
+  const preview = operandCql
+    ? (validPrecision ? `${safeFn}(${operandCql}, ${precisionTrim})` : `${safeFn}(${operandCql})`)
+    : ''
   const safeNameDisplay = element.name ? escapeCqlIdentifier(element.name) : ''
 
   return (
@@ -101,13 +129,27 @@ export default function ArithmeticUnaryElement({
             label={t('arithmeticUnary.function')}
             value={safeFn}
             onChange={(e) => handleFieldChange({ function: e.target.value })}
-            sx={{ width: 140, mt: '28px !important' }}
+            sx={{ width: 160, mt: '28px !important' }}
           >
-            {UNARY_FUNCTIONS.map((f) => (
+            {/* PAT-164: only functions valid for the current operand type.
+                Already-selected function is flagged but kept if now invalid. */}
+            {allowedFns.map((f) => (
               <MenuItem key={f} value={f} sx={{ fontSize: '0.95rem', fontWeight: 500 }}>
                 {f}
               </MenuItem>
             ))}
+            {!allowedFnsSet.has(safeFn) && (
+              <MenuItem
+                key={safeFn}
+                value={safeFn}
+                sx={{ fontSize: '0.95rem', fontWeight: 500, color: 'warning.main' }}
+              >
+                {safeFn}{' '}
+                <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'warning.main' }}>
+                  {t('arithmetic.invalidForTypes')}
+                </Typography>
+              </MenuItem>
+            )}
           </TextField>
 
           {/* Single operand */}
@@ -132,6 +174,22 @@ export default function ArithmeticUnaryElement({
             onQuantityValueChange={(val) => handleFieldChange({ operand_literal_value: val })}
             onQuantityUnitChange={(val) => handleFieldChange({ operand_literal_unit: val })}
           />
+
+          {/* PAT-164: Round precision (optional Integer ≥ 0). Only shown when
+              Round is the selected function. Empty -> emits Round(x); valid
+              digits -> emits Round(x, N). */}
+          {isRound && (
+            <TextField
+              size="small"
+              label={t('arithmeticUnary.precision')}
+              value={roundPrecision}
+              onChange={(e) => handleFieldChange({ precision: e.target.value })}
+              placeholder="2"
+              error={precisionTrim.length > 0 && !validPrecision}
+              helperText={precisionTrim.length > 0 && !validPrecision ? t('arithmeticUnary.precisionInvalid') : ''}
+              sx={{ width: 90, '& input': { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+            />
+          )}
         </Stack>
 
         {preview && (
