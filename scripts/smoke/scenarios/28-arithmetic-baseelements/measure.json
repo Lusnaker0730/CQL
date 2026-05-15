@@ -1,0 +1,148 @@
+{
+  "name": "SmokeArithmeticBaseElements",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — exercises the PAT-161/162/163/164 arithmetic CQL emission path end-to-end. Defines 5 arithmetic base elements (one per phase feature) that aren't used in population logic; the test asserts the measure saves (CQL translates) AND evaluates to the expected cohort count. Translation failure on any new arithmetic emit path fails the smoke.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "cohort",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Adult patient cohort (population logic intentionally trivial; the test surface is the arithmetic baseElements above)",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [
+    {
+      "uniqueId": "be-nary-3op-mixed-precedence",
+      "name": "BMI Threshold",
+      "type": "arithmeticExpression",
+      "returnType": "system_decimal",
+      "fields": [
+        {
+          "id": "operands",
+          "type": "json",
+          "name": "operands",
+          "value": [
+            {"mode": "literal", "operand_literal": "25"},
+            {"mode": "literal", "operand_literal": "2.5"},
+            {"mode": "literal", "operand_literal": "2"}
+          ]
+        },
+        {
+          "id": "operators",
+          "type": "json",
+          "name": "operators",
+          "value": ["+", "*"]
+        }
+      ],
+      "childInstances": [],
+      "conjunction": false
+    },
+    {
+      "uniqueId": "be-unary-abs",
+      "name": "Abs Diff",
+      "type": "arithmeticUnary",
+      "returnType": "system_decimal",
+      "fields": [
+        {"id": "function", "type": "string", "name": "function", "value": "Abs"},
+        {"id": "operand_mode", "type": "string", "name": "operand_mode", "value": "literal"},
+        {"id": "operand_literal", "type": "string", "name": "operand_literal", "value": "-15"}
+      ],
+      "childInstances": [],
+      "conjunction": false
+    },
+    {
+      "uniqueId": "be-unary-round-precision",
+      "name": "Rounded Pi",
+      "type": "arithmeticUnary",
+      "returnType": "system_decimal",
+      "fields": [
+        {"id": "function", "type": "string", "name": "function", "value": "Round"},
+        {"id": "operand_mode", "type": "string", "name": "operand_mode", "value": "literal"},
+        {"id": "operand_literal", "type": "string", "name": "operand_literal", "value": "3.14159"},
+        {"id": "precision", "type": "string", "name": "precision", "value": "2"}
+      ],
+      "childInstances": [],
+      "conjunction": false
+    },
+    {
+      "uniqueId": "be-nary-mod-keyword",
+      "name": "Mod Check",
+      "type": "arithmeticExpression",
+      "returnType": "system_integer",
+      "fields": [
+        {
+          "id": "operands",
+          "type": "json",
+          "name": "operands",
+          "value": [
+            {"mode": "literal", "operand_literal": "10"},
+            {"mode": "literal", "operand_literal": "3"}
+          ]
+        },
+        {
+          "id": "operators",
+          "type": "json",
+          "name": "operators",
+          "value": ["mod"]
+        }
+      ],
+      "childInstances": [],
+      "conjunction": false
+    },
+    {
+      "uniqueId": "be-nary-quantity-literal",
+      "name": "Quantity Sum",
+      "type": "arithmeticExpression",
+      "returnType": "system_quantity",
+      "fields": [
+        {
+          "id": "operands",
+          "type": "json",
+          "name": "operands",
+          "value": [
+            {"mode": "quantity", "operand_literal_value": "5", "operand_literal_unit": "mg/dL"},
+            {"mode": "quantity", "operand_literal_value": "3", "operand_literal_unit": "mg/dL"}
+          ]
+        },
+        {
+          "id": "operators",
+          "type": "json",
+          "name": "operators",
+          "value": ["+"]
+        }
+      ],
+      "childInstances": [],
+      "conjunction": false
+    }
+  ],
+  "parameters": []
+}
