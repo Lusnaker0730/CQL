@@ -303,20 +303,31 @@ public class ExpressionCqlEngine {
                 break;
             }
             case "arithmeticExpression": {
-                String operator = getFieldValue(fields, "operator", "+");
-                // Validate operator against allow-list to prevent injection; anything
-                // outside the set fails safe to "+". See ARITHMETIC_OPERATORS — adding
-                // an operator without updating that set is intentionally hard.
-                if (!ARITHMETIC_OPERATORS.contains(operator)) {
-                    operator = "+";
-                }
-                String leftCql = resolveArithmeticOperand(fields, "left", ctx);
-                String rightCql = resolveArithmeticOperand(fields, "right", ctx);
-                if (leftCql != null && rightCql != null) {
-                    expr = String.format("%s %s %s", leftCql, operator, rightCql);
+                // PAT-163: N-ary. New shape stores operands[] + operators[]; old PAT-161
+                // 2-ary shape (left_*/right_*/operator) still works via fallback for any
+                // artifact that escapes the V56 Flyway migration.
+                Object operandsRaw = getFieldRawValue(fields, "operands");
+                Object operatorsRaw = getFieldRawValue(fields, "operators");
+                if (operandsRaw instanceof List && operatorsRaw instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> operands = (List<Map<String, Object>>) operandsRaw;
+                    @SuppressWarnings("unchecked")
+                    List<Object> rawOps = (List<Object>) operatorsRaw;
+                    expr = emitNaryArithmeticCql(operands, rawOps, ctx, elementName);
                 } else {
-                    ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
-                    expr = "null /* unresolved arithmetic operands */";
+                    // Legacy 2-ary shape — kept as defense-in-depth even after V56 migration.
+                    String operator = getFieldValue(fields, "operator", "+");
+                    if (!ARITHMETIC_OPERATORS.contains(operator)) {
+                        operator = "+";
+                    }
+                    String leftCql = resolveArithmeticOperand(fields, "left", ctx);
+                    String rightCql = resolveArithmeticOperand(fields, "right", ctx);
+                    if (leftCql != null && rightCql != null) {
+                        expr = String.format("%s %s %s", leftCql, operator, rightCql);
+                    } else {
+                        ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
+                        expr = "null /* unresolved arithmetic operands */";
+                    }
                 }
                 break;
             }
@@ -422,6 +433,151 @@ public class ExpressionCqlEngine {
         if (refId == null || refId.isEmpty()) return null;
         String refName = ctx.findBaseElementName(refId);
         return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
+    }
+
+    // PAT-163: N-ary operand limits. Below 2 makes no sense (use a baseElementRef
+    // instead); above 10 is a UX guardrail — long chains should be split into
+    // multiple base elements for readability.
+    static final int NARY_MIN_OPERANDS = 2;
+    static final int NARY_MAX_OPERANDS = 10;
+
+    // PAT-163: CQL operator precedence (higher numbers bind tighter). Mirrors
+    // CQL 1.5 spec §10. {@code ^} is tightest; {@code *}, {@code /}, {@code mod},
+    // {@code div} share level 2; {@code +} and {@code -} share level 1.
+    private static int arithmeticPrecedence(String op) {
+        switch (op) {
+            case "^":   return 3;
+            case "*":
+            case "/":
+            case "mod":
+            case "div": return 2;
+            case "+":
+            case "-":   return 1;
+            default:    return 1; // failsafe — shouldn't happen because of allow-list
+        }
+    }
+
+    /**
+     * PAT-163: emit N-ary arithmetic CQL with explicit precedence parens.
+     *
+     * <p>Strategy: walk operators left-to-right; whenever the next operator has
+     * a different precedence than the current run, close the current group with
+     * parens. Always emit parens around any non-trivial sub-group so the reader
+     * sees the grouping without doing precedence math in their head. E.g.
+     * {@code [a,b,c]} with {@code [+,*]} emits {@code a + (b * c)}.
+     *
+     * <p>Returns {@code null /* unresolved arithmetic operands *&#47;} when any
+     * operand or operator is malformed or out of range, matching the legacy
+     * 2-ary failure mode.
+     */
+    private String emitNaryArithmeticCql(
+            List<Map<String, Object>> operands,
+            List<Object> operators,
+            BuildContext ctx, String elementName) {
+        if (operands == null || operators == null
+                || operands.size() < NARY_MIN_OPERANDS
+                || operands.size() > NARY_MAX_OPERANDS
+                || operators.size() != operands.size() - 1) {
+            ctx.warn(String.format(
+                    "Arithmetic element '%s' has invalid N-ary shape (operands=%d, operators=%d)",
+                    elementName,
+                    operands == null ? -1 : operands.size(),
+                    operators == null ? -1 : operators.size()));
+            return "null /* unresolved arithmetic operands */";
+        }
+
+        // Resolve each operand to CQL. Each operand map has the same shape as
+        // the legacy fields (mode + operand_id / operand_literal / operand_literal_value
+        // / operand_literal_unit), so we adapt to the existing resolver by wrapping
+        // each into a single-field list.
+        List<String> operandCqls = new ArrayList<>(operands.size());
+        for (Map<String, Object> op : operands) {
+            String cql = resolveNaryOperand(op, ctx);
+            if (cql == null) {
+                ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
+                return "null /* unresolved arithmetic operands */";
+            }
+            operandCqls.add(cql);
+        }
+
+        // Validate operators against allow-list, fail-safe to "+".
+        List<String> opStrings = new ArrayList<>(operators.size());
+        for (Object opRaw : operators) {
+            String op = opRaw == null ? "+" : opRaw.toString();
+            if (!ARITHMETIC_OPERATORS.contains(op)) op = "+";
+            opStrings.add(op);
+        }
+
+        return groupByPrecedence(operandCqls, opStrings);
+    }
+
+    /**
+     * PAT-163: per-operand resolver for N-ary shape. The operand map keys are
+     * the same as the legacy field IDs (mode / operand_id / operand_literal /
+     * operand_literal_value / operand_literal_unit) — that way an operand map
+     * extracted from the N-ary {@code operands[]} array maps to exactly what
+     * {@link #resolveArithmeticOperand} expects for side {@code "operand"}.
+     */
+    private String resolveNaryOperand(Map<String, Object> operand, BuildContext ctx) {
+        String mode = strFromMap(operand, "mode", "element");
+        if ("literal".equals(mode)) {
+            String literal = strFromMap(operand, "operand_literal", "");
+            if (literal == null || literal.isEmpty()) return null;
+            if (!literal.matches("[\\d.\\-]+(?:\\s*'[^']*')?")) return null;
+            return literal;
+        }
+        if ("quantity".equals(mode)) {
+            String value = strFromMap(operand, "operand_literal_value", "").trim();
+            String unit = strFromMap(operand, "operand_literal_unit", "").trim();
+            if (value.isEmpty() || unit.isEmpty()) return null;
+            if (!ARITHMETIC_NUMERIC_PATTERN.matcher(value).matches()) return null;
+            if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(unit).matches()) return null;
+            return String.format("%s '%s'", value, unit);
+        }
+        // element ref mode
+        String refId = strFromMap(operand, "operand_id", "");
+        if (refId == null || refId.isEmpty()) return null;
+        String refName = ctx.findBaseElementName(refId);
+        return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
+    }
+
+    private static String strFromMap(Map<String, Object> map, String key, String defaultVal) {
+        if (map == null) return defaultVal;
+        Object val = map.get(key);
+        return val != null ? val.toString() : defaultVal;
+    }
+
+    /**
+     * PAT-163: group operands by operator precedence, inserting parens around
+     * any tighter-binding sub-expression. Recursive: split on the lowest-precedence
+     * operator, emit left + " op " + right, wrapping each side in parens if it
+     * itself contains operators.
+     */
+    private String groupByPrecedence(List<String> operands, List<String> operators) {
+        if (operators.isEmpty()) {
+            return operands.get(0);
+        }
+        // Find rightmost lowest-precedence operator (left-associative grouping).
+        int minPrec = Integer.MAX_VALUE;
+        int splitAt = -1;
+        for (int i = operators.size() - 1; i >= 0; i--) {
+            int p = arithmeticPrecedence(operators.get(i));
+            if (p < minPrec) {
+                minPrec = p;
+                splitAt = i;
+            }
+        }
+        // Left/right partitions
+        List<String> leftOperands = operands.subList(0, splitAt + 1);
+        List<String> leftOperators = operators.subList(0, splitAt);
+        List<String> rightOperands = operands.subList(splitAt + 1, operands.size());
+        List<String> rightOperators = operators.subList(splitAt + 1, operators.size());
+        String left = groupByPrecedence(leftOperands, leftOperators);
+        String right = groupByPrecedence(rightOperands, rightOperators);
+        // Wrap sides that contain operators (i.e. are not single operands).
+        if (!leftOperators.isEmpty()) left = "(" + left + ")";
+        if (!rightOperators.isEmpty()) right = "(" + right + ")";
+        return left + " " + operators.get(splitAt) + " " + right;
     }
 
     public String buildAgeRangeExpression(List<Map<String, Object>> fields, BuildContext ctx) {
@@ -1277,6 +1433,21 @@ public class ExpressionCqlEngine {
             }
         }
         return defaultVal;
+    }
+
+    /**
+     * PAT-163: like {@link #getFieldValue} but returns the raw Object value
+     * instead of stringifying. Used for N-ary arithmetic where {@code operands}
+     * and {@code operators} fields hold List/Array values rather than strings.
+     */
+    public Object getFieldRawValue(List<Map<String, Object>> fields, String fieldId) {
+        if (fields == null) return null;
+        for (Map<String, Object> field : fields) {
+            if (fieldId.equals(field.get("id"))) {
+                return field.get("value");
+            }
+        }
+        return null;
     }
 
     public String resolveFhirVersion(String fhirVersion) {

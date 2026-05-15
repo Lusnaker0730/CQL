@@ -65,6 +65,8 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
   }
 
   const handleAddArithmetic = () => {
+    // PAT-163: new arithmetic elements start with the N-ary shape (2 operands +
+    // 1 operator); the editor never writes legacy left_*/right_* fields anymore.
     onChange([
       ...baseElements,
       {
@@ -73,13 +75,11 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         type: 'arithmeticExpression',
         returnType: 'system_quantity',
         fields: [
-          { id: 'left_mode', type: 'string', name: 'Left Mode', value: 'element' },
-          { id: 'left_operand_id', type: 'string', name: 'Left Operand', value: '' },
-          { id: 'left_literal', type: 'string', name: 'Left Literal', value: '' },
-          { id: 'operator', type: 'string', name: 'Operator', value: '+' },
-          { id: 'right_mode', type: 'string', name: 'Right Mode', value: 'element' },
-          { id: 'right_operand_id', type: 'string', name: 'Right Operand', value: '' },
-          { id: 'right_literal', type: 'string', name: 'Right Literal', value: '' },
+          { id: 'operands', type: 'json', name: 'operands', value: [
+            { mode: 'element' },
+            { mode: 'element' },
+          ] as unknown as string },
+          { id: 'operators', type: 'json', name: 'operators', value: ['+'] as unknown as string },
         ],
         childInstances: [],
         conjunction: false,
