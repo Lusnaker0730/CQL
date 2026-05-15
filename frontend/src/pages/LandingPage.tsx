@@ -175,6 +175,17 @@ export default function LandingPage() {
                   {t('hero.learnMore')}
                 </Button>
               </Box>
+              <Typography
+                variant="caption"
+                sx={(theme) => ({
+                  display: 'block',
+                  mt: 1.5,
+                  color: alpha(theme.palette.common.white, 0.6),
+                  fontStyle: 'italic',
+                })}
+              >
+                {t('hero.tutorialAttribution')}
+              </Typography>
             </Box>
 
             {/* Right: Login Form */}
