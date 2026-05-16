@@ -394,8 +394,14 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <!-- @{argLine} is filled in by jacoco prepare-agent; keep EnableDynamicAgentLoading
-                         for the Mockito subclass mock maker to access protected fields/methods. -->
-                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
+                         for the Mockito subclass mock maker to access protected fields/methods.
+                         -Xmx2g: CI ran into OutOfMemoryError (Java heap space) on AuditControllerTest
+                         when the test forked JVM hit its default heap ceiling after several
+                         @SpringBootTest contexts accumulated in the test cache. PAT-165's @Scheduled
+                         on NotificationService nudged it over the line. 2g gives ~7x headroom over
+                         the typical default while staying well under the 7GB available on GitHub
+                         Actions ubuntu-latest runners. -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Xmx2g</argLine>
                 </configuration>
             </plugin>
             <plugin>
