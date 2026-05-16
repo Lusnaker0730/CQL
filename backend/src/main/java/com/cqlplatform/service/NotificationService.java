@@ -155,8 +155,11 @@ public class NotificationService {
      * <p>25s cadence stays well under the 100s edge timeout with margin for
      * jitter.
      */
-    @Scheduled(fixedRate = 25_000)
+    @Scheduled(fixedRate = 25_000, initialDelay = 30_000)
     public void sendSseKeepalives() {
+        // Fast path: no subscribers means no scheduler work — common in test
+        // contexts that load the full Spring context but never call subscribe().
+        if (emitters.isEmpty()) return;
         for (Map.Entry<String, List<SseEmitter>> entry : emitters.entrySet()) {
             for (SseEmitter emitter : entry.getValue()) {
                 try {
