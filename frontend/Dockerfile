@@ -11,7 +11,12 @@ RUN npm ci
 # Copy source
 COPY . .
 
-# Build the application
+# Build the application.
+# NODE_OPTIONS heap bump: Vite bundling the Monaco-editor vendor chunk
+# (3.7 MB raw, ~970 KB gzipped) plus the rest of the app pushes
+# Rollup's analysis phase past Node's default ~2 GB heap on CI runners.
+# 4 GB gives plenty of headroom while staying well under runner limits.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # Production stage
