@@ -401,9 +401,17 @@
                          on NotificationService nudged it over the line. 2g gives ~7x headroom over
                          the typical default while staying well under the 7GB available on GitHub
                          Actions ubuntu-latest runners. -->
-                    <!-- Print OOM info, dump heap, and exit fast so CI logs show the cause
-                         instead of hanging with GC overhead. -->
-                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Xmx3g -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError</argLine>
+                    <!-- Heap pressure: the test suite has ~30 @SpringBootTest classes;
+                         each context init holds Spring/Hibernate/Tomcat/MockMvc beans
+                         (~80-150MB). Spring's TestContextCache holds up to 32 contexts
+                         (default), so accumulation can exceed 3GB easily. CI was hitting
+                         OOM at test #880 even with -Xmx3g.
+
+                         5GB + G1GC keeps the forked JVM well below the 7GB CI runner
+                         limit while giving headroom for the cache. ExitOnOutOfMemoryError
+                         + HeapDumpOnOutOfMemoryError surface the cause fast if we hit
+                         the wall again. -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Xmx5g -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError</argLine>
                 </configuration>
             </plugin>
             <plugin>
