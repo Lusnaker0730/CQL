@@ -401,7 +401,9 @@
                          on NotificationService nudged it over the line. 2g gives ~7x headroom over
                          the typical default while staying well under the 7GB available on GitHub
                          Actions ubuntu-latest runners. -->
-                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Xmx2g</argLine>
+                    <!-- Print OOM info, dump heap, and exit fast so CI logs show the cause
+                         instead of hanging with GC overhead. -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Xmx3g -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError</argLine>
                 </configuration>
             </plugin>
             <plugin>
