@@ -394,8 +394,24 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <!-- @{argLine} is filled in by jacoco prepare-agent; keep EnableDynamicAgentLoading
-                         for the Mockito subclass mock maker to access protected fields/methods. -->
-                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
+                         for the Mockito subclass mock maker to access protected fields/methods.
+                         -Xmx2g: CI ran into OutOfMemoryError (Java heap space) on AuditControllerTest
+                         when the test forked JVM hit its default heap ceiling after several
+                         @SpringBootTest contexts accumulated in the test cache. PAT-165's @Scheduled
+                         on NotificationService nudged it over the line. 2g gives ~7x headroom over
+                         the typical default while staying well under the 7GB available on GitHub
+                         Actions ubuntu-latest runners. -->
+                    <!-- Heap pressure: the test suite has ~30 @SpringBootTest classes;
+                         each context init holds Spring/Hibernate/Tomcat/MockMvc beans
+                         (~80-150MB). Spring's TestContextCache holds up to 32 contexts
+                         (default), so accumulation can exceed 3GB easily. CI was hitting
+                         OOM at test #880 even with -Xmx3g.
+
+                         5GB + G1GC keeps the forked JVM well below the 7GB CI runner
+                         limit while giving headroom for the cache. ExitOnOutOfMemoryError
+                         + HeapDumpOnOutOfMemoryError surface the cause fast if we hit
+                         the wall again. -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Xmx5g -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError</argLine>
                 </configuration>
             </plugin>
             <plugin>

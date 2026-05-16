@@ -4,6 +4,7 @@ import com.cqlplatform.entity.NotificationEntity;
 import com.cqlplatform.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -141,6 +142,35 @@ public class NotificationService {
         }
 
         return emitter;
+    }
+
+    /**
+     * PAT-165 follow-up: keep SSE connections alive across Cloudflare's
+     * cloudflared tunnel timeout (~100s idle) and Chrome's QUIC stack idle
+     * detection. Without periodic traffic, the connection silently drops
+     * mid-flight and the browser logs ERR_QUIC_PROTOCOL_ERROR. SSE comments
+     * (lines starting with {@code :}) are valid per the spec and are
+     * delivered as keep-alive bytes that don't fire any client-side event.
+     *
+     * <p>25s cadence stays well under the 100s edge timeout with margin for
+     * jitter.
+     */
+    @Scheduled(fixedRate = 25_000, initialDelay = 30_000)
+    public void sendSseKeepalives() {
+        // Fast path: no subscribers means no scheduler work — common in test
+        // contexts that load the full Spring context but never call subscribe().
+        if (emitters.isEmpty()) return;
+        for (Map.Entry<String, List<SseEmitter>> entry : emitters.entrySet()) {
+            for (SseEmitter emitter : entry.getValue()) {
+                try {
+                    emitter.send(SseEmitter.event().comment("keepalive"));
+                } catch (IOException e) {
+                    // Client gone — let the next removeEmitter call (via
+                    // onError/onCompletion) clean up. Don't try to remove
+                    // here to avoid concurrent modification on the list.
+                }
+            }
+        }
     }
 
     private void pushToUser(String username, NotificationEntity notification) {

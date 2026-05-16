@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { Box, Typography, Paper } from '@mui/material'
 import { CHART_HEIGHT } from '../../constants/layout'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+import SafeResponsiveContainer from '../common/SafeResponsiveContainer'
 import { useTranslation } from 'react-i18next'
 import { CHART_COLORS } from '../../constants/chartColors'
 
@@ -27,7 +28,7 @@ export default function ScoreDistributionChart({ data, title }: ScoreDistributio
         {title || t('dashboard.scoringDistribution')}
       </Typography>
       <Box sx={{ width: '100%', height: CHART_HEIGHT }}>
-        <ResponsiveContainer minWidth={0} minHeight={0}>
+        <SafeResponsiveContainer>
           <PieChart>
             <Pie
               data={chartData}
@@ -46,7 +47,7 @@ export default function ScoreDistributionChart({ data, title }: ScoreDistributio
             <Tooltip />
             <Legend />
           </PieChart>
-        </ResponsiveContainer>
+        </SafeResponsiveContainer>
       </Box>
     </Paper>
   )
