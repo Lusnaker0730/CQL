@@ -106,8 +106,31 @@ public class FhirTerminologyService {
     @Retry(name = "fhirTerminology")
     public ValueSet expandValueSet(String valueSetUrl, String filter) {
         log.debug("Expanding ValueSet: {}", valueSetUrl);
-        IGenericClient client = fhirContext.newRestfulGenericClient(defaultTerminologyServerUrl);
 
+        // PAT-166: Priority 1 — try local IG before going remote (aligns with
+        // lookupCode's pattern). tx.fhir.org returns 422 for canonical URLs it
+        // doesn't know (e.g. TW Core), so a bundled IG was being ignored for
+        // expansion even though its definitions were already on the classpath.
+        if (igService != null && igService.isLoaded()) {
+            ValueSet local = igService.getValueSetByUrl(valueSetUrl);
+            if (local != null) {
+                ValueSet expanded = tryLocalExpand(local, filter);
+                if (expanded != null) {
+                    log.info("Expanded {} from local IG ({} concepts)",
+                            valueSetUrl, expanded.getExpansion().getContains().size());
+                    return expanded;
+                }
+                // Compose contains filter / VS reference / unresolved external
+                // CodeSystem — we can't enumerate codes locally, but at least
+                // return the VS definition so the UI sees compose rules instead
+                // of a 503.
+                log.info("Returning local definition for {} (compose needs terminology server to enumerate)", valueSetUrl);
+                return local;
+            }
+        }
+
+        // Priority 2 — remote terminology server (existing behavior)
+        IGenericClient client = fhirContext.newRestfulGenericClient(defaultTerminologyServerUrl);
         try {
             Parameters params = new Parameters();
             params.addParameter("url", new UriType(valueSetUrl));
@@ -125,6 +148,82 @@ public class FhirTerminologyService {
             log.error("Failed to expand ValueSet: {}", valueSetUrl, e);
             throw new FhirServerUnavailableException("ValueSet expansion failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * PAT-166: Try to enumerate a ValueSet using only locally-bundled IG
+     * resources. Returns {@code null} (caller falls back to definition body)
+     * if any compose include uses filters (e.g. {@code is-a 404684003}),
+     * references another ValueSet, or pulls from a CodeSystem we don't have
+     * locally — those need a SCT-aware terminology server to enumerate.
+     */
+    ValueSet tryLocalExpand(ValueSet source, String filter) {
+        if (!source.hasCompose()) return null;
+
+        String normalizedFilter = filter == null ? null : filter.toLowerCase();
+        ValueSet expanded = source.copy();
+        ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
+        expansion.setTimestamp(new java.util.Date());
+        expansion.setIdentifier("urn:uuid:" + java.util.UUID.randomUUID());
+
+        for (ValueSet.ConceptSetComponent include : source.getCompose().getInclude()) {
+            // Filter-based (e.g. SNOMED is-a hierarchy) — only a SCT-aware
+            // terminology server can enumerate these.
+            if (include.hasFilter() && !include.getFilter().isEmpty()) return null;
+            // Chained VS reference — would need recursive resolution; skip.
+            if (include.hasValueSet() && !include.getValueSet().isEmpty()) return null;
+
+            String system = include.getSystem();
+            if (system == null) return null;
+
+            if (include.hasConcept()) {
+                // Case A: explicit concept enumeration in compose
+                for (ValueSet.ConceptReferenceComponent c : include.getConcept()) {
+                    if (matchesFilter(c.getCode(), c.getDisplay(), normalizedFilter)) {
+                        expansion.addContains()
+                                .setSystem(system)
+                                .setCode(c.getCode())
+                                .setDisplay(c.getDisplay());
+                    }
+                }
+            } else {
+                // Case B: include *all* codes from a CodeSystem; only works
+                // when the CS is in our local IG bundle.
+                CodeSystem cs = igService.getCodeSystemByUrl(system);
+                if (cs == null || !cs.hasConcept()) return null;
+                for (CodeSystem.ConceptDefinitionComponent concept : cs.getConcept()) {
+                    addConceptsRecursive(concept, system, expansion, normalizedFilter);
+                }
+            }
+        }
+
+        expansion.setTotal(expansion.getContains().size());
+        expanded.setExpansion(expansion);
+        return expanded;
+    }
+
+    private void addConceptsRecursive(CodeSystem.ConceptDefinitionComponent concept,
+                                       String system,
+                                       ValueSet.ValueSetExpansionComponent expansion,
+                                       String filter) {
+        if (matchesFilter(concept.getCode(), concept.getDisplay(), filter)) {
+            expansion.addContains()
+                    .setSystem(system)
+                    .setCode(concept.getCode())
+                    .setDisplay(concept.getDisplay());
+        }
+        if (concept.hasConcept()) {
+            for (CodeSystem.ConceptDefinitionComponent child : concept.getConcept()) {
+                addConceptsRecursive(child, system, expansion, filter);
+            }
+        }
+    }
+
+    private boolean matchesFilter(String code, String display, String filter) {
+        if (filter == null || filter.isBlank()) return true;
+        if (code != null && code.toLowerCase().contains(filter)) return true;
+        if (display != null && display.toLowerCase().contains(filter)) return true;
+        return false;
     }
 
     @SuppressWarnings("unused")
