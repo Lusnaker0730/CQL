@@ -8,9 +8,9 @@ import com.cqlplatform.service.cql.DataRequirementExtractor;
 import com.cqlplatform.service.measure.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,61 +30,61 @@ class MeasureControllerErrorTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private MeasureDefinitionService definitionService;
 
-    @MockBean
+    @MockitoBean
     private MeasureEvaluationService measureService;
 
-    @MockBean
+    @MockitoBean
     private MeasureReportService reportService;
 
-    @MockBean
+    @MockitoBean
     private FhirMeasureService fhirMeasureService;
 
-    @MockBean
+    @MockitoBean
     private CompositeMeasureService compositeMeasureService;
 
-    @MockBean
+    @MockitoBean
     private MeasureReportExportService exportService;
 
-    @MockBean
+    @MockitoBean
     private ScheduledMeasureEvaluationService scheduleService;
 
-    @MockBean
+    @MockitoBean
     private MeasureComparisonService comparisonService;
 
-    @MockBean
+    @MockitoBean
     private CqlTranslationService translationService;
 
-    @MockBean
+    @MockitoBean
     private TestCaseService testCaseService;
 
-    @MockBean
+    @MockitoBean
     private MeasureValidationService validationService;
 
-    @MockBean
+    @MockitoBean
     private FhirMeasureBundleService bundleService;
 
-    @MockBean
+    @MockitoBean
     private FhirMeasureBundleImportService bundleImportService;
 
-    @MockBean
+    @MockitoBean
     private HqmfExportService hqmfExportService;
 
-    @MockBean
+    @MockitoBean
     private HumanReadableService humanReadableService;
 
-    @MockBean
+    @MockitoBean
     private BatchEvaluationService batchEvaluationService;
 
-    @MockBean
+    @MockitoBean
     private DataRequirementExtractor dataRequirementExtractor;
 
-    @MockBean
+    @MockitoBean
     private DashboardService dashboardService;
 
-    @MockBean
+    @MockitoBean
     private OwnershipVerifier ownershipVerifier;
 
     @Test
