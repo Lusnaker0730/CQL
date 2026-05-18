@@ -27,7 +27,7 @@ public class AuditLogSpecification {
     private AuditLogSpecification() {}
 
     public static Specification<AuditLogEntity> fromSearchRequest(AuditLogSearchRequest request) {
-        Specification<AuditLogEntity> spec = Specification.where(null);
+        Specification<AuditLogEntity> spec = Specification.unrestricted();
 
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             spec = spec.and(usernameContains(request.getUsername()));
