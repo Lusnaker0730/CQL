@@ -54,8 +54,10 @@ spring:
       max-file-size: 1MB
       max-request-size: 2MB
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    # Jackson 3 (Spring Boot 4) moved WRITE_DATES_AS_TIMESTAMPS from
+    # SerializationFeature to DateTimeFeature and changed the default to
+    # false. The previous explicit `serialization.write-dates-as-timestamps:
+    # false` setting is no longer needed.
     default-property-inclusion: non_null
 
   # Default datasource - PostgreSQL (overridden by dev profile for H2)
