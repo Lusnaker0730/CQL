@@ -378,15 +378,23 @@ public class MeasureEvaluationService {
                     Map<String, CqlExecutionResponse.ExpressionResult> canonical =
                             populationEvaluator.buildExpressionMap(g, results);
                     if (isCv) {
-                        // Issue #539: collect this group's observation define names. They will
-                        // be the suffixed forms emitted by EcqmCqlBuilder (e.g. "Measure
-                        // Observation Value 1" for group 1). Falls back to null when the group
-                        // declares no observations → aggregator uses canonical unsuffixed names.
-                        List<String> obsExprNames = g.getObservations() == null ? null
-                                : g.getObservations().stream()
-                                        .map(ObservationDefinition::getCriteriaExpression)
-                                        .filter(name -> name != null && !name.isBlank())
-                                        .toList();
+                        // Issue #539: compute this group's wrapper observation define names.
+                        // EcqmCqlBuilder.appendObservationWrapper emits ONE wrapper per group
+                        // named "Measure Observation Value{suffix}" (patient-based) or
+                        // "Measure Observation Values{suffix}" (episode-based). The suffix is
+                        // " N" for multi-group (1-indexed) or "" for single-group.
+                        // ObservationDefinition.criteriaExpression on the entity holds the
+                        // FUNCTION name ("Measure Observation N"), not the wrapper define —
+                        // CQL functions don't surface as standalone results, so we must look
+                        // up the wrapper instead.
+                        int groupIdx = groupDefs.indexOf(g);
+                        String suffix = groupDefs.size() > 1 ? " " + (groupIdx + 1) : "";
+                        List<String> obsExprNames = (g.getObservations() == null
+                                || g.getObservations().isEmpty())
+                                ? null
+                                : List.of(
+                                        "Measure Observation Values" + suffix,
+                                        "Measure Observation Value" + suffix);
                         // Per-group CV observations: write to the per-group bucket so
                         // buildMultiGroupResult can compute each group's score independently.
                         // Also mirror into the legacy global list so single-group builders that
