@@ -99,11 +99,6 @@ class CdsHooksControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // TODO Spring Boot 4: Jackson 3 returns 400 HttpMessageNotReadable for this
-    // exact request body (other CdsHooksController POST tests in this class still
-    // pass). Likely Lombok @Builder + @Data + Jackson 3 deserialization regression
-    // — investigate separately, restore once root cause is understood.
-    @org.junit.jupiter.api.Disabled("Spring Boot 4 Jackson 3 deserialization regression — follow-up")
     @Test
     @org.springframework.security.test.context.support.WithMockUser
     void sandbox_withAuth_shouldReturn200() throws Exception {
