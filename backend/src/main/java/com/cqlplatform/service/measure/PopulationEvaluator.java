@@ -165,10 +165,33 @@ public class PopulationEvaluator {
      * Passing the same canonical map for both lookups caused the observation
      * extraction to find nothing → CV measureScore stuck at {@code null}
      * (BUG-474 follow-up regression — surfaced by smoke scenarios 03 / 05–09).
+     *
+     * <p>Delegates to the 5-arg variant with {@code null} observation names,
+     * which falls back to the canonical unsuffixed defines.
      */
     public void aggregateCvPatientResults(Map<String, Integer> counts,
                                            Map<String, CqlExecutionResponse.ExpressionResult> populationResults,
                                            Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                           List<Double> observationValues) {
+        aggregateCvPatientResults(counts, populationResults, allResults, null, observationValues);
+    }
+
+    /**
+     * Multi-group CV aggregation — caller supplies the per-group observation
+     * define names (typically from {@code GroupDefinition.observations[*]
+     * .criteriaExpression}, e.g. {@code "Measure Observation Value 1"} for
+     * group 1). When {@code observationExprNames} is {@code null} or empty,
+     * the function falls back to the canonical unsuffixed names — preserving
+     * the legacy single-group behavior.
+     *
+     * <p>Issue #539: multi-group CV measures were silently broken because
+     * {@code EcqmCqlBuilder} emits suffixed observation defines per group but
+     * the aggregator was hard-coded to look up the unsuffixed canonical names.
+     */
+    public void aggregateCvPatientResults(Map<String, Integer> counts,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> populationResults,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                           List<String> observationExprNames,
                                            List<Double> observationValues) {
         boolean inInitPop = isPopulationTrue(populationResults, "Initial Population");
         boolean inMeasurePop = inInitPop && isPopulationTrue(populationResults, "Measure Population");
@@ -180,13 +203,19 @@ public class PopulationEvaluator {
         if (excluded) increment(counts, "Measure Population Exclusion");
 
         if (effectiveMp) {
-            // Observation defines aren't in the canonical population map — read from raw results.
-            // Try episode-based list first, then patient-based scalar.
-            List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
-            if (values.isEmpty()) {
-                values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
+            if (observationExprNames == null || observationExprNames.isEmpty()) {
+                // Legacy fallback: try episode-based list then patient-based scalar.
+                List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
+                if (values.isEmpty()) {
+                    values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
+                }
+                observationValues.addAll(values);
+            } else {
+                // Per-group: each named observation contributes its values.
+                for (String exprName : observationExprNames) {
+                    observationValues.addAll(extractObservationValues(allResults, exprName));
+                }
             }
-            observationValues.addAll(values);
         }
     }
 

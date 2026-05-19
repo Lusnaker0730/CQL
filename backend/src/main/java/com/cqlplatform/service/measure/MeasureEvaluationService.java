@@ -20,6 +20,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import com.cqlplatform.model.measure.EvaluationStatusConstants;
@@ -294,6 +295,10 @@ public class MeasureEvaluationService {
         // map has one entry keyed by DEFAULT_GROUP_ID (or the lone group's id).
         Map<String, Map<String, Map<String, Map<String, Integer>>>> perGroupStratData = new HashMap<>();
         List<Double> observationValues = Collections.synchronizedList(new ArrayList<>());
+        // Issue #539: per-group CV observation values. Each group's list is independently
+        // synchronized so concurrent patient evaluations can append safely without contention
+        // across groups. Single-group / legacy paths share DEFAULT_GROUP_ID.
+        Map<String, List<Double>> observationValuesByGroup = new ConcurrentHashMap<>();
 
         // Execute CQL for all patients in parallel using cqlExecutionExecutor (10-20 threads).
         // Pre-translated path runs doExecutePreTranslated directly on the caller thread
@@ -356,7 +361,8 @@ public class MeasureEvaluationService {
             if (groupDefs.isEmpty()) {
                 // Legacy single-group path (no GroupDefinition wired): use the raw results
                 // directly, matching prior behaviour for measures evaluated without a measure
-                // definition (e.g. ad-hoc CQL execution).
+                // definition (e.g. ad-hoc CQL execution). Writes to the global observationValues
+                // list — read by buildContinuousVariableResult (single-group builder).
                 Map<String, Integer> counts = perGroupCounts.get(DEFAULT_GROUP_ID);
                 if (isCv) {
                     populationEvaluator.aggregateCvPatientResults(counts, results, observationValues);
@@ -372,7 +378,28 @@ public class MeasureEvaluationService {
                     Map<String, CqlExecutionResponse.ExpressionResult> canonical =
                             populationEvaluator.buildExpressionMap(g, results);
                     if (isCv) {
-                        populationEvaluator.aggregateCvPatientResults(counts, canonical, results, observationValues);
+                        // Issue #539: collect this group's observation define names. They will
+                        // be the suffixed forms emitted by EcqmCqlBuilder (e.g. "Measure
+                        // Observation Value 1" for group 1). Falls back to null when the group
+                        // declares no observations → aggregator uses canonical unsuffixed names.
+                        List<String> obsExprNames = g.getObservations() == null ? null
+                                : g.getObservations().stream()
+                                        .map(ObservationDefinition::getCriteriaExpression)
+                                        .filter(name -> name != null && !name.isBlank())
+                                        .toList();
+                        // Per-group CV observations: write to the per-group bucket so
+                        // buildMultiGroupResult can compute each group's score independently.
+                        // Also mirror into the legacy global list so single-group builders that
+                        // still read state.observationValues see the primary group's values.
+                        List<Double> groupObsValues = observationValuesByGroup
+                                .computeIfAbsent(gid, k -> Collections.synchronizedList(new ArrayList<>()));
+                        int sizeBefore = groupObsValues.size();
+                        populationEvaluator.aggregateCvPatientResults(
+                                counts, canonical, results, obsExprNames, groupObsValues);
+                        // Newly-added entries this patient contributed — also append to global.
+                        if (groupObsValues.size() > sizeBefore) {
+                            observationValues.addAll(groupObsValues.subList(sizeBefore, groupObsValues.size()));
+                        }
                     } else if (isRatio) {
                         populationEvaluator.aggregateRatioPatientResults(counts, canonical);
                     } else {
@@ -424,7 +451,7 @@ public class MeasureEvaluationService {
         }
 
         return new AggregationState(perGroupCounts, customExpressions, perGroupStratData,
-                errorCount, observationValues, fhirOutageError);
+                errorCount, observationValues, observationValuesByGroup, fhirOutageError);
     }
 
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
@@ -490,6 +517,16 @@ public class MeasureEvaluationService {
 
         // Continuous-variable measures use a separate result builder
         String scoringType = def != null ? def.getScoringType() : null;
+        boolean isMultiGroup = def != null && def.getGroupDefinitions() != null
+                && def.getGroupDefinitions().size() > 1;
+
+        // Issue #539: multi-group CV measures route through buildMultiGroupResult, which
+        // computes per-group CV score from state.observationValuesByGroup[gid]. Single-group
+        // CV stays on buildCvResult which reads the global state.observationValues list.
+        if (isMultiGroup) {
+            return buildMultiGroupResult(context, state, totalPatients);
+        }
+
         if (ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType)) {
             return buildCvResult(context, state, totalPatients);
         }
@@ -499,11 +536,6 @@ public class MeasureEvaluationService {
         // zero-valued Denominator / Numerator rows that don't exist for cohort per FHIR spec.
         if (ScoringTypeConstants.COHORT.equals(scoringType)) {
             return buildCohortResult(context, state, totalPatients);
-        }
-
-        // Check if measure has multiple group definitions
-        if (def != null && def.getGroupDefinitions() != null && def.getGroupDefinitions().size() > 1) {
-            return buildMultiGroupResult(context, state, totalPatients);
         }
 
         List<PopulationResult> populations = new ArrayList<>();
@@ -694,6 +726,8 @@ public class MeasureEvaluationService {
                                                            AggregationState state,
                                                            int totalPatients) {
         MeasureDefinition def = context.getMeasureDefinition();
+        String scoringType = def.getScoringType();
+        boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
         List<GroupResult> groups = new ArrayList<>();
 
         for (var groupDef : def.getGroupDefinitions()) {
@@ -713,21 +747,44 @@ public class MeasureEvaluationService {
                 }
             }
 
-            // Compute score per group
-            Integer denom = populations.stream()
-                    .filter(p -> DENOMINATOR.equals(p.getPopulationType()))
-                    .map(PopulationResult::getCount)
-                    .findFirst().orElse(0);
-            Integer denomEx = populations.stream()
-                    .filter(p -> DENOMINATOR_EXCLUSION.equals(p.getPopulationType()))
-                    .map(PopulationResult::getCount)
-                    .findFirst().orElse(0);
-            Integer numer = populations.stream()
-                    .filter(p -> NUMERATOR.equals(p.getPopulationType()))
-                    .map(PopulationResult::getCount)
-                    .findFirst().orElse(0);
-
-            Double score = scoreCalculator.calculateProportionScore(denom, denomEx, numer);
+            // Issue #539: compute per-group CV score from per-group observation values bucket.
+            // Proportion / ratio fall through to the legacy denom/numer path below.
+            Double score;
+            String scoreUnit;
+            ObservationStatistics obsStats = null;
+            if (isCv) {
+                List<Double> groupObsValues = state.observationValuesByGroup
+                        .getOrDefault(gid, List.of());
+                String aggregateMethod = "average";
+                String scoringUnit = groupDef.getScoringUnit();
+                if (groupDef.getObservations() != null && !groupDef.getObservations().isEmpty()) {
+                    String method = groupDef.getObservations().get(0).getAggregateMethod();
+                    if (method != null && !method.isBlank()) aggregateMethod = method;
+                }
+                if (!groupObsValues.isEmpty()) {
+                    obsStats = scoreCalculator.computeObservationStats(
+                            groupObsValues, aggregateMethod, scoringUnit);
+                    score = obsStats.getAggregateValue();
+                } else {
+                    score = null;
+                }
+                scoreUnit = scoringUnit != null ? scoringUnit : "value";
+            } else {
+                Integer denom = populations.stream()
+                        .filter(p -> DENOMINATOR.equals(p.getPopulationType()))
+                        .map(PopulationResult::getCount)
+                        .findFirst().orElse(0);
+                Integer denomEx = populations.stream()
+                        .filter(p -> DENOMINATOR_EXCLUSION.equals(p.getPopulationType()))
+                        .map(PopulationResult::getCount)
+                        .findFirst().orElse(0);
+                Integer numer = populations.stream()
+                        .filter(p -> NUMERATOR.equals(p.getPopulationType()))
+                        .map(PopulationResult::getCount)
+                        .findFirst().orElse(0);
+                score = scoreCalculator.calculateProportionScore(denom, denomEx, numer);
+                scoreUnit = "percentage";
+            }
 
             String desc = groupDef.getDescription() != null ? groupDef.getDescription() : "";
             if (groupDef.getRateDescription() != null) {
@@ -749,7 +806,8 @@ public class MeasureEvaluationService {
                     .description(desc)
                     .populations(populations)
                     .measureScore(score)
-                    .measureScoreUnit("percentage")
+                    .measureScoreUnit(scoreUnit)
+                    .observationStatistics(obsStats)
                     .stratifiers(stratResults.isEmpty() ? null : stratResults)
                     .totalPatients(totalPatients)
                     .build());
@@ -859,6 +917,12 @@ public class MeasureEvaluationService {
             Map<String, Map<String, Map<String, Map<String, Integer>>>> stratificationData,
             int errorCount,
             List<Double> observationValues,
+            /** Issue #539: per-group CV observation values. Keyed by groupId so multi-group
+             *  CV measures with suffixed observation defines (e.g. "Measure Observation Value 1"
+             *  for group 1, "... 2" for group 2) report each group's score independently.
+             *  Single-group / legacy paths populate the DEFAULT_GROUP_ID entry, which mirrors
+             *  the global {@link #observationValues} list. */
+            Map<String, List<Double>> observationValuesByGroup,
             /** PAT-112a: non-null when any patient evaluation threw a FhirServerUnavailableException
              *  (in its cause chain). The caller aborts the whole measure evaluation rather than
              *  returning a partial denominator. */
