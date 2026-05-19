@@ -58,6 +58,14 @@ spring:
     # SerializationFeature to DateTimeFeature and changed the default to
     # false. The previous explicit `serialization.write-dates-as-timestamps:
     # false` setting is no longer needed.
+    deserialization:
+      # Jackson 3 flipped FAIL_ON_NULL_FOR_PRIMITIVES default from false→true.
+      # Request DTOs declare primitive boolean fields with initializers
+      # (e.g. `private boolean debugMode = false`) and callers routinely omit
+      # them. Jackson 2 kept the initializer; Jackson 3 rejects the missing
+      # field with `Cannot map "null" into type "boolean"`. Restore the legacy
+      # default globally — semantically equivalent to "absent boolean = false".
+      fail-on-null-for-primitives: false
     default-property-inclusion: non_null
 
   # Default datasource - PostgreSQL (overridden by dev profile for H2)
