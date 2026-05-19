@@ -155,9 +155,10 @@
         </dependency>
 
         <!-- Flyway Database Migrations -->
+        <!-- Spring Boot 4 modularized Flyway autoconfig into spring-boot-starter-flyway; without it, no `flyway` / `flywayInitializer` beans are registered. -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
