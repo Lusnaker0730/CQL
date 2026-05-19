@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.12</version>
+        <version>4.0.6</version>
         <relativePath/>
     </parent>
 
@@ -27,7 +27,7 @@
         <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.4.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
-        <jackson-bom.version>2.21.1</jackson-bom.version>
+        <jackson-bom.version>3.1.1</jackson-bom.version>
         <!-- CVE overrides above the versions shipped with Spring Boot 3.5.12 -->
         <tomcat.version>10.1.54</tomcat.version>
         <thymeleaf.version>3.1.4.RELEASE</thymeleaf.version>
@@ -84,7 +84,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -155,9 +155,10 @@
         </dependency>
 
         <!-- Flyway Database Migrations -->
+        <!-- Spring Boot 4 modularized Flyway autoconfig into spring-boot-starter-flyway; without it, no `flyway` / `flywayInitializer` beans are registered. -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -267,7 +268,7 @@
         <!-- Resilience4j -->
         <dependency>
             <groupId>io.github.resilience4j</groupId>
-            <artifactId>resilience4j-spring-boot3</artifactId>
+            <artifactId>resilience4j-spring-boot4</artifactId>
             <version>${resilience4j.version}</version>
         </dependency>
         <dependency>
@@ -346,6 +347,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Spring Boot 4 modularized test starters — needed for @AutoConfigureMockMvc support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
