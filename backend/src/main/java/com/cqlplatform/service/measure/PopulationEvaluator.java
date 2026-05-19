@@ -141,13 +141,38 @@ public class PopulationEvaluator {
     /**
      * Aggregates a single patient's CQL results for continuous-variable measures.
      * Collects observation values into the shared accumulator list.
+     *
+     * <p>Convenience overload: uses the same map for population lookup and
+     * observation extraction. Suitable for the legacy single-group path where
+     * raw CQL results are passed directly.
      */
     public void aggregateCvPatientResults(Map<String, Integer> counts,
                                            Map<String, CqlExecutionResponse.ExpressionResult> results,
                                            List<Double> observationValues) {
-        boolean inInitPop = isPopulationTrue(results, "Initial Population");
-        boolean inMeasurePop = inInitPop && isPopulationTrue(results, "Measure Population");
-        boolean excluded = inMeasurePop && isPopulationTrue(results, "Measure Population Exclusion");
+        aggregateCvPatientResults(counts, results, results, observationValues);
+    }
+
+    /**
+     * Aggregates a single patient's CQL results for continuous-variable measures
+     * with separate maps for population lookup and observation extraction.
+     *
+     * <p>The per-group eCQM path canonicalizes suffixed population define names
+     * ({@code "Initial Population 1"} → {@code "Initial Population"}) into a
+     * filtered map, but that map intentionally only contains the
+     * {@code PopulationDefinition} entries. {@code "Measure Observation Value"}
+     * / {@code "Measure Observation Values"} are top-level CQL defines (not
+     * populations), so they exist only in the raw {@code allResults} map.
+     * Passing the same canonical map for both lookups caused the observation
+     * extraction to find nothing → CV measureScore stuck at {@code null}
+     * (BUG-474 follow-up regression — surfaced by smoke scenarios 03 / 05–09).
+     */
+    public void aggregateCvPatientResults(Map<String, Integer> counts,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> populationResults,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                           List<Double> observationValues) {
+        boolean inInitPop = isPopulationTrue(populationResults, "Initial Population");
+        boolean inMeasurePop = inInitPop && isPopulationTrue(populationResults, "Measure Population");
+        boolean excluded = inMeasurePop && isPopulationTrue(populationResults, "Measure Population Exclusion");
         boolean effectiveMp = inMeasurePop && !excluded;
 
         if (inInitPop) increment(counts, "Initial Population");
@@ -155,10 +180,11 @@ public class PopulationEvaluator {
         if (excluded) increment(counts, "Measure Population Exclusion");
 
         if (effectiveMp) {
-            // Collect observation values — try episode-based list first, then patient-based scalar
-            List<Double> values = extractObservationValues(results, OBSERVATION_VALUES_EXPR);
+            // Observation defines aren't in the canonical population map — read from raw results.
+            // Try episode-based list first, then patient-based scalar.
+            List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
             if (values.isEmpty()) {
-                values = extractObservationValues(results, OBSERVATION_VALUE_EXPR);
+                values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
             }
             observationValues.addAll(values);
         }

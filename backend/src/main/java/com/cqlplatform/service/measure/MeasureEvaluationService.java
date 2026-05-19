@@ -372,7 +372,7 @@ public class MeasureEvaluationService {
                     Map<String, CqlExecutionResponse.ExpressionResult> canonical =
                             populationEvaluator.buildExpressionMap(g, results);
                     if (isCv) {
-                        populationEvaluator.aggregateCvPatientResults(counts, canonical, observationValues);
+                        populationEvaluator.aggregateCvPatientResults(counts, canonical, results, observationValues);
                     } else if (isRatio) {
                         populationEvaluator.aggregateRatioPatientResults(counts, canonical);
                     } else {
