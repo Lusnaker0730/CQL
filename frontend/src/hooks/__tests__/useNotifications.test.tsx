@@ -91,7 +91,7 @@ describe('useNotifications — PAT-167 WebSocket lifecycle', () => {
     await vi.runAllTimersAsync()
     expect(api.post).toHaveBeenCalledWith('/auth/sse-ticket')
     expect(MockWebSocket.instances.length).toBe(1)
-    expect(MockWebSocket.instances[0].url).toContain('/api/notifications/ws')
+    expect(MockWebSocket.instances[0].url).toContain('/api/ws/notifications')
     expect(MockWebSocket.instances[0].url).toContain('ticket=ticket-1')
     expect(MockWebSocket.instances[0].url.startsWith('ws://') || MockWebSocket.instances[0].url.startsWith('wss://')).toBe(true)
   })
