@@ -7,13 +7,33 @@ import { STALE_30S, REFETCH_30S } from '../constants/queryConstants'
 const NOTIFICATIONS_KEY = ['notifications']
 const UNREAD_COUNT_KEY = ['notifications', 'unread-count']
 
+// PAT-167: switched from EventSource (SSE) to WebSocket. Cloudflare was
+// silently cutting SSE connections at ~100s idle even with a 25s SSE comment
+// keep-alive, because Cloudflare's idle detector does not reliably count
+// comment-only frames as activity. WebSocket has protocol-level ping/pong
+// that Cloudflare understands natively; the backend pings every 25s and
+// browsers auto-pong, so the entire `ERR_QUIC_PROTOCOL_ERROR / 524 Origin
+// Timeout` family of bugs is eliminated.
+
+function buildWsUrl(ticket: string): string {
+  const baseUrl = import.meta.env.VITE_API_URL || '/api'
+  // Same-origin case: `/api`. Build absolute ws(s):// from window.location.
+  if (baseUrl.startsWith('/')) {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${proto}//${window.location.host}${baseUrl}/notifications/ws?ticket=${encodeURIComponent(ticket)}`
+  }
+  // Absolute URL configured (rare): swap http(s):// → ws(s)://
+  const proto = baseUrl.startsWith('https') ? 'wss' : 'ws'
+  const rest = baseUrl.replace(/^https?/, '')
+  return `${proto}${rest}/notifications/ws?ticket=${encodeURIComponent(ticket)}`
+}
+
 export function useNotifications() {
   const queryClient = useQueryClient()
-  const eventSourceRef = useRef<EventSource | null>(null)
-  // PAT-144: track pending reconnect timer + mount state so cleanup can cancel
-  // a setTimeout fired from the previous SSE error handler, and so a slow
-  // ticket request that resolves after unmount doesn't create an orphan
-  // EventSource that never gets closed.
+  const wsRef = useRef<WebSocket | null>(null)
+  // PAT-144 (carried over from SSE): cancel pending reconnect on unmount, and
+  // refuse to open a fresh WebSocket if the ticket request resolves after
+  // the hook has already unmounted.
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isActiveRef = useRef<boolean>(true)
 
@@ -53,7 +73,6 @@ export function useNotifications() {
     },
   })
 
-  // SSE subscription for real-time updates
   const scheduleReconnect = useCallback((connect: () => void) => {
     if (reconnectTimerRef.current !== null) {
       clearTimeout(reconnectTimerRef.current)
@@ -64,62 +83,65 @@ export function useNotifications() {
     }, REFETCH_30S)
   }, [])
 
-  const connectSSE = useCallback(() => {
+  const connectWs = useCallback(() => {
     const token = localStorage.getItem('token')
     if (!token) return
 
-    const baseUrl = import.meta.env.VITE_API_URL || '/api'
-
-    // Use the Axios client so expired JWTs are silently refreshed via
-    // the response interceptor before we attempt to open the EventSource.
+    // Use the Axios client so expired JWTs are silently refreshed via the
+    // response interceptor before we attempt to open the WebSocket.
     api
       .post<{ ticket: string }>('/auth/sse-ticket')
       .then(({ data: { ticket } }) => {
-        // PAT-144: hook may have been unmounted while the ticket request was
-        // in flight — refuse to create an EventSource that nothing will close.
         if (!isActiveRef.current) return
 
-        const url = `${baseUrl}/notifications/subscribe?ticket=${encodeURIComponent(ticket)}`
-        const es = new EventSource(url)
-        eventSourceRef.current = es
+        const ws = new WebSocket(buildWsUrl(ticket))
+        wsRef.current = ws
 
-        es.addEventListener('notification', () => {
-          queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY })
-          queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY })
-        })
-
-        es.addEventListener('unread-count', (event) => {
-          const count = parseInt(event.data, 10)
-          if (!isNaN(count)) {
-            queryClient.setQueryData(UNREAD_COUNT_KEY, count)
+        ws.addEventListener('message', (event) => {
+          let payload: { type?: string; count?: number } | null = null
+          try {
+            payload = JSON.parse(event.data)
+          } catch {
+            return
+          }
+          if (!payload) return
+          if (payload.type === 'unread-count' && typeof payload.count === 'number') {
+            queryClient.setQueryData(UNREAD_COUNT_KEY, payload.count)
+          } else if (payload.type === 'notification') {
+            queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY })
+            queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY })
           }
         })
 
-        es.onerror = () => {
-          es.close()
-          eventSourceRef.current = null
-          scheduleReconnect(connectSSE)
+        const handleDrop = () => {
+          if (wsRef.current === ws) {
+            wsRef.current = null
+          }
+          scheduleReconnect(connectWs)
         }
+        ws.addEventListener('close', handleDrop)
+        ws.addEventListener('error', handleDrop)
       })
       .catch(() => {
-        // Ticket request failed or SSE not available — rely on polling.
-        scheduleReconnect(connectSSE)
+        // Ticket request failed (network blip / 401 from interceptor) — rely
+        // on polling and retry the whole flow.
+        scheduleReconnect(connectWs)
       })
   }, [queryClient, scheduleReconnect])
 
   useEffect(() => {
     isActiveRef.current = true
-    connectSSE()
+    connectWs()
     return () => {
       isActiveRef.current = false
       if (reconnectTimerRef.current !== null) {
         clearTimeout(reconnectTimerRef.current)
         reconnectTimerRef.current = null
       }
-      eventSourceRef.current?.close()
-      eventSourceRef.current = null
+      wsRef.current?.close()
+      wsRef.current = null
     }
-  }, [connectSSE])
+  }, [connectWs])
 
   return {
     notifications,
