@@ -15,17 +15,20 @@ const UNREAD_COUNT_KEY = ['notifications', 'unread-count']
 // browsers auto-pong, so the entire `ERR_QUIC_PROTOCOL_ERROR / 524 Origin
 // Timeout` family of bugs is eliminated.
 
+// Path lives at /api/ws/notifications (not /api/notifications/ws) on purpose —
+// see WebSocketConfig.WS_PATH for why the WS route lives outside the controller
+// namespace.
 function buildWsUrl(ticket: string): string {
   const baseUrl = import.meta.env.VITE_API_URL || '/api'
   // Same-origin case: `/api`. Build absolute ws(s):// from window.location.
   if (baseUrl.startsWith('/')) {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    return `${proto}//${window.location.host}${baseUrl}/notifications/ws?ticket=${encodeURIComponent(ticket)}`
+    return `${proto}//${window.location.host}${baseUrl}/ws/notifications?ticket=${encodeURIComponent(ticket)}`
   }
   // Absolute URL configured (rare): swap http(s):// → ws(s)://
   const proto = baseUrl.startsWith('https') ? 'wss' : 'ws'
   const rest = baseUrl.replace(/^https?/, '')
-  return `${proto}${rest}/notifications/ws?ticket=${encodeURIComponent(ticket)}`
+  return `${proto}${rest}/ws/notifications?ticket=${encodeURIComponent(ticket)}`
 }
 
 export function useNotifications() {

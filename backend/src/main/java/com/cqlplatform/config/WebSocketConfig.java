@@ -36,7 +36,14 @@ import java.util.Map;
 public class WebSocketConfig implements WebSocketConfigurer {
 
     public static final String USERNAME_ATTR = "username";
-    public static final String WS_PATH = "/api/notifications/ws";
+    // Path lives OUTSIDE /api/notifications/ on purpose: NotificationController
+    // has @DeleteMapping("/{id}") which Spring's MVC dispatcher matches against
+    // any single segment under /api/notifications/, returning 405 before the
+    // WebSocketHandlerMapping ever runs (MVC mapping has higher priority by
+    // Spring's autoconfig defaults). Putting the WS endpoint under a separate
+    // /api/ws/ namespace sidesteps the collision and makes the route
+    // self-documenting for future WS endpoints.
+    public static final String WS_PATH = "/api/ws/notifications";
 
     private final NotificationWebSocketHandler notificationHandler;
 
