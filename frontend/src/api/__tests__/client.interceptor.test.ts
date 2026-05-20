@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { api } from '../client'
@@ -8,32 +8,51 @@ import { api } from '../client'
 // who landed on a page that probed an admin endpoint (e.g. EditorPage →
 // /api/settings/ai-status) had their token wiped and was bounced to /login
 // immediately after a successful login. See conversation log on 2026-05-20.
+
+// jsdom's default location is http://localhost/, so we pin the axios baseURL
+// to a matching absolute URL — MSW resolves the path the same way regardless,
+// and this avoids `TypeError: Invalid URL` when axios concatenates the path.
+const BASE = 'http://localhost/api'
+
 const server = setupServer(
-  http.get('/api/settings/ai-status', () =>
+  http.get(`${BASE}/settings/ai-status`, () =>
     HttpResponse.json({ error: 'Access Denied' }, { status: 403 })
   ),
-  http.post('/api/auth/login', () =>
+  http.post(`${BASE}/auth/login`, () =>
     HttpResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-  ),
-  http.get('/api/cql/libraries', () =>
-    HttpResponse.json({ error: 'Token expired' }, { status: 401 })
   ),
 )
 
 describe('api/client response interceptor', () => {
-  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-  afterEach(() => server.resetHandlers())
-  afterAll(() => server.close())
+  let originalBaseURL: string | undefined
+  let hrefSpy: ReturnType<typeof vi.fn>
 
-  it('keeps the session intact when a non-auth endpoint returns 403', async () => {
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+  afterAll(() => {
+    server.close()
+    if (originalBaseURL !== undefined) api.defaults.baseURL = originalBaseURL
+  })
+  beforeEach(() => {
+    originalBaseURL = api.defaults.baseURL
+    api.defaults.baseURL = BASE
     localStorage.setItem('token', 'fake-token')
     localStorage.setItem('user', JSON.stringify({ username: 'u', role: 'USER' }))
-    const hrefSpy = vi.fn()
-    Object.defineProperty(window, 'location', {
+    hrefSpy = vi.fn()
+    // Only override the href setter so the URL constructor still sees a sane
+    // window.location (jsdom defaults to http://localhost/) for everything else.
+    const proto = Object.getPrototypeOf(window.location)
+    Object.defineProperty(proto, 'href', {
       configurable: true,
-      value: { pathname: '/', set href(v: string) { hrefSpy(v) } },
+      get: () => 'http://localhost/',
+      set: hrefSpy,
     })
+  })
+  afterEach(() => {
+    server.resetHandlers()
+    if (originalBaseURL !== undefined) api.defaults.baseURL = originalBaseURL
+  })
 
+  it('keeps the session intact when a non-auth endpoint returns 403', async () => {
     await expect(api.get('/settings/ai-status')).rejects.toMatchObject({
       response: { status: 403 },
     })
@@ -44,14 +63,6 @@ describe('api/client response interceptor', () => {
   })
 
   it('clears storage and redirects on 401 from an auth endpoint', async () => {
-    localStorage.setItem('token', 'fake-token')
-    localStorage.setItem('user', JSON.stringify({ username: 'u', role: 'USER' }))
-    const hrefSpy = vi.fn()
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { pathname: '/', set href(v: string) { hrefSpy(v) } },
-    })
-
     await expect(
       api.post('/auth/login', { username: 'u', password: 'bad' })
     ).rejects.toMatchObject({ response: { status: 401 } })
