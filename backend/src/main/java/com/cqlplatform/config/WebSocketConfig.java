@@ -54,7 +54,16 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(notificationHandler, WS_PATH)
-                .addInterceptors(new TicketHandshakeInterceptor());
+                .addInterceptors(new TicketHandshakeInterceptor())
+                // Spring's default OriginHandshakeInterceptor rejects any
+                // upgrade whose Origin header doesn't match the request's
+                // host:port. Behind the nginx reverse proxy that pretty much
+                // always rejects (backend sees Host=backend:8080, Origin=
+                // https://www.twcql.com), so allow any origin pattern here —
+                // auth is bound to a single-use ticket redeemed before this
+                // interceptor runs, so the Origin check would only be a defense
+                // against CSRF, which a single-use ticket already mitigates.
+                .setAllowedOriginPatterns("*");
     }
 
     static class TicketHandshakeInterceptor implements HandshakeInterceptor {
