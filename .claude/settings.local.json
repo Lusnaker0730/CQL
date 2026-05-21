@@ -139,7 +139,11 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr merge 115 --merge --subject \"feat: add TW Core IG patient generator + SMART Backend Services EHR auth \\(#PAT-059 #PAT-060\\)\" 2>&1)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr view 115 --json state,mergedAt --jq '{state: .state, mergedAt: .mergedAt}' 2>&1)",
       "Bash(ssh:*)",
-      "Bash(\"/c/Users/alumi/apache-maven-3.9.12/bin/mvn\" -f backend/pom.xml test -Dtest=\"ExpressionCqlEngineTest,EcqmControllerTest,ExpressionTreeValidatorTest\" -q)"
+      "Bash(\"/c/Users/alumi/apache-maven-3.9.12/bin/mvn\" -f backend/pom.xml test -Dtest=\"ExpressionCqlEngineTest,EcqmControllerTest,ExpressionTreeValidatorTest\" -q)",
+      "Bash(gh pr *)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(gh run *)"
     ]
   }
 }

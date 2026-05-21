@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { act, render, screen } from '../../../test/test-utils'
 import GlobalNotification from '../GlobalNotification'
 import { useNotification } from '../../../hooks/useNotification'
