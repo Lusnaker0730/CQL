@@ -742,7 +742,10 @@ export interface CodeValidationResult {
 }
 
 export interface TerminologyValidationItem {
-  type: 'valueset' | 'code' | 'codesystem'
+  // PAT-144: 'parseError' covers the case where ELM JSON is malformed so no
+  // validation could even start (useTerminologyValidation surfaces this so
+  // the UI doesn't silently render an empty result that looks like "all OK").
+  type: 'valueset' | 'code' | 'codesystem' | 'parseError'
   name: string
   url?: string
   system?: string
@@ -965,6 +968,11 @@ export interface ValueSetSummary {
   title: string
   status: string
   conceptCount: number
+  /** PAT-119: true when the ValueSet uses compose.include.filter or
+   *  compose.include.valueSet (e.g. "all SNOMED CT descendants of X"),
+   *  so it needs terminology-server $expand to enumerate actual codes.
+   *  Frontend should render a hint chip instead of "0 concepts". */
+  hasComposeRules?: boolean
 }
 
 export interface CodeSystemSummary {
@@ -1156,6 +1164,9 @@ export interface DataRequirementInfo {
   profile?: string[]
   codeFilter?: CodeFilterInfo[]
   dateFilter?: DateFilterInfo[]
+  /** PAT-121a: populated only on the Patient entry when the measure has
+   *  age / gender constraints (e.g. adult-only cohort). */
+  patientFilter?: PatientFilterInfo
 }
 
 export interface CodeFilterInfo {
@@ -1165,6 +1176,16 @@ export interface CodeFilterInfo {
   codeSystemUrl?: string
   codeSystemName?: string
   code?: CodingInfo[]
+  /** PAT-121b: code prefixes captured from `StartsWith(code, 'E08')` patterns.
+   *  Clinical CQL often groups ICD ranges by prefix rather than enumerating codes. */
+  codePrefixes?: string[]
+}
+
+export interface PatientFilterInfo {
+  minAge?: number
+  maxAge?: number
+  ageUnit?: string
+  gender?: string[]
 }
 
 export interface DateFilterInfo {
@@ -1197,6 +1218,16 @@ export interface ThresholdAlert {
   comparisonOperator: string
   department?: string
   severity: string
+  /**
+   * PAT-151 — FHIR scoring type carried alongside the alert so the panel can
+   * format scores correctly. Without it the UI would always tack {@code %} on
+   * to {@code actualScore} / {@code thresholdValue}, which is wrong for
+   * continuous-variable measures (e.g. HbA1c is mmol/L, not a percentage) and
+   * for cohort measures (raw patient counts).
+   */
+  scoringType?: string
+  /** Unit label for continuous-variable measures (e.g. "mmol/L"). */
+  unit?: string
 }
 
 export interface TrendSeriesPoint {
@@ -1204,6 +1235,10 @@ export interface TrendSeriesPoint {
   measureName: string
   measureId?: number
   score?: number
+  /** FHIR scoring type: proportion, ratio, continuous-variable, cohort, composite. */
+  scoringType?: string
+  /** Unit string for the score (typically populated for continuous-variable, e.g. "mmol/L"). */
+  unit?: string
 }
 
 export interface MeasureThreshold {

@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -123,7 +124,7 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getStatus()).isEqualTo(504);
     }
 
-    // ===== FhirServerUnavailableException → 503 =====
+    // ===== FhirServerUnavailableException → 503 with structured envelope (PAT-110) =====
 
     @Test
     void handleFhirServerUnavailableException_shouldReturn503() {
@@ -135,6 +136,37 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(503);
         assertThat(response.getBody().getMessage()).isEqualTo("FHIR server is down");
+    }
+
+    @Test
+    void handleFhirServerUnavailableException_shouldCarryStructuredEnvelope() {
+        // PAT-110: the FE discriminates yellow vs red banners by errorType.
+        // Populate FhirRequestContext so the exception captures connection identity.
+        com.cqlplatform.fhir.FhirRequestContext.set(42L, "台大 HIS");
+        try {
+            FhirServerUnavailableException ex = new FhirServerUnavailableException(
+                    "FHIR search failed",
+                    FhirServerUnavailableException.Reason.TIMEOUT);
+
+            ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                    handler.handleFhirServerUnavailableException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(response.getHeaders().getFirst("Retry-After"))
+                    .as("Retry-After header drives HTTP-aware client backoff")
+                    .isEqualTo("30");
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getErrorType())
+                    .as("machine-readable category the FE interceptor pattern-matches on")
+                    .isEqualTo("FHIR_UPSTREAM_UNAVAILABLE");
+            assertThat(response.getBody().getUpstream()).isNotNull();
+            assertThat(response.getBody().getUpstream().getConnectionId()).isEqualTo(42L);
+            assertThat(response.getBody().getUpstream().getConnectionName()).isEqualTo("台大 HIS");
+            assertThat(response.getBody().getUpstream().getReason()).isEqualTo("TIMEOUT");
+            assertThat(response.getBody().getUpstream().getRetryAfterSeconds()).isEqualTo(30);
+        } finally {
+            com.cqlplatform.fhir.FhirRequestContext.clear();
+        }
     }
 
     // ===== CallNotPermittedException → 503 =====
@@ -149,6 +181,50 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(503);
         assertThat(response.getBody().getMessage()).contains("temporarily unavailable");
+    }
+
+    @Test
+    void handleCircuitBreakerOpenException_shouldSurfaceCircuitBreakerOpenEnvelope() {
+        // PAT-110: breaker-open gets its own reason value so the FE can say
+        // "已自動重試 N 次、暫停中" instead of the generic TIMEOUT message.
+        CallNotPermittedException ex = mock(CallNotPermittedException.class);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleCircuitBreakerOpenException(ex);
+
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("60");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getErrorType()).isEqualTo("FHIR_UPSTREAM_UNAVAILABLE");
+        assertThat(response.getBody().getUpstream()).isNotNull();
+        assertThat(response.getBody().getUpstream().getReason()).isEqualTo("CIRCUIT_BREAKER_OPEN");
+        assertThat(response.getBody().getUpstream().getRetryAfterSeconds()).isEqualTo(60);
+    }
+
+    // ===== HttpMessageNotReadableException → 400 (PAT-117) =====
+
+    @Test
+    void handleHttpMessageNotReadable_shouldReturn400_notGeneric500() {
+        // Before PAT-117 this fell through to handleGenericException → 500
+        // "An internal error occurred", which surfaced in the UI as broken buttons
+        // on lock / submit-for-review / share flows when the FE sent an unknown
+        // field that Jackson rejected. Must be 400 — malformed client request is
+        // not a server error.
+        org.springframework.http.converter.HttpMessageNotReadableException ex =
+                new org.springframework.http.converter.HttpMessageNotReadableException(
+                        "JSON parse error: Unrecognized field \"currentUser\"",
+                        (org.springframework.http.HttpInputMessage) null);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleHttpMessageNotReadable(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(400);
+        assertThat(response.getBody().getMessage())
+                .as("user-facing message must be actionable, not leak Jackson internals")
+                .contains("Request body")
+                .doesNotContain("Jackson")
+                .doesNotContain("HttpMessageNotReadableException");
     }
 
     // ===== AccessDeniedException → 403 =====
@@ -179,6 +255,29 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getMessage()).isEqualTo("Invalid FHIR resource type");
     }
 
+    // ===== RejectedExecutionException → 503 with Retry-After =====
+    // PAT-109: when patientImportExecutor AbortPolicy rejects a bulk-import submit,
+    // the API should return a retry-able 503 rather than the generic 500 fallback.
+
+    @Test
+    void handleRejectedExecutionException_shouldReturn503WithRetryAfterHeader() {
+        RejectedExecutionException ex = new RejectedExecutionException(
+                "Task rejected from ThreadPoolExecutor[...]");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleRejectedExecutionException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("30");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(503);
+        assertThat(response.getBody().getError()).isEqualTo("Service Overloaded");
+        assertThat(response.getBody().getMessage())
+                .as("user-facing message must be retry-oriented, not leak internals like 'ThreadPoolExecutor'")
+                .contains("retry")
+                .doesNotContain("ThreadPoolExecutor");
+    }
+
     // ===== Generic Exception → 500, no leak =====
 
     @Test
@@ -192,5 +291,57 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getStatus()).isEqualTo(500);
         assertThat(response.getBody().getMessage()).doesNotContain("secret");
         assertThat(response.getBody().getMessage()).isEqualTo("An internal error occurred. Please contact support.");
+    }
+
+    // ===== PAT-160: client disconnect → void / no body =====
+
+    @Test
+    void handleClientDisconnect_asyncRequestNotUsable_shouldReturnVoidWithoutThrowing() {
+        // The handler returns void; Spring uses that as "do not write any body to the
+        // already-closed stream." Just verify it doesn't throw.
+        org.springframework.web.context.request.async.AsyncRequestNotUsableException ex =
+                new org.springframework.web.context.request.async.AsyncRequestNotUsableException(
+                        "ServletOutputStream failed to write: java.io.IOException: Broken pipe");
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> handler.handleClientDisconnect(ex))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void handleGenericException_brokenPipeIOException_shouldReturnNullNotErrorBody() {
+        // Defensive path: when a generic IOException carries a "Broken pipe" message,
+        // we treat it as a client disconnect and return null (Spring writes nothing).
+        // Without this, attempting to write a 500 ErrorResponse body to the closed
+        // stream triggered HttpMessageNotWritableException — the second-order
+        // "Failure in @ExceptionHandler" log entries we saw in production.
+        Exception ex = new java.io.IOException("Broken pipe");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+
+        assertThat(response).isNull();
+    }
+
+    @Test
+    void handleGenericException_brokenPipeCausedBy_shouldDetectViaCauseChain() {
+        // The disconnect IOException is often wrapped (e.g. JacksonException →
+        // IOException). Walk the cause chain so we still detect it.
+        Exception cause = new java.io.IOException("Broken pipe");
+        Exception ex = new RuntimeException("write failed", cause);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+
+        assertThat(response).isNull();
+    }
+
+    @Test
+    void handleGenericException_nonDisconnectIOException_stillReturns500() {
+        // Make sure we didn't over-broaden: a plain IOException without the disconnect
+        // message should still produce a 500 ErrorResponse like before.
+        Exception ex = new java.io.IOException("disk full");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

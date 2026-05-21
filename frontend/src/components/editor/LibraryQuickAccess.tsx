@@ -119,7 +119,7 @@ export default function LibraryQuickAccess() {
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setFavoritesOpen(!favoritesOpen)}
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -128,7 +128,7 @@ export default function LibraryQuickAccess() {
         </Stack>
         {favoritesOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
-      <Collapse in={favoritesOpen}>
+      <Collapse in={favoritesOpen} sx={{ flexShrink: 0 }}>
         {favoritesList.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
             {t('quickAccess.noFavorites')}
@@ -161,14 +161,14 @@ export default function LibraryQuickAccess() {
         )}
       </Collapse>
 
-      <Divider />
+      <Divider sx={{ flexShrink: 0 }} />
 
       {/* Recent */}
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setRecentOpen(!recentOpen)}
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -192,7 +192,7 @@ export default function LibraryQuickAccess() {
           {recentOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </Stack>
       </Stack>
-      <Collapse in={recentOpen}>
+      <Collapse in={recentOpen} sx={{ flexShrink: 0 }}>
         {recent.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
             {t('quickAccess.noRecent')}
@@ -229,14 +229,14 @@ export default function LibraryQuickAccess() {
         )}
       </Collapse>
 
-      <Divider />
+      <Divider sx={{ flexShrink: 0 }} />
 
       {/* Browse Libraries with filter tabs */}
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setBrowseOpen(!browseOpen)}
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -246,7 +246,7 @@ export default function LibraryQuickAccess() {
         </Stack>
         {browseOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
-      <Collapse in={browseOpen}>
+      <Collapse in={browseOpen} sx={{ flexShrink: 0 }}>
         <Tabs
           value={browseFilter}
           onChange={(_, v) => setBrowseFilter(v)}
@@ -284,14 +284,14 @@ export default function LibraryQuickAccess() {
         )}
       </Collapse>
 
-      <Divider />
+      <Divider sx={{ flexShrink: 0 }} />
 
       {/* CQL Repository */}
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setRepoOpen(!repoOpen)}
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -300,7 +300,7 @@ export default function LibraryQuickAccess() {
         </Stack>
         {repoOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
-      <Collapse in={repoOpen}>
+      <Collapse in={repoOpen} sx={{ flexShrink: 0 }}>
         {repoLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
             <CircularProgress size={18} />
@@ -337,14 +337,14 @@ export default function LibraryQuickAccess() {
         )}
       </Collapse>
 
-      <Divider />
+      <Divider sx={{ flexShrink: 0 }} />
 
       {/* TWCDI Templates */}
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer' }}
+        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setTwcdiOpen(!twcdiOpen)}
       >
         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -353,7 +353,7 @@ export default function LibraryQuickAccess() {
         </Stack>
         {twcdiOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </Stack>
-      <Collapse in={twcdiOpen}>
+      <Collapse in={twcdiOpen} sx={{ flexShrink: 0 }}>
         <List dense disablePadding sx={{ maxHeight: 300, overflow: 'auto' }}>
           {TWCDI_TEMPLATES.map((template) => (
             <ListItemButton

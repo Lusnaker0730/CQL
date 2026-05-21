@@ -4,6 +4,7 @@ import com.cqlplatform.model.measure.DataRequirementInfo;
 import com.cqlplatform.model.measure.DataRequirementInfo.CodeFilterInfo;
 import com.cqlplatform.model.measure.DataRequirementInfo.CodingInfo;
 import com.cqlplatform.model.measure.DataRequirementInfo.DateFilterInfo;
+import com.cqlplatform.model.measure.DataRequirementInfo.PatientFilterInfo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -48,13 +49,23 @@ public class DataRequirementExtractor {
             Map<String, String> valueSetMap = buildValueSetMap(root);
             Map<String, String> codeSystemMap = buildCodeSystemMap(root);
             Map<String, CodeDefInfo> codeDefMap = buildCodeDefMap(root);
+            // PAT-120: CQL `concept` declarations group multiple `code` refs into one
+            // logical concept. When a where clause uses `P.code ~ "SomeConcept"` or
+            // `x in "SomeConcept"`, we need to expand the ConceptRef to each member code.
+            Map<String, List<String>> conceptDefMap = buildConceptDefMap(root);
 
             // Collect all Retrieve nodes (including Query-enhanced ones)
             List<RetrieveInfo> retrieves = new ArrayList<>();
-            collectRetrieves(root, retrieves, codeSystemMap, codeDefMap, new HashSet<>());
+            collectRetrieves(root, retrieves, codeSystemMap, codeDefMap, conceptDefMap, new HashSet<>());
+
+            // PAT-121a: scan the whole ELM once for Patient demographic filters
+            // (age / gender). They usually live in "Initial Population" or similar
+            // expressions, not inside a Patient retrieve — so we walk the entire
+            // tree separately rather than expecting per-retrieve where clauses.
+            PatientFilterInfo patientFilter = collectPatientFilter(root);
 
             // Convert to DataRequirementInfo and deduplicate
-            return deduplicateRequirements(retrieves, valueSetMap);
+            return deduplicateRequirements(retrieves, valueSetMap, patientFilter);
         } catch (Exception e) {
             log.warn("Failed to extract data requirements from ELM JSON: {}", e.getMessage());
             return Collections.emptyList();
@@ -99,6 +110,197 @@ public class DataRequirementExtractor {
     }
 
     /**
+     * PAT-120: build concept name → list of code names. ELM shape:
+     * {@code library.concepts.def[] = [{name, code: [{type:"CodeRef", name}, ...]}, ...]}.
+     * Used by {@link #tryExtractCodeRefFilter} to expand a ConceptRef in a where
+     * clause (e.g. {@code P.code ~ "Knee Replacement Concept"}) into all the
+     * member codes rather than losing them.
+     */
+    private Map<String, List<String>> buildConceptDefMap(JsonNode root) {
+        Map<String, List<String>> map = new HashMap<>();
+        JsonNode concepts = root.path("library").path("concepts").path("def");
+        if (concepts.isArray()) {
+            for (JsonNode cd : concepts) {
+                String name = cd.path("name").asText(null);
+                if (name == null) continue;
+                List<String> codeNames = new ArrayList<>();
+                JsonNode codes = cd.path("code");
+                if (codes.isArray()) {
+                    for (JsonNode c : codes) {
+                        if ("CodeRef".equals(c.path("type").asText("CodeRef"))) {
+                            String codeName = c.path("name").asText(null);
+                            if (codeName != null) codeNames.add(codeName);
+                        }
+                    }
+                }
+                map.put(name, codeNames);
+            }
+        }
+        return map;
+    }
+
+    /**
+     * PAT-121a: walk all statement expressions collecting Patient demographic
+     * filters. CQL usually expresses these at measure-level (e.g. in an
+     * "Initial Population" define: {@code AgeInYearsAt(...) >= 18 and
+     * AgeInYearsAt(...) <= 64} and/or {@code Patient.gender = 'male'}), not
+     * inside individual Retrieve where clauses — so we scan the whole tree
+     * separately and aggregate the constraints.
+     *
+     * <p>Returns null when no demographic filters are detected so the emitted
+     * Patient entry stays minimal for measures that apply to all demographics.
+     */
+    private PatientFilterInfo collectPatientFilter(JsonNode root) {
+        PatientFilterInfo acc = new PatientFilterInfo();
+        acc.setGender(new ArrayList<>());
+        walkForPatientFilter(root, acc);
+        boolean hasAny = acc.getMinAge() != null || acc.getMaxAge() != null
+                || !acc.getGender().isEmpty();
+        if (!hasAny) return null;
+        if (acc.getGender().isEmpty()) acc.setGender(null);
+        return acc;
+    }
+
+    private void walkForPatientFilter(JsonNode node, PatientFilterInfo acc) {
+        if (node == null) return;
+        if (node.isObject()) {
+            String type = node.path("type").asText("");
+            if (!type.isEmpty()) {
+                tryMatchAgeFilter(node, type, acc);
+                tryMatchGenderFilter(node, type, acc);
+            }
+            for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+                walkForPatientFilter(it.next(), acc);
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) walkForPatientFilter(child, acc);
+        }
+    }
+
+    /**
+     * PAT-121a: match {@code GreaterOrEqual/LessOrEqual/Greater/Less/Equal}
+     * where one operand is a {@code CalculateAge}/{@code CalculateAgeAt} call
+     * and the other is an integer Literal. Narrows min/max conservatively —
+     * {@code >= 18} tightens minAge to max(existing, 18).
+     */
+    private void tryMatchAgeFilter(JsonNode node, String type, PatientFilterInfo acc) {
+        boolean isComparison = "GreaterOrEqual".equals(type) || "LessOrEqual".equals(type)
+                || "Greater".equals(type) || "Less".equals(type) || "Equal".equals(type);
+        if (!isComparison) return;
+        JsonNode ops = node.get("operand");
+        if (ops == null || !ops.isArray() || ops.size() < 2) return;
+        JsonNode a = ops.get(0);
+        JsonNode b = ops.get(1);
+        // Detect which side is CalculateAge, which is Literal
+        Integer ageLiteral;
+        String precision;
+        boolean ageOnLeft;
+        if (isCalculateAgeCall(a) && isIntLiteral(b)) {
+            precision = a.path("precision").asText(null);
+            ageLiteral = parseIntLiteral(b);
+            ageOnLeft = true;
+        } else if (isCalculateAgeCall(b) && isIntLiteral(a)) {
+            precision = b.path("precision").asText(null);
+            ageLiteral = parseIntLiteral(a);
+            ageOnLeft = false;
+        } else {
+            return;
+        }
+        if (ageLiteral == null) return;
+        if (acc.getAgeUnit() == null && precision != null) acc.setAgeUnit(precision);
+
+        // Normalize so comparison reads "age <op> literal"
+        String effective = ageOnLeft ? type : flipComparison(type);
+        switch (effective) {
+            case "GreaterOrEqual": // age >= N → minAge = max(existing, N)
+                if (acc.getMinAge() == null || ageLiteral > acc.getMinAge()) acc.setMinAge(ageLiteral);
+                break;
+            case "Greater": // age > N → minAge = max(existing, N+1)
+                int inclusive = ageLiteral + 1;
+                if (acc.getMinAge() == null || inclusive > acc.getMinAge()) acc.setMinAge(inclusive);
+                break;
+            case "LessOrEqual":
+                if (acc.getMaxAge() == null || ageLiteral < acc.getMaxAge()) acc.setMaxAge(ageLiteral);
+                break;
+            case "Less":
+                int maxIncl = ageLiteral - 1;
+                if (acc.getMaxAge() == null || maxIncl < acc.getMaxAge()) acc.setMaxAge(maxIncl);
+                break;
+            case "Equal":
+                acc.setMinAge(ageLiteral);
+                acc.setMaxAge(ageLiteral);
+                break;
+            default: // no-op
+        }
+    }
+
+    private boolean isCalculateAgeCall(JsonNode node) {
+        if (node == null || !node.isObject()) return false;
+        String t = node.path("type").asText("");
+        return "CalculateAge".equals(t) || "CalculateAgeAt".equals(t);
+    }
+
+    private boolean isIntLiteral(JsonNode node) {
+        if (node == null || !node.isObject()) return false;
+        if (!"Literal".equals(node.path("type").asText(""))) return false;
+        String vt = node.path("valueType").asText("");
+        return vt.contains("Integer");
+    }
+
+    private Integer parseIntLiteral(JsonNode node) {
+        try {
+            return Integer.parseInt(node.path("value").asText(""));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String flipComparison(String op) {
+        switch (op) {
+            case "GreaterOrEqual": return "LessOrEqual";
+            case "LessOrEqual": return "GreaterOrEqual";
+            case "Greater": return "Less";
+            case "Less": return "Greater";
+            default: return op; // Equal stays Equal
+        }
+    }
+
+    /**
+     * PAT-121a: match {@code Equal(Property(path=gender, ...), Literal("male"|"female"|...))}
+     * where the Property is rooted at an ExpressionRef("Patient") or the Patient
+     * context. Collects all literal gender values seen across the library.
+     */
+    private void tryMatchGenderFilter(JsonNode node, String type, PatientFilterInfo acc) {
+        if (!"Equal".equals(type) && !"Equivalent".equals(type)) return;
+        JsonNode ops = node.get("operand");
+        if (ops == null || !ops.isArray() || ops.size() < 2) return;
+        String literal = extractGenderLiteral(ops.get(0), ops.get(1));
+        if (literal == null) literal = extractGenderLiteral(ops.get(1), ops.get(0));
+        if (literal != null && !acc.getGender().contains(literal)) {
+            acc.getGender().add(literal);
+        }
+    }
+
+    private String extractGenderLiteral(JsonNode propNode, JsonNode litNode) {
+        if (propNode == null || litNode == null) return null;
+        if (!"Literal".equals(litNode.path("type").asText(""))) return null;
+        JsonNode unwrapped = unwrapToProperty(propNode);
+        if (unwrapped == null) return null;
+        // Accept Property(path=gender) OR Property(path=value, source=Property(path=gender))
+        String path = unwrapped.path("path").asText("");
+        if ("value".equals(path)) {
+            JsonNode inner = unwrapped.get("source");
+            if (inner != null && "Property".equals(inner.path("type").asText(""))
+                    && "gender".equals(inner.path("path").asText(""))) {
+                return litNode.path("value").asText(null);
+            }
+        } else if ("gender".equals(path)) {
+            return litNode.path("value").asText(null);
+        }
+        return null;
+    }
+
+    /**
      * Build a mapping from code definition name to its code system info.
      * ELM structure: library.codes.def[] with {name, id, codeSystem: {name}} fields.
      */
@@ -128,6 +330,7 @@ public class DataRequirementExtractor {
      */
     private void collectRetrieves(JsonNode node, List<RetrieveInfo> retrieves,
                                   Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                                  Map<String, List<String>> conceptDefMap,
                                   Set<JsonNode> handledRetrieves) {
         if (node == null) {
             return;
@@ -138,30 +341,30 @@ public class DataRequirementExtractor {
 
             if ("Query".equals(type)) {
                 // Handle Query nodes specially: extract Retrieve from source and enhance from Where
-                handleQuery(node, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                handleQuery(node, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 // Still recurse into non-source children (e.g. let clauses may contain nested queries)
                 // but skip source to avoid double-counting
                 JsonNode where = node.get("where");
                 if (where != null) {
-                    collectRetrieves(where, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                    collectRetrieves(where, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 }
                 JsonNode let = node.get("let");
                 if (let != null) {
-                    collectRetrieves(let, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                    collectRetrieves(let, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 }
                 JsonNode relationship = node.get("relationship");
                 if (relationship != null) {
-                    collectRetrieves(relationship, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                    collectRetrieves(relationship, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 }
                 JsonNode ret = node.get("return");
                 if (ret != null) {
-                    collectRetrieves(ret, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                    collectRetrieves(ret, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 }
                 return;
             }
 
             if ("Retrieve".equals(type) && !handledRetrieves.contains(node)) {
-                RetrieveInfo info = parseRetrieve(node);
+                RetrieveInfo info = parseRetrieve(node, codeDefMap, codeSystemMap);
                 if (info != null) {
                     retrieves.add(info);
                     handledRetrieves.add(node);
@@ -171,12 +374,12 @@ public class DataRequirementExtractor {
             // Generic recursion for all other node types
             if (!"Query".equals(type)) {
                 for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
-                    collectRetrieves(it.next(), retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                    collectRetrieves(it.next(), retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 }
             }
         } else if (node.isArray()) {
             for (JsonNode child : node) {
-                collectRetrieves(child, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                collectRetrieves(child, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
             }
         }
     }
@@ -186,11 +389,19 @@ public class DataRequirementExtractor {
      */
     private void handleQuery(JsonNode queryNode, List<RetrieveInfo> retrieves,
                              Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                                  Map<String, List<String>> conceptDefMap,
                              Set<JsonNode> handledRetrieves) {
         JsonNode sources = queryNode.get("source");
         if (sources == null || !sources.isArray() || sources.isEmpty()) {
             return;
         }
+
+        // PAT-158: build a map of let-binding identifier → expression for this Query.
+        // Used by `extractCodePathFromPropertyChain` to follow `QueryLetRef` nodes
+        // back to their source property (the recommended FHIR choice-type access
+        // pattern `let medCC: MR.medication as FHIR.CodeableConcept` produces ELM
+        // source chains that bottom out at QueryLetRef, not at the outer alias).
+        Map<String, JsonNode> letBindings = buildLetBindings(queryNode);
 
         // Process each source in the Query
         for (JsonNode source : sources) {
@@ -202,7 +413,7 @@ public class DataRequirementExtractor {
             String sourceType = sourceExpr.path("type").asText(null);
             if (!"Retrieve".equals(sourceType)) {
                 // Recurse into non-Retrieve sources (e.g., function calls, other queries)
-                collectRetrieves(sourceExpr, retrieves, codeSystemMap, codeDefMap, handledRetrieves);
+                collectRetrieves(sourceExpr, retrieves, codeSystemMap, codeDefMap, conceptDefMap, handledRetrieves);
                 continue;
             }
 
@@ -211,7 +422,7 @@ public class DataRequirementExtractor {
                 continue;
             }
 
-            RetrieveInfo info = parseRetrieve(sourceExpr);
+            RetrieveInfo info = parseRetrieve(sourceExpr, codeDefMap, codeSystemMap);
             if (info == null) {
                 continue;
             }
@@ -223,11 +434,32 @@ public class DataRequirementExtractor {
             boolean hasInlineCodes = (info.valueSetRefName != null || !info.directCodes.isEmpty());
             JsonNode where = queryNode.get("where");
             if (where != null && alias != null) {
-                enhanceFromWhere(where, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
+                enhanceFromWhere(where, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
             }
 
             retrieves.add(info);
         }
+    }
+
+    /**
+     * PAT-158 — collect a Query's {@code let} clauses into an identifier → expression
+     * map. Used downstream by {@link #extractCodePathFromPropertyChain} to follow
+     * {@code QueryLetRef} references back to their source properties. Returns an
+     * empty map (not null) so callers can pass it through without null-checking.
+     */
+    private Map<String, JsonNode> buildLetBindings(JsonNode queryNode) {
+        Map<String, JsonNode> bindings = new HashMap<>();
+        JsonNode lets = queryNode.get("let");
+        if (lets != null && lets.isArray()) {
+            for (JsonNode let : lets) {
+                String identifier = let.path("identifier").asText(null);
+                JsonNode expression = let.get("expression");
+                if (identifier != null && expression != null) {
+                    bindings.put(identifier, expression);
+                }
+            }
+        }
+        return bindings;
     }
 
     /**
@@ -236,8 +468,10 @@ public class DataRequirementExtractor {
      */
     private void enhanceFromWhere(JsonNode where, RetrieveInfo info, String alias,
                                   Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
-                                  boolean hasInlineCodes) {
-        walkWhereClause(where, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
+                                  Map<String, List<String>> conceptDefMap,
+                                  boolean hasInlineCodes,
+                                  Map<String, JsonNode> letBindings) {
+        walkWhereClause(where, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
     }
 
     /**
@@ -245,7 +479,9 @@ public class DataRequirementExtractor {
      */
     private void walkWhereClause(JsonNode node, RetrieveInfo info, String alias,
                                  Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
-                                 boolean hasInlineCodes) {
+                                  Map<String, List<String>> conceptDefMap,
+                                 boolean hasInlineCodes,
+                                 Map<String, JsonNode> letBindings) {
         if (node == null || !node.isObject()) {
             return;
         }
@@ -259,7 +495,7 @@ public class DataRequirementExtractor {
                 JsonNode andOps = node.get("operand");
                 if (andOps != null && andOps.isArray()) {
                     for (JsonNode op : andOps) {
-                        walkWhereClause(op, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
+                        walkWhereClause(op, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
                     }
                 }
                 break;
@@ -267,7 +503,7 @@ public class DataRequirementExtractor {
             case "Not":
                 JsonNode notOp = node.get("operand");
                 if (notOp != null) {
-                    walkWhereClause(notOp, info, alias, codeSystemMap, codeDefMap, hasInlineCodes);
+                    walkWhereClause(notOp, info, alias, codeSystemMap, codeDefMap, conceptDefMap, hasInlineCodes, letBindings);
                 }
                 break;
 
@@ -275,7 +511,7 @@ public class DataRequirementExtractor {
                 // exists(C.code.coding Y where Y.system = "url" ...) pattern
                 JsonNode existsOp = node.get("operand");
                 if (existsOp != null && !hasInlineCodes) {
-                    handleExistsPattern(existsOp, info, alias, codeSystemMap);
+                    handleExistsPattern(existsOp, info, alias, codeSystemMap, letBindings);
                 }
                 break;
 
@@ -290,9 +526,23 @@ public class DataRequirementExtractor {
             case "Equivalent":
                 // Handle direct property ~ CodeRef patterns (e.g., E.class ~ "AMB")
                 if (!hasInlineCodes) {
-                    handleCodeRefComparison(node, info, alias, codeSystemMap, codeDefMap);
+                    handleCodeRefComparison(node, info, alias, codeSystemMap, codeDefMap, conceptDefMap);
                 }
                 // Also check for date comparison patterns within Equal/Equivalent
+                if (DATE_COMPARISON_TYPES.contains(type)) {
+                    handleDateComparisonPattern(node, info, alias);
+                }
+                break;
+
+            // PAT-120: `X in "ConceptName"` (e.g. `MR.medication in "Antibiotic Concept"`)
+            // ELM shape: In { operand: [property, ToList(ConceptRef)] } — same structure
+            // as Equivalent so we reuse the same handler; tryExtractCodeRefFilter walks
+            // both ConceptRef and CodeRef paths.
+            case "In":
+            case "IncludedIn":
+                if (!hasInlineCodes) {
+                    handleCodeRefComparison(node, info, alias, codeSystemMap, codeDefMap, conceptDefMap);
+                }
                 if (DATE_COMPARISON_TYPES.contains(type)) {
                     handleDateComparisonPattern(node, info, alias);
                 }
@@ -312,7 +562,8 @@ public class DataRequirementExtractor {
      * Looks for: Exists → Query(source: Property chain) → Where(Equal/Equivalent(.system, Literal))
      */
     private void handleExistsPattern(JsonNode existsOperand, RetrieveInfo info, String alias,
-                                     Map<String, String> codeSystemMap) {
+                                     Map<String, String> codeSystemMap,
+                                     Map<String, JsonNode> letBindings) {
         String opType = existsOperand.path("type").asText("");
 
         if ("Query".equals(opType)) {
@@ -320,7 +571,7 @@ public class DataRequirementExtractor {
             JsonNode innerSources = existsOperand.get("source");
             if (innerSources != null && innerSources.isArray() && !innerSources.isEmpty()) {
                 JsonNode innerSourceExpr = innerSources.get(0).get("expression");
-                String codePath = extractCodePathFromPropertyChain(innerSourceExpr, alias);
+                String codePath = extractCodePathFromPropertyChain(innerSourceExpr, alias, letBindings);
                 if (codePath != null && info.codeProperty == null) {
                     info.codeProperty = codePath;
                 }
@@ -336,7 +587,7 @@ public class DataRequirementExtractor {
         } else if ("Filter".equals(opType)) {
             // Filter node: source + condition
             JsonNode filterSource = existsOperand.get("source");
-            String codePath = extractCodePathFromPropertyChain(filterSource, alias);
+            String codePath = extractCodePathFromPropertyChain(filterSource, alias, letBindings);
             if (codePath != null && info.codeProperty == null) {
                 info.codeProperty = codePath;
             }
@@ -350,8 +601,25 @@ public class DataRequirementExtractor {
     /**
      * Extract the code path from a property chain like C.code.coding -> "code".
      * Returns the first property after the alias (e.g., "code" from C.code.coding).
+     *
+     * <p>PAT-158 — when the chain bottoms out at a {@code QueryLetRef}, follow the
+     * referenced let binding's expression and continue the walk. CQL that uses the
+     * recommended choice-type access pattern produces this shape:
+     * <pre>
+     *   [MedicationRequest] MR
+     *     let medCC: MR.medication as FHIR.CodeableConcept
+     *     where exists (from medCC.coding Coding where ...)
+     * </pre>
+     * The inner Query's source is {@code Property("coding") → QueryLetRef("medCC")}
+     * — the chain doesn't reach an AliasRef on its own. Resolving the let yields
+     * {@code As(Property("medication", scope="MR"))}, which after unwrapping
+     * gives {@code "medication"} as the code property on the outer alias.
+     * Without this, the entire code filter (system URL + StartsWith prefixes)
+     * gets dropped in {@link #deduplicateRequirements} because {@code codeProperty}
+     * stays null.
      */
-    private String extractCodePathFromPropertyChain(JsonNode node, String alias) {
+    private String extractCodePathFromPropertyChain(JsonNode node, String alias,
+                                                    Map<String, JsonNode> letBindings) {
         if (node == null || !node.isObject()) {
             return null;
         }
@@ -377,6 +645,18 @@ public class DataRequirementExtractor {
             String refName = current.path("name").asText("");
             if ("AliasRef".equals(refType) && alias.equals(refName) && !chain.isEmpty()) {
                 return chain.get(0); // Return first property (e.g., "code" from code.coding)
+            }
+            // PAT-158: when the chain bottoms at a QueryLetRef, resolve the let
+            // binding's expression and continue. The let is typically
+            // `As(Property(path="medication", scope="MR"))` for choice-type casts.
+            if ("QueryLetRef".equals(refType) && letBindings != null) {
+                JsonNode letExpr = letBindings.get(refName);
+                if (letExpr != null) {
+                    JsonNode unwrapped = unwrapToProperty(letExpr);
+                    if (unwrapped != null) {
+                        return extractCodePathFromPropertyChain(unwrapped, alias, letBindings);
+                    }
+                }
             }
         }
 
@@ -448,6 +728,48 @@ public class DataRequirementExtractor {
                 }
             }
         }
+
+        // PAT-121b: detect StartsWith(Coding.code.value, 'E08') and capture the prefix.
+        // Very common in clinical CQL to match ICD-10 code ranges without enumerating
+        // every code ("E08-E13" = diabetes). Accept the built-in StartsWith ELM node
+        // AND user-defined function wrappers such as `CodeStartsWith` (case
+        // insensitive "startsWith" substring) that many shared libraries provide.
+        boolean isStartsWith = "StartsWith".equals(type)
+                || ("FunctionRef".equals(type)
+                        && node.path("name").asText("").toLowerCase().contains("startswith"));
+        if (isStartsWith) {
+            JsonNode ops = node.get("operand");
+            if (ops != null && ops.isArray() && ops.size() >= 2) {
+                String prefix = extractStartsWithPrefix(ops.get(0), ops.get(1), innerAlias);
+                if (prefix != null && !info.codePrefixes.contains(prefix)) {
+                    info.codePrefixes.add(prefix);
+                }
+            }
+        }
+    }
+
+    /**
+     * PAT-121b: match {@code StartsWith(Property(value → code on alias), Literal("E08"))}
+     * and return the prefix literal. Returns null if the shape doesn't match.
+     */
+    private String extractStartsWithPrefix(JsonNode propertyNode, JsonNode literalNode, String innerAlias) {
+        if (propertyNode == null || literalNode == null) return null;
+        if (!"Literal".equals(literalNode.path("type").asText(""))) return null;
+        JsonNode unwrapped = unwrapToProperty(propertyNode);
+        if (unwrapped == null) return null;
+        // Expect Property(path=value, source=Property(path=code, scope=alias))
+        // (or Property(path=code) directly — some translator versions skip the .value)
+        String outerPath = unwrapped.path("path").asText("");
+        if ("value".equals(outerPath)) {
+            JsonNode inner = unwrapped.get("source");
+            if (inner != null && "Property".equals(inner.path("type").asText(""))
+                    && "code".equals(inner.path("path").asText(""))) {
+                return literalNode.path("value").asText(null);
+            }
+        } else if ("code".equals(outerPath)) {
+            return literalNode.path("value").asText(null);
+        }
+        return null;
     }
 
     /**
@@ -466,8 +788,20 @@ public class DataRequirementExtractor {
             return null;
         }
 
-        // Check unwrapped is a Property with path "system" (or "url")
+        // Check unwrapped is a Property with path "system" (or "url").
+        // PAT-121c: CQL `Coding.system.value = 'http://...'` produces ELM
+        // Property(path="value", source=Property(path="system")). Unwrap the
+        // outer .value accessor so the actual system/url property is visible.
         String path = unwrapped.path("path").asText("");
+        if ("value".equals(path)) {
+            JsonNode inner = unwrapped.get("source");
+            if (inner != null && "Property".equals(inner.path("type").asText(""))) {
+                String innerPath = inner.path("path").asText("");
+                if ("system".equals(innerPath) || "url".equals(innerPath)) {
+                    path = innerPath;
+                }
+            }
+        }
         if (!"system".equals(path) && !"url".equals(path)) {
             return null;
         }
@@ -506,6 +840,38 @@ public class DataRequirementExtractor {
         if ("As".equals(type) || "Convert".equals(type)) {
             JsonNode operand = node.get("operand");
             return unwrapToProperty(operand);
+        }
+        return null;
+    }
+
+    /**
+     * PAT-120: peel off ToList / ToConcept / FunctionRef("ToConcept") / As / Convert
+     * wrappers to reach an underlying ConceptRef. `X in "Antibiotic Concept"` produces
+     * {@code In(ToConcept(X), ToList(ConceptRef))}; `P.code ~ "Concept"` produces
+     * {@code Equivalent(ToConcept(prop), ConceptRef)}. We walk both shapes.
+     */
+    private JsonNode unwrapToConceptRef(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        String type = node.path("type").asText("");
+        if ("ConceptRef".equals(type)) {
+            return node;
+        }
+        if ("ToList".equals(type) || "ToConcept".equals(type) || "As".equals(type) || "Convert".equals(type)) {
+            JsonNode operand = node.get("operand");
+            if (operand != null && operand.isObject()) {
+                return unwrapToConceptRef(operand);
+            }
+            if (operand != null && operand.isArray() && !operand.isEmpty()) {
+                return unwrapToConceptRef(operand.get(0));
+            }
+        }
+        if ("FunctionRef".equals(type)) {
+            JsonNode ops = node.get("operand");
+            if (ops != null && ops.isArray() && !ops.isEmpty()) {
+                return unwrapToConceptRef(ops.get(0));
+            }
         }
         return null;
     }
@@ -572,7 +938,8 @@ public class DataRequirementExtractor {
      * The Property side may be wrapped in FunctionRef (e.g., FHIRHelpers.ToCode).
      */
     private void handleCodeRefComparison(JsonNode node, RetrieveInfo info, String alias,
-                                          Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap) {
+                                          Map<String, String> codeSystemMap, Map<String, CodeDefInfo> codeDefMap,
+                                          Map<String, List<String>> conceptDefMap) {
         JsonNode ops = node.get("operand");
         if (ops == null || !ops.isArray() || ops.size() < 2) {
             return;
@@ -581,9 +948,9 @@ public class DataRequirementExtractor {
         JsonNode left = ops.get(0);
         JsonNode right = ops.get(1);
 
-        // Try both orderings: (Property, CodeRef) and (CodeRef, Property)
-        if (!tryExtractCodeRefFilter(left, right, info, alias, codeSystemMap, codeDefMap)) {
-            tryExtractCodeRefFilter(right, left, info, alias, codeSystemMap, codeDefMap);
+        // Try both orderings: (Property, CodeRef|ConceptRef) and (CodeRef|ConceptRef, Property)
+        if (!tryExtractCodeRefFilter(left, right, info, alias, codeSystemMap, codeDefMap, conceptDefMap)) {
+            tryExtractCodeRefFilter(right, left, info, alias, codeSystemMap, codeDefMap, conceptDefMap);
         }
     }
 
@@ -594,9 +961,45 @@ public class DataRequirementExtractor {
     private boolean tryExtractCodeRefFilter(JsonNode propertyNode, JsonNode codeRefNode,
                                              RetrieveInfo info, String alias,
                                              Map<String, String> codeSystemMap,
-                                             Map<String, CodeDefInfo> codeDefMap) {
+                                             Map<String, CodeDefInfo> codeDefMap,
+                                             Map<String, List<String>> conceptDefMap) {
         if (codeRefNode == null) {
             return false;
+        }
+
+        // PAT-120: before trying CodeRef, try ConceptRef — when a where clause
+        // uses a CQL `concept` declaration (`P.code ~ "Knee Replacement Concept"`
+        // or `... in "Antibiotic Concept"`) we want to expand the concept's member
+        // codes instead of losing them. ConceptRef may be wrapped in ToList /
+        // FunctionRef (ToConcept) / As, same as CodeRef.
+        JsonNode actualConceptRef = unwrapToConceptRef(codeRefNode);
+        if (actualConceptRef != null) {
+            String conceptRefName = actualConceptRef.path("name").asText(null);
+            List<String> memberCodeNames = conceptRefName != null ? conceptDefMap.get(conceptRefName) : null;
+            if (memberCodeNames != null && !memberCodeNames.isEmpty()) {
+                JsonNode unwrappedP = unwrapToProperty(propertyNode);
+                String propPathConcept = unwrappedP != null ? extractPropertyPath(unwrappedP, alias) : null;
+                if (propPathConcept == null) return false;
+                if (info.codeProperty == null) info.codeProperty = propPathConcept;
+                // Resolve each member code via codeDefMap. Mixed-system concepts are
+                // legitimate (TWCORE has some); record each code with its own system
+                // URL so downstream can filter by (system,code) pairs accurately.
+                for (String codeName : memberCodeNames) {
+                    CodeDefInfo def = codeDefMap.get(codeName);
+                    if (def == null) continue;
+                    String sysUrl = codeSystemMap.get(def.codeSystemName);
+                    if (info.codeSystemUrl == null && sysUrl != null) {
+                        info.codeSystemUrl = sysUrl;
+                        info.codeSystemName = def.codeSystemName;
+                    }
+                    info.directCodes.add(CodingInfo.builder()
+                            .system(sysUrl)
+                            .code(def.code)
+                            .display(def.display)
+                            .build());
+                }
+                return true;
+            }
         }
 
         // Check if codeRefNode is a CodeRef (may be wrapped in ToConcept/FunctionRef)
@@ -794,7 +1197,14 @@ public class DataRequirementExtractor {
     /**
      * Parse a single Retrieve node into an intermediate RetrieveInfo object.
      */
-    private RetrieveInfo parseRetrieve(JsonNode retrieveNode) {
+    // PAT-116: signature extended to accept codeDefMap + codeSystemMap so
+    // extractCodeRef can resolve a CQL CodeRef (just a name like
+    // "Hemoglobin A1c") into the actual {code="17856-6", system="http://loinc.org"}
+    // that downstream FHIR clients need. Before PAT-116 the ref name was
+    // stored as if it were the literal code, producing unusable data requirements.
+    private RetrieveInfo parseRetrieve(JsonNode retrieveNode,
+                                       Map<String, CodeDefInfo> codeDefMap,
+                                       Map<String, String> codeSystemMap) {
         String dataType = retrieveNode.path("dataType").asText(null);
         if (dataType == null) {
             return null;
@@ -822,19 +1232,19 @@ public class DataRequirementExtractor {
                 case "ToList":
                     JsonNode operand = codesNode.get("operand");
                     if (operand != null) {
-                        extractCodeRef(operand, directCodes);
+                        extractCodeRef(operand, directCodes, codeDefMap, codeSystemMap);
                     }
                     break;
                 case "List":
                     JsonNode elements = codesNode.get("element");
                     if (elements != null && elements.isArray()) {
                         for (JsonNode elem : elements) {
-                            extractCodeRef(elem, directCodes);
+                            extractCodeRef(elem, directCodes, codeDefMap, codeSystemMap);
                         }
                     }
                     break;
                 default:
-                    extractCodeRef(codesNode, directCodes);
+                    extractCodeRef(codesNode, directCodes, codeDefMap, codeSystemMap);
                     break;
             }
         }
@@ -850,19 +1260,49 @@ public class DataRequirementExtractor {
 
     /**
      * Extract a code reference from a CodeRef or code literal node.
+     *
+     * <p>PAT-116: CodeRef names are resolved against {@code codeDefMap} (built
+     * from {@code library.codes.def}) and {@code codeSystemMap} (built from
+     * {@code library.codeSystems.def}) to recover the real (code, system)
+     * pair. Downstream consumers treat the output as "what to ask a FHIR
+     * server for" — the ref name alone (e.g. "Hemoglobin A1c") cannot drive
+     * a real FHIR query; only the resolved code "17856-6" + system URL can.
+     *
+     * <p>Unresolvable refs (ref name not in {@code codeDefMap}) fall back to
+     * storing the raw name as the code — matches legacy behavior and is the
+     * best guess for external-library refs whose def lives in another ELM
+     * we cannot see.
      */
-    private void extractCodeRef(JsonNode node, List<CodingInfo> codes) {
+    private void extractCodeRef(JsonNode node, List<CodingInfo> codes,
+                                Map<String, CodeDefInfo> codeDefMap,
+                                Map<String, String> codeSystemMap) {
         if (node == null) {
             return;
         }
         String nodeType = node.path("type").asText("");
         if ("CodeRef".equals(nodeType)) {
-            codes.add(CodingInfo.builder()
-                    .code(node.path("name").asText(null))
-                    .build());
+            String refName = node.path("name").asText(null);
+            CodeDefInfo def = refName != null ? codeDefMap.get(refName) : null;
+            CodingInfo.CodingInfoBuilder b = CodingInfo.builder();
+            if (def != null) {
+                b.code(def.code);
+                b.display(def.display);
+                if (def.codeSystemName != null) {
+                    String systemUrl = codeSystemMap.get(def.codeSystemName);
+                    b.system(systemUrl != null ? systemUrl : def.codeSystemName);
+                }
+            } else {
+                // Fallback: keep the ref name as code — covers external-library
+                // refs whose CodeDef lives outside the current ELM. Legacy behavior.
+                b.code(refName);
+            }
+            codes.add(b.build());
         } else if ("Code".equals(nodeType)) {
+            // Code literal has `system: CodeSystemRef{ name }`; resolve to URL.
+            String systemName = node.path("system").path("name").asText(null);
+            String systemUrl = systemName != null ? codeSystemMap.get(systemName) : null;
             codes.add(CodingInfo.builder()
-                    .system(node.path("system").path("name").asText(null))
+                    .system(systemUrl != null ? systemUrl : systemName)
                     .code(node.path("code").asText(null))
                     .display(node.path("display").asText(null))
                     .build());
@@ -874,13 +1314,24 @@ public class DataRequirementExtractor {
      * and convert to DataRequirementInfo objects.
      */
     private List<DataRequirementInfo> deduplicateRequirements(
-            List<RetrieveInfo> retrieves, Map<String, String> valueSetMap) {
+            List<RetrieveInfo> retrieves, Map<String, String> valueSetMap,
+            PatientFilterInfo patientFilter) {
 
         Map<String, DataRequirementInfo> dedupMap = new LinkedHashMap<>();
 
         for (RetrieveInfo ri : retrieves) {
             String dedupKey = buildDedupKey(ri);
             if (dedupMap.containsKey(dedupKey)) {
+                // PAT-121b: merge prefixes from duplicate Retrieves with the same codeProperty
+                // so "[Condition] C where StartsWith(C.code, 'E08') or StartsWith(C.code, 'E11')"
+                // ends up with both prefixes visible in the UI.
+                DataRequirementInfo existing = dedupMap.get(dedupKey);
+                if (!ri.codePrefixes.isEmpty() && existing.getCodeFilter() != null && !existing.getCodeFilter().isEmpty()) {
+                    CodeFilterInfo cf = existing.getCodeFilter().get(0);
+                    List<String> merged = cf.getCodePrefixes() == null ? new ArrayList<>() : new ArrayList<>(cf.getCodePrefixes());
+                    for (String p : ri.codePrefixes) if (!merged.contains(p)) merged.add(p);
+                    cf.setCodePrefixes(merged);
+                }
                 continue;
             }
 
@@ -889,7 +1340,8 @@ public class DataRequirementExtractor {
 
             // Code filter from inline codes or Where clause code system
             boolean hasCodeFilter = ri.codeProperty != null
-                    && (ri.valueSetRefName != null || !ri.directCodes.isEmpty() || ri.codeSystemUrl != null);
+                    && (ri.valueSetRefName != null || !ri.directCodes.isEmpty()
+                            || ri.codeSystemUrl != null || !ri.codePrefixes.isEmpty());
             if (hasCodeFilter) {
                 CodeFilterInfo.CodeFilterInfoBuilder cfBuilder = CodeFilterInfo.builder()
                         .path(ri.codeProperty);
@@ -909,6 +1361,10 @@ public class DataRequirementExtractor {
                     cfBuilder.code(ri.directCodes);
                 }
 
+                if (!ri.codePrefixes.isEmpty()) {
+                    cfBuilder.codePrefixes(new ArrayList<>(ri.codePrefixes));
+                }
+
                 builder.codeFilter(List.of(cfBuilder.build()));
             }
 
@@ -917,6 +1373,11 @@ public class DataRequirementExtractor {
                 builder.dateFilter(List.of(
                         DateFilterInfo.builder().path(ri.dateProperty).build()
                 ));
+            }
+
+            // PAT-121a: attach Patient demographic filters to the Patient entry only
+            if (patientFilter != null && "Patient".equals(ri.resourceType)) {
+                builder.patientFilter(patientFilter);
             }
 
             dedupMap.put(dedupKey, builder.build());
@@ -956,6 +1417,8 @@ public class DataRequirementExtractor {
         String codeSystemUrl;
         String codeSystemName;
         List<CodingInfo> directCodes = new ArrayList<>();
+        /** PAT-121b: prefixes captured from {@code StartsWith(Coding.code.value, 'E08')} patterns. */
+        List<String> codePrefixes = new ArrayList<>();
     }
 
     /**

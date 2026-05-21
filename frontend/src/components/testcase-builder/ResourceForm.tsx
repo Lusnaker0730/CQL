@@ -14,6 +14,7 @@ import {
   ListItemButton,
   ListItemText,
   Checkbox,
+  Alert,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, Add as AddIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
@@ -22,7 +23,13 @@ import { useBundleBuilder } from '../../contexts/BundleBuilderContext'
 import { useFhirMetadata } from '../../hooks/useFhirMetadata'
 import { ResourceTypeProvider } from '../../contexts/ResourceTypeContext'
 import ResourceFormHeader from './ResourceFormHeader'
-import ElementField, { getDefaultValue } from './ElementField'
+import ElementField from './ElementField'
+import { getDefaultValue } from '../../utils/fhirDefaults'
+import {
+  buildChoiceFieldName,
+  detectChoiceType,
+  listChoiceFieldNames,
+} from '../../utils/fhirChoice'
 import type { ElementMetadata } from '../../types'
 
 interface ResourceFormProps {
@@ -33,9 +40,25 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   const { t } = useTranslation('measures')
   const { state, dispatch } = useBundleBuilder()
   const activeEntry = state.entries.find((e) => e.id === state.activeEntryId)
-  const { data: metadata, isLoading } = useFhirMetadata(activeEntry?.resourceType)
+  const { data: metadata, isLoading, isError } = useFhirMetadata(activeEntry?.resourceType)
   const [addAttrOpen, setAddAttrOpen] = useState(false)
   const [selectedAttrs, setSelectedAttrs] = useState<Set<string>>(new Set())
+
+  const elements = useMemo<ElementMetadata[]>(() => metadata?.elements || [], [metadata])
+
+  // Lookup: any flattened choice key (e.g. "valueQuantity") → its base element name.
+  // Drives both the "is this key a choice variant?" check and the cleanup-on-swap logic.
+  const choiceVariantToBaseName = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const el of elements) {
+      if (el.isChoiceType && el.choiceTypes) {
+        for (const variant of listChoiceFieldNames(el.name, el.choiceTypes)) {
+          map.set(variant, el.name)
+        }
+      }
+    }
+    return map
+  }, [elements])
 
   const handleFieldChange = useCallback(
     (path: string, value: unknown, choiceFieldName?: string) => {
@@ -44,13 +67,18 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
       const newData = { ...activeEntry.resourceData }
 
       if (choiceFieldName) {
-        // Choice type: clean up old variants (keys starting with baseName + uppercase,
-        // e.g. "valueQuantity", "valueString") and the base name itself
-        for (const key of Object.keys(newData)) {
-          if (key === baseName || (key.startsWith(baseName) && key.length > baseName.length && /[A-Z]/.test(key[baseName.length]))) {
-            delete newData[key]
+        // Choice type: delete only the *known* variants for this base element.
+        // Looking up the base name from the chosen variant keeps us safe even if
+        // someone later adds a non-choice sibling that happens to share the prefix
+        // (e.g. `valueSet` next to `value[x]`).
+        const baseElementName = choiceVariantToBaseName.get(choiceFieldName) ?? baseName
+        const baseElement = elements.find((e) => e.name === baseElementName)
+        if (baseElement?.choiceTypes) {
+          for (const variant of listChoiceFieldNames(baseElementName, baseElement.choiceTypes)) {
+            delete newData[variant]
           }
         }
+        delete newData[baseElementName]
 
         if (value !== undefined && value !== null && value !== '') {
           newData[choiceFieldName] = value
@@ -69,7 +97,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
       })
       onDirty()
     },
-    [activeEntry, dispatch, onDirty]
+    [activeEntry, dispatch, onDirty, elements, choiceVariantToBaseName]
   )
 
   const handleIdChange = useCallback(
@@ -84,7 +112,6 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     [activeEntry, dispatch, onDirty]
   )
 
-  const elements = metadata?.elements || []
   const requiredElements = elements.filter((el) => el.isRequired)
 
   // Build set of element names that have data (including choice type variants)
@@ -92,15 +119,6 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   const { visibleOptional, hiddenOptional } = useMemo(() => {
     if (!activeEntry) return { visibleOptional: [] as ElementMetadata[], hiddenOptional: [] as ElementMetadata[] }
     const dataKeys = Object.keys(activeEntry.resourceData)
-    // Pre-build a lookup map: choiceFieldName → element name
-    const choiceKeyMap = new Map<string, string>()
-    for (const el of elements) {
-      if (el.isChoiceType && el.choiceTypes) {
-        for (const ct of el.choiceTypes) {
-          choiceKeyMap.set(el.name + ct.charAt(0).toUpperCase() + ct.slice(1), el.name)
-        }
-      }
-    }
 
     const filledNames = new Set<string>()
     for (const key of dataKeys) {
@@ -111,7 +129,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
         continue
       }
       if (!directEl) {
-        const elName = choiceKeyMap.get(key)
+        const elName = choiceVariantToBaseName.get(key)
         if (elName) {
           const choiceEl = elements.find((e) => e.name === elName)
           if (choiceEl && !choiceEl.isRequired) filledNames.add(elName)
@@ -124,7 +142,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
       hiddenOptional: elements.filter((el) => !el.isRequired && !filledNames.has(el.name)),
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-compute when resourceData changes, not the whole entry
-  }, [elements, activeEntry?.resourceData])
+  }, [elements, choiceVariantToBaseName, activeEntry?.resourceData])
 
   if (!activeEntry) {
     return (
@@ -140,6 +158,16 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     return (
       <Box sx={{ p: 3 }}>
         <CardListSkeleton count={4} />
+      </Box>
+    )
+  }
+
+  if (isError) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" variant="outlined">
+          {t('testCaseBuilder.metadataLoadError', { resourceType: activeEntry.resourceType })}
+        </Alert>
       </Box>
     )
   }
@@ -166,7 +194,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     // For choice types, look for typed keys (e.g., "valueQuantity" for element "value")
     if (el.isChoiceType && el.choiceTypes) {
       for (const ct of el.choiceTypes) {
-        const key = el.name + ct.charAt(0).toUpperCase() + ct.slice(1)
+        const key = buildChoiceFieldName(el.name, ct)
         if (key in activeEntry.resourceData) {
           return activeEntry.resourceData[key]
         }
@@ -175,14 +203,9 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
     return activeEntry.resourceData[el.name]
   }
 
-  /** Detect which choice type is currently stored (e.g., "Quantity" from key "valueQuantity") */
   const getSelectedChoiceType = (el: ElementMetadata): string | undefined => {
     if (!el.isChoiceType || !el.choiceTypes) return undefined
-    for (const ct of el.choiceTypes) {
-      const key = el.name + ct.charAt(0).toUpperCase() + ct.slice(1)
-      if (key in activeEntry.resourceData) return ct
-    }
-    return undefined
+    return detectChoiceType(el.name, el.choiceTypes, activeEntry.resourceData)
   }
 
   return (
@@ -247,6 +270,7 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
           onClick={() => setAddAttrOpen(true)}
           disabled={hiddenOptional.length === 0}
           sx={{ textTransform: 'none' }}
+          aria-label={t('testCaseBuilder.addAttributeAria', { count: hiddenOptional.length })}
         >
           {t('testCaseBuilder.addAttribute')} {t('testCaseBuilder.available', { count: hiddenOptional.length })}
         </Button>

@@ -97,25 +97,25 @@
 - **現況**：`MeasureReportEntity` 有 `DESERIALIZATION_FAILURES` counter（BUG-114 加的），production 只 log warning
 - **風險**：DB 資料損壞 / schema drift 沒人發現，report 讀出來少欄位
 - **修法**：counter 接 Prometheus → Grafana alert；或 healthcheck degrade
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-108`（`measure.report.deserialization.failures` Micrometer gauge + Prometheus critical alert on `increase(... [10m]) > 0` + Grafana panel）
 
 ### #8 CDS Hooks discovery public 但沒 rate limit
 - **現況**：`GET /cds-services` unauth（spec 允許）+ `POST /cds-services/{id}` 無 rate limit
 - **風險**：惡意使用者 enumerate 所有 service + 密集 POST = DoS
 - **修法**：Bucket4j per-IP rate limit（e.g. 60 req/min per IP on invocation）；discovery 低 limit
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — BUG-087 + PAT-107`（POST invocation tier `CDS_INVOKE` 10 RPM/IP 由 BUG-087 pen-test fix 已上線；PAT-107 補 discovery GET 獨立 tier `CDS_DISCOVERY` 預設 20 RPM/IP、env var `RATE_LIMIT_CDS_DISCOVERY_RPM` 可調。驗證：`RateLimitFilterTest` 17/17 pass，含新增 `shouldApplyCdsDiscoveryTierLimit` 與 `cdsDiscoveryAndInvokeTiersShouldHaveIndependentBuckets` 雙 bucket 隔離測試。Metric `rate_limit_exceeded{tier="CDS_DISCOVERY"}` 可接 Grafana alert）
 
 ### #9 HikariCP pool = 20 對真實 load 太小
 - **現況**：`application.yml:48` `maximum-pool-size: 20`；measure pool 也 20
 - **風險**：100 concurrent EHR users + bulk patient import = 連線池爆、API 超時
 - **修法**：依實際 concurrent user 估算（一般建議 2× CPU + spindles）；bulk 操作走 background queue 不占 API pool
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-109`（bulk import 獨立 `patientImportExecutor` + Hikari/patient-import 全套 Micrometer metrics + Prometheus 3 條 saturation alert + Grafana 4 panel；pool size 數字等 production load metrics 再調，observability 先就位）
 
 ### #10 FHIR server outage 沒 graceful degradation
 - **現況**：Circuit breaker 有設（Resilience4j `application.yml:283-287`），但 UX 沒定義
 - **風險**：真 EHR 的 FHIR server 偶爾 timeout / 5xx 是日常；使用者看到 raw error 會誤以為 platform bug
 - **修法**：統一 fallback response（如 "EHR 暫時離線、已自動重試 N 次"）；per-EHR connection health status UI
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-110 + PAT-111 + PAT-112a/b/c`（Phase 1 PAT-110：BE 結構化 `FHIR_UPSTREAM_UNAVAILABLE` envelope + FE 黃色 persistent banner。Phase 2 PAT-111：admin EHR table Live Health 欄位 + 30s polling。Phase 3a PAT-112a：`FhirDataProviderService` + `CountingRetrieveProvider` 6 處 catch-and-return-empty 改 rethrow、`MeasureEvaluationService` 混合 FHIR 失敗時 findFhirOutageCause walker + 整個 evaluation 中止。Phase 3b PAT-112b：CDS prefetch strict mode — template resolution 失敗 / key parse 失敗整個 CDS invocation 回 5xx，不靜默 fallback 讓 CDS 跑 partial prefetch 誤示「無警示」。Phase 3c PAT-112c：新 `FhirErrorInspector` utility 檢查 Bundle 中 embedded `OperationOutcome(severity=error|fatal)`，HAPI 偶爾 HTTP 200 + 錯誤 OO 的 edge case 不再被當成 valid data；bulk fetch / transaction response / fallback search 三個 Bundle-consume 點皆呼叫。CDS 遇 FHIR 掛回 error、measure 遇 FHIR 掛整個 fail = patient-safety 決策全面落地。）
 
 ### #11 Regulatory docs 只有模板、沒實際 artifacts
 - **現況**：`regulatory_docs/templates/` 有 6 個 `.md` 模板；`regulatory_docs/output/` 空的
@@ -125,7 +125,7 @@
   2. 由 domain expert 填充每份文件
   3. Review + sign-off 流程定義
   4. 版本控制與 revision tracking
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Partially Done — PAT-106`（跑 generator 產出 v1.0.0 artifacts 6 份：SRS、SDS、RMR、SVR、TM、CCR；另加 STR 測試報告（1341/1342 pass = 99.9% 通過率）與 MANIFEST.sha256 + MANIFEST.json 完整性 manifest 於 `regulatory_docs/output/`。修法步驟 1 + 4 完成；步驟 2 domain expert 填充 + 步驟 3 review/sign-off 流程為後續組織層工作，非工程可完成 — 列入 Tier 2 follow-up。Generator 亦揭露 ~50 個 pre-TFDA 時代的舊 requirement issues 缺 design/risk/verify 追溯連結；歷史資料，不在本 PR backfill 範圍）
 
 ---
 
@@ -147,7 +147,7 @@
 - **現況**：`application-docker.yml` `management.prometheus.public: true`
 - **風險**：若 backend container 意外暴露到 internet → latencies / error rates / JVM 內部訊息全露
 - **修法**：維持 `false` + 走內網 Prometheus；或加 basic auth / IP allowlist
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-113`（`application-docker.yml` 預設翻為 `public: false`；新 `@Order(0)` `prometheusSecurityChain` 掛 HTTP Basic on `/actuator/prometheus`；credentials 未設時 chain 拒絕所有請求（fail-loud）；`docker/prometheus.yml` 改 `basic_auth.password_file`，prometheus container entrypoint 從 env 產 `/tmp/scrape_password`；`.env.example` 加 `METRICS_SCRAPE_USER/PASSWORD`；6 個 `@SpringBootTest` 鎖 3 個 mode）
 
 ### #15 Expensive endpoints 無 rate limit
 - **現況**：`/api/measures/{id}/$evaluate-measure` 沒 per-user rate limit

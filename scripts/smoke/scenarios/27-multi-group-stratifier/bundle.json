@@ -1,0 +1,72 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-27-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-27-p1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-27"}]},
+        "gender": "male",
+        "birthDate": "1950-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-27-p1"}
+    },
+    {
+      "fullUrl": "Patient/smoke-27-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-27-p2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-27"}]},
+        "gender": "female",
+        "birthDate": "1955-03-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-27-p2"}
+    },
+    {
+      "fullUrl": "Patient/smoke-27-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-27-p3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-27"}]},
+        "gender": "male",
+        "birthDate": "1962-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-27-p3"}
+    },
+    {
+      "fullUrl": "Patient/smoke-27-p4",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-27-p4",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-27"}]},
+        "gender": "female",
+        "birthDate": "1975-03-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-27-p4"}
+    },
+    {
+      "fullUrl": "Patient/smoke-27-p5",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-27-p5",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-27"}]},
+        "gender": "male",
+        "birthDate": "1985-06-01"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-27-p5"}
+    },
+    {
+      "fullUrl": "Patient/smoke-27-p6",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-27-p6",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-27"}]},
+        "gender": "female",
+        "birthDate": "2010-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-27-p6"}
+    }
+  ]
+}

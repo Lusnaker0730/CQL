@@ -1,0 +1,7476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>軟體測試報告 - CQL Platform 1.0.0</title>
+<style>
+  body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; margin: 40px; color: #333; }
+  h1 { color: #0D7377; border-bottom: 2px solid #0D7377; padding-bottom: 8px; }
+  h2 { color: #1B3A5C; margin-top: 32px; }
+  h3 { color: #555; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+  th { background-color: #f5f5f5; font-weight: bold; }
+  .pass { color: #2e7d32; font-weight: bold; }
+  .fail { color: #c62828; font-weight: bold; }
+  .skip { color: #f57f17; }
+  .header-table { width: auto; }
+  .header-table td:first-child { font-weight: bold; width: 120px; }
+  .summary { background: #e8f5e9; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 1.2em; }
+  .summary.warning { background: #fff3e0; }
+  .summary.error { background: #ffebee; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; color: #888; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<h1>軟體測試報告</h1>
+
+<table class="header-table">
+<tr><td>文件編號</td><td>CQL-STR-1.0.0</td></tr>
+<tr><td>版本</td><td>1.0.0</td></tr>
+<tr><td>日期</td><td>2026-04-23</td></tr>
+<tr><td>產品名稱</td><td>CQL Platform — 臨床品質語言視覺化編輯與執行平台</td></tr>
+<tr><td>測試環境</td><td>GitHub Actions / Ubuntu Latest / Java 21 / Node 20</td></tr>
+<tr><td>執行者</td><td>CI/CD 自動化</td></tr>
+<tr><td>審核者</td><td></td></tr>
+<tr><td>核准者</td><td></td></tr>
+</table>
+
+<h2>1. 測試摘要</h2>
+
+<div class="summary warning">
+通過率：99.9%
+（1341 / 1342）
+</div>
+
+<table>
+<tr><th>項目</th><th>後端 (JUnit)</th><th>前端 (Vitest)</th><th>合計</th></tr>
+<tr><td>測試套件數</td><td>115</td><td>0</td><td>115</td></tr>
+<tr><td>測試案例數</td><td>1342</td><td>0</td><td>1342</td></tr>
+<tr><td>通過</td><td class="pass">1341</td><td class="pass">0</td><td class="pass">1341</td></tr>
+<tr><td>失敗</td><td class="fail">0</td><td class="fail">0</td><td class="fail">0</td></tr>
+<tr><td>錯誤</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>略過</td><td class="skip">1</td><td class="skip">0</td><td class="skip">1</td></tr>
+<tr><td>執行時間</td><td>392.20s</td><td>0.00s</td><td>392.20s</td></tr>
+</table>
+
+<h2>2. 後端測試結果</h2>
+
+
+<h3>com.cqlplatform.controller.AdminControllerErrorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>updateUserRole_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.781s</td>
+</tr>
+<tr>
+  <td>updateUserEnabled_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.055s</td>
+</tr>
+<tr>
+  <td>updateUserEnabled_selfDisable_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.032s</td>
+</tr>
+<tr>
+  <td>updateUserRole_selfModify_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.043s</td>
+</tr>
+<tr>
+  <td>createUser_duplicateUsername_shouldReturn409</td>
+  <td class="pass">通過</td>
+  <td>0.065s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.AdminControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>updateUserEnabled_shouldToggleEnabled</td>
+  <td class="pass">通過</td>
+  <td>0.072s</td>
+</tr>
+<tr>
+  <td>updateUserRole_differentUser_shouldUpdateRole</td>
+  <td class="pass">通過</td>
+  <td>0.055s</td>
+</tr>
+<tr>
+  <td>listUsers_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.061s</td>
+</tr>
+<tr>
+  <td>updateUserRole_selfUpdate_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.033s</td>
+</tr>
+<tr>
+  <td>resetUserPassword_shouldReturnSuccessWithoutPassword</td>
+  <td class="pass">通過</td>
+  <td>0.066s</td>
+</tr>
+<tr>
+  <td>updateUserEnabled_enable_shouldNotDeactivateApiKeys</td>
+  <td class="pass">通過</td>
+  <td>0.048s</td>
+</tr>
+<tr>
+  <td>createUser_validRequest_shouldReturnUser</td>
+  <td class="pass">通過</td>
+  <td>0.031s</td>
+</tr>
+<tr>
+  <td>updateUserEnabled_disable_shouldDeactivateApiKeys</td>
+  <td class="pass">通過</td>
+  <td>0.032s</td>
+</tr>
+<tr>
+  <td>listUsers_authenticated_shouldReturnUsers</td>
+  <td class="pass">通過</td>
+  <td>0.046s</td>
+</tr>
+<tr>
+  <td>updateUserEnabled_selfDisable_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.027s</td>
+</tr>
+<tr>
+  <td>createUser_duplicateUsername_shouldReturn409</td>
+  <td class="pass">通過</td>
+  <td>0.028s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.AuditControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getLogs_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.027s</td>
+</tr>
+<tr>
+  <td>getLogs_withFilters_shouldPassFilters</td>
+  <td class="pass">通過</td>
+  <td>0.049s</td>
+</tr>
+<tr>
+  <td>getLoginActivity_shouldReturnLogs</td>
+  <td class="pass">通過</td>
+  <td>0.025s</td>
+</tr>
+<tr>
+  <td>getStats_shouldReturnStats</td>
+  <td class="pass">通過</td>
+  <td>0.050s</td>
+</tr>
+<tr>
+  <td>getPhiAccess_shouldReturnLogs</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>getSecurityEvents_shouldReturnLogs</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>exportLogs_shouldReturnCsv</td>
+  <td class="pass">通過</td>
+  <td>0.027s</td>
+</tr>
+<tr>
+  <td>getLogs_shouldReturnAuditLogs</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.AuthControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>logout_withCookie_shouldRevokeAndClear</td>
+  <td class="pass">通過</td>
+  <td>0.076s</td>
+</tr>
+<tr>
+  <td>refresh_reuseDetected_shouldReturn401AndClearCookie</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>login_validCredentials_shouldReturnToken</td>
+  <td class="pass">通過</td>
+  <td>0.034s</td>
+</tr>
+<tr>
+  <td>refresh_validCookie_shouldReturnNewToken</td>
+  <td class="pass">通過</td>
+  <td>0.021s</td>
+</tr>
+<tr>
+  <td>register_shortUsername_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.088s</td>
+</tr>
+<tr>
+  <td>register_existingUser_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.040s</td>
+</tr>
+<tr>
+  <td>me_authenticated_shouldReturnUserInfo</td>
+  <td class="pass">通過</td>
+  <td>0.029s</td>
+</tr>
+<tr>
+  <td>me_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.023s</td>
+</tr>
+<tr>
+  <td>register_shortPassword_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.023s</td>
+</tr>
+<tr>
+  <td>login_invalidCredentials_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.023s</td>
+</tr>
+<tr>
+  <td>logout_noCookie_shouldStillSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>register_newUser_shouldReturnToken</td>
+  <td class="pass">通過</td>
+  <td>0.115s</td>
+</tr>
+<tr>
+  <td>login_missingFields_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.021s</td>
+</tr>
+<tr>
+  <td>refresh_noCookie_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>refresh_expiredToken_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.AuthoringControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>createArtifact_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.176s</td>
+</tr>
+<tr>
+  <td>updateArtifact_shouldReturnUpdated</td>
+  <td class="pass">通過</td>
+  <td>0.026s</td>
+</tr>
+<tr>
+  <td>listArtifacts_shouldReturnUserArtifacts</td>
+  <td class="pass">通過</td>
+  <td>0.026s</td>
+</tr>
+<tr>
+  <td>getModifiers_noFilter_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.021s</td>
+</tr>
+<tr>
+  <td>getQueryBuilderResources_shouldReturnResources</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>deleteArtifact_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>generateCql_shouldReturnCql</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>generateCql_withWarnings_shouldIncludeWarningsInResponse</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>listArtifacts_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>getModifiers_withInputType_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>getArtifact_shouldReturnArtifact</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>getTemplates_shouldReturnCategories</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.CdsHooksControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>invoke_shouldCallServiceWithoutAuth</td>
+  <td class="pass">通過</td>
+  <td>0.094s</td>
+</tr>
+<tr>
+  <td>sandbox_withoutAuth_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>invoke_hookMismatch_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>invoke_missingRequiredContextFields_shouldReturn400WithDetails</td>
+  <td class="pass">通過</td>
+  <td>0.031s</td>
+</tr>
+<tr>
+  <td>feedback_withOverride_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.105s</td>
+</tr>
+<tr>
+  <td>discovery_shouldReturnServicesWithoutAuth</td>
+  <td class="pass">通過</td>
+  <td>0.051s</td>
+</tr>
+<tr>
+  <td>feedback_shouldReturn200WithoutAuth</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>sandbox_withAuth_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.046s</td>
+</tr>
+<tr>
+  <td>discovery_trailingSlash_shouldAlsoWork</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.CdsServiceConfigControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getService_existing_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.125s</td>
+</tr>
+<tr>
+  <td>createService_invalidHookType_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.040s</td>
+</tr>
+<tr>
+  <td>updateService_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.028s</td>
+</tr>
+<tr>
+  <td>getAnalytics_shouldReturnData</td>
+  <td class="pass">通過</td>
+  <td>0.032s</td>
+</tr>
+<tr>
+  <td>deleteService_owner_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.033s</td>
+</tr>
+<tr>
+  <td>createService_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.025s</td>
+</tr>
+<tr>
+  <td>deleteService_admin_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>getAllServices_shouldReturnList</td>
+  <td class="pass">通過</td>
+  <td>0.021s</td>
+</tr>
+<tr>
+  <td>createService_duplicate_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>disableService_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>deleteService_notOwner_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>updateService_notOwner_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>enableService_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>getAllServices_admin_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>getService_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.022s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.CqlControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>listLibraries_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>listLibraries_shouldReturnList</td>
+  <td class="pass">通過</td>
+  <td>0.029s</td>
+</tr>
+<tr>
+  <td>translate_validCql_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.037s</td>
+</tr>
+<tr>
+  <td>updateLibrary_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.046s</td>
+</tr>
+<tr>
+  <td>listLibraries_withSearch_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>execute_validRequest_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.032s</td>
+</tr>
+<tr>
+  <td>createLibrary_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>translate_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>translate_emptyCql_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.025s</td>
+</tr>
+<tr>
+  <td>getLibrary_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>deleteLibrary_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>getLibrary_existing_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>validate_shouldCallService</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.DepartmentControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>update_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.082s</td>
+</tr>
+<tr>
+  <td>getByCode_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>getAll_shouldReturnDepartmentList</td>
+  <td class="pass">通過</td>
+  <td>0.034s</td>
+</tr>
+<tr>
+  <td>getByCode_shouldReturnDepartment</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>create_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.022s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.EcqmControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>createArtifact_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.083s</td>
+</tr>
+<tr>
+  <td>getTemplates_shouldDelegate</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>duplicateArtifact_shouldReturnDuplicated</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>updateArtifact_shouldReturnUpdated</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>listArtifacts_shouldReturnUserArtifacts</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>publish_shouldReturnResult</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>generateCql_withWarnings_shouldReturnWarnings</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>deleteArtifact_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>generateCql_shouldReturnCql</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>getModifiers_shouldDelegate</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>listArtifacts_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>getScoringTypes_shouldReturnConfig</td>
+  <td class="pass">通過</td>
+  <td>0.025s</td>
+</tr>
+<tr>
+  <td>getArtifact_shouldReturnFull</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.EhrIntegrationControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>listImports_shouldReturnImportHistory</td>
+  <td class="pass">通過</td>
+  <td>0.081s</td>
+</tr>
+<tr>
+  <td>unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>testConnection_shouldReturnUpdatedConnection</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>getConnection_shouldReturnConnection</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>listConnections_shouldReturnList</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>createConnection_withUserRole_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.030s</td>
+</tr>
+<tr>
+  <td>createConnection_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.026s</td>
+</tr>
+<tr>
+  <td>deleteConnection_withUserRole_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>deleteConnection_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>searchPatients_shouldReturnResults</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>searchPatients_withUserRole_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>testConnection_withUserRole_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.FhirControllerErrorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getVsacValueSet_invalidOid_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.053s</td>
+</tr>
+<tr>
+  <td>readResource_invalidResourceId_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>kickOffExport_invalidFhirServerUrl_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>readResource_invalidResourceType_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>searchResources_invalidResourceType_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.FhirControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>updateResource_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.092s</td>
+</tr>
+<tr>
+  <td>executeTransaction_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.048s</td>
+</tr>
+<tr>
+  <td>searchResources_invalidUrl_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>kickOffExport_shouldReturn202</td>
+  <td class="pass">通過</td>
+  <td>0.220s</td>
+</tr>
+<tr>
+  <td>createResource_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>searchPatientsByDemographics_invalidDate_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>expandValueSet_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>validateCode_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>getVsacValueSet_invalidOid_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>searchResources_validType_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>createSubscription_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>searchResources_invalidType_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>searchPatientsByDemographics_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>readResource_invalidId_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>evictCache_withoutAdmin_shouldReturn403</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>deleteResource_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>searchResources_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>getVsacValueSet_validOid_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>searchResources_invalidParams_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.016s</td>
+</tr>
+<tr>
+  <td>validateResource_invalidResource_shouldReturnIssues</td>
+  <td class="pass">通過</td>
+  <td>0.046s</td>
+</tr>
+<tr>
+  <td>readResource_invalidType_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>getCacheStats_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>evictCache_withAdmin_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.059s</td>
+</tr>
+<tr>
+  <td>validateResource_validResource_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>readResource_validIdAndType_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.IndicatorCatalogControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getByCode_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.348s</td>
+</tr>
+<tr>
+  <td>unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.016s</td>
+</tr>
+<tr>
+  <td>create_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.047s</td>
+</tr>
+<tr>
+  <td>search_shouldReturnIndicators</td>
+  <td class="pass">通過</td>
+  <td>0.023s</td>
+</tr>
+<tr>
+  <td>getByCode_found_shouldReturnIndicator</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.MeasureControllerErrorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>runTestCase_mismatchedTestCase_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.096s</td>
+</tr>
+<tr>
+  <td>getAuditTrail_measureNotFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>exportHumanReadable_measureNotFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>getSchedules_measureNotFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>getMeasure_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.MeasureControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>evaluateMeasure_withParams_shouldPassThrough</td>
+  <td class="pass">通過</td>
+  <td>0.092s</td>
+</tr>
+<tr>
+  <td>evaluateCustomMeasure_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.021s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.NotificationControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>markAllAsRead_shouldReturnUpdatedCount</td>
+  <td class="pass">通過</td>
+  <td>0.058s</td>
+</tr>
+<tr>
+  <td>unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>markAsRead_notFound_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>getUnreadCount_shouldReturnCount</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>getNotifications_shouldReturnList</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>markAsRead_shouldReturnUpdatedNotification</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.SettingsControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getVsacStatus_notConfigured_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.045s</td>
+</tr>
+<tr>
+  <td>getVsacStatus_configured_shouldReturnStatus</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>getVsacStatus_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>updateVsacApiKey_shouldUpdateAndReturnStatus</td>
+  <td class="pass">通過</td>
+  <td>0.063s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.SmartConfigControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>smartConfiguration_shouldContainRequiredFields</td>
+  <td class="pass">通過</td>
+  <td>0.025s</td>
+</tr>
+<tr>
+  <td>smartConfiguration_shouldReturnConfigWithoutAuth</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.UserApiKeyControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>listKeys_shouldReturnMaskedKeys</td>
+  <td class="pass">通過</td>
+  <td>0.050s</td>
+</tr>
+<tr>
+  <td>generateKey_noName_shouldUseDefault</td>
+  <td class="pass">通過</td>
+  <td>0.024s</td>
+</tr>
+<tr>
+  <td>revokeKey_success_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>revokeKey_notFound_shouldReturn404</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>listKeys_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>generateKey_shouldReturn201WithFullKey</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.UserLibraryPrefsControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getRecent_shouldReturnRecentLibraries</td>
+  <td class="pass">通過</td>
+  <td>0.031s</td>
+</tr>
+<tr>
+  <td>getFavorites_shouldReturnParsedLibraryIds</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>clearRecent_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>addRecent_new_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>addRecent_existing_shouldUpdateAccessedAt</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>removeFavorite_shouldReturn204</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>addFavorite_new_shouldReturn201</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>addFavorite_alreadyExists_shouldReturn200</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>getFavorites_unauthenticated_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.controller.VersionControllerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getVersion_shouldReturnStartupFields_withoutAuth</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>getVersion_startupTimeShouldBeStableWithinSameBootedInstance</td>
+  <td class="pass">通過</td>
+  <td>0.213s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.CqlPlatformApplicationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>contextLoads</td>
+  <td class="skip">略過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.entity.MeasureReportEntityTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>blankJson_isNoop</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>multipleFailures_accumulate</td>
+  <td class="pass">通過</td>
+  <td>0.016s</td>
+</tr>
+<tr>
+  <td>validJson_populatesResult</td>
+  <td class="pass">通過</td>
+  <td>0.024s</td>
+</tr>
+<tr>
+  <td>unknownField_isTolerated</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>malformedJson_incrementsCounter</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.entity.PhiEncryptionIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>sandboxPreset_patientIdAndPrefetch_encryptedOnDisk</td>
+  <td class="pass">通過</td>
+  <td>0.127s</td>
+</tr>
+<tr>
+  <td>measureReport_resultJson_legacyPlaintextStillReadable</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>measureReport_resultJson_encryptedOnDisk</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>patientImport_allPhiFields_encryptedOnDisk</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.exception.GlobalExceptionHandlerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>handleCqlTranslationException_shouldReturn400WithErrorMessages</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>handleCqlExecutionException_shouldReturn500</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>handleIllegalArgumentException_shouldReturn400</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>handleDuplicateResourceException_shouldReturn409WithFieldAndValue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>handleCircuitBreakerOpenException_shouldReturn503</td>
+  <td class="pass">通過</td>
+  <td>0.044s</td>
+</tr>
+<tr>
+  <td>handleValidationException_shouldReturn400WithDetails</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>handleCqlExecutionException_timedOut_shouldReturn504</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>handleAccessDeniedException_shouldReturn403WithMessage</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>handleResourceNotFoundException_shouldReturn404WithMessage</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>handleDataIntegrityViolationException_shouldReturn409</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>handleFhirServerUnavailableException_shouldReturn503</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>handleGenericException_shouldReturn500WithGenericMessage</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.integration.AuthIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>tokenValidation_registeredUserTokenShouldBeValid</td>
+  <td class="pass">通過</td>
+  <td>0.437s</td>
+</tr>
+<tr>
+  <td>accessProtectedEndpoint_withValidToken</td>
+  <td class="pass">通過</td>
+  <td>0.140s</td>
+</tr>
+<tr>
+  <td>registerAndLogin_fullFlow</td>
+  <td class="pass">通過</td>
+  <td>0.254s</td>
+</tr>
+<tr>
+  <td>duplicateRegistration_shouldFail</td>
+  <td class="pass">通過</td>
+  <td>0.112s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.integration.CdsServicePersistenceIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>createAndRetrieve_shouldPersist</td>
+  <td class="pass">通過</td>
+  <td>0.079s</td>
+</tr>
+<tr>
+  <td>findAllEnabled_shouldFilterCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.026s</td>
+</tr>
+<tr>
+  <td>updateEntity_shouldPersistChanges</td>
+  <td class="pass">通過</td>
+  <td>0.040s</td>
+</tr>
+<tr>
+  <td>deleteEntity_shouldRemove</td>
+  <td class="pass">通過</td>
+  <td>0.038s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.CustomUserDetailsServiceLockoutTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>nullLockout_shouldBeUnlocked</td>
+  <td class="pass">通過</td>
+  <td>0.053s</td>
+</tr>
+<tr>
+  <td>lockoutInFuture_shouldReturnAccountNonLockedFalse</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>lockoutInPast_shouldTreatAsUnlocked</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.EncryptionConverterTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>convertToDatabaseColumn_shouldReturnNullForNull</td>
+  <td class="pass">通過</td>
+  <td>0.208s</td>
+</tr>
+<tr>
+  <td>convertToEntityAttribute_shouldReturnNullForNull</td>
+  <td class="pass">通過</td>
+  <td>0.080s</td>
+</tr>
+<tr>
+  <td>roundTrip_specialCharacters</td>
+  <td class="pass">通過</td>
+  <td>0.073s</td>
+</tr>
+<tr>
+  <td>shortKey_shouldPad</td>
+  <td class="pass">通過</td>
+  <td>0.168s</td>
+</tr>
+<tr>
+  <td>uniqueIVs_sameInputDifferentCiphertext</td>
+  <td class="pass">通過</td>
+  <td>0.085s</td>
+</tr>
+<tr>
+  <td>convertToEntityAttribute_shouldReturnLegacyDataAsIs</td>
+  <td class="pass">通過</td>
+  <td>0.081s</td>
+</tr>
+<tr>
+  <td>roundTrip_largeJsonPayload_100kb</td>
+  <td class="pass">通過</td>
+  <td>0.133s</td>
+</tr>
+<tr>
+  <td>roundTrip_emptyString</td>
+  <td class="pass">通過</td>
+  <td>0.092s</td>
+</tr>
+<tr>
+  <td>roundTrip_shouldEncryptAndDecrypt</td>
+  <td class="pass">通過</td>
+  <td>0.068s</td>
+</tr>
+<tr>
+  <td>roundTrip_longString</td>
+  <td class="pass">通過</td>
+  <td>0.113s</td>
+</tr>
+<tr>
+  <td>convertToDatabaseColumn_shouldProduceEncPrefix</td>
+  <td class="pass">通過</td>
+  <td>0.112s</td>
+</tr>
+<tr>
+  <td>wrongKey_shouldFailToDecrypt</td>
+  <td class="pass">通過</td>
+  <td>0.228s</td>
+</tr>
+<tr>
+  <td>roundTrip_utf8MultibytePayload</td>
+  <td class="pass">通過</td>
+  <td>0.106s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.InputValidatorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>isValidSearchParams_shouldAcceptNull</td>
+  <td class="pass">通過</td>
+  <td>0.076s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldAcceptMaxLengthId</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectOverlongId</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[7]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[8]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[9]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldAcceptAllowedTypes(String)[10]</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectInvalidIds(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectInvalidIds(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectInvalidIds(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectInvalidIds(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectInvalidIds(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidUrl_shouldRejectBlank</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidUrl_shouldAcceptHttpsUrl</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>isValidSearchParams_shouldRejectScriptInjection</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidSearchParams_shouldAcceptEmptyString</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldRejectNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidUrl_shouldAcceptHttpUrl</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldAcceptValidIds(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldAcceptValidIds(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldAcceptValidIds(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldAcceptValidIds(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidResourceId_shouldAcceptValidIds(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidSearchParams_shouldAcceptValidParams</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidUrl_shouldRejectFtpUrl</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidSearchParams_shouldRejectSqlInjection</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidUrl_shouldRejectJavascriptUrl</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectInvalidTypes(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectInvalidTypes(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectInvalidTypes(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectInvalidTypes(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectInvalidTypes(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidFhirResourceType_shouldRejectInvalidTypes(String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidUrl_shouldRejectNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.JwtTokenProviderTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getExpirationMs_shouldReturnConfiguredValue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getRole_shouldExtractCorrectRole</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateToken_shouldReturnTrueForValidToken</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>generateToken_shouldReturnNonNullToken</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>validateToken_shouldReturnFalseForTamperedToken</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>differentSecrets_shouldNotValidateCrossTokens</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>validateToken_shouldReturnFalseForEmptyToken</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getUsername_shouldExtractCorrectUsername</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>generateToken_shouldContainIssuerAndAudience</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>validateToken_shouldRejectTokenWithWrongIssuer</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateToken_shouldReturnFalseForExpiredToken</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>validateToken_shouldReturnFalseForNullToken</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.LoginAttemptListenerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>nullUsername_shouldBeNoop</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>successfulLogin_clearsPriorFailureState</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>firstFailure_shouldSetCounterToOne_noLockout</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>failureOnUnknownUser_shouldNotTouchRepository</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>failureBelowThreshold_incrementsWithoutLock</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>failureAtThreshold_setsLockoutUntil</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>successfulLoginOnCleanRecord_shouldNotWriteAgain</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.OwnershipVerifierTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>isDepartmentAdmin_withDeptAdminRole_shouldReturnTrue</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>isAdmin_withUserRole_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>verifyOwnership_otherUser_shouldThrowAccessDenied</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>verifyOwnership_ownResource_shouldPass</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getCurrentUsername_shouldReturnAuthenticatedUsername</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>verifyOwnership_admin_shouldBypass</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getCurrentUsername_notAuthenticated_shouldThrowAccessDenied</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>verifySameDepartment_matchingDepartment_shouldPass</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>verifySameDepartment_admin_shouldBypass</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>verifySameDepartment_mismatchedDepartment_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isAdmin_withAdminRole_shouldReturnTrue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.RateLimitFilterTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>shouldConsumeMultipleTokensForLargePayload</td>
+  <td class="pass">通過</td>
+  <td>0.118s</td>
+</tr>
+<tr>
+  <td>shouldComputeTokenCostByPayloadSize</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>shouldTrackPerClientBuckets</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>shouldSkipOptionsRequests</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>shouldApplyTranslateTierLimit</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>shouldApplyDefaultTierForOtherPaths</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>shouldIsolateBucketsPerTier</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>shouldApplyAuthTierLimit</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>shouldResolveTierCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>shouldApplyExecuteTierLimit</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>shouldApplyCdsInvokeTierLimit</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>shouldApplyLibraryReadTierLimit</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>shouldIncrementMetricOnRejection</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>shouldSkipWhenDisabled</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>shouldReturnRetryAfterHeader</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.SseTicketServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>issueAndRedeem_shouldReturnPrincipal</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>multipleTickets_shouldBeIndependent</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>redeem_unknownTicket_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>purgeExpired_shouldNotAffectValidTickets</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>redeem_nullOrBlank_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>redeem_sameTicketTwice_shouldFailSecondTime</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.UserRateLimitFilterTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>shouldIsolatePerUser</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>shouldSkipWhenUnauthenticated</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldSkipWhenAnonymousUser</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldApplyPerUserTranslateLimit</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>shouldIncrementMetricOnRejection</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>shouldReturnUserRateLimitHeaders</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>shouldSkipWhenDisabled</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.security.XssStringDeserializerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>shouldStripVbscriptProtocol</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripObjectTags(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripObjectTags(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shouldStripEventHandlers</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shouldStripIframeTags</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripMathTags(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripMathTags(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripFormTags(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>shouldStripFormTags(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldReturnNullForNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripEmbedTags(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripEmbedTags(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripDataTextHtmlUri</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripScriptTagWithAttributes</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldPassSafeStrings</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shouldStripUnclosedScriptTag</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shouldStripBaseTags(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripBaseTags(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripEvalCalls</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripJavascriptProtocol</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shouldStripClosingScriptTag</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shouldStripSvgTags(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripSvgTags(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldStripSvgTags(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.ai.CqlFixPromptHelperTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildSystemPrompt_emptyList_returnsBasePrompt</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>basePrompt_preservesCoreRules</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildSystemPrompt_entryWithoutExamples_stillIncludesTopicAndExplanation</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>buildSystemPrompt_withEntries_appendsPatterns</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildSystemPrompt_nullList_returnsBasePrompt</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.ai.CqlKnowledgeBaseTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>allEntries_haveRequiredFields</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>findRelevant_codeableConceptError_shouldMatchCodeableConceptEntry</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>findRelevant_resolveTypeError_shouldMatchResolveTypeEntry</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>findRelevant_unrelatedQuery_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>findRelevant_zeroTopK_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>findRelevant_twcoreKeywords_shouldMatchTwcoreEntry</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>load_shouldIngestAllYamlFiles</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>findRelevant_nullInputs_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>findRelevant_respectsTopK</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>allEntryIds_areUnique</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.AuditServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getPhiAccessLog_withValidDate_shouldParse</td>
+  <td class="pass">通過</td>
+  <td>0.059s</td>
+</tr>
+<tr>
+  <td>getPhiAccessLog_withNullStartDate_shouldDefault30DaysAgo</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getLoginActivity_shouldReturnResponse</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getEhrOperations_withConnectionId_shouldFilterByConnection</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getStats_shouldReturnAggregatedStats</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>exportLogs_shouldOverridePagination</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>cleanupOldLogs_shouldDeleteOldRecords</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getSecurityEvents_shouldReturnResponse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>searchLogs_shouldReturnPaginatedResponse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>manualCleanup_shouldDeleteAndReturnCount</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>searchLogs_shouldIncludeEhrFieldsInResponse</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getRetentionDays_shouldReturnConfiguredValue</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getEhrOperations_withoutConnectionId_shouldReturnAllEhrOps</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ArtifactExportServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>exportAsZip_translationFails_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>exportAsZip_libraryJsonContainsCpgMetadata</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>exportAsZip_shouldContainAllFiles</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ArtifactServiceLibraryRefIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>emptyTree_regression_stillBuildsCqlWithoutLibraryIncludes</td>
+  <td class="pass">通過</td>
+  <td>1.197s</td>
+</tr>
+<tr>
+  <td>frontendPickerJson_deserializesAndGeneratesCqlWithInclude</td>
+  <td class="pass">通過</td>
+  <td>0.029s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ArtifactServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>create_shouldSetOwnerAndSave</td>
+  <td class="pass">通過</td>
+  <td>0.101s</td>
+</tr>
+<tr>
+  <td>getById_notFound_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>update_asOwner_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>duplicate_shouldCreateCopyWithSuffix</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>delete_asNonOwner_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>duplicate_asNonOwner_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>listByOwner_shouldReturnSummaries</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>delete_asOwner_shouldCascadeExternalCql</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>update_asNonOwner_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getById_found_shouldReturnResponse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.CqlArtifactBuilderEdgeCaseTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>warningsFromMultipleSources_shouldBeCollected</td>
+  <td class="pass">通過</td>
+  <td>0.323s</td>
+</tr>
+<tr>
+  <td>noWarnings_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.030s</td>
+</tr>
+<tr>
+  <td>emptyInclusion_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>nonEmptyExclusion_shouldNotUseFalse</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>defaultR4_shouldIncludeFhir401</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>codeSystemsInTree_shouldAppearInHeader</td>
+  <td class="pass">通過</td>
+  <td>0.025s</td>
+</tr>
+<tr>
+  <td>externalCqlInBaseElements_shouldAddInclude</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>valueSetsInTree_shouldAppearInHeader</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>customCondition_shouldPassThrough</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>nullErrorStatement_shouldNotProduceErrorsDefine</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>nullCondition_shouldMapToRecommendationIsNull</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>emptyErrorStatement_shouldNotProduceErrorsDefine</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>errorsCondition_shouldMapToErrorsNotNull</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>multipleClauses_shouldChainIfElseIf</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>withSelectionBehavior_shouldInclude</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>withSourceLabel_shouldIncludeSource</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>withSuggestions_shouldProduceTupleWithSuggestions</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>cardText_withSpecialChars_shouldBeEscaped</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>multipleRecommendations_shouldBeNumbered</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>singleRecommendation_shouldNotBeNumbered</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>recommendation_noSubpopulations_shouldUseInPopulation</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>recommendation_withDoesntMeetInclusionSubpop_shouldNegateInclusion</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>recommendation_withMeetsExclusionSubpop_shouldReferenceExclusion</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>recommendation_withCustomSubpop_shouldCombineInPopulationAndSubpop</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>specialSubpopulation_shouldBeSkipped</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>shouldGenerateSubpopulationDefine</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>nonArithmetic_shouldAppearBeforeArithmetic</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>conjunctionBaseElement_shouldBuildAsConjunction</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>stringParameter_shouldDeclare</td>
+  <td class="pass">通過</td>
+  <td>0.090s</td>
+</tr>
+<tr>
+  <td>parameterWithUniqueId_shouldBeResolvableByRef</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>parameterWithoutValue_shouldDeclareWithoutDefault</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>booleanParameter_shouldDeclare</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>integerParameter_shouldDeclare</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>multipleParameters_shouldAllAppear</td>
+  <td class="pass">通過</td>
+  <td>0.019s</td>
+</tr>
+<tr>
+  <td>nullVersion_shouldUseDefault</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>specialCharacters_shouldBeReplacedWithUnderscore</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.CqlArtifactBuilderTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildCql_unknownElementType_shouldProduceWarning</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>buildCql_emptyExclusion_shouldProduceFalseNotNull</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>currentBaseElements_instanceField_shouldNotExist</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>buildCql_ageRangeBothBounds_shouldWrapInParentheses</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>buildCql_withSimpleRecommendation_shouldProduceDefine</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>buildCql_withCdsCardRecommendation_shouldProduceTuple</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>buildCql_emptyTree_shouldProduceValidLibraryHeader</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>buildCql_ageRangeOnlyMin_shouldNotProduceNullReference</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>buildCql_lookBackModifier_emptyValue_shouldOmitQuantity</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>buildCql_lookBackModifier_shouldGenerateC3FLookBackWith6Months</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>buildCql_withErrorStatement_shouldProduceIfThenElse</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.CqlGenerationServiceLibraryIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>generateCqlWithWarnings_exposesLibraryIncludes</td>
+  <td class="pass">通過</td>
+  <td>0.028s</td>
+</tr>
+<tr>
+  <td>externalCqlRefInBaseElements_survivesPersistenceAndEmitsInclude</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>multipleLibraryReferences_emitOnlyUniqueIncludeStatements</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>externalCqlElementInInclusionTree_emitsIncludeAndReference</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>regenerateWithoutReSave_producesIdenticalCql</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.CqlGenerationServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>generateCql_nullFhirVersion_shouldUseR4</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>generateAndTranslate_shouldReturnTranslationResponse</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>generateCqlWithWarnings_shouldReturnWarnings</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>generateCql_found_shouldReturnBuiltCql</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>generateCql_builderThrowsClassCast_shouldWrapInCqlGenerationException</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>generateCql_builderThrowsNPE_shouldWrapInCqlGenerationException</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>validateArtifactCql_shouldReturnValidationResult</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>generateCql_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>generateCql_explicitFhirVersion_shouldAlwaysUseR4</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ExpressionCqlEngineEdgeCaseTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>emptyModifiers_shouldReturnElementType</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>withModifiers_shouldReturnLastModifierReturnType</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>modifiersWithNoReturnType_shouldFallBackToElement</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>nullModifiers_shouldReturnElementType</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>nullValue_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>nullFields_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>presentValue_shouldReturnValue</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>missingField_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>parameterNameIndex_shouldResolveByUniqueId</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>findParameterName_null_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>findBaseElementName_null_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>parameterNameIndex_unknownId_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emitCodes_empty_shouldEmitNothing</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emitCodeSystems_empty_shouldEmitNothing</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emitCodes_shouldEmitDeclarations</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emitCodeSystems_shouldEmitDeclarations</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>shouldCollectExternalCqlIncludes_withoutVersion</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldCollectCodesAndCodeSystems</td>
+  <td class="pass">通過</td>
+  <td>0.035s</td>
+</tr>
+<tr>
+  <td>shouldCollectValueSetFromFieldValueMap</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldRecurseIntoChildren</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>nullNode_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldCollectExternalCqlIncludes</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shouldCollectValueSetsFromFieldValueSets</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>nullType_shouldReturnToString</td>
+  <td class="pass">通過</td>
+  <td>0.036s</td>
+</tr>
+<tr>
+  <td>unknownType_shouldUseDefault</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>quantity_withNonMap_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>quantity_withMap_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>time_withAtT_shouldKeepAsIs</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>datetime_withoutAt_shouldPrefixAt</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>code_withMap_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>datetime_withT_shouldNotDuplicateT</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>intervalDatetime_withMap_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>time_shouldPrefixAtT</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>decimal_shouldFormatAsIs</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>intervalInteger_withNonMap_shouldUseFallback</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>string_withSingleQuote_shouldEscape</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>time_withAtPrefix_shouldConvertToAtT</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>concept_withMap_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>concept_withNonMap_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>code_withNonMap_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>intervalDatetime_withEmptyBounds_shouldUseNull</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>quantity_withEmptyValue_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>datetime_withAt_shouldKeepAt</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>code_withEmptyCode_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>string_shouldWrapInQuotes</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>intervalInteger_withMap_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>afterInterval_emptyValue_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>containsDecimal_shouldFormatValue</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>beforeInterval_emptyValue_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cqlTemplateWithPlaceholder_shouldInterpolate</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>unknownModifier_shouldWarnAndSkip</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>valueComparisonNumber_emptyValues_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>valueComparisonNumber_nullValues_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>withUnit_nullCqlLibFunc_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>qualifier_unknownQualifierType_shouldStillRender</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>convertUnits_emptyUnit_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>containsDateTime_shouldFormatValue</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>valueComparisonNumber_onlyMax_shouldProduceSingleCondition</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>valueComparisonNumber_withUnit_shouldIncludeUnit</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>listCollapsingModifier_shouldBeSkippedWhenPreserveListReturn</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>valueComparisonNumber_withRange_shouldProduceCompoundCondition</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>valueComparisonObservation_shouldWorkSameAsNumber</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>booleanComparison_nullValues_shouldReturnExprUnchanged</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>resourceTypeExtraction_shouldStripPrefixAndSuffix</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>withCodeReferences_shouldUseCodeDisplay</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>multipleValueSets_shouldProduceUnion</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>nullFields_shouldReturnBareResource</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>withValueAsString_shouldUseStringValue</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>withValueAsMap_shouldExtractName</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>orConjunction_shouldUseOrOperator</td>
+  <td class="pass">通過</td>
+  <td>0.017s</td>
+</tr>
+<tr>
+  <td>nullGroup_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>nestedConjunction_shouldWrapInParentheses</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>listReturnType_withoutPreserve_shouldWrapInExists</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>arithmeticExpression_validQuantityLiteral_shouldPass</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>baseElementRef_unresolvedRef_shouldUseFallbackName</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>arithmeticExpression_literalOperands_shouldProduceFormula</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>arithmeticExpression_invalidOperator_shouldDefaultToPlus</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>unknownType_shouldDefaultToTrueWithWarning</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>listReturnType_withPreserve_shouldNotWrapInExists</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>arithmeticExpression_unresolvedOperands_shouldWarn</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>externalCqlRef_withoutLibraryName_shouldNotQualify</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>parameterRef_shouldResolveByUniqueId</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>baseElementRef_shouldResolveByUniqueId</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>arithmeticExpression_invalidLiteral_shouldRejectNonNumeric</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>externalCqlRef_withLibraryName_shouldQualify</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cdsContext_shouldEmitPlainAgeInYears</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>ecqmContext_shouldBindToMeasurementPeriod</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>ecqmContext_withRange_shouldBindBothBounds</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>null_shouldDefaultToYears</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>periodBound_unknownUnit_shouldDefaultToYearsAt</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>periodBound_knownUnits_shouldEmitAtForm(String, String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>periodBound_knownUnits_shouldEmitAtForm(String, String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>periodBound_knownUnits_shouldEmitAtForm(String, String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>periodBound_knownUnits_shouldEmitAtForm(String, String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>periodBound_knownUnits_shouldEmitAtForm(String, String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>periodBound_nullUnit_shouldDefaultToYearsAt</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>mixedCase_shouldMatch</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>nonPeriodBound_shouldStillEmitPlainForm</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[7]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[8]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[9]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>knownUnits_shouldMapCorrectly(String, String)[10]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>unknownUnit_shouldDefaultToYears</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>empty_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>null_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>dateTime_shouldPrefixAt</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>dateOnly_shouldPrefixAt</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emptyString_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>withNonAscii_shouldStrip</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>withNonAscii_shouldStrip</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>withMixedEscapeChars_shouldEscapeCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>null_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>withEmptyParentheses_shouldStrip</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>withMultipleSpaces_shouldCollapse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>withBackslashAndQuotes_shouldEscapeBothCorrectOrder</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>withDoubleQuotes_shouldEscape</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>withBackslash_shouldEscape</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ExpressionCqlEngineTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>applyModifier_containsQuantity_withUnit</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>formatParameterDefault_null_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_duringMeasurementPeriod_observation</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>applyModifier_qualifier_valueSet</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>applyModifier_isFalse</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>applyModifier_booleanComparison</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>classifyListBehavior_singleResourceReturnType_isCollapsesList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_count</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>emitValueSets_empty_shouldEmitNothing</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>buildConjunctionExpression_emptyTree_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>applyModifier_isNotTrue</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>classifyListBehavior_systemReturnType_isExtractsValue</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>resolveFhirVersion_r4_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>escapeCqlString_shouldEscapeBackslashes</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>buildExpression_ageRange_bothBounds</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>applyModifier_qualifier_code</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>applyModifier_beforeTimePrecise</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>applyModifier_startsWithString</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>classifyListBehavior_listReturnType_isPreservesList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_booleanNot</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>applyModifier_equalsString</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>formatParameterDefault_integer_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>applyModifier_withUnit</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>cvMeasurePopulation_skippedModifierSurfacesUserWarning</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>collectDeclarations_emptyTree_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getStr_missingKey_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>applyModifier_checkExistence</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>applyModifier_allTrue</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>getStr_nullValue_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_anyTrue</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>applyModifier_afterDateTimePrecise</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>escapeCqlString_null_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatParameterDefault_boolean_shouldFormat</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>applyModifier_duringMeasurementPeriod_unknownIdWarns</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>applyModifier_containsQuantity_noUnit</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>withRenderMode_shouldNestAndRestoreInnerModeOnly</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getStr_presentKey_shouldReturnValue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>applyModifier_lookBackModifier</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>buildExpression_genericObservation</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>withRenderMode_shouldRestoreModeAfterBody</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>applyModifier_duringMeasurementPeriod_encounter</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>applyModifier_booleanExists</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>buildExpression_gender</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>buildContext_shouldAcceptBaseElements</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_isNotFalse</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>emitValueSets_shouldEmitDeclarations</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>emitIncludes_shouldEmitDeclarations</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>classifyListBehavior_explicitOverride_winsOverInference</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>withRenderMode_shouldRestoreEvenIfBodyThrows</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_afterInterval</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>escapeCqlString_shouldEscapeSingleQuotes</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_endsWithString</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>applyModifier_convertUnits</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>classifyListBehavior_missingReturnType_defaultsToPreservesList</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>mapParameterType_unknownType_shouldReturnCapitalized</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>applyModifier_isTrue</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>mapParameterType_shouldMapKnownTypes</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>applyModifier_containsInteger</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>buildContext_shouldTrackWarnings</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>applyModifier_beforeInterval</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>applyModifier_baseModifier_fallback</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>resolveHelpersVersion_r4_shouldReturn401</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>buildConjunctionExpression_andConjunction_shouldUseAnd</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ExpressionTreeValidatorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>validate_subpopulations_shouldValidateNodes</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>validate_duplicateParameterNames_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_conjunctionNode_shouldRecurseIntoChildren</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>validate_unknownElementType_shouldThrowWithDetails</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_parameterReservedName_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_reservedRecommendationNumbered_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_validTree_shouldPass</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validate_multipleErrors_shouldCollectAll</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_uniqueNamesAcrossCategories_shouldPass</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_nullTrees_shouldPass</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validate_duplicateSubpopulationNames_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_crossCategoryCollision_baseElementVsSubpopulation_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_duplicateBaseElementNames_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_reservedSystemName_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_unknownModifierId_shouldThrowWithDetails</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validate_specialSubpopulations_shouldBeSkipped</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.ModifierServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getModifiersByInputType_unknownType_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getAllModifiers_shouldReturnNonEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getModifiersByInputType_knownType_shouldReturnResults</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>init_shouldLoadModifiersFromClasspath</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getAllModifiers_eachShouldHaveNameAndId</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.QueryBuilderServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getOperatorsForType_nonExistent_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>getOperators_shouldBeUnmodifiable</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>loadConfig_shouldLoadOperators</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getResources_shouldBeUnmodifiable</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>loadConfig_shouldLoadResources</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getResource_nonExistent_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getResource_observation_shouldReturnResult</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getOperatorsForType_string_shouldReturnOperators</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.authoring.TemplateServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getAllCategories_shouldReturnCorrectStructure</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getAllCategories_entriesShouldHaveIds</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>init_shouldLoadCategoriesFromClasspath</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getAllCategories_shouldHaveEntriesWithNames</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsAnalyticsServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getServiceAnalytics_noData_shouldReturnEmptyDTO</td>
+  <td class="pass">通過</td>
+  <td>0.075s</td>
+</tr>
+<tr>
+  <td>recordInvocation_error_shouldIncrementErrorCount</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>recordInvocation_existingService_shouldIncrementCounts</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>recordInvocation_newService_shouldCreateAnalyticsRecord</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getServiceAnalytics_shouldReturnDTO</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsFeedbackTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>processFeedback_withAccepted_shouldPersist</td>
+  <td class="pass">通過</td>
+  <td>0.075s</td>
+</tr>
+<tr>
+  <td>processFeedback_emptyFeedback_shouldNotPersist</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>processFeedback_withHtmlInDisplay_shouldEscapeBeforePersist</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>processFeedback_withOverride_shouldPersistReason</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>processFeedback_serviceNotFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getFeedback_shouldReturnResults</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsHooksServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>invokeService_patientView_missingUserId_shouldThrowValidationException</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>invokeService_orderSelect_missingDraftOrders_shouldThrowValidationException</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>invokeService_nullContext_shouldHandleGracefully</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>invokeService_unknownService_shouldReturnNotFoundCard</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>registerService_shouldAddToConfigs</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>invokeService_registeredService_shouldDelegateToInvocationService</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getServiceDefinitions_withRegistered_shouldReturnThem</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getServiceDefinitions_empty_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>invokeService_hookMismatch_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>unregisterService_shouldRemoveFromConfigs</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>invokeService_encounterStart_withAllRequired_shouldProceed</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createService_invalidHookType_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsInvocationServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>invoke_debugModeTrue_executionFails_shouldAttachErrorInfoWithPhase</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>invoke_debugModeTrue_translatorErrorAsNestedCause_shouldClassifyAsTranslation</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>invoke_planDefinitionMode_shouldUsePlanDefinitionStrategy</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>invoke_debugModeTrue_success_shouldAttachDebugTraceAndContext</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>invoke_debugModeFalse_shouldNotAttachDebug</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>invoke_planDefinitionModeWithNullJson_shouldFallbackToTupleStrategy</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>invoke_debugModeTrue_translatorErrorWrappedInExecutionException_shouldClassifyAsTranslation</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>invoke_executionError_shouldReturnErrorCard</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>invoke_nullMode_shouldDefaultToTupleStrategy</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>invoke_cqlTupleMode_shouldUseTupleStrategy</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsResourceFormatterTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>formatReference_withId</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>formatDetail_medicationRequest</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>formatDetail_condition_withCodeAndStatus</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>formatDetail_preservesRawContent</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatReference_withoutId</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatDetail_unknownResource</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatDetail_procedure</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>formatDetail_observation_withCodeAndValue</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>formatDetail_allergyIntolerance</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsServiceVersioningTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>createService_secondVersion_shouldIncrementVersion</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>getServiceVersions_shouldReturnAllVersions</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>rollbackService_nonexistentVersion_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>rollbackService_nonexistentService_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>rollbackService_shouldDisableAllAndEnableTarget</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>createService_firstVersion_shouldUseVersion1</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsTupleAccessorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getString_missingField_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getList_nonListValue_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getElements_shouldReturnMap</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isTuple_withTupleObject_shouldReturnTrue</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getBoolean_missingField_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getList_missingField_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getList_shouldReturnListValue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getBoolean_nonBooleanValue_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isTuple_withNonTupleObject_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getObject_shouldReturnRawValue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>isTuple_withNull_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getString_shouldReturnStringValue</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getBoolean_shouldReturnBooleanValue</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getElements_withNonTuple_shouldReturnEmptyMap</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CdsValueFormatterTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>formatValue_null_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_coding</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_resource</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_emptyList_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_number</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_string</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_codeableConcept</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatValue_number</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatValue_string</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_chineseText</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatValue_boolean</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatValue_quantity</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_string_preservesRawContent</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatValue_string_preservesRawContent</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_booleanFalse_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_booleanTrue_shouldReturnYes</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatValue_resource</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_quantity</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formatExpressionLine_list_shouldFormatItems</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.CqlTupleCardStrategyTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildResponse_withBooleanTrue_shouldReturnConsolidatedCard</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>createInfoCard_shouldSetIndicatorToInfo</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createErrorCard_shouldSetIndicatorToWarning</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildResponse_noResults_shouldReturnNoRecommendationsCard</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildResponse_withStringResult_shouldReturnConsolidatedCard</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildResponse_withBooleanFalse_shouldReturnNoRecommendationsCard</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.PlanDefinitionCardStrategyTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildResponse_withApplicableAction_shouldGenerateCard</td>
+  <td class="pass">通過</td>
+  <td>0.037s</td>
+</tr>
+<tr>
+  <td>buildResponse_nullPlanDefinitionJson_shouldReturnErrorCard</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>buildResponse_urgentPriority_shouldMapToWarning</td>
+  <td class="pass">通過</td>
+  <td>0.227s</td>
+</tr>
+<tr>
+  <td>buildResponse_actionWithNoCondition_shouldAlwaysApply</td>
+  <td class="pass">通過</td>
+  <td>0.111s</td>
+</tr>
+<tr>
+  <td>buildResponse_invalidPlanDefinitionJson_shouldReturnErrorCard</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>buildResponse_statPriority_shouldMapToCritical</td>
+  <td class="pass">通過</td>
+  <td>0.554s</td>
+</tr>
+<tr>
+  <td>buildResponse_conditionFalse_shouldNotGenerateCard</td>
+  <td class="pass">通過</td>
+  <td>0.439s</td>
+</tr>
+<tr>
+  <td>buildResponse_withDynamicValues_shouldIncludeInDetail</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cds.PrefetchRetrieveProviderTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>retrieve_nonExistentType_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.124s</td>
+</tr>
+<tr>
+  <td>retrieve_withCodeFilter_shouldFilterByCode</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>retrieve_medicationRequestWithCodeFilter_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>retrieve_conditionWithCodeFilter_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>retrieve_emptyResourceList_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>retrieve_byDataType_shouldReturnMatchingResources</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>retrieve_withoutCodePath_shouldReturnAllOfType</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>retrieve_multipleResourceTypes_shouldOrganizeCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.093s</td>
+</tr>
+<tr>
+  <td>retrieve_codeFilterNoMatch_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlExecutionIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>legacySingleArg_shouldNotWarnOnSelfContainedLibrary</td>
+  <td class="pass">通過</td>
+  <td>3.551s</td>
+</tr>
+<tr>
+  <td>crossLibraryRef_shouldDiscoverRetrievesInIncludedLib</td>
+  <td class="pass">通過</td>
+  <td>1.316s</td>
+</tr>
+<tr>
+  <td>legacySingleArg_shouldWarnOnCrossLibraryReference</td>
+  <td class="pass">通過</td>
+  <td>0.083s</td>
+</tr>
+<tr>
+  <td>freshCql_shouldOverrideSavedDbVersion</td>
+  <td class="pass">通過</td>
+  <td>1.157s</td>
+</tr>
+<tr>
+  <td>expressionFilter_shouldLimitEvaluation</td>
+  <td class="pass">通過</td>
+  <td>0.406s</td>
+</tr>
+<tr>
+  <td>invalidCql_shouldFailGracefully</td>
+  <td class="pass">通過</td>
+  <td>0.069s</td>
+</tr>
+<tr>
+  <td>debugMode_shouldProduceTraces</td>
+  <td class="pass">通過</td>
+  <td>0.231s</td>
+</tr>
+<tr>
+  <td>diabeticScreened_shouldBeInNumerator</td>
+  <td class="pass">通過</td>
+  <td>0.821s</td>
+</tr>
+<tr>
+  <td>diabeticNotScreened_shouldNotBeInNumerator</td>
+  <td class="pass">通過</td>
+  <td>0.348s</td>
+</tr>
+<tr>
+  <td>healthyPatient_shouldNotBeInPopulation</td>
+  <td class="pass">通過</td>
+  <td>0.348s</td>
+</tr>
+<tr>
+  <td>healthyPatient_hasNoConditions</td>
+  <td class="pass">通過</td>
+  <td>0.484s</td>
+</tr>
+<tr>
+  <td>observationRetrieve_findsHbA1c</td>
+  <td class="pass">通過</td>
+  <td>0.271s</td>
+</tr>
+<tr>
+  <td>patientDemographics_fromDiabeticPatient</td>
+  <td class="pass">通過</td>
+  <td>0.249s</td>
+</tr>
+<tr>
+  <td>conditionRetrieve_findsDiabetes</td>
+  <td class="pass">通過</td>
+  <td>0.267s</td>
+</tr>
+<tr>
+  <td>dates_shouldProduceCorrectResults</td>
+  <td class="pass">通過</td>
+  <td>0.089s</td>
+</tr>
+<tr>
+  <td>nullHandling_shouldWorkCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.044s</td>
+</tr>
+<tr>
+  <td>intervals_shouldComputeContainment</td>
+  <td class="pass">通過</td>
+  <td>0.074s</td>
+</tr>
+<tr>
+  <td>conditionals_shouldEvaluateCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.047s</td>
+</tr>
+<tr>
+  <td>arithmetic_shouldProduceCorrectResults</td>
+  <td class="pass">通過</td>
+  <td>0.050s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlFormatterServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>format_addBlankLineBeforeContext</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>format_trimTrailingWhitespace</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>format_preserveExistingIndent</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>format_null_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>format_preservesCqlContent</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>format_normalizeLineEndings</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>format_blank_shouldReturnAsIs</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>format_addBlankLineBeforeDefine</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>format_indentAfterDefine</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>format_collapseMultipleBlankLines</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>format_ensureSingleTrailingNewline</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>format_addBlankLineBeforeValueset</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlLibraryServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>saveLibrary_validCql_shouldStoreAndReturn</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>getLatestLibrary_shouldReturnHighestVersion</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>searchLibraries_nullSearch_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getLibraryVersions_shouldReturnSortedDesc</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getLibrary_nonExisting_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>deleteLibrary_shouldRemoveFromStore</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>updateLibrary_nonExisting_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>saveLibrary_invalidCql_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>searchLibraries_byName_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getLibrary_existing_shouldReturnLibrary</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getLibraryByNameAndVersion_shouldFindCorrectLibrary</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getAllLibraries_shouldReturnAllStored</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlPipelineIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>generatedCql_shouldExecuteSuccessfully</td>
+  <td class="pass">通過</td>
+  <td>0.562s</td>
+</tr>
+<tr>
+  <td>translateThenExecute_shouldProduceCorrectResults</td>
+  <td class="pass">通過</td>
+  <td>1.010s</td>
+</tr>
+<tr>
+  <td>generatedCql_shouldTranslateSuccessfully</td>
+  <td class="pass">通過</td>
+  <td>0.494s</td>
+</tr>
+<tr>
+  <td>translation_shouldExtractMetadata</td>
+  <td class="pass">通過</td>
+  <td>0.256s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlTranslationServiceHintTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>codingEquivalentString_shouldSuggestCodeField</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>nullMessage_shouldReturnNullHint</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>unrelatedTranslatorError_shouldReturnNullHint</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>codeableConceptEquivalentString_shouldSuggestCodeExtraction</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlTranslationServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>testTranslateWithFHIRHelpers</td>
+  <td class="pass">通過</td>
+  <td>0.788s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.CqlTranslationServiceUnitTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>compile_validCql_shouldReturnCompiledLibrary</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>translate_validCql_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>validate_validCql_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>translate_invalidCql_shouldReturnErrors</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>translate_simpleCqlWithoutFhir_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>translate_blankCql_shouldThrowIllegalArgument</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>compile_invalidCql_shouldThrowTranslationException</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>translate_nullCql_shouldThrowIllegalArgument</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validate_invalidCql_shouldReturnErrors</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>translate_shouldExtractMetadata</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.DatabaseLibrarySourceProviderTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>excludedIdentifier_returnsNullAndDoesNotQueryRepo</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>latestVersionResolution</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>clearExclusion</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>exclusionIsPerVersion</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>returnsKnownLibrary</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>versionLessLookupAgainstExcludedName</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>exclusionIsPerIdentifier</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>unknownLibrary_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.DataRequirementExtractorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>extract_deduplicatesQueriesWithSameCodeSystem</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>extract_queryWithFunctionRefWrappedDateFilter_shouldExtractDateFilter</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>extract_queryWithInlineCodesAndWhereDate_shouldNotOverrideInlineCodes</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_nullInput_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extract_retrieveWithDateProperty_shouldIncludeDateFilter</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extract_queryWithExistsCodeSystem_shouldExtractCodeSystemFromWhere</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extract_queryWithBothCodeSystemAndDateFilter_shouldExtractBoth</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_retrieveWithCodeRef_shouldCaptureDirectCode</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>extract_duplicateRetrieves_shouldDeduplicate</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extract_nestedRetrieveInQuery_shouldBeFound</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_invalidJson_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_retrieveWithoutCodeProperty_shouldReturnWithoutCodeFilter</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_valueSetRefWithUnknownName_shouldUseNameAsValueSet</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_emptyString_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_queryWithNoWhereClause_shouldStillExtractBareRetrieve</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_mixedInlineAndWhereRetrieves_shouldExtractAll</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_noRetrieves_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_singleRetrieveWithValueSet_shouldExtractCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extract_queryWithExistsAndCondition_shouldExtractCodeSystem</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>extract_queryWithOverlapsDateFilter_shouldExtractDateFilter</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extract_multipleDistinctRetrieves_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extract_blankString_shouldReturnEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.DependencyAnalysisServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>analyze_transitiveDependencies_shouldResolve</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>analyze_noDependencies_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>analyze_circularDependency_shouldNotInfiniteLoop</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>analyze_libraryNotFound_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>analyze_versionMatch_shouldResolveCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>analyze_versionMismatch_shouldReportMismatch</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>analyze_conflictingVersions_shouldDetectConflict</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>analyze_invalidLibraryId_noDash_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.LibraryManagerFactoryTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildOptions_mustSetSignatureLevelToOverloadsOrWider</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>defaultOptions_mustSetSignatureLevelToOverloadsOrWider</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.cql.ModifierGeneratedCqlGoldenTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>bug110_nullEffective_doesNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.284s</td>
+</tr>
+<tr>
+  <td>onsetDateTimeInside</td>
+  <td class="pass">通過</td>
+  <td>0.309s</td>
+</tr>
+<tr>
+  <td>recordedDateFallback</td>
+  <td class="pass">通過</td>
+  <td>0.297s</td>
+</tr>
+<tr>
+  <td>noDateAtAll</td>
+  <td class="pass">通過</td>
+  <td>0.230s</td>
+</tr>
+<tr>
+  <td>onsetPeriodInside</td>
+  <td class="pass">通過</td>
+  <td>0.241s</td>
+</tr>
+<tr>
+  <td>periodOutside</td>
+  <td class="pass">通過</td>
+  <td>0.315s</td>
+</tr>
+<tr>
+  <td>periodInside</td>
+  <td class="pass">通過</td>
+  <td>0.359s</td>
+</tr>
+<tr>
+  <td>nullPeriod</td>
+  <td class="pass">通過</td>
+  <td>0.535s</td>
+</tr>
+<tr>
+  <td>mixedList_returnsOnlyMatching</td>
+  <td class="pass">通過</td>
+  <td>0.569s</td>
+</tr>
+<tr>
+  <td>nullEffective_noExceptionNoMatch</td>
+  <td class="pass">通過</td>
+  <td>0.281s</td>
+</tr>
+<tr>
+  <td>periodInsideMp_matches</td>
+  <td class="pass">通過</td>
+  <td>0.312s</td>
+</tr>
+<tr>
+  <td>periodOverlapsBoundary_matches</td>
+  <td class="pass">通過</td>
+  <td>0.272s</td>
+</tr>
+<tr>
+  <td>dateTimeOutsideMp_noMatch</td>
+  <td class="pass">通過</td>
+  <td>0.372s</td>
+</tr>
+<tr>
+  <td>periodOutsideMp_noMatch</td>
+  <td class="pass">通過</td>
+  <td>0.289s</td>
+</tr>
+<tr>
+  <td>dateTimeInsideMp_matches</td>
+  <td class="pass">通過</td>
+  <td>0.321s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.CustomUserDetailsServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>loadUserByUsername_admin_shouldHaveAdminRole</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>loadUserByUsername_found_shouldReturnUserDetails</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>loadUserByUsername_notFound_shouldThrowUsernameNotFoundException</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>loadUserByUsername_disabledUser_shouldReturnDisabledDetails</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.ecqm.EcqmCqlBuilderTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildEcqmCql_withStandardSde_shouldEmitSdeDefines</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_withTopLevelStratifiers_shouldEmitDefines</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_proportion_shouldNotContainCvOrRatioStructures</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_continuousVariable_shouldContainObservationFunction</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_missingRequiredPopulation_shouldWarn</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_emptyPopulationTree_shouldStillProduceDefine</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_proportion_shouldContainRequiredDefines</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_multiGroup_shouldAppendSuffix</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_specialCharsInName_shouldSanitize</td>
+  <td class="pass">通過</td>
+  <td>0.016s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_cvMissingObservation_shouldWarn</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_withUserParameters_shouldEmitParams</td>
+  <td class="pass">通過</td>
+  <td>0.018s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_noGroups_shouldWarn</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_ratio_dualIp_shouldContainDualIpDefines</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_ratio_singleIp_shouldContainStandardDefines</td>
+  <td class="pass">通過</td>
+  <td>0.012s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_continuousVariable_episodeBased_shouldUseResourceParam</td>
+  <td class="pass">通過</td>
+  <td>0.013s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_cohort_shouldContainOnlyIp</td>
+  <td class="pass">通過</td>
+  <td>0.010s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_unknownScoringType_shouldWarn</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>buildEcqmCql_ratio_dualIp_withStratifier_shouldWarn</td>
+  <td class="pass">通過</td>
+  <td>0.011s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.ecqm.EcqmExpressionTreeValidatorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>unknownAggregateMethods_shouldThrowValidationException(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>unknownAggregateMethods_shouldThrowValidationException(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>unknownAggregateMethods_shouldThrowValidationException(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>unknownAggregateMethods_shouldThrowValidationException(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>unknownAggregateMethods_shouldThrowValidationException(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>unknownAggregateMethods_shouldThrowValidationException(String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>missingObservations_shouldBeAccepted</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>nullAggregateMethod_shouldBeAccepted</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[7]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[8]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[9]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[10]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[11]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[12]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[13]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[14]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[15]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[16]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[17]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[18]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[19]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[20]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[21]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[22]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validAggregateMethods_shouldNotThrow(String)[23]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>blankAggregateMethod_shouldBeAccepted</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>multipleObservationsWithOneBadMethod_shouldIdentifyOffender</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.ecqm.EcqmPublishServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>publish_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.156s</td>
+</tr>
+<tr>
+  <td>publish_existingMeasure_shouldUpdateMeasureDefinition</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>publish_withCqlErrors_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>publish_asNonOwner_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>publish_newMeasure_shouldCreateMeasureDefinition</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.AsyncPatientImportServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>cancelJob_runningJob_shouldSetCancelled</td>
+  <td class="pass">通過</td>
+  <td>0.035s</td>
+</tr>
+<tr>
+  <td>submitBatchImport_shouldCreateJobWithPendingStatus</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>getJob_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>submitBatchImport_withEmptyIds_shouldStillCreate</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>executeBatchImport_withFailures_shouldRecordErrors</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>getJob_shouldReturnJob</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>executeBatchImport_jobNotFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>listJobs_withCreatedBy_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>listJobs_withoutCreatedBy_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>cancelJob_completedJob_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>executeBatchImport_allFailed_shouldSetStatusFailed</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>executeBatchImport_cancelled_shouldStopEarly</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>executeBatchImport_shouldProcessAllPatients</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.ConnectionHealthServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getCircuitBreakerStatuses_shouldReturnAllBreakers</td>
+  <td class="pass">通過</td>
+  <td>0.176s</td>
+</tr>
+<tr>
+  <td>checkConnection_healthy_shouldRecordHealthy</td>
+  <td class="pass">通過</td>
+  <td>0.103s</td>
+</tr>
+<tr>
+  <td>scheduledHealthCheck_shouldCheckAllConnections</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>getHealthOverview_shouldReturnAllConnections</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>checkConnection_down_shouldRecordDown</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>checkConnection_slow_shouldRecordDegraded</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getHealthOverview_withNoChecks_shouldReturnUnknown</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getHistory_shouldReturnRecentChecks</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>cleanupOldChecks_shouldDeleteExpiredRecords</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirBulkExportServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>pollExportStatus_serverError_shouldReturnInProgress</td>
+  <td class="pass">通過</td>
+  <td>0.146s</td>
+</tr>
+<tr>
+  <td>kickOffExport_serverError_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirClientFactoryTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>createPlainClient_returnsClient</td>
+  <td class="pass">通過</td>
+  <td>0.403s</td>
+</tr>
+<tr>
+  <td>createClient_returnsClient</td>
+  <td class="pass">通過</td>
+  <td>0.042s</td>
+</tr>
+<tr>
+  <td>createAuthenticatedClient_basicAuth_returnsClient</td>
+  <td class="pass">通過</td>
+  <td>0.020s</td>
+</tr>
+<tr>
+  <td>createAuthenticatedClient_smartBackend_usesTokenService</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>createAuthenticatedClient_bearerAuth_returnsClient</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>createAuthenticatedClient_tlsEnabled_callsTlsContextFactory</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>createAuthenticatedClient_noAuth_returnsClient</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>createAuthenticatedClient_tlsDisabled_doesNotCallTlsContextFactory</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>createClient_cachesClient</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirDataProviderServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>createClient_shouldUseDefaultUrlWhenNull</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>parseSearchParams_shouldHandleEmptyParams</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getAndResetRetrieveCount_shouldResetAfterGet</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>getAndResetRetrieveCount_shouldStartAtZero</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>createClient_shouldUseProvidedUrl</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirFallbackTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>validateCodeFallback_shouldThrowFhirServerUnavailableException</td>
+  <td class="pass">通過</td>
+  <td>0.070s</td>
+</tr>
+<tr>
+  <td>searchPatientsByDemographicsFallback_shouldThrowFhirServerUnavailableException</td>
+  <td class="pass">通過</td>
+  <td>0.048s</td>
+</tr>
+<tr>
+  <td>searchResourcesFallback_shouldThrowFhirServerUnavailableException</td>
+  <td class="pass">通過</td>
+  <td>0.031s</td>
+</tr>
+<tr>
+  <td>searchValueSetsFallback_shouldThrowFhirServerUnavailableException</td>
+  <td class="pass">通過</td>
+  <td>0.032s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirImplementationGuideServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>findProfileUrlForResourceType_nullType_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>getRecommendedProfiles_nullType_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRecommendedProfiles_shouldExcludeBaseDefinitions</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>getRecommendedProfiles_knownType_shouldReturnProfiles</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getRecommendedProfiles_unknownType_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>findProfileUrlForResourceType_knownType_shouldReturnUrl</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>findProfileUrlForResourceType_unknownType_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirSubscriptionServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getSubscription_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.051s</td>
+</tr>
+<tr>
+  <td>handleNotification_unknownSubscription_shouldLogWarning</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createSubscription_failure_shouldSetErrorStatus</td>
+  <td class="pass">通過</td>
+  <td>0.041s</td>
+</tr>
+<tr>
+  <td>listSubscriptions_withoutConnectionId_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>syncStatus_shouldUpdateFromRemote</td>
+  <td class="pass">通過</td>
+  <td>0.046s</td>
+</tr>
+<tr>
+  <td>createSubscription_success_shouldSetActiveStatus</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>deleteSubscription_shouldDeleteLocalAndRemote</td>
+  <td class="pass">通過</td>
+  <td>0.043s</td>
+</tr>
+<tr>
+  <td>listSubscriptions_withConnectionId_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getSubscription_found_shouldReturn</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>handleNotification_knownSubscription_shouldIncrementCount</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.FhirValidationServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>validateBundle_withResource_shouldPopulateEntries</td>
+  <td class="pass">通過</td>
+  <td>8.078s</td>
+</tr>
+<tr>
+  <td>validateResource_withProfile_shouldValidateAgainstProfile</td>
+  <td class="pass">通過</td>
+  <td>0.481s</td>
+</tr>
+<tr>
+  <td>validateResource_withoutProfile_shouldUseBaseValidation</td>
+  <td class="pass">通過</td>
+  <td>0.430s</td>
+</tr>
+<tr>
+  <td>validateBundle_withValidBundle_shouldReturnResults</td>
+  <td class="pass">通過</td>
+  <td>0.476s</td>
+</tr>
+<tr>
+  <td>validateResource_invalidJson_shouldReturnInvalid</td>
+  <td class="pass">通過</td>
+  <td>0.487s</td>
+</tr>
+<tr>
+  <td>validateResource_malformedResource_shouldHaveIssues</td>
+  <td class="pass">通過</td>
+  <td>0.385s</td>
+</tr>
+<tr>
+  <td>validateBundle_invalidJson_shouldReturnEmptyResult</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>validateBundle_emptyBundle_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.015s</td>
+</tr>
+<tr>
+  <td>validateResource_validPatient_shouldBeValid</td>
+  <td class="pass">通過</td>
+  <td>0.292s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.ImportRetryServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>recordFailure_withLongErrorMessage_shouldTruncate</td>
+  <td class="pass">通過</td>
+  <td>0.028s</td>
+</tr>
+<tr>
+  <td>deleteFailedImport_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>retryImport_failure_shouldIncrementRetry</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>retryImport_success_shouldResolve</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>deleteFailedImport_exists_shouldDelete</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>calculateNextRetry_shouldCapAtOneHour</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>recordFailure_withNullCreatedBy_shouldDefaultToSystem</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>recordFailure_shouldCreatePendingRecord</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>retryImport_alreadyResolved_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>calculateNextRetry_shouldUseExponentialBackoff</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>retryImport_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>retryImport_exhausted_shouldMarkExhausted</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>processAutoRetries_noDueRetries_shouldDoNothing</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>listFailedImports_withoutStatus_shouldReturnAll</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>listFailedImports_withStatus_shouldFilter</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>retryImport_exhaustedManual_shouldResetAndRetry</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>processAutoRetries_withDueRetries_shouldProcess</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.PatientMatchServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>deduplicateResults_samePatient_shouldKeepHighestScore</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>deduplicateResults_noIdentifier_shouldUseConnectionAndPatientId</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>calculateScore_identifierOnly_shouldReturn50</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>isValidTwNationalId_invalidId_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>calculateScore_nameAndDob_shouldReturn35</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>matchPatients_byName_shouldReturnProbableMatch</td>
+  <td class="pass">通過</td>
+  <td>0.082s</td>
+</tr>
+<tr>
+  <td>calculateScore_fullMatch_shouldReturn100</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>deduplicateResults_differentPatients_shouldKeepAll</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>matchPatients_acrossConnections_shouldDedup</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>isValidTwNationalId_null_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>matchPatients_byNationalId_shouldReturnExactMatch</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>matchPatients_connectionError_shouldContinue</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>matchPatients_noResults_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>isValidTwNationalId_validId_shouldReturnTrue</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.TlsContextFactoryTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildTrustManagers_noCerts_throwsException</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createHostnameVerifier_tlsDisabled_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>createSslContext_tlsEnabledButNoCerts_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>createSslContext_tlsEnabledBlankCerts_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createHostnameVerifier_hostnameVerificationDisabled_returnsPermissiveVerifier</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>parseCertificates_emptyPem_returnsEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>createHostnameVerifier_hostnameVerificationEnabled_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>parsePrivateKey_invalidKey_throwsException</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>parseCertificates_invalidPem_returnsEmptyList</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>createSslContext_withValidMinVersion_noCerts_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>createSslContext_tlsDisabled_returnsNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.fhir.VsacServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>expandValueSetByOid_serverError_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>searchValueSets_serverError_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getValueSetByOid_serverError_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.DashboardServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getEnhancedDashboard_withDepartmentFilter_shouldFilterMeasures</td>
+  <td class="pass">通過</td>
+  <td>0.075s</td>
+</tr>
+<tr>
+  <td>getDepartmentDrilldown_shouldGroupByMeasure</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getTrends_withMeasureIdFilter_shouldFilterByMeasure</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>getEnhancedDashboard_noMeasures_shouldReturnEmptyDashboard</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getTrends_shouldReturnChronologicalOrder</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getAlerts_shouldReturnThresholdViolations</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>setThreshold_shouldSaveAndReturn</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getEnhancedDashboard_withMeasures_shouldAggregateCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>generateReport_shouldReturnReportWithScores</td>
+  <td class="pass">通過</td>
+  <td>0.009s</td>
+</tr>
+<tr>
+  <td>getDepartmentDrilldown_shouldPickLatestScorePerMeasure</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.DateShiftServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>shiftDates_nullInput_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shiftDates_zeroDays_shouldReturnOriginal</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>shiftDates_shouldShiftFhirDateFields</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>calculateAutoShift_shouldReturnDaysDifference</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureComparisonServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>extractPopulationCounts_shouldFallBackToJson_whenNormalizedRowsAbsent</td>
+  <td class="pass">通過</td>
+  <td>0.034s</td>
+</tr>
+<tr>
+  <td>getTrend_shouldReturnOrderedDataPoints</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>comparePeriods_largeDecline_shouldShowDeclining</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>comparePeriods_bothPeriodsHaveData_shouldCalculateDelta</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getTrend_shouldLimitToPeriodCount</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extractPopulationCounts_shouldPreferNormalizedTable_whenAvailable</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>comparePeriods_largeImprovement_shouldShowImproving</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>comparePeriods_oneEmptyPeriod_shouldHaveNullDelta</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureDefinitionServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>retireMeasure_fromActive_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.029s</td>
+</tr>
+<tr>
+  <td>approveMeasure_fromInReview_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>shareMeasure_shouldAddUser</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>delete_shouldRecordAudit</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>lockMeasure_unlocked_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getAuditTrail_shouldDelegateToRepository</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>lockMeasure_expiredLock_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getById_notFound_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>lockMeasure_lockedByAnother_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>shareMeasure_nonOwner_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createVersion_patch_shouldBump</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>getById_found_shouldReturnMeasure</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>create_duplicateMeasure_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>createVersion_major_shouldBump</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>submitForReview_fromActive_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>unlockMeasure_byLockHolder_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>create_newMeasure_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>unlockMeasure_byWrongUser_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>createVersion_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>rejectMeasure_fromInReview_shouldRevertToDraft</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>submitForReview_fromDraft_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>createVersion_minor_shouldBump</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureEvaluationIntegrationTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>singleQualifyingPatient_scoreShouldBe100</td>
+  <td class="pass">通過</td>
+  <td>0.235s</td>
+</tr>
+<tr>
+  <td>denominatorOnlyPatient_scoreShouldBeZero</td>
+  <td class="pass">通過</td>
+  <td>0.134s</td>
+</tr>
+<tr>
+  <td>eachPatient_shouldMatchExpectedPopulations</td>
+  <td class="pass">通過</td>
+  <td>0.350s</td>
+</tr>
+<tr>
+  <td>ratioScore_shouldAlsoWork</td>
+  <td class="pass">通過</td>
+  <td>0.572s</td>
+</tr>
+<tr>
+  <td>aggregation_shouldProduceCorrectCounts</td>
+  <td class="pass">通過</td>
+  <td>0.796s</td>
+</tr>
+<tr>
+  <td>noQualifyingPatients_scoreShouldBeNull</td>
+  <td class="pass">通過</td>
+  <td>0.157s</td>
+</tr>
+<tr>
+  <td>measureScore_shouldBeFiftyPercent</td>
+  <td class="pass">通過</td>
+  <td>0.484s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureEvaluationServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>evaluateMeasure_shouldSetReportType</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_zeroDenominator_shouldReturnNullScore</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_singlePatient_shouldReturnResult</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_multiplePatients_shouldAggregateResults</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_shouldUseProvidedPeriod</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_singlePatientFailure_shouldContinueOthers</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_scoringCalculation_shouldComputeCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_shouldUseDefaultPeriodWhenNotProvided</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>evaluateMeasure_executionError_shouldReturnErrorStatus</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureReportNormalizerTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>proportionMeasure_writesGroupAndPopulations</td>
+  <td class="pass">通過</td>
+  <td>0.082s</td>
+</tr>
+<tr>
+  <td>populationIdFallback</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>persist_isIdempotent</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvMeasure_flattensObservationStatistics</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>complexReport_writesFullGraph</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>nullReportId_throws</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emptyResult_deletesExistingAndPersistsNothing</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureReportServiceVersionTrackingTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>whenMeasureDefinitionIdNull_noRepoCallMade</td>
+  <td class="pass">通過</td>
+  <td>0.014s</td>
+</tr>
+<tr>
+  <td>whenDefinitionMissing_reportSavesWithNullProvenance</td>
+  <td class="pass">通過</td>
+  <td>0.006s</td>
+</tr>
+<tr>
+  <td>whenCqlIsNullOnDefinition_cqlHashIsNull</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>whenCqlChanges_hashDiffers</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>whenDefinitionExists_savedReportCapturesVersionAndHashes</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureScoreCalculatorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>proportionScore_standard</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_nullOrBlank_defaultsToAverage</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>proportionScore_zeroDenom_null</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>calculateScore_cohortDispatchesToNullFromThisEntryPoint</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>cohortScore_nullIp_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>ratioScore_viaDispatcher</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_unknown_returnsNull_notSilentFallthrough</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>cohortScore_zeroIp_shouldReturnZero_notNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[7]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[8]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[9]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[10]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[11]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[12]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[13]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[14]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[15]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[16]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[17]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[18]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[19]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[20]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[21]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[22]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>normalizeAggregateMethod_shouldAcceptCanonicalsAndAliases(String, String)[23]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.021s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[7]</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[8]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[9]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[10]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[11]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_aliasesAndCanonicals_computeCorrectly(String, double)[12]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>computeObservationStats_shouldNormalizeDisplayedMethod</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>cvScore_unknownMethod_shouldReturnNull_notFallThroughToAverage</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cohortScore_shouldReturnIpCountAsDouble</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>cvScore_nullOrBlankMethod_stillAverages</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.MeasureValidationServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>validateFull_noCqlContent_shouldReportError</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>validateFull_measureNotFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateFull_missingTitle_shouldReportWarning</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateFull_noTestCases_shouldReportWarning</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>validateQuick_validMeasure_shouldReturnReport</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateFull_missingName_shouldReportError</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>validateFull_proportionMissingRequiredPopulations_shouldReportErrors</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>validateFull_expressionNotInCql_shouldReportError</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>validateFull_missingVersion_shouldReportError</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.NormalizedMeasureReportReaderTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>nullReportId_returnsEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>proportionMeasure_rebuilds</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>subjectIds_decoded</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>cvMeasure_rebuildsObservationStatistics</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>noGroups_returnsEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>stratifiedMeasure_rebuildsStratifiers</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>malformedSubjectIds_doesNotBreak</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.PopulationEvaluatorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>ratio_patientNotInIp_nothingCounts</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>ratio_numerIndependent_patientNotInDenomStillCountsInNumer</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extractObservationValues_numericValue_unchangedByFix</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>ratio_denomExclusion_reducesDenom_notNumer</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>ratio_numerExclusion_reducesNumer_notDenom</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>proportion_patientInDenomAndNumer_countsBoth</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>proportion_numerGatedByDenom_patientNotInDenomDoesNotCountInNumer</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>ratio_noDenomExceptionsConcept</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extractObservationValues_nullValue_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>ratio_patientInDenomNotNumer_countsDenomOnly</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>extractObservationValues_booleanTrue_shouldReturnOne</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>extractObservationValues_booleanFalse_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.measure.TestCaseServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getTestCasesForMeasure_shouldReturnSortedList</td>
+  <td class="pass">通過</td>
+  <td>0.081s</td>
+</tr>
+<tr>
+  <td>batchImport_withDateShift_shouldCallDateShiftService</td>
+  <td class="pass">通過</td>
+  <td>0.008s</td>
+</tr>
+<tr>
+  <td>runAllTestCases_shouldRunAllAndReturnResults</td>
+  <td class="pass">通過</td>
+  <td>0.133s</td>
+</tr>
+<tr>
+  <td>create_shouldSaveAndReturnDto</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>extractPatientIdFromBundle_validBundle_shouldReturnId</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getById_notFound_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.007s</td>
+</tr>
+<tr>
+  <td>extractPatientIdFromBundle_emptyBundle_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>delete_shouldCallRepository</td>
+  <td class="pass">通過</td>
+  <td>0.005s</td>
+</tr>
+<tr>
+  <td>runTestCase_fail_shouldReturnFailStatus</td>
+  <td class="pass">通過</td>
+  <td>0.078s</td>
+</tr>
+<tr>
+  <td>runTestCase_noCql_shouldReturnError</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>create_measureNotFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getById_found_shouldReturnTestCase</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>buildComparisons_mismatching_shouldHaveMatchFalse</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>buildComparisons_matching_shouldHaveMatchTrue</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>extractPatientIdFromBundle_nullBundle_shouldReturnDefault</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>batchImport_shouldImportSuccessfully</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>runTestCase_pass_shouldReturnPassStatus</td>
+  <td class="pass">通過</td>
+  <td>0.057s</td>
+</tr>
+<tr>
+  <td>update_shouldMapFieldsCorrectly</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.PasswordResetServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>changePassword_wrongCurrent_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.039s</td>
+</tr>
+<tr>
+  <td>changePassword_userNotFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>requestPasswordReset_unknownEmail_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>adminResetPassword_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>changePassword_correctCurrent_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>resetPassword_expiredToken_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>adminResetPassword_shouldResetPasswordAndScheduleEmail</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>resetPassword_usedToken_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>requestPasswordReset_validEmail_shouldGenerateTokenAndSendEmail</td>
+  <td class="pass">通過</td>
+  <td>0.004s</td>
+</tr>
+<tr>
+  <td>resetPassword_invalidToken_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>resetPassword_validToken_shouldSucceed</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.RefreshTokenServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>refreshTokens_validToken_shouldRotate</td>
+  <td class="pass">通過</td>
+  <td>0.030s</td>
+</tr>
+<tr>
+  <td>refreshTokens_expiredToken_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>refreshTokens_slidingWindowCappedAtAbsoluteExpiry</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>refreshTokens_revokedToken_shouldRevokeEntireFamilyAndThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>revokeByToken_notFound_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>refreshTokens_notFound_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>cleanupExpiredTokens_shouldDelegateToRepository</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>refreshTokens_absoluteExpiryExceeded_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>refreshTokens_disabledUser_shouldRevokeFamilyAndThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>createTokenPair_shouldReturnValidPairAndStoreHash</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>revokeAllForUser_shouldDelegateToRepository</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>revokeByToken_shouldRevokeFamilyIfFound</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.service.UserApiKeyServiceTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>validateApiKey_invalidKey_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.061s</td>
+</tr>
+<tr>
+  <td>deactivateAllKeys_noKeys_shouldReturnZero</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateApiKey_validKey_deletedUser_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>revokeKey_nonOwner_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.003s</td>
+</tr>
+<tr>
+  <td>deactivateAllKeys_shouldDelegateToRepository</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>generateApiKey_shouldReturnEntityWithCqlPrefix</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>generateApiKey_shouldGenerateUniqueKeys</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateApiKey_validKey_enabledUser_shouldReturnUsername</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>revokeKey_notFound_shouldReturnFalse</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>listKeys_shouldDelegateToRepository</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>revokeKey_owner_shouldDeactivate</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateApiKey_validKey_disabledUser_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.util.ContentHashTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>sameInput_sameOutput</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>knownStringVector_shouldMatch</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>utf8ChineseInput_shouldHashConsistently</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>nullInput_shouldReturnNull</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>emptyString_shouldReturnKnownSha256</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>byteLevelChange_producesDifferentHash</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.util.CsvUtilsTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>formulaTrigger_withQuoteAndComma_shouldEscapeAll</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>null_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_withComma_shouldBeQuotedAndPrefixed</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>empty_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>plainValue_shouldPassThrough</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_plain_shouldBePrefixed(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_plain_shouldBePrefixed(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_plain_shouldBePrefixed(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_plain_shouldBePrefixed(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_plain_shouldBePrefixed(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>formulaTrigger_plain_shouldBePrefixed(String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>valueWithNewline_shouldBeQuoted</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>valueWithComma_shouldBeQuoted</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>negativeNumber_shouldBePrefixed</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>valueWithDoubleQuote_shouldBeQuotedAndEscaped</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.util.ExecutionErrorClassifierTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>buildErrorInfo_explicitPhase_overridesClassification</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildErrorInfo_autoClassify_populatesAllFields</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>classify_null_shouldReturnUnknown</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>classify_nestedCause_withTranslationClass_shouldReturnCqlTranslation</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>classify_wrappedTranslatorMessage_shouldReturnCqlTranslation</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>classify_pureRuntimeException_shouldReturnCqlExecution</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>buildErrorInfo_noOwnPackageFrames_stackTraceSummaryIsNull</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>classify_classSimpleName_Compiler_shouldReturnCqlTranslation</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>classify_causeLoop_shouldTerminate</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>buildErrorInfo_nullThrowable_returnsPhaseOnly</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>fromCdsPhase_null_returnsUnknown</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>fromCdsPhase_eachLegacyValue_mapsCleanly</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>classify_classSimpleName_Translation_shouldReturnCqlTranslation</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>buildErrorInfo_ownPackageFrames_limitedToFive</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.validation.HookContextRequirementsTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>getRequiredFields_encounterStart_shouldIncludeEncounterId</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getContextFieldDefinitions_orderSelect_shouldIncludeObjectFields</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateContext_unknownHook_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validateContext_nullContext_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_orderSign_shouldIncludeDraftOrders</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateContext_appointmentBook_missingAppointments_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateContext_encounterStart_missingEncounterId_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateContext_patientView_missingUserId_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_allHookTypes_shouldReturnNonEmpty(String)[1]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_allHookTypes_shouldReturnNonEmpty(String)[2]</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_allHookTypes_shouldReturnNonEmpty(String)[3]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_allHookTypes_shouldReturnNonEmpty(String)[4]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_allHookTypes_shouldReturnNonEmpty(String)[5]</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_allHookTypes_shouldReturnNonEmpty(String)[6]</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateContext_patientView_missingBothFields_shouldListBoth</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateContext_encounterStart_withAllRequired_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_appointmentBook_shouldIncludeAppointments</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateContext_orderSelect_missingSelectionsAndDraftOrders_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateContext_patientView_withAllRequired_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_orderSelect_shouldIncludeSelectionsAndDraftOrders</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>getRequiredFields_unknownHook_shouldReturnEmpty</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validateContext_orderSelect_withAllRequired_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>getContextFieldDefinitions_patientView_shouldReturnCorrectFields</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validateContext_blankUserId_shouldCount_asMissing</td>
+  <td class="pass">通過</td>
+  <td>0.002s</td>
+</tr>
+<tr>
+  <td>validateContext_appointmentBook_withAllRequired_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+
+</table>
+
+<h3>com.cqlplatform.validation.HookTypeValidatorTest</h3>
+<table>
+<tr><th>測試案例</th><th>狀態</th><th>時間</th></tr>
+<tr>
+  <td>validate_nullHookType_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validate_invalidHookType_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validate_validHookTypes_shouldNotThrow</td>
+  <td class="pass">通過</td>
+  <td>0.001s</td>
+</tr>
+<tr>
+  <td>validate_blankHookType_shouldThrow</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validate_deprecatedMedicationPrescribe_shouldSuggestReplacement</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+<tr>
+  <td>validate_unknownHookType_shouldFallbackToGenericMessage</td>
+  <td class="pass">通過</td>
+  <td>0.000s</td>
+</tr>
+
+</table>
+
+
+<h2>3. 前端測試結果</h2>
+
+
+
+<div class="footer">
+本文件由 CQL Platform 測試報告產生器自動產生 — 2026-04-23
+</div>
+
+</body>
+</html>

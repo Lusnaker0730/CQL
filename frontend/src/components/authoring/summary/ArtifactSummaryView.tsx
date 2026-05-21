@@ -3,6 +3,7 @@ import {
   Box, Stack, Typography, Card, CardContent, Chip, Divider, List, ListItem, ListItemText,
 } from '@mui/material'
 import type { Artifact } from '../../../types/authoring'
+import { ERROR_CONDITION_VALUE_TO_KEY } from '../../../constants/authoringConstants'
 
 interface ArtifactSummaryViewProps {
   artifact: Artifact
@@ -100,7 +101,7 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
                 <ListItem key={rec.uid} sx={{ py: 0.5, flexDirection: 'column', alignItems: 'flex-start' }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip label={`#${i + 1}`} size="small" />
-                    {rec.grade && <Chip label={`Grade ${rec.grade}`} size="small" variant="outlined" />}
+                    {rec.grade && <Chip label={t('summary.gradeLabel', { grade: rec.grade })} size="small" variant="outlined" />}
                     {rec.cdsCardMode && <Chip label={t('summary.cdsCard')} size="small" color="info" />}
                   </Stack>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -127,14 +128,20 @@ export default function ArtifactSummaryView({ artifact }: ArtifactSummaryViewPro
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>{t('summary.errorHandling')}</Typography>
-            {artifact.errorStatement?.ifThenClauses?.map((clause, i) => (
-              <Typography key={i} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                {i === 0 ? 'if' : 'else if'} {clause.ifCondition.label}: &quot;{clause.thenClause}&quot;
-              </Typography>
-            ))}
+            {artifact.errorStatement?.ifThenClauses?.map((clause, i) => {
+              // Resolve the label from the stable wire value rather than
+              // the persisted .label so locale switches reflect immediately.
+              const key = ERROR_CONDITION_VALUE_TO_KEY[clause.ifCondition.value]
+              const liveLabel = key ? t(key) : clause.ifCondition.label
+              return (
+                <Typography key={i} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                  {i === 0 ? t('summary.ifLabel') : t('summary.elseIfLabel')} {liveLabel}: &quot;{clause.thenClause}&quot;
+                </Typography>
+              )
+            })}
             {artifact.errorStatement?.elseClause && (
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                else: &quot;{artifact.errorStatement.elseClause}&quot;
+                {t('summary.elseLabel')}: &quot;{artifact.errorStatement.elseClause}&quot;
               </Typography>
             )}
           </CardContent>

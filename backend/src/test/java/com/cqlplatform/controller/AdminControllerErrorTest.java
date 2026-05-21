@@ -8,9 +8,9 @@ import com.cqlplatform.service.TokenVersionService;
 import com.cqlplatform.service.UserApiKeyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -32,22 +32,22 @@ class AdminControllerErrorTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private UserRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private PasswordResetService passwordResetService;
 
-    @MockBean
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
 
-    @MockBean
+    @MockitoBean
     private UserApiKeyService userApiKeyService;
 
-    @MockBean
+    @MockitoBean
     private TokenVersionService tokenVersionService;
 
-    @MockBean
+    @MockitoBean
     private RefreshTokenService refreshTokenService;
 
     private UserEntity createUser(Long id, String username) {

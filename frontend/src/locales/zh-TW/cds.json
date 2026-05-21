@@ -53,7 +53,9 @@
     "submitOverride": "提交覆寫",
     "feedbackAccepted": "回饋已提交：已接受",
     "feedbackOverridden": "回饋已提交：已覆寫",
-    "feedbackFailed": "回饋提交失敗"
+    "feedbackFailed": "回饋提交失敗",
+    "criticalFeedbackFailed": "嚴重卡片回饋無法送出 — 分析數據可能不完整",
+    "editorPreservedNotice": "已保留您的 CQL 編輯內容，未自動覆蓋為此服務的 CQL"
   },
   "manage": {
     "title": "已設定的服務",
@@ -103,7 +105,8 @@
     "rollbackFailed": "回滾失敗：{{error}}",
     "loadError": "無法載入服務",
     "fieldServiceId": "服務 ID",
-    "fieldTitle": "標題"
+    "fieldTitle": "標題",
+    "switchServiceConfirm": "切換服務將會替換編輯器中的 CQL。您有未儲存的編輯 — 要繼續並捨棄這些變更嗎？"
   },
   "sandbox": {
     "description": "在不需要真實 FHIR 伺服器的情況下測試 CDS 服務。可視覺化建立測試資料或直接編輯 JSON。",
@@ -245,6 +248,9 @@
     "generateSuccess": "API 金鑰產生成功",
     "generateFailed": "API 金鑰產生失敗",
     "revokeConfirm": "確定要撤銷此 API 金鑰嗎？此操作無法復原。",
+    "revokeDialogTitle": "撤銷 API 金鑰",
+    "revokeDialogMessage": "撤銷後，使用此金鑰的整合將立即失效。此操作無法復原。",
+    "revokeItemName": "此 API 金鑰",
     "revokeSuccess": "API 金鑰已撤銷",
     "revokeFailed": "撤銷 API 金鑰失敗",
     "copied": "已複製到剪貼簿",

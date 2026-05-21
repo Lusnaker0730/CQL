@@ -14,6 +14,7 @@ import {
   DialogActions,
   Button,
   Chip,
+  Tooltip,
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
@@ -73,9 +74,11 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
                     variant="outlined"
                     sx={{ fontSize: '0.75rem', height: 22 }}
                   />
-                  <Typography variant="caption" color="text.secondary" noWrap>
-                    {(entry.resourceData.id as string) || entry.id}
-                  </Typography>
+                  <Tooltip title={(entry.resourceData.id as string) || entry.id}>
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      {(entry.resourceData.id as string) || entry.id}
+                    </Typography>
+                  </Tooltip>
                 </Box>
               }
             />

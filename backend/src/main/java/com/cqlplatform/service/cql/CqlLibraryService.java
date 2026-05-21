@@ -190,11 +190,17 @@ public class CqlLibraryService {
         latest.setStatus("active");
         libraryRepository.save(latest);
 
-        // Create new draft with bumped version
-        // Update the CQL content to reflect the new version
+        // Create new draft with bumped version. Update the CQL content to reflect
+        // the new version. PAT-141: replacement string MUST go through
+        // Matcher.quoteReplacement — '$' and '\' have special meaning in
+        // String.replaceFirst's second arg, and CQL allows quoted identifiers
+        // (e.g. library "MyLib$1" version '1.0.0') that would otherwise either
+        // throw IllegalArgumentException ($1 = backreference to non-existent
+        // group) or interpolate garbage.
         String newCql = latest.getCqlContent().replaceFirst(
                 "library\\s+" + java.util.regex.Pattern.quote(name) + "\\s+version\\s+'[^']+'",
-                "library " + name + " version '" + newVersion + "'"
+                java.util.regex.Matcher.quoteReplacement(
+                        "library " + name + " version '" + newVersion + "'")
         );
 
         CqlLibraryEntity newEntity = CqlLibraryEntity.builder()

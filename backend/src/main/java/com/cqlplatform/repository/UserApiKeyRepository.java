@@ -16,7 +16,13 @@ public interface UserApiKeyRepository extends JpaRepository<UserApiKeyEntity, Lo
 
     List<UserApiKeyEntity> findByUsername(String username);
 
-    @Modifying
+    /**
+     * PAT-146 — {@code clearAutomatically=true} evicts any UserApiKey entities
+     * loaded into the persistence context before this bulk UPDATE runs, so
+     * subsequent reads in the same transaction don't see {@code active=true}
+     * for keys that were just deactivated.
+     */
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE UserApiKeyEntity k SET k.active = false WHERE k.username = :username AND k.active = true")
     int deactivateAllByUsername(String username);
 }

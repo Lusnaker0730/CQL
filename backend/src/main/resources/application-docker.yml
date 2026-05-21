@@ -44,8 +44,12 @@ smart:
   token-endpoint: ${SMART_TOKEN_ENDPOINT:http://localhost:8080/api/auth/login}
 
 # App base URL for password reset links etc.
+# PAT-145: docker / production profile MUST refuse the X-Forwarded-Host fallback
+# so a missing APP_BASE_URL fails loud instead of silently emitting password-reset
+# emails with a header-spoofable link domain.
 app:
   base-url: ${APP_BASE_URL:}
+  allow-base-url-fallback: false
 
 # AI Fix Suggestion — multi-provider support
 ai:
@@ -59,10 +63,16 @@ ai:
 ollama:
   enabled: ${OLLAMA_ENABLED:false}
 
-# Prometheus: allow unauthenticated scraping on docker network
+# Prometheus scrape auth (PAT-113): default-secure. Prometheus authenticates via
+# HTTP Basic using credentials from env. If both env vars are blank the chain
+# refuses all requests — intentional fail-loud so misconfigured deployments
+# surface via the ServiceDown alert rather than silently exposing metrics.
 management:
   prometheus:
-    public: true
+    public: false
+    auth:
+      username: ${METRICS_SCRAPE_USER:}
+      password: ${METRICS_SCRAPE_PASSWORD:}
 
 # Logging
 logging:

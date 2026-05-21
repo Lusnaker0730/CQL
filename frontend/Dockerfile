@@ -1,5 +1,5 @@
 # Build stage
-FROM node:25-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 
 # Copy package files
@@ -11,7 +11,13 @@ RUN npm ci
 # Copy source
 COPY . .
 
-# Build the application
+# Build the application.
+# Bump Node heap to 4 GB: Vite bundling the Monaco-editor vendor chunk
+# (~3.7 MB raw / ~970 KB gzipped) plus the rest of the app pushes Rollup
+# past Node's default ~2 GB limit, causing FATAL ERROR Mark-Compact OOM on
+# CI runners and small VMs. 4 GB gives headroom while staying well under
+# typical runner / container limits.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # Production stage

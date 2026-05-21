@@ -13,10 +13,11 @@ import {
   Stack,
   InputAdornment,
 } from '@mui/material'
-import {
-  ExpandMore as ExpandMoreIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the Proxy-based mock
+// pattern that previously worked).
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import SearchIcon from '@mui/icons-material/Search'
 import { useTranslation } from 'react-i18next'
 import type { CodingItem } from '../../config/twcore/types'
 
@@ -70,10 +71,27 @@ export default function ResourceSelector<T extends CodingItem>({
     [selectedCodes, selectedSet, onSelectionChange],
   )
 
-  const allCodes = useMemo(
-    () => Object.values(categories).flatMap((cat) => cat.items.map((i) => i.code)),
-    [categories],
+  // selectAll should respect the search filter: when the user has typed
+  // "diabetes" they expect "Select All" to grab the diabetes-related items
+  // currently shown, not silently include hidden/unrelated categories.
+  const visibleCodes = useMemo(
+    () => Object.values(filteredCategories).flatMap((cat) => cat.items.map((i) => i.code)),
+    [filteredCategories],
   )
+
+  // selectAll merges (so you can stack multiple search-filtered sets without
+  // losing previously selected items in other categories).
+  const handleSelectAllVisible = useCallback(() => {
+    const merged = Array.from(new Set([...selectedCodes, ...visibleCodes]))
+    onSelectionChange(merged)
+  }, [selectedCodes, visibleCodes, onSelectionChange])
+
+  // deselectAll likewise scopes to what's visible — clears just the filtered
+  // items rather than wiping unrelated categories the user had picked.
+  const handleDeselectAllVisible = useCallback(() => {
+    const visibleSet = new Set(visibleCodes)
+    onSelectionChange(selectedCodes.filter((c) => !visibleSet.has(c)))
+  }, [selectedCodes, visibleCodes, onSelectionChange])
 
   return (
     <Box>
@@ -107,10 +125,10 @@ export default function ResourceSelector<T extends CodingItem>({
             ),
           }}
         />
-        <Button size="small" onClick={() => onSelectionChange(allCodes)}>
+        <Button size="small" onClick={handleSelectAllVisible}>
           {t('custom.selectAll')}
         </Button>
-        <Button size="small" onClick={() => onSelectionChange([])}>
+        <Button size="small" onClick={handleDeselectAllVisible}>
           {t('custom.deselectAll')}
         </Button>
       </Stack>

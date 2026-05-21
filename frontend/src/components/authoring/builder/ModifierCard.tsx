@@ -18,14 +18,15 @@ const COMPARISON_OPERATORS = [
   { value: '<=', label: '<=' },
 ]
 
-const BOOL_COMPARISON_OPTIONS = [
-  { value: 'is null', label: 'Is Null' },
-  { value: 'is not null', label: 'Is Not Null' },
-  { value: 'is true', label: 'Is True' },
-  { value: 'is not true', label: 'Is Not True' },
-  { value: 'is false', label: 'Is False' },
-  { value: 'is not false', label: 'Is Not False' },
-]
+// Stable comparison values; labels resolve via i18n at render time.
+const BOOL_COMPARISON_VALUES = [
+  { value: 'is null', labelKey: 'boolIsNull' },
+  { value: 'is not null', labelKey: 'boolIsNotNull' },
+  { value: 'is true', labelKey: 'boolIsTrue' },
+  { value: 'is not true', labelKey: 'boolIsNotTrue' },
+  { value: 'is false', labelKey: 'boolIsFalse' },
+  { value: 'is not false', labelKey: 'boolIsNotFalse' },
+] as const
 
 interface ModifierCardProps {
   modifier: Modifier
@@ -142,7 +143,7 @@ function ModifierValueEditor({
               displayEmpty
               onChange={(e) => onValueChange('minOperator', e.target.value)}
             >
-              <MenuItem value="" disabled><em>Op</em></MenuItem>
+              <MenuItem value="" disabled><em>{t('modifier.operatorPlaceholder')}</em></MenuItem>
               {COMPARISON_OPERATORS.map((op) => (
                 <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>
               ))}
@@ -218,8 +219,8 @@ function ModifierValueEditor({
             label={t('modifier.comparison')}
             onChange={(e) => onValueChange('value', e.target.value)}
           >
-            {BOOL_COMPARISON_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+            {BOOL_COMPARISON_VALUES.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>{t(`modifier.${opt.labelKey}`)}</MenuItem>
             ))}
           </Select>
         </FormControl>

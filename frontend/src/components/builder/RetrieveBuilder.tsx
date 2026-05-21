@@ -25,6 +25,8 @@ interface RetrieveBuilderProps {
 
 type ResourceType = FhirResourceType
 
+type TermType = 'valueset' | 'code'
+
 function generateDefinitionName(resourceType: string, terminology: string): string {
   const termName = extractCqlName(terminology)
   return `${termName} ${resourceType === 'Observation' ? 'Observations' : `${resourceType}s`}`
@@ -33,17 +35,29 @@ function generateDefinitionName(resourceType: string, terminology: string): stri
 function generateCql(
   resourceType: string,
   terminology: string,
+  termType: TermType,
   definitionName: string,
   chainModifiers: ChainModifier[],
 ): string {
   const termName = extractCqlName(terminology)
   const alias = resourceType[0]
-  const baseRetrieve = `[${resourceType}: "${termName}"]`
 
+  // For valueset terminology use the retrieve filter syntax `[Resource: "VS"]`.
+  // For a single Code, emit a where-clause filter — more portable across CQF
+  // engine versions and unambiguous to the translator.
+  if (termType === 'code') {
+    const codeWhere = [`${alias}.code ~ "${termName}"`]
+    if (chainModifiers.length === 0) {
+      return `define "${definitionName}":\n  [${resourceType}] ${alias}\n    where ${codeWhere[0]}`
+    }
+    const expr = applyModifierChain(`[${resourceType}]`, alias, resourceType, chainModifiers, codeWhere)
+    return `define "${definitionName}":\n  ${expr}`
+  }
+
+  const baseRetrieve = `[${resourceType}: "${termName}"]`
   if (chainModifiers.length === 0) {
     return `define "${definitionName}":\n  ${baseRetrieve}`
   }
-
   const expr = applyModifierChain(baseRetrieve, alias, resourceType, chainModifiers)
   return `define "${definitionName}":\n  ${expr}`
 }
@@ -53,6 +67,7 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
   const copyToClipboard = useCopyToClipboard()
   const [resourceType, setResourceType] = useState<ResourceType>('Observation')
   const [terminology, setTerminology] = useState('')
+  const [termType, setTermType] = useState<TermType>('valueset')
   const [definitionName, setDefinitionName] = useState('')
   const [nameEdited, setNameEdited] = useState(false)
   const [chainModifiers, setChainModifiers] = useState<ChainModifier[]>([])
@@ -74,14 +89,16 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
 
   const handleTerminologyChange = (raw: string) => {
     setTerminology(raw)
+    const opt = terminologyOptions.find((o) => o.raw === raw)
+    if (opt) setTermType(opt.type)
     if (!nameEdited) {
       setDefinitionName(generateDefinitionName(resourceType, raw))
     }
   }
 
   const cqlPreview = useMemo(
-    () => terminology ? generateCql(resourceType, terminology, definitionName || 'Untitled', chainModifiers) : '',
-    [resourceType, terminology, definitionName, chainModifiers]
+    () => terminology ? generateCql(resourceType, terminology, termType, definitionName || 'Untitled', chainModifiers) : '',
+    [resourceType, terminology, termType, definitionName, chainModifiers]
   )
 
   const handleInsert = () => {

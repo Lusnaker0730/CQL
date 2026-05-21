@@ -210,6 +210,17 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
           </Alert>
         )}
 
+        {/* PAT-144: backend may report success=false with no specific errors;
+            useCql now dispatches an empty errors array (instead of the previous
+            hardcoded English 'Execution failed'), so the i18n fallback lives
+            here at the render boundary. */}
+        {errors.length === 0
+          && executeMutation.data?.success === false && (
+          <Alert severity="error">
+            {t('execution.failedGeneric', 'Execution failed')}
+          </Alert>
+        )}
+
         {warnings.length > 0 && (
           <Alert severity="warning">
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>

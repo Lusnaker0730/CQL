@@ -2,6 +2,7 @@ package com.cqlplatform.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.apache.ApacheRestfulClientFactory;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -57,6 +58,12 @@ public class CqlConfig {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // PAT-117: tolerate unknown JSON fields during deserialization. Frontend / older
+        // API clients may send fields (e.g. `currentUser`) that the server-side DTO has
+        // since removed; strict rejection turns into a 500 via HttpMessageNotReadableException
+        // and breaks legitimate flows (submit-for-review, lock, share etc all 500'd).
+        // We still validate required fields via @Valid / @NotNull; extras are ignored.
+        mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         return mapper;
     }
 

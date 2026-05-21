@@ -47,11 +47,18 @@ public class ExternalCqlLibraryService {
         return processAndSave(artifactId, cqlContent);
     }
 
-    @Transactional
-    public void deleteLibrary(Long id) {
-        repository.deleteById(id);
-    }
-
+    /**
+     * Deletes a library only if it belongs to the supplied artifact. Returns
+     * {@code true} when the row existed and was deleted, {@code false} when no
+     * matching row existed (caller should treat as 404 / "already gone").
+     *
+     * <p>This is the only public deletion entry point — a previous unsafe
+     * {@code deleteLibrary(Long id)} overload was removed because it bypassed
+     * ownership scoping. New callers MUST use this method; if you need cascade
+     * deletion when an artifact itself is deleted, do it via
+     * {@code repository.deleteByArtifactId(artifactId)} from the artifact
+     * service so ownership is implicit.
+     */
     @Transactional
     public boolean deleteLibraryIfOwnedByArtifact(Long id, Long artifactId) {
         return repository.findByIdAndArtifactId(id, artifactId)

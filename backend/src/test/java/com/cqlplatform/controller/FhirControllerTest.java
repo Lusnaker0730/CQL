@@ -4,9 +4,9 @@ import com.cqlplatform.service.fhir.*;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -29,19 +29,19 @@ class FhirControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private FhirDataProviderService dataProviderService;
 
-    @MockBean
+    @MockitoBean
     private FhirTerminologyService terminologyService;
 
-    @MockBean
+    @MockitoBean
     private FhirBulkExportService bulkExportService;
 
-    @MockBean
+    @MockitoBean
     private FhirValidationService validationService;
 
-    @MockBean
+    @MockitoBean
     private VsacService vsacService;
 
     // ─── Existing Tests ──────────────────────────────────────────────

@@ -53,7 +53,9 @@
     "submitOverride": "Submit Override",
     "feedbackAccepted": "Feedback submitted: accepted",
     "feedbackOverridden": "Feedback submitted: overridden",
-    "feedbackFailed": "Failed to submit feedback"
+    "feedbackFailed": "Failed to submit feedback",
+    "criticalFeedbackFailed": "Critical-card feedback couldn't be recorded — analytics may be incomplete",
+    "editorPreservedNotice": "Your CQL edits were preserved — the editor wasn't auto-replaced with this service's content"
   },
   "manage": {
     "title": "Configured Services",
@@ -103,7 +105,8 @@
     "rollbackFailed": "Failed to rollback: {{error}}",
     "loadError": "Failed to load services",
     "fieldServiceId": "Service ID",
-    "fieldTitle": "Title"
+    "fieldTitle": "Title",
+    "switchServiceConfirm": "Switching services will replace the CQL in the editor. You have unsaved edits — continue and discard them?"
   },
   "sandbox": {
     "description": "Test CDS services without a real FHIR server. Build test data visually or edit JSON directly.",
@@ -245,6 +248,9 @@
     "generateSuccess": "API key generated successfully",
     "generateFailed": "Failed to generate API key",
     "revokeConfirm": "Are you sure you want to revoke this API key? This cannot be undone.",
+    "revokeDialogTitle": "Revoke API Key",
+    "revokeDialogMessage": "Once revoked, any integration using this key will stop working immediately. This action cannot be undone.",
+    "revokeItemName": "this API key",
     "revokeSuccess": "API key revoked",
     "revokeFailed": "Failed to revoke API key",
     "copied": "Copied to clipboard",

@@ -1,0 +1,114 @@
+{
+  "name": "SmokeProportionStratifierSde",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — proportion measure with gender stratifier + standard SDEs (Sex/Payer). Locks the StratifierEvaluator pipeline (groups[].stratifiers[]) and SDE define generation.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Age-cohort proportion stratified by gender",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "denominator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "At least 50"},
+                {"id": "min_age", "type": "string", "value": "50"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "numerator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "At least 65"},
+                {"id": "min_age", "type": "string", "value": "65"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      },
+      "stratifiers": [
+        {
+          "stratifierId": "gender",
+          "description": "Stratify by gender (male)",
+          "criteria": {
+            "id": "And",
+            "name": "And",
+            "conjunction": true,
+            "returnType": "boolean",
+            "childInstances": [
+              {
+                "id": "Gender",
+                "name": "Gender",
+                "type": "Gender",
+                "returnType": "boolean",
+                "fields": [
+                  {"id": "element_name", "type": "string", "value": "Male"},
+                  {"id": "gender", "type": "string", "value": "male"}
+                ],
+                "modifiers": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "supplementalData": [
+    {"name": "SDE Sex"},
+    {"name": "SDE Payer"}
+  ],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

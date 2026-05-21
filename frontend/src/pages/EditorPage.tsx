@@ -165,10 +165,17 @@ export default function EditorPage() {
   const { data: libraryMetadata } = useLibrariesMetadata()
   const { results: terminologyResults, isValidating: isTermValidating } = useTerminologyValidation(elmJson)
   const { data: currentLibrary } = useLibrary(lastSavedLibraryId)
+  // /api/settings/ai-status is ADMIN-only (SettingsController PAT-145). Gate
+  // the query by role so non-admins don't fire a guaranteed-403 request on
+  // every editor load — otherwise the response interceptor would surface the
+  // 403 as a generic error and the UI would render the admin-only AI status
+  // strip empty regardless.
+  const userRole = useSelector((state: RootState) => state.auth.user?.role)
   const { data: aiStatus } = useQuery({
     queryKey: ['ai-status'],
     queryFn: () => settingsApi.getAiStatus(),
     staleTime: STALE_5M,
+    enabled: userRole === 'ADMIN',
   })
 
   const handleNewLibrary = useCallback(() => {

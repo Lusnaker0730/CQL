@@ -61,11 +61,13 @@
     "shortcutsTitle": "鍵盤快捷鍵",
     "conflict": {
       "title": "儲存衝突",
-      "message": "此人工製品已在另一個分頁或工作階段中被修改。您可以重新載入最新版本（未儲存的變更將會遺失），或繼續編輯您目前的版本。",
+      "message": "此人工製品已在另一個分頁或工作階段中被修改。您可以重新載入最新版本（未儲存的變更會先暫存到本機 recovery 區、可手動再複製回來），或繼續編輯您目前的版本。",
       "reload": "重新載入",
-      "keepEditing": "繼續編輯"
+      "keepEditing": "繼續編輯",
+      "reloadFailed": "重新載入失敗。本機變更仍保留中——請再試一次，或重載前先複製需要的內容。"
     },
-    "useLibraryDefinition": "引用程式庫定義"
+    "useLibraryDefinition": "引用程式庫定義",
+    "dataLoadFailed": "範本、修飾器或外部 CQL 程式庫載入失敗。部分編輯面可能為空——請檢查連線後重新載入。"
   },
   "header": {
     "backToList": "返回人工製品清單",
@@ -90,6 +92,7 @@
     "cqlGenHint": "請檢查所有元素是否已填寫必填欄位，以及修飾器鏈是否相容。",
     "generatedCql": "產生的 CQL",
     "fhirVersion": "FHIR 版本：",
+    "fhirVersionLine": "FHIR 版本：{{version}}",
     "regenerating": "重新產生中...",
     "regenerate": "重新產生",
     "noCqlGenerated": "尚未產生 CQL。",
@@ -162,6 +165,17 @@
     "modifierChainError": "修飾器「{{name}}」預期 {{expected}} 但接收到 {{actual}}"
   },
   "elementBody": {
+    "demographics": {
+      "year": "年",
+      "month": "月",
+      "week": "週",
+      "day": "日",
+      "hour": "小時",
+      "male": "男性",
+      "female": "女性",
+      "other": "其他",
+      "unknown": "未知"
+    },
     "returnType": "回傳類型：",
     "modifiers": "修飾器",
     "selectModifiers": "選擇修飾器",
@@ -186,6 +200,8 @@
     "atLeast": "至少",
     "atMost": "至多",
     "anyAge": "任意年齡",
+    "andConnective": "至",
+    "ageBetween": "{{min}} {{unit}} 至 {{max}} {{unit}}",
     "genderIs": "病患的<strong>性別</strong>為",
     "notSet": "未設定",
     "matching": "符合",
@@ -202,6 +218,13 @@
     "max": "最大值：",
     "value": "值",
     "comparison": "比較",
+    "operatorPlaceholder": "運算子",
+    "boolIsNull": "為 Null",
+    "boolIsNotNull": "非 Null",
+    "boolIsTrue": "為 True",
+    "boolIsNotTrue": "非 True",
+    "boolIsFalse": "為 False",
+    "boolIsNotFalse": "非 False",
     "matchBy": "比對方式：",
     "valueSetName": "值集名稱",
     "enterValueSet": "輸入值集名稱...",
@@ -244,6 +267,20 @@
     "operatorLabel": "運算子",
     "valueLabel": "值",
     "removeRule": "移除規則",
+    "defaultName": "自訂篩選",
+    "ops": {
+      "equals": "等於",
+      "notEquals": "不等於",
+      "in": "屬於",
+      "isNull": "為 null",
+      "isNotNull": "非 null",
+      "startsWith": "開頭為",
+      "endsWith": "結尾為",
+      "contains": "包含",
+      "before": "早於",
+      "after": "晚於",
+      "withinLast": "在最近"
+    },
     "days": "天",
     "weeks": "週",
     "months": "月",
@@ -267,7 +304,26 @@
     "GenericImmunization_vsac": "疫苗接種紀錄",
     "GenericServiceRequest_vsac": "診斷或服務請求",
     "GenericDevice_vsac": "醫療器材",
-    "BooleanParameter": "可設定的真/假參數"
+    "BooleanParameter": "可設定的真/假參數",
+    "TwcoreBMI_vsac": "TWCORE BMI 觀察（LOINC 39156-5）",
+    "TwcoreBloodPressure_vsac": "TWCORE 血壓組合（LOINC 85354-9）",
+    "TwcoreBodyWeight_vsac": "TWCORE 體重（LOINC 29463-7）",
+    "TwcoreBodyHeight_vsac": "TWCORE 身高（LOINC 8302-2）",
+    "TwcoreBodyTemperature_vsac": "TWCORE 體溫（LOINC 8310-5）",
+    "TwcoreHeartRate_vsac": "TWCORE 心率（LOINC 8867-4）",
+    "TwcoreBloodGlucose_vsac": "TWCORE 血糖（LOINC 2345-7）",
+    "TwcoreHbA1c_vsac": "TWCORE HbA1c（LOINC 4548-4）",
+    "TwcoreLabResult_vsac": "TWCORE 實驗室結果——從目錄選代碼",
+    "TwcoreDiabetes_vsac": "TWCORE 糖尿病（SNOMED 44054006）",
+    "TwcoreHypertension_vsac": "TWCORE 高血壓（SNOMED 38341003）",
+    "TwcoreHeartFailure_vsac": "TWCORE 心臟衰竭（SNOMED 84114007）",
+    "TwcoreCKD_vsac": "TWCORE 慢性腎病（SNOMED 709044004）",
+    "TwcoreAsthma_vsac": "TWCORE 氣喘（SNOMED 195967001）",
+    "TwcoreCOPD_vsac": "TWCORE 慢性阻塞性肺病（SNOMED 13645005）",
+    "TwcoreCondition_vsac": "TWCORE 病況——從目錄選代碼",
+    "TwcoreMedicationRequest_vsac": "TWCORE 藥物處方",
+    "TwcoreMedicationStatement_vsac": "TWCORE 藥物使用紀錄",
+    "TwcoreAllergyIntolerance_vsac": "TWCORE 過敏或不耐受"
   },
   "valueSetField": {
     "vsacAuthenticated": "VSAC 已驗證",
@@ -310,6 +366,7 @@
     "codeLabel": "代碼",
     "codeSystemLabel": "代碼系統",
     "other": "其他",
+    "selectedSystemFallback": "選定系統",
     "validate": "驗證",
     "codeSystemUrl": "代碼系統 URL",
     "codeSystemPlaceholder": "例如：http://example.org/fhir/CodeSystem/my-codes",
@@ -336,7 +393,9 @@
     "deleteTitle": "刪除子族群",
     "deleteConfirm": "您確定要刪除 <strong>{{name}}</strong> 嗎？這也會將其從任何引用它的建議中移除。",
     "nameRequired": "名稱為必填",
-    "duplicateName": "子族群名稱重複"
+    "duplicateName": "子族群名稱重複",
+    "defaultName": "子族群 {{number}}",
+    "fallbackName": "此子族群"
   },
   "recommendations": {
     "title": "建議",
@@ -353,6 +412,9 @@
     "detailLabel": "詳細內容（卡片內文）",
     "detailPlaceholder": "卡片的 Markdown 格式內文...",
     "indicatorLabel": "指示器",
+    "indicatorInfo": "資訊",
+    "indicatorWarning": "警告",
+    "indicatorCritical": "嚴重",
     "sourceLabelLabel": "來源標籤",
     "sourcePlaceholder": "例如：CDS Connect",
     "selectionBehavior": "選擇行為",
@@ -412,7 +474,11 @@
     "deleteTitle": "刪除基礎元素",
     "deleteConfirm": "您確定要刪除 <strong>{{name}}</strong> 嗎？人工製品其他部分對此元素的任何引用都將失效。",
     "nameRequired": "名稱為必填",
-    "duplicateName": "基礎元素名稱重複"
+    "duplicateName": "基礎元素名稱重複",
+    "defaultName": "基礎元素 {{number}}",
+    "calculatedDefaultName": "計算值 {{number}}",
+    "unaryDefaultName": "一元值 {{number}}",
+    "fallbackName": "此基礎元素"
   },
   "arithmetic": {
     "logicElement": "邏輯元素",
@@ -425,7 +491,23 @@
     "cqlPreview": "CQL 預覽：",
     "literalValue": "數值",
     "modeElement": "元素",
-    "modeLiteral": "常數"
+    "modeLiteral": "常數",
+    "modeQuantity": "帶單位數值",
+    "quantityValue": "數值",
+    "quantityUnit": "單位",
+    "addOperand": "新增運算元",
+    "removeOperand": "刪除運算元",
+    "operandLabel": "運算元 {{number}}",
+    "invalidForTypes": "（與運算元型別不符）"
+  },
+  "arithmeticUnary": {
+    "unaryElement": "一元函式元素",
+    "function": "函式",
+    "operand": "運算元",
+    "namePlaceholder": "一元結果名稱",
+    "cqlPreview": "CQL 預覽：",
+    "precision": "精度",
+    "precisionInvalid": "需為非負整數"
   },
   "parameters": {
     "title": "參數",
@@ -549,6 +631,10 @@
     "generatedCql": "產生的 CQL"
   },
   "summary": {
+    "ifLabel": "如果",
+    "elseIfLabel": "否則如果",
+    "elseLabel": "否則",
+    "gradeLabel": "等級 {{grade}}",
     "title": "人工製品摘要",
     "metadata": "中繼資料",
     "name": "名稱",
@@ -576,6 +662,11 @@
     "cdsCard": "CDS 卡片"
   },
   "importCql": {
+    "descriptionDefault": "從 CQL 匯入：{{name}}",
+    "libraryChip": "程式庫：{{name}}",
+    "versionChip": "版本：{{version}}",
+    "fhirChip": "FHIR：{{version}}",
+    "fileTooLarge": "檔案過大（上限：{{limit}}）。請上傳較小的 .cql 檔。",
     "title": "匯入 CQL",
     "description": "在下方貼上 CQL 程式碼或上傳 .cql 檔案。解析器將擷取函式庫中繼資料、值集、參數和定義陳述式。",
     "uploadFile": "上傳 .cql 檔案",

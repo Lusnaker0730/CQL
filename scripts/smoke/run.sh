@@ -149,12 +149,40 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
                 failed_scenarios+=("$name"); continue
             fi
+            # Optional: upload an external CQL library before publish so the
+            # engine's DatabaseLibrarySourceProvider can resolve `include`
+            # statements. Triggered when expected.json carries `uploadLibrary`.
+            upload_lib=$(jq -r '.uploadLibrary // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$upload_lib" ]; then
+                if ! bash "$SCRIPT_DIR/lib/upload-library.sh" "$scenario_dir/$upload_lib"; then
+                    failed_scenarios+=("$name"); continue
+                fi
+            fi
             if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
                 failed_scenarios+=("$name"); continue
             fi
-            if ! response=$(bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end"); then
-                failed_scenarios+=("$name"); continue
+            # Wall-clock the evaluate call so assert.sh can enforce a per-scenario
+            # `maxEvaluationTimeMs` budget. Catches N+1 query regressions and
+            # bulk-fetch slowdowns that don't change correctness but affect prod cost.
+            eval_start_ns=$(date +%s%N)
+            # Optional concurrent-eval stress: when expected.json carries
+            # `concurrentEvaluations: N` (>=2), fire N parallel evaluates and
+            # assert all produce identical scores/populations before passing the
+            # first response on to standard assertions.
+            concurrency=$(jq -r '.concurrentEvaluations // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$concurrency" ] && [ "$concurrency" -ge 2 ] 2>/dev/null; then
+                if ! response=$(bash "$SCRIPT_DIR/lib/evaluate-concurrent.sh" \
+                        "$measure_id" "$period_start" "$period_end" "$concurrency"); then
+                    failed_scenarios+=("$name"); continue
+                fi
+            else
+                if ! response=$(bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end"); then
+                    failed_scenarios+=("$name"); continue
+                fi
             fi
+            eval_end_ns=$(date +%s%N)
+            EVAL_ELAPSED_MS=$(( (eval_end_ns - eval_start_ns) / 1000000 ))
+            export EVAL_ELAPSED_MS
             if echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
                 passed_scenarios+=("$name")
             else

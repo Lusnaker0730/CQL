@@ -8,11 +8,18 @@ import { HelmetProvider } from 'react-helmet-async'
 import { useTranslation } from 'react-i18next'
 import './i18n'
 import App from './App'
+
+// Monaco editor loader.config({ monaco }) moved to
+// `components/common/MonacoEditor.tsx` so the monaco-editor chunk only loads
+// on editor-bearing pages (lazy via existing route code-splitting) instead
+// of eagerly on Landing / Login etc. See PR #521 for the CDN-CSP regression
+// this fixes, and the PR adding this comment for the lazy-load follow-up.
 import { store } from './store'
 import { createAppTheme } from './theme'
 import { extractApiError } from './utils/errorUtils'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { EhrOutageProvider } from './contexts/EhrOutageContext'
 import { LibraryHistoryProvider } from './contexts/LibraryHistoryContext'
 import { TerminologyDrawerProvider } from './contexts/TerminologyDrawerContext'
 import GlobalNotification from './components/common/GlobalNotification'
@@ -62,13 +69,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <QueryClientProvider client={queryClient}>
           <PreferencesProvider>
             <NotificationProvider>
-              <TerminologyDrawerProvider>
-                <LibraryHistoryProvider>
-                  <VersionCheckProvider>
-                    <ThemedApp />
-                  </VersionCheckProvider>
-                </LibraryHistoryProvider>
-              </TerminologyDrawerProvider>
+              <EhrOutageProvider>
+                <TerminologyDrawerProvider>
+                  <LibraryHistoryProvider>
+                    <VersionCheckProvider>
+                      <ThemedApp />
+                    </VersionCheckProvider>
+                  </LibraryHistoryProvider>
+                </TerminologyDrawerProvider>
+              </EhrOutageProvider>
             </NotificationProvider>
           </PreferencesProvider>
         </QueryClientProvider>

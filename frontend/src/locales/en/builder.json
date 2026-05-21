@@ -68,7 +68,8 @@
     "name": "Concept Name",
     "selectCodes": "Select codes to include:",
     "noCodesAvailable": "No codes available. Add codes first.",
-    "display": "Display (optional)"
+    "display": "Display (optional)",
+    "editWarning": "Editing rebuilds the concept. Re-select all codes — the existing list isn't loaded."
   },
   "parameters": {
     "name": "Parameter Name",
@@ -104,7 +105,8 @@
       "ifElse": "If / Else",
       "caseWhen": "Case / When",
       "nullCheck": "Null Check"
-    }
+    },
+    "editWarning": "Editing renames the definition and replaces its body. The existing expression isn't loaded — re-enter it in the field below."
   },
   "functions": {
     "name": "Function Name",

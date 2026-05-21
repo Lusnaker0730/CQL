@@ -185,6 +185,8 @@
     "valueSetCount_one": "{{count}} ValueSet",
     "valueSetLoadError": "Failed to load ValueSets: {{error}}",
     "noValueSets": "No ValueSets found.",
+    "needsExpansion": "Needs expansion",
+    "needsExpansionTooltip": "This ValueSet uses compose rules (filters or referenced ValueSets) and needs terminology-server expansion to enumerate concrete codes.",
     "searchCodeSystems": "Search CodeSystems",
     "searchCodeSystemsPlaceholder": "e.g., LOINC, SNOMED",
     "codeSystemCount": "{{count}} CodeSystems",
@@ -266,6 +268,33 @@
     "resourceCount": "Resources",
     "active": "Active",
     "inactive": "Inactive",
-    "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
+    "fhirUrlPlaceholder": "https://fhir.example.com/fhir",
+    "health": {
+      "column": "Live Health",
+      "columnTooltip": "Auto-refreshes every 30s from the latest scheduled health check and circuit-breaker state.",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "unknown": "Unknown",
+      "availability24h": "Availability (24h): {{pct}}%",
+      "avgResponseMs": "Avg response: {{ms}} ms",
+      "errorCount24h": "Errors (24h): {{count}}",
+      "lastCheckedAt": "Last checked: {{at}}",
+      "noData": "No health checks recorded yet"
+    }
+  },
+  "degradation": {
+    "titleGeneric": "EHR FHIR server is temporarily unavailable",
+    "titleWithName": "EHR \"{{name}}\" is temporarily unavailable",
+    "dismiss": "Dismiss",
+    "failureCount_one": "{{count}} failure",
+    "failureCount_other": "{{count}} consecutive failures",
+    "reason": {
+      "TIMEOUT": "Upstream response timed out — the EHR server may be slow. Retrying automatically.",
+      "CIRCUIT_BREAKER_OPEN": "Too many recent failures — calls are paused briefly while the EHR recovers.",
+      "UPSTREAM_5XX": "The EHR server returned a server error. This is usually transient.",
+      "CONNECTION_REFUSED": "Cannot reach the EHR server. Verify the connection URL and network.",
+      "OTHER": "The EHR server returned an unexpected error."
+    }
   }
 }

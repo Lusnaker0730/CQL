@@ -21,14 +21,18 @@ const ELEMENT_ICONS: Record<string, typeof ListIcon> = {
   Gender: ViewIcon,
 }
 
+// Callbacks accept the element / uniqueId so the parent can pass a single
+// stable callback (typically wrapped in useCallback) instead of a fresh
+// per-render arrow per child. Without this, React.memo above is defeated
+// and every keystroke in the tree re-renders every element.
 interface ArtifactElementProps {
   element: ElementInstance
   modifiers: ModifierDefinition[]
   hideElementName?: boolean
-  onUpdate: (updates: Partial<ElementInstance>) => void
-  onRemove: () => void
-  onIndent?: () => void
-  onOutdent?: () => void
+  onUpdate: (uniqueId: string, updates: Partial<ElementInstance>) => void
+  onRemove: (uniqueId: string) => void
+  onIndent?: (uniqueId: string) => void
+  onOutdent?: (element: ElementInstance) => void
 }
 
 const ArtifactElement = memo(function ArtifactElement({
@@ -120,7 +124,7 @@ const ArtifactElement = memo(function ArtifactElement({
 
         {onIndent && (
           <Tooltip title={t('element.indent')}>
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent() }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.indent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onIndent(element.uniqueId) }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.indent')}>
               <IndentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -128,7 +132,7 @@ const ArtifactElement = memo(function ArtifactElement({
 
         {onOutdent && (
           <Tooltip title={t('element.outdent')}>
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent() }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.outdent')}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onOutdent(element) }} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }} aria-label={t('element.outdent')}>
               <OutdentIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -144,7 +148,7 @@ const ArtifactElement = memo(function ArtifactElement({
           <IconButton
             size="small"
             color="error"
-            onClick={(e) => { e.stopPropagation(); onRemove() }}
+            onClick={(e) => { e.stopPropagation(); onRemove(element.uniqueId) }}
             aria-label={t('element.remove')}
           >
             <DeleteIcon fontSize="small" />
@@ -164,7 +168,7 @@ const ArtifactElement = memo(function ArtifactElement({
             element={element}
             modifiers={modifiers}
             hideElementName={hideElementName}
-            onUpdate={onUpdate}
+            onUpdate={(updates) => onUpdate(element.uniqueId, updates)}
           />
         </CardContent>
       </Collapse>

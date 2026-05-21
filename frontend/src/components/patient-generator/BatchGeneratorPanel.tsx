@@ -10,6 +10,7 @@ import {
 import { PlayArrow as GenerateIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import type { BatchGenerationConfig } from '../../config/twcore'
+import { isDateRangeReversed } from '../../utils/dateDefaults'
 import SliderField from './SliderField'
 import DateRangeFields from './DateRangeFields'
 
@@ -55,6 +56,8 @@ export default function BatchGeneratorPanel({ isGenerating, onGenerate }: BatchG
     onGenerate(form)
   }, [form, onGenerate])
 
+  const dateRangeInvalid = isDateRangeReversed(form.dateFrom ?? '', form.dateTo ?? '')
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -93,7 +96,7 @@ export default function BatchGeneratorPanel({ isGenerating, onGenerate }: BatchG
           size="large"
           startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : <GenerateIcon />}
           onClick={handleGenerate}
-          disabled={isGenerating}
+          disabled={isGenerating || dateRangeInvalid}
           sx={{ mt: 1 }}
         >
           {isGenerating ? t('batch.generating') : t('batch.generate')}

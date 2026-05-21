@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box,
@@ -26,13 +26,39 @@ import {
   ContentCopy as DuplicateIcon,
   Edit as EditIcon,
 } from '@mui/icons-material'
-import { FixedSizeList } from 'react-window'
+import { List, type RowComponentProps } from 'react-window'
 import StatusChip from '../common/StatusChip'
 import GradientButton from '../common/GradientButton'
 import type { ArtifactSummary } from '../../types/authoring'
 import { ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT } from '../../constants/layout'
 
 type SortField = 'name' | 'version' | 'status' | 'updatedAt'
+
+// Semver-aware comparison. Falls back to localeCompare for non-numeric
+// segments (e.g. `1.0.0-rc1`). Empty strings sort last.
+function compareSemver(a: string, b: string): number {
+  if (!a && !b) return 0
+  if (!a) return 1
+  if (!b) return -1
+  const aSeg = a.split('.')
+  const bSeg = b.split('.')
+  const len = Math.max(aSeg.length, bSeg.length)
+  for (let i = 0; i < len; i++) {
+    const aPart = aSeg[i] ?? ''
+    const bPart = bSeg[i] ?? ''
+    const aNum = Number(aPart)
+    const bNum = Number(bPart)
+    const aIsNum = !Number.isNaN(aNum) && /^\d+$/.test(aPart)
+    const bIsNum = !Number.isNaN(bNum) && /^\d+$/.test(bPart)
+    if (aIsNum && bIsNum) {
+      if (aNum !== bNum) return aNum - bNum
+    } else {
+      const cmp = aPart.localeCompare(bPart)
+      if (cmp !== 0) return cmp
+    }
+  }
+  return 0
+}
 type SortDir = 'asc' | 'desc'
 
 /** Fixed column widths so the header table and virtualised body rows stay aligned. */
@@ -86,11 +112,14 @@ export default function ArtifactList({
         case 'name':
           return a.name.localeCompare(b.name) * dir
         case 'version':
-          return a.version.localeCompare(b.version) * dir
+          // Semver-aware compare so 1.10.0 sorts after 1.2.0 instead of before
+          return compareSemver(a.version, b.version) * dir
         case 'status':
           return a.status.localeCompare(b.status) * dir
         case 'updatedAt':
-          return a.updatedAt.localeCompare(b.updatedAt) * dir
+          // ISO-8601 timestamps sort lexically; explicit Date compare avoids
+          // surprises if the field ever stops being strict ISO.
+          return (Date.parse(a.updatedAt || '') - Date.parse(b.updatedAt || '')) * dir
         default:
           return 0
       }
@@ -230,6 +259,109 @@ interface ArtifactVirtualListProps {
   tc: (key: string) => string
 }
 
+// react-window 2.x: row is a separate component receiving { index, style, ...rowProps }.
+// Spread rowProps carry the per-list data without re-rendering on every parent re-render
+// (List automatically memoizes them).
+type ArtifactRowProps = {
+  artifacts: ArtifactSummary[]
+  onSelect: (artifact: ArtifactSummary) => void
+  onDuplicate: (id: number) => void
+  onDelete: (id: number) => void
+  t: (key: string) => string
+  tc: (key: string) => string
+}
+
+function ArtifactRow({
+  index,
+  style,
+  artifacts,
+  onSelect,
+  onDuplicate,
+  onDelete,
+  t,
+  tc,
+}: RowComponentProps<ArtifactRowProps>) {
+  const artifact = artifacts[index]
+  // Row is a flex container matching the header table column widths.
+  // Wrapping each virtualized row in <Table> generated invalid HTML and
+  // forced a fresh layout root per row — flex avoids both.
+  return (
+    <Box
+      style={style}
+      onClick={() => onSelect(artifact)}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        cursor: 'pointer',
+        px: 2,
+        borderBottom: 1,
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      <Box sx={{ width: COL_WIDTHS.name, overflow: 'hidden', textOverflow: 'ellipsis', pr: 1 }}>
+        <Typography variant="body2" fontWeight={500} noWrap>
+          {artifact.name}
+        </Typography>
+        {artifact.description && (
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+            {artifact.description}
+          </Typography>
+        )}
+      </Box>
+      <Box sx={{ width: COL_WIDTHS.version }}>
+        <Typography variant="body2">{artifact.version}</Typography>
+      </Box>
+      <Box sx={{ width: COL_WIDTHS.status }}>
+        <StatusChip status={artifact.status} />
+      </Box>
+      <Box sx={{ width: COL_WIDTHS.updated }}>
+        <Typography variant="caption">
+          {new Date(artifact.updatedAt).toLocaleDateString()}
+        </Typography>
+      </Box>
+      <Box sx={{ width: COL_WIDTHS.actions }}>
+        <Stack direction="row" spacing={0} justifyContent="flex-end">
+          <Tooltip title={t('list.edit')}>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSelect(artifact)
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('list.duplicate')}>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate(artifact.id)
+              }}
+            >
+              <DuplicateIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={tc('actions.delete')}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(artifact.id)
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Box>
+    </Box>
+  )
+}
+
 function ArtifactVirtualList({
   artifacts,
   onSelect,
@@ -238,91 +370,17 @@ function ArtifactVirtualList({
   t,
   tc,
 }: ArtifactVirtualListProps) {
-  const renderRow = useCallback(
-    ({ index, style }: { index: number; style: React.CSSProperties }) => {
-      const artifact = artifacts[index]
-      return (
-        <Table size="small" style={style} key={artifact.id} sx={{ tableLayout: 'fixed' }}>
-          <TableBody>
-            <TableRow
-              hover
-              sx={{ cursor: 'pointer' }}
-              onClick={() => onSelect(artifact)}
-            >
-              <TableCell sx={{ width: COL_WIDTHS.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                <Typography variant="body2" fontWeight={500} noWrap>
-                  {artifact.name}
-                </Typography>
-                {artifact.description && (
-                  <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                    {artifact.description}
-                  </Typography>
-                )}
-              </TableCell>
-              <TableCell sx={{ width: COL_WIDTHS.version }}>{artifact.version}</TableCell>
-              <TableCell sx={{ width: COL_WIDTHS.status }}>
-                <StatusChip status={artifact.status} />
-              </TableCell>
-              <TableCell sx={{ width: COL_WIDTHS.updated }}>
-                <Typography variant="caption">
-                  {new Date(artifact.updatedAt).toLocaleDateString()}
-                </Typography>
-              </TableCell>
-              <TableCell sx={{ width: COL_WIDTHS.actions }} align="right">
-                <Stack direction="row" spacing={0} justifyContent="flex-end">
-                  <Tooltip title={t('list.edit')}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onSelect(artifact)
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={t('list.duplicate')}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDuplicate(artifact.id)
-                      }}
-                    >
-                      <DuplicateIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={tc('actions.delete')}>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDelete(artifact.id)
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      )
-    },
-    [artifacts, onSelect, onDuplicate, onDelete, t, tc]
-  )
-
+  // react-window 2.x: List auto-sizes from its container, so we wrap it in a Box
+  // that enforces our explicit height (shrinks for short lists, caps at LIST_MAX_HEIGHT).
+  // overscanCount was removed in v2 in favor of a dynamic overscan strategy.
   return (
-    <FixedSizeList
-      height={Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT)}
-      width="100%"
-      itemCount={artifacts.length}
-      itemSize={ARTIFACT_ROW_HEIGHT}
-      overscanCount={5}
-    >
-      {renderRow}
-    </FixedSizeList>
+    <Box sx={{ height: Math.min(artifacts.length * ARTIFACT_ROW_HEIGHT, LIST_MAX_HEIGHT), width: '100%' }}>
+      <List
+        rowComponent={ArtifactRow}
+        rowCount={artifacts.length}
+        rowHeight={ARTIFACT_ROW_HEIGHT}
+        rowProps={{ artifacts, onSelect, onDuplicate, onDelete, t, tc }}
+      />
+    </Box>
   )
 }

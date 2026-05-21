@@ -1,16 +1,20 @@
 package com.cqlplatform.config;
 
+import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 @Component
+@Validated
 @ConfigurationProperties(prefix = "rate-limit")
 @Getter
 @Setter
 public class RateLimitProperties {
     private boolean enabled = true;
+    @Min(value = 1, message = "rate-limit.requests-per-minute must be >= 1")
     private int requestsPerMinute = 60;
 
     // Per-tier IP limits (RPM)
@@ -20,6 +24,7 @@ public class RateLimitProperties {
     private int libraryReadRpm = 120;
     private int authRpm = 10;
     private int cdsInvokeRpm = 10;
+    private int cdsDiscoveryRpm = 20;
 
     // Per-user limits (RPM)
     private boolean userLimitEnabled = true;

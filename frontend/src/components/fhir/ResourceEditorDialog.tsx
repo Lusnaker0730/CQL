@@ -18,12 +18,13 @@ import {
   Stack,
   useTheme,
 } from '@mui/material'
-import {
-  Save as SaveIcon,
-  CheckCircle as ValidateIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the Proxy-based mock
+// pattern that previously worked).
+import SaveIcon from '@mui/icons-material/Save'
+import ValidateIcon from '@mui/icons-material/CheckCircle'
 import { useTranslation } from 'react-i18next'
-import Editor, { type OnMount } from '@monaco-editor/react'
+import Editor, { type OnMount } from '../common/MonacoEditor'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
@@ -131,7 +132,13 @@ export default function ResourceEditorDialog({
           )}
 
           <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
+            {/* PAT-134: keying by mode+resourceType+resourceId forces React
+                to remount the Monaco editor when the resource being edited
+                changes. Without this, `defaultValue` (which is initial-only)
+                stays at the first-rendered JSON and never updates when the
+                parent reopens the dialog with a different resource. */}
             <Editor
+              key={`${mode}-${resourceType}-${resourceId || 'new'}`}
               height="400px"
               language="json"
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}

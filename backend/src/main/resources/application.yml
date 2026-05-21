@@ -17,6 +17,16 @@ app:
       max-attempts: ${APP_SECURITY_LOCKOUT_MAX_ATTEMPTS:5}
       duration-minutes: ${APP_SECURITY_LOCKOUT_DURATION_MINUTES:30}
 
+# PAT-157 — public self-registration via /api/auth/register is OFF by default.
+# Medical / TFDA-regulated software typically provisions accounts through an
+# admin (IEC 62304 access control). Set AUTH_SELF_REGISTRATION_ENABLED=true to
+# opt in for environments that genuinely need open registration; the endpoint
+# then accepts new accounts but still returns a uniform "registration request
+# received" response on duplicate usernames to close CWE-200 user enumeration.
+auth:
+  self-registration:
+    enabled: ${AUTH_SELF_REGISTRATION_ENABLED:false}
+
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
@@ -44,8 +54,18 @@ spring:
       max-file-size: 1MB
       max-request-size: 2MB
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    # Jackson 3 (Spring Boot 4) moved WRITE_DATES_AS_TIMESTAMPS from
+    # SerializationFeature to DateTimeFeature and changed the default to
+    # false. The previous explicit `serialization.write-dates-as-timestamps:
+    # false` setting is no longer needed.
+    deserialization:
+      # Jackson 3 flipped FAIL_ON_NULL_FOR_PRIMITIVES default from false→true.
+      # Request DTOs declare primitive boolean fields with initializers
+      # (e.g. `private boolean debugMode = false`) and callers routinely omit
+      # them. Jackson 2 kept the initializer; Jackson 3 rejects the missing
+      # field with `Cannot map "null" into type "boolean"`. Restore the legacy
+      # default globally — semantically equivalent to "absent boolean = false".
+      fail-on-null-for-primitives: false
     default-property-inclusion: non_null
 
   # Default datasource - PostgreSQL (overridden by dev profile for H2)
@@ -113,6 +133,7 @@ rate-limit:
   execute-rpm: ${RATE_LIMIT_EXECUTE_RPM:10}
   fix-suggestion-rpm: ${RATE_LIMIT_FIX_SUGGESTION_RPM:5}
   library-read-rpm: ${RATE_LIMIT_LIBRARY_READ_RPM:120}
+  cds-discovery-rpm: ${RATE_LIMIT_CDS_DISCOVERY_RPM:20}
   # Per-user limits
   user-limit-enabled: ${RATE_LIMIT_USER_ENABLED:true}
   user-translate-rpm: ${RATE_LIMIT_USER_TRANSLATE_RPM:15}
@@ -221,6 +242,12 @@ ehr:
     max-retry-attempts: ${EHR_IMPORT_MAX_RETRIES:3}
     retry-initial-delay-seconds: ${EHR_IMPORT_RETRY_DELAY:60}
     retry-check-interval-ms: ${EHR_IMPORT_RETRY_CHECK_INTERVAL:60000}
+    # Dedicated thread pool for bulk patient imports so they cannot starve the CQL execution
+    # pool. AbortPolicy: if queue (100) overflows, the submitting /api/ehr/import request
+    # fails fast with 503 rather than blocking a Tomcat thread for minutes.
+    thread-pool-size: ${EHR_IMPORT_THREAD_POOL_SIZE:4}
+    max-pool-size: ${EHR_IMPORT_MAX_POOL_SIZE:8}
+    queue-capacity: ${EHR_IMPORT_QUEUE_CAPACITY:100}
   health:
     check-interval-ms: ${EHR_HEALTH_CHECK_INTERVAL:900000}
     check-interval-minutes: ${EHR_HEALTH_CHECK_MINUTES:15}

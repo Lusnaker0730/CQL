@@ -67,7 +67,7 @@ class ModifierGeneratedCqlGoldenTest {
         CqlTemplateEngine templateEngine = new CqlTemplateEngine();
         modifierService = new ModifierService();
         modifierService.init();
-        expressionEngine = new ExpressionCqlEngine(templateEngine, modifierService);
+        expressionEngine = new ExpressionCqlEngine(templateEngine, modifierService, new com.cqlplatform.service.authoring.CustomModifierCqlBuilder());
 
         // Real CqlExecutionService. We pass a no-op FhirTerminologyService (the engine still
         // needs a reference to call createTerminologyProvider, but our test CQL uses only direct

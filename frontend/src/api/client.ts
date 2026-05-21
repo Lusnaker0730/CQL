@@ -1,4 +1,15 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios'
+import { notifyEhrOutage, type UpstreamEnvelope } from './ehrOutageBridge'
+
+interface FhirUpstreamEnvelope {
+  errorType?: string
+  upstream?: {
+    connectionId?: number | null
+    connectionName?: string | null
+    reason?: UpstreamEnvelope['reason']
+    retryAfterSeconds?: number
+  }
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -92,12 +103,33 @@ api.interceptors.response.use(
       }
     }
 
-    // For 403 or non-recoverable 401 (auth endpoints), redirect to login
-    if (status === 403 || (status === 401 && isAuthEndpoint)) {
+    // BUG-117 — only treat 401 on auth endpoints as session loss. A 403 means
+    // the token is valid but the role lacks permission (e.g. USER hitting an
+    // ADMIN-only endpoint like /settings/ai-status); previously we logged the
+    // user out for any 403, which bounced freshly-logged-in non-admins straight
+    // back to /login. Components that receive a 403 should surface it as
+    // "insufficient permission" instead of treating it as authentication loss.
+    if (status === 401 && isAuthEndpoint) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
+      }
+    }
+
+    // PAT-110: surface structured FHIR upstream outages to the global banner.
+    // The envelope is only populated when the backend threw FhirServerUnavailableException
+    // or Resilience4j CallNotPermittedException — generic 5xx still flows through
+    // existing error handling (red snackbar) unchanged.
+    if (status === 503) {
+      const envelope = error.response?.data as FhirUpstreamEnvelope | undefined
+      if (envelope?.errorType === 'FHIR_UPSTREAM_UNAVAILABLE' && envelope.upstream) {
+        notifyEhrOutage({
+          connectionId: envelope.upstream.connectionId ?? null,
+          connectionName: envelope.upstream.connectionName ?? null,
+          reason: envelope.upstream.reason ?? 'OTHER',
+          retryAfterSeconds: envelope.upstream.retryAfterSeconds ?? 30,
+        })
       }
     }
 

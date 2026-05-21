@@ -1,6 +1,7 @@
 import { Box, TextField } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import FieldWrapper from './FieldWrapper'
+import { asObject } from '../../utils/fhirGuards'
 import type { ElementMetadata } from '../../types'
 
 interface Period {
@@ -16,7 +17,7 @@ interface PeriodFieldProps {
 
 export default function PeriodField({ element, value, onChange }: PeriodFieldProps) {
   const { t } = useTranslation('measures')
-  const period = (value as Period) || {}
+  const period = asObject(value) as Period
 
   return (
     <FieldWrapper name={element.name} isRequired={element.isRequired}>

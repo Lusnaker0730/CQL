@@ -72,9 +72,14 @@ export default function CqlBuilderPanel({
     setExpanded(isExpanded ? panel : false)
   }
 
-  // Extract identifier name from a CQL snippet
+  // Extract identifier name from a CQL snippet. Handles:
+  //   define "X":, define function "X"(...), context Patient\ndefine "X":,
+  //   parameter "X" T, valueset "X": ..., codesystem "X": ..., code "X": ...,
+  //   concept "X": ..., include LibraryName ... or include "X" ...
   const extractSnippetName = useCallback((snippet: string): string | null => {
-    const m = snippet.match(/^(?:define|parameter|valueset|codesystem|code|concept|include)\s+"([^"]+)"/)
+    const m = snippet.match(
+      /(?:^|\n)\s*(?:context\s+\w+\s*\n\s*)?(?:define(?:\s+function)?|parameter|valueset|codesystem|code|concept|include)\s+"([^"]+)"/
+    )
     return m ? m[1] : null
   }, [])
 

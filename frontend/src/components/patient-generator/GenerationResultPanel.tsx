@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -13,6 +13,7 @@ import {
   CircularProgress,
   IconButton,
   Tooltip,
+  LinearProgress,
 } from '@mui/material'
 import {
   ExpandMore as ExpandMoreIcon,
@@ -23,13 +24,22 @@ import {
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
+import { useNotification } from '../../hooks/useNotification'
+import { extractApiError } from '../../utils/errorUtils'
 import { fhirApi } from '../../api/fhirApi'
+import FhirServerUrlField from '../common/FhirServerUrlField'
 import type { GeneratedPatientData } from '../../config/twcore'
 
 interface GenerationResultPanelProps {
   results: GeneratedPatientData[]
   onDownload: () => void
   onClear: () => void
+}
+
+interface UploadProgress {
+  done: number
+  total: number
+  failures: { patientId: string; error: string }[]
 }
 
 export default function GenerationResultPanel({
@@ -39,65 +49,110 @@ export default function GenerationResultPanel({
 }: GenerationResultPanelProps) {
   const { t } = useTranslation('patientGenerator')
   const copyToClipboard = useCopyToClipboard()
+  const { showNotification } = useNotification()
+
   const [uploading, setUploading] = useState(false)
-  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
+  const [fhirServer, setFhirServer] = useState('')
+
+  // Lazy JSON cache: only the patient whose Accordion the user expanded
+  // gets serialized. With 100 patients × ~10KB JSON each, eager serialization
+  // (the previous Map populated on every results change) blocked the main
+  // thread for hundreds of ms.
+  const [jsonCache, setJsonCache] = useState<Record<string, string>>({})
+
+  // Guards post-await setState calls when the user navigates away mid-upload.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const handleCopy = useCallback(() => {
     const json = JSON.stringify(results, null, 2)
     copyToClipboard(json)
   }, [results, copyToClipboard])
 
-  const patientJsonCache = useMemo(() => {
-    const cache = new Map<string, string>()
-    for (const p of results) {
-      cache.set(p.patient.id as string, JSON.stringify(p, null, 2))
-    }
-    return cache
-  }, [results])
+  const ensureJson = useCallback(
+    (patientData: GeneratedPatientData) => {
+      const id = patientData.patient.id as string
+      if (jsonCache[id]) return jsonCache[id]
+      const json = JSON.stringify(patientData, null, 2)
+      setJsonCache((prev) => ({ ...prev, [id]: json }))
+      return json
+    },
+    [jsonCache],
+  )
 
   const handleUpload = useCallback(async () => {
     setUploading(true)
-    setUploadMessage(null)
-    let totalResources = 0
+    setUploadProgress({ done: 0, total: results.length, failures: [] })
+    const failures: UploadProgress['failures'] = []
 
-    try {
-      for (const patientData of results) {
-        const allResources = [
-          patientData.patient,
-          ...patientData.encounters,
-          ...patientData.conditions,
-          ...patientData.observations,
-          ...patientData.medications,
-          ...patientData.medication_requests,
-          ...patientData.allergies,
-        ]
+    for (let i = 0; i < results.length; i++) {
+      // Bail out if the user navigated away — partial uploads remain server-side
+      // but we don't push more requests at the dead component.
+      if (!isMountedRef.current) return
 
-        const bundle = {
-          resourceType: 'Bundle',
-          type: 'transaction',
-          entry: allResources.map((resource) => {
-            const ref = `${resource.resourceType as string}/${resource.id as string}`
-            return {
-              fullUrl: ref,
-              resource,
-              request: { method: 'PUT', url: ref },
-            }
-          }),
-        }
-
-        await fhirApi.executeTransaction(JSON.stringify(bundle))
-        totalResources += allResources.length
+      const patientData = results[i]
+      const patientId = patientData.patient.id as string
+      const allResources = [
+        patientData.patient,
+        ...patientData.encounters,
+        ...patientData.conditions,
+        ...patientData.observations,
+        ...patientData.medications,
+        ...patientData.medication_requests,
+        ...patientData.allergies,
+      ]
+      const bundle = {
+        resourceType: 'Bundle',
+        type: 'transaction',
+        entry: allResources.map((resource) => {
+          const ref = `${resource.resourceType as string}/${resource.id as string}`
+          return {
+            fullUrl: ref,
+            resource,
+            request: { method: 'PUT', url: ref },
+          }
+        }),
       }
-      setUploadMessage({ type: 'success', text: t('result.uploadSuccess', { count: totalResources }) })
-    } catch (err) {
-      setUploadMessage({
-        type: 'error',
-        text: t('result.uploadError', { error: err instanceof Error ? err.message : String(err) }),
-      })
-    } finally {
-      setUploading(false)
+
+      try {
+        // Per-patient try/catch lets one bad transaction fail without aborting
+        // the rest. Failure list goes into the final notification.
+        await fhirApi.executeTransaction(JSON.stringify(bundle), fhirServer || undefined)
+      } catch (err) {
+        failures.push({ patientId, error: extractApiError(err) })
+      }
+
+      if (!isMountedRef.current) return
+      setUploadProgress({ done: i + 1, total: results.length, failures: [...failures] })
     }
-  }, [results, t])
+
+    if (!isMountedRef.current) return
+    setUploading(false)
+
+    const succeeded = results.length - failures.length
+    if (failures.length === 0) {
+      showNotification(
+        t('result.uploadSuccess', { count: succeeded }),
+        'success',
+      )
+    } else if (succeeded === 0) {
+      showNotification(
+        t('result.uploadAllFailed', { count: failures.length }),
+        'error',
+      )
+    } else {
+      showNotification(
+        t('result.uploadPartial', { succeeded, failed: failures.length }),
+        'warning',
+      )
+    }
+  }, [results, fhirServer, showNotification, t])
 
   if (results.length === 0) return null
 
@@ -118,7 +173,7 @@ export default function GenerationResultPanel({
           {t('result.download')}
         </Button>
         <Tooltip title={t('result.copyJson')}>
-          <IconButton onClick={handleCopy}>
+          <IconButton onClick={handleCopy} aria-label={t('result.copyJson')}>
             <CopyIcon />
           </IconButton>
         </Tooltip>
@@ -127,6 +182,15 @@ export default function GenerationResultPanel({
           {t('result.clear')}
         </Button>
       </Stack>
+
+      <Box sx={{ mb: 2 }}>
+        <FhirServerUrlField
+          label={t('result.uploadServerLabel')}
+          value={fhirServer}
+          onChange={setFhirServer}
+          helperText={t('result.uploadServerHelperText')}
+        />
+      </Box>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         <Button
@@ -139,10 +203,34 @@ export default function GenerationResultPanel({
         </Button>
       </Stack>
 
-      {uploadMessage && (
-        <Alert severity={uploadMessage.type} sx={{ mb: 2 }} onClose={() => setUploadMessage(null)}>
-          {uploadMessage.text}
-        </Alert>
+      {uploadProgress && (uploading || uploadProgress.failures.length > 0) && (
+        <Box sx={{ mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t('result.uploadProgress', {
+                done: uploadProgress.done,
+                total: uploadProgress.total,
+                failed: uploadProgress.failures.length,
+              })}
+            </Typography>
+          </Stack>
+          <LinearProgress
+            variant="determinate"
+            value={uploadProgress.total > 0 ? (uploadProgress.done / uploadProgress.total) * 100 : 0}
+          />
+          {uploadProgress.failures.length > 0 && (
+            <Alert severity="warning" sx={{ mt: 1, maxHeight: 160, overflow: 'auto' }}>
+              <Typography variant="caption" fontWeight={600} gutterBottom>
+                {t('result.uploadFailureList', { count: uploadProgress.failures.length })}
+              </Typography>
+              {uploadProgress.failures.map((f) => (
+                <Typography key={f.patientId} variant="caption" component="div" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                  {f.patientId}: {f.error}
+                </Typography>
+              ))}
+            </Alert>
+          )}
+        </Box>
       )}
 
       {results.map((patientData, idx) => {
@@ -152,7 +240,15 @@ export default function GenerationResultPanel({
         const patientId = pat.id as string
 
         return (
-          <Accordion key={patientId} disableGutters>
+          <Accordion
+            key={patientId}
+            disableGutters
+            // Only serialize the JSON when the Accordion expands — avoids the
+            // stringify-N-patients hit on every results change.
+            onChange={(_, expanded) => {
+              if (expanded) ensureJson(patientData)
+            }}
+          >
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1, mr: 1 }}>
                 <Typography variant="body2" fontWeight={600}>
@@ -187,7 +283,7 @@ export default function GenerationResultPanel({
                   m: 0,
                 }}
               >
-                {patientJsonCache.get(patientId)}
+                {jsonCache[patientId] ?? t('result.expandToView')}
               </Box>
             </AccordionDetails>
           </Accordion>

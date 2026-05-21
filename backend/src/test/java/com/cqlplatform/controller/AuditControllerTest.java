@@ -6,9 +6,9 @@ import com.cqlplatform.model.audit.AuditStatsResponse;
 import com.cqlplatform.service.AuditService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,7 +29,7 @@ class AuditControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private AuditService auditService;
 
     private AuditLogResponse createLogResponse() {
@@ -55,6 +55,16 @@ class AuditControllerTest {
     void getLogs_unauthenticated_shouldReturn401() throws Exception {
         mockMvc.perform(get("/api/admin/audit/logs"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "regular", roles = {"USER"})
+    void getLogs_regularUserAuthenticated_shouldReturn403() throws Exception {
+        // PAT-145 regression: non-admin must NOT read audit logs (they contain
+        // PHI access events, login activity, security events). Locks both the
+        // class-level @PreAuthorize and SecurityConfig path rule together.
+        mockMvc.perform(get("/api/admin/audit/logs"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

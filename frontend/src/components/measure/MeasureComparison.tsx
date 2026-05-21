@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getScoreThemeColor } from '../../utils/scoreColors'
 import { extractApiError } from '../../utils/errorUtils'
@@ -15,6 +15,7 @@ import {
   LinearProgress,
   Divider,
   Alert,
+  MenuItem,
 } from '@mui/material'
 import {
   TrendingUp as TrendUpIcon,
@@ -22,12 +23,17 @@ import {
   TrendingFlat as TrendFlatIcon,
   CompareArrows as CompareIcon,
   Timeline as TimelineIcon,
+  PlayArrow as PlayIcon,
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { measureApi } from '../../api'
-import type { MeasureComparisonResult, MeasureTrendResult } from '../../types'
-import { getDefaultComparisonPeriods } from '../../utils/dateDefaults'
+import type { MeasureComparisonResult, MeasureTrendResult, TrendDataPoint } from '../../types'
+import {
+  getDefaultComparisonPeriods,
+  computeTrendSlots,
+  type TrendInterval,
+} from '../../utils/dateDefaults'
 
 interface MeasureOption {
   id: number
@@ -39,10 +45,21 @@ export default function MeasureComparison() {
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureOption | null>(null)
 
   const { data: measures = [] } = useQuery({
+    // PAT-130: do not pin staleTime to Infinity. The list goes stale within
+    // the same session if the user shares / renames a measure in another tab;
+    // 5 minutes is a reasonable balance between freshness and refetch noise.
     queryKey: ['measures'],
     queryFn: () => measureApi.getMeasures(),
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000,
   })
+
+  // PAT-130: live-eval flows can run for minutes; if the user navigates away
+  // we must skip any setState that would land on an unmounted component.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
   const measureOptions = useMemo<MeasureOption[]>(
     () => measures.map((m) => ({ id: m.id!, label: m.title || m.name })),
     [measures],
@@ -57,6 +74,15 @@ export default function MeasureComparison() {
   const [comparison, setComparison] = useState<MeasureComparisonResult | null>(null)
   const [trend, setTrend] = useState<MeasureTrendResult | null>(null)
 
+  const [liveCompareStep, setLiveCompareStep] = useState<0 | 1 | 2 | 3>(0)
+  const [liveCompareError, setLiveCompareError] = useState<string | null>(null)
+
+  const today = new Date().toISOString().slice(0, 10)
+  const [trendEndDate, setTrendEndDate] = useState(today)
+  const [trendInterval, setTrendInterval] = useState<TrendInterval>('monthly')
+  const [liveTrendStep, setLiveTrendStep] = useState<number>(0)
+  const [liveTrendError, setLiveTrendError] = useState<string | null>(null)
+
   const compareMutation = useMutation({
     mutationFn: () => measureApi.comparePeriods(selectedMeasure!.id, selectedMeasure!.label, p1Start, p1End, p2Start, p2End),
     onSuccess: (data) => setComparison(data),
@@ -67,18 +93,93 @@ export default function MeasureComparison() {
     onSuccess: (data) => setTrend(data),
   })
 
-  const getTrendIcon = (trend: string) => {
-    if (trend === 'improving') return <TrendUpIcon sx={{ color: 'success.main' }} />
-    if (trend === 'declining') return <TrendDownIcon sx={{ color: 'error.main' }} />
+  const runLiveCompare = async () => {
+    if (!selectedMeasure) return
+    setLiveCompareError(null)
+    setComparison(null)
+    try {
+      if (isMountedRef.current) setLiveCompareStep(1)
+      await measureApi.evaluateMeasure(String(selectedMeasure.id), undefined, p1Start, p1End)
+      if (!isMountedRef.current) return
+      setLiveCompareStep(2)
+      await measureApi.evaluateMeasure(String(selectedMeasure.id), undefined, p2Start, p2End)
+      if (!isMountedRef.current) return
+      setLiveCompareStep(3)
+      const result = await measureApi.comparePeriods(
+        selectedMeasure.id,
+        selectedMeasure.label,
+        p1Start,
+        p1End,
+        p2Start,
+        p2End,
+      )
+      if (!isMountedRef.current) return
+      setComparison(result)
+    } catch (err) {
+      if (isMountedRef.current) setLiveCompareError(extractApiError(err))
+    } finally {
+      if (isMountedRef.current) setLiveCompareStep(0)
+    }
+  }
+
+  const runLiveTrend = async () => {
+    if (!selectedMeasure) return
+    setLiveTrendError(null)
+    setTrend(null)
+    const slots = computeTrendSlots(trendEndDate, Math.max(1, Math.min(periods, 12)), trendInterval)
+    const dataPoints: TrendDataPoint[] = []
+    let lastSlotIdx = 0
+    try {
+      for (let i = 0; i < slots.length; i++) {
+        if (!isMountedRef.current) return
+        lastSlotIdx = i + 1
+        setLiveTrendStep(lastSlotIdx)
+        const slot = slots[i]
+        const result = await measureApi.evaluateMeasure(
+          String(selectedMeasure.id),
+          undefined,
+          slot.periodStart,
+          slot.periodEnd,
+        )
+        if (!isMountedRef.current) return
+        const score = result.groups?.[0]?.measureScore
+        dataPoints.push({
+          periodStart: slot.periodStart,
+          periodEnd: slot.periodEnd,
+          score: score != null ? score : undefined,
+        })
+      }
+      if (isMountedRef.current) {
+        setTrend({ measureName: selectedMeasure.label, dataPoints })
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return
+      setLiveTrendError(
+        t('comparison.slotFailed', { current: lastSlotIdx, error: extractApiError(err) }),
+      )
+      if (dataPoints.length > 0) {
+        setTrend({ measureName: selectedMeasure.label, dataPoints })
+      }
+    } finally {
+      if (isMountedRef.current) setLiveTrendStep(0)
+    }
+  }
+
+  const getTrendIcon = (trendValue: string) => {
+    if (trendValue === 'improving') return <TrendUpIcon sx={{ color: 'success.main' }} />
+    if (trendValue === 'declining') return <TrendDownIcon sx={{ color: 'error.main' }} />
     return <TrendFlatIcon sx={{ color: 'text.secondary' }} />
   }
 
-  const getTrendColor = (trend: string) => {
-    if (trend === 'improving') return 'success.main'
-    if (trend === 'declining') return 'error.main'
+  const getTrendColor = (trendValue: string) => {
+    if (trendValue === 'improving') return 'success.main'
+    if (trendValue === 'declining') return 'error.main'
     return 'text.secondary'
   }
 
+  const liveCompareRunning = liveCompareStep > 0
+  const liveTrendRunning = liveTrendStep > 0
+  const slotCount = Math.max(1, Math.min(periods, 12))
 
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
@@ -114,14 +215,40 @@ export default function MeasureComparison() {
           value={p2End} onChange={(e) => setP2End(e.target.value)}
           InputLabelProps={{ shrink: true }} />
       </Stack>
-      <GradientButton
-        startIcon={<CompareIcon />}
-        onClick={() => compareMutation.mutate()}
-        disabled={!selectedMeasure || compareMutation.isPending}
-        sx={{ mb: 2 }}
-      >
-        {compareMutation.isPending ? t('comparison.comparing') : t('comparison.compare')}
-      </GradientButton>
+      <Stack direction="row" spacing={1} mb={1} flexWrap="wrap" useFlexGap>
+        <Button
+          variant="outlined"
+          startIcon={<CompareIcon />}
+          onClick={() => compareMutation.mutate()}
+          disabled={!selectedMeasure || compareMutation.isPending || liveCompareRunning}
+          size="small"
+        >
+          {compareMutation.isPending ? t('comparison.comparing') : t('comparison.compare')}
+        </Button>
+        <GradientButton
+          startIcon={<PlayIcon />}
+          onClick={runLiveCompare}
+          disabled={!selectedMeasure || liveCompareRunning || compareMutation.isPending}
+        >
+          {liveCompareRunning
+            ? liveCompareStep === 3
+              ? t('comparison.comparingLive')
+              : t('comparison.evaluatingPeriod', { current: liveCompareStep, total: 2 })
+            : t('comparison.compareLive')}
+        </GradientButton>
+      </Stack>
+      <Stack spacing={0.5} mb={2}>
+        <Typography variant="caption" color="text.secondary">{t('comparison.compareHint')}</Typography>
+        <Typography variant="caption" color="text.secondary">{t('comparison.compareLiveHint')}</Typography>
+      </Stack>
+
+      {liveCompareRunning && (
+        <LinearProgress sx={{ mb: 2 }} />
+      )}
+
+      {liveCompareError && (
+        <Alert severity="error" sx={{ mb: 2 }}>{liveCompareError}</Alert>
+      )}
 
       {compareMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(compareMutation.error)}</Alert>
@@ -193,21 +320,79 @@ export default function MeasureComparison() {
 
       <Divider sx={{ my: 2 }} />
 
-      {/* Trend */}
+      {/* Trend — historical */}
       <Typography variant="subtitle2" gutterBottom>{t('comparison.scoreTrend')}</Typography>
-      <Stack direction="row" spacing={2} mb={2} alignItems="center">
-        <TextField label={t('comparison.periods')} type="number" size="small" sx={{ width: 100 }}
-          value={periods} onChange={(e) => setPeriods(parseInt(e.target.value) || 4)} />
+      <Stack direction="row" spacing={2} mb={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <TextField label={t('comparison.periods')} type="number" size="small" sx={{ width: 110 }}
+          value={periods}
+          onChange={(e) => setPeriods(parseInt(e.target.value) || 4)}
+          inputProps={{ min: 1, max: 12 }} />
         <Button
           variant="outlined"
           startIcon={<TimelineIcon />}
           onClick={() => trendMutation.mutate()}
-          disabled={!selectedMeasure || trendMutation.isPending}
+          disabled={!selectedMeasure || trendMutation.isPending || liveTrendRunning}
           size="small"
         >
           {trendMutation.isPending ? t('comparison.loading') : t('comparison.loadTrend')}
         </Button>
       </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+        {t('comparison.loadTrendHint')}
+      </Typography>
+
+      {/* Trend — live */}
+      <Typography variant="subtitle2" gutterBottom>{t('comparison.trendLiveSection')}</Typography>
+      <Stack direction="row" spacing={2} mb={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <TextField
+          label={t('comparison.trendEndDate')}
+          type="date"
+          size="small"
+          sx={{ width: 170 }}
+          value={trendEndDate}
+          onChange={(e) => setTrendEndDate(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          select
+          label={t('comparison.trendInterval')}
+          size="small"
+          sx={{ width: 140 }}
+          value={trendInterval}
+          onChange={(e) => setTrendInterval(e.target.value as TrendInterval)}
+        >
+          <MenuItem value="monthly">{t('comparison.trendIntervals.monthly')}</MenuItem>
+          <MenuItem value="quarterly">{t('comparison.trendIntervals.quarterly')}</MenuItem>
+          <MenuItem value="yearly">{t('comparison.trendIntervals.yearly')}</MenuItem>
+        </TextField>
+        <GradientButton
+          startIcon={<PlayIcon />}
+          onClick={runLiveTrend}
+          disabled={!selectedMeasure || liveTrendRunning || trendMutation.isPending}
+        >
+          {liveTrendRunning
+            ? t('comparison.runningLiveTrend', { current: liveTrendStep, total: slotCount })
+            : t('comparison.runLiveTrend')}
+        </GradientButton>
+      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        {t('comparison.trendLiveHint')}
+      </Typography>
+      <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 2 }}>
+        {t('comparison.liveTrendNote', { count: slotCount })}
+      </Typography>
+
+      {liveTrendRunning && (
+        <LinearProgress
+          variant="determinate"
+          value={((liveTrendStep - 1) / slotCount) * 100}
+          sx={{ mb: 2 }}
+        />
+      )}
+
+      {liveTrendError && (
+        <Alert severity="error" sx={{ mb: 2 }}>{liveTrendError}</Alert>
+      )}
 
       {trendMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(trendMutation.error)}</Alert>

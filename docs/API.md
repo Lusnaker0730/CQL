@@ -49,13 +49,85 @@ Authorization: Bearer <token>
 
 ### 錯誤處理
 
-錯誤回應格式：
+所有錯誤回應走統一的 `ErrorResponse` envelope（`GlobalExceptionHandler`）：
 
 ```json
 {
-  "error": "錯誤訊息描述"
+  "timestamp": "2026-04-24T10:15:30.123",
+  "status": 503,
+  "error": "FHIR Server Unavailable",
+  "message": "Human-readable explanation",
+  "details": ["optional validation error list"],
+  "requestId": "uuid-for-log-correlation",
+  "errorType": "FHIR_UPSTREAM_UNAVAILABLE",
+  "upstream": {
+    "connectionId": 42,
+    "connectionName": "Taipei General FHIR",
+    "reason": "TIMEOUT",
+    "retryAfterSeconds": 30
+  },
+  "errorInfo": {
+    "phase": "cql_translation",
+    "errorType": "CqlTranslationException",
+    "message": "...",
+    "stackTraceSummary": ["..."]
+  }
 }
 ```
+
+欄位說明：
+
+| 欄位 | 何時出現 | 說明 |
+|------|----------|------|
+| `timestamp` / `status` / `error` / `message` | 一律有 | 基本錯誤資訊 |
+| `details` | 驗證錯誤 | Multi-line validation errors |
+| `requestId` | 一律有 | 對應 log 的 MDC `requestId` |
+| `errorType` | 結構化錯誤類別 | 目前只有 `"FHIR_UPSTREAM_UNAVAILABLE"`（PAT-110），其他錯誤此欄位省略 |
+| `upstream` | `errorType="FHIR_UPSTREAM_UNAVAILABLE"` 時 | 見下方 |
+| `errorInfo` | CQL 執行 / measure 評估錯誤 | 見下方 |
+
+#### `upstream` 結構（PAT-110）
+
+當 FHIR 上游服務失敗時（timeout、5xx、circuit breaker open、連線拒絕等），回應會包含結構化的 `upstream` 物件供前端判別、渲染黃色「EHR 暫時離線」banner：
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `connectionId` | `number \| null` | 失敗的 EHR 連線 id；null 代表錯誤無法歸屬到特定連線（translation-time VSAC 查詢、背景工作等） |
+| `connectionName` | `string \| null` | 連線的人類可讀名稱 |
+| `reason` | `string` | `TIMEOUT` \| `CIRCUIT_BREAKER_OPEN` \| `UPSTREAM_5XX` \| `CONNECTION_REFUSED` \| `OTHER` |
+| `retryAfterSeconds` | `number` | 建議重試秒數；鏡射 `Retry-After` HTTP header |
+
+同時設定 `Retry-After: 30`（upstream error）或 `Retry-After: 60`（breaker open）HTTP header。
+
+**客戶端判別建議**：
+- 收到 503 + `errorType="FHIR_UPSTREAM_UNAVAILABLE"` → 顯示「EHR 暫時離線」非平台故障；按 `retryAfterSeconds` 自動 backoff
+- 收到 503 **未帶** `errorType` → 視為平台一般錯誤
+
+#### `errorInfo` 結構
+
+CQL 執行 / CDS 呼叫 / measure 評估錯誤會附帶 `errorInfo`：
+
+| 欄位 | 說明 |
+|------|------|
+| `phase` | `cql_translation` / `cql_execution` / `fhir_retrieval` / `population_evaluation` / ... |
+| `errorType` | 內部例外類別 simple name |
+| `message` | 錯誤訊息 |
+| `stackTraceSummary` | `com.cqlplatform.*` 的 top 5 stack frames |
+
+### 速率限制
+
+當 per-IP 或 per-user 速率超過時：
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+```
+
+Body 同 `ErrorResponse`、`error` 欄位含 `"Rate limit exceeded"`。
+
+### 服務過載
+
+當 bulk-import thread pool 飽和觸發 `AbortPolicy`（PAT-109），回 503 + `Retry-After: 30` + `error="Service Overloaded"`。客戶端應 backoff 不視為平台故障。
 
 ### 角色權限
 
@@ -1188,6 +1260,63 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 | `/api/ehr/connections/{id}/patients/{patientId}/preview` | GET | 匯入預覽 |
 | `/api/ehr/connections/{id}/patients/{patientId}/import?measureId=` | POST | 匯入病患資料為測試案例（201） |
 | `/api/ehr/imports?importedBy=` | GET | 匯入歷史 |
+
+---
+
+### 8.3 連線健康狀態（PAT-111）
+
+提供背景排程健康檢查的結果，前端 `EhrConnectionList` 的「Live Health」欄位消費這些端點（每 30 秒 poll）。
+
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/api/ehr/health/overview` | GET | 所有連線的當前健康狀態（array） |
+| `/api/ehr/health/connections/{id}/history?hours=24` | GET | 特定連線的歷史健康檢查紀錄 |
+| `/api/ehr/health/circuit-breakers` | GET | Resilience4j 斷路器即時狀態（list，by breaker instance name） |
+
+#### `GET /api/ehr/health/overview` 回應
+
+```json
+[
+  {
+    "connectionId": 42,
+    "connectionName": "Taipei General FHIR",
+    "fhirServerUrl": "https://fhir.example.com/r4",
+    "currentStatus": "healthy",
+    "lastResponseTimeMs": 125,
+    "lastCheckedAt": "2026-04-24T10:15:00",
+    "avgResponseTimeMs24h": 143.7,
+    "availability24h": 99.5,
+    "totalChecks24h": 96,
+    "errorCount24h": 0
+  }
+]
+```
+
+`currentStatus` 可能值：
+- `healthy` — 最近檢查成功
+- `degraded` — 回應但時間過長（見 `avgResponseTimeMs24h`）
+- `down` — 最近檢查失敗
+- `unknown` — 尚未執行過檢查
+
+背景健康檢查間隔由 `EHR_HEALTH_CHECK_MINUTES` env 控制（預設 15 分鐘），紀錄保留期間由 `EHR_HEALTH_RETENTION_DAYS`（預設 7 天）控制。
+
+#### `GET /api/ehr/health/circuit-breakers` 回應
+
+```json
+[
+  {
+    "name": "fhirDataProvider",
+    "state": "CLOSED",
+    "failureRate": 0.0,
+    "slowCallRate": 0.0,
+    "bufferedCalls": 10,
+    "failedCalls": 0,
+    "successfulCalls": 10
+  }
+]
+```
+
+`state` 可能值：`CLOSED`（正常）/ `OPEN`（熔斷中，拒絕請求）/ `HALF_OPEN`（試探性放行）。注意 `name` 是 breaker instance 名稱（如 `fhirDataProvider`、`fhirTerminology`、`vsacService`），**不是** connection id — 若需按連線對應，需自行 cross-reference。
 
 ---
 

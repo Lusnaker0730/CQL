@@ -51,7 +51,10 @@ const MODIFIER_PRESETS: ModifierPreset[] = [
   { labelKey: 'obsNumeric',  template: 'FHIRHelpers.ToDecimal(($ref.value as FHIR.Quantity).value)',            nameSuffix: ' Value',    color: '#9C27B0' },
   { labelKey: 'obsQuantity', template: 'FHIRHelpers.ToQuantity($ref.value as FHIR.Quantity)',                   nameSuffix: ' Quantity', color: '#E65100' },
   { labelKey: 'obsConcept',  template: 'FHIRHelpers.ToConcept($ref.value as FHIR.CodeableConcept)',            nameSuffix: ' Concept',  color: '#00695C' },
-  { labelKey: 'obsRecent',   template: 'Last($ref O sort by FHIRHelpers.ToDateTime(effective as FHIR.dateTime))', nameSuffix: ' Recent', color: '#0D7377' },
+  // Per CLAUDE.md TWCDI: HAPI DateTimeType doesn't implement Comparable, so
+  // sort needs to extract via let + cast to a primitive value, then First()
+  // on a desc-sorted query gives the most-recent observation.
+  { labelKey: 'obsRecent',   template: 'First($ref O let date: (O.effective as FHIR.dateTime).value sort by date desc)', nameSuffix: ' Recent', color: '#0D7377' },
   // Code extraction
   { labelKey: 'codeText',    template: '$ref.code.text',                                                          nameSuffix: ' CodeText',  color: '#37474F' },
   { labelKey: 'codeValue',   template: 'FHIRHelpers.ToConcept($ref.code)',                                        nameSuffix: ' Code',      color: '#455A64' },
