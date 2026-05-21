@@ -12,6 +12,16 @@ export function getDefaultMeasurePeriod() {
   }
 }
 
+/**
+ * Returns true when both dates are non-empty and `dateFrom > dateTo` in
+ * lexicographic ISO order (`YYYY-MM-DD`). Used by date-range form fields to
+ * flag reversed input before submit.
+ */
+export function isDateRangeReversed(dateFrom: string, dateTo: string): boolean {
+  if (!dateFrom || !dateTo) return false
+  return dateFrom > dateTo
+}
+
 /** Returns default comparison periods: H1 vs H2 of the current year */
 export function getDefaultComparisonPeriods() {
   const year = new Date().getFullYear()

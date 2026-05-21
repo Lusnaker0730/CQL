@@ -33,7 +33,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     public enum RateTier {
-        TRANSLATE, EXECUTE, FIX_SUGGESTION, LIBRARY_READ, AUTH, CDS_INVOKE, DEFAULT
+        TRANSLATE, EXECUTE, FIX_SUGGESTION, LIBRARY_READ, AUTH, CDS_INVOKE, CDS_DISCOVERY, DEFAULT
     }
 
     @Override
@@ -97,6 +97,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
             if (path.startsWith("/cds-services/") && "POST".equalsIgnoreCase(method)) {
                 return RateTier.CDS_INVOKE;
             }
+            // Discovery endpoint is unauthenticated per CDS Hooks spec. Lower rate
+            // limit than DEFAULT tier so drive-by enumeration — attacker listing
+            // the full set of enabled services to plan targeted attacks — becomes
+            // expensive without breaking legitimate EHR bootstrap traffic.
+            // Matches both /cds-services and /cds-services/ (with or without slash).
+            if (("/cds-services".equals(path) || "/cds-services/".equals(path))
+                    && "GET".equalsIgnoreCase(method)) {
+                return RateTier.CDS_DISCOVERY;
+            }
         }
         if ("POST".equalsIgnoreCase(method)) {
             if ("/api/cql/translate".equals(path)) return RateTier.TRANSLATE;
@@ -117,6 +126,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             case LIBRARY_READ -> props.getLibraryReadRpm();
             case AUTH -> props.getAuthRpm();
             case CDS_INVOKE -> props.getCdsInvokeRpm();
+            case CDS_DISCOVERY -> props.getCdsDiscoveryRpm();
             case DEFAULT -> props.getRequestsPerMinute();
         };
     }

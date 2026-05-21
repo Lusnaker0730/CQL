@@ -24,6 +24,7 @@ public class RateLimitProperties {
     private int libraryReadRpm = 120;
     private int authRpm = 10;
     private int cdsInvokeRpm = 10;
+    private int cdsDiscoveryRpm = 20;
 
     // Per-user limits (RPM)
     private boolean userLimitEnabled = true;
