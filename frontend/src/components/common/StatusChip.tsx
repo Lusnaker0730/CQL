@@ -1,11 +1,11 @@
 import { memo } from 'react'
 import { Chip, type ChipProps } from '@mui/material'
-import {
-  CheckCircle as ActiveIcon,
-  Edit as DraftIcon,
-  Archive as RetiredIcon,
-  RateReview as ReviewIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import ActiveIcon from '@mui/icons-material/CheckCircle'
+import DraftIcon from '@mui/icons-material/Edit'
+import RetiredIcon from '@mui/icons-material/Archive'
+import ReviewIcon from '@mui/icons-material/RateReview'
 import { useTranslation } from 'react-i18next'
 
 const STATUS_CONFIG: Record<string, { color: ChipProps['color']; icon: React.ReactElement; labelKey: string }> = {

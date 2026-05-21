@@ -180,7 +180,9 @@
     "searchLibraries": "搜尋函式庫",
     "searchPlaceholder": "依名稱搜尋...",
     "noLibraries": "未找到函式庫。",
-    "loading": "正在載入函式庫..."
+    "loading": "正在載入函式庫...",
+    "loadFailed": "函式庫載入失敗 — 可能已被刪除",
+    "searchFailed": "搜尋函式庫失敗 — 請稍後再試"
   },
   "fhirServerUrl": {
     "label": "FHIR 伺服器 URL"

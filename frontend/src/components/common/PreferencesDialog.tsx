@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -22,7 +22,12 @@ import {
   Chip,
   Alert,
 } from '@mui/material'
-import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
+import CheckCircle from '@mui/icons-material/CheckCircle'
+import Cancel from '@mui/icons-material/Cancel'
 import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
 import { usePreferences } from '../../hooks/usePreferences'
@@ -51,19 +56,41 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
   const [aiSaving, setAiSaving] = useState(false)
   const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Guards post-await setState calls when the user closes the dialog mid-flight
+  // (PAT-133 P1). Combined with the isAdmin gate below so non-admins don't even
+  // attempt the ADMIN-only fetches.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
   // /api/settings/{vsac-status,ai-status} are ADMIN-only (SettingsController
   // PAT-145). Skip the calls entirely for non-admins so opening Preferences
-  // doesn't surface a 403 in the network panel for the operator-only fields.
+  // doesn't surface a 403 in the network panel for the operator-only fields
+  // (BUG-117 follow-up).
   const isAdmin = useSelector((state: RootState) => state.auth.user?.role === 'ADMIN')
 
   useEffect(() => {
     if (open && isAdmin) {
       settingsApi.getVsacStatus()
-        .then(setVsacStatus)
-        .catch(() => setVsacStatus(null))
+        .then((s) => isMountedRef.current && setVsacStatus(s))
+        .catch(() => isMountedRef.current && setVsacStatus(null))
       settingsApi.getAiStatus()
-        .then(setAiStatus)
-        .catch(() => setAiStatus(null))
+        .then((s) => isMountedRef.current && setAiStatus(s))
+        .catch(() => isMountedRef.current && setAiStatus(null))
+    } else {
+      // Clear typed-but-not-saved API keys when the dialog closes so they
+      // don't survive into the next session — important on shared workstations
+      // and to make the show/hide toggle a one-shot rather than persistent.
+      setVsacApiKey('')
+      setAiApiKey('')
+      setVsacMessage(null)
+      setAiMessage(null)
+      setShowApiKey(false)
+      setShowAiApiKey(false)
     }
   }, [open, isAdmin])
 
@@ -72,13 +99,15 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
     setVsacMessage(null)
     try {
       const result = await settingsApi.updateVsacApiKey(vsacApiKey)
+      if (!isMountedRef.current) return
       setVsacStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
       setVsacApiKey('')
       setVsacMessage({ type: 'success', text: t('preferences.vsacKeySaved') })
     } catch {
+      if (!isMountedRef.current) return
       setVsacMessage({ type: 'error', text: t('preferences.vsacKeySaveFailed') })
     } finally {
-      setVsacSaving(false)
+      if (isMountedRef.current) setVsacSaving(false)
     }
   }
 
@@ -87,13 +116,15 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
     setAiMessage(null)
     try {
       const result = await settingsApi.updateAiApiKey(aiApiKey)
+      if (!isMountedRef.current) return
       setAiStatus((prev) => prev ? { ...prev, configured: result.configured } : null)
       setAiApiKey('')
       setAiMessage({ type: 'success', text: t('preferences.aiKeySaved') })
     } catch {
+      if (!isMountedRef.current) return
       setAiMessage({ type: 'error', text: t('preferences.aiKeySaveFailed') })
     } finally {
-      setAiSaving(false)
+      if (isMountedRef.current) setAiSaving(false)
     }
   }
 
@@ -129,7 +160,7 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
             <InputLabel>{t('preferences.tabSize')}</InputLabel>
             <Select
               value={preferences.editorTabSize}
-              onChange={(e) => updatePreferences({ editorTabSize: e.target.value as number })}
+              onChange={(e) => updatePreferences({ editorTabSize: Number(e.target.value) })}
               label={t('preferences.tabSize')}
             >
               <MenuItem value={2}>{t('preferences.tabSizeSpaces', { count: 2 })}</MenuItem>

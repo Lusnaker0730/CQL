@@ -180,7 +180,9 @@
     "searchLibraries": "Search Libraries",
     "searchPlaceholder": "Search by name...",
     "noLibraries": "No libraries found.",
-    "loading": "Loading library..."
+    "loading": "Loading library...",
+    "loadFailed": "Failed to load library — it may have been deleted",
+    "searchFailed": "Library search failed — please try again"
   },
   "fhirServerUrl": {
     "label": "FHIR Server URL"

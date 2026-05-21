@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,14 +17,15 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material'
-import {
-  Star as StarIcon,
-  History as HistoryIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import StarIcon from '@mui/icons-material/Star'
+import HistoryIcon from '@mui/icons-material/History'
+import SearchIcon from '@mui/icons-material/Search'
 import { useQuery } from '@tanstack/react-query'
 import { cqlApi } from '../../api'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
+import { useNotification } from '../../hooks/useNotification'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import { STALE_30S } from '../../constants/queryConstants'
 
@@ -35,17 +37,32 @@ interface LibraryPickerProps {
 
 export default function LibraryPicker({ open, onClose, onSelect }: LibraryPickerProps) {
   const { t } = useTranslation('editor')
+  const { showNotification } = useNotification()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const { favoritesList, recentList } = useLibraryHistory()
+
+  // Guards post-await setState calls when the user closes the dialog mid-flight.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  // Race-guard: only the most-recent click should dispatch onSelect. Without
+  // this, a user clicking library A then quickly switching to B can have A's
+  // (slower) response win and silently overwrite the editor with the wrong CQL.
+  const requestTokenRef = useRef(0)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_GENERAL_MS)
     return () => clearTimeout(timer)
   }, [search])
 
-  const { data: searchResults = [], isFetching } = useQuery({
+  const { data: searchResults = [], isFetching, isError: searchError } = useQuery({
     queryKey: ['library-search', debouncedSearch],
     queryFn: () => cqlApi.getLibraries(debouncedSearch || undefined),
     enabled: debouncedSearch.length > 0,
@@ -53,15 +70,23 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
   })
 
   const handleSelect = async (libraryId: string) => {
+    const token = ++requestTokenRef.current
     setLoading(true)
     try {
       const library = await cqlApi.getLibrary(libraryId)
+      // Stale response from a superseded click — drop it silently.
+      if (token !== requestTokenRef.current) return
+      if (!isMountedRef.current) return
       onSelect(library.cqlContent)
       onClose()
     } catch {
-      // Library may no longer exist
+      if (token !== requestTokenRef.current) return
+      if (!isMountedRef.current) return
+      showNotification(t('libraryPicker.loadFailed'), 'error')
     } finally {
-      setLoading(false)
+      if (token === requestTokenRef.current && isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -144,6 +169,9 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} /> }}
           />
           {isFetching && <CircularProgress size={20} />}
+          {searchError && (
+            <Alert severity="error">{t('libraryPicker.searchFailed')}</Alert>
+          )}
           {debouncedSearch.length > 0 && searchResults.length > 0 && (
             <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
               {searchResults.map((lib) => (

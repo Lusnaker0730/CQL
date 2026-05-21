@@ -62,10 +62,13 @@ export default function VersionCheckProvider({ children }: Props) {
 
     if (currentKey !== initialKeyRef.current && !hasNotifiedRef.current) {
       hasNotifiedRef.current = true
-      // Invalidate all server-state queries so the next mount / focus fetches fresh.
-      // Don't force-reload — user may have unsaved work. They'll see up-to-date data
-      // as they navigate, and the toast tells them a refresh gets the new UI.
-      queryClient.invalidateQueries()
+      // Mark every cached query as stale so the next mount / window-focus
+      // re-fetches fresh data. Crucially we use `refetchType: 'none'` so the
+      // currently-mounted active queries do NOT all re-fetch at once — that
+      // bunched up to 50+ concurrent requests against a freshly-restarted
+      // backend that's still warming up. The user navigating around naturally
+      // remounts queries; the toast tells them a refresh gets the new UI.
+      queryClient.invalidateQueries({ refetchType: 'none' })
       showNotification(t('versionCheck.newVersionAvailable'), 'info', 10000)
     }
   }, [data, queryClient, showNotification, t])

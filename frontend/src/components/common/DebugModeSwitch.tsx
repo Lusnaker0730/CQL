@@ -1,5 +1,7 @@
 import { FormControlLabel, Switch, Stack, Typography } from '@mui/material'
-import { BugReport as DebugIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import DebugIcon from '@mui/icons-material/BugReport'
 
 interface DebugModeSwitchProps {
   checked: boolean

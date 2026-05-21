@@ -7,7 +7,9 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material'
-import { Delete as DeleteIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import DeleteIcon from '@mui/icons-material/Delete'
 import { useTranslation } from 'react-i18next'
 
 interface ConfirmDeleteDialogProps {

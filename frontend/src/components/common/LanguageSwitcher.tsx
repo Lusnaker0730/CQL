@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { Translate as TranslateIcon, Check as CheckIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import TranslateIcon from '@mui/icons-material/Translate'
+import CheckIcon from '@mui/icons-material/Check'
 import { useTranslation } from 'react-i18next'
 
 const LANGUAGES = [
