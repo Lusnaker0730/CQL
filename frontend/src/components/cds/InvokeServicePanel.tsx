@@ -316,8 +316,12 @@ export default function InvokeServicePanel() {
   return (
     <Stack spacing={2}>
       <FormControl fullWidth size="small">
-        <InputLabel>{t('invoke.serviceLabel')}</InputLabel>
-        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
+        {/* Explicit id/labelId so React Testing Library's getByLabelText can
+            resolve the Select via its associated InputLabel. MUI's auto-
+            generated ids work in production but jsdom tests can't follow
+            them reliably. */}
+        <InputLabel id="invoke-service-label">{t('invoke.serviceLabel')}</InputLabel>
+        <Select labelId="invoke-service-label" value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
           {services.map((service: CdsServiceDefinition) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
