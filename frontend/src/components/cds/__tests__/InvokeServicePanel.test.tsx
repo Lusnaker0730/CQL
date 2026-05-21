@@ -85,16 +85,18 @@ const criticalResponse: CdsResponse = {
 }
 
 async function selectServiceAndInvoke() {
-  // Open the service select
-  const select = screen.getByLabelText('invoke.serviceLabel')
+  // Open the service select. getByLabelText on a MUI Select returns the
+  // hidden <input> (which doesn't respond to mouseDown); use the visible
+  // combobox role with the same accessible name instead.
+  const select = screen.getByRole('combobox', { name: 'invoke.serviceLabel' })
   fireEvent.mouseDown(select)
   const item = await screen.findByText(/Test Service/)
   fireEvent.click(item)
 
-  // Provide required context fields (patient-view requires userId + patientId)
-  fireEvent.change(screen.getByLabelText('sandbox.userIdLabel'), {
-    target: { value: 'Practitioner/1' },
-  })
+  // Provide required context fields (patient-view requires userId + patientId).
+  // Wait for the conditional fields to render after selectedHook propagates.
+  const userInput = await screen.findByLabelText('sandbox.userIdLabel')
+  fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
   fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
     target: { value: 'Patient/1' },
   })
