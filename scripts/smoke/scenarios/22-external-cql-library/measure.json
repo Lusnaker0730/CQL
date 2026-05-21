@@ -1,0 +1,84 @@
+{
+  "name": "SmokeExternalCqlLibraryInclude",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — measure that `include`s an external CQL library and uses its defines as IP and Numerator. Locks the DatabaseLibrarySourceProvider integration path (BUG-107 family) end-to-end through publish + evaluate.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "External CQL library include path",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "ExtRefIp",
+              "name": "External IsAdult",
+              "type": "externalCqlRef",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "library_name", "type": "string", "value": "SmokeExternalUtil"},
+                {"id": "library_version", "type": "string", "value": "1.0.0"},
+                {"id": "reference_id", "type": "string", "value": "SmokeExternalUtil:IsAdultAtPeriodEnd"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "denominator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "At least 50"},
+                {"id": "min_age", "type": "string", "value": "50"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "numerator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "ExtRefNumer",
+              "name": "External IsSenior",
+              "type": "externalCqlRef",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "library_name", "type": "string", "value": "SmokeExternalUtil"},
+                {"id": "library_version", "type": "string", "value": "1.0.0"},
+                {"id": "reference_id", "type": "string", "value": "SmokeExternalUtil:IsSeniorAtPeriodEnd"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

@@ -25,6 +25,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
   const [cqlInput, setCqlInput] = useState('')
   const [importResult, setImportResult] = useState<CqlImportResult | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const importMutation = useImportCql()
@@ -41,6 +42,15 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Clamp uploads — CQL libraries are normally well under 1MB; rejecting
+      // bigger files protects the FileReader and parser from runaway inputs.
+      const MAX_BYTES = 5 * 1024 * 1024
+      if (file.size > MAX_BYTES) {
+        setUploadError(t('importCql.fileTooLarge', { limit: '5MB' }))
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+      setUploadError(null)
       const reader = new FileReader()
       reader.onload = (ev) => {
         const content = ev.target?.result as string
@@ -99,7 +109,7 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
         name: importResult.name,
         version: importResult.version,
         fhirVersion: importResult.fhirVersion,
-        description: `Imported from CQL: ${importResult.name}`,
+        description: t('importCql.descriptionDefault', { name: importResult.name }),
         parameters: parameters.length > 0 ? parameters : undefined,
       },
       {
@@ -214,6 +224,10 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                 onChange={handleFileUpload}
               />
 
+              {uploadError && (
+                <Alert severity="error" sx={{ mb: 1 }}>{uploadError}</Alert>
+              )}
+
               <TextField
                 label={t('importCql.cqlSourceLabel')}
                 value={cqlInput}
@@ -253,9 +267,9 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
               </Alert>
 
               <Stack direction="row" spacing={2} flexWrap="wrap">
-                <Chip label={`Library: ${importResult.name}`} />
-                <Chip label={`Version: ${importResult.version}`} variant="outlined" />
-                <Chip label={`FHIR: ${importResult.fhirVersion}`} variant="outlined" />
+                <Chip label={t('importCql.libraryChip', { name: importResult.name })} />
+                <Chip label={t('importCql.versionChip', { version: importResult.version })} variant="outlined" />
+                <Chip label={t('importCql.fhirChip', { version: importResult.fhirVersion })} variant="outlined" />
               </Stack>
 
               {importResult.errors && importResult.errors.length > 0 && (

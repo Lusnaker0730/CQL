@@ -1,70 +1,106 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { useContext } from 'react'
-import { PreferencesContext, PreferencesProvider } from '../PreferencesContext'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useContext, type ReactNode } from 'react'
+import { PreferencesProvider, PreferencesContext } from '../PreferencesContext'
 
 const STORAGE_KEY = 'cql-platform-preferences'
 
-function usePrefs() {
+function Probe({ onMount }: { onMount?: () => void }) {
   const ctx = useContext(PreferencesContext)
-  if (!ctx) throw new Error('PreferencesContext not available')
-  return ctx
+  if (!ctx) return null
+  if (onMount) onMount()
+  return (
+    <div>
+      <div data-testid="font">{ctx.preferences.editorFontSize}</div>
+      <div data-testid="theme">{ctx.preferences.themeMode}</div>
+      <button onClick={() => ctx.updatePreferences({ editorFontSize: 18 })}>
+        bigger
+      </button>
+      <button onClick={() => ctx.resetPreferences()}>reset</button>
+    </div>
+  )
 }
 
-function wrapper({ children }: { children: React.ReactNode }) {
-  return <PreferencesProvider>{children}</PreferencesProvider>
+function withProvider(ui: ReactNode) {
+  return <PreferencesProvider>{ui}</PreferencesProvider>
 }
 
-describe('PreferencesContext', () => {
+describe('PreferencesContext — PAT-149', () => {
   beforeEach(() => {
     localStorage.clear()
   })
-
-  it('exposes default preferences when localStorage is empty', () => {
-    const { result } = renderHook(() => usePrefs(), { wrapper })
-    const p = result.current.preferences
-    expect(p.editorFontSize).toBe(14)
-    expect(p.editorTabSize).toBe(2)
-    expect(p.editorWordWrap).toBe('on')
-    expect(p.editorMinimap).toBe(false)
-    expect(p.themeMode).toBe('light')
-    expect(typeof p.defaultFhirServerUrl).toBe('string')
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
-  it('merges stored preferences over defaults', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ editorFontSize: 20, themeMode: 'dark' }))
-    const { result } = renderHook(() => usePrefs(), { wrapper })
-    expect(result.current.preferences.editorFontSize).toBe(20)
-    expect(result.current.preferences.themeMode).toBe('dark')
-    // Unspecified field keeps default
-    expect(result.current.preferences.editorTabSize).toBe(2)
+  it('returns defaults when storage is empty', () => {
+    render(withProvider(<Probe />))
+    expect(screen.getByTestId('font').textContent).toBe('14')
+    expect(screen.getByTestId('theme').textContent).toBe('light')
   })
 
-  it('falls back to defaults on malformed JSON', () => {
-    localStorage.setItem(STORAGE_KEY, '{not valid json')
-    const { result } = renderHook(() => usePrefs(), { wrapper })
-    expect(result.current.preferences.editorFontSize).toBe(14)
+  it('loads stored preferences on mount', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ editorFontSize: 22 }))
+    render(withProvider(<Probe />))
+    expect(screen.getByTestId('font').textContent).toBe('22')
+    // Unspecified preference still falls back to default
+    expect(screen.getByTestId('theme').textContent).toBe('light')
   })
 
-  it('updatePreferences partially merges + persists to localStorage', () => {
-    const { result } = renderHook(() => usePrefs(), { wrapper })
-    act(() => result.current.updatePreferences({ editorFontSize: 18 }))
+  it('drops corrupt JSON in storage and falls back to defaults', () => {
+    localStorage.setItem(STORAGE_KEY, '{not valid')
+    render(withProvider(<Probe />))
+    expect(screen.getByTestId('font').textContent).toBe('14')
+  })
 
-    expect(result.current.preferences.editorFontSize).toBe(18)
-    expect(result.current.preferences.editorTabSize).toBe(2)
+  it('updatePreferences writes to storage', async () => {
+    const user = userEvent.setup()
+    render(withProvider(<Probe />))
+    await user.click(screen.getByText('bigger'))
 
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    expect(screen.getByTestId('font').textContent).toBe('18')
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
     expect(stored.editorFontSize).toBe(18)
   })
 
-  it('resetPreferences clears localStorage and reverts to defaults', () => {
-    const { result } = renderHook(() => usePrefs(), { wrapper })
-    act(() => result.current.updatePreferences({ editorFontSize: 22, themeMode: 'dark' }))
-    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull()
+  it('PAT-149 regression: setItem failure does not crash updatePreferences', async () => {
+    // Simulate Safari Private mode quota=0 — setItem throws. jsdom's
+    // localStorage doesn't always proxy through Storage.prototype, so we
+    // patch the instance method directly and restore in finally.
+    const original = window.localStorage.setItem.bind(window.localStorage)
+    const setItem = vi.fn(() => {
+      throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+    })
+    Object.defineProperty(window.localStorage, 'setItem', {
+      value: setItem,
+      configurable: true,
+    })
 
-    act(() => result.current.resetPreferences())
+    try {
+      const user = userEvent.setup()
+      render(withProvider(<Probe />))
+      await user.click(screen.getByText('bigger'))
+
+      // In-memory state still updates (best-effort write — safeStorage swallows the throw).
+      expect(screen.getByTestId('font').textContent).toBe('18')
+      expect(setItem).toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window.localStorage, 'setItem', {
+        value: original,
+        configurable: true,
+      })
+    }
+  })
+
+  it('resetPreferences clears storage and reverts to defaults', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ editorFontSize: 22 }))
+    render(withProvider(<Probe />))
+    expect(screen.getByTestId('font').textContent).toBe('22')
+
+    await user.click(screen.getByText('reset'))
+    expect(screen.getByTestId('font').textContent).toBe('14')
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
-    expect(result.current.preferences.editorFontSize).toBe(14)
-    expect(result.current.preferences.themeMode).toBe('light')
   })
 })

@@ -1,0 +1,13 @@
+# robots.txt for twcql.com
+# Default-allow all user agents. Sitemap declared below so crawlers can
+# find the canonical URL list without relying solely on Search Console
+# submission. Auth-gated app paths (/authoring, /ecqm, /cds, /measures,
+# /fhir, /terminology, /patient-generator, /admin/*) aren't explicitly
+# disallowed because there's no real content at those URLs for an
+# unauthenticated crawler anyway; blocking them would just noise up
+# the robots.txt without changing crawl behavior.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://twcql.com/sitemap.xml

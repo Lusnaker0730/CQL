@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ExpressionCqlEngineTest {
 
@@ -14,7 +15,7 @@ class ExpressionCqlEngineTest {
 
     ExpressionCqlEngineTest() {
         templateEngine = new CqlTemplateEngine();
-        engine = new ExpressionCqlEngine(templateEngine, null);
+        engine = new ExpressionCqlEngine(templateEngine, null, new CustomModifierCqlBuilder());
     }
 
     // ===== Helpers =====
@@ -305,10 +306,10 @@ class ExpressionCqlEngineTest {
 
     @Test
     void applyModifier_duringMeasurementPeriod_observation() {
-        // Real ModifierService so the DuringMeasurementPeriod catalog (resourceAlias + whereClause) resolves.
+        // Real ModifierService so the DuringMeasurementPeriod catalog (resourceAlias + dateFieldSpec) resolves.
         ModifierService modSvc = new ModifierService();
         modSvc.init();
-        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc, new CustomModifierCqlBuilder());
         BuildContext ctx = new BuildContext(null, null);
 
         Map<String, Object> mod = new LinkedHashMap<>();
@@ -328,7 +329,7 @@ class ExpressionCqlEngineTest {
     void applyModifier_duringMeasurementPeriod_encounter() {
         ModifierService modSvc = new ModifierService();
         modSvc.init();
-        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc, new CustomModifierCqlBuilder());
         BuildContext ctx = new BuildContext(null, null);
 
         Map<String, Object> mod = new LinkedHashMap<>();
@@ -337,15 +338,17 @@ class ExpressionCqlEngineTest {
 
         String out = eng.applyModifier("[Encounter]", mod, ctx);
 
+        // Encounter.period is a non-choice Period field; generator emits the compact
+        // `case when X is null then false else ... end` form (null-dispatch-safe by construction).
         assertThat(out).contains("([Encounter]) E")
-                .contains("E.period is not null and FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\"");
+                .contains("case when E.period is null then false else FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\" end");
     }
 
     @Test
     void applyModifier_duringMeasurementPeriod_unknownIdWarns() {
         ModifierService modSvc = new ModifierService();
         modSvc.init();
-        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc);
+        ExpressionCqlEngine eng = new ExpressionCqlEngine(templateEngine, modSvc, new CustomModifierCqlBuilder());
         BuildContext ctx = new BuildContext(null, null);
 
         Map<String, Object> mod = new LinkedHashMap<>();
@@ -551,5 +554,682 @@ class ExpressionCqlEngineTest {
         element.put("modifiers", List.of(existsMod));
         String result = engine.buildExpression(element, ctx);
         assertThat(result).isEqualTo("exists([Observation: \"Blood Pressure\"])");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // classifyListBehavior — declarative replacement for the old string-match heuristic
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void classifyListBehavior_listReturnType_isPreservesList() {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "list_of_observations");
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("preserves-list");
+    }
+
+    @Test
+    void classifyListBehavior_systemReturnType_isExtractsValue() {
+        // This is the invariant that fixes the C3F.AverageObservation bug — a modifier whose
+        // returnType is system_quantity now correctly maps to extracts-value regardless of
+        // whether its cqlLibraryFunction contains any specific substring.
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "system_quantity");
+        mod.put("cqlLibraryFunction", "C3F.AverageObservation");  // the old heuristic missed this
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("extracts-value");
+    }
+
+    @Test
+    void classifyListBehavior_singleResourceReturnType_isCollapsesList() {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "observation");
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("collapses-list");
+    }
+
+    @Test
+    void classifyListBehavior_explicitOverride_winsOverInference() {
+        // Escape hatch: explicit listBehavior in the catalog always beats returnType inference.
+        Map<String, Object> mod = new LinkedHashMap<>();
+        mod.put("returnType", "list_of_observations");  // would infer preserves-list
+        mod.put("listBehavior", "collapses-list");       // but we explicitly say collapses
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("collapses-list");
+    }
+
+    @Test
+    void classifyListBehavior_missingReturnType_defaultsToPreservesList() {
+        Map<String, Object> mod = new LinkedHashMap<>();
+        assertThat(engine.classifyListBehavior(mod)).isEqualTo("preserves-list");
+    }
+
+    @Test
+    void cvMeasurePopulation_skippedModifierSurfacesUserWarning() {
+        // Invariant under test: when preserveListReturn skips a list-collapsing or
+        // value-extracting modifier, the skip is NOT silent — ctx.warnings captures
+        // a human-readable explanation that the frontend CQL preview panel surfaces.
+        BuildContext ctx = new BuildContext(null, null);
+
+        Map<String, Object> element = new LinkedHashMap<>();
+        element.put("id", "GenericObservation_vsac");
+        element.put("name", "Observation");
+        element.put("type", "GenericObservation_vsac");
+        element.put("returnType", "list_of_observations");
+        element.put("fields", List.of(Map.of("id", "element_name", "type", "string", "value", "x")));
+
+        Map<String, Object> mostRecentMod = new LinkedHashMap<>();
+        mostRecentMod.put("id", "MostRecentObservation");
+        mostRecentMod.put("name", "Most Recent");
+        mostRecentMod.put("returnType", "observation");  // single resource → collapses-list
+        mostRecentMod.put("cqlTemplate", "BaseModifier");
+        mostRecentMod.put("cqlLibraryFunction", "C3F.MostRecent");
+        element.put("modifiers", List.of(mostRecentMod));
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation",
+                () -> engine.buildExpression(element, ctx));
+
+        assertThat(ctx.warnings).anyMatch(w ->
+                w.contains("Most Recent") && w.contains("Measure Population") && w.contains("collapses-list"));
+    }
+
+    @Test
+    void withRenderMode_shouldRestoreModeAfterBody() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            assertThat(ctx.episodeResourceType).isEqualTo("Observation");
+            return null;
+        });
+
+        // Outer scope restored
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+        assertThat(ctx.episodeResourceType).isNull();
+    }
+
+    @Test
+    void withRenderMode_shouldRestoreEvenIfBodyThrows() {
+        BuildContext ctx = new BuildContext(null, null);
+
+        assertThatThrownBy(() -> ctx.withRenderMode(
+                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Encounter", () -> {
+                    throw new RuntimeException("boom");
+                })).hasMessage("boom");
+
+        // Mode restored despite exception — this is what makes withRenderMode safer than
+        // manual flag flipping (which would leak state on exception)
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+        assertThat(ctx.episodeResourceType).isNull();
+    }
+
+    @Test
+    void withRenderMode_shouldNestAndRestoreInnerModeOnly() {
+        BuildContext ctx = new BuildContext(null, null);
+
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
+            ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER, () -> {
+                assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER);
+                assertThat(ctx.episodeResourceType).isEqualTo("Observation"); // inherited via overload
+                return null;
+            });
+            // Inner restored to outer's CV_MEASURE_POPULATION
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            assertThat(ctx.episodeResourceType).isEqualTo("Observation");
+            return null;
+        });
+
+        assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
+    }
+
+    // ===== PAT-161: arithmeticExpression operator + Quantity literal extensions =====
+
+    private Map<String, Object> arithmeticElement(String name, String operator,
+                                                  List<Map<String, Object>> fields) {
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "arith_" + name);
+        el.put("uniqueId", "arith_" + name);
+        el.put("name", name);
+        el.put("type", "arithmeticExpression");
+        el.put("returnType", "decimal");
+        List<Map<String, Object>> allFields = new ArrayList<>();
+        allFields.add(Map.of("id", "operator", "type", "string", "name", "operator", "value", operator));
+        allFields.addAll(fields);
+        el.put("fields", allFields);
+        return el;
+    }
+
+    private Map<String, Object> field(String id, String value) {
+        return Map.of("id", id, "type", "string", "name", id, "value", value);
+    }
+
+    @Test
+    void arithmetic_modOperator_emitsModKeyword() {
+        Map<String, Object> el = arithmeticElement("DoseInterval", "mod", List.of(
+                field("left_mode", "literal"), field("left_literal", "5"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("5 mod 2");
+    }
+
+    @Test
+    void arithmetic_divOperator_emitsDivKeyword() {
+        Map<String, Object> el = arithmeticElement("Quotient", "div", List.of(
+                field("left_mode", "literal"), field("left_literal", "10"),
+                field("right_mode", "literal"), field("right_literal", "3")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("10 div 3");
+    }
+
+    @Test
+    void arithmetic_powerOperator_emitsCaret() {
+        Map<String, Object> el = arithmeticElement("Squared", "^", List.of(
+                field("left_mode", "literal"), field("left_literal", "2"),
+                field("right_mode", "literal"), field("right_literal", "3")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("2 ^ 3");
+    }
+
+    @Test
+    void arithmetic_quantityLiteral_emitsValueAndUnit() {
+        Map<String, Object> el = arithmeticElement("DoseMinusBuffer", "-", List.of(
+                field("left_mode", "literal"), field("left_literal", "50"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg/dL")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("50 - 5 'mg/dL'");
+    }
+
+    @Test
+    void arithmetic_quantityWithSingleQuoteInUnit_isFiltered() {
+        // Unit contains a single quote — would terminate the CQL Quantity literal
+        // early. Allow-list rejects it; operand is null; whole expression resolves
+        // to the "unresolved" fallback, which keeps the emitted CQL parseable.
+        Map<String, Object> el = arithmeticElement("BadUnit", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg' OR '1")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_quantityWithBackslashInUnit_isFiltered() {
+        Map<String, Object> el = arithmeticElement("BadUnit", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg\\inj")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_quantityWithNonNumericValue_isFiltered() {
+        Map<String, Object> el = arithmeticElement("BadValue", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "abc"), field("right_literal_unit", "mg")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_quantityWithSpaceInUnit_isFiltered() {
+        // UCUM units are space-free; whitespace in unit indicates user typo or
+        // injection attempt — fail safe.
+        Map<String, Object> el = arithmeticElement("BadUnit", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "quantity"),
+                field("right_literal_value", "5"), field("right_literal_unit", "mg dL")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void arithmetic_invalidOperator_fallsBackToPlus() {
+        // Regression: PAT-159-era safety net. Anything outside the allow-list
+        // becomes "+", never reaches CQL.
+        Map<String, Object> el = arithmeticElement("Evil", "; DROP TABLE", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("1 + 2");
+    }
+
+    @Test
+    void arithmetic_legacyArtifactWithoutMode_defaultsToElement() {
+        // Regression: artifacts saved before mode-tracking existed have no
+        // `<side>_mode` field. Default must remain "element" — the rest of the
+        // pipeline depends on operand_id resolution there.
+        Map<String, Object> referencedElement = new LinkedHashMap<>();
+        referencedElement.put("uniqueId", "be_weight");
+        referencedElement.put("name", "Weight");
+        BuildContext ctx = new BuildContext(List.of(referencedElement), null);
+        Map<String, Object> el = arithmeticElement("Legacy", "+", List.of(
+                // No left_mode/right_mode — should still resolve via element ref
+                field("left_operand_id", "be_weight"),
+                field("right_operand_id", "be_weight")));
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).isEqualTo("\"Weight\" + \"Weight\"");
+    }
+
+    // ===== PAT-162: arithmeticUnary (Abs/Floor/Ceiling/Round/Truncate/Negate) =====
+
+    private Map<String, Object> unaryElement(String name, String function,
+                                             List<Map<String, Object>> fields) {
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "unary_" + name);
+        el.put("uniqueId", "unary_" + name);
+        el.put("name", name);
+        el.put("type", "arithmeticUnary");
+        el.put("returnType", "decimal");
+        List<Map<String, Object>> allFields = new ArrayList<>();
+        allFields.add(Map.of("id", "function", "type", "string", "name", "function", "value", function));
+        allFields.addAll(fields);
+        el.put("fields", allFields);
+        return el;
+    }
+
+    @Test
+    void unary_absFunction_emitsAbsCall() {
+        Map<String, Object> el = unaryElement("Diff", "Abs", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "-5")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Abs(-5)");
+    }
+
+    @Test
+    void unary_floorFunction_emitsFloorCall() {
+        Map<String, Object> el = unaryElement("RoundDown", "Floor", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.7")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Floor(3.7)");
+    }
+
+    @Test
+    void unary_ceilingFunction_emitsCeilingCall() {
+        Map<String, Object> el = unaryElement("RoundUp", "Ceiling", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Ceiling(3.2)");
+    }
+
+    @Test
+    void unary_roundFunction_emitsRoundCall() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.5")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.5)");
+    }
+
+    @Test
+    void unary_truncateFunction_emitsTruncateCall() {
+        Map<String, Object> el = unaryElement("Truncated", "Truncate", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.9")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Truncate(3.9)");
+    }
+
+    @Test
+    void unary_negateFunction_emitsNegateCall() {
+        Map<String, Object> el = unaryElement("Negated", "Negate", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "10")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Negate(10)");
+    }
+
+    @Test
+    void unary_quantityOperand_emitsQuantity() {
+        Map<String, Object> el = unaryElement("FloorYears", "Floor", List.of(
+                field("operand_mode", "quantity"),
+                field("operand_literal_value", "5.7"),
+                field("operand_literal_unit", "a")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Floor(5.7 'a')");
+    }
+
+    @Test
+    void unary_elementReferenceOperand_emitsEscapedIdentifier() {
+        Map<String, Object> referenced = new LinkedHashMap<>();
+        referenced.put("uniqueId", "be_egfr");
+        referenced.put("name", "eGFR");
+        BuildContext ctx = new BuildContext(List.of(referenced), null);
+        Map<String, Object> el = unaryElement("RoundedEgfr", "Round", List.of(
+                field("operand_mode", "element"),
+                field("operand_id", "be_egfr")));
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).isEqualTo("Round(\"eGFR\")");
+    }
+
+    @Test
+    void unary_invalidFunction_fallsBackToAbs() {
+        // Regression: anything outside UNARY_FUNCTIONS set becomes "Abs",
+        // never reaches the emitted CQL.
+        Map<String, Object> el = unaryElement("Evil", "; DROP TABLE", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "5")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Abs(5)");
+    }
+
+    @Test
+    void unary_quantityWithSingleQuoteInUnit_isFiltered() {
+        // Sanity: reuses PAT-161 operand resolver — single quote in unit
+        // makes the operand unresolvable, expression becomes the unresolved
+        // sentinel (callers don't get malformed CQL).
+        Map<String, Object> el = unaryElement("BadUnit", "Abs", List.of(
+                field("operand_mode", "quantity"),
+                field("operand_literal_value", "5"),
+                field("operand_literal_unit", "mg' OR '1")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).startsWith("null /* unresolved unary operand");
+    }
+
+    @Test
+    void unary_missingOperand_emitsUnresolved() {
+        Map<String, Object> el = unaryElement("NoOp", "Abs", List.of(
+                field("operand_mode", "element"),
+                field("operand_id", "")));
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved unary operand");
+        assertThat(ctx.warnings).isNotEmpty();
+    }
+
+    @Test
+    void unary_defaultFunctionWhenMissing_isAbs() {
+        // Regression: if `function` field is missing entirely, fallback to Abs.
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "unary_default");
+        el.put("uniqueId", "unary_default");
+        el.put("name", "Default");
+        el.put("type", "arithmeticUnary");
+        el.put("returnType", "decimal");
+        el.put("fields", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "7")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Abs(7)");
+    }
+
+    // ===== PAT-164: Round(x, precision) optional 2-arg variant =====
+
+    @Test
+    void unary_roundWithPrecision_emitsTwoArg() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14, 2)");
+    }
+
+    @Test
+    void unary_roundWithoutPrecision_emitsOneArg() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_roundWithEmptyPrecision_emitsOneArg() {
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_roundWithBadPrecision_fallsBackToOneArg() {
+        // Non-numeric precision -> regex fails -> falls back to Round(x).
+        // Defense-in-depth against tampered input bypassing the UI validator.
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "; DROP TABLE")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_roundWithNegativePrecision_fallsBackToOneArg() {
+        // ROUND_PRECISION_PATTERN matches only \\d+ (non-negative), so a
+        // leading minus is rejected.
+        Map<String, Object> el = unaryElement("Rounded", "Round", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.14"),
+                field("precision", "-1")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Round(3.14)");
+    }
+
+    @Test
+    void unary_floorIgnoresPrecisionField() {
+        // Precision field only applies to Round; other functions emit as before
+        // even if precision is present (defensive — don't pollute their CQL).
+        Map<String, Object> el = unaryElement("Floored", "Floor", List.of(
+                field("operand_mode", "literal"), field("operand_literal", "3.9"),
+                field("precision", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("Floor(3.9)");
+    }
+
+    // ===== PAT-163: N-ary arithmetic + precedence parens =====
+
+    private Map<String, Object> naryArithmeticElement(String name,
+                                                      List<Map<String, Object>> operands,
+                                                      List<String> operators) {
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("id", "nary_" + name);
+        el.put("uniqueId", "nary_" + name);
+        el.put("name", name);
+        el.put("type", "arithmeticExpression");
+        el.put("returnType", "decimal");
+        List<Map<String, Object>> fields = new ArrayList<>();
+        Map<String, Object> operandsField = new LinkedHashMap<>();
+        operandsField.put("id", "operands");
+        operandsField.put("type", "json");
+        operandsField.put("name", "operands");
+        operandsField.put("value", operands);
+        Map<String, Object> operatorsField = new LinkedHashMap<>();
+        operatorsField.put("id", "operators");
+        operatorsField.put("type", "json");
+        operatorsField.put("name", "operators");
+        operatorsField.put("value", operators);
+        fields.add(operandsField);
+        fields.add(operatorsField);
+        el.put("fields", fields);
+        return el;
+    }
+
+    private Map<String, Object> literalOperand(String value) {
+        Map<String, Object> op = new LinkedHashMap<>();
+        op.put("mode", "literal");
+        op.put("operand_literal", value);
+        return op;
+    }
+
+    private Map<String, Object> elementOperand(String beId) {
+        Map<String, Object> op = new LinkedHashMap<>();
+        op.put("mode", "element");
+        op.put("operand_id", beId);
+        return op;
+    }
+
+    private Map<String, Object> quantityOperand(String value, String unit) {
+        Map<String, Object> op = new LinkedHashMap<>();
+        op.put("mode", "quantity");
+        op.put("operand_literal_value", value);
+        op.put("operand_literal_unit", unit);
+        return op;
+    }
+
+    @Test
+    void nary_2operands_emitsUnchangedFromLegacy2ary() {
+        Map<String, Object> el = naryArithmeticElement("Sum", List.of(
+                literalOperand("3"), literalOperand("4")), List.of("+"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("3 + 4");
+    }
+
+    @Test
+    void nary_3operands_samePrecedence_noParens() {
+        Map<String, Object> el = naryArithmeticElement("Triple", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+", "+"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        // Left-associative grouping, all same precedence -> nested left side
+        // wraps in parens by our rule (any non-trivial subexpr is parenthesized).
+        assertThat(out).isEqualTo("(1 + 2) + 3");
+    }
+
+    @Test
+    void nary_3operands_mixedPrecedence_higherInParens() {
+        // a + b * c -> a + (b * c) since * binds tighter
+        Map<String, Object> el = naryArithmeticElement("Mixed", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+", "*"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("1 + (2 * 3)");
+    }
+
+    @Test
+    void nary_3operands_descendingPrecedence_leftInParens() {
+        // a * b + c -> (a * b) + c
+        Map<String, Object> el = naryArithmeticElement("Mixed2", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("*", "+"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("(1 * 2) + 3");
+    }
+
+    @Test
+    void nary_powerHasHighestPrecedence() {
+        // a + b ^ c -> a + (b ^ c)
+        Map<String, Object> el = naryArithmeticElement("Pow", List.of(
+                literalOperand("2"), literalOperand("3"), literalOperand("4")),
+                List.of("+", "^"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("2 + (3 ^ 4)");
+    }
+
+    @Test
+    void nary_modSamePrecedenceAsMultiply() {
+        // a + b mod c -> a + (b mod c)
+        Map<String, Object> el = naryArithmeticElement("Mod", List.of(
+                literalOperand("10"), literalOperand("7"), literalOperand("3")),
+                List.of("+", "mod"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("10 + (7 mod 3)");
+    }
+
+    @Test
+    void nary_bmiFormula_5operands_mixedPrecedence() {
+        // Health-like: 140 - age * weight / 72 - creatinine
+        // Precedence: - / * - share, but our left-assoc with same-prec wraps left side.
+        // [140, age, weight, 72, creatinine] with [-, *, /, -]
+        // Expected: ((140 - (age * weight) / 72) - creatinine) -- actually it depends
+        // on grouping. Lock concrete output to catch regressions.
+        Map<String, Object> el = naryArithmeticElement("CGc", List.of(
+                literalOperand("140"), literalOperand("70"), literalOperand("80"),
+                literalOperand("72"), literalOperand("1")),
+                List.of("-", "*", "/", "-"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        // The exact form is determined by groupByPrecedence's rightmost-min-prec split.
+        // Document the concrete result as a regression rope.
+        assertThat(out).contains("70 * 80");  // * binds tightest among the inner ops
+        assertThat(out).contains("- 1");      // final - at outer level
+    }
+
+    @Test
+    void nary_legacy2aryFields_stillWorksViaFallback() {
+        // No operands/operators fields -> falls back to PAT-161 path.
+        Map<String, Object> el = arithmeticElement("Legacy", "+", List.of(
+                field("left_mode", "literal"), field("left_literal", "1"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        assertThat(out).isEqualTo("1 + 2");
+    }
+
+    @Test
+    void nary_invalidOperatorInList_fallsBackToPlus() {
+        Map<String, Object> el = naryArithmeticElement("Evil", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+", "; DROP TABLE"));
+        String out = engine.buildExpression(el, new BuildContext(null, null));
+        // Second operator failed allow-list -> + ; same precedence as first +.
+        assertThat(out).isEqualTo("(1 + 2) + 3");
+    }
+
+    @Test
+    void nary_tooFewOperands_emitsUnresolved() {
+        Map<String, Object> el = naryArithmeticElement("Single", List.of(
+                literalOperand("1")), List.of());
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+        assertThat(ctx.warnings).isNotEmpty();
+    }
+
+    @Test
+    void nary_tooManyOperands_emitsUnresolved() {
+        // 11 operands -> exceeds NARY_MAX_OPERANDS (10)
+        List<Map<String, Object>> tooMany = new ArrayList<>();
+        List<String> ops = new ArrayList<>();
+        for (int i = 0; i < 11; i++) {
+            tooMany.add(literalOperand(String.valueOf(i)));
+            if (i < 10) ops.add("+");
+        }
+        Map<String, Object> el = naryArithmeticElement("TooMany", tooMany, ops);
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void nary_operatorsCountMismatch_emitsUnresolved() {
+        // 3 operands but only 1 operator -> invalid
+        Map<String, Object> el = naryArithmeticElement("Bad", List.of(
+                literalOperand("1"), literalOperand("2"), literalOperand("3")),
+                List.of("+"));
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void nary_unresolvedOperand_emitsUnresolved() {
+        // Quantity operand with single-quote in unit -> resolveNaryOperand returns null
+        Map<String, Object> el = naryArithmeticElement("BadUnit", List.of(
+                literalOperand("1"), quantityOperand("5", "mg' OR '1")),
+                List.of("+"));
+        BuildContext ctx = new BuildContext(null, null);
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).startsWith("null /* unresolved arithmetic operands");
+    }
+
+    @Test
+    void nary_elementOperand_emitsEscapedIdentifier() {
+        Map<String, Object> referenced = new LinkedHashMap<>();
+        referenced.put("uniqueId", "be_weight");
+        referenced.put("name", "Weight");
+        BuildContext ctx = new BuildContext(List.of(referenced), null);
+        Map<String, Object> el = naryArithmeticElement("WeightPlus", List.of(
+                elementOperand("be_weight"), literalOperand("1")),
+                List.of("+"));
+        String out = engine.buildExpression(el, ctx);
+        assertThat(out).isEqualTo("\"Weight\" + 1");
+    }
+
+    @Test
+    void arithmetic_bmiFormula_quantityAndElementMixed() {
+        // End-to-end shape sanity: BMI = "Weight" / ("Height in m" ^ 2). Built as
+        // two arithmetic elements that reference each other through the index.
+        Map<String, Object> weight = new LinkedHashMap<>();
+        weight.put("uniqueId", "be_weight");
+        weight.put("name", "Weight");
+        Map<String, Object> height = new LinkedHashMap<>();
+        height.put("uniqueId", "be_height");
+        height.put("name", "Height in m");
+        BuildContext ctx = new BuildContext(List.of(weight, height), null);
+        Map<String, Object> heightSquared = arithmeticElement("HeightSquared", "^", List.of(
+                field("left_mode", "element"), field("left_operand_id", "be_height"),
+                field("right_mode", "literal"), field("right_literal", "2")));
+        String out = engine.buildExpression(heightSquared, ctx);
+        assertThat(out).isEqualTo("\"Height in m\" ^ 2");
     }
 }

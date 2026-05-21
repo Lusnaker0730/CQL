@@ -27,6 +27,18 @@ public class EcqmCqlBuilder {
     private static final Set<String> VALID_DURATION_UNITS = Set.of(
             "years", "months", "weeks", "days", "hours", "minutes");
 
+    /**
+     * FHIR property paths emitted into CQL via {@code paramName.property} or
+     * {@code (paramName.property as Quantity).value}. Permits letters, digits, and
+     * dots (for nested paths like {@code value.coding}). Anything outside this set
+     * means a malformed input — we reject and fall back to a safe default rather
+     * than silently strip the offending characters (which could change semantics
+     * by collapsing {@code period.start} → {@code periodstart}, then yielding a
+     * confusing CQL parse error far from the source).
+     */
+    private static final java.util.regex.Pattern FHIR_PROPERTY_PATH =
+            java.util.regex.Pattern.compile("^[A-Za-z][A-Za-z0-9]*(?:\\.[A-Za-z][A-Za-z0-9]*)*$");
+
     private final ExpressionCqlEngine engine;
     private final CqlTemplateEngine templateEngine;
 
@@ -45,6 +57,11 @@ public class EcqmCqlBuilder {
             String fhirVersion) {
 
         BuildContext ctx = new BuildContext(baseElements, parameters);
+        // eCQM artifacts always declare a "Measurement Period" parameter (emitted by the
+        // master template), so time-dependent elements can — and should — bind to it.
+        // Without this, AgeRange emits AgeInYears() which uses the system clock and produces
+        // different counts every year for the same input data.
+        ctx.hasMeasurementPeriod = true;
 
         String resolvedFhirVersion = engine.resolveFhirVersion(fhirVersion != null ? fhirVersion : "R4");
         String resolvedHelpersVersion = engine.resolveHelpersVersion(fhirVersion != null ? fhirVersion : "R4");
@@ -171,12 +188,16 @@ public class EcqmCqlBuilder {
 
                     // Episode-based CV: Measure Population should return resource list, not boolean
                     if (isCvEpisode && "measure-population".equals(popKey)) {
-                        ctx.preserveListReturn = true;
-                        ctx.episodeResourceType = populationBasis;
+                        ctx.withRenderMode(
+                                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION,
+                                populationBasis,
+                                () -> {
+                                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
+                                    return null;
+                                });
+                    } else {
+                        appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
                     }
-                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
-                    ctx.preserveListReturn = false;
-                    ctx.episodeResourceType = null;
                 }
 
                 // Observations
@@ -240,7 +261,8 @@ public class EcqmCqlBuilder {
                 if (sdeName == null) continue;
                 String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
                 if (oid != null) {
-                    valueSets.add(oid);
+                    // OID was already added to valueSets in collectAllDeclarations so the
+                    // master template's `valueset` block emits the declaration.
                     supplementalDefines.add(buildStandardSde(sdeName, oid));
                 } else {
                     Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
@@ -278,6 +300,26 @@ public class EcqmCqlBuilder {
         }
     }
 
+    /**
+     * Validate a FHIR property path before splicing it into CQL. If the path matches
+     * {@link #FHIR_PROPERTY_PATH}, return it untouched. Otherwise emit a build warning
+     * and fall back to {@code defaultProp} — preserves the parsability of generated CQL
+     * while surfacing the user error in the build report instead of silently mangling
+     * the path (PAT-139, validate-then-pass over previous strip-then-emit).
+     */
+    private String validateProperty(String property, String defaultProp, BuildContext ctx) {
+        if (property == null || property.isBlank()) {
+            return defaultProp;
+        }
+        if (FHIR_PROPERTY_PATH.matcher(property).matches()) {
+            return property;
+        }
+        ctx.warn(String.format(
+                "Invalid observation property path '%s' (only letters, digits, and dots allowed); defaulting to '%s'",
+                property, defaultProp));
+        return defaultProp;
+    }
+
     @SuppressWarnings("unchecked")
     private void appendObservationFunction(StringBuilder block, Map<String, Object> obs,
             String suffix, BuildContext ctx,
@@ -307,13 +349,13 @@ public class EcqmCqlBuilder {
                 if ("Patient".equals(paramType)) {
                     block.append(String.format("  duration in %s of \"Measurement Period\"\n\n", unit));
                 } else {
-                    String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
+                    String safeProperty = validateProperty(property, "period", ctx);
                     block.append(String.format("  duration in %s of %s.%s\n\n", unit, paramName, safeProperty));
                 }
             }
             case "quantity" -> {
                 String property = engine.getStr(obs, "observationProperty", "value");
-                String safeProperty = property.replaceAll("[^a-zA-Z0-9.]", "");
+                String safeProperty = validateProperty(property, "value", ctx);
                 block.append(String.format("  (%s.%s as Quantity).value\n\n", paramName, safeProperty));
             }
             default -> {
@@ -456,12 +498,25 @@ public class EcqmCqlBuilder {
             }
         }
 
-        // From supplemental data
+        // From supplemental data — both custom (criteria tree) and standard
+        // SDEs whose template references a known value set OID (e.g. SDE Payer
+        // → `[Coverage: "<oid>"]`). Standard SDE OIDs MUST be collected here
+        // because the consumer renders `valueset "X": 'OID'` declarations from a
+        // snapshot of this set before iterating supplementalData; adding the
+        // OID later (in the SDE-define generation loop) was too late and the
+        // resulting CQL referenced an undeclared value set.
         if (supplementalData != null) {
             for (Map<String, Object> sde : supplementalData) {
                 Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
                 if (criteria != null) {
                     engine.collectDeclarations(criteria, valueSets, codeSystems, codes, includes);
+                }
+                String sdeName = engine.getStr(sde, "name", null);
+                if (sdeName != null) {
+                    String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
+                    if (oid != null) {
+                        valueSets.add(oid);
+                    }
                 }
             }
         }

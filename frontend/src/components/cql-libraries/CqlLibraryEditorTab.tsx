@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
-import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
+import Editor, { type BeforeMount, type OnMount } from '../common/MonacoEditor'
 import type { editor } from 'monaco-editor'
 import { alpha } from '@mui/material/styles'
 import { registerCqlLanguage } from '../../utils/cqlSyntax'

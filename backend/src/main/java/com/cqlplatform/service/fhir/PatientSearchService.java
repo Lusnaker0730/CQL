@@ -3,6 +3,7 @@ package com.cqlplatform.service.fhir;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ICriterion;
 import com.cqlplatform.entity.EhrConnectionEntity;
+import com.cqlplatform.fhir.FhirRequestContext;
 import com.cqlplatform.model.fhir.PatientImportPreview;
 import com.cqlplatform.model.fhir.PatientSearchResult;
 import lombok.RequiredArgsConstructor;
@@ -31,46 +32,53 @@ public class PatientSearchService {
     public List<PatientSearchResult> searchPatients(Long connectionId, String nationalId,
                                                      String mrn, String family, String given) {
         EhrConnectionEntity connection = connectionService.getById(connectionId);
-        IGenericClient client = fhirClientFactory.createAuthenticatedClient(connection);
+        // PAT-110: expose connection identity to any FhirServerUnavailableException
+        // thrown downstream so the FE banner can name the failing EHR.
+        FhirRequestContext.set(connection.getId(), connection.getName());
+        try {
+            IGenericClient client = fhirClientFactory.createAuthenticatedClient(connection);
 
-        var searchQuery = client.search().forResource(Patient.class);
+            var searchQuery = client.search().forResource(Patient.class);
 
-        boolean hasCriteria = false;
-        if (nationalId != null && !nationalId.isBlank()) {
-            searchQuery = searchQuery.where(Patient.IDENTIFIER.exactly().identifier(nationalId));
-            hasCriteria = true;
-        }
-        if (mrn != null && !mrn.isBlank()) {
-            searchQuery = searchQuery.where(Patient.IDENTIFIER.exactly().identifier(mrn));
-            hasCriteria = true;
-        }
-        if (family != null && !family.isBlank()) {
-            searchQuery = searchQuery.where(Patient.FAMILY.matches().value(family));
-            hasCriteria = true;
-        }
-        if (given != null && !given.isBlank()) {
-            searchQuery = searchQuery.where(Patient.GIVEN.matches().value(given));
-            hasCriteria = true;
-        }
+            boolean hasCriteria = false;
+            if (nationalId != null && !nationalId.isBlank()) {
+                searchQuery = searchQuery.where(Patient.IDENTIFIER.exactly().identifier(nationalId));
+                hasCriteria = true;
+            }
+            if (mrn != null && !mrn.isBlank()) {
+                searchQuery = searchQuery.where(Patient.IDENTIFIER.exactly().identifier(mrn));
+                hasCriteria = true;
+            }
+            if (family != null && !family.isBlank()) {
+                searchQuery = searchQuery.where(Patient.FAMILY.matches().value(family));
+                hasCriteria = true;
+            }
+            if (given != null && !given.isBlank()) {
+                searchQuery = searchQuery.where(Patient.GIVEN.matches().value(given));
+                hasCriteria = true;
+            }
 
-        if (!hasCriteria) {
-            log.warn("Patient search on connection {} with no criteria, returning empty", connectionId);
-            return Collections.emptyList();
-        }
+            if (!hasCriteria) {
+                log.warn("Patient search on connection {} with no criteria, returning empty", connectionId);
+                return Collections.emptyList();
+            }
 
-        Bundle bundle = searchQuery.returnBundle(Bundle.class).execute();
+            Bundle bundle = searchQuery.returnBundle(Bundle.class).execute();
 
-        List<PatientSearchResult> results = new ArrayList<>();
-        if (bundle.hasEntry()) {
-            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-                if (entry.getResource() instanceof Patient patient) {
-                    results.add(patientToSearchResult(patient));
+            List<PatientSearchResult> results = new ArrayList<>();
+            if (bundle.hasEntry()) {
+                for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                    if (entry.getResource() instanceof Patient patient) {
+                        results.add(patientToSearchResult(patient));
+                    }
                 }
             }
-        }
 
-        log.info("Patient search on connection {} returned {} results", connectionId, results.size());
-        return results;
+            log.info("Patient search on connection {} returned {} results", connectionId, results.size());
+            return results;
+        } finally {
+            FhirRequestContext.clear();
+        }
     }
 
     /**

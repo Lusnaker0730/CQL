@@ -26,8 +26,20 @@ public class MeasureReportExportService {
 
     private final MeasureReportService reportService;
     private final QrdaExportService qrdaExportService;
+    /** Phase 2 of ADR-001: prefer normalized tables over result_json for read. */
+    private final NormalizedMeasureReportReader reportReader;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
+
+    /**
+     * Source of truth for a report's evaluation result. Prefers the normalized
+     * {@code measure_report_*} tables (Phase 2); falls back to {@code result_json}
+     * parsing for reports that haven't been backfilled yet. Phase 3 deletes the fallback.
+     */
+    private MeasureEvaluationResult loadResult(MeasureReportEntity report) {
+        return reportReader.reconstruct(report.getId())
+                .orElseGet(report::getEvaluationResult);
+    }
 
     public ResponseEntity<byte[]> exportReport(Long reportId, String format) {
         MeasureReportEntity report = reportService.getReport(reportId)
@@ -53,7 +65,7 @@ public class MeasureReportExportService {
         period.put("start", report.getPeriodStart().toString());
         period.put("end", report.getPeriodEnd().toString());
 
-        MeasureEvaluationResult result = report.getEvaluationResult();
+        MeasureEvaluationResult result = loadResult(report);
         if (result != null && result.getGroups() != null) {
             ArrayNode groupArray = fhirReport.putArray("group");
             for (GroupResult group : result.getGroups()) {
@@ -135,7 +147,7 @@ public class MeasureReportExportService {
         csv.append("Period: ").append(report.getPeriodStart()).append(" to ").append(report.getPeriodEnd()).append("\n");
         csv.append("Status: ").append(CsvUtils.escapeCsv(report.getStatus())).append("\n\n");
 
-        MeasureEvaluationResult result = report.getEvaluationResult();
+        MeasureEvaluationResult result = loadResult(report);
         if (result != null && result.getGroups() != null) {
             for (GroupResult group : result.getGroups()) {
                 csv.append("Group: ").append(CsvUtils.escapeCsv(group.getGroupId())).append("\n");
@@ -213,7 +225,7 @@ public class MeasureReportExportService {
             summarySheet.autoSizeColumn(0);
             summarySheet.autoSizeColumn(1);
 
-            MeasureEvaluationResult result = report.getEvaluationResult();
+            MeasureEvaluationResult result = loadResult(report);
 
             // Sheet 2: Populations
             Sheet popSheet = workbook.createSheet("Populations");

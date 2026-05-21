@@ -15,7 +15,9 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material'
-import { Error as ErrorIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import ErrorIcon from '@mui/icons-material/Error'
 import type { CdsCard } from '../../types'
 
 interface CriticalCardDialogProps {
@@ -58,12 +60,17 @@ export default function CriticalCardDialog({
   return (
     <Dialog
       open={open}
+      // Critical cards must be acted on (Accept / Override). Block both Esc
+      // and backdrop-click via the canonical onClose-reason guard rather than
+      // a backdrop preventDefault hack.
       disableEscapeKeyDown
+      onClose={(_event, reason) => {
+        if (reason === 'backdropClick') return
+        // No other dismissal paths today, but if MUI adds one we want the
+        // dialog to stay open until the user accepts or overrides.
+      }}
       maxWidth="sm"
       fullWidth
-      slotProps={{
-        backdrop: { onClick: (e: React.MouseEvent) => e.preventDefault() },
-      }}
     >
       <DialogTitle>
         <Stack direction="row" spacing={1} alignItems="center">

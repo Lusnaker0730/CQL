@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -63,6 +63,9 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
+  // Bumped on every selection so a slow earlier request can't overwrite a
+  // faster later request's result (race on quick library switches).
+  const versionRequestIdRef = useRef(0)
 
   const uniqueLibs: LibraryOption[] = repoLibraries.map((r) => ({
     name: r.name,
@@ -70,6 +73,7 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
   }))
 
   const handleSelectLibrary = async (lib: LibraryOption | null) => {
+    const myReq = ++versionRequestIdRef.current
     setSelectedLib(lib)
     setSelectedVersion('')
     setVersions([])
@@ -78,15 +82,17 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
       setLoadingVersions(true)
       try {
         const versionList = await cqlApi.getLibraryVersions(lib.name)
+        if (myReq !== versionRequestIdRef.current) return
         setVersions(versionList.map((v) => v.version))
         if (versionList.length > 0) {
           setSelectedVersion(versionList[0].version)
         }
       } catch {
+        if (myReq !== versionRequestIdRef.current) return
         setVersions([lib.version])
         setSelectedVersion(lib.version)
       } finally {
-        setLoadingVersions(false)
+        if (myReq === versionRequestIdRef.current) setLoadingVersions(false)
       }
     }
   }

@@ -8,9 +8,9 @@ import com.cqlplatform.service.TokenVersionService;
 import com.cqlplatform.service.UserApiKeyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -33,22 +33,22 @@ class AdminControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private UserRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private PasswordResetService passwordResetService;
 
-    @MockBean
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
 
-    @MockBean
+    @MockitoBean
     private UserApiKeyService userApiKeyService;
 
-    @MockBean
+    @MockitoBean
     private TokenVersionService tokenVersionService;
 
-    @MockBean
+    @MockitoBean
     private RefreshTokenService refreshTokenService;
 
     private UserEntity createUser(Long id, String username, UserEntity.Role role) {
@@ -65,6 +65,15 @@ class AdminControllerTest {
     void listUsers_unauthenticated_shouldReturn401() throws Exception {
         mockMvc.perform(get("/api/admin/users"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "regular", roles = {"USER"})
+    void listUsers_regularUserAuthenticated_shouldReturn403() throws Exception {
+        // PAT-145 regression: a logged-in non-admin must NOT reach admin endpoints.
+        // Locks the class-level @PreAuthorize + SecurityConfig path rule together.
+        mockMvc.perform(get("/api/admin/users"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -92,7 +101,7 @@ class AdminControllerTest {
 
         mockMvc.perform(post("/api/admin/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"newuser\",\"password\":\"password123\",\"role\":\"USER\"}"))
+                        .content("{\"username\":\"newuser\",\"password\":\"Password123\",\"role\":\"USER\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("newuser"))
                 .andExpect(jsonPath("$.role").value("USER"));
@@ -105,7 +114,7 @@ class AdminControllerTest {
 
         mockMvc.perform(post("/api/admin/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"existing\",\"password\":\"password123\",\"role\":\"USER\"}"))
+                        .content("{\"username\":\"existing\",\"password\":\"Password123\",\"role\":\"USER\"}"))
                 .andExpect(status().isConflict());
     }
 

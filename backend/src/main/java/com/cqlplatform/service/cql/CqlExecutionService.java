@@ -109,7 +109,11 @@ public class CqlExecutionService {
      * Call this once before a batch of patient evaluations.
      */
     public PreTranslatedContext translateOnce(String cql) {
-        LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
+        // createContext gives us a handle to the DB provider so we can suppress it
+        // for the library we're about to translate — the fresh source is the truth,
+        // not whatever happens to sit in cql_library with the same name+version.
+        LibraryManagerFactory.LibraryContext libCtx = LibraryManagerFactory.createContext(libraryRepository);
+        LibraryManager libraryManager = libCtx.libraryManager;
         CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
         org.hl7.elm.r1.Library elmLibrary = translator.toELM();
 
@@ -134,6 +138,14 @@ public class CqlExecutionService {
                     new InMemoryLibrarySourceProvider(libraryId.getId(), libraryId.getVersion(), cql));
             if (translator.getTranslatedLibrary() != null) {
                 seedCompiledLibrary(libraryManager, libraryId, translator.getTranslatedLibrary());
+            }
+            // Defense-in-depth (BUG-107 regression lock): even if the compiled-library
+            // cache is cleared or bypassed by a future engine-level lookup, the DB
+            // provider will refuse to hand back its stored copy of THIS library id.
+            // Other libraries the CQL includes (e.g. DFLR, FHIRHelpers) remain
+            // resolvable from DB normally.
+            if (libCtx.databaseProvider != null) {
+                libCtx.databaseProvider.excludeIdentifier(libraryId);
             }
         }
 
@@ -372,76 +384,28 @@ public class CqlExecutionService {
             List<ExpressionTrace> expressionTraces = new ArrayList<>();
             int traceOrder = 0;
 
-            if (request.isDebugMode()) {
-                // Debug mode: evaluate each expression individually for per-expression timing
-                for (String expressionName : expressions) {
-                    long exprStart = System.currentTimeMillis();
-                    try {
-                        Set<String> singleExpr = Set.of(expressionName);
-                        String pid = null;
-                        if (request.getPatientId() != null) {
-                            pid = request.getPatientId();
-                            if (!pid.startsWith("Patient/")) pid = "Patient/" + pid;
-                        }
-                        EvaluationResult evalResult = evaluateWithEngine(engine,
-                                elmLibrary.getIdentifier(), singleExpr,
-                                request.getContextType(), pid, request.getParameters());
-                        long exprTime = System.currentTimeMillis() - exprStart;
+            // Per-expression wall-clock timings captured during the per-expression fallback
+            // path (if batch eval throws). Empty in the common batch-eval path — there we
+            // can't measure individual timings without breaking the retrieve cache, so
+            // traces show 0ms per expression and totalTimeMs carries the authoritative total.
+            Map<String, Long> perExpressionTimings = new HashMap<>();
 
-                        Object value = null;
-                        if (evalResult != null && evalResult.getExpressionResults() != null) {
-                            org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
-                                    evalResult.getExpressionResults().get(expressionName);
-                            value = exprResult != null ? exprResult.getValue() : null;
-                        }
-                        String valueType = value != null ? value.getClass().getSimpleName() : "null";
-
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(toSerializable(value))
-                                .valueType(valueType)
-                                .displayValue(formatDisplayValue(value))
-                                .build());
-
-                        expressionTraces.add(ExpressionTrace.builder()
-                                .name(expressionName)
-                                .resultType(valueType)
-                                .resultDisplay(formatDisplayValue(value))
-                                .evaluationTimeMs(exprTime)
-                                .order(traceOrder++)
-                                .sourceLocator(sourceLocators.get(expressionName))
-                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
-                                .build());
-                    } catch (Exception e) {
-                        long exprTime = System.currentTimeMillis() - exprStart;
-                        log.warn("Failed to evaluate expression in debug mode: {}", expressionName, e);
-                        // Try to extract runtime source locator from CqlException
-                        String runtimeLocator = extractRuntimeLocator(e);
-                        String errorLocator = runtimeLocator != null
-                                ? runtimeLocator : sourceLocators.get(expressionName);
-                        String errorDisplay = runtimeLocator != null
-                                ? "Error at " + runtimeLocator + ": " + e.getMessage()
-                                : "Error: " + e.getMessage();
-                        results.put(expressionName, ExpressionResult.builder()
-                                .name(expressionName)
-                                .value(null)
-                                .valueType("Error")
-                                .displayValue(errorDisplay)
-                                .build());
-                        runtimeErrors.add(expressionName + ": " + e.getMessage());
-                        expressionTraces.add(ExpressionTrace.builder()
-                                .name(expressionName)
-                                .resultType("Error")
-                                .resultDisplay(errorDisplay)
-                                .evaluationTimeMs(exprTime)
-                                .order(traceOrder++)
-                                .sourceLocator(errorLocator)
-                                .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
-                                .build());
-                    }
-                }
-            } else {
-                // Normal mode: evaluate all expressions at once
+            // Batch eval for BOTH normal and debug mode. The previous debug-mode path
+            // evaluated each expression in its own engine.evaluate() call so it could
+            // measure individual timings — but the CQL engine doesn't preserve its
+            // retrieve cache across separate evaluate() calls, so every expression that
+            // referenced the same [Observation: valueset] triggered a fresh FHIR fetch.
+            // With a BMI CDS hook that has 4 expressions each referencing one retrieve,
+            // authors saw the same Observation listed 4-10 times in the debug panel and
+            // the origin FHIR server took 4-10× the traffic in debug mode vs prod.
+            //
+            // The unified batch approach matches prod behavior exactly and dedupes
+            // retrieves naturally. Individual expression timing isn't measurable in
+            // batch mode (set to 0 below); totalTimeMs captures the wall-clock total.
+            // If batch eval fails, the per-expression fallback path runs and restores
+            // individual timings — rare case, acceptable trade-off.
+            {
+                // Normal mode + debug mode: evaluate all expressions at once
                 EvaluationResult evaluationResult = null;
                 boolean batchFailed = false;
 
@@ -460,8 +424,8 @@ public class CqlExecutionService {
                     // Batch evaluation failed (e.g. ambiguous overload in FHIRHelpers).
                     // Fall back to per-expression evaluation so only the failing
                     // expression(s) return errors while the rest succeed.
-                    log.warn("Batch CQL evaluation failed, falling back to per-expression evaluation: {}",
-                            batchEx.getMessage());
+                    log.warn("Batch CQL evaluation failed ({}), falling back to per-expression evaluation: {}",
+                            batchEx.getClass().getSimpleName(), batchEx.getMessage(), batchEx);
                     batchFailed = true;
                 }
 
@@ -470,6 +434,7 @@ public class CqlExecutionService {
                         log.warn("CQL engine returned null EvaluationResult for library, falling back to per-expression evaluation");
                     }
                     for (String expressionName : expressions) {
+                        long exprStart = System.currentTimeMillis();
                         try {
                             Set<String> singleExpr = Set.of(expressionName);
                             String pid = null;
@@ -505,6 +470,8 @@ public class CqlExecutionService {
                                     .displayValue(errorDisplay)
                                     .build());
                             runtimeErrors.add(expressionName + ": " + e.getMessage());
+                        } finally {
+                            perExpressionTimings.put(expressionName, System.currentTimeMillis() - exprStart);
                         }
                     }
                 } else {
@@ -537,6 +504,31 @@ public class CqlExecutionService {
                             runtimeErrors.add(expressionName + ": " + e.getMessage());
                         }
                     }
+                }
+            }
+
+            // Build expression traces for debug mode. Done post-eval so the same
+            // loop serves both the batch-success path and the per-expression-fallback
+            // path. Individual timings come from perExpressionTimings (populated only
+            // in the fallback path); batch-success path leaves them at 0 to signal
+            // "not measured — see totalTimeMs". This is the Option-C unification —
+            // previously debug mode ran its own per-expression loop that broke the
+            // retrieve cache and produced N× the trace rows + N× the FHIR server hits.
+            if (request.isDebugMode()) {
+                for (String expressionName : expressions) {
+                    ExpressionResult r = results.get(expressionName);
+                    String valueType = r != null ? r.getValueType() : "null";
+                    String display = r != null ? r.getDisplayValue() : null;
+                    long elapsed = perExpressionTimings.getOrDefault(expressionName, 0L);
+                    expressionTraces.add(ExpressionTrace.builder()
+                            .name(expressionName)
+                            .resultType(valueType)
+                            .resultDisplay(display)
+                            .evaluationTimeMs(elapsed)
+                            .order(traceOrder++)
+                            .sourceLocator(sourceLocators.get(expressionName))
+                            .dependencies(expressionDependencies.getOrDefault(expressionName, List.of()))
+                            .build());
                 }
             }
 
@@ -621,19 +613,104 @@ public class CqlExecutionService {
     }
 
     /**
-     * Extract FHIR retrieve types directly from a pre-translated ELM Library object.
+     * Extract FHIR retrieve types from a pre-translated ELM Library — legacy single-arg
+     * variant. Does NOT follow cross-library ExpressionRefs, so libraries that delegate
+     * retrieve logic to an included library (e.g. main measure → {@code DFLR."Initial
+     * Population"} → {@code [Encounter]}) will report an INCOMPLETE retrieve set,
+     * leading to silently-wrong bulk-fetch results (BUG-111).
+     *
+     * <p>If the library contains any cross-library ExpressionRef / FunctionRef, this
+     * method emits a loud WARN to make the inevitable wrong-result visible in
+     * operator telemetry. New callers MUST pass a LibraryManager via
+     * {@link #extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library, LibraryManager)}.
+     *
+     * @deprecated use {@link #extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library, LibraryManager)}
+     * with a non-null {@code LibraryManager}. This overload exists only for test
+     * scenarios that deliberately exercise the pre-BUG-111 behavior.
      */
+    @Deprecated(forRemoval = true)
     public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library) {
+        if (hasCrossLibraryReference(library)) {
+            log.warn("extractRetrieveTypesFromLibrary(library) called on a library that contains "
+                    + "cross-library ExpressionRef/FunctionRef — the returned retrieve-type set is "
+                    + "INCOMPLETE and bulk-fetch will silently miss resource types (BUG-111). "
+                    + "Call the 2-arg overload with a LibraryManager instead. "
+                    + "Library: {}|{}",
+                    library.getIdentifier() != null ? library.getIdentifier().getId() : "?",
+                    library.getIdentifier() != null ? library.getIdentifier().getVersion() : "?");
+        }
+        return extractRetrieveTypesFromLibrary(library, null);
+    }
+
+    /**
+     * Preferred: extract FHIR retrieve types including those reached through cross-library
+     * refs. {@code libraryManager} must be the one used to translate {@code library}; its
+     * compiled-library cache supplies the included library bodies this walker recurses into.
+     */
+    public Set<String> extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library library, LibraryManager libraryManager) {
         Set<String> types = new HashSet<>();
+        Set<String> visited = new HashSet<>();
         if (library.getStatements() != null && library.getStatements().getDef() != null) {
             for (org.hl7.elm.r1.ExpressionDef def : library.getStatements().getDef()) {
-                collectRetrieveTypes(def.getExpression(), types);
+                collectRetrieveTypes(def.getExpression(), types, library, libraryManager, visited);
             }
         }
         return types;
     }
 
+    /**
+     * True when the library contains any {@link org.hl7.elm.r1.ExpressionRef} or
+     * {@link org.hl7.elm.r1.FunctionRef} whose {@code libraryName} is non-null — i.e. a
+     * reference into an included library. Used by the deprecated single-arg
+     * {@link #extractRetrieveTypesFromLibrary(org.hl7.elm.r1.Library)} to warn when the
+     * result will be silently incomplete.
+     */
+    private static boolean hasCrossLibraryReference(org.hl7.elm.r1.Library library) {
+        if (library == null || library.getStatements() == null
+                || library.getStatements().getDef() == null) {
+            return false;
+        }
+        for (org.hl7.elm.r1.ExpressionDef def : library.getStatements().getDef()) {
+            if (containsCrossLibRef(def.getExpression())) return true;
+        }
+        return false;
+    }
+
+    private static boolean containsCrossLibRef(org.hl7.elm.r1.Element element) {
+        if (element == null) return false;
+        if (element instanceof org.hl7.elm.r1.ExpressionRef ref) {
+            if (ref.getLibraryName() != null) return true;
+            // ExpressionRef without libraryName is same-library — no descent needed.
+        }
+        if (element instanceof org.hl7.elm.r1.Query query) {
+            if (query.getSource() != null) {
+                for (var src : query.getSource()) if (containsCrossLibRef(src.getExpression())) return true;
+            }
+            if (query.getWhere() != null && containsCrossLibRef(query.getWhere())) return true;
+        } else if (element instanceof org.hl7.elm.r1.FunctionRef funcRef) {
+            if (funcRef.getLibraryName() != null) return true;
+            if (funcRef.getOperand() != null) {
+                for (var op : funcRef.getOperand()) if (containsCrossLibRef(op)) return true;
+            }
+        } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
+            return containsCrossLibRef(ue.getOperand());
+        } else if (element instanceof org.hl7.elm.r1.BinaryExpression be) {
+            for (var op : be.getOperand()) if (containsCrossLibRef(op)) return true;
+        } else if (element instanceof org.hl7.elm.r1.NaryExpression ne) {
+            for (var op : ne.getOperand()) if (containsCrossLibRef(op)) return true;
+        }
+        return false;
+    }
+
     private void collectRetrieveTypes(org.hl7.elm.r1.Element element, Set<String> types) {
+        collectRetrieveTypes(element, types, null, null, new HashSet<>());
+    }
+
+    private void collectRetrieveTypes(org.hl7.elm.r1.Element element,
+                                      Set<String> types,
+                                      org.hl7.elm.r1.Library currentLibrary,
+                                      LibraryManager libraryManager,
+                                      Set<String> visitedCrossLibRefs) {
         if (element == null) return;
         if (element instanceof org.hl7.elm.r1.Retrieve retrieve) {
             javax.xml.namespace.QName dt = retrieve.getDataType();
@@ -644,23 +721,81 @@ public class CqlExecutionService {
         // Recurse into child expressions using reflection-free approach
         if (element instanceof org.hl7.elm.r1.Query query) {
             if (query.getSource() != null) {
-                for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types);
+                for (var src : query.getSource()) collectRetrieveTypes(src.getExpression(), types, currentLibrary, libraryManager, visitedCrossLibRefs);
             }
-            if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types);
+            if (query.getWhere() != null) collectRetrieveTypes(query.getWhere(), types, currentLibrary, libraryManager, visitedCrossLibRefs);
         } else if (element instanceof org.hl7.elm.r1.FunctionRef funcRef) {
             // FunctionRef extends ExpressionRef but carries operands from THIS library
             // (e.g. C3F.Verified([Observation: ...]) — the [Observation] Retrieve is our operand)
             if (funcRef.getOperand() != null) {
-                for (var op : funcRef.getOperand()) collectRetrieveTypes(op, types);
+                for (var op : funcRef.getOperand()) collectRetrieveTypes(op, types, currentLibrary, libraryManager, visitedCrossLibRefs);
             }
-        } else if (element instanceof org.hl7.elm.r1.ExpressionRef) {
-            // Skip — will be resolved by the defining expression
+            // Cross-library function calls also need to walk into the included library body
+            // in case the function references retrieves internally (e.g. C3F.ObservationLookBack
+            // which wraps [Observation]). Only follow when we have libraryManager context.
+            if (funcRef.getLibraryName() != null && libraryManager != null && currentLibrary != null) {
+                followCrossLibraryRef(funcRef.getLibraryName(), funcRef.getName(),
+                        types, currentLibrary, libraryManager, visitedCrossLibRefs);
+            }
+        } else if (element instanceof org.hl7.elm.r1.ExpressionRef ref) {
+            // Same-library refs are covered by the outer loop; cross-library refs must be followed
+            if (ref.getLibraryName() != null && libraryManager != null && currentLibrary != null) {
+                followCrossLibraryRef(ref.getLibraryName(), ref.getName(),
+                        types, currentLibrary, libraryManager, visitedCrossLibRefs);
+            }
         } else if (element instanceof org.hl7.elm.r1.UnaryExpression ue) {
-            collectRetrieveTypes(ue.getOperand(), types);
+            collectRetrieveTypes(ue.getOperand(), types, currentLibrary, libraryManager, visitedCrossLibRefs);
         } else if (element instanceof org.hl7.elm.r1.BinaryExpression be) {
-            for (var op : be.getOperand()) collectRetrieveTypes(op, types);
+            for (var op : be.getOperand()) collectRetrieveTypes(op, types, currentLibrary, libraryManager, visitedCrossLibRefs);
         } else if (element instanceof org.hl7.elm.r1.NaryExpression ne) {
-            for (var op : ne.getOperand()) collectRetrieveTypes(op, types);
+            for (var op : ne.getOperand()) collectRetrieveTypes(op, types, currentLibrary, libraryManager, visitedCrossLibRefs);
+        }
+    }
+
+    /**
+     * Resolve {@code alias.defName} via the current library's IncludeDefs, then walk the referenced
+     * define in the included library. Guards against recursion cycles via {@code visited}.
+     */
+    private void followCrossLibraryRef(String libraryAlias,
+                                       String defName,
+                                       Set<String> types,
+                                       org.hl7.elm.r1.Library currentLibrary,
+                                       LibraryManager libraryManager,
+                                       Set<String> visited) {
+        if (libraryAlias == null || defName == null) return;
+        // Find the include def that maps this alias to a library path/version
+        if (currentLibrary.getIncludes() == null || currentLibrary.getIncludes().getDef() == null) return;
+        org.hl7.elm.r1.IncludeDef includeDef = null;
+        for (var inc : currentLibrary.getIncludes().getDef()) {
+            if (libraryAlias.equals(inc.getLocalIdentifier())) { includeDef = inc; break; }
+        }
+        if (includeDef == null) return;
+
+        String includedPath = includeDef.getPath();
+        String includedVersion = includeDef.getVersion();
+        String visitKey = includedPath + "|" + includedVersion + "|" + defName;
+        if (visited.contains(visitKey)) return;
+        visited.add(visitKey);
+
+        // Locate the compiled library in the libraryManager cache
+        org.hl7.elm.r1.Library includedLibrary = null;
+        for (var entry : libraryManager.getCompiledLibraries().entrySet()) {
+            org.hl7.elm.r1.VersionedIdentifier vid = entry.getKey();
+            if (vid == null || vid.getId() == null) continue;
+            if (vid.getId().equals(includedPath)
+                    && (includedVersion == null || includedVersion.equals(vid.getVersion()))) {
+                includedLibrary = entry.getValue().getLibrary();
+                break;
+            }
+        }
+        if (includedLibrary == null || includedLibrary.getStatements() == null) return;
+
+        // Find the ExpressionDef by name and recurse
+        for (org.hl7.elm.r1.ExpressionDef def : includedLibrary.getStatements().getDef()) {
+            if (defName.equals(def.getName())) {
+                collectRetrieveTypes(def.getExpression(), types, includedLibrary, libraryManager, visited);
+                break;
+            }
         }
     }
 
@@ -705,7 +840,7 @@ public class CqlExecutionService {
                 retrieveProvider = prefetchProvider;
             } else if (request.getPatientId() != null) {
                 // Extract retrieve types directly from pre-translated ELM Library object
-                Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+                Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary(), ctx.libraryManager());
                 retrieveTypes.add("Patient");
                 String pid = request.getPatientId();
                 if (pid.startsWith("Patient/")) pid = pid.substring("Patient/".length());
@@ -734,10 +869,20 @@ public class CqlExecutionService {
             Environment environment = new Environment(ctx.libraryManager(), dataProviders, terminologyProvider);
             long t5 = System.currentTimeMillis();
             CqlEngine engine = new CqlEngine(environment);
+            // Mirror doExecute (PAT-066): without a DebugMap the engine's
+            // shouldDebug() returns NONE and per-expression runtime exceptions are
+            // silently swallowed. The pre-translated path is the one
+            // MeasureEvaluationService uses for every patient, so missing this
+            // hides per-define errors across the entire measure pipeline (PAT-141).
+            org.opencds.cqf.cql.engine.debug.DebugMap debugMap =
+                    new org.opencds.cqf.cql.engine.debug.DebugMap();
+            debugMap.setLoggingEnabled(true);
+            engine.getState().setDebugMap(debugMap);
             long t6 = System.currentTimeMillis();
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
             Map<String, ExpressionResult> results = new LinkedHashMap<>();
+            List<String> runtimeErrors = new ArrayList<>();
 
             // Normal mode: evaluate all expressions at once
             EvaluationResult evaluationResult = null;
@@ -756,7 +901,8 @@ public class CqlExecutionService {
                         t2-t1, t3-t2, t4-t3, t5-t4, t6-t5, t8-t7,
                         t8-t0);
             } catch (Exception batchEx) {
-                log.warn("Batch CQL evaluation failed, falling back to per-expression: {}", batchEx.getMessage());
+                log.warn("Batch CQL evaluation failed ({}), falling back to per-expression: {}",
+                        batchEx.getClass().getSimpleName(), batchEx.getMessage(), batchEx);
                 batchFailed = true;
             }
 
@@ -803,9 +949,30 @@ public class CqlExecutionService {
                 }
             }
 
+            // Harvest engine-captured per-expression exceptions that didn't surface
+            // via direct throw (mirrors doExecute line 535-551). Without this, batch
+            // evaluation that swallows per-expression failures returns null/partial
+            // results and the caller never sees why.
+            org.opencds.cqf.cql.engine.debug.DebugResult engineDebug = engine.getState().getDebugResult();
+            if (engineDebug != null && engineDebug.getMessages() != null) {
+                for (org.opencds.cqf.cql.engine.exception.CqlException ce : engineDebug.getMessages()) {
+                    String msg = ce.getMessage();
+                    if (msg == null) continue;
+                    org.opencds.cqf.cql.engine.debug.SourceLocator loc = ce.getSourceLocator();
+                    String formatted = (loc != null) ? ("[" + loc + "] " + msg) : msg;
+                    if (runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
+                        runtimeErrors.add(formatted);
+                    }
+                    log.warn("Engine CqlException at [{}]: {}", loc, msg);
+                }
+            }
+
             long executionTime = System.currentTimeMillis() - startTime;
             return CqlExecutionResponse.builder()
+                    .success(true)
+                    .patientId(request.getPatientId())
                     .results(results)
+                    .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .fhirServerUrl(fhirServerUrl)
@@ -971,6 +1138,11 @@ public class CqlExecutionService {
         if (compiled.getLibrary() != null
                 && compiled.getLibrary().getStatements() != null
                 && compiled.getLibrary().getStatements().getDef() != null) {
+            // CqlEngine.Libraries.resolveExpressionRef uses binarySearch — the def
+            // list MUST be pre-sorted by name or lookups throw "Could not resolve
+            // expression reference". The translator emits defs in source order;
+            // only LibraryManager.compileLibrary sorts automatically, so freshly
+            // translated libraries we seed manually must sort here.
             compiled.getLibrary().getStatements().getDef().sort(
                     Comparator.comparing(
                             org.hl7.elm.r1.ExpressionDef::getName,

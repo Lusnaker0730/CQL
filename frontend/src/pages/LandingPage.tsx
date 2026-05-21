@@ -29,6 +29,12 @@ export default function LandingPage() {
     <Helmet>
       <title>{`${tc('app.title')} — Clinical Quality Language`}</title>
       <meta name="description" content={`${tc('app.title')} — ${t('seoDescription')}`} />
+      {/* Login/landing page is an auth gateway, not a content page — tell crawlers
+          to skip it. Indexing auth pages just dilutes search signal for the real
+          content pages (/ and /learn) and creates "Discovered – not indexed"
+          backlog in Search Console. Keep the canonical tag so if the page IS
+          found via a link, the canonical is still self-consistent. */}
+      <meta name="robots" content="noindex, follow" />
       <link rel="canonical" href="https://twcql.com/login" />
       <meta property="og:title" content={`${tc('app.title')} — Clinical Quality Language`} />
       <meta property="og:url" content="https://twcql.com/login" />
@@ -169,6 +175,17 @@ export default function LandingPage() {
                   {t('hero.learnMore')}
                 </Button>
               </Box>
+              <Typography
+                variant="caption"
+                sx={(theme) => ({
+                  display: 'block',
+                  mt: 1.5,
+                  color: alpha(theme.palette.common.white, 0.6),
+                  fontStyle: 'italic',
+                })}
+              >
+                {t('hero.tutorialAttribution')}
+              </Typography>
             </Box>
 
             {/* Right: Login Form */}
@@ -222,6 +239,27 @@ export default function LandingPage() {
             </Typography>
           ))}
         </Box>
+        <Typography
+          variant="caption"
+          sx={(theme) => ({
+            display: 'block',
+            mb: 0.5,
+            color: alpha(theme.palette.common.white, 0.5),
+          })}
+        >
+          {t('footer.contactPrompt')}{' '}
+          <Box
+            component="a"
+            href="mailto:aluminum001@gmail.com"
+            sx={(theme) => ({
+              color: alpha(theme.palette.common.white, 0.75),
+              textDecoration: 'none',
+              '&:hover': { color: theme.palette.primary.light, textDecoration: 'underline' },
+            })}
+          >
+            aluminum001@gmail.com
+          </Box>
+        </Typography>
         <Typography variant="caption" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.35) })}>
           {tc('app.title')} — Clinical Quality Language
         </Typography>

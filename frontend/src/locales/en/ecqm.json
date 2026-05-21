@@ -93,7 +93,13 @@
     "aggregateMethod": "Aggregate Method",
     "populationRef": "Population Reference",
     "populationRefPlaceholder": "measure-population",
+    "populationRefRequired": "Population reference is required",
     "criteria": "Observation Criteria",
+    "remove": "Remove observation",
+    "percentileValue": "Percentile (0–100)",
+    "percentileHint": "0–100",
+    "percentileRequired": "Percentile value is required",
+    "percentileRange": "Must be between 0 and 100",
     "observationType": "Calculation Type",
     "observationTypeHelp": "Select how to compute the observation value for each episode",
     "types": {
@@ -115,6 +121,7 @@
     "standardSdes": "Standard SDEs",
     "customSdes": "Custom SDEs",
     "addCustom": "Add Custom",
+    "removeCustom": "Remove SDE \"{{name}}\"",
     "sdeName": "SDE Name",
     "sdeCriteria": "SDE Criteria",
     "defaultName": "Custom SDE {{number}}"
@@ -122,10 +129,12 @@
   "stratifiers": {
     "title": "Stratifiers",
     "addStratifier": "Add Stratifier",
+    "removeStratifier": "Remove stratifier {{number}}",
     "emptyState": "No stratifiers defined.",
     "label": "Stratifier {{number}}",
     "description": "Description",
-    "criteria": "Stratifier Criteria"
+    "criteria": "Stratifier Criteria",
+    "disabledByDualIp": "Stratifiers are not allowed when this Ratio measure uses separate Initial Populations for the Denominator and Numerator. Disable dual IP on the Population Groups tab to add or edit stratifiers."
   },
   "cqlPreview": {
     "generate": "Generate CQL",
@@ -139,7 +148,8 @@
     "validFailed": "CQL validation failed",
     "publishedSuccess": "Published to MeasureDefinition (ID: {{id}})",
     "publishFailed": "Publish failed",
-    "warnings": "Warnings:"
+    "warnings": "Warnings:",
+    "staleWarning": "The artifact has been edited since this CQL was generated. Click Generate CQL to refresh."
   },
   "scoring": {
     "proportion": "Proportion",

@@ -1,0 +1,160 @@
+# Smoke Test Harness
+
+Local end-to-end integration smoke test for the CQL Platform. Each scenario
+exercises a complete scoring-type pipeline (save → publish → evaluate) against a
+real Docker stack, catching integration regressions that unit tests miss.
+
+## Why this exists
+
+Unit tests pass ≠ the app works. We've shipped several PRs that were green at
+1000+ unit tests but broken end-to-end (BUG-110 `ToInterval(null)` dispatch,
+BUG-111 cross-library retrieve, #230 wire-shape change). The feedback loop had
+been "merge → deploy to VM → user reports → investigate" — a ~15 min cycle
+where the user was the smoke test.
+
+This harness runs the same flow the user does — POST a measure, seed FHIR data,
+evaluate — in ~60–120 seconds on your laptop, before `git push`.
+
+## Coverage
+
+One scenario per eCQM scoring type (see scenarios/). Each type has a completely
+different CQL shape and population structure, so bugs rarely cross over — this
+is why we need all four, not just one:
+
+| Scenario | Scoring | What it exercises |
+|----------|---------|-------------------|
+| `01-proportion-age-cohort` | `proportion` | IP / Denom / Numer; `measureScore = numer/denom` as percentage. Locked at IP=7 / Denom=5 / Numer=3 / score=60.0. |
+| `02-ratio-age-comparison` | `ratio` | Ratio with independent Numer / Denom (fixed in #PAT-084). Disjoint cohorts: Denom=young-adults (2 patients), Numer=seniors (3 patients). score=150.0 (3/2 > 100%) — proves ratio evaluator treats Numer independently of Denom. |
+| `03-cv-count-adults` | `continuous-variable` (patient-based, Count) | Patient-based CV with boolean Measure Observation. Exercises `populations.measure-population` key + `observations[]` block with `aggregateMethod=Count`. Boolean → 1.0 extraction (fixed in #PAT-085). IP=3 / MP=3 / score=3.0. |
+| `04-cohort-adult-count` | `cohort` | IP-only; cohort score = IP count (fixed in #PAT-083). IP=4 / score=4.0 / measureScoreUnit=\"count\". |
+| `05-cv-avg-encounter-duration` | `continuous-variable` (episode-based, Average) | Episode-based CV on Encounter. `populationBasis=Encounter`, Measure Observation = `duration in days of Encounter.period`. 5 encounters with durations {2,4,6,8,10} days → Average = 6.0. Exercises the episode-based `Measure Observation Values` emit: `(\"Measure Population\") MP return \"Measure Observation\"(MP)`. |
+| `06-cv-sum-encounter-duration` | `continuous-variable` (episode-based, Sum) | Same fixture as 05, aggregateMethod=Sum. Expected 2+4+6+8+10 = 30.0. |
+| `07-cv-median-encounter-duration` | `continuous-variable` (episode-based, Median) | Same fixture, aggregateMethod=Median. Middle value of sorted list = 6.0. |
+| `08-cv-min-encounter-duration` | `continuous-variable` (episode-based, Minimum) | Same fixture, aggregateMethod=\"Min\" (alias — #PAT-088). min{...} = 2.0. |
+| `09-cv-max-encounter-duration` | `continuous-variable` (episode-based, Maximum) | Same fixture, aggregateMethod=\"Max\" (alias). max{...} = 10.0. |
+| `10-cds-patient-view-basic` | CDS Hook (patient-view) | Minimal hardcoded Tuple card → info indicator. Proves save → discover → invoke → CQL → card pipeline. |
+| `11-cds-patient-view-conditional` | CDS Hook (patient-view) | `exists([Condition])` on prefetch → warning card when patient has a condition. Proves prefetch-driven clinical logic. |
+| `12-cds-order-sign` | CDS Hook (order-sign) | Non-patient-view hook + `draftOrders` context. Tests hook dispatch beyond the default patient-view. (Uses `order-sign`, the modern CDS Hooks replacement for deprecated `medication-prescribe`.) |
+| `13-cds-multi-card-indicators` | CDS Hook (patient-view) | 3 independent Tuple defines → 3 cards (info/warning/critical). Per-card field assertions omitted because `CqlTupleCardStrategy` Map-iteration order isn't guaranteed. |
+| `14-cds-disabled-service-not-listed` | CDS Hook | Service saved with `enabled: false`. Backend returns **HTTP 200 + info card** `\"Service not found\"` (not 404). Discovery omits the service (only `enabled=true` services populate `serviceConfigs`). |
+| `15-cds-dryrun-mode` | CDS Hook (patient-view) | Invoked with `dryRun: true` + `debugMode: true`. 0 cards (CQL skipped) but `debug.prefetchStatus` populated. Proves dryRun short-circuit and prefetch resolution are independent of CQL run. |
+| `16-cql-execute-debug-trace` | CQL execute (`/api/cql/execute`) | POST with `debugMode: true`. Asserts `debugTrace.expressionTraces[]` is populated (min 3 entries for 3 defines), each entry carries `name`/`resultType`/`evaluationTimeMs`/`order`, `debugTrace.elmJson` non-empty, `totalTimeMs` is a number. Field-presence assertions only — trace schema is diagnostic UX and shouldn't be over-locked. |
+| `17-cds-retrieve-cache-dedupe` | CDS Hook (patient-view, BUG-116 regression) | Service with 3 defines + 1 Card expression all referencing `[Observation]`. Invoked with `debugMode: true`. Asserts `debug.debugTrace.retrieveTraces.length == 1` — proves the engine batch eval + provider-level memoization dedupe retrieves across expression references (pre-fix: 10 rows; post-fix: 1). |
+| `18-cds-error-debug-trace` | CDS Hook (patient-view, error path) | Service has CQL referencing an undefined function. Invoked with `debugMode: true`. Asserts response is **HTTP 200** (not 5xx) with `debug.error.phase = \"cql_translation\"` + structured `errorType` / `message`. Protects the contract that EHR integrators get structured error info instead of bare stack traces. |
+| `19-proportion-stratifier-sde` | `proportion` + Stratifier + SDE | Locks `StratifierEvaluator` end-to-end + standard SDE define generation. 7 patients with mixed gender. Asserts `groups[0].stratifiers[0].strataId == "gender"` with two strata (`true` for males / `false` for females), per-stratum populations + scores, and that `define "SDE Sex"` / `define "SDE Payer"` appear in the published CQL (fetched via `/api/measures/{id}/export/cql`). |
+| `20-cql-execute-error-info` | CQL execute (error path) | POST broken CQL. Asserts HTTP **500** with `errorInfo.phase = \"cql_translation\"` + structured `errorType` / `message` on the top-level `ErrorResponse`. PAT-098 contract lock — integrators see structured phase classification on editor failures instead of a flat message string. |
+| `21-proportion-with-exclusions` | `proportion` (6-pop) | Locks the full 6-population pipeline: IP, Denom, **DenomExcl** (age >=80), Numer, **NumerExcl** (gender = male). Catches three-valued logic regressions (PAT-130 family). 7 patients yield IP=7 / Denom=6 / DenomExcl=1 / Numer=2 / NumerExcl=1 / score=40.0 — `Numerator` count is the *post-exclusion* effective count per `PopulationEvaluator.aggregatePatientResults`. |
+| `22-external-cql-library` | `proportion` + external lib | Locks the `DatabaseLibrarySourceProvider` integration path (BUG-107 family). Uploads `library.cql` via `POST /api/cql/libraries` before publish; measure tree contains `externalCqlRef` nodes pointing at `SmokeExternalUtil.IsAdultAtPeriodEnd` / `IsSeniorAtPeriodEnd`. Engine must resolve the include + execute external defines at evaluate time. |
+| `23-export-csv-injection` | `proportion` + export | CSV injection regression lock. Measure name starts with `=`, description with `+`, group description with `-`, group ID with `@`. After evaluate, fetches the latest report and exports as CSV; asserts no row begins with a formula-trigger character (`=` / `+` / `-` / `@` / `\t` / `\r`) — ensures `CsvUtils.escapeCsv` neutralization survives the full export pipeline. |
+| `24-empty-ip-null-score` | `proportion` (empty IP edge) | Locks the empty-cohort / zero-denominator path. 3 patients exist (so `PatientDiscoveryService` finds them and evaluation runs), but IP criteria `>=200` rejects all → IP=0. Asserts score is `null` per `MeasureScoreCalculator.calculateProportionScore` (zero denom → null). Catches regressions where empty cohort produces NaN, 0.0, or a 5xx — all of which would silently corrupt dashboard aggregations. |
+| `25-multi-population-group` | `proportion` (2 groups) | BUG #474 regression lock. Two independent groups (`working-age` / `seniors`) report distinct populations + scores via the `groups[]` assertion knob. Pre-fix all populations were 0 because `MeasureEvaluationService.aggregatePerPatient` fed `PopulationEvaluator` raw results with suffixed CQL define names (`Initial Population 1` / `Initial Population 2`) but the evaluator hard-coded lookups for unsuffixed canonical names. Fix: per-group iteration in aggregation + `PopulationEvaluator.buildExpressionMap` canonicalization per group. |
+| `26-concurrent-evaluation` | `proportion` (concurrency stress) | Fires 5 parallel `$evaluate-measure` calls and asserts all produce identical score+populations. Stress-tests connection pools (HikariCP, HAPI client, `cqlExecutionExecutor`) and concurrent `MeasureReportService.saveReport` inserts. Catches pool starvation, thread-leak, and concurrent-insert collisions that don't surface in single-call tests. |
+| `27-multi-group-stratifier` | `proportion` (2 groups + per-group stratifier) | BUG-474 stratifier follow-up. Two groups (`working-age` / `seniors`), each with its own gender stratifier define (`Stratifier gender 1` / `Stratifier gender 2`). Pre-fix `StratifierEvaluator.evaluatePatientStratifiers` looked up populations against unsuffixed canonical names that didn't exist in multi-group CQL output, causing strata counts to be 0. Fix routes per-group canonicalization via `PopulationEvaluator.buildExpressionMap` so each stratifier resolves populations against its own group's results. Asserts per-group `stratifiers[]` via the `groups[].stratifiers[]` knob. |
+| `29-multi-group-cv-counts` | `continuous-variable` (2 groups, Count) | Issue #539 regression lock. Two groups (`adults` / `seniors`), each with its own observation define emitted as `Measure Observation Value 1` / `Measure Observation Value 2`. Pre-fix `aggregateCvPatientResults` only looked up the unsuffixed canonical name → both groups' scores were null. Fix: 5-arg overload accepts per-group observation expression names, `MeasureEvaluationService.AggregationState` tracks `observationValuesByGroup` per group, multi-group dispatch routes CV to `buildMultiGroupResult` (which now learns to compute CV scores per group). Adults score=4.0, seniors score=2.0 — independent Count aggregations from disjoint population thresholds. |
+
+**eCQM scenarios also support** the following per-scenario flags in `expected.json`:
+
+- `checkProvenance: true` (used by scenario `01`) — `GET /api/measures/{id}/reports` and validate the most recent row carries non-null `measureVersion` / `cqlHash` / `elmHash`. PAT-095 regression lock against publish-time ELM persistence (fixed when scenario 01 surfaced that `EcqmPublishService` was discarding the translator's ELM output).
+- `idempotent: true` (used by scenario `01`) — re-runs `$evaluate-measure` with the same period and asserts the second run produces an identical score and identical population counts. Catches non-determinism: cache pollution, `MeasureReportBackfillService` duplicate inserts, ordering bugs in stratifier accumulation, etc.
+- `stratifiers[]` (used by scenario `19`) — array of `{strataId, expectedStrata: [{strataValue, populations, score}], scoreTolerance?}`. Each entry asserts a stratifier produced the expected strata; strata are matched by `strataValue` (response order doesn't matter).
+- `supplementalDataDefinesPresent: ["SDE Sex", ...]` (used by scenario `19`) — fetches `/api/measures/{id}/export/cql` and greps for the listed `define "..."` headers. Light-touch: proves the SDE CQL branch ran + translator accepted it.
+- `uploadLibrary: "library.cql"` (used by scenario `22`) — `POST /api/cql/libraries` with the named file's contents *before* save-and-publish, so the engine's `DatabaseLibrarySourceProvider` can resolve `include` statements at evaluate time.
+- `checkCsvExport: {format, forbiddenLineStarts}` (used by scenario `23`) — after evaluate, fetches the latest report and exports as the named format (default `csv`); asserts no line in the body starts with any of the forbidden characters. Locks `CsvUtils.escapeCsv` end-to-end through the full export pipeline.
+- `expectScoreNull: true` (used by scenario `24`) — asserts `groups[0].measureScore` is `null`. Use when IP/Denom is intentionally empty so the divide-by-zero / no-eligible-patients path returns null, not NaN/0.0/500. Mutually exclusive with top-level `score`.
+- `groups: [{groupId, populations, score?, scoreTolerance?, stratifiers?}]` (used by scenarios `25`, `27`) — multi-group assertion. Each entry matches a response group by `groupId` and asserts populations + optional score. Optional `stratifiers[]` mirrors the top-level stratifier shape (`{strataId, expectedStrata: [...]}`) but scoped to the group — locks per-group stratifier results that BUG-474 follow-up enabled. Falls back to top-level `populations`/`score` for single-group scenarios.
+- `maxEvaluationTimeMs: 8000` (used by scenarios `01`, `19`, `21`-`25`; `15000` for `26` concurrent) — wall-clock budget around the `$evaluate-measure` call. Run.sh times the evaluate call and exports `EVAL_ELAPSED_MS`; assert.sh fails the scenario if elapsed exceeds the budget. Catches N+1 query regressions and bulk-fetch slowdowns. Budget intentionally generous (typical eval runs in 1-2s) — guards against 4-8x regressions, not microbenchmarks.
+- `concurrentEvaluations: N` (used by scenario `26`) — when set to ≥2, `run.sh` invokes `lib/evaluate-concurrent.sh` instead of `lib/evaluate.sh`. Fires N parallel `$evaluate-measure` calls and verifies all produce identical scores+populations before passing the first response to standard assertions. Catches concurrency bugs (pool starvation, thread-leak, race in saveReport) that single-call paths can't see.
+
+**CDS scenario files**: `service.json` (CdsServiceConfigRequest), `invocation.json` (CdsRequest — hook + context + prefetch), `expected.json` with `type: \"cds-hook\"` plus `cardCount` / `cards[]` / `expectNoCards` / `debugPrefetchNonEmpty` / `debugErrorPhase` / `debugErrorRequiredFields` / `retrieveTracesCount` assertions. `run.sh` dispatches by the `type` field (default `ecqm`).
+
+**CQL-execute scenario files**: `request.json` (CqlExecutionRequest — body posted verbatim to `/api/cql/execute`), `expected.json` with `type: \"cql-execute\"` plus `expectedHttpStatus` / `success` / `expressionTracesMinCount` / `expressionTraceRequiredFields` / `retrieveTracesMinCount` / `elmJsonNonEmpty` / `totalTimeMsPresent` / `errorInfoPhase` / `errorInfoRequiredFields` assertions. No FHIR seeding; pure debug-trace / error-contract test. `execute-cql.sh` emits `HTTP_STATUS\n---HTTP_STATUS_BODY---\nBODY` so both success and error paths flow through the same assertion script.
+
+> **aggregateMethod naming (since #PAT-088)**: Canonical forms are `count` / `sum` / `average` / `median` / `minimum` / `maximum`. Case-insensitive aliases accepted: `Min`→`minimum`, `Max`→`maximum`, `Avg`/`Mean`→`average`. Unknown methods (typos like `\"Minumum\"`) return `null` score with a logged warning — they no longer silently fall through to Average.
+
+**Out of scope**: element / modifier / value-set CQL generation. Those are
+locked by `ModifierGeneratedCqlGoldenTest` (in-process, fast, 15 scenarios).
+This harness only cares about the **scoring-type pipeline** through the real
+stack — ports, auth, Flyway migrations, bean wiring, HAPI round-trip.
+
+## Prerequisites
+
+- Docker Desktop (or equivalent) — daemon must be running
+- `jq`, `curl`, `bash` on PATH
+- Free ports in the 18xxx range (configurable — see below)
+
+## Usage
+
+```bash
+# All scenarios
+scripts/smoke/run.sh
+
+# One scenario (glob)
+scripts/smoke/run.sh 01-proportion-*
+
+# Debug: leave stack running after (tear down manually)
+scripts/smoke/run.sh --keep
+
+# Custom ports (default 18080/18081/18432)
+SMOKE_BACKEND_PORT=28080 SMOKE_FHIR_PORT=28081 scripts/smoke/run.sh
+```
+
+Teardown is automatic on exit (success or failure). Use `--keep` when debugging
+a scenario failure to inspect the live stack.
+
+## Adding a scenario
+
+Create `scenarios/<NN-name>/` with three files:
+
+- **`measure.json`** — full `EcqmArtifactRequest` body. Cross-reference the
+  shape with `backend/src/main/java/com/cqlplatform/model/ecqm/EcqmArtifactRequest.java`
+  and the test helpers in `EcqmCqlBuilderTest` for valid tree structures.
+- **`bundle.json`** — FHIR transaction Bundle. Entries should use
+  `request.method: PUT` with `fullUrl: <Type>/<id>` to preserve client-side IDs.
+- **`expected.json`** — assertion targets:
+  ```json
+  {
+    "periodStart": "2020-01-01",
+    "periodEnd":   "2020-06-30",
+    "score": 60.0,          // percentage 0-100 (backend normalizes)
+    "scoreTolerance": 0.5,  // optional, defaults 0.001
+    "populations": {
+      "initial-population": 7,
+      "denominator": 5,
+      "numerator": 3
+    }
+  }
+  ```
+
+### Isolation between scenarios
+
+Scenarios share the stack — Docker is expensive to bring up. To avoid cross-
+scenario pollution, **use disjoint Measurement Periods per scenario**. Each
+scenario's patient data should only contain observations/encounters in its
+period window. We suggest:
+
+| Scenario | Period |
+|----------|--------|
+| `01-proportion-*` | 2020-H1 (2020-01-01 → 2020-06-30) |
+| `02-ratio-*`      | 2020-H2 (2020-07-01 → 2020-12-31) |
+| `03-cv-*`         | 2021-H1 (2021-01-01 → 2021-06-30) |
+| `04-cohort-*`     | 2021-H2 (2021-07-01 → 2021-12-31) |
+
+### Age-bracket stability
+
+No special handling needed. `AgeRange` elements in eCQM artifacts emit
+`AgeInYearsAt(end of "Measurement Period")` (since #PAT-081), so ages are
+computed at the period-end reference point and are reproducible regardless of
+when the scenario runs.
+
+## Exit codes
+
+- `0` — all scenarios passed
+- `1` — one or more scenarios failed (details per scenario on stderr)
+
+## Known limitations
+
+- First run is slow (~2 min) because Docker has to build the backend image.
+  Subsequent runs with a warm cache finish in 60–90s.
+- No cross-scenario ordering enforcement — scenarios must be self-contained.
+- Doesn't cover frontend regressions. That needs Playwright; out of scope for
+  this harness.

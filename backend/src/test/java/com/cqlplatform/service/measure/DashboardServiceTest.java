@@ -2,11 +2,13 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.entity.MeasureReportEntity;
+import com.cqlplatform.entity.MeasureReportGroupEntity;
 import com.cqlplatform.entity.MeasureThresholdEntity;
 import com.cqlplatform.model.measure.EnhancedDashboardData;
 import com.cqlplatform.model.measure.QualityReport;
 import com.cqlplatform.model.measure.ThresholdAlert;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.repository.MeasureReportGroupRepository;
 import com.cqlplatform.repository.MeasureReportRepository;
 import com.cqlplatform.repository.MeasureThresholdRepository;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,9 @@ class DashboardServiceTest {
 
     @Mock
     private MeasureReportRepository reportRepository;
+
+    @Mock
+    private MeasureReportGroupRepository reportGroupRepository;
 
     @Mock
     private MeasureThresholdRepository thresholdRepository;
@@ -154,6 +159,67 @@ class DashboardServiceTest {
 
         assertThat(trends).hasSize(1);
         assertThat(trends.get(0).getMeasureName()).isEqualTo("M1");
+    }
+
+    @Test
+    void getTrends_shouldPropagateScoringTypeAndUnit() {
+        // PAT-124: trend points must carry scoringType + unit so the dashboard can pick
+        // the right Y-axis (% vs raw clinical value) and unit label per measure family.
+        MeasureReportEntity cv = createReport(1L, 10L, "HbA1c", 5.6, null);
+        cv.setScoringType("continuous-variable");
+        cv.setCreatedAt(LocalDateTime.now());
+        cv.setPeriodStart(null);
+        cv.setPeriodEnd(null);
+
+        MeasureReportGroupEntity cvGroup = MeasureReportGroupEntity.builder()
+                .measureReportId(1L)
+                .groupId("g1")
+                .measureScore(5.6)
+                .measureScoreUnit("mmol/L")
+                .build();
+
+        when(reportRepository.findRecentByOptionalMeasure(eq((Long) null), any(PageRequest.class)))
+                .thenReturn(new java.util.ArrayList<>(List.of(cv)));
+        when(reportGroupRepository.findByMeasureReportIdOrderByOrdinalAsc(1L))
+                .thenReturn(List.of(cvGroup));
+
+        List<EnhancedDashboardData.TrendDataPoint> trends = service.getTrends(null, "monthly", 10);
+
+        assertThat(trends).hasSize(1);
+        assertThat(trends.get(0).getScoringType()).isEqualTo("continuous-variable");
+        assertThat(trends.get(0).getUnit()).isEqualTo("mmol/L");
+    }
+
+    @Test
+    void getEnhancedDashboard_departmentAverages_shouldExcludeContinuousVariable() {
+        // PAT-124: department averaging mixed proportion% with CV raw values (e.g. HbA1c=5.6)
+        // and produced nonsense numbers like 42.6. Only proportion-scale measures should
+        // contribute to a department average.
+        MeasureDefinitionEntity proportion = createMeasure(1L, "M1", "active", "proportion", "endo");
+        MeasureDefinitionEntity cv = createMeasure(2L, "HbA1c", "active", "continuous-variable", "endo");
+        when(definitionRepository.findAll()).thenReturn(List.of(proportion, cv));
+        when(reportRepository.findTop10ByOrderByCreatedAtDesc()).thenReturn(List.of());
+        when(thresholdRepository.findByActiveTrue()).thenReturn(List.of());
+
+        MeasureReportEntity propReport = createReport(1L, 1L, "M1", 85.0, "endo");
+        // CV must NOT be queried — verifies it's skipped before hitting the repo
+        when(reportRepository.findLatestByMeasureDefinitionId(1L)).thenReturn(List.of(propReport));
+
+        EnhancedDashboardData result = service.getEnhancedDashboard(null);
+
+        assertThat(result.getDepartmentScores()).containsEntry("endo", 85.0);
+        // Sanity: if CV had been mixed in, the average would be (85 + 5.6) / 2 = 45.3
+        assertThat(result.getDepartmentScores().get("endo")).isNotEqualTo(45.3);
+    }
+
+    @Test
+    void isProportionScaleScoring_classifiesScoringTypes() {
+        assertThat(DashboardService.isProportionScaleScoring("proportion")).isTrue();
+        assertThat(DashboardService.isProportionScaleScoring("ratio")).isTrue();
+        assertThat(DashboardService.isProportionScaleScoring("composite")).isTrue();
+        assertThat(DashboardService.isProportionScaleScoring(null)).isTrue();
+        assertThat(DashboardService.isProportionScaleScoring("continuous-variable")).isFalse();
+        assertThat(DashboardService.isProportionScaleScoring("cohort")).isFalse();
     }
 
     // ===== getDepartmentDrilldown =====

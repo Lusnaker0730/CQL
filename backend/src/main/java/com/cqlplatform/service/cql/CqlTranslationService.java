@@ -14,12 +14,12 @@ import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.hl7.elm.r1.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -27,17 +27,27 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CqlTranslationService {
 
-    @Autowired(required = false)
-    private CqlLibraryRepository libraryRepository;
+    private final CqlLibraryRepository libraryRepository;
+    private final Timer cqlTranslationTimer;
+    private final Counter cqlTranslationCounter;
+    private final Counter cqlTranslationErrorCounter;
 
-    @Autowired(required = false)
-    private Timer cqlTranslationTimer;
-
-    @Autowired(required = false)
-    private Counter cqlTranslationCounter;
-
-    @Autowired(required = false)
-    private Counter cqlTranslationErrorCounter;
+    /**
+     * Spring constructor — uses {@link Optional} for beans that may legitimately
+     * be absent (no DB-backed library catalogue, metrics stack disabled). PAT-141
+     * — replaces the previous field-level {@code @Autowired(required=false)} that
+     * violated the project convention "禁止 @Autowired 在欄位上" (CLAUDE.md).
+     */
+    public CqlTranslationService(
+            Optional<CqlLibraryRepository> libraryRepository,
+            Optional<Timer> cqlTranslationTimer,
+            Optional<Counter> cqlTranslationCounter,
+            Optional<Counter> cqlTranslationErrorCounter) {
+        this.libraryRepository = libraryRepository.orElse(null);
+        this.cqlTranslationTimer = cqlTranslationTimer.orElse(null);
+        this.cqlTranslationCounter = cqlTranslationCounter.orElse(null);
+        this.cqlTranslationErrorCounter = cqlTranslationErrorCounter.orElse(null);
+    }
 
     @org.springframework.beans.factory.annotation.Value("${cql.execution.translation-timeout-seconds:30}")
     private int translationTimeoutSeconds;
@@ -171,15 +181,58 @@ public class CqlTranslationService {
     }
 
     private CqlError mapTranslatorException(CqlCompilerException exception) {
+        String baseMessage = exception.getMessage();
+        String hint = hintForError(baseMessage);
+        String finalMessage = hint != null ? baseMessage + "\n\nHint: " + hint : baseMessage;
         return CqlError.builder()
                 .severity(exception.getSeverity().toString())
-                .message(exception.getMessage())
+                .message(finalMessage)
                 .startLine(exception.getLocator() != null ? exception.getLocator().getStartLine() : null)
                 .startColumn(exception.getLocator() != null ? exception.getLocator().getStartChar() : null)
                 .endLine(exception.getLocator() != null ? exception.getLocator().getEndLine() : null)
                 .endColumn(exception.getLocator() != null ? exception.getLocator().getEndChar() : null)
                 .errorType(exception.getClass().getSimpleName())
                 .build();
+    }
+
+    /**
+     * Generates a human-friendly hint for common CQL translator error patterns.
+     * The translator's own messages are spec-precise but often opaque to a CDS
+     * author (e.g. "Could not resolve call to operator Equivalent with signature
+     * (FHIR.CodeableConcept, System.String)" — technically correct, but the author
+     * just wanted to compare a condition's clinicalStatus to 'active'). Returning
+     * a hint alongside saves them from googling the operator overload rules.
+     *
+     * <p>Pattern-match narrowly — only add hints for errors we've seen users actually
+     * hit. Over-eager hinting on rare patterns would flood output. Returns null when
+     * no hint applies (most errors).
+     *
+     * <p>Package-visible for unit testing.
+     */
+    static String hintForError(String errorMessage) {
+        if (errorMessage == null) return null;
+
+        // Pattern: X.clinicalStatus ~ 'active' — comparing CodeableConcept directly to
+        // a string literal. CDS smoke scenario 11 hit this. Translator rejects the overload;
+        // user wanted code-level comparison.
+        if (errorMessage.contains("Could not resolve call to operator Equivalent")
+                && errorMessage.contains("FHIR.CodeableConcept")
+                && errorMessage.contains("System.String")) {
+            return "CodeableConcept can't be compared to a string with '~' directly. "
+                    + "Extract a code first: e.g. `X.clinicalStatus.coding[0].code ~ 'active'`, "
+                    + "or compare against a declared Code (preferred): "
+                    + "`X.clinicalStatus ~ Code 'active' from \"SomeSystem\"`.";
+        }
+
+        // Same pattern on Coding (less common but analogous). Coding has .code and .system.
+        if (errorMessage.contains("Could not resolve call to operator Equivalent")
+                && errorMessage.contains("FHIR.Coding")
+                && errorMessage.contains("System.String")) {
+            return "Coding can't be compared to a string with '~' directly. "
+                    + "Compare the embedded code: `X.code ~ 'value'` (where X is a Coding).";
+        }
+
+        return null;
     }
 
     private TranslationMetadata extractMetadata(Library library) {

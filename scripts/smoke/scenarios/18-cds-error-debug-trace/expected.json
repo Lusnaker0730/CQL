@@ -1,0 +1,7 @@
+{
+  "type": "cds-hook",
+  "invocationStatus": 200,
+  "debugErrorPhase": "cql_translation",
+  "debugErrorRequiredFields": ["phase", "errorType", "message"],
+  "_note": "Broken CQL (undefined function call) must surface as structured debug.error with phase=cql_translation (NOT cql_execution), so EHR integrators see the right root cause category. Prior behavior misclassified translator errors as execution errors because the heuristic only checked the top-level exception class name, missing translator errors wrapped in CqlExecutionException. Fixed in #BUG-115: looksLikeTranslationError now walks cause chain + inspects message content."
+}

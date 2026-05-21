@@ -304,7 +304,7 @@ export interface CdsResponse {
 
 export interface CdsDebugInfo {
   debugTrace?: DebugTrace
-  error?: CdsErrorInfo
+  error?: ExecutionErrorInfo
   invocationContext?: Record<string, unknown>
   prefetchStatus?: PrefetchStatus[]
   contextWarnings?: string[]
@@ -313,12 +313,20 @@ export interface CdsDebugInfo {
   resourcesByType?: Record<string, number>
 }
 
-export interface CdsErrorInfo {
+/**
+ * Structured error info shared by CDS invocation, CQL editor execute, and
+ * eCQM measure evaluation debug responses. Matches backend
+ * `com.cqlplatform.model.debug.ExecutionErrorInfo` (PAT-098).
+ */
+export interface ExecutionErrorInfo {
   phase: string
   errorType: string
   message: string
   stackTraceSummary?: string[]
 }
+
+/** @deprecated Use ExecutionErrorInfo — CDS-specific name kept only for existing imports. */
+export type CdsErrorInfo = ExecutionErrorInfo
 
 export interface PrefetchStatus {
   key: string
@@ -734,7 +742,10 @@ export interface CodeValidationResult {
 }
 
 export interface TerminologyValidationItem {
-  type: 'valueset' | 'code' | 'codesystem'
+  // PAT-144: 'parseError' covers the case where ELM JSON is malformed so no
+  // validation could even start (useTerminologyValidation surfaces this so
+  // the UI doesn't silently render an empty result that looks like "all OK").
+  type: 'valueset' | 'code' | 'codesystem' | 'parseError'
   name: string
   url?: string
   system?: string
@@ -957,6 +968,11 @@ export interface ValueSetSummary {
   title: string
   status: string
   conceptCount: number
+  /** PAT-119: true when the ValueSet uses compose.include.filter or
+   *  compose.include.valueSet (e.g. "all SNOMED CT descendants of X"),
+   *  so it needs terminology-server $expand to enumerate actual codes.
+   *  Frontend should render a hint chip instead of "0 concepts". */
+  hasComposeRules?: boolean
 }
 
 export interface CodeSystemSummary {
@@ -1148,6 +1164,9 @@ export interface DataRequirementInfo {
   profile?: string[]
   codeFilter?: CodeFilterInfo[]
   dateFilter?: DateFilterInfo[]
+  /** PAT-121a: populated only on the Patient entry when the measure has
+   *  age / gender constraints (e.g. adult-only cohort). */
+  patientFilter?: PatientFilterInfo
 }
 
 export interface CodeFilterInfo {
@@ -1157,6 +1176,16 @@ export interface CodeFilterInfo {
   codeSystemUrl?: string
   codeSystemName?: string
   code?: CodingInfo[]
+  /** PAT-121b: code prefixes captured from `StartsWith(code, 'E08')` patterns.
+   *  Clinical CQL often groups ICD ranges by prefix rather than enumerating codes. */
+  codePrefixes?: string[]
+}
+
+export interface PatientFilterInfo {
+  minAge?: number
+  maxAge?: number
+  ageUnit?: string
+  gender?: string[]
 }
 
 export interface DateFilterInfo {
@@ -1189,6 +1218,16 @@ export interface ThresholdAlert {
   comparisonOperator: string
   department?: string
   severity: string
+  /**
+   * PAT-151 — FHIR scoring type carried alongside the alert so the panel can
+   * format scores correctly. Without it the UI would always tack {@code %} on
+   * to {@code actualScore} / {@code thresholdValue}, which is wrong for
+   * continuous-variable measures (e.g. HbA1c is mmol/L, not a percentage) and
+   * for cohort measures (raw patient counts).
+   */
+  scoringType?: string
+  /** Unit label for continuous-variable measures (e.g. "mmol/L"). */
+  unit?: string
 }
 
 export interface TrendSeriesPoint {
@@ -1196,6 +1235,10 @@ export interface TrendSeriesPoint {
   measureName: string
   measureId?: number
   score?: number
+  /** FHIR scoring type: proportion, ratio, continuous-variable, cohort, composite. */
+  scoringType?: string
+  /** Unit string for the score (typically populated for continuous-variable, e.g. "mmol/L"). */
+  unit?: string
 }
 
 export interface MeasureThreshold {

@@ -36,6 +36,33 @@ jobs:
           path: backend/target/surefire-reports/TEST-*.xml
           retention-days: 30
 
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: |
+            backend/target/site/jacoco/
+            backend/target/jacoco.exec
+          retention-days: 30
+
+      - name: Summarize coverage in job log
+        if: always()
+        working-directory: backend
+        run: |
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            echo "### JaCoCo Coverage" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk -F',' 'NR>1 { im+=$4; ic+=$5; bm+=$6; bc+=$7; lm+=$8; lc+=$9; mm+=$12; mc+=$13; }
+              END {
+                printf "Instructions: %.1f%% (%d/%d)\n", 100*ic/(im+ic), ic, im+ic;
+                printf "Branches:     %.1f%% (%d/%d)\n", 100*bc/(bm+bc), bc, bm+bc;
+                printf "Lines:        %.1f%% (%d/%d)\n", 100*lc/(lm+lc), lc, lm+lc;
+                printf "Methods:      %.1f%% (%d/%d)\n", 100*mc/(mm+mc), mc, mm+mc;
+              }' target/site/jacoco/jacoco.csv >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
   frontend-lint:
     name: Frontend Lint & Type Check
     runs-on: ubuntu-latest
@@ -123,7 +150,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -150,9 +177,15 @@ jobs:
 
       - name: Verify rollback scripts exist
         run: |
-          MIGRATION_COUNT=$(ls -1 backend/src/main/resources/db/migration/V*.sql | wc -l)
+          # Count SQL migrations + Java migrations (PAT-163 V56 introduced the
+          # first Java migration; future Java ones will be picked up automatically).
+          SQL_MIGRATIONS=$(ls -1 backend/src/main/resources/db/migration/V*.sql 2>/dev/null | wc -l)
+          JAVA_MIGRATIONS=$(ls -1 backend/src/main/java/db/migration/V*.java 2>/dev/null | wc -l)
+          MIGRATION_COUNT=$((SQL_MIGRATIONS + JAVA_MIGRATIONS))
           ROLLBACK_COUNT=$(ls -1 backend/src/main/resources/db/rollback/rollback_V*.sql | wc -l)
-          echo "Forward migrations: $MIGRATION_COUNT"
+          echo "SQL migrations:     $SQL_MIGRATIONS"
+          echo "Java migrations:    $JAVA_MIGRATIONS"
+          echo "Forward (total):    $MIGRATION_COUNT"
           echo "Rollback scripts:   $ROLLBACK_COUNT"
           if [ "$MIGRATION_COUNT" -ne "$ROLLBACK_COUNT" ]; then
             echo "::error::Missing rollback scripts! $MIGRATION_COUNT migrations but only $ROLLBACK_COUNT rollback scripts."
@@ -211,6 +244,7 @@ jobs:
           scan-ref: 'frontend'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+          trivyignores: 'frontend/.trivyignore'
 
   image-scan:
     name: Container Image Scan

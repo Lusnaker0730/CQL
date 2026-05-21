@@ -3,8 +3,11 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.ecqm.EcqmArtifactRequest;
 import com.cqlplatform.model.ecqm.EcqmConstants;
+import com.cqlplatform.service.authoring.CustomModifierBuildException;
+import com.cqlplatform.service.authoring.CustomModifierCqlBuilder;
 import com.cqlplatform.service.authoring.ModifierService;
 import com.cqlplatform.service.authoring.TemplateService;
+import com.cqlplatform.validation.ModifierValueValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,6 +34,7 @@ public class EcqmExpressionTreeValidator {
 
     private final TemplateService templateService;
     private final ModifierService modifierService;
+    private final CustomModifierCqlBuilder customModifierCqlBuilder;
 
     /** Max allowed nesting depth to prevent stack overflow on deeply nested payloads. */
     private static final int MAX_DEPTH = 50;
@@ -51,10 +55,54 @@ public class EcqmExpressionTreeValidator {
 
         // ── eCQM-specific structural validation ──────────────────────────
         validateDefineNameUniqueness(request, errors);
+        validateAggregateMethods(request, errors);
 
         if (!errors.isEmpty()) {
             log.warn("eCQM expression tree validation errors: {}", errors);
             throw new ValidationException("Invalid eCQM artifact data", errors);
+        }
+    }
+
+    /**
+     * Rejects unknown {@code aggregateMethod} values on CV / ratio observations before
+     * the measure reaches the database. Accepts canonical forms + aliases
+     * ({@code Min}, {@code Max}, {@code Avg}, {@code Mean}) via
+     * {@link com.cqlplatform.service.measure.MeasureScoreCalculator#normalizeAggregateMethod}.
+     *
+     * <p>Rationale: #PAT-088 added runtime handling where unknown aggregateMethod
+     * yields null score + a log warning. That's the right behavior at evaluation time
+     * (other measures in the request shouldn't suffer from one typo), but it's far
+     * better to catch the typo at save time so the author sees an immediate error and
+     * can fix it before anyone ever runs the measure. Saved measures with null
+     * aggregateMethod silently run with "average" semantics (preserving the existing
+     * "no aggregate specified" default); saved measures with a VALUE for
+     * aggregateMethod that's NOT one of the known canonicals/aliases are user error.
+     */
+    @SuppressWarnings("unchecked")
+    private void validateAggregateMethods(EcqmArtifactRequest request, List<String> errors) {
+        List<Map<String, Object>> groups = request.getPopulationGroups();
+        if (groups == null) return;
+        for (int gi = 0; gi < groups.size(); gi++) {
+            Map<String, Object> group = groups.get(gi);
+            if (group == null) continue;
+            Object obsObj = group.get("observations");
+            if (!(obsObj instanceof List<?> observations)) continue;
+            for (int oi = 0; oi < observations.size(); oi++) {
+                Object item = observations.get(oi);
+                if (!(item instanceof Map<?, ?> rawMap)) continue;
+                Map<String, Object> obs = (Map<String, Object>) rawMap;
+                Object rawMethod = obs.get("aggregateMethod");
+                // A null / missing aggregateMethod is acceptable — preserves the
+                // "no aggregate specified → average" semantic. Only non-null VALUES
+                // that fail normalization are user errors.
+                if (!(rawMethod instanceof String str) || str.isBlank()) continue;
+                if (com.cqlplatform.service.measure.MeasureScoreCalculator.normalizeAggregateMethod(str) == null) {
+                    errors.add(String.format(
+                            "populationGroups[%d].observations[%d].aggregateMethod: '%s' is not a recognized aggregate method. "
+                                    + "Supported: count, sum, average, median, minimum, maximum (aliases: avg, mean, min, max).",
+                            gi, oi, str));
+                }
+            }
         }
     }
 
@@ -87,8 +135,12 @@ public class EcqmExpressionTreeValidator {
         // Check all string values for HTML content (XSS)
         // Skip "fields" — these are form field definitions (type: string/number/textarea/valueset),
         // not expression tree nodes. Recursing into them causes false "unknown element type" errors.
+        // Skip "values" — these are modifier.values fields constrained by
+        // ModifierValueValidator (whitelist + regex; tighter than HTML escape).
+        // The HTML check would falsely flag legitimate operators like ">=" / "<=".
         for (Map.Entry<String, Object> entry : node.entrySet()) {
             if ("fields".equals(entry.getKey())) continue;
+            if ("values".equals(entry.getKey())) continue;
             if (entry.getValue() instanceof String strVal) {
                 checkHtmlContent(path + "." + entry.getKey(), strVal, errors);
             } else if (entry.getValue() instanceof Map) {
@@ -115,17 +167,35 @@ public class EcqmExpressionTreeValidator {
                     path, type, name != null ? " (name: " + name + ")" : ""));
         }
 
-        // ── Structural: modifier ID validation ──────────────────────────
+        // ── Structural: modifier ID + values validation ─────────────────
         Object modifiersObj = node.get("modifiers");
         if (modifiersObj instanceof List<?> modList) {
             for (Object modObj : modList) {
                 if (modObj instanceof Map<?, ?> modMap) {
                     String modId = toStr(modMap.get("id"));
-                    if (modId != null && !modId.isBlank() && !modifierService.isValidModifierId(modId)) {
+                    if (modId != null && modId.startsWith("custom_")) {
+                        // Custom modifier — validate structured rules tree (CqlInjection sink
+                        // when the client-supplied cqlTemplate string was trusted). Backend
+                        // rebuilds CQL from values.rules; this dry-run rejects malformed payloads.
+                        Object valuesObj = modMap.get("values");
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> values = valuesObj instanceof Map ? (Map<String, Object>) valuesObj : null;
+                        try {
+                            customModifierCqlBuilder.validate(values);
+                        } catch (CustomModifierBuildException ex) {
+                            errors.add(String.format("%s: custom modifier '%s' invalid — %s",
+                                    path, modId, ex.getMessage()));
+                        }
+                    } else if (modId != null && !modId.isBlank() && !modifierService.isValidModifierId(modId)) {
                         String modName = toStr(modMap.get("name"));
                         errors.add(String.format("%s: unknown modifier id '%s'%s",
                                 path, modId, modName != null ? " (name: " + modName + ")" : ""));
                     }
+                    // Defense-in-depth whitelist of modifier.values fields that flow
+                    // into ExpressionCqlEngine.applyModifier and generated CQL.
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> mod = (Map<String, Object>) modMap;
+                    ModifierValueValidator.validate(mod, path, errors);
                 }
             }
         }

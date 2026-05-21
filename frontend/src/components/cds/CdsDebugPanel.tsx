@@ -16,26 +16,23 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import {
-  KeyboardArrowDown as ExpandIcon,
-  KeyboardArrowUp as CollapseIcon,
-  BugReport as DebugIcon,
-  CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
-  RadioButtonUnchecked as EmptyIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import ExpandIcon from '@mui/icons-material/KeyboardArrowDown'
+import CollapseIcon from '@mui/icons-material/KeyboardArrowUp'
+import DebugIcon from '@mui/icons-material/BugReport'
+import SuccessIcon from '@mui/icons-material/CheckCircle'
+import ErrorIcon from '@mui/icons-material/Error'
+import EmptyIcon from '@mui/icons-material/RadioButtonUnchecked'
 import { useTranslation } from 'react-i18next'
-import DebugPanel from '../execution/DebugPanel'
 import type { CdsDebugInfo, PrefetchStatus, FhirServerDiagnostics } from '../../types'
+import ExpressionTraceTable from '../debug/ExpressionTraceTable'
+import RetrieveTraceTable from '../debug/RetrieveTraceTable'
+import ElmJsonViewer from '../debug/ElmJsonViewer'
+import ExecutionErrorAlert from '../debug/ExecutionErrorAlert'
 
 interface Props {
   debug: CdsDebugInfo
-}
-
-function phaseColor(phase: string): 'error' | 'warning' | 'info' {
-  if (phase === 'cql_execution' || phase === 'cql_translation') return 'error'
-  if (phase === 'prefetch_resolution' || phase === 'prefetch_provider_build') return 'warning'
-  return 'info'
 }
 
 function prefetchStatusIcon(status: string) {
@@ -141,9 +138,14 @@ function FhirServerSection({ diag }: FhirDiagProps) {
   )
 }
 
+/**
+ * CDS-specific debug panel. Thin orchestrator over the CDS-only context
+ * sections (prefetch status, FHIR diagnostics, invocation context, dry-run)
+ * plus the shared trace tables / error alert / ELM viewer from
+ * components/debug/ (PAT-099 consolidation).
+ */
 export default function CdsDebugPanel({ debug }: Props) {
   const { t } = useTranslation('cds')
-  const [stackOpen, setStackOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
 
   const { error, debugTrace, invocationContext, prefetchStatus, contextWarnings, fhirServerDiagnostics, dryRun, resourcesByType } = debug
@@ -157,45 +159,7 @@ export default function CdsDebugPanel({ debug }: Props) {
         </Typography>
       </Stack>
 
-      {error && (
-        <Alert severity={phaseColor(error.phase)} icon={false}>
-          <AlertTitle>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                size="small"
-                color={phaseColor(error.phase)}
-                label={t(`debug.phase.${error.phase}`, { defaultValue: error.phase })}
-              />
-              <Typography component="span" variant="body2" sx={{ fontFamily: 'monospace' }}>
-                {error.errorType}
-              </Typography>
-            </Stack>
-          </AlertTitle>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {error.message}
-          </Typography>
-
-          {error.stackTraceSummary && error.stackTraceSummary.length > 0 && (
-            <Box sx={{ mt: 1 }}>
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <IconButton size="small" onClick={() => setStackOpen(!stackOpen)}>
-                  {stackOpen ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
-                </IconButton>
-                <Typography variant="caption" color="text.secondary">
-                  {t('debug.stackTrace')}
-                </Typography>
-              </Stack>
-              <Collapse in={stackOpen} timeout="auto" unmountOnExit>
-                <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'background.default' }}>
-                  <Box component="pre" sx={{ m: 0, fontSize: '0.75rem', overflowX: 'auto' }}>
-                    {error.stackTraceSummary.join('\n')}
-                  </Box>
-                </Paper>
-              </Collapse>
-            </Box>
-          )}
-        </Alert>
-      )}
+      {error && <ExecutionErrorAlert errorInfo={error} />}
 
       {dryRun && (
         <Alert severity="warning" icon={false}>
@@ -254,41 +218,15 @@ export default function CdsDebugPanel({ debug }: Props) {
         </Box>
       )}
 
-      {debugTrace && (debugTrace.expressionTraces.length > 0 || debugTrace.retrieveTraces.length > 0) && (
-        <DebugPanel trace={debugTrace} />
+      {debugTrace && debugTrace.expressionTraces.length > 0 && (
+        <ExpressionTraceTable traces={debugTrace.expressionTraces} />
       )}
 
-      {debugTrace?.elmJson && <ElmSection elmJson={debugTrace.elmJson} />}
-    </Stack>
-  )
-}
+      {debugTrace && debugTrace.retrieveTraces.length > 0 && (
+        <RetrieveTraceTable traces={debugTrace.retrieveTraces} />
+      )}
 
-function ElmSection({ elmJson }: { elmJson: string }) {
-  const { t } = useTranslation('cds')
-  const [open, setOpen] = useState(false)
-  let pretty = elmJson
-  try {
-    pretty = JSON.stringify(JSON.parse(elmJson), null, 2)
-  } catch {
-    // keep as-is
-  }
-  return (
-    <Box>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
-        <IconButton size="small" onClick={() => setOpen(!open)}>
-          {open ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
-        </IconButton>
-        <Typography variant="caption" color="text.secondary">
-          {t('debug.compiledElm')}
-        </Typography>
-      </Stack>
-      <Collapse in={open} timeout="auto" unmountOnExit>
-        <Paper variant="outlined" sx={{ p: 1, mt: 0.5, bgcolor: 'background.default', maxHeight: 400, overflow: 'auto' }}>
-          <Box component="pre" sx={{ m: 0, fontSize: '0.7rem' }}>
-            {pretty}
-          </Box>
-        </Paper>
-      </Collapse>
-    </Box>
+      {debugTrace?.elmJson && <ElmJsonViewer elmJson={debugTrace.elmJson} />}
+    </Stack>
   )
 }

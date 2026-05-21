@@ -1,0 +1,7 @@
+{
+  "type": "cql-execute",
+  "expectedHttpStatus": 500,
+  "errorInfoPhase": "cql_translation",
+  "errorInfoRequiredFields": ["phase", "errorType", "message"],
+  "_note": "PAT-098 contract: /api/cql/execute with broken CQL returns 500 from GlobalExceptionHandler with structured errorInfo (phase/errorType/message) in the body. Editors previously only got a flat errorMessage string, leaving integrators with no way to distinguish translation errors from runtime errors. Phase is asserted as cql_translation — BUG-115 made the classifier walk the cause chain to recognize translator errors wrapped in CqlExecutionException."
+}

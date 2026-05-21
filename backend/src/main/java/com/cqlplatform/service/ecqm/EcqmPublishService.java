@@ -78,6 +78,11 @@ public class EcqmPublishService {
         measureDef.setStatus("active");
         measureDef.setScoringType(ecqm.getScoringType());
         measureDef.setCqlContent(buildResult.cql());
+        // Persist the compiled ELM alongside the CQL so MeasureReportService can
+        // record elmHash for provenance (PAT-095). Without this, publish would
+        // leave elm_json null on measure_definition → report.elm_hash null →
+        // audit can't verify semantic equivalence of the measure actually run.
+        measureDef.setElmJson(validation.getElmJson());
         measureDef.setCqlLibraryId(ecqm.getName().replaceAll("[^a-zA-Z0-9_]", "_"));
         measureDef.setGroupDefinitionList(groupDefs);
         measureDef.setImprovementNotation(ecqm.getImprovementNotation());

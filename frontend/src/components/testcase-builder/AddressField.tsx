@@ -4,6 +4,8 @@ import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui
 import { useTranslation } from 'react-i18next'
 import FieldWrapper from './FieldWrapper'
 import { getChildBoundCodes, ADDRESS_USE_CODES, ADDRESS_TYPE_CODES } from './constants'
+import { TW_ADDRESS_EXT_BASE } from '../../constants/fhirExtensions'
+import { asObject } from '../../utils/fhirGuards'
 import type { ElementMetadata } from '../../types'
 
 interface FhirExtension {
@@ -29,8 +31,6 @@ interface AddressFieldProps {
   onChange: (value: unknown) => void
 }
 
-const TW_EXT_BASE = 'https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/tw-'
-
 interface TwAddressField {
   key: string
   extSuffix: string
@@ -49,11 +49,11 @@ const TW_ADDRESS_FIELDS: TwAddressField[] = [
 ]
 
 function getExtValue(extensions: FhirExtension[] | undefined, suffix: string): string {
-  return extensions?.find((e) => e.url === TW_EXT_BASE + suffix)?.valueString || ''
+  return extensions?.find((e) => e.url === TW_ADDRESS_EXT_BASE + suffix)?.valueString || ''
 }
 
 function setExtValue(extensions: FhirExtension[] | undefined, suffix: string, val: string): FhirExtension[] | undefined {
-  const url = TW_EXT_BASE + suffix
+  const url = TW_ADDRESS_EXT_BASE + suffix
   const existing = (extensions || []).filter((e) => e.url !== url)
   if (val) {
     existing.push({ url, valueString: val })
@@ -63,7 +63,7 @@ function setExtValue(extensions: FhirExtension[] | undefined, suffix: string, va
 
 export default function AddressField({ element, value, onChange }: AddressFieldProps) {
   const { t } = useTranslation('measures')
-  const addr = (value as Address) || { country: 'TW' }
+  const addr = asObject(value) as Address
   const [lineInput, setLineInput] = useState('')
   const [twExpanded, setTwExpanded] = useState(false)
   const useOptions = getChildBoundCodes(element, 'use', ADDRESS_USE_CODES)

@@ -4,7 +4,8 @@
     "tagline": "專為台灣醫療資訊系統設計的 CQL 開發平台",
     "description": "整合 TWCORE IG 規範，提供視覺化 CQL 編輯、品質量測、CDS 決策支援等完整功能，協助醫療機構提升照護品質。",
     "learnMore": "開始學習",
-    "tryDemo": "瀏覽教學"
+    "tryDemo": "瀏覽教學",
+    "tutorialAttribution": "教學內容翻譯自 HL7 CQL 官方網站 (cql.hl7.org)"
   },
   "features": {
     "title": "平台功能",
@@ -719,5 +720,8 @@
       "reset": "重設進度",
       "resetConfirm": "確定要重設所有學習進度嗎？"
     }
+  },
+  "footer": {
+    "contactPrompt": "商業合作 / 錯誤回報："
   }
 }

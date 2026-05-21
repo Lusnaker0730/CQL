@@ -1,0 +1,5 @@
+{
+  "type": "cds-hook",
+  "cardCount": 3,
+  "_note": "3 independent Tuple-returning defines → 3 cards. Per-card summary/indicator assertions omitted because CqlTupleCardStrategy's iteration order over a results Map isn't guaranteed stable — rely on cardCount only. If order ever becomes guaranteed, add per-index cards[] assertions here."
+}

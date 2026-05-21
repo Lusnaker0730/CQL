@@ -1,0 +1,11 @@
+{
+  "id": "smoke-17-retrieve-dedupe",
+  "hook": "patient-view",
+  "title": "Smoke 17 - Retrieve Cache Dedupe",
+  "description": "Three defines reference the same [Observation] retrieve. Under BUG-116 this produced 3+ retrieve trace rows because debug mode evaluated each expression in a separate engine.evaluate() call. After the fix, all three share the batch eval's retrieve cache and only 1 row appears.",
+  "enabled": true,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke17RetrieveDedupe\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"AllObservations\":\n  [Observation]\n\ndefine \"HasAnyObservation\":\n  exists(\"AllObservations\")\n\ndefine \"ObservationCount\":\n  Count(\"AllObservations\")\n\ndefine \"Card\":\n  Tuple {\n    summary: 'Observation count: ' + ToString(\"ObservationCount\"),\n    detail: 'if HasAnyObservation: ' + ToString(\"HasAnyObservation\"),\n    indicator: 'info',\n    sourceLabel: 'Smoke 17'\n  }\n",
+  "prefetch": {}
+}

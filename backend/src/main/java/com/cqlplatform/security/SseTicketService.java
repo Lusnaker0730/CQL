@@ -11,10 +11,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Issues short-lived, single-use tickets that can be exchanged for SSE
- * authentication.  This avoids passing long-lived JWT access tokens in
+ * Issues short-lived, single-use tickets that can be exchanged for
+ * long-lived-connection authentication (originally SSE, now WebSocket
+ * after PAT-167).  This avoids passing long-lived JWT access tokens in
  * query parameters where they leak into server logs, browser history,
- * and proxy caches.
+ * and proxy caches.  The {@code /api/auth/sse-ticket} URL is kept as
+ * the issuance endpoint for backward compatibility — there is nothing
+ * SSE-specific about the ticket itself; the same redeem-once-or-expire
+ * semantics serve both transports.
  */
 @Service
 @Slf4j

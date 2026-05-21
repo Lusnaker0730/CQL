@@ -47,7 +47,7 @@ const INTERVAL_NUM_RE = /^Interval\[([^,]+),\s*([^\]]+)\]$/
 
 /**
  * Parse a parameter string like: "Measurement Period" Interval<DateTime>
- *   default Interval[@2024-01-01T00:00:00.0, @2024-12-31T23:59:59.999]
+ *   default Interval[@2024-01-01T00:00:00.000, @2024-12-31T23:59:59.999]
  */
 function parseParameter(raw: string): { name: string; type: string; defaultValue: string } | null {
   const m = raw.match(/^"([^"]+)"\s+(\S+)(?:\s+default\s+(.+))?/)
@@ -57,9 +57,11 @@ function parseParameter(raw: string): { name: string; type: string; defaultValue
 
 function formatDateTimeForCql(dateStr: string, isEnd: boolean): string {
   if (!dateStr) return ''
+  // CQL DateTime literals require either no fractional part or a 3-digit
+  // fraction. Use `.000` / `.999` so start and end have matching precision.
   // Input from date input: YYYY-MM-DD, from datetime-local: YYYY-MM-DDTHH:mm
-  if (dateStr.includes('T')) return dateStr + ':00.0'
-  return isEnd ? dateStr + 'T23:59:59.999' : dateStr + 'T00:00:00.0'
+  if (dateStr.includes('T')) return dateStr + ':00.000'
+  return isEnd ? dateStr + 'T23:59:59.999' : dateStr + 'T00:00:00.000'
 }
 
 function parseDateTimeFromCql(cqlDate: string): string {
@@ -84,6 +86,10 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
   // Interval-specific state for structured input
   const [intervalStart, setIntervalStart] = useState('')
   const [intervalEnd, setIntervalEnd] = useState('')
+  // Raw CQL of the original interval default while editing — datetime-local
+  // inputs only carry minute precision, so naive round-trips drop seconds/ms.
+  // We reuse the original when the user hasn't touched the inputs.
+  const [originalIntervalDefault, setOriginalIntervalDefault] = useState('')
 
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
@@ -94,6 +100,10 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
   const isIntervalNumType = paramType === 'Interval<Integer>' || paramType === 'Interval<Decimal>'
 
   const buildIntervalDefault = (): string => {
+    // Editing path: reuse original raw default if user hasn't edited the
+    // structured inputs. Preserves seconds/ms precision that the
+    // datetime-local input would otherwise truncate.
+    if (originalIntervalDefault) return originalIntervalDefault
     if (isIntervalDateType) {
       if (!intervalStart && !intervalEnd) return ''
       const isDateTime = paramType === 'Interval<DateTime>'
@@ -168,6 +178,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
       if (dm) {
         setIntervalStart(parseDateTimeFromCql(dm[1]))
         setIntervalEnd(parseDateTimeFromCql(dm[2]))
+        setOriginalIntervalDefault(parsed.defaultValue)
       } else {
         setDefaultValue(parsed.defaultValue)
       }
@@ -176,6 +187,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
       if (nm) {
         setIntervalStart(nm[1].trim())
         setIntervalEnd(nm[2].trim())
+        setOriginalIntervalDefault(parsed.defaultValue)
       } else {
         setDefaultValue(parsed.defaultValue)
       }
@@ -194,6 +206,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
     setQtyUnit('')
     setIntervalStart('')
     setIntervalEnd('')
+    setOriginalIntervalDefault('')
     setEditingItem(null)
     setPreviewSnippet('')
   }
@@ -228,6 +241,17 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
       )
     }
 
+    // Editing an interval and changing either bound discards the original raw
+    // default so we re-emit from the current input values.
+    const handleIntervalStart = (v: string) => {
+      setIntervalStart(v)
+      setOriginalIntervalDefault('')
+    }
+    const handleIntervalEnd = (v: string) => {
+      setIntervalEnd(v)
+      setOriginalIntervalDefault('')
+    }
+
     if (isIntervalDateType) {
       const inputType = paramType === 'Interval<DateTime>' ? 'datetime-local' : 'date'
       return (
@@ -237,7 +261,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             type={inputType}
             label={t('parameters.intervalStart')}
             value={intervalStart}
-            onChange={(e) => setIntervalStart(e.target.value)}
+            onChange={(e) => handleIntervalStart(e.target.value)}
             InputLabelProps={{ shrink: true }}
             sx={{ flex: 1 }}
           />
@@ -246,7 +270,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             type={inputType}
             label={t('parameters.intervalEnd')}
             value={intervalEnd}
-            onChange={(e) => setIntervalEnd(e.target.value)}
+            onChange={(e) => handleIntervalEnd(e.target.value)}
             InputLabelProps={{ shrink: true }}
             sx={{ flex: 1 }}
           />
@@ -262,7 +286,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             type="number"
             label={t('parameters.intervalStart')}
             value={intervalStart}
-            onChange={(e) => setIntervalStart(e.target.value)}
+            onChange={(e) => handleIntervalStart(e.target.value)}
             placeholder={t('parameters.intervalStartPlaceholder')}
             sx={{ flex: 1 }}
           />
@@ -271,7 +295,7 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             type="number"
             label={t('parameters.intervalEnd')}
             value={intervalEnd}
-            onChange={(e) => setIntervalEnd(e.target.value)}
+            onChange={(e) => handleIntervalEnd(e.target.value)}
             placeholder={t('parameters.intervalEndPlaceholder')}
             sx={{ flex: 1 }}
           />

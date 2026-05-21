@@ -1,0 +1,12 @@
+{
+  "type": "cds-hook",
+  "cardCount": 1,
+  "cards": [
+    {
+      "summary": "Service not found",
+      "indicator": "info",
+      "detail": "is not available"
+    }
+  ],
+  "_note": "Service saved with enabled=false. Backend chose HTTP 200 + an info 'Service not found' card over 404 (valid per CDS Hooks spec — the response format handles both 'service missing' and 'service disabled' gracefully without requiring clients to distinguish HTTP vs payload error). Discovery listing behavior (service not appearing in GET /cds-services) is trusted — only enabled services hit the serviceConfigs in-memory map per CdsHooksService.createService. This assertion covers BOTH behaviors: if a consumer were to remove the service from DB entirely, same 'not found' card would fire."
+}

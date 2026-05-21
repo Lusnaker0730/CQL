@@ -32,7 +32,8 @@
     "colSystem": "System",
     "colCode": "Code",
     "colDisplay": "Display",
-    "noCodesFound": "No codes found."
+    "noCodesFound": "No codes found.",
+    "previewTruncated": "showing first {{shown}} of {{total}}"
   },
   "codeLookup": {
     "twCoreSystems": "TW Core IG Code Systems",

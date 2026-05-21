@@ -29,6 +29,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
+  // PAT-157 — info banner for the register-pending response (self-registration
+  // disabled or username taken; backend returns 200 with a message rather than
+  // an error). Distinct from `error` because we don't want it styled as a failure.
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({})
   const [oktaEnabled, setOktaEnabled] = useState(false)
@@ -91,6 +95,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setInfo('')
 
     if (!validateFields()) return
 
@@ -100,6 +105,16 @@ export default function LoginPage() {
       const response = isRegister
         ? await authApi.register({ username, password, email: email || undefined })
         : await authApi.login({ username, password })
+
+      // PAT-157 — register may return a plain { message } envelope when self-
+      // registration is disabled (or the username is already taken). In that
+      // case we surface the pending-approval message instead of dispatching
+      // credentials with an undefined token.
+      if (!('token' in response) || !response.token) {
+        const pending = (response as { message?: string }).message
+        setInfo(pending || t('auth.registrationPending'))
+        return
+      }
 
       dispatch(setCredentials({
         token: response.token,
@@ -158,6 +173,11 @@ export default function LoginPage() {
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+          {info && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {info}
             </Alert>
           )}
 

@@ -1,0 +1,11 @@
+{
+  "id": "smoke-10-patient-view",
+  "hook": "patient-view",
+  "title": "Smoke 10 - Patient View Basic",
+  "description": "Minimal CDS service that always emits one info card.",
+  "enabled": true,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke10PatientView\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"HelloCard\":\n  Tuple {\n    summary: 'Smoke 10 card fired',\n    detail: 'This card proves the CDS hook pipeline works end-to-end.',\n    indicator: 'info',\n    sourceLabel: 'Smoke Harness'\n  }\n",
+  "prefetch": {}
+}

@@ -1,0 +1,10 @@
+{
+  "periodStart": "2021-07-01",
+  "periodEnd": "2021-12-31",
+  "score": 4.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 4
+  },
+  "_note": "Cohort scoring — score = count(Initial Population) per FHIR MeasureReport spec (fixed in #PAT-083). Previously backend returned null for cohort measureScore."
+}

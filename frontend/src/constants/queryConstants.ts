@@ -17,3 +17,6 @@ export const STALE_FOREVER = Infinity
 
 /** Polling interval for live dashboards and service status (30 s) */
 export const REFETCH_30S = 30_000
+
+/** Polling interval for near-real-time admin views (10 s) — recent invocations, audit feed */
+export const REFETCH_10S = 10_000

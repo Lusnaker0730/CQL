@@ -6,7 +6,7 @@
 
 | 層 | 技術 | 版本 |
 |----|------|------|
-| Backend | Spring Boot / Java / Maven | 3.2.0 / 21 |
+| Backend | Spring Boot / Java / Maven | 4.0.6 / 21 |
 | Frontend | React / TypeScript / Vite | 18 / 5.3 / 5.0 |
 | UI | Material-UI (MUI) | 5.14 |
 | Editor | Monaco Editor | 4.6 |
@@ -94,10 +94,11 @@ cd frontend && npx tsc --noEmit     # 型別檢查
 ## 開發慣例
 
 ### Commit 與 Changelog
-- Commit 格式: `feat|fix|docs|refactor: 描述 (#NNN)`
+- Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）
-- Changelog 更新完後追加一個 `docs: add commit hash to CHANGE_LOG #NNN` commit
+- **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
 - ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）
+- 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 
 ### i18n（必須遵守）
 - 所有 UI 文字使用 `useTranslation('namespace')`，**禁止硬編碼字串**
@@ -155,6 +156,13 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - Backend: JUnit 5 + Mockito，83 個測試檔案
 - Frontend: Vitest + React Testing Library，56 個測試檔案
 - 型別安全: 修改 tsx 後執行 `npx tsc --noEmit` 驗證
+
+### 本機整合 Smoke Test（push 前必跑）
+```bash
+scripts/smoke/run.sh          # 全部 scenarios，~60-120s
+scripts/smoke/run.sh --keep   # debug 時保留 stack
+```
+每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort），走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。
 
 ## 關鍵檔案速查
 

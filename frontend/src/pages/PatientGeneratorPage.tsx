@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   Box,
   Container,
@@ -18,6 +18,7 @@ import BatchGeneratorPanel from '../components/patient-generator/BatchGeneratorP
 import CustomGeneratorPanel from '../components/patient-generator/CustomGeneratorPanel'
 import ScenarioSelector from '../components/patient-generator/ScenarioSelector'
 import GenerationResultPanel from '../components/patient-generator/GenerationResultPanel'
+import type { BatchGenerationConfig, CustomGenerationConfig } from '../config/twcore'
 
 const TAB_CONFIG = [
   { key: 'batch', Icon: BatchIcon },
@@ -36,6 +37,33 @@ export default function PatientGeneratorPage() {
     download,
     clearResults,
   } = usePatientGenerator()
+
+  // Confirm-before-overwrite: every generate path silently replaced previously
+  // generated results, so a 50-patient batch you'd already uploaded could be
+  // wiped by a single accidental click. Wrap each entry point in a confirm
+  // when there's existing output the user might still need.
+  const confirmOverwrite = useCallback(
+    () =>
+      results.length === 0 ||
+      window.confirm(t('overwriteConfirm', { count: results.length })),
+    [results.length, t],
+  )
+
+  const handleBatchGenerate = useCallback(
+    (config: BatchGenerationConfig) => {
+      if (!confirmOverwrite()) return
+      generateBatchPatients(config)
+    },
+    [confirmOverwrite, generateBatchPatients],
+  )
+
+  const handleCustomGenerate = useCallback(
+    (config: CustomGenerationConfig) => {
+      if (!confirmOverwrite()) return
+      generateCustom(config)
+    },
+    [confirmOverwrite, generateCustom],
+  )
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -71,19 +99,19 @@ export default function PatientGeneratorPage() {
         {tab === 0 && (
           <BatchGeneratorPanel
             isGenerating={isGenerating}
-            onGenerate={generateBatchPatients}
+            onGenerate={handleBatchGenerate}
           />
         )}
         {tab === 1 && (
           <CustomGeneratorPanel
             isGenerating={isGenerating}
-            onGenerate={generateCustom}
+            onGenerate={handleCustomGenerate}
           />
         )}
         {tab === 2 && (
           <ScenarioSelector
             isGenerating={isGenerating}
-            onGenerate={generateCustom}
+            onGenerate={handleCustomGenerate}
           />
         )}
 

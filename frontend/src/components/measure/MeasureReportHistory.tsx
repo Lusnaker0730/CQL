@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import {
   Box,
   Paper,
@@ -14,6 +14,12 @@ import {
   Collapse,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
@@ -30,20 +36,37 @@ import { downloadBlob } from '../../utils/download'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
 
-export default function MeasureReportHistory() {
+interface MeasureReportHistoryProps {
+  /** PAT-122: when provided, the Reports tab only shows reports for this
+   *  specific measure (via /measures/{id}/reports). When absent, falls back
+   *  to the unfiltered /measures/reports for any standalone usage. */
+  measureId?: number
+}
+
+export default function MeasureReportHistory({ measureId }: MeasureReportHistoryProps = {}) {
   const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [exportAnchor, setExportAnchor] = useState<{ el: HTMLElement; id: number } | null>(null)
+  // PAT-130: confirm before destructive delete — clicking the trash icon used
+  // to fire the mutation immediately, so a stray click could quietly throw
+  // away historical evaluation results that aren't recoverable.
+  const [pendingDelete, setPendingDelete] = useState<MeasureReport | null>(null)
 
+  const queryKey = measureId != null
+    ? ['measureReports', 'measure', measureId]
+    : ['measureReports']
   const { data: reports = [], isLoading } = useQuery({
-    queryKey: ['measureReports'],
-    queryFn: () => measureApi.getReports(),
+    queryKey,
+    queryFn: () => measureId != null
+      ? measureApi.getReportsForMeasure(measureId)
+      : measureApi.getReports(),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => measureApi.deleteReport(id),
+    // Invalidate both scoped and unscoped keys so any open tab refreshes.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measureReports'] }),
   })
 
@@ -80,7 +103,14 @@ export default function MeasureReportHistory() {
           </TableHead>
           <TableBody>
             {reports.map((report: MeasureReport) => (
-              <Box component="tbody" key={report.id}>
+              // PAT-118 (bug fix): each report was wrapped in `<Box component="tbody">`
+              // which produced nested <tbody> inside <TableBody> — invalid HTML.
+              // Browsers couldn't compute consistent column widths across the
+              // broken sections, so the table header cells collapsed to min width
+              // and Chinese headers wrapped one character per line while body
+              // rows misaligned. Fragment keeps the key on a logical pair of
+              // rows without emitting an extra DOM element.
+              <Fragment key={report.id}>
                 <TableRow hover>
                   <TableCell>
                     <IconButton size="small" aria-label={t('reports.toggleDetails')} onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
@@ -120,7 +150,7 @@ export default function MeasureReportHistory() {
                     <IconButton size="small" aria-label={t('reports.downloadReport')} onClick={(e) => setExportAnchor({ el: e.currentTarget, id: report.id })}>
                       <DownloadIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" aria-label={t('reports.deleteReport')} color="error" onClick={() => deleteMutation.mutate(report.id)}>
+                    <IconButton size="small" aria-label={t('reports.deleteReport')} color="error" onClick={() => setPendingDelete(report)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
@@ -163,7 +193,7 @@ export default function MeasureReportHistory() {
                     </Collapse>
                   </TableCell>
                 </TableRow>
-              </Box>
+              </Fragment>
             ))}
             {!isLoading && reports.length === 0 && (
               <TableRow>
@@ -197,6 +227,41 @@ export default function MeasureReportHistory() {
           {t('reports.exportFormats.qrda')}
         </MenuItem>
       </Menu>
+
+      <Dialog
+        open={pendingDelete != null}
+        onClose={() => setPendingDelete(null)}
+        aria-labelledby="report-delete-title"
+      >
+        <DialogTitle id="report-delete-title">{t('reports.deleteConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingDelete && t('reports.deleteConfirmBody', {
+              measure: pendingDelete.measureName,
+              periodStart: pendingDelete.periodStart,
+              periodEnd: pendingDelete.periodEnd,
+            })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)}>
+            {t('reports.cancel')}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={deleteMutation.isPending}
+            onClick={() => {
+              if (!pendingDelete) return
+              deleteMutation.mutate(pendingDelete.id, {
+                onSettled: () => setPendingDelete(null),
+              })
+            }}
+          >
+            {deleteMutation.isPending ? t('reports.deleting') : t('reports.confirmDelete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   )
 }

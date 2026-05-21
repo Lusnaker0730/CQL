@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Shared engine for converting expression trees into CQL fragments.
@@ -18,24 +19,91 @@ public class ExpressionCqlEngine {
 
     private final CqlTemplateEngine templateEngine;
     private final ModifierService modifierService;
+    private final CustomModifierCqlBuilder customModifierCqlBuilder;
 
     private static final Map<String, String> FHIR_VERSION_MAP = AuthoringConstants.FHIR_VERSION_MAP;
     private static final Map<String, String> FHIR_HELPERS_VERSION_MAP = AuthoringConstants.FHIR_HELPERS_VERSION_MAP;
+
+    // PAT-161: arithmetic Quantity-literal operand validation.
+    // value must be a plain CQL numeric literal; unit must be UCUM-safe characters
+    // only (no single-quote → can't escape the Quantity literal delimiter; no
+    // whitespace/backslash → can't smuggle CQL fragments).
+    private static final Pattern ARITHMETIC_NUMERIC_PATTERN =
+            Pattern.compile("-?\\d+(\\.\\d+)?");
+    private static final Pattern ARITHMETIC_UCUM_UNIT_PATTERN =
+            Pattern.compile("[A-Za-z0-9./*+\\-()\\[\\]{}%_]{1,32}");
+
+    // PAT-161: arithmetic operator allow-list. mod/div are CQL keyword operators
+    // (word-style); ^ is the CQL exponentiation operator. Failsafe to "+" for
+    // anything outside this set so a malicious operator string can never reach
+    // the emitted CQL.
+    private static final Set<String> ARITHMETIC_OPERATORS = Set.of(
+            "+", "-", "*", "/", "mod", "div", "^");
+
+    // PAT-162: arithmeticUnary function allow-list. All are CQL 1.5 built-ins
+    // taking a single Decimal/Integer/Quantity argument. Failsafe to "Abs" for
+    // anything outside this set (defensive fallback, mirrors ARITHMETIC_OPERATORS).
+    private static final Set<String> UNARY_FUNCTIONS = Set.of(
+            "Abs", "Ceiling", "Floor", "Negate", "Round", "Truncate");
+
+    // PAT-164: Round precision argument validation. CQL spec allows
+    // Round(x, precision) where precision is a non-negative Integer; anything
+    // failing this regex falls back to single-arg Round(x).
+    private static final Pattern ROUND_PRECISION_PATTERN = Pattern.compile("\\d+");
 
     /**
      * Per-build context holding base elements for cross-reference lookups
      * and a warnings collector. Created fresh for each build invocation
      * to ensure thread safety.
      */
+    /**
+     * Explicit render mode replaces the ad-hoc {@code preserveListReturn} flag flipping that
+     * used to happen in four separate places (two in this class, two in EcqmCqlBuilder).
+     * Each mode makes the rendering intent of the current recursion frame explicit; callers
+     * switch modes via {@link BuildContext#withRenderMode} which guarantees lexically-scoped
+     * restoration and can't be forgotten.
+     */
+    public enum RenderMode {
+        /** Default — list-returning expressions are wrapped in {@code exists(...)}. */
+        STANDARD,
+        /**
+         * Continuous-variable measure's Measure Population — preserve the list shape so the
+         * Measure Observation wrapper can iterate, and skip modifiers that collapse a list
+         * to a single resource / extract a scalar (see {@link #classifyListBehavior}).
+         */
+        CV_MEASURE_POPULATION,
+        /**
+         * Inside an episode-based conjunction's filter branch — a leaf expression here is
+         * a boolean predicate over the already-identified episode, so STANDARD rendering
+         * (exists-wrap for lists) applies to it independently. Kept as a named mode for
+         * readability; behaviorally identical to STANDARD.
+         */
+        CV_EPISODE_FILTER
+    }
+
     public static class BuildContext {
         public final List<Map<String, Object>> baseElements;
         public final Map<String, String> baseElementNameIndex;
         public final Map<String, String> parameterNameIndex;
         public final List<String> warnings = new ArrayList<>();
-        /** When true, list-returning expressions keep their list type instead of being wrapped in exists(). */
-        public boolean preserveListReturn = false;
-        /** The resource type to preserve as a list (e.g. "Encounter") when preserveListReturn is true. */
-        public String episodeResourceType = null;
+
+        /** Current render mode — package-visible for read; mutate only via {@link #withRenderMode}. */
+        RenderMode renderMode = RenderMode.STANDARD;
+        /** Resource type to preserve as a list when {@code renderMode = CV_MEASURE_POPULATION}. */
+        String episodeResourceType = null;
+
+        /**
+         * Whether the output library declares a {@code "Measurement Period"} parameter. eCQM
+         * artifacts always do; CDS artifacts never do. When {@code true}, time-dependent
+         * elements like {@code AgeRange} bind their age function to the period end
+         * ({@code AgeInYearsAt(end of "Measurement Period")}) so results are reproducible
+         * regardless of when the measure is evaluated. When {@code false}, they fall back to
+         * {@code AgeInYears()} (system clock).
+         *
+         * <p>Set by {@link EcqmCqlBuilder} at the top of {@code buildEcqmCql}; stays
+         * {@code false} for CDS/authoring paths where no Measurement Period exists.
+         */
+        public boolean hasMeasurementPeriod = false;
 
         public BuildContext(List<Map<String, Object>> baseElements, List<Map<String, Object>> parameters) {
             this.baseElements = baseElements;
@@ -62,6 +130,27 @@ public class ExpressionCqlEngine {
                 }
             }
             this.parameterNameIndex = pIdx;
+        }
+
+        public RenderMode getRenderMode() { return renderMode; }
+
+        /** Run {@code body} with {@code renderMode} temporarily set. Mode is always restored. */
+        public <T> T withRenderMode(RenderMode mode, String episodeType, java.util.function.Supplier<T> body) {
+            RenderMode prevMode = this.renderMode;
+            String prevEpisode = this.episodeResourceType;
+            this.renderMode = mode;
+            this.episodeResourceType = episodeType;
+            try {
+                return body.get();
+            } finally {
+                this.renderMode = prevMode;
+                this.episodeResourceType = prevEpisode;
+            }
+        }
+
+        /** Convenience overload for modes that don't carry an episode type. */
+        public <T> T withRenderMode(RenderMode mode, java.util.function.Supplier<T> body) {
+            return withRenderMode(mode, this.episodeResourceType, body);
         }
 
         public void warn(String message) {
@@ -97,7 +186,7 @@ public class ExpressionCqlEngine {
         log.debug("buildConjunctionExpression: processing {} children", children.size());
 
         // Episode-based CV: separate the episode resource from filter conditions
-        if (ctx.preserveListReturn && ctx.episodeResourceType != null
+        if (ctx.getRenderMode() == RenderMode.CV_MEASURE_POPULATION && ctx.episodeResourceType != null
                 && "And".equals(getStr(group, "id", "And"))) {
             return buildEpisodeConjunction(children, ctx);
         }
@@ -135,29 +224,23 @@ public class ExpressionCqlEngine {
         String baseExpr = null;
         List<String> filterExprs = new ArrayList<>();
 
-        // Temporarily disable preserveListReturn for filter expressions
-        ctx.preserveListReturn = false;
-
         for (Map<String, Object> child : children) {
             Boolean conjunction = (Boolean) child.get("conjunction");
             if (Boolean.TRUE.equals(conjunction)) {
-                filterExprs.add("(" + buildConjunctionExpression(child, ctx) + ")");
+                filterExprs.add("(" + ctx.withRenderMode(RenderMode.CV_EPISODE_FILTER,
+                        () -> buildConjunctionExpression(child, ctx)) + ")");
                 continue;
             }
 
             String childType = getStr(child, "type", "").toLowerCase();
             if (baseExpr == null && childType.contains(episodeType)) {
-                // This is the episode resource — build without exists()
-                ctx.preserveListReturn = true;
+                // This is the episode resource — build as list query (caller's CV_MEASURE_POPULATION mode)
                 baseExpr = buildExpression(child, ctx);
-                ctx.preserveListReturn = false;
             } else {
-                filterExprs.add(buildExpression(child, ctx));
+                filterExprs.add(ctx.withRenderMode(RenderMode.CV_EPISODE_FILTER,
+                        () -> buildExpression(child, ctx)));
             }
         }
-
-        // Restore flag
-        ctx.preserveListReturn = true;
 
         if (baseExpr == null) {
             // No matching episode element found — fall back to normal boolean conjunction
@@ -182,7 +265,7 @@ public class ExpressionCqlEngine {
         String expr;
         switch (type) {
             case "AgeRange":
-                expr = buildAgeRangeExpression(fields);
+                expr = buildAgeRangeExpression(fields, ctx);
                 break;
             case "Gender":
                 expr = buildGenderExpression(fields);
@@ -225,19 +308,61 @@ public class ExpressionCqlEngine {
                 break;
             }
             case "arithmeticExpression": {
-                String operator = getFieldValue(fields, "operator", "+");
-                // Validate operator to prevent injection
-                if (!"+".equals(operator) && !"-".equals(operator)
-                        && !"*".equals(operator) && !"/".equals(operator)) {
-                    operator = "+";
-                }
-                String leftCql = resolveArithmeticOperand(fields, "left", ctx);
-                String rightCql = resolveArithmeticOperand(fields, "right", ctx);
-                if (leftCql != null && rightCql != null) {
-                    expr = String.format("%s %s %s", leftCql, operator, rightCql);
+                // PAT-163: N-ary. New shape stores operands[] + operators[]; old PAT-161
+                // 2-ary shape (left_*/right_*/operator) still works via fallback for any
+                // artifact that escapes the V56 Flyway migration.
+                Object operandsRaw = getFieldRawValue(fields, "operands");
+                Object operatorsRaw = getFieldRawValue(fields, "operators");
+                if (operandsRaw instanceof List && operatorsRaw instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> operands = (List<Map<String, Object>>) operandsRaw;
+                    @SuppressWarnings("unchecked")
+                    List<Object> rawOps = (List<Object>) operatorsRaw;
+                    expr = emitNaryArithmeticCql(operands, rawOps, ctx, elementName);
                 } else {
-                    ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
-                    expr = "null /* unresolved arithmetic operands */";
+                    // Legacy 2-ary shape — kept as defense-in-depth even after V56 migration.
+                    String operator = getFieldValue(fields, "operator", "+");
+                    if (!ARITHMETIC_OPERATORS.contains(operator)) {
+                        operator = "+";
+                    }
+                    String leftCql = resolveArithmeticOperand(fields, "left", ctx);
+                    String rightCql = resolveArithmeticOperand(fields, "right", ctx);
+                    if (leftCql != null && rightCql != null) {
+                        expr = String.format("%s %s %s", leftCql, operator, rightCql);
+                    } else {
+                        ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
+                        expr = "null /* unresolved arithmetic operands */";
+                    }
+                }
+                break;
+            }
+            case "arithmeticUnary": {
+                // PAT-162: unary CQL function applied to a single operand
+                // (Abs/Floor/Ceiling/Round/Truncate/Negate). Function name is
+                // allow-listed; operand reuses the PAT-161 3-mode resolver
+                // (element / literal / quantity) with side="operand".
+                // PAT-164: Round accepts an optional Integer precision arg —
+                // emit Round(x, N) when 'precision' field is a non-negative
+                // integer; otherwise emit single-arg Round(x).
+                String fn = getFieldValue(fields, "function", "Abs");
+                if (!UNARY_FUNCTIONS.contains(fn)) {
+                    fn = "Abs";
+                }
+                String operandCql = resolveArithmeticOperand(fields, "operand", ctx);
+                if (operandCql != null) {
+                    if ("Round".equals(fn)) {
+                        String precision = getFieldValue(fields, "precision", "").trim();
+                        if (!precision.isEmpty() && ROUND_PRECISION_PATTERN.matcher(precision).matches()) {
+                            expr = String.format("Round(%s, %s)", operandCql, precision);
+                        } else {
+                            expr = String.format("Round(%s)", operandCql);
+                        }
+                    } else {
+                        expr = String.format("%s(%s)", fn, operandCql);
+                    }
+                } else {
+                    ctx.warn(String.format("Unary element '%s' has unresolved operand", elementName));
+                    expr = "null /* unresolved unary operand */";
                 }
                 break;
             }
@@ -256,7 +381,18 @@ public class ExpressionCqlEngine {
                 // Episode-based CV Measure Population: skip modifiers that collapse a list
                 // to a single item or extract non-resource values, so the population returns
                 // a resource list for the Measure Observation wrapper to iterate over.
-                if (ctx.preserveListReturn && isListCollapsingOrValueExtractingModifier(mod)) {
+                if (ctx.getRenderMode() == RenderMode.CV_MEASURE_POPULATION && isListCollapsingOrValueExtractingModifier(mod)) {
+                    String modName = getStr(mod, "name", getStr(mod, "id", "?"));
+                    String behavior = classifyListBehavior(mod);
+                    // Surface the silent skip to the author: the UI's CQL preview warns panel
+                    // picks up ctx.warnings so the user sees WHY their modifier chain was shortened.
+                    ctx.warn(String.format(
+                            "Modifier '%s' (%s) skipped in Measure Population: "
+                                    + "continuous-variable measures require a resource list for the "
+                                    + "Measure Observation function to iterate over. This modifier is "
+                                    + "applied inside the observation function body, not at the "
+                                    + "population level.",
+                            modName, behavior));
                     continue;
                 }
                 expr = applyModifier(expr, mod, ctx);
@@ -265,7 +401,7 @@ public class ExpressionCqlEngine {
 
         String finalReturnType = getFinalReturnType(element, modifiers);
         if (finalReturnType != null && finalReturnType.startsWith("list_of_")
-                && !ctx.preserveListReturn) {
+                && ctx.getRenderMode() != RenderMode.CV_MEASURE_POPULATION) {
             expr = String.format("exists(%s)", expr);
         }
 
@@ -274,7 +410,15 @@ public class ExpressionCqlEngine {
 
     /**
      * Resolve one side (left or right) of an arithmetic expression.
-     * Supports element references and literal numeric values.
+     * Supports three modes:
+     * <ul>
+     *   <li>{@code element} (default) — reference to another base element by id</li>
+     *   <li>{@code literal} — raw numeric / Quantity string (legacy single-field form)</li>
+     *   <li>{@code quantity} — PAT-161: structured Quantity from separate value + UCUM unit fields</li>
+     * </ul>
+     * Returns {@code null} when the operand is missing or fails validation —
+     * caller emits {@code null /* unresolved arithmetic operands *&#47;} for the
+     * whole expression so the CQL stays parseable and the warning surfaces in UI.
      */
     private String resolveArithmeticOperand(List<Map<String, Object>> fields, String side, BuildContext ctx) {
         String mode = getFieldValue(fields, side + "_mode", "element");
@@ -287,18 +431,177 @@ public class ExpressionCqlEngine {
             }
             return literal;
         }
-        // Element reference mode
-        String refId = getFieldValue(fields, side + "_operand_id", "");
+        if ("quantity".equals(mode)) {
+            String rawValue = getFieldValue(fields, side + "_literal_value", "");
+            String rawUnit = getFieldValue(fields, side + "_literal_unit", "");
+            if (rawValue == null || rawUnit == null) return null;
+            String value = rawValue.trim();
+            String unit = rawUnit.trim();
+            if (value.isEmpty() || unit.isEmpty()) return null;
+            if (!ARITHMETIC_NUMERIC_PATTERN.matcher(value).matches()) return null;
+            if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(unit).matches()) return null;
+            return String.format("%s '%s'", value, unit);
+        }
+        // Element reference mode. Binary arithmetic uses `<side>_operand_id`
+        // (left_operand_id / right_operand_id), but PAT-162's unary uses just
+        // `operand_id` (avoiding the ugly `operand_operand_id`). Both work here.
+        String operandIdField = "operand".equals(side) ? "operand_id" : side + "_operand_id";
+        String refId = getFieldValue(fields, operandIdField, "");
         if (refId == null || refId.isEmpty()) return null;
         String refName = ctx.findBaseElementName(refId);
         return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
     }
 
-    public String buildAgeRangeExpression(List<Map<String, Object>> fields) {
+    // PAT-163: N-ary operand limits. Below 2 makes no sense (use a baseElementRef
+    // instead); above 10 is a UX guardrail — long chains should be split into
+    // multiple base elements for readability.
+    static final int NARY_MIN_OPERANDS = 2;
+    static final int NARY_MAX_OPERANDS = 10;
+
+    // PAT-163: CQL operator precedence (higher numbers bind tighter). Mirrors
+    // CQL 1.5 spec §10. {@code ^} is tightest; {@code *}, {@code /}, {@code mod},
+    // {@code div} share level 2; {@code +} and {@code -} share level 1.
+    private static int arithmeticPrecedence(String op) {
+        switch (op) {
+            case "^":   return 3;
+            case "*":
+            case "/":
+            case "mod":
+            case "div": return 2;
+            case "+":
+            case "-":   return 1;
+            default:    return 1; // failsafe — shouldn't happen because of allow-list
+        }
+    }
+
+    /**
+     * PAT-163: emit N-ary arithmetic CQL with explicit precedence parens.
+     *
+     * <p>Strategy: walk operators left-to-right; whenever the next operator has
+     * a different precedence than the current run, close the current group with
+     * parens. Always emit parens around any non-trivial sub-group so the reader
+     * sees the grouping without doing precedence math in their head. E.g.
+     * {@code [a,b,c]} with {@code [+,*]} emits {@code a + (b * c)}.
+     *
+     * <p>Returns {@code null /* unresolved arithmetic operands *&#47;} when any
+     * operand or operator is malformed or out of range, matching the legacy
+     * 2-ary failure mode.
+     */
+    private String emitNaryArithmeticCql(
+            List<Map<String, Object>> operands,
+            List<Object> operators,
+            BuildContext ctx, String elementName) {
+        if (operands == null || operators == null
+                || operands.size() < NARY_MIN_OPERANDS
+                || operands.size() > NARY_MAX_OPERANDS
+                || operators.size() != operands.size() - 1) {
+            ctx.warn(String.format(
+                    "Arithmetic element '%s' has invalid N-ary shape (operands=%d, operators=%d)",
+                    elementName,
+                    operands == null ? -1 : operands.size(),
+                    operators == null ? -1 : operators.size()));
+            return "null /* unresolved arithmetic operands */";
+        }
+
+        // Resolve each operand to CQL. Each operand map has the same shape as
+        // the legacy fields (mode + operand_id / operand_literal / operand_literal_value
+        // / operand_literal_unit), so we adapt to the existing resolver by wrapping
+        // each into a single-field list.
+        List<String> operandCqls = new ArrayList<>(operands.size());
+        for (Map<String, Object> op : operands) {
+            String cql = resolveNaryOperand(op, ctx);
+            if (cql == null) {
+                ctx.warn(String.format("Arithmetic element '%s' has unresolved operand(s)", elementName));
+                return "null /* unresolved arithmetic operands */";
+            }
+            operandCqls.add(cql);
+        }
+
+        // Validate operators against allow-list, fail-safe to "+".
+        List<String> opStrings = new ArrayList<>(operators.size());
+        for (Object opRaw : operators) {
+            String op = opRaw == null ? "+" : opRaw.toString();
+            if (!ARITHMETIC_OPERATORS.contains(op)) op = "+";
+            opStrings.add(op);
+        }
+
+        return groupByPrecedence(operandCqls, opStrings);
+    }
+
+    /**
+     * PAT-163: per-operand resolver for N-ary shape. The operand map keys are
+     * the same as the legacy field IDs (mode / operand_id / operand_literal /
+     * operand_literal_value / operand_literal_unit) — that way an operand map
+     * extracted from the N-ary {@code operands[]} array maps to exactly what
+     * {@link #resolveArithmeticOperand} expects for side {@code "operand"}.
+     */
+    private String resolveNaryOperand(Map<String, Object> operand, BuildContext ctx) {
+        String mode = strFromMap(operand, "mode", "element");
+        if ("literal".equals(mode)) {
+            String literal = strFromMap(operand, "operand_literal", "");
+            if (literal == null || literal.isEmpty()) return null;
+            if (!literal.matches("[\\d.\\-]+(?:\\s*'[^']*')?")) return null;
+            return literal;
+        }
+        if ("quantity".equals(mode)) {
+            String value = strFromMap(operand, "operand_literal_value", "").trim();
+            String unit = strFromMap(operand, "operand_literal_unit", "").trim();
+            if (value.isEmpty() || unit.isEmpty()) return null;
+            if (!ARITHMETIC_NUMERIC_PATTERN.matcher(value).matches()) return null;
+            if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(unit).matches()) return null;
+            return String.format("%s '%s'", value, unit);
+        }
+        // element ref mode
+        String refId = strFromMap(operand, "operand_id", "");
+        if (refId == null || refId.isEmpty()) return null;
+        String refName = ctx.findBaseElementName(refId);
+        return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
+    }
+
+    private static String strFromMap(Map<String, Object> map, String key, String defaultVal) {
+        if (map == null) return defaultVal;
+        Object val = map.get(key);
+        return val != null ? val.toString() : defaultVal;
+    }
+
+    /**
+     * PAT-163: group operands by operator precedence, inserting parens around
+     * any tighter-binding sub-expression. Recursive: split on the lowest-precedence
+     * operator, emit left + " op " + right, wrapping each side in parens if it
+     * itself contains operators.
+     */
+    private String groupByPrecedence(List<String> operands, List<String> operators) {
+        if (operators.isEmpty()) {
+            return operands.get(0);
+        }
+        // Find rightmost lowest-precedence operator (left-associative grouping).
+        int minPrec = Integer.MAX_VALUE;
+        int splitAt = -1;
+        for (int i = operators.size() - 1; i >= 0; i--) {
+            int p = arithmeticPrecedence(operators.get(i));
+            if (p < minPrec) {
+                minPrec = p;
+                splitAt = i;
+            }
+        }
+        // Left/right partitions
+        List<String> leftOperands = operands.subList(0, splitAt + 1);
+        List<String> leftOperators = operators.subList(0, splitAt);
+        List<String> rightOperands = operands.subList(splitAt + 1, operands.size());
+        List<String> rightOperators = operators.subList(splitAt + 1, operators.size());
+        String left = groupByPrecedence(leftOperands, leftOperators);
+        String right = groupByPrecedence(rightOperands, rightOperators);
+        // Wrap sides that contain operators (i.e. are not single operands).
+        if (!leftOperators.isEmpty()) left = "(" + left + ")";
+        if (!rightOperators.isEmpty()) right = "(" + right + ")";
+        return left + " " + operators.get(splitAt) + " " + right;
+    }
+
+    public String buildAgeRangeExpression(List<Map<String, Object>> fields, BuildContext ctx) {
         String minAge = getFieldValue(fields, "min_age", null);
         String maxAge = getFieldValue(fields, "max_age", null);
         String unit = getFieldValue(fields, "unit_of_time", "year");
-        String ageFunction = mapUnitToAgeFunction(unit);
+        String ageFunction = mapUnitToAgeFunction(unit, ctx.hasMeasurementPeriod);
 
         Map<String, Object> model = new HashMap<>();
         model.put("ageFunction", ageFunction);
@@ -307,28 +610,50 @@ public class ExpressionCqlEngine {
         return templateEngine.render("elements/AgeRange.ftl", model);
     }
 
-    public String mapUnitToAgeFunction(String unit) {
-        if (unit == null)
-            return "AgeInYears()";
-        switch (unit.toLowerCase()) {
-            case "year":
-            case "years":
-                return "AgeInYears()";
-            case "month":
-            case "months":
-                return "AgeInMonths()";
-            case "week":
-            case "weeks":
-                return "AgeInWeeks()";
-            case "day":
-            case "days":
-                return "AgeInDays()";
-            case "hour":
-            case "hours":
-                return "AgeInHours()";
-            default:
-                return "AgeInYears()";
+    /**
+     * Deprecated — kept for callers that can't supply a {@link BuildContext}. Emits the
+     * system-clock form ({@code AgeInYears()}) which is wrong for eCQM (results drift with
+     * wall-clock time). Use {@link #buildAgeRangeExpression(List, BuildContext)} instead.
+     */
+    @Deprecated(forRemoval = true)
+    public String buildAgeRangeExpression(List<Map<String, Object>> fields) {
+        return buildAgeRangeExpression(fields, new BuildContext(null, null));
+    }
+
+    /**
+     * Maps a unit-of-time string to a CQL age function. When {@code bindToMeasurementPeriod}
+     * is true (eCQM context), returns the period-bound form {@code AgeInYearsAt(end of "Measurement Period")}
+     * so age is computed at a reproducible point. When false (CDS / authoring), returns the
+     * plain {@code AgeInYears()} form which uses the system clock.
+     */
+    public String mapUnitToAgeFunction(String unit, boolean bindToMeasurementPeriod) {
+        String base;
+        if (unit == null) {
+            base = "Years";
+        } else {
+            switch (unit.toLowerCase()) {
+                case "year": case "years":   base = "Years"; break;
+                case "month": case "months": base = "Months"; break;
+                case "week": case "weeks":   base = "Weeks"; break;
+                case "day": case "days":     base = "Days"; break;
+                case "hour": case "hours":   base = "Hours"; break;
+                default:                     base = "Years"; break;
+            }
         }
+        if (bindToMeasurementPeriod) {
+            return "AgeIn" + base + "At(end of \"Measurement Period\")";
+        }
+        return "AgeIn" + base + "()";
+    }
+
+    /**
+     * Backward-compat overload — defaults to the non-period-bound form. Existing callers
+     * that don't know about {@code BuildContext} continue to work; new code should use
+     * the two-arg form to get correct eCQM semantics.
+     */
+    @Deprecated(forRemoval = true)
+    public String mapUnitToAgeFunction(String unit) {
+        return mapUnitToAgeFunction(unit, false);
     }
 
     public String buildGenderExpression(List<Map<String, Object>> fields) {
@@ -399,225 +724,247 @@ public class ExpressionCqlEngine {
     // ── Modifier application ─────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
+    /**
+     * Functional interface for one modifier kind's CQL-fragment generator.
+     * Every entry of {@link #modifierAppliers} matches this shape; the kind is
+     * dispatched by {@code cqlTemplate} string.
+     */
+    @FunctionalInterface
+    private interface ModifierApplier {
+        String apply(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx);
+    }
+
+    /**
+     * Registry of {@code cqlTemplate} → {@link ModifierApplier}. Replaces the
+     * earlier 224-line switch in {@code applyModifier} which made adding a new
+     * modifier kind a copy-paste-into-a-wall ritual. Each case is now a small
+     * named helper that's individually testable.
+     */
+    private final Map<String, ModifierApplier> modifierAppliers = buildModifierAppliers();
+
+    private Map<String, ModifierApplier> buildModifierAppliers() {
+        Map<String, ModifierApplier> m = new HashMap<>();
+
+        // Trivial wrappers — only need expression
+        ModifierApplier checkExistence = (expr, v, fn, id, ctx) ->
+                renderModifier("CheckExistence.ftl", Map.of("expression", expr));
+        m.put("CheckExistence", checkExistence);
+        m.put("BooleanExists", checkExistence);
+        m.put("BooleanNot", (expr, v, fn, id, ctx) ->
+                renderModifier("BooleanNot.ftl", Map.of("expression", expr)));
+        m.put("Count", (expr, v, fn, id, ctx) ->
+                renderModifier("Count.ftl", Map.of("expression", expr)));
+        m.put("AllTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("AllTrue.ftl", Map.of("expression", expr)));
+        m.put("AnyTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("AnyTrue.ftl", Map.of("expression", expr)));
+        m.put("IsTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("IsTrue.ftl", Map.of("expression", expr)));
+        m.put("IsNotTrue", (expr, v, fn, id, ctx) ->
+                renderModifier("IsNotTrue.ftl", Map.of("expression", expr)));
+        m.put("IsFalse", (expr, v, fn, id, ctx) ->
+                renderModifier("IsFalse.ftl", Map.of("expression", expr)));
+        m.put("IsNotFalse", (expr, v, fn, id, ctx) ->
+                renderModifier("IsNotFalse.ftl", Map.of("expression", expr)));
+
+        // Field-based — delegated to named instance methods
+        m.put("BooleanComparison", this::applyBooleanComparison);
+        m.put("ValueComparisonNumber", this::applyValueComparison);
+        m.put("ValueComparisonObservation", this::applyValueComparison);
+        m.put("ConvertUnits", this::applyConvertUnits);
+        m.put("WithUnit", this::applyWithUnit);
+        m.put("LookBackModifier", this::applyLookBack);
+        m.put("DuringMeasurementPeriod", this::applyDuringMeasurementPeriod);
+        m.put("EqualsString", (expr, v, fn, id, ctx) -> applyStringMatch(expr, v, "EqualsString.ftl"));
+        m.put("StartsWithString", (expr, v, fn, id, ctx) -> applyStringMatch(expr, v, "StartsWithString.ftl"));
+        m.put("EndsWithString", (expr, v, fn, id, ctx) -> applyStringMatch(expr, v, "EndsWithString.ftl"));
+        m.put("BeforeTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "BeforeTime.ftl"));
+        m.put("BeforeDateTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "BeforeTime.ftl"));
+        m.put("AfterTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "AfterTime.ftl"));
+        m.put("AfterDateTimePrecise", (expr, v, fn, id, ctx) -> applyTimeBound(expr, v, "AfterTime.ftl"));
+        m.put("ContainsInteger", (expr, v, fn, id, ctx) -> applyContainsLiteral(expr, v, false));
+        m.put("ContainsDecimal", (expr, v, fn, id, ctx) -> applyContainsLiteral(expr, v, false));
+        m.put("ContainsQuantity", (expr, v, fn, id, ctx) -> applyContainsLiteral(expr, v, true));
+        m.put("ContainsDateTime", this::applyContainsDateTime);
+        m.put("BeforeInterval", (expr, v, fn, id, ctx) -> applyIntervalBound(expr, v, "BeforeTime.ftl"));
+        m.put("AfterInterval", (expr, v, fn, id, ctx) -> applyIntervalBound(expr, v, "AfterTime.ftl"));
+        m.put("Qualifier", this::applyQualifier);
+
+        return m;
+    }
+
     public String applyModifier(String expr, Map<String, Object> modifier, BuildContext ctx) {
         String cqlLibFunc = getStr(modifier, "cqlLibraryFunction", null);
         String cqlTemplate = getStr(modifier, "cqlTemplate", "");
         String modId = getStr(modifier, "id", "");
         Map<String, Object> values = (Map<String, Object>) modifier.get("values");
 
-        switch (cqlTemplate) {
-            case "CheckExistence":
-            case "BooleanExists":
-                return renderModifier("CheckExistence.ftl", Map.of("expression", expr));
-            case "BooleanNot":
-                return renderModifier("BooleanNot.ftl", Map.of("expression", expr));
-            case "Count":
-                return renderModifier("Count.ftl", Map.of("expression", expr));
-            case "AllTrue":
-                return renderModifier("AllTrue.ftl", Map.of("expression", expr));
-            case "AnyTrue":
-                return renderModifier("AnyTrue.ftl", Map.of("expression", expr));
-            case "BooleanComparison": {
-                if (values != null) {
-                    String comp = getStr(values, "value", "is not null");
-                    return renderModifier("BooleanComparison.ftl", Map.of("expression", expr, "value", comp));
-                }
+        // Custom modifiers (built via the UI's rule builder) are rebuilt server-side from
+        // values.rules. The client-supplied cqlTemplate string is ignored — it was the CQL
+        // injection sink for modifiers that bypassed the named-modifier registry.
+        if (modId != null && modId.startsWith("custom_")) {
+            try {
+                return customModifierCqlBuilder.build(expr, values);
+            } catch (CustomModifierBuildException ex) {
+                ctx.warn("Custom modifier '" + modId + "' rebuild failed: " + ex.getMessage() + "; modifier skipped");
+                log.warn("Custom modifier '{}' rebuild failed: {}", modId, ex.getMessage());
                 return expr;
             }
-            case "ValueComparisonNumber":
-            case "ValueComparisonObservation": {
-                if (values != null) {
-                    String minOp = getStr(values, "minOperator", null);
-                    String minVal = getStr(values, "minValue", null);
-                    String maxOp = getStr(values, "maxOperator", null);
-                    String maxVal = getStr(values, "maxValue", null);
-                    String unit = getStr(values, "unit", null);
-
-                    List<String> conditions = new ArrayList<>();
-                    if (minOp != null && minVal != null && !minVal.isEmpty()) {
-                        String valExpr = unit != null && !unit.isEmpty()
-                                ? String.format("%s '%s'", minVal, escapeCqlString(unit))
-                                : minVal;
-                        conditions.add(String.format("(%s) %s %s", expr, minOp, valExpr));
-                    }
-                    if (maxOp != null && maxVal != null && !maxVal.isEmpty()) {
-                        String valExpr = unit != null && !unit.isEmpty()
-                                ? String.format("%s '%s'", maxVal, escapeCqlString(unit))
-                                : maxVal;
-                        conditions.add(String.format("(%s) %s %s", expr, maxOp, valExpr));
-                    }
-                    if (!conditions.isEmpty()) {
-                        String joined = String.join(" and ", conditions);
-                        return conditions.size() > 1 ? "(" + joined + ")" : joined;
-                    }
-                }
-                return expr;
-            }
-            case "ConvertUnits": {
-                if (values != null) {
-                    String unit = getStr(values, "unit", "");
-                    if (!unit.isEmpty()) {
-                        return renderModifier("ConvertUnits.ftl", Map.of("expression", expr, "unit", escapeCqlString(unit)));
-                    }
-                }
-                return expr;
-            }
-            case "WithUnit": {
-                if (cqlLibFunc != null && values != null) {
-                    String unit = getStr(values, "unit", "");
-                    if (!unit.isEmpty()) {
-                        return renderModifier("WithUnit.ftl", Map.of(
-                                "expression", expr, "cqlLibraryFunction", cqlLibFunc, "unit", escapeCqlString(unit)));
-                    }
-                }
-                if (cqlLibFunc != null)
-                    return renderModifier("WithUnit.ftl", Map.of(
-                            "expression", expr, "cqlLibraryFunction", cqlLibFunc, "unit", ""));
-                return expr;
-            }
-            case "LookBackModifier": {
-                if (cqlLibFunc != null && values != null) {
-                    String val = getStr(values, "value", "");
-                    String unit = getStr(values, "unit", "years");
-                    if (!val.isEmpty()) {
-                        return renderModifier("LookBackModifier.ftl", Map.of(
-                                "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", val, "unit", escapeCqlString(unit)));
-                    }
-                }
-                if (cqlLibFunc != null)
-                    return renderModifier("LookBackModifier.ftl", Map.of(
-                            "expression", expr, "cqlLibraryFunction", cqlLibFunc, "value", "", "unit", ""));
-                return expr;
-            }
-            case "DuringMeasurementPeriod": {
-                // Resolve resource alias + where clause from the modifier definition
-                // (these aren't stored in the saved artifact tree — only `id` is).
-                var def = modifierService.getById(modId);
-                if (def == null || def.getResourceAlias() == null || def.getWhereClause() == null) {
-                    ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing resourceAlias/whereClause in catalog");
-                    return expr;
-                }
-                return renderModifier("DuringMeasurementPeriod.ftl", Map.of(
-                        "expression", expr,
-                        "alias", def.getResourceAlias(),
-                        "whereClause", def.getWhereClause()));
-            }
-            case "EqualsString": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("EqualsString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
-                }
-                return expr;
-            }
-            case "StartsWithString": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("StartsWithString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
-                }
-                return expr;
-            }
-            case "EndsWithString": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("EndsWithString.ftl", Map.of("expression", expr, "value", escapeCqlString(val)));
-                }
-                return expr;
-            }
-            case "BeforeTimePrecise":
-            case "BeforeDateTimePrecise": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("BeforeTime.ftl", Map.of("expression", expr, "value", formatDateTimeValue(val)));
-                }
-                return expr;
-            }
-            case "AfterTimePrecise":
-            case "AfterDateTimePrecise": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("AfterTime.ftl", Map.of("expression", expr, "value", formatDateTimeValue(val)));
-                }
-                return expr;
-            }
-            case "ContainsInteger":
-            case "ContainsDecimal": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("ContainsValue.ftl", Map.of("expression", expr, "value", val, "unit", ""));
-                }
-                return expr;
-            }
-            case "ContainsQuantity": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    String unit = getStr(values, "unit", "");
-                    return renderModifier("ContainsValue.ftl", Map.of("expression", expr, "value", val, "unit", escapeCqlString(unit)));
-                }
-                return expr;
-            }
-            case "ContainsDateTime": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    return renderModifier("ContainsValue.ftl", Map.of(
-                            "expression", expr, "value", formatDateTimeValue(val), "unit", ""));
-                }
-                return expr;
-            }
-            case "IsTrue":
-                return renderModifier("IsTrue.ftl", Map.of("expression", expr));
-            case "IsNotTrue":
-                return renderModifier("IsNotTrue.ftl", Map.of("expression", expr));
-            case "IsFalse":
-                return renderModifier("IsFalse.ftl", Map.of("expression", expr));
-            case "IsNotFalse":
-                return renderModifier("IsNotFalse.ftl", Map.of("expression", expr));
-            case "BeforeInterval": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    if (!val.isEmpty()) {
-                        return renderModifier("BeforeTime.ftl", Map.of("expression", expr, "value", val));
-                    }
-                }
-                return expr;
-            }
-            case "AfterInterval": {
-                if (values != null) {
-                    String val = getStr(values, "value", "");
-                    if (!val.isEmpty()) {
-                        return renderModifier("AfterTime.ftl", Map.of("expression", expr, "value", val));
-                    }
-                }
-                return expr;
-            }
-            case "Qualifier": {
-                if (values != null) {
-                    String qualifier = getStr(values, "qualifier", "value set");
-                    String valueSet = getStr(values, "valueSet", null);
-                    String code = getStr(values, "code", null);
-                    Map<String, Object> model = new HashMap<>();
-                    model.put("expression", expr);
-                    model.put("qualifier", qualifier);
-                    model.put("valueSet", valueSet != null ? valueSet : "");
-                    model.put("code", code != null ? code : "");
-                    return renderModifier("Qualifier.ftl", model);
-                }
-                return expr;
-            }
-            default:
-                break;
         }
 
+        ModifierApplier applier = modifierAppliers.get(cqlTemplate);
+        if (applier != null) {
+            return applier.apply(expr, values, cqlLibFunc, modId, ctx);
+        }
+
+        // Generic fallbacks for modifiers not in the registry.
         if (cqlTemplate != null && cqlTemplate.contains("{expression}")) {
             return cqlTemplate.replace("{expression}", expr);
         }
-
         if (cqlLibFunc != null) {
-            return renderModifier("BaseModifier.ftl", Map.of("expression", expr, "cqlLibraryFunction", cqlLibFunc));
+            return renderModifier("BaseModifier.ftl",
+                    Map.of("expression", expr, "cqlLibraryFunction", cqlLibFunc));
         }
 
         ctx.warn(String.format("Unknown modifier template '%s' (id='%s'); modifier skipped", cqlTemplate, modId));
         log.warn("Unknown modifier template '{}' (id='{}')", cqlTemplate, modId);
         return expr;
+    }
+
+    // ------------------------------------------------------------------
+    // Modifier appliers — one private method per "kind".
+    // ------------------------------------------------------------------
+
+    private String applyBooleanComparison(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String comp = getStr(values, "value", "is not null");
+        return renderModifier("BooleanComparison.ftl", Map.of("expression", expr, "value", comp));
+    }
+
+    private String applyValueComparison(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String minOp = getStr(values, "minOperator", null);
+        String minVal = getStr(values, "minValue", null);
+        String maxOp = getStr(values, "maxOperator", null);
+        String maxVal = getStr(values, "maxValue", null);
+        String unit = getStr(values, "unit", null);
+
+        List<String> conditions = new ArrayList<>();
+        if (minOp != null && minVal != null && !minVal.isEmpty()) {
+            String valExpr = unit != null && !unit.isEmpty()
+                    ? String.format("%s '%s'", minVal, escapeCqlString(unit))
+                    : minVal;
+            conditions.add(String.format("(%s) %s %s", expr, minOp, valExpr));
+        }
+        if (maxOp != null && maxVal != null && !maxVal.isEmpty()) {
+            String valExpr = unit != null && !unit.isEmpty()
+                    ? String.format("%s '%s'", maxVal, escapeCqlString(unit))
+                    : maxVal;
+            conditions.add(String.format("(%s) %s %s", expr, maxOp, valExpr));
+        }
+        if (conditions.isEmpty()) return expr;
+        String joined = String.join(" and ", conditions);
+        return conditions.size() > 1 ? "(" + joined + ")" : joined;
+    }
+
+    private String applyConvertUnits(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String unit = getStr(values, "unit", "");
+        if (unit.isEmpty()) return expr;
+        return renderModifier("ConvertUnits.ftl",
+                Map.of("expression", expr, "unit", escapeCqlString(unit)));
+    }
+
+    private String applyWithUnit(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (cqlLibFunc == null) return expr;
+        String unit = values == null ? "" : getStr(values, "unit", "");
+        return renderModifier("WithUnit.ftl", Map.of(
+                "expression", expr,
+                "cqlLibraryFunction", cqlLibFunc,
+                "unit", unit.isEmpty() ? "" : escapeCqlString(unit)));
+    }
+
+    private String applyLookBack(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (cqlLibFunc == null) return expr;
+        String val = values == null ? "" : getStr(values, "value", "");
+        String unit = values == null ? "years" : getStr(values, "unit", "years");
+        if (val.isEmpty()) {
+            return renderModifier("LookBackModifier.ftl", Map.of(
+                    "expression", expr, "cqlLibraryFunction", cqlLibFunc,
+                    "value", "", "unit", ""));
+        }
+        return renderModifier("LookBackModifier.ftl", Map.of(
+                "expression", expr, "cqlLibraryFunction", cqlLibFunc,
+                "value", val, "unit", escapeCqlString(unit)));
+    }
+
+    private String applyDuringMeasurementPeriod(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        // The catalog entry's nested `during` block carries alias + dateFieldSpec.
+        // The saved artifact tree only keeps the modifier id — we look up the typed
+        // config here and let the engine generate the null-safe case CQL.
+        var def = modifierService.getById(modId);
+        var cfg = def == null ? null : def.getDuring();
+        if (cfg == null || cfg.getAlias() == null || cfg.getDateFieldSpec() == null) {
+            ctx.warn("DuringMeasurementPeriod modifier '" + modId + "' missing during.{alias,dateFieldSpec} in catalog");
+            return expr;
+        }
+        String whereClause = buildDuringMeasurementPeriodWhereClause(
+                cfg.getAlias(), cfg.getDateFieldSpec());
+        return renderModifier("DuringMeasurementPeriod.ftl", Map.of(
+                "expression", expr,
+                "alias", cfg.getAlias(),
+                "whereClause", whereClause));
+    }
+
+    /** Shared helper for EqualsString / StartsWithString / EndsWithString — they only differ in template name. */
+    private String applyStringMatch(String expr, Map<String, Object> values, String templateFile) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        return renderModifier(templateFile, Map.of("expression", expr, "value", escapeCqlString(val)));
+    }
+
+    /** Shared helper for the four BeforeTime / AfterTime / Precise variants. */
+    private String applyTimeBound(String expr, Map<String, Object> values, String templateFile) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        return renderModifier(templateFile, Map.of("expression", expr, "value", formatDateTimeValue(val)));
+    }
+
+    /** Shared helper for ContainsInteger / ContainsDecimal / ContainsQuantity. */
+    private String applyContainsLiteral(String expr, Map<String, Object> values, boolean withUnit) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        String unit = withUnit ? escapeCqlString(getStr(values, "unit", "")) : "";
+        return renderModifier("ContainsValue.ftl",
+                Map.of("expression", expr, "value", val, "unit", unit));
+    }
+
+    private String applyContainsDateTime(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        return renderModifier("ContainsValue.ftl",
+                Map.of("expression", expr, "value", formatDateTimeValue(val), "unit", ""));
+    }
+
+    /** Shared helper for BeforeInterval / AfterInterval — value is an interval expression, not formatted. */
+    private String applyIntervalBound(String expr, Map<String, Object> values, String templateFile) {
+        if (values == null) return expr;
+        String val = getStr(values, "value", "");
+        if (val.isEmpty()) return expr;
+        return renderModifier(templateFile, Map.of("expression", expr, "value", val));
+    }
+
+    private String applyQualifier(String expr, Map<String, Object> values, String cqlLibFunc, String modId, BuildContext ctx) {
+        if (values == null) return expr;
+        String qualifier = getStr(values, "qualifier", "value set");
+        String valueSet = getStr(values, "valueSet", null);
+        String code = getStr(values, "code", null);
+        Map<String, Object> model = new HashMap<>();
+        model.put("expression", expr);
+        model.put("qualifier", qualifier);
+        model.put("valueSet", valueSet != null ? valueSet : "");
+        model.put("code", code != null ? code : "");
+        return renderModifier("Qualifier.ftl", model);
     }
 
     private String renderModifier(String templateFile, Map<String, Object> model) {
@@ -626,6 +973,93 @@ public class ExpressionCqlEngine {
 
     private String renderElement(String templateFile, Map<String, Object> model) {
         return templateEngine.render("elements/" + templateFile, model);
+    }
+
+    /**
+     * Generate a null-safe {@code case when ... end} CQL expression that checks whether
+     * a resource's date field overlaps/lies within "Measurement Period".
+     *
+     * <p>Output structure (for choice types):
+     * <pre>{@code
+     * (case
+     *   when A.field is FHIR.Period then FHIRHelpers.ToInterval(A.field as FHIR.Period) overlaps "Measurement Period"
+     *   when A.field is FHIR.dateTime then FHIRHelpers.ToDateTime(A.field as FHIR.dateTime) in "Measurement Period"
+     *   when A.field is FHIR.instant then FHIRHelpers.ToDateTime(A.field as FHIR.instant) in "Measurement Period"
+     *   when A.fallback is not null then FHIRHelpers.ToDateTime(A.fallback) in "Measurement Period"
+     *   else false
+     * end)
+     * }</pre>
+     *
+     * <p>For single-type (non-choice) fields, emits a simpler guard:
+     * <pre>{@code (case when A.field is null then false else <cmp> end)}</pre>
+     *
+     * <p><b>Invariant:</b> every branch that invokes {@code FHIRHelpers.ToInterval(x)} or
+     * {@code FHIRHelpers.ToDateTime(x)} is gated behind a {@code when ... is T then}
+     * check, so {@code x} is never null when dispatched. This is what kept us from
+     * reintroducing BUG-110 / BUG-112 and the reason we moved from JSON whereClause
+     * strings to this structured generator.
+     */
+    String buildDuringMeasurementPeriodWhereClause(
+            String alias,
+            com.cqlplatform.model.authoring.ModifierDefinition.DateFieldSpec spec) {
+        if (alias == null || spec == null || spec.getField() == null
+                || spec.getTypes() == null || spec.getTypes().isEmpty()) {
+            return "false";  // defensive — catalog misconfiguration
+        }
+
+        // Single, non-choice primary field: compact form, no case-choice needed.
+        boolean isSingleType = spec.getTypes().size() == 1
+                && (spec.getFallbacks() == null || spec.getFallbacks().isEmpty());
+        if (isSingleType) {
+            String cmp = buildTypeComparison(alias + "." + spec.getField(), spec.getTypes().get(0));
+            return "(case when " + alias + "." + spec.getField() + " is null then false else " + cmp + " end)";
+        }
+
+        // Choice type / with fallbacks: emit one `when ... is TYPE then ...` per branch.
+        StringBuilder sb = new StringBuilder("(case ");
+        String fieldPath = alias + "." + spec.getField();
+        for (String type : spec.getTypes()) {
+            String castedRef = fieldPath + " as FHIR." + type;
+            sb.append("when ").append(fieldPath).append(" is FHIR.").append(type)
+                    .append(" then ").append(buildPeriodCheck(castedRef, type)).append(" ");
+        }
+        if (spec.getFallbacks() != null) {
+            for (var fb : spec.getFallbacks()) {
+                String fbPath = alias + "." + fb.getField();
+                // Fallbacks are used when the primary field is absent. Guard with is-not-null.
+                sb.append("when ").append(fbPath).append(" is not null then ")
+                        .append(buildPeriodCheck(fbPath, fb.getType())).append(" ");
+            }
+        }
+        sb.append("else false end)");
+        return sb.toString();
+    }
+
+    /** Direct comparison with Measurement Period for a FHIR value of a specific type. */
+    private static String buildPeriodCheck(String valueRef, String fhirType) {
+        switch (fhirType) {
+            case "Period":
+                return "FHIRHelpers.ToInterval(" + valueRef + ") overlaps \"Measurement Period\"";
+            case "dateTime":
+            case "instant":
+                return "FHIRHelpers.ToDateTime(" + valueRef + ") in \"Measurement Period\"";
+            default:
+                // Unknown type — treat as no-match rather than generate broken CQL.
+                return "false";
+        }
+    }
+
+    /** Non-choice field: no cast needed, just the comparison. */
+    private static String buildTypeComparison(String valueRef, String fhirType) {
+        switch (fhirType) {
+            case "Period":
+                return "FHIRHelpers.ToInterval(" + valueRef + ") overlaps \"Measurement Period\"";
+            case "dateTime":
+            case "instant":
+                return "FHIRHelpers.ToDateTime(" + valueRef + ") in \"Measurement Period\"";
+            default:
+                return "false";
+        }
     }
 
     // ── Declaration collection ───────────────────────────────────────────
@@ -930,17 +1364,7 @@ public class ExpressionCqlEngine {
     }
 
     public String escapeCqlString(String value) {
-        if (value == null) return "";
-        String cleaned = stripNonAscii(value);
-        return cleaned.replace("\\", "\\\\").replace("'", "\\'");
-    }
-
-    /** Strips non-ASCII characters and cleans up residual empty parentheses/whitespace. */
-    private String stripNonAscii(String value) {
-        return value.replaceAll("[^\\x00-\\x7F]", "")
-                .replaceAll("\\(\\s*\\)", "")
-                .replaceAll("\\s{2,}", " ")
-                .trim();
+        return com.cqlplatform.util.CqlEscapeUtil.escapeCqlString(value);
     }
 
     /**
@@ -950,9 +1374,7 @@ public class ExpressionCqlEngine {
      * to avoid CQL engine compatibility issues.
      */
     public String escapeCqlIdentifier(String value) {
-        if (value == null) return "";
-        String ascii = stripNonAscii(value);
-        return ascii.replace("\\", "\\\\").replace("\"", "\\\"");
+        return com.cqlplatform.util.CqlEscapeUtil.escapeCqlIdentifier(value);
     }
 
     public String getCodeSystemDisplayName(String systemUrl) {
@@ -960,25 +1382,46 @@ public class ExpressionCqlEngine {
     }
 
     /**
-     * Returns true if the modifier collapses a list to a single item (e.g. MostRecent, First)
-     * or extracts a scalar value from a resource (e.g. QuantityValue, ConceptValue).
-     * These must be skipped when preserveListReturn is true so that the Measure Population
-     * returns a resource list for the Measure Observation function to iterate over.
+     * Classify a modifier's effect on its list input:
+     * <ul>
+     *   <li>{@code "preserves-list"} — list → list (default; most modifiers)</li>
+     *   <li>{@code "collapses-list"} — list → single resource (MostRecent, First, Last)</li>
+     *   <li>{@code "extracts-value"} — list or resource → scalar/Quantity/Concept (QuantityValue, AverageObservation, etc.)</li>
+     * </ul>
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>Explicit {@code listBehavior} on the modifier instance (future escape hatch)</li>
+     *   <li>Inferred from {@code returnType}:
+     *     {@code list_of_*} → preserves-list,
+     *     {@code system_*} → extracts-value,
+     *     anything else (single-resource type) → collapses-list</li>
+     * </ol>
+     *
+     * <p>This replaces the earlier heuristic that matched substrings in
+     * {@code cqlLibraryFunction}. The heuristic silently misclassified
+     * {@code C3F.AverageObservation} (no matching substring) — it was applied in Measure
+     * Population despite returning a scalar, corrupting the Measure Observation wrapper
+     * for any CV measure that used it.
+     */
+    String classifyListBehavior(Map<String, Object> modifier) {
+        String explicit = getStr(modifier, "listBehavior", null);
+        if (explicit != null) return explicit;
+        String rt = getStr(modifier, "returnType", "");
+        if (rt.startsWith("list_of_")) return "preserves-list";
+        if (rt.startsWith("system_")) return "extracts-value";
+        if (rt.isEmpty()) return "preserves-list";  // unknown → safest default
+        return "collapses-list";  // single resource type (observation/condition/procedure/...)
+    }
+
+    /**
+     * Returns true if the modifier should be skipped in the CV Measure Population path
+     * (where renderMode = CV_MEASURE_POPULATION). Both {@code collapses-list} and {@code extracts-value}
+     * strip the list shape the Measure Observation wrapper needs to iterate over.
      */
     private boolean isListCollapsingOrValueExtractingModifier(Map<String, Object> modifier) {
-        String cqlLibFunc = getStr(modifier, "cqlLibraryFunction", "");
-        // List-collapsing: picks one item from a list
-        if (cqlLibFunc.contains("MostRecent") || cqlLibFunc.contains("First")
-                || cqlLibFunc.contains("Last") || cqlLibFunc.contains("Highest")
-                || cqlLibFunc.contains("Lowest")) {
-            return true;
-        }
-        // Value-extracting: converts a resource to a scalar type
-        if (cqlLibFunc.contains("QuantityValue") || cqlLibFunc.contains("ConceptValue")
-                || cqlLibFunc.contains("DateTimeValue")) {
-            return true;
-        }
-        return false;
+        String behavior = classifyListBehavior(modifier);
+        return "collapses-list".equals(behavior) || "extracts-value".equals(behavior);
     }
 
     public String getFinalReturnType(Map<String, Object> element, List<Map<String, Object>> modifiers) {
@@ -1007,6 +1450,21 @@ public class ExpressionCqlEngine {
             }
         }
         return defaultVal;
+    }
+
+    /**
+     * PAT-163: like {@link #getFieldValue} but returns the raw Object value
+     * instead of stringifying. Used for N-ary arithmetic where {@code operands}
+     * and {@code operators} fields hold List/Array values rather than strings.
+     */
+    public Object getFieldRawValue(List<Map<String, Object>> fields, String fieldId) {
+        if (fields == null) return null;
+        for (Map<String, Object> field : fields) {
+            if (fieldId.equals(field.get("id"))) {
+                return field.get("value");
+            }
+        }
+        return null;
     }
 
     public String resolveFhirVersion(String fhirVersion) {

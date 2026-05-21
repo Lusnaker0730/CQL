@@ -1,0 +1,86 @@
+{
+  "name": "SmokeRatioAgeComparison",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — ratio scoring. Denom=young adults (18-49), Numer=seniors (>=65). Denom and Numer are DISJOINT age cohorts, proving the ratio evaluator treats them independently (Numer is NOT gated by Denom — the key FHIR-spec distinction from proportion). Fixed in #PAT-084.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "ratio",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Senior-to-young-adult ratio",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "denominator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Young Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": "49"},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "numerator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Senior"},
+                {"id": "min_age", "type": "string", "value": "65"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

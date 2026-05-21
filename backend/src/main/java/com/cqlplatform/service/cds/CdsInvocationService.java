@@ -6,7 +6,10 @@ import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.cds.CdsRequest;
 import com.cqlplatform.model.cds.CdsResponse;
+import com.cqlplatform.model.debug.ErrorPhase;
+import com.cqlplatform.model.debug.ExecutionErrorInfo;
 import com.cqlplatform.service.cql.CqlExecutionService;
+import com.cqlplatform.util.ExecutionErrorClassifier;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,6 +27,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Orchestrates CDS service invocation: prefetch handling, CQL execution,
@@ -40,23 +44,20 @@ public class CdsInvocationService {
     private final FhirContext fhirContext;
     private final ObjectMapper objectMapper;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private Timer cdsInvocationTimer;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private Counter cdsInvocationCounter;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private Counter cdsInvocationErrorCounter;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private CdsAnalyticsService analyticsService;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private PrefetchResolver prefetchResolver;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private CdsRecentInvocationsService recentInvocationsService;
+    /**
+     * Optional dependencies — wrapped in {@link Optional} so Spring auto-injects
+     * {@code Optional.empty()} when no bean exists (e.g. test slices without
+     * Micrometer metrics or analytics). Constructor injection replaces the
+     * field-level {@code @Autowired(required = false)} which violated the
+     * project standard ("禁止 @Autowired 在欄位上"). Required deps stay above as
+     * {@code final} for {@link RequiredArgsConstructor}.
+     */
+    private final Optional<Timer> cdsInvocationTimer;
+    private final Optional<Counter> cdsInvocationCounter;
+    private final Optional<Counter> cdsInvocationErrorCounter;
+    private final Optional<CdsAnalyticsService> analyticsService;
+    private final Optional<PrefetchResolver> prefetchResolver;
+    private final Optional<CdsRecentInvocationsService> recentInvocationsService;
 
     /**
      * Invoke a CDS service: execute CQL and generate cards.
@@ -67,9 +68,8 @@ public class CdsInvocationService {
         boolean debugMode = request.isDebugMode() || dryRun; // dry-run implies debug
         log.info("Invoking CDS service: {} for patient: {} (debugMode={}, dryRun={})",
                 config.getId(), patientId, debugMode, dryRun);
-        if (cdsInvocationCounter != null)
-            cdsInvocationCounter.increment();
-        Timer.Sample sample = cdsInvocationTimer != null ? Timer.start() : null;
+        cdsInvocationCounter.ifPresent(Counter::increment);
+        Timer.Sample sample = cdsInvocationTimer.isPresent() ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
         InvocationDiagnostics diagnostics = new InvocationDiagnostics();
@@ -83,7 +83,7 @@ public class CdsInvocationService {
             RetrieveProvider prefetchProvider = buildPrefetchProviderSafe(request, diagnostics);
 
             // If no prefetch data, try dynamic resolution from prefetch templates
-            if (prefetchProvider == null && prefetchResolver != null
+            if (prefetchProvider == null && prefetchResolver.isPresent()
                     && config.getPrefetch() != null && !config.getPrefetch().isEmpty()
                     && request.getFhirServer() != null && !request.getFhirServer().isBlank()) {
                 prefetchProvider = resolvePrefetchTemplates(config, request, diagnostics);
@@ -115,15 +115,14 @@ public class CdsInvocationService {
             // Feature 8: dry-run short-circuit — skip CQL execution and return diagnostics only
             if (dryRun) {
                 long elapsed = System.currentTimeMillis() - startTime;
-                if (sample != null && cdsInvocationTimer != null) sample.stop(cdsInvocationTimer);
-                if (recentInvocationsService != null) {
-                    recentInvocationsService.record(CdsRecentInvocationsService.InvocationRecord.builder()
-                            .timestamp(java.time.Instant.now())
-                            .serviceId(config.getId()).hook(config.getHook())
-                            .patientId(patientId).success(true).elapsedMs(elapsed)
-                            .errorPhase("dry_run")
-                            .build());
-                }
+                stopTimerSample(sample);
+                recentInvocationsService.ifPresent(svc -> svc.record(
+                        CdsRecentInvocationsService.InvocationRecord.builder()
+                                .timestamp(java.time.Instant.now())
+                                .serviceId(config.getId()).hook(config.getHook())
+                                .patientId(patientId).success(true).elapsedMs(elapsed)
+                                .errorPhase("dry_run")
+                                .build()));
                 Map<String, Integer> resourceCounts = (prefetchProvider instanceof PrefetchRetrieveProvider prp)
                         ? prp.getResourceCountsByType() : Map.of();
                 return CdsResponse.builder()
@@ -154,20 +153,16 @@ public class CdsInvocationService {
 
             CdsResponse response = buildCards(config, execResponse);
 
-            if (sample != null && cdsInvocationTimer != null)
-                sample.stop(cdsInvocationTimer);
+            stopTimerSample(sample);
 
             long elapsed = System.currentTimeMillis() - startTime;
-            if (analyticsService != null) {
-                analyticsService.recordInvocation(config.getId(), elapsed, true);
-            }
-            if (recentInvocationsService != null) {
-                recentInvocationsService.record(CdsRecentInvocationsService.InvocationRecord.builder()
-                        .timestamp(java.time.Instant.now())
-                        .serviceId(config.getId()).hook(config.getHook())
-                        .patientId(patientId).success(true).elapsedMs(elapsed)
-                        .build());
-            }
+            analyticsService.ifPresent(svc -> svc.recordInvocation(config.getId(), elapsed, true));
+            recentInvocationsService.ifPresent(svc -> svc.record(
+                    CdsRecentInvocationsService.InvocationRecord.builder()
+                            .timestamp(java.time.Instant.now())
+                            .serviceId(config.getId()).hook(config.getHook())
+                            .patientId(patientId).success(true).elapsedMs(elapsed)
+                            .build()));
 
             if (debugMode) {
                 response.setDebug(toDebugInfo(config, request, diagnostics)
@@ -177,30 +172,25 @@ public class CdsInvocationService {
 
             return response;
         } catch (Exception e) {
-            if (cdsInvocationErrorCounter != null)
-                cdsInvocationErrorCounter.increment();
-            if (sample != null && cdsInvocationTimer != null)
-                sample.stop(cdsInvocationTimer);
+            cdsInvocationErrorCounter.ifPresent(Counter::increment);
+            stopTimerSample(sample);
 
             long elapsed = System.currentTimeMillis() - startTime;
-            if (analyticsService != null) {
-                analyticsService.recordInvocation(config.getId(), elapsed, false);
-            }
+            analyticsService.ifPresent(svc -> svc.recordInvocation(config.getId(), elapsed, false));
 
             log.error("CDS service invocation failed", e);
 
             Phase phase = (e instanceof CdsInvocationException cie) ? cie.getPhase() : Phase.UNKNOWN;
             Throwable root = (e instanceof CdsInvocationException && e.getCause() != null) ? e.getCause() : e;
 
-            if (recentInvocationsService != null) {
-                recentInvocationsService.record(CdsRecentInvocationsService.InvocationRecord.builder()
-                        .timestamp(java.time.Instant.now())
-                        .serviceId(config.getId()).hook(config.getHook())
-                        .patientId(patientId).success(false).elapsedMs(elapsed)
-                        .errorPhase(phase.name().toLowerCase())
-                        .errorMessage(root.getMessage())
-                        .build());
-            }
+            recentInvocationsService.ifPresent(svc -> svc.record(
+                    CdsRecentInvocationsService.InvocationRecord.builder()
+                            .timestamp(java.time.Instant.now())
+                            .serviceId(config.getId()).hook(config.getHook())
+                            .patientId(patientId).success(false).elapsedMs(elapsed)
+                            .errorPhase(phase.name().toLowerCase())
+                            .errorMessage(root.getMessage())
+                            .build()));
 
             CdsResponse.CdsResponseBuilder errorResponse = CdsResponse.builder()
                     .cards(List.of(tupleStrategy.createErrorCard(root.getMessage())));
@@ -213,6 +203,16 @@ public class CdsInvocationService {
 
             return errorResponse.build();
         }
+    }
+
+    /**
+     * Stop a {@link Timer.Sample} against the optional invocation timer. No-op
+     * when either the sample or the timer bean is absent (typically test contexts
+     * that don't wire Micrometer).
+     */
+    private void stopTimerSample(Timer.Sample sample) {
+        if (sample == null) return;
+        cdsInvocationTimer.ifPresent(sample::stop);
     }
 
     /** Builder for CdsDebugInfo pre-filled with invocation context + diagnostics accumulated so far. */
@@ -236,28 +236,41 @@ public class CdsInvocationService {
     private RetrieveProvider resolvePrefetchTemplates(
             CdsHooksService.CdsServiceConfig config, CdsRequest request, InvocationDiagnostics diagnostics) {
         log.info("Attempting dynamic prefetch template resolution for service: {}", config.getId());
+        // PAT-112b (strict mode): template resolution exception used to log.warn and
+        // return null, which silently fell back to CQL-driven FHIR calls. That path
+        // can render an empty CDS response — clinician sees "no alerts" indistinguishable
+        // from actual safety. Strict mode: rethrow so buildPrefetchProviderSafe wraps
+        // it into CdsInvocationException → 5xx response → FE yellow banner.
+        // An empty ResolutionResult (no templates to resolve) is NOT an error and
+        // still returns null — CQL will do its own FHIR retrieves against the server.
+        PrefetchResolver.ResolutionResult result;
+        // Caller (invoke) gates on prefetchResolver.isPresent() before reaching here.
+        PrefetchResolver resolver = prefetchResolver.orElseThrow(() ->
+                new IllegalStateException("PrefetchResolver bean missing — invoke() should have gated this"));
         try {
-            PrefetchResolver.ResolutionResult result = prefetchResolver.resolveWithStatus(config.getPrefetch(), request);
-            diagnostics.getPrefetchStatus().addAll(result.getStatuses());
-
-            Map<String, Resource> resolvedResources = result.getResources();
-            if (resolvedResources.isEmpty()) {
-                return null;
-            }
-            String pid = request.getContext() != null ? request.getContext().getPatientId() : null;
-            List<Resource> resources = new ArrayList<>(resolvedResources.values());
-            if (pid != null) {
-                Reference patRef = new Reference("Patient/" + pid);
-                for (Resource r : resources) {
-                    ensureSubjectReference(r, patRef);
-                }
-            }
-            log.info("Built prefetch provider from {} resolved templates", resolvedResources.size());
-            return new PrefetchRetrieveProvider(resources, pid);
+            result = resolver.resolveWithStatus(config.getPrefetch(), request);
         } catch (Exception e) {
-            log.warn("Prefetch template resolution failed, falling back to FHIR server: {}", e.getMessage());
+            log.error("Prefetch template resolution failed for service {}: {}", config.getId(), e.getMessage());
+            throw new RuntimeException(
+                    "Prefetch template resolution failed for service " + config.getId()
+                            + ": " + e.getMessage(), e);
+        }
+        diagnostics.getPrefetchStatus().addAll(result.getStatuses());
+
+        Map<String, Resource> resolvedResources = result.getResources();
+        if (resolvedResources.isEmpty()) {
             return null;
         }
+        String pid = request.getContext() != null ? request.getContext().getPatientId() : null;
+        List<Resource> resources = new ArrayList<>(resolvedResources.values());
+        if (pid != null) {
+            Reference patRef = new Reference("Patient/" + pid);
+            for (Resource r : resources) {
+                ensureSubjectReference(r, patRef);
+            }
+        }
+        log.info("Built prefetch provider from {} resolved templates", resolvedResources.size());
+        return new PrefetchRetrieveProvider(resources, pid);
     }
 
     /** Feature 4: collect non-fatal context warnings. */
@@ -322,8 +335,12 @@ public class CdsInvocationService {
             }
             return executionService.execute(execRequest);
         } catch (Exception e) {
-            Phase phase = looksLikeTranslationError(e) ? Phase.CQL_TRANSLATION : Phase.CQL_EXECUTION;
-            throw new CdsInvocationException(phase, e);
+            // Delegate phase classification to the shared util so CDS, editor, and
+            // eCQM all agree on what counts as a translation error. Previously this
+            // heuristic lived here; see ExecutionErrorClassifier for BUG-115 history.
+            ErrorPhase phase = ExecutionErrorClassifier.classify(e);
+            Phase cdsPhase = (phase == ErrorPhase.CQL_TRANSLATION) ? Phase.CQL_TRANSLATION : Phase.CQL_EXECUTION;
+            throw new CdsInvocationException(cdsPhase, e);
         }
     }
 
@@ -336,23 +353,11 @@ public class CdsInvocationService {
         }
     }
 
-    private static boolean looksLikeTranslationError(Throwable t) {
-        String cls = t.getClass().getSimpleName();
-        return cls.contains("Translation") || cls.contains("Parse") || cls.contains("Syntax");
-    }
-
-    private static CdsResponse.CdsErrorInfo buildErrorInfo(Phase phase, Throwable t) {
-        List<String> frames = Arrays.stream(t.getStackTrace())
-                .filter(f -> f.getClassName().startsWith("com.cqlplatform"))
-                .limit(5)
-                .map(StackTraceElement::toString)
-                .toList();
-        return CdsResponse.CdsErrorInfo.builder()
-                .phase(phase.name().toLowerCase())
-                .errorType(t.getClass().getSimpleName())
-                .message(t.getMessage())
-                .stackTraceSummary(frames.isEmpty() ? null : frames)
-                .build();
+    private static ExecutionErrorInfo buildErrorInfo(Phase phase, Throwable t) {
+        // Map the legacy CDS-specific Phase onto the shared ErrorPhase and
+        // delegate to the central classifier. This keeps the wire JSON identical
+        // (phase/errorType/message/stackTraceSummary) while DRYing the build logic.
+        return ExecutionErrorClassifier.buildErrorInfo(ExecutionErrorClassifier.fromCdsPhase(phase), t);
     }
 
     private static Map<String, Object> buildInvocationContext(CdsHooksService.CdsServiceConfig config, CdsRequest request) {
@@ -413,12 +418,20 @@ public class CdsInvocationService {
                         .elapsedMs(System.currentTimeMillis() - start)
                         .build());
             } catch (Exception e) {
-                log.warn("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
+                // PAT-112b (strict mode): a failed prefetch parse used to log.warn and
+                // continue; CDS would then run with partial prefetch, risking missing
+                // critical data (e.g. the patient's allergy list) and rendering a false
+                // "no alert" card. Strict: record the failure in diagnostics so the
+                // caller can see which key broke, then rethrow so the whole invocation
+                // fails loud and the FE yellow banner surfaces the outage.
+                log.error("Failed to parse prefetch key '{}': {}", entry.getKey(), e.getMessage());
                 diagnostics.getPrefetchStatus().add(CdsResponse.PrefetchStatus.builder()
                         .key(entry.getKey()).status("failed").count(0)
                         .elapsedMs(System.currentTimeMillis() - start)
                         .error(e.getClass().getSimpleName() + ": " + e.getMessage())
                         .build());
+                throw new RuntimeException(
+                        "Prefetch key '" + entry.getKey() + "' failed to parse: " + e.getMessage(), e);
             }
         }
 

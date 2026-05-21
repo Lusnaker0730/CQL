@@ -23,7 +23,6 @@
     "switchToDark": "Switch to dark mode",
     "settings": "Settings",
     "help": "Help",
-    "github": "GitHub",
     "logout": "Logout",
     "terminologyLookup": "Terminology Lookup"
   },
@@ -232,6 +231,7 @@
     "alreadyHaveAccount": "Already have an account? Sign in",
     "noAccount": "Don't have an account? Register",
     "registrationFailed": "Registration failed",
+    "registrationPending": "Registration request received. If approved, you will receive confirmation by email or from an administrator.",
     "invalidCredentials": "Invalid username or password",
     "resetPassword": "Reset Password",
     "resetPasswordSubtitle": "Enter your email to receive a reset link",
@@ -262,5 +262,34 @@
     "ssoStateMismatch": "Security validation failed. Please try logging in again.",
     "authProviderLocal": "Local",
     "authProviderOkta": "Okta SSO"
+  },
+  "versionCheck": {
+    "newVersionAvailable": "A new version is available. Refresh the page to get the latest UI."
+  },
+  "debug": {
+    "expressionTrace": "Expression Trace",
+    "fhirRetrieveTrace": "FHIR Retrieve Trace",
+    "index": "#",
+    "expression": "Expression",
+    "result": "Result",
+    "type": "Type",
+    "time": "Time",
+    "resourceType": "Resource Type",
+    "count": "Count",
+    "totalTime": "Total execution time: {{ms}}ms",
+    "sourceLine": "Source: line {{line}}",
+    "dependsOn": "Depends on:",
+    "compiledElm": "Compiled ELM (JSON)",
+    "stackTrace": "Stack trace (top frames)",
+    "phase": {
+      "prefetch_resolution": "Prefetch Resolution",
+      "prefetch_provider_build": "Prefetch Provider",
+      "fhir_retrieval": "FHIR Retrieval",
+      "cql_translation": "CQL Translation",
+      "cql_execution": "CQL Execution",
+      "population_evaluation": "Population Evaluation",
+      "card_generation": "Card Generation",
+      "unknown": "Unknown"
+    }
   }
 }

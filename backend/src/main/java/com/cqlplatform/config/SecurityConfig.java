@@ -6,7 +6,9 @@ import com.cqlplatform.security.RateLimitFilter;
 import com.cqlplatform.security.RequestTracingFilter;
 import com.cqlplatform.security.UserRateLimitFilter;
 import com.cqlplatform.security.XssFilter;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,9 +20,16 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -31,6 +40,7 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final RequestTracingFilter requestTracingFilter;
@@ -45,6 +55,82 @@ public class SecurityConfig {
 
     @Value("${management.prometheus.public:false}")
     private boolean prometheusPublic;
+
+    @Value("${management.prometheus.auth.username:}")
+    private String prometheusAuthUsername;
+
+    @Value("${management.prometheus.auth.password:}")
+    private String prometheusAuthPassword;
+
+    /**
+     * PAT-150 — make the Prometheus scrape auth state visible at startup so ops
+     * can confirm whether scrapes will succeed. The chain is intentionally
+     * fail-closed (returns 401 for everything when credentials are blank), so
+     * a misconfiguration silently breaks scraping until someone notices the
+     * Prometheus dashboard going stale; this log line shortcuts that.
+     */
+    @PostConstruct
+    void logPrometheusAuthState() {
+        if (prometheusPublic) {
+            log.warn("Prometheus scrape endpoint is PUBLIC (management.prometheus.public=true) — "
+                    + "do not run this in production unless the network already restricts access");
+            return;
+        }
+        boolean credsConfigured = prometheusAuthUsername != null && !prometheusAuthUsername.isBlank()
+                && prometheusAuthPassword != null && !prometheusAuthPassword.isBlank();
+        if (credsConfigured) {
+            log.info("Prometheus scrape auth: ENABLED (basic auth, username={})", prometheusAuthUsername);
+        } else {
+            log.warn("Prometheus scrape auth: BROKEN — management.prometheus.public=false but "
+                    + "MANAGEMENT_PROMETHEUS_AUTH_USERNAME / MANAGEMENT_PROMETHEUS_AUTH_PASSWORD are not set; "
+                    + "all scrape requests will return 401 until configured");
+        }
+    }
+
+    /**
+     * PAT-113: dedicated filter chain for {@code /actuator/prometheus} with HTTP
+     * Basic auth, so Prometheus can scrape without a JWT. Only active when
+     * {@code management.prometheus.public=false} AND both auth.username /
+     * auth.password are set. Higher {@code @Order} so it preempts the main
+     * JWT-based chain for this path.
+     *
+     * <p>Registered unconditionally — when credentials are blank the chain
+     * rejects all requests, forcing the ops team to configure auth rather than
+     * silently falling back to anonymous access.
+     */
+    @Bean
+    @Order(0)
+    public SecurityFilterChain prometheusSecurityChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/actuator/prometheus")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> {
+                    if (prometheusPublic) {
+                        auth.anyRequest().permitAll();
+                    } else {
+                        auth.anyRequest().hasRole("METRICS");
+                    }
+                })
+                .httpBasic(Customizer.withDefaults())
+                .userDetailsService(prometheusUserDetailsService());
+        return http.build();
+    }
+
+    private UserDetailsService prometheusUserDetailsService() {
+        if (prometheusAuthUsername.isBlank() || prometheusAuthPassword.isBlank()) {
+            // No credentials configured → no basic-auth user exists.
+            // With hasRole("METRICS") that means every request is 401/403;
+            // ops sees the broken scrape, checks config, fixes env vars.
+            return username -> { throw new UsernameNotFoundException("metrics auth not configured"); };
+        }
+        UserDetails metrics = User.builder()
+                .username(prometheusAuthUsername)
+                .password(passwordEncoder().encode(prometheusAuthPassword))
+                .roles("METRICS")
+                .build();
+        return new InMemoryUserDetailsManager(metrics);
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -114,14 +200,12 @@ public class SecurityConfig {
                 // User API key management
                 .requestMatchers("/api/user/api-keys/**").authenticated()
                 // Actuator: health is always public
-                .requestMatchers("/actuator/health").permitAll();
+                .requestMatchers("/actuator/health").permitAll()
+                // Deploy-change detection for SPA cache-bust — no sensitive data exposed
+                .requestMatchers(HttpMethod.GET, "/api/version").permitAll();
 
-        // Prometheus: public only when management.prometheus.public=true (docker/internal network)
-        if (prometheusPublic) {
-            auth.requestMatchers("/actuator/prometheus").permitAll();
-        } else {
-            auth.requestMatchers("/actuator/prometheus").authenticated();
-        }
+        // /actuator/prometheus is handled by the dedicated @Order(0) chain
+        // (prometheusSecurityChain) — this chain never sees that path.
 
         // Swagger/OpenAPI: public in dev, authenticated in production
         if (h2ConsoleEnabled) {

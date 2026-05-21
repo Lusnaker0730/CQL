@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  Box, TextField, Autocomplete, Button, IconButton, Tooltip,
+  Box, TextField, Autocomplete, Button, IconButton, Tooltip, Alert, Typography,
   FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon, MenuBook as MenuBookIcon, Search as SearchIcon } from '@mui/icons-material'
@@ -10,6 +10,7 @@ import { fhirApi } from '../../api'
 import { useCurrentResourceType } from '../../contexts/ResourceTypeContext'
 import { useTerminologyDrawer } from '../../hooks/useTerminologyDrawer'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { asObject } from '../../utils/fhirGuards'
 import TwcoreCodePicker from './TwcoreCodePicker'
 import FieldWrapper from './FieldWrapper'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
@@ -31,6 +32,18 @@ interface CodeableConceptFieldProps {
   value: unknown
   onChange: (value: unknown) => void
 }
+
+// Hoisted sx — these objects don't depend on props/state, so allocating once
+// at module load avoids re-creating them on every render of every CodingField.
+const CODING_ROW_SX = { display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }
+const SYSTEM_FIELD_SX = { flex: 1, fontSize: '0.8rem' }
+const FLEX_1 = { flex: 1 }
+const ICON_TOP_SX = { mt: 0.5 }
+const ADD_CODING_BUTTON_SX = { textTransform: 'none', fontSize: '0.75rem' }
+const ADD_CODING_BOX_SX = { display: 'flex', gap: 1, alignItems: 'center' }
+const TEXT_FIELD_SX = { mt: 1 }
+const FORM_CONTROL_SX = { mb: 1 }
+const ALERT_SX = { mt: 0.5, py: 0, fontSize: '0.7rem' }
 
 function CodingField({
   coding,
@@ -56,70 +69,83 @@ function CodingField({
     setSearchText(coding.code || '')
   }, [coding.code])
 
-  const { data: options = [] } = useQuery<CodeSearchResult[]>({
+  const { data: options = [], error } = useQuery<CodeSearchResult[]>({
     queryKey: ['code-search', bindingUrl || coding.system, debouncedSearch],
     queryFn: () => fhirApi.searchCodes(bindingUrl || coding.system || '', debouncedSearch, 20),
     enabled: (!!bindingUrl || !!coding.system) && debouncedSearch.length >= 1,
     staleTime: 30_000,
   })
 
+  const getOptionLabel = useCallback(
+    (opt: string | CodeSearchResult) =>
+      typeof opt === 'string' ? opt : `${opt.code} — ${opt.display}`,
+    [],
+  )
+
   return (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
-      <TextField
-        label={t('testCaseBuilder.fields.system')}
-        size="small"
-        value={coding.system || ''}
-        onChange={(e) => onChange({ ...coding, system: e.target.value })}
-        sx={{ flex: 1, fontSize: '0.8rem' }}
-      />
-      <Autocomplete
-        freeSolo
-        options={options}
-        getOptionLabel={(opt) =>
-          typeof opt === 'string' ? opt : `${opt.code} — ${opt.display}`
-        }
-        inputValue={searchText}
-        onInputChange={(_, v) => setSearchText(v)}
-        onChange={(_, newVal) => {
-          if (typeof newVal === 'string') {
-            onChange({ ...coding, code: newVal })
-          } else if (newVal) {
-            onChange({ ...coding, code: newVal.code, display: newVal.display, system: newVal.system || coding.system })
-          }
-        }}
-        renderInput={(params) => (
-          <TextField {...params} label={t('testCaseBuilder.fields.code')} size="small" />
-        )}
-        sx={{ flex: 1 }}
-      />
-      <TextField
-        label={t('testCaseBuilder.fields.display')}
-        size="small"
-        value={coding.display || ''}
-        onChange={(e) => onChange({ ...coding, display: e.target.value })}
-        sx={{ flex: 1 }}
-      />
-      <Tooltip title={t('testCaseBuilder.fields.searchTerminology')}>
-        <IconButton size="small" onClick={onTerminologySearch} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.searchTerminology')}>
-          <SearchIcon fontSize="small" />
+    <Box>
+      <Box sx={CODING_ROW_SX}>
+        <TextField
+          label={t('testCaseBuilder.fields.system')}
+          size="small"
+          value={coding.system || ''}
+          onChange={(e) => onChange({ ...coding, system: e.target.value })}
+          sx={SYSTEM_FIELD_SX}
+        />
+        <Autocomplete
+          freeSolo
+          options={options}
+          getOptionLabel={getOptionLabel}
+          inputValue={searchText}
+          onInputChange={(_, v) => setSearchText(v)}
+          onChange={(_, newVal) => {
+            if (typeof newVal === 'string') {
+              onChange({ ...coding, code: newVal })
+            } else if (newVal) {
+              onChange({ ...coding, code: newVal.code, display: newVal.display, system: newVal.system || coding.system })
+            }
+          }}
+          renderInput={(params) => (
+            <TextField {...params} label={t('testCaseBuilder.fields.code')} size="small" />
+          )}
+          sx={FLEX_1}
+        />
+        <TextField
+          label={t('testCaseBuilder.fields.display')}
+          size="small"
+          value={coding.display || ''}
+          onChange={(e) => onChange({ ...coding, display: e.target.value })}
+          sx={FLEX_1}
+        />
+        <Tooltip title={t('testCaseBuilder.fields.searchTerminology')}>
+          <IconButton size="small" onClick={onTerminologySearch} sx={ICON_TOP_SX} aria-label={t('testCaseBuilder.fields.searchTerminology')}>
+            <SearchIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
+          <IconButton size="small" onClick={onTwcoreBrowse} sx={ICON_TOP_SX} aria-label={t('testCaseBuilder.fields.browseTwcoreAria')}>
+            <MenuBookIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <IconButton size="small" onClick={onRemove} sx={ICON_TOP_SX} aria-label={t('testCaseBuilder.fields.removeCoding')}>
+          <DeleteIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
-      <Tooltip title={t('testCaseBuilder.fields.browseTwcore')}>
-        <IconButton size="small" onClick={onTwcoreBrowse} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.browseTwcoreAria')}>
-          <MenuBookIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <IconButton size="small" onClick={onRemove} sx={{ mt: 0.5 }} aria-label={t('testCaseBuilder.fields.removeCoding')}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
+      </Box>
+      {error && (
+        <Alert severity="error" variant="outlined" sx={ALERT_SX}>
+          {t('testCaseBuilder.fields.codeSearchError', {
+            message: error instanceof Error ? error.message : String(error),
+          })}
+        </Alert>
+      )}
     </Box>
   )
 }
 
 export default function CodeableConceptField({ element, value, onChange }: CodeableConceptFieldProps) {
   const { t } = useTranslation('measures')
-  const cc = (value as CodeableConcept) || {}
-  const codings = cc.coding || []
+  const cc = asObject(value) as CodeableConcept
+  const codings: Coding[] = Array.isArray(cc.coding) ? cc.coding : []
   const resourceType = useCurrentResourceType()
   const [twcoreOpen, setTwcoreOpen] = useState(false)
   const [twcoreTargetIdx, setTwcoreTargetIdx] = useState<number>(0)
@@ -143,14 +169,14 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
       })
     }
     return (
-      <FormControl fullWidth size="small" required={element.isRequired} sx={{ mb: 1 }}>
+      <FormControl fullWidth size="small" required={element.isRequired} sx={FORM_CONTROL_SX}>
         <InputLabel>{element.name}</InputLabel>
         <Select
           value={selectedCode}
           onChange={(e) => handleSelect(e.target.value)}
           label={element.name}
         >
-          <MenuItem value=""><em>{t('testCaseBuilder.fields.selectCode', 'Select...')}</em></MenuItem>
+          <MenuItem value=""><em>{t('testCaseBuilder.fields.selectCode')}</em></MenuItem>
           {element.boundCodes.map((code) => (
             <MenuItem key={code} value={code}>{code}</MenuItem>
           ))}
@@ -206,8 +232,10 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
   return (
     <FieldWrapper name={element.name} isRequired={element.isRequired}>
       {codings.map((coding, i) => (
+        // Stable-ish key: prefer a content-derived signature so add/remove
+        // doesn't re-mount unrelated rows. Fall back to index for empty new rows.
         <CodingField
-          key={i}
+          key={`${coding.system ?? ''}|${coding.code ?? ''}|${i}`}
           coding={coding}
           onChange={(c) => updateCoding(i, c)}
           onRemove={() => removeCoding(i)}
@@ -217,8 +245,14 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
         />
       ))}
 
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-        <Button size="small" startIcon={<AddIcon />} onClick={addCoding} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+      {codings.length === 0 && (
+        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 0.5 }}>
+          {t('testCaseBuilder.fields.noCodings')}
+        </Typography>
+      )}
+
+      <Box sx={ADD_CODING_BOX_SX}>
+        <Button size="small" startIcon={<AddIcon />} onClick={addCoding} sx={ADD_CODING_BUTTON_SX}>
           {t('testCaseBuilder.fields.addCoding')}
         </Button>
       </Box>
@@ -229,7 +263,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
         fullWidth
         value={cc.text || ''}
         onChange={(e) => onChange({ ...cc, text: e.target.value || undefined })}
-        sx={{ mt: 1 }}
+        sx={TEXT_FIELD_SX}
       />
 
       {twcoreOpen && (

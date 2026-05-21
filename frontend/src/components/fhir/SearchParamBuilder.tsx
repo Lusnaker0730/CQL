@@ -13,7 +13,9 @@ import {
   Typography,
   Box,
 } from '@mui/material'
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501 — see ResourceEditorDialog for why.
+import DeleteIcon from '@mui/icons-material/Delete'
+import AddIcon from '@mui/icons-material/Add'
 import { useTranslation } from 'react-i18next'
 import { RESOURCE_SEARCH_PARAMS } from '../../utils/fhirBrowserUtils'
 
@@ -68,18 +70,37 @@ export default function SearchParamBuilder({
   const valueRef = useRef(value)
   valueRef.current = value
 
+  // PAT-134: detect external `value` changes (e.g. parent replays a
+  // history entry) and re-parse them back into structured rows. We
+  // distinguish external from internal updates by tracking the last
+  // serialized string we wrote out; anything else is upstream.
+  const lastWrittenRef = useRef<string>(value)
+
   useEffect(() => {
     if (modeRef.current === 'structured') {
       setParams(parseParamsString(valueRef.current))
     }
   }, [resourceType])
 
+  useEffect(() => {
+    if (mode === 'structured' && value !== lastWrittenRef.current) {
+      setParams(parseParamsString(value))
+      lastWrittenRef.current = value
+    }
+  }, [value, mode])
+
+  const writeOut = (next: SearchParam[]) => {
+    const serialized = serializeParams(next)
+    lastWrittenRef.current = serialized
+    onChange(serialized)
+  }
+
   const handleModeChange = (_: unknown, newMode: 'structured' | 'raw' | null) => {
     if (!newMode) return
     if (newMode === 'structured') {
       setParams(parseParamsString(value))
     } else {
-      onChange(serializeParams(params))
+      writeOut(params)
     }
     onModeChange(newMode)
   }
@@ -88,7 +109,7 @@ export default function SearchParamBuilder({
     const updated = [...params]
     updated[index] = { ...updated[index], [field]: newVal }
     setParams(updated)
-    onChange(serializeParams(updated))
+    writeOut(updated)
   }
 
   const addParam = () => {
@@ -99,7 +120,7 @@ export default function SearchParamBuilder({
     const updated = params.filter((_, i) => i !== index)
     const result = updated.length > 0 ? updated : [{ name: '', value: '' }]
     setParams(result)
-    onChange(serializeParams(result))
+    writeOut(result)
   }
 
   return (

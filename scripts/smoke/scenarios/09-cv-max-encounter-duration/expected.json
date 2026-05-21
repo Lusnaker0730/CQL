@@ -1,0 +1,11 @@
+{
+  "periodStart": "2022-01-01",
+  "periodEnd": "2022-06-30",
+  "score": 10.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 5,
+    "measure-population": 5
+  },
+  "_note": "Episode-based CV Maximum aggregate. max{2,4,6,8,10} = 10.0. aggregateMethod=\"Max\" works since #PAT-088 added alias normalization."
+}

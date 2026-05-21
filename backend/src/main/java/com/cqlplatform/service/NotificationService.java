@@ -6,24 +6,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * PAT-167: SSE removed. Real-time push now flows through
+ * {@link NotificationWebSocketHandler} instead. The CRUD + workflow API
+ * surface (create, mark read, delete, notify*) is unchanged.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationService {
 
     private final NotificationRepository repository;
-
-    // SSE emitters per user for real-time push
-    private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    private final NotificationWebSocketHandler webSocketHandler;
 
     // ===== CRUD =====
 
@@ -77,7 +75,7 @@ public class NotificationService {
                 .read(false)
                 .build();
         notification = repository.save(notification);
-        pushToUser(recipient, notification);
+        webSocketHandler.pushToUser(recipient, notification);
         return notification;
     }
 
@@ -119,56 +117,6 @@ public class NotificationService {
                     "Measure shared with you: " + measureName,
                     sharer + " shared \"" + measureName + "\" with you.",
                     "/measures/" + measureId);
-        }
-    }
-
-    // ===== SSE =====
-
-    public SseEmitter subscribe(String username) {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        emitters.computeIfAbsent(username, k -> new CopyOnWriteArrayList<>()).add(emitter);
-
-        emitter.onCompletion(() -> removeEmitter(username, emitter));
-        emitter.onTimeout(() -> removeEmitter(username, emitter));
-        emitter.onError(e -> removeEmitter(username, emitter));
-
-        // Send initial unread count
-        try {
-            long unread = getUnreadCount(username);
-            emitter.send(SseEmitter.event().name("unread-count").data(unread));
-        } catch (IOException e) {
-            removeEmitter(username, emitter);
-        }
-
-        return emitter;
-    }
-
-    private void pushToUser(String username, NotificationEntity notification) {
-        List<SseEmitter> userEmitters = emitters.get(username);
-        if (userEmitters == null || userEmitters.isEmpty()) return;
-
-        for (SseEmitter emitter : userEmitters) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("notification")
-                        .data(Map.of(
-                                "id", notification.getId(),
-                                "type", notification.getType(),
-                                "title", notification.getTitle(),
-                                "message", notification.getMessage() != null ? notification.getMessage() : "",
-                                "link", notification.getLink() != null ? notification.getLink() : "",
-                                "createdAt", notification.getCreatedAt().toString()
-                        )));
-            } catch (IOException e) {
-                removeEmitter(username, emitter);
-            }
-        }
-    }
-
-    private void removeEmitter(String username, SseEmitter emitter) {
-        List<SseEmitter> userEmitters = emitters.get(username);
-        if (userEmitters != null) {
-            userEmitters.remove(emitter);
         }
     }
 }

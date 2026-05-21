@@ -61,7 +61,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
     if (value === '__other__') {
       setIsOther(true)
       setSystemUrl('')
-      setSystemLabel('Other')
+      setSystemLabel(t('chooseCode.other'))
     } else {
       setIsOther(false)
       setSystemUrl(value)
@@ -225,7 +225,7 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
             <TextField
               fullWidth
               size="small"
-              placeholder={t('chooseCode.searchCodesPlaceholder', { system: systemLabel || 'selected system' })}
+              placeholder={t('chooseCode.searchCodesPlaceholder', { system: systemLabel || t('chooseCode.selectedSystemFallback') })}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{

@@ -51,8 +51,22 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   const { data: templates = [] } = useEcqmTemplates()
   const { data: modifiers = [] } = useEcqmModifiers()
 
+  // Pending navigation — set when the user requests a leave during an inflight
+  // save; we honor it after the mutation settles.
+  const pendingLeaveRef = useRef(false)
+
   const isDirty = saveStatus === 'dirty' || saveStatus === 'saving'
   useUnsavedChangesGuard(isDirty)
+
+  // PAT-129: Stratifiers are disallowed by CMS when a Ratio measure uses
+  // separate Initial Populations for Denominator and Numerator (dual-IP).
+  const stratifierDisabledReason = useMemo<string | undefined>(() => {
+    if (localArtifact.scoringType !== 'ratio') return undefined
+    const dualIp = (localArtifact.populationGroups || []).some(
+      (g) => g.initialPopulationDenom && g.initialPopulationNumer,
+    )
+    return dualIp ? t('stratifiers.disabledByDualIp') : undefined
+  }, [localArtifact.scoringType, localArtifact.populationGroups, t])
 
   // Clear local overrides when server artifact changes (refetch completed)
   const lastArtifactIdRef = useRef(artifact.updatedAt)
@@ -85,17 +99,27 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
       { id: a.id, request },
       {
         onSuccess: () => {
-          setSaveStatus('saved')
+          // PAT-129: don't clobber 'dirty' when a new edit landed mid-save.
+          // If pendingRef has accumulated changes (or another mutation kicked
+          // off in flight), `debouncedSave` already set saveStatus to 'dirty'
+          // — overwriting with 'saved' here would lie to the user.
+          if (!pendingRef.current) setSaveStatus('saved')
           onArtifactUpdateRef.current()
+          if (pendingLeaveRef.current) {
+            pendingLeaveRef.current = false
+            onBack()
+          }
         },
         onError: (error) => {
           setSaveStatus('error')
           const msg = extractApiError(error)
           setSnack({ message: msg || t('workspace.saveFailed'), severity: 'error' })
+          // Don't navigate if save failed — the user needs to see the error.
+          pendingLeaveRef.current = false
         },
       }
     )
-  }, [updateMutation, t])
+  }, [updateMutation, t, onBack])
 
   const debouncedSave = useCallback((updates: Partial<EcqmArtifactRequest>) => {
     // Apply optimistic update immediately so UI reflects the change
@@ -169,18 +193,25 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   const handleSaveAndLeave = useCallback(() => {
     setShowBackConfirm(false)
     if (timerRef.current) clearTimeout(timerRef.current)
+
+    // PAT-129: if a save is already in flight, don't fire a duplicate. The
+    // inflight mutation already carries the latest pendingRef contents
+    // (we cleared them when we kicked it off). Queue the navigation instead.
+    if (updateMutation.isPending) {
+      pendingLeaveRef.current = true
+      return
+    }
+
     if (pendingRef.current) {
-      const a = artifactRef.current
-      const request: EcqmArtifactRequest = { name: a.name, ...pendingRef.current }
+      // Reuse `save` so onSuccess handles navigate-after-save uniformly.
+      const updates = pendingRef.current
       pendingRef.current = null
-      updateMutation.mutate(
-        { id: a.id, request },
-        { onSuccess: () => { onArtifactUpdateRef.current(); onBack() }, onError: () => onBack() }
-      )
+      pendingLeaveRef.current = true
+      save(updates)
     } else {
       onBack()
     }
-  }, [updateMutation, onBack])
+  }, [updateMutation, save, onBack])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -251,6 +282,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
             stratifiers={localArtifact.stratifiers || EMPTY_STRATIFIERS}
             templates={templates}
             modifiers={modifiers}
+            disabledReason={stratifierDisabledReason}
             onChange={(s: StratifierElement[]) => debouncedSave({ stratifiers: s })}
           />
         )}
@@ -260,7 +292,11 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
           </Box>
         )}
         {tab === 7 && (
-          <EcqmCqlPreviewTab artifactId={artifact.id} onPublished={onArtifactUpdate} />
+          <EcqmCqlPreviewTab
+            artifactId={artifact.id}
+            artifactUpdatedAt={artifact.updatedAt}
+            onPublished={onArtifactUpdate}
+          />
         )}
       </Box>
 

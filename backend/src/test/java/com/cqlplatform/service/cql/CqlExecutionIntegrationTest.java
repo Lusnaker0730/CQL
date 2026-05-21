@@ -11,12 +11,10 @@ import com.cqlplatform.service.fhir.FhirTerminologyService;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.runtime.Code;
 import org.opencds.cqf.cql.engine.runtime.Interval;
+import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -36,19 +34,16 @@ import static org.mockito.Mockito.*;
  * This validates that CQL logic actually produces correct clinical results,
  * not just that methods are called correctly.
  */
-@ExtendWith(MockitoExtension.class)
 @DisplayName("CQL Execution Integration Tests (Real Engine)")
 class CqlExecutionIntegrationTest {
 
     private CqlExecutionService executionService;
 
-    @Mock
+    // Real stubs: only libraryRepository needs selective behavior — interface mocking uses
+    // JDK dynamic proxy (no bytecode agent), so it works on any JDK. The two FHIR services
+    // use minimal real implementations because executeWithProvider() never hits their hot paths.
     private FhirDataProviderService dataProviderService;
-
-    @Mock
     private FhirTerminologyService terminologyService;
-
-    @Mock
     private CqlLibraryRepository libraryRepository;
 
     private static final FhirContext FHIR_CONTEXT = FhirContext.forR4();
@@ -168,6 +163,10 @@ class CqlExecutionIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        dataProviderService = new FhirDataProviderService(null, null, null);
+        terminologyService = new NoOpTerminologyService();
+        libraryRepository = org.mockito.Mockito.mock(CqlLibraryRepository.class);
+
         executionService = new CqlExecutionService(
                 dataProviderService,
                 terminologyService,
@@ -490,6 +489,202 @@ class CqlExecutionIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // 10. Cross-library retrieve discovery (BUG-111)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("10. Cross-library retrieve discovery (BUG-111)")
+    class CrossLibraryRetrieveDiscovery {
+
+        @Test
+        @DisplayName("extractRetrieveTypesFromLibrary follows cross-library ExpressionRef into included library")
+        @SuppressWarnings("removal")
+        void crossLibraryRef_shouldDiscoverRetrievesInIncludedLib() {
+            // Arrange: included library that declares [Encounter] and [Condition] retrieves
+            String includedCql = "library ExternalLib version '1.0.0'\n"
+                    + "using FHIR version '4.0.1'\n"
+                    + "include FHIRHelpers version '4.0.1' called FHIRHelpers\n"
+                    + "context Patient\n"
+                    + "define \"Qualifying Encounters\": [Encounter] E where E.status = 'finished'\n"
+                    + "define \"Active Conditions\": [Condition] C where C.clinicalStatus is not null\n";
+
+            com.cqlplatform.entity.CqlLibraryEntity includedEntity = new com.cqlplatform.entity.CqlLibraryEntity();
+            includedEntity.setName("ExternalLib");
+            includedEntity.setVersion("1.0.0");
+            includedEntity.setCqlContent(includedCql);
+            lenient().when(libraryRepository.findByNameAndVersion("ExternalLib", "1.0.0"))
+                    .thenReturn(Optional.of(includedEntity));
+            lenient().when(libraryRepository.findByName("ExternalLib"))
+                    .thenReturn(List.of(includedEntity));
+
+            // Main library delegates its Initial Population to the included library via libref
+            String mainCql = "library MainLib version '1.0.0'\n"
+                    + "using FHIR version '4.0.1'\n"
+                    + "include FHIRHelpers version '4.0.1' called FHIRHelpers\n"
+                    + "include ExternalLib version '1.0.0' called EL\n"
+                    + "context Patient\n"
+                    + "define \"Initial Population\": exists(EL.\"Qualifying Encounters\")\n"
+                    + "define \"Measure Population\": [Observation]\n";
+
+            // Act
+            CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(mainCql);
+
+            // Legacy (no libraryManager): misses Encounter/Condition from included lib
+            Set<String> typesWithoutLibMgr = executionService.extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+            assertThat(typesWithoutLibMgr).contains("Observation");
+            // Assert that the pre-fix behavior demonstrably omits Encounter
+            // (this is the bug signature — patients would see 0 Encounters during bulk fetch)
+            assertThat(typesWithoutLibMgr).doesNotContain("Encounter");
+
+            // New behavior (with libraryManager): follows the cross-library ExpressionRef
+            Set<String> typesWithLibMgr = executionService.extractRetrieveTypesFromLibrary(
+                    ctx.elmLibrary(), ctx.libraryManager());
+            assertThat(typesWithLibMgr)
+                    .contains("Observation")
+                    .contains("Encounter");  // now discovered via EL."Qualifying Encounters"
+        }
+
+        @Test
+        @DisplayName("deprecated single-arg overload emits WARN when library has cross-library refs (regression lock for silent-wrong-result)")
+        @SuppressWarnings("removal")
+        void legacySingleArg_shouldWarnOnCrossLibraryReference() {
+            // Attach a Logback ListAppender to capture log events from CqlExecutionService
+            ch.qos.logback.classic.Logger logger =
+                    (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CqlExecutionService.class);
+            ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                    new ch.qos.logback.core.read.ListAppender<>();
+            appender.start();
+            logger.addAppender(appender);
+
+            try {
+                // Same setup as above — MainLib references ExternalLib's define
+                String includedCql = "library ExternalLib version '1.0.0'\n"
+                        + "using FHIR version '4.0.1'\ncontext Patient\n"
+                        + "define \"Qualifying Encounters\": [Encounter]\n";
+                com.cqlplatform.entity.CqlLibraryEntity includedEntity = new com.cqlplatform.entity.CqlLibraryEntity();
+                includedEntity.setName("ExternalLib");
+                includedEntity.setVersion("1.0.0");
+                includedEntity.setCqlContent(includedCql);
+                lenient().when(libraryRepository.findByNameAndVersion("ExternalLib", "1.0.0"))
+                        .thenReturn(Optional.of(includedEntity));
+                lenient().when(libraryRepository.findByName("ExternalLib"))
+                        .thenReturn(List.of(includedEntity));
+
+                String mainCql = "library MainWarnLib version '1.0.0'\n"
+                        + "using FHIR version '4.0.1'\n"
+                        + "include ExternalLib version '1.0.0' called EL\n"
+                        + "context Patient\n"
+                        + "define \"IP\": exists(EL.\"Qualifying Encounters\")\n";
+
+                CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(mainCql);
+
+                // Act: call the deprecated 1-arg overload
+                executionService.extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+
+                // Assert: a WARN about BUG-111 / incomplete retrieve set must have been logged.
+                // This lock prevents future "helpful" refactors from silencing the warning.
+                assertThat(appender.list).anyMatch(ev ->
+                        ev.getLevel() == ch.qos.logback.classic.Level.WARN
+                                && ev.getFormattedMessage().contains("BUG-111")
+                                && ev.getFormattedMessage().contains("INCOMPLETE"));
+            } finally {
+                logger.detachAppender(appender);
+            }
+        }
+
+        @Test
+        @DisplayName("deprecated single-arg overload does NOT warn when library has no cross-library refs (no false alarms)")
+        @SuppressWarnings("removal")
+        void legacySingleArg_shouldNotWarnOnSelfContainedLibrary() {
+            ch.qos.logback.classic.Logger logger =
+                    (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CqlExecutionService.class);
+            ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                    new ch.qos.logback.core.read.ListAppender<>();
+            appender.start();
+            logger.addAppender(appender);
+
+            try {
+                String selfContainedCql = "library SelfContained version '1.0.0'\n"
+                        + "using FHIR version '4.0.1'\ncontext Patient\n"
+                        + "define \"Obs\": [Observation]\n";
+                CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(selfContainedCql);
+
+                executionService.extractRetrieveTypesFromLibrary(ctx.elmLibrary());
+
+                assertThat(appender.list).noneMatch(ev ->
+                        ev.getLevel() == ch.qos.logback.classic.Level.WARN
+                                && ev.getFormattedMessage().contains("BUG-111"));
+            } finally {
+                logger.detachAppender(appender);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 11. Pre-translated path runtime error harvesting (PAT-141)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("11. Pre-translated path runtime error harvesting (PAT-141)")
+    class PreTranslatedRuntimeErrorTests {
+
+        @Test
+        @DisplayName("doExecutePreTranslated populates response.errors when a CQL define throws at runtime")
+        void preTranslatedRuntimeError_shouldSurfaceInResponse() {
+            // singleton() requires exactly 1 element — passing a 2-element list is a
+            // CqlException at evaluation time. The translator accepts the CQL fine.
+            // Without DebugMap (pre-PAT-141), this error is silently swallowed and
+            // response.errors stays null. With DebugMap set, the engine records the
+            // exception into State.debugResult and we harvest it.
+            String cql = """
+                    library RuntimeErrorLib version '1.0.0'
+                    using FHIR version '4.0.1'
+                    context Patient
+                    define "Bad": singleton from ({1, 2})
+                    define "Good": 5 + 3
+                    """;
+
+            CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(cql);
+            CqlExecutionRequest request = new CqlExecutionRequest();
+            CqlExecutionResponse response = executionService.executeWithPreTranslated(
+                    request, ctx, emptyRetrieveProvider());
+
+            // The good expression still evaluates
+            assertThat(response.isSuccess()).isTrue();
+            // The bad one shows up in response.errors (regression for PAT-141 — previously
+            // null because no DebugMap was attached to the engine and the response builder
+            // didn't carry .errors(...)).
+            assertThat(response.getErrors())
+                    .as("PAT-141: pre-translated path must surface per-define runtime errors")
+                    .isNotNull()
+                    .anyMatch(msg -> msg.toLowerCase().contains("multiple elements")
+                            || msg.toLowerCase().contains("at most one element"));
+        }
+
+        @Test
+        @DisplayName("doExecutePreTranslated sets success=true and patientId on the response (model parity with doExecute)")
+        void preTranslatedResponse_shouldMatchDoExecuteShape() {
+            String cql = """
+                    library ShapeLib version '1.0.0'
+                    using FHIR version '4.0.1'
+                    context Patient
+                    define "X": 1 + 1
+                    """;
+
+            CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(cql);
+            CqlExecutionRequest request = new CqlExecutionRequest();
+            request.setPatientId("Patient/p1");
+            CqlExecutionResponse response = executionService.executeWithPreTranslated(
+                    request, ctx, emptyRetrieveProvider());
+
+            // PAT-141: pre-translated path now matches doExecute's response shape.
+            assertThat(response.isSuccess()).isTrue();
+            assertThat(response.getPatientId()).isEqualTo("Patient/p1");
+            assertThat(response.getResults()).containsKey("X");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Helpers
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -569,6 +764,22 @@ class CqlExecutionIntegrationTest {
             field.set(target, value);
         } catch (Exception e) {
             throw new RuntimeException("Failed to set field " + fieldName, e);
+        }
+    }
+
+    /**
+     * Minimal terminology service — returns null TerminologyProvider. The CQL engine's
+     * Environment tolerates a null provider; our test CQL uses direct {@code code}
+     * declarations (no ValueSet expansion) so this is sufficient.
+     */
+    static class NoOpTerminologyService extends FhirTerminologyService {
+        NoOpTerminologyService() {
+            super(FhirContext.forR4(), null, null, null);
+        }
+
+        @Override
+        public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
+            return null;
         }
     }
 }

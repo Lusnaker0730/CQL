@@ -3,6 +3,7 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.model.ecqm.EcqmConstants;
 import com.cqlplatform.service.authoring.CqlTemplateEngine;
+import com.cqlplatform.service.authoring.CustomModifierCqlBuilder;
 import com.cqlplatform.service.authoring.ExpressionCqlEngine;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +19,7 @@ class EcqmCqlBuilderTest {
 
     EcqmCqlBuilderTest() {
         templateEngine = new CqlTemplateEngine();
-        engine = new ExpressionCqlEngine(templateEngine, null);
+        engine = new ExpressionCqlEngine(templateEngine, null, new CustomModifierCqlBuilder());
         builder = new EcqmCqlBuilder(engine, templateEngine);
     }
 

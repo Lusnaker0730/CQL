@@ -1,0 +1,13 @@
+{
+  "type": "cds-hook",
+  "cardCount": 1,
+  "cards": [
+    {
+      "summary": "Smoke 10 card fired",
+      "indicator": "info",
+      "sourceLabel": "Smoke Harness",
+      "detail": "end-to-end"
+    }
+  ],
+  "_note": "Minimal CDS Hook smoke — patient-view service returns one hardcoded Tuple card. Proves the entire chain: save → discover → invoke → CQL translate → Tuple-to-card strategy. `detail` uses substring match (the full detail markdown contains the word 'end-to-end')."
+}

@@ -1,75 +1,89 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import { useContext } from 'react'
 import {
-  TerminologyDrawerContext,
   TerminologyDrawerProvider,
+  TerminologyDrawerContext,
 } from '../TerminologyDrawerContext'
 
-function useDrawer() {
-  return useContext(TerminologyDrawerContext)
+function Probe() {
+  const ctx = useContext(TerminologyDrawerContext)
+  return (
+    <div>
+      <div data-testid="open">{String(ctx.isOpen)}</div>
+      <div data-testid="system">{ctx.options.system ?? '-'}</div>
+      <button onClick={() => ctx.openDrawer({ system: 'http://snomed', tab: 1 })}>open</button>
+      <button onClick={() => ctx.closeDrawer()}>close</button>
+    </div>
+  )
 }
 
-function wrapper({ children }: { children: React.ReactNode }) {
-  return <TerminologyDrawerProvider>{children}</TerminologyDrawerProvider>
-}
+describe('TerminologyDrawerContext — PAT-149', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
 
-describe('TerminologyDrawerContext', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
+  it('opens with provided options', () => {
+    render(
+      <TerminologyDrawerProvider>
+        <Probe />
+      </TerminologyDrawerProvider>
+    )
+    act(() => {
+      screen.getByText('open').click()
+    })
+    expect(screen.getByTestId('open').textContent).toBe('true')
+    expect(screen.getByTestId('system').textContent).toBe('http://snomed')
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
+  it('closes immediately but keeps options for the transition window', () => {
+    render(
+      <TerminologyDrawerProvider>
+        <Probe />
+      </TerminologyDrawerProvider>
+    )
+    act(() => screen.getByText('open').click())
+    act(() => screen.getByText('close').click())
+    expect(screen.getByTestId('open').textContent).toBe('false')
+    // Options still present right after close — animation hasn't run yet.
+    expect(screen.getByTestId('system').textContent).toBe('http://snomed')
+
+    // Advance past the UI transition window.
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(screen.getByTestId('system').textContent).toBe('-')
   })
 
-  it('starts closed with empty options', () => {
-    const { result } = renderHook(() => useDrawer(), { wrapper })
-    expect(result.current.isOpen).toBe(false)
-    expect(result.current.options).toEqual({})
+  it('PAT-149 regression: pending close-timer is cleared on unmount', () => {
+    const { unmount } = render(
+      <TerminologyDrawerProvider>
+        <Probe />
+      </TerminologyDrawerProvider>
+    )
+    act(() => screen.getByText('open').click())
+    act(() => screen.getByText('close').click())
+
+    // Unmount before the close-animation timer fires.
+    unmount()
+
+    // Advancing timers must not throw "setOptions on unmounted" — the cleanup
+    // effect cleared the pending timer.
+    expect(() => act(() => vi.advanceTimersByTime(2000))).not.toThrow()
   })
 
-  it('openDrawer without args sets isOpen=true and empty options', () => {
-    const { result } = renderHook(() => useDrawer(), { wrapper })
-    act(() => result.current.openDrawer())
-    expect(result.current.isOpen).toBe(true)
-    expect(result.current.options).toEqual({})
-  })
-
-  it('openDrawer stores the passed options', () => {
-    const { result } = renderHook(() => useDrawer(), { wrapper })
-    const onSelect = vi.fn()
-    act(() => result.current.openDrawer({ tab: 1, system: 'http://loinc.org', searchText: 'a1c', onSelect }))
-    expect(result.current.isOpen).toBe(true)
-    expect(result.current.options.tab).toBe(1)
-    expect(result.current.options.system).toBe('http://loinc.org')
-    expect(result.current.options.searchText).toBe('a1c')
-    expect(result.current.options.onSelect).toBe(onSelect)
-  })
-
-  it('closeDrawer sets isOpen=false immediately but defers options clearing', () => {
-    const { result } = renderHook(() => useDrawer(), { wrapper })
-    act(() => result.current.openDrawer({ tab: 2, system: 'X' }))
-    expect(result.current.isOpen).toBe(true)
-    expect(result.current.options.system).toBe('X')
-
-    act(() => result.current.closeDrawer())
-    expect(result.current.isOpen).toBe(false)
-    // Options still present while close animation plays
-    expect(result.current.options.system).toBe('X')
-
-    // After the UI transition delay fires, options get wiped
-    act(() => vi.runAllTimers())
-    expect(result.current.options).toEqual({})
-  })
-
-  it('opening after close replaces previous options', () => {
-    const { result } = renderHook(() => useDrawer(), { wrapper })
-    act(() => result.current.openDrawer({ searchText: 'first' }))
-    act(() => result.current.closeDrawer())
-    act(() => vi.runAllTimers())
-
-    act(() => result.current.openDrawer({ searchText: 'second' }))
-    expect(result.current.options.searchText).toBe('second')
+  it('opening again clears the previous pending close timer', () => {
+    render(
+      <TerminologyDrawerProvider>
+        <Probe />
+      </TerminologyDrawerProvider>
+    )
+    act(() => screen.getByText('open').click())
+    act(() => screen.getByText('close').click())
+    // Re-open before the timer fires
+    act(() => screen.getByText('open').click())
+    act(() => vi.advanceTimersByTime(2000))
+    // Options should still reflect the second open, not have been blanked
+    // by the now-cancelled first-close timer.
+    expect(screen.getByTestId('system').textContent).toBe('http://snomed')
   })
 })

@@ -1,0 +1,11 @@
+{
+  "periodStart": "2022-01-01",
+  "periodEnd": "2022-06-30",
+  "score": 2.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 5,
+    "measure-population": 5
+  },
+  "_note": "Episode-based CV Minimum aggregate. min{2,4,6,8,10} = 2.0. aggregateMethod=\"Min\" works since #PAT-088 added alias normalization — the abbreviated form resolves to \"minimum\" instead of falling through to Average."
+}

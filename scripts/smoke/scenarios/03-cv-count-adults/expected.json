@@ -1,0 +1,11 @@
+{
+  "periodStart": "2021-01-01",
+  "periodEnd": "2021-06-30",
+  "score": 3.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 3,
+    "measure-population": 3
+  },
+  "_note": "CV scoring, patient-based. 3 adults (age >=18 at period end 2021-06-30). aggregateMethod=Count, so each MP patient contributes 1.0 (via #PAT-085 boolean-observation fix). Score = count of non-null Measure Observation Values = 3."
+}

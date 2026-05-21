@@ -1,0 +1,108 @@
+{
+  "name": "SmokeMultiPopulationGroup",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — proportion measure with two independent population groups (working-age adults vs seniors). Locks per-group define name suffix logic and groups[] response shape.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "working-age",
+      "description": "Working-age adults",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Adult"},
+              {"id": "min_age", "type": "string", "value": "18"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "denominator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Mid-life"},
+              {"id": "min_age", "type": "string", "value": "50"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "numerator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Late mid-life"},
+              {"id": "min_age", "type": "string", "value": "60"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        }
+      }
+    },
+    {
+      "groupId": "seniors",
+      "description": "Senior cohort",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Senior"},
+              {"id": "min_age", "type": "string", "value": "65"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "denominator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "70 and over"},
+              {"id": "min_age", "type": "string", "value": "70"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "numerator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "75 and over"},
+              {"id": "min_age", "type": "string", "value": "75"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

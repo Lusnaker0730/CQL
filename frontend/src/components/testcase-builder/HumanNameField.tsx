@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import FieldWrapper from './FieldWrapper'
 import { getChildBoundCodes, NAME_USE_CODES } from './constants'
+import { asObject, asStringArray } from '../../utils/fhirGuards'
 import type { ElementMetadata } from '../../types'
 
 interface HumanName {
@@ -22,19 +23,20 @@ interface HumanNameFieldProps {
 
 export default function HumanNameField({ element, value, onChange }: HumanNameFieldProps) {
   const { t } = useTranslation('measures')
-  const name = (value as HumanName) || {}
+  const name = asObject(value) as HumanName
+  const givenList = asStringArray(name.given)
   const [givenInput, setGivenInput] = useState('')
   const useOptions = getChildBoundCodes(element, 'use', NAME_USE_CODES)
 
   const addGiven = () => {
     if (givenInput.trim()) {
-      onChange({ ...name, given: [...(name.given || []), givenInput.trim()] })
+      onChange({ ...name, given: [...givenList, givenInput.trim()] })
       setGivenInput('')
     }
   }
 
   const removeGiven = (index: number) => {
-    const next = (name.given || []).filter((_, i) => i !== index)
+    const next = givenList.filter((_, i) => i !== index)
     onChange({ ...name, given: next.length > 0 ? next : undefined })
   }
 
@@ -73,8 +75,8 @@ export default function HumanNameField({ element, value, onChange }: HumanNameFi
       </Box>
       <Box sx={{ mb: 1 }}>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
-          {(name.given || []).map((g, i) => (
-            <Chip key={i} label={g} size="small" onDelete={() => removeGiven(i)} />
+          {givenList.map((g, i) => (
+            <Chip key={`${g}|${i}`} label={g} size="small" onDelete={() => removeGiven(i)} />
           ))}
         </Box>
         <TextField

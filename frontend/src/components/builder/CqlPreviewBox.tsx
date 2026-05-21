@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react'
 import DOMPurify from 'dompurify'
 import { Box } from '@mui/material'
 import { PREVIEW_MAX_HEIGHT } from '../../constants/layout'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from '../common/MonacoEditor'
 import { usePreferences } from '../../hooks/usePreferences'
 
 interface CqlPreviewBoxProps {
   code: string
   maxHeight?: number
 }
+
+// Monaco's setTheme is global — applying it forces every editor instance
+// (including the main editor) to repaint. Cache the last-applied theme so
+// previews don't trigger redundant repaints on every keystroke.
+let lastAppliedTheme: string | null = null
 
 export default function CqlPreviewBox({ code, maxHeight = PREVIEW_MAX_HEIGHT }: CqlPreviewBoxProps) {
   const [colorizedHtml, setColorizedHtml] = useState<string>('')
@@ -22,9 +27,11 @@ export default function CqlPreviewBox({ code, maxHeight = PREVIEW_MAX_HEIGHT }: 
       return
     }
     let cancelled = false
-    // Ensure the correct theme is active so colorize() picks up the right colors
     const themeName = isDark ? 'cql-theme-dark' : 'cql-theme'
-    monaco.editor.setTheme(themeName)
+    if (lastAppliedTheme !== themeName) {
+      monaco.editor.setTheme(themeName)
+      lastAppliedTheme = themeName
+    }
 
     monaco.editor.colorize(code, 'cql', { tabSize: 2 }).then((html) => {
       if (!cancelled) setColorizedHtml(html)
@@ -46,8 +53,7 @@ export default function CqlPreviewBox({ code, maxHeight = PREVIEW_MAX_HEIGHT }: 
         borderRadius: 1,
         fontFamily: 'monospace',
         fontSize: '0.75rem',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
+        whiteSpace: 'pre',
         maxHeight,
         overflow: 'auto',
         '& .mtk1': { color: isDark ? '#D4D4D4' : '#1B3A5C' },

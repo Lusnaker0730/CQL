@@ -1,0 +1,11 @@
+{
+  "periodStart": "2022-01-01",
+  "periodEnd": "2022-06-30",
+  "score": 6.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 5,
+    "measure-population": 5
+  },
+  "_note": "Episode-based CV. 5 Encounters with durations {2, 4, 6, 8, 10} days (period start-end). aggregateMethod=Average → (2+4+6+8+10)/5 = 6.0. Exercises the episode-based Measure Observation Values codegen path emit `(\"Measure Population\") MP return \"Measure Observation\"(MP)` and tests extractObservationValues handling of Iterable<Number>."
+}

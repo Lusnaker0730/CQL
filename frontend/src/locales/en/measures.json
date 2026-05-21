@@ -35,6 +35,16 @@
       "multiples": "Small multiples",
       "overlay": "Overlay"
     },
+    "trendSections": {
+      "proportion": "Proportion / Ratio / Composite (0–100%)",
+      "proportionHint": "Measures whose score is naturally on a 0–100% scale; safe to overlay on one chart.",
+      "continuousVariable": "Continuous Variable (raw clinical values)",
+      "continuousVariableHint": "Each measure has its own clinical range and unit (e.g. HbA1c in mmol/L); rendered one chart per measure with auto-scaled Y axis.",
+      "cohort": "Cohort (patient counts)",
+      "cohortHint": "Counts of patients in a defined cohort — not a score; rendered as a count trend per measure.",
+      "noTrendData": "No trend data for this scoring type.",
+      "unknownUnit": "value"
+    },
     "noDepartmentData": "No department data available",
     "periodType": "Period",
     "monthly": "Monthly",
@@ -43,6 +53,7 @@
     "departmentScores": "Department Scores",
     "qualityReport": "Quality Report",
     "noReportData": "No report data available",
+    "tablePreviewTruncated": "Showing {{shown}} of {{total}} measures",
     "averageScore": "Proportion Avg",
     "aboveTarget": "Above Target",
     "belowTarget": "Below Target",
@@ -411,10 +422,15 @@
     "filterTypes": {
       "code": "Code",
       "valueSet": "Value Set",
+      "codePrefix": "Code Prefix",
       "codeSystem": "Code System",
       "date": "Date",
-      "dateFilter": "Date filter"
-    }
+      "dateFilter": "Date filter",
+      "patient": "Patient"
+    },
+    "ageRange": "Age {{min}}–{{max}} {{unit}}",
+    "gender": "Gender: {{value}}",
+    "prefixTooltip": "Codes starting with '{{prefix}}' (range match, not an enumerated list)"
   },
   "evaluation": {
     "title": "Evaluate: {{name}}",
@@ -631,7 +647,12 @@
     "period2Start": "Period 2 Start",
     "period2End": "Period 2 End",
     "comparing": "Comparing...",
-    "compare": "Compare",
+    "compare": "Compare (Stored Reports)",
+    "compareHint": "Looks up existing saved measure reports whose period overlaps the dates above. Does not run new evaluations.",
+    "compareLive": "Evaluate Live & Compare",
+    "compareLiveHint": "Runs a fresh evaluation against the configured FHIR server for each period, saves the new reports, and shows the comparison. Can take tens of seconds to minutes depending on patient volume.",
+    "evaluatingPeriod": "Evaluating period {{current}} of {{total}}...",
+    "comparingLive": "Assembling comparison...",
     "period1": "Period 1",
     "period2": "Period 2",
     "na": "N/A",
@@ -640,9 +661,23 @@
     "scoreTrend": "Score Trend",
     "periods": "Periods",
     "loading": "Loading...",
-    "loadTrend": "Load Trend",
+    "loadTrend": "Load Historical Trend",
+    "loadTrendHint": "Shows the last N stored measure reports for this measure, regardless of their periods.",
+    "trendLiveSection": "Live Trend Evaluation",
+    "trendLiveHint": "Splits the range ending on the chosen date into N equal intervals and runs a fresh evaluation for each.",
+    "trendEndDate": "End Date",
+    "trendInterval": "Interval",
+    "trendIntervals": {
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "yearly": "Yearly"
+    },
+    "runLiveTrend": "Run Live Trend",
+    "runningLiveTrend": "Running slot {{current}} of {{total}}...",
+    "liveTrendNote": "Live mode evaluates {{count}} periods in sequence against the FHIR server; the process can take several minutes.",
     "scoreProgression": "{{name}} - Score Progression",
-    "noReportData": "No report data found for this measure."
+    "noReportData": "No report data found for this measure.",
+    "slotFailed": "Slot {{current}} failed: {{error}}"
   },
   "share": {
     "title": "Share: {{name}}",
@@ -761,6 +796,11 @@
     "defaultStatus": "complete",
     "downloadReport": "Download report",
     "deleteReport": "Delete report",
+    "deleteConfirmTitle": "Delete this report?",
+    "deleteConfirmBody": "Permanently delete the report for {{measure}} ({{periodStart}} – {{periodEnd}})? This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete",
+    "deleting": "Deleting...",
     "emptyState": "No reports yet. Evaluate a measure to generate reports.",
     "exportFormats": {
       "fhirJson": "FHIR MeasureReport (JSON)",
@@ -932,6 +972,9 @@
     "array": "(array)",
     "addCount": "Add ({{count}})",
     "available": "({{count}} available)",
+    "addAttributeAria": "Add attribute ({{count}} optional fields available)",
+    "metadataLoadError": "Failed to load metadata for {{resourceType}}.",
+    "requiredAria": "required",
     "idLabel": "ID:",
     "idPlaceholder": "resource-id",
     "twcore": {
@@ -939,7 +982,9 @@
       "searchPlaceholder": "Search code, display, or Chinese name...",
       "noMatchingCodes": "No matching codes found.",
       "noTerminology": "No TWCORE terminology available.",
-      "use": "Use"
+      "loadError": "Failed to load TWCORE terminology: {{message}}",
+      "use": "Use",
+      "useAria": "Use code {{code}}"
     },
     "identifierPresets": {
       "label": "Identifier Type",
@@ -995,14 +1040,20 @@
       "country": "country",
       "hideSystemCode": "Hide system / code",
       "showSystemCode": "Show system / code",
-      "identifierSystemPlaceholder": "e.g. http://hospital.org/mrn"
+      "identifierSystemPlaceholder": "e.g. http://hospital.org/mrn",
+      "selectCode": "Select…",
+      "noCodings": "No codings yet — add one below.",
+      "codeSearchError": "Code lookup failed: {{message}}",
+      "jsonSuffix": "(JSON)",
+      "jsonParseError": "Invalid JSON — changes not saved: {{message}}"
     },
     "arrayField": {
       "add": "Add",
       "removeItem": "Remove item"
     },
     "choiceType": {
-      "type": "Type"
+      "type": "Type",
+      "noChoices": "No choice types available for this element."
     }
   }
 }

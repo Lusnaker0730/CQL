@@ -57,7 +57,10 @@ public class TokenVersionService {
             return -1;
         }
         cache.invalidate(username);
-        int newVersion = loadFromDb(username);
+        // Bypass the loadFromDb sentinel here — if user was hard-deleted in the tiny
+        // window between increment and this read, MAX_VALUE would log misleadingly
+        // as the new version number. Read the raw Optional and report -1 on miss.
+        int newVersion = userRepository.findTokenVersionByUsername(username).orElse(-1);
         log.info("Bumped token version for user {} to {}", username, newVersion);
         return newVersion;
     }
@@ -69,7 +72,17 @@ public class TokenVersionService {
         cache.invalidate(username);
     }
 
+    /**
+     * Resolve the user's token version from the DB.
+     *
+     * <p>Returns {@link Integer#MAX_VALUE} when the user is missing — PAT-143 fix
+     * for an auth-bypass on user deletion. {@link JwtAuthenticationFilter} compares
+     * {@code claimVersion < currentVersion}; the previous sentinel of {@code -1} made
+     * that check {@code claimVersion < -1 = false} for any normal claim, so a deleted
+     * user's still-unexpired JWT continued to authenticate. {@code MAX_VALUE} flips
+     * the comparison so any token from a missing user is treated as stale and rejected.
+     */
     private int loadFromDb(String username) {
-        return userRepository.findTokenVersionByUsername(username).orElse(-1);
+        return userRepository.findTokenVersionByUsername(username).orElse(Integer.MAX_VALUE);
     }
 }

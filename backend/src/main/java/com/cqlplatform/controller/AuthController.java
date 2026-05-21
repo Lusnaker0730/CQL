@@ -26,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -59,6 +60,32 @@ public class AuthController {
     @Value("${app.base-url:}")
     private String configuredBaseUrl;
 
+    /**
+     * PAT-145 — controls whether {@link #getBaseUrl(HttpServletRequest)} falls
+     * back to spoofable {@code X-Forwarded-Host} / {@code Host} headers when
+     * {@code app.base-url} is unset. Default {@code true} preserves dev / docker
+     * convenience; production yml MUST set this to {@code false} so a missing
+     * {@code APP_BASE_URL} fails loud (with {@link IllegalStateException}) rather
+     * than silently emitting password-reset emails with an attacker-controlled
+     * link domain (header is not authenticated by the application — it can be
+     * spoofed if the reverse proxy isn't strict).
+     */
+    @Value("${app.allow-base-url-fallback:true}")
+    private boolean allowBaseUrlFallback;
+
+    /**
+     * PAT-157 — controls whether the public {@code /api/auth/register} endpoint
+     * accepts new accounts. Default {@code false}: medical / TFDA-regulated
+     * software typically requires admin-controlled provisioning (IEC 62304
+     * access control). Operators who need self-service registration (e.g. dev
+     * environments) opt in via {@code AUTH_SELF_REGISTRATION_ENABLED=true}.
+     * When disabled, the endpoint returns the same uniform response as a
+     * duplicate-username attempt so it never leaks the difference between
+     * "registration off" and "username taken" (CWE-200 user enumeration).
+     */
+    @Value("${auth.self-registration.enabled:false}")
+    private boolean selfRegistrationEnabled;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
                                    HttpServletResponse response) {
@@ -66,6 +93,14 @@ public class AuthController {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
+        } catch (LockedException e) {
+            // Distinct from BadCredentials so the client can render a lockout-specific
+            // message ("try again later / contact admin") instead of implying the
+            // password itself is wrong. HTTP 423 (Locked) communicates the state
+            // semantically; body doesn't leak exact unlock time to avoid helping
+            // attackers time their next attempt.
+            return ResponseEntity.status(HttpStatus.LOCKED)
+                    .body(Map.of("error", "Account is temporarily locked due to too many failed login attempts. Try again later or contact an administrator."));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid username or password"));
@@ -87,11 +122,34 @@ public class AuthController {
                 .build());
     }
 
+    /**
+     * PAT-157 uniform "registration submitted" response for self-registration.
+     * Returned both when the feature is disabled and when the username is taken,
+     * so the caller cannot distinguish the two states (CWE-200). Phrased as a
+     * pending-approval message so legitimate users who hit a disabled instance
+     * know to contact an admin without learning whether their chosen username
+     * is free.
+     */
+    private static final Map<String, String> REGISTRATION_PENDING_RESPONSE = Map.of(
+            "message", "Registration request received. If approved, you will receive confirmation by email or from an administrator.");
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request,
                                       HttpServletResponse response) {
+        // PAT-157 — self-registration off by default. Return the same uniform
+        // pending-approval response we use for duplicate usernames, so an
+        // attacker probing the endpoint cannot tell whether the feature is on
+        // (and the username is taken) vs. off (and registration is closed).
+        if (!selfRegistrationEnabled) {
+            log.debug("Self-registration is disabled; rejecting register request silently");
+            return ResponseEntity.ok(REGISTRATION_PENDING_RESPONSE);
+        }
+
         if (userRepository.existsByUsername(request.getUsername())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Username already exists"));
+            // PAT-157 — was 400 "Username already exists" (CWE-200 user enumeration).
+            // Now uniform with the disabled-feature response above.
+            log.debug("Register attempted with duplicate username; returning uniform response");
+            return ResponseEntity.ok(REGISTRATION_PENDING_RESPONSE);
         }
 
         UserEntity user = UserEntity.builder()
@@ -345,8 +403,18 @@ public class AuthController {
         if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
             return configuredBaseUrl;
         }
-        // Fallback to request headers — only safe behind trusted reverse proxy
-        log.warn("APP_BASE_URL not configured — deriving base URL from request headers (unsafe in production)");
+        // PAT-145: in production, refuse to derive the base URL from spoofable
+        // headers (X-Forwarded-Host / Host). A misconfigured proxy or a request
+        // with crafted headers would otherwise inject the attacker's domain into
+        // the password-reset email link. Operators must set APP_BASE_URL or
+        // explicitly allow the fallback via app.allow-base-url-fallback=true.
+        if (!allowBaseUrlFallback) {
+            log.error("APP_BASE_URL is not configured and app.allow-base-url-fallback=false — refusing to derive base URL from request headers");
+            throw new IllegalStateException(
+                    "Server misconfiguration: APP_BASE_URL must be set when "
+                            + "app.allow-base-url-fallback=false");
+        }
+        log.warn("APP_BASE_URL not configured — deriving base URL from request headers (only safe behind a trusted reverse proxy)");
         String scheme = request.getHeader("X-Forwarded-Proto");
         if (scheme == null) scheme = request.getScheme();
         String host = request.getHeader("X-Forwarded-Host");

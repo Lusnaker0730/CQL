@@ -1,0 +1,11 @@
+{
+  "id": "smoke-15-dryrun",
+  "hook": "patient-view",
+  "title": "Smoke 15 - Dry Run Mode",
+  "description": "Invoked with dryRun=true. CQL is skipped but prefetch diagnostics should populate.",
+  "enabled": true,
+  "defaultIndicator": "info",
+  "cardGenerationMode": "cql_tuple",
+  "cqlContent": "library \"Smoke15DryRun\" version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ncontext Patient\n\ndefine \"ShouldNotRunCard\":\n  Tuple {\n    summary: 'Dry run should skip this',\n    detail: 'If this card fires, dryRun=true did not actually skip CQL execution.',\n    indicator: 'warning',\n    sourceLabel: 'Smoke 15'\n  }\n",
+  "prefetch": {}
+}

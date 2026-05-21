@@ -1,11 +1,13 @@
 package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureReportEntity;
+import com.cqlplatform.entity.MeasureReportPopulationEntity;
 import com.cqlplatform.model.measure.MeasureComparisonResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.GroupResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.PopulationResult;
 import com.cqlplatform.model.measure.MeasureTrendResult;
+import com.cqlplatform.repository.MeasureReportPopulationRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +25,10 @@ class MeasureComparisonServiceTest {
 
     @Mock
     private MeasureReportService reportService;
+
+    /** Phase 2 of ADR-001: consumer now reads from normalized table when available. */
+    @Mock
+    private MeasureReportPopulationRepository populationRepository;
 
     @InjectMocks
     private MeasureComparisonService service;
@@ -161,5 +167,75 @@ class MeasureComparisonServiceTest {
         MeasureTrendResult result = service.getTrend(1L, "Test", 2);
 
         assertThat(result.getDataPoints()).hasSize(2);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Phase 2 of ADR-001: normalized-table read path
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void extractPopulationCounts_shouldPreferNormalizedTable_whenAvailable() {
+        // Report with both normalized rows (returned by populationRepository) AND legacy result_json
+        MeasureReportEntity r = new MeasureReportEntity();
+        r.setId(500L);
+        r.setMeasureScore(0.75);
+        r.setTotalPatients(48);
+        r.setPeriodStart(LocalDate.of(2026, 1, 1));
+        r.setPeriodEnd(LocalDate.of(2026, 12, 31));
+        // Legacy JSON says IP=99 — if the service reads JSON instead of normalized, the test catches it
+        r.setEvaluationResult(MeasureEvaluationResult.builder()
+                .groups(List.of(GroupResult.builder()
+                        .populations(List.of(PopulationResult.builder()
+                                .populationType("initial-population").count(99).build()))
+                        .build()))
+                .build());
+        // Normalized rows say IP=40 — these should win
+        when(populationRepository.findAllForReport(500L)).thenReturn(List.of(
+                MeasureReportPopulationEntity.builder()
+                        .populationType("initial-population").populationId("ip").count(40).ordinal(0).build(),
+                MeasureReportPopulationEntity.builder()
+                        .populationType("denominator").populationId("denom").count(40).ordinal(1).build(),
+                MeasureReportPopulationEntity.builder()
+                        .populationType("numerator").populationId("numer").count(30).ordinal(2).build()
+        ));
+        when(reportService.getReportsForPeriodById(eq(1L), any(), any()))
+                .thenReturn(List.of(r));
+
+        MeasureComparisonResult result = service.comparePeriods(1L, "a1c_dm",
+                LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31));
+
+        // The normalized row (40) won over the stale JSON (99) — Phase 2 invariant
+        assertThat(result.getPeriod2().getPopulationCounts())
+                .containsEntry("initial-population", 40)
+                .containsEntry("denominator", 40)
+                .containsEntry("numerator", 30);
+    }
+
+    @Test
+    void extractPopulationCounts_shouldFallBackToJson_whenNormalizedRowsAbsent() {
+        // Represents a report from before Phase 1 deploy, not yet backfilled
+        MeasureReportEntity r = new MeasureReportEntity();
+        r.setId(501L);
+        r.setMeasureScore(0.5);
+        r.setPeriodStart(LocalDate.of(2026, 1, 1));
+        r.setPeriodEnd(LocalDate.of(2026, 12, 31));
+        r.setEvaluationResult(MeasureEvaluationResult.builder()
+                .groups(List.of(GroupResult.builder()
+                        .populations(List.of(
+                                PopulationResult.builder().populationType("initial-population").count(10).build(),
+                                PopulationResult.builder().populationType("numerator").count(5).build()))
+                        .build()))
+                .build());
+        when(populationRepository.findAllForReport(501L)).thenReturn(List.of());  // empty → fallback
+        when(reportService.getReportsForPeriodById(eq(1L), any(), any())).thenReturn(List.of(r));
+
+        MeasureComparisonResult result = service.comparePeriods(1L, "legacy",
+                LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31));
+
+        assertThat(result.getPeriod2().getPopulationCounts())
+                .containsEntry("initial-population", 10)
+                .containsEntry("numerator", 5);
     }
 }

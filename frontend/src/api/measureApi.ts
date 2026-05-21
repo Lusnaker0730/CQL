@@ -24,7 +24,6 @@ import type {
   MeasureThreshold,
   QualityReportData,
 } from '../types'
-import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
 
 const exportBlob = async (
@@ -270,27 +269,27 @@ export const measureApi = {
   },
 
   // Sharing & Permissions
+  // PAT-117: `currentUser` was being sent as a request body field but the backend
+  // derives it from the JWT via OwnershipVerifier, so the value was ignored.
+  // Worse, the field broke deserialization when Jackson was configured to fail on
+  // unknown properties. Removed — backend still works via JWT.
   shareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/share`, { targetUsername, currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/share`, { targetUsername })
     return response.data
   },
 
   unshareMeasure: async (id: number, targetUsername: string): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/unshare`, { targetUsername, currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/unshare`, { targetUsername })
     return response.data
   },
 
   transferMeasureOwnership: async (id: number, newOwner: string): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/transfer`, { newOwner, currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/transfer`, { newOwner })
     return response.data
   },
 
   setMeasureAccessLevel: async (id: number, accessLevel: string): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.put<MeasureDefinition>(`/measures/${id}/access`, { accessLevel, currentUser })
+    const response = await api.put<MeasureDefinition>(`/measures/${id}/access`, { accessLevel })
     return response.data
   },
 
@@ -305,40 +304,38 @@ export const measureApi = {
   },
 
   // Workflow
+  // PAT-117: backend derives the acting user from JWT (OwnershipVerifier), not
+  // the request body. The vestigial `currentUser` body field triggered 500 errors
+  // when Jackson rejected it as unknown on WorkflowActionRequest. Body is now
+  // only used for the real payload (reason on reject).
   submitForReview: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, {})
     return response.data
   },
 
   approveMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/approve`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/approve`, {})
     return response.data
   },
 
   rejectMeasure: async (id: number, reason?: string): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { currentUser, reason })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/reject`, { reason })
     return response.data
   },
 
   retireMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/retire`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/retire`, {})
     return response.data
   },
 
   // Locking
   lockMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/lock`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/lock`, {})
     return response.data
   },
 
   unlockMeasure: async (id: number): Promise<MeasureDefinition> => {
-    const currentUser = getStoredUsername()
-    const response = await api.post<MeasureDefinition>(`/measures/${id}/unlock`, { currentUser })
+    const response = await api.post<MeasureDefinition>(`/measures/${id}/unlock`, {})
     return response.data
   },
 

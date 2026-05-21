@@ -1,0 +1,17 @@
+{
+  "periodStart": "2025-01-01",
+  "periodEnd": "2025-06-30",
+  "score": 50.0,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 3,
+    "denominator": 2,
+    "numerator": 1
+  },
+  "checkCsvExport": {
+    "format": "csv",
+    "forbiddenLineStarts": ["=", "+", "-", "@", "\t", "\r"]
+  },
+  "maxEvaluationTimeMs": 8000,
+  "_note": "CSV injection regression lock. Measure name starts with `=`, description starts with `+`, group description starts with `-`, group ID starts with `@` — every formula trigger character is exercised. After evaluate, fetch the latest report and export as CSV. Asserts no line in the CSV body starts with a formula trigger char. CsvUtils.escapeCsv neutralizes the prefix by prepending `\\\\t` (literal backslash-t) so the spreadsheet parser sees a non-trigger first character. Ages at 2025-06-30: p1(75)/p2(65)/p3(40). IP=adults=3. Denom=>=50=2 (p1,p2). Numer=>=65=1 (p1). Score=1/2=50.0."
+}

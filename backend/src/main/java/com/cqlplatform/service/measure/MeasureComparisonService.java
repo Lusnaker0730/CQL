@@ -1,6 +1,7 @@
 package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureReportEntity;
+import com.cqlplatform.entity.MeasureReportPopulationEntity;
 import com.cqlplatform.model.measure.MeasureComparisonResult;
 import com.cqlplatform.model.measure.MeasureComparisonResult.PeriodSummary;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
@@ -8,6 +9,7 @@ import com.cqlplatform.model.measure.MeasureEvaluationResult.GroupResult;
 import com.cqlplatform.model.measure.MeasureEvaluationResult.PopulationResult;
 import com.cqlplatform.model.measure.MeasureTrendResult;
 import com.cqlplatform.model.measure.MeasureTrendResult.TrendDataPoint;
+import com.cqlplatform.repository.MeasureReportPopulationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 public class MeasureComparisonService {
 
     private final MeasureReportService reportService;
+    private final MeasureReportPopulationRepository populationRepository;
 
     public MeasureComparisonResult comparePeriods(Long measureDefinitionId, String measureName,
                                                    LocalDate p1Start, LocalDate p1End,
@@ -123,7 +126,34 @@ public class MeasureComparisonService {
                 .build();
     }
 
+    /**
+     * Population-type → latest count across all groups.
+     *
+     * <p>Phase 2 of ADR-001: prefer the normalized {@code measure_report_population} table
+     * (one query, indexed, SQL-friendly). Fall back to {@code result_json} parsing when the
+     * report has no normalized rows — this covers reports written before Phase 1 deployment
+     * that haven't been picked up by the startup backfill yet. After Phase 3 the fallback
+     * branch becomes unreachable and will be removed.
+     */
     private Map<String, Integer> extractPopulationCounts(MeasureReportEntity report) {
+        if (report.getId() != null) {
+            List<MeasureReportPopulationEntity> rows = populationRepository.findAllForReport(report.getId());
+            if (!rows.isEmpty()) {
+                // Iteration order (group ordinal, then population ordinal) matches the legacy
+                // result_json traversal below — later populations override earlier same-typed ones.
+                Map<String, Integer> counts = new LinkedHashMap<>();
+                for (MeasureReportPopulationEntity p : rows) {
+                    counts.put(p.getPopulationType(), p.getCount() != null ? p.getCount() : 0);
+                }
+                return counts;
+            }
+        }
+        // Transitional fallback — historical reports not yet backfilled.
+        return extractPopulationCountsFromJson(report);
+    }
+
+    /** Legacy result_json path. Removed after Phase 3 of ADR-001. */
+    private Map<String, Integer> extractPopulationCountsFromJson(MeasureReportEntity report) {
         Map<String, Integer> counts = new HashMap<>();
         MeasureEvaluationResult result = report.getEvaluationResult();
         if (result != null && result.getGroups() != null) {

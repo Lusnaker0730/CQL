@@ -1,0 +1,13 @@
+{
+  "type": "cds-hook",
+  "cardCount": 1,
+  "cards": [
+    {
+      "summary": "Patient has active condition",
+      "indicator": "warning",
+      "sourceLabel": "Smoke 11",
+      "detail": "conditional card logic confirmed"
+    }
+  ],
+  "_note": "Conditional card — fires only when CQL finds active Condition in prefetch. Proves prefetch→CQL→Tuple→Card pipeline with real clinical logic (not just hardcoded emission like scenario 10)."
+}

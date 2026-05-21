@@ -15,15 +15,24 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * PAT-145 — class-level {@code @PreAuthorize} as defense-in-depth on top of the
+ * URL-path rule in {@code SecurityConfig:191} ({@code /api/admin/**}). If the
+ * path matcher is ever weakened or the controller's {@code @RequestMapping}
+ * moved outside {@code /api/admin/}, this annotation still guards every public
+ * endpoint. Keep this annotation in sync with the path-based rule.
+ */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'DEPARTMENT_ADMIN')")
 public class AdminController {
 
     private final UserRepository userRepository;
@@ -137,6 +146,27 @@ public class AdminController {
                         .message("Temporary password has been sent to the user's registered email address. " +
                                  "User will be required to change it on next login.")
                         .build());
+    }
+
+    /**
+     * Admin unlock: clears the failed-login counter and lockout timestamp, letting
+     * the user log in immediately instead of waiting for the lockout window to expire.
+     * Intended for support flows where the user phoned in and identified themselves.
+     *
+     * <p>Always returns success even if the user wasn't locked — avoids leaking
+     * account state to admins who shouldn't need to know the exact lock/unlock state.
+     * Admin-only endpoint per existing SecurityConfig `/api/admin/**` matcher.
+     */
+    @PostMapping("/users/{userId}/unlock")
+    public ResponseEntity<?> unlockUser(@PathVariable Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        user.setFailedLoginAttempts(0);
+        user.setLockoutUntil(null);
+        userRepository.save(user);
+        return ResponseEntity.ok(java.util.Map.of(
+                "username", user.getUsername(),
+                "message", "Account unlocked. User may sign in immediately."));
     }
 
     private UserSummary toUserSummary(UserEntity user) {

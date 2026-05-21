@@ -278,10 +278,29 @@ class DataRequirementExtractorTest {
     }
 
     @Test
-    void extract_retrieveWithCodeRef_shouldCaptureDirectCode() {
+    void extract_retrieveWithCodeRef_resolvesAgainstCodeDefs() {
+        // PAT-116: CodeRef resolution. The ELM carries CodeRef { name: "BloodPressure" },
+        // and the library defines code "BloodPressure": '85354-9' from "LOINC" with
+        // codesystem "LOINC": 'http://loinc.org'. Extractor must yield the resolved
+        // pair (code=85354-9, system=http://loinc.org), not the ref name.
         String elmJson = """
                 {
                   "library": {
+                    "codeSystems": {
+                      "def": [
+                        { "name": "LOINC", "id": "http://loinc.org" }
+                      ]
+                    },
+                    "codes": {
+                      "def": [
+                        {
+                          "name": "BloodPressure",
+                          "id": "85354-9",
+                          "display": "Blood pressure panel",
+                          "codeSystem": { "name": "LOINC" }
+                        }
+                      ]
+                    },
                     "statements": {
                       "def": [
                         {
@@ -307,10 +326,93 @@ class DataRequirementExtractorTest {
 
         List<DataRequirementInfo> result = extractor.extract(elmJson);
         assertThat(result).hasSize(1);
-        DataRequirementInfo req = result.get(0);
-        assertThat(req.getCodeFilter()).hasSize(1);
-        assertThat(req.getCodeFilter().get(0).getCode()).hasSize(1);
-        assertThat(req.getCodeFilter().get(0).getCode().get(0).getCode()).isEqualTo("BloodPressure");
+        var coding = result.get(0).getCodeFilter().get(0).getCode().get(0);
+        assertThat(coding.getCode()).isEqualTo("85354-9");
+        assertThat(coding.getSystem()).isEqualTo("http://loinc.org");
+        assertThat(coding.getDisplay()).isEqualTo("Blood pressure panel");
+    }
+
+    @Test
+    void extract_retrieveWithUnresolvableCodeRef_fallsBackToRefName() {
+        // Fallback: when the ref name is not in library.codes.def (e.g. the code
+        // is declared in an included external library we don't have ELM for),
+        // preserve the ref name as the code — matches legacy behavior so downstream
+        // consumers at least see a human-readable hint.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "SpecificObs",
+                          "expression": {
+                            "type": "Retrieve",
+                            "dataType": "{http://hl7.org/fhir}Observation",
+                            "codeProperty": "code",
+                            "codes": {
+                              "type": "ToList",
+                              "operand": {
+                                "type": "CodeRef",
+                                "name": "ExternalLibCode"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        var coding = result.get(0).getCodeFilter().get(0).getCode().get(0);
+        assertThat(coding.getCode()).isEqualTo("ExternalLibCode");
+        assertThat(coding.getSystem()).isNull();
+    }
+
+    @Test
+    void extract_retrieveWithCodeLiteral_resolvesSystemNameToUrl() {
+        // The `Code` literal node has system: CodeSystemRef { name }; resolve to URL.
+        String elmJson = """
+                {
+                  "library": {
+                    "codeSystems": {
+                      "def": [
+                        { "name": "ICD10CM", "id": "http://hl7.org/fhir/sid/icd-10-cm" }
+                      ]
+                    },
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "DiabetesObs",
+                          "expression": {
+                            "type": "Retrieve",
+                            "dataType": "{http://hl7.org/fhir}Condition",
+                            "codeProperty": "code",
+                            "codes": {
+                              "type": "List",
+                              "element": [
+                                {
+                                  "type": "Code",
+                                  "code": "E11",
+                                  "display": "Type 2 diabetes mellitus",
+                                  "system": { "type": "CodeSystemRef", "name": "ICD10CM" }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        var coding = result.get(0).getCodeFilter().get(0).getCode().get(0);
+        assertThat(coding.getCode()).isEqualTo("E11");
+        assertThat(coding.getSystem()).isEqualTo("http://hl7.org/fhir/sid/icd-10-cm");
+        assertThat(coding.getDisplay()).isEqualTo("Type 2 diabetes mellitus");
     }
 
     @Test
@@ -1062,5 +1164,527 @@ class DataRequirementExtractorTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getCodeFilter().get(0).getCodeSystemUrl())
                 .isEqualTo("http://hl7.org/fhir/sid/icd-10-cm");
+    }
+
+    @Test
+    void extract_retrieveWithConceptRef_expandsAllMemberCodes() {
+        // PAT-120: CQL `concept "MyConcept": { "c1", "c2" }` declares a logical
+        // concept containing multiple CodeRef members. Where clauses like
+        // `P.code ~ "MyConcept"` (Equivalent(prop, ConceptRef)) must expand to
+        // all member codes — before this patch the ConceptRef was silently
+        // dropped and the retrieve came out with zero codes.
+        String elmJson = """
+                {
+                  "library": {
+                    "codeSystems": {
+                      "def": [
+                        { "name": "NHI", "id": "http://nhi.example.com" },
+                        { "name": "LOINC", "id": "http://loinc.org" }
+                      ]
+                    },
+                    "codes": {
+                      "def": [
+                        { "name": "c1", "id": "64164B", "display": "Knee A", "codeSystem": { "name": "NHI" } },
+                        { "name": "c2", "id": "97805K", "display": "Knee B", "codeSystem": { "name": "NHI" } },
+                        { "name": "c3", "id": "17856-6", "display": "Lab", "codeSystem": { "name": "LOINC" } }
+                      ]
+                    },
+                    "concepts": {
+                      "def": [
+                        {
+                          "name": "MixedConcept",
+                          "code": [
+                            { "type": "CodeRef", "name": "c1" },
+                            { "type": "CodeRef", "name": "c2" },
+                            { "type": "CodeRef", "name": "c3" }
+                          ]
+                        }
+                      ]
+                    },
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "KneeProcs",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "P", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Procedure" } }],
+                            "where": {
+                              "type": "Equivalent",
+                              "operand": [
+                                { "type": "FunctionRef", "name": "ToConcept", "operand": [
+                                    { "type": "Property", "path": "code", "scope": "P" }
+                                ]},
+                                { "type": "ConceptRef", "name": "MixedConcept" }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        var codes = result.get(0).getCodeFilter().get(0).getCode();
+        assertThat(codes).hasSize(3);
+        // Each member code is resolved with its real code + correct system URL
+        assertThat(codes).extracting("code").containsExactlyInAnyOrder("64164B", "97805K", "17856-6");
+        assertThat(codes).extracting("system").containsExactlyInAnyOrder(
+                "http://nhi.example.com", "http://nhi.example.com", "http://loinc.org");
+    }
+
+    @Test
+    void extract_retrieveWithInConceptRef_expandsAllMemberCodes() {
+        // PAT-120: `x in "Concept"` (In type) should expand too, not just `~` (Equivalent).
+        // ELM shape has ToList(ConceptRef) on the RHS of In.
+        String elmJson = """
+                {
+                  "library": {
+                    "codeSystems": {
+                      "def": [{ "name": "ATC", "id": "http://www.whocc.no/atc" }]
+                    },
+                    "codes": {
+                      "def": [
+                        { "name": "atc_X", "id": "J01CA12", "codeSystem": { "name": "ATC" } },
+                        { "name": "atc_Y", "id": "J01CF01", "codeSystem": { "name": "ATC" } }
+                      ]
+                    },
+                    "concepts": {
+                      "def": [
+                        {
+                          "name": "Antibiotics",
+                          "code": [
+                            { "type": "CodeRef", "name": "atc_X" },
+                            { "type": "CodeRef", "name": "atc_Y" }
+                          ]
+                        }
+                      ]
+                    },
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "AntibioticReqs",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "MR", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}MedicationRequest" } }],
+                            "where": {
+                              "type": "In",
+                              "operand": [
+                                { "type": "FunctionRef", "name": "ToConcept", "operand": [
+                                    { "type": "Property", "path": "medication", "scope": "MR" }
+                                ]},
+                                { "type": "ToList", "operand": { "type": "ConceptRef", "name": "Antibiotics" } }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        var codes = result.get(0).getCodeFilter().get(0).getCode();
+        assertThat(codes).hasSize(2);
+        assertThat(codes).extracting("code").containsExactlyInAnyOrder("J01CA12", "J01CF01");
+        assertThat(result.get(0).getCodeFilter().get(0).getCodeSystemUrl())
+                .isEqualTo("http://www.whocc.no/atc");
+    }
+
+    @Test
+    void extract_existsWithStartsWith_capturesCodePrefix() {
+        // PAT-121b: match `exists(C.code.coding where StartsWith(Coding.code.value, 'E08'))`
+        // — common ICD-10 range pattern. The ELM shape is Exists → Query(source=coding chain)
+        // → Where(StartsWith(Property(value → code), Literal("E08"))).
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "DiabeticConds",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "C", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Condition" } }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{ "alias": "Coding",
+                                    "expression": { "type": "Property", "path": "coding", "source": { "type": "Property", "path": "code", "scope": "C" } } }],
+                                "where": {
+                                  "type": "Or",
+                                  "operand": [
+                                    { "type": "StartsWith",
+                                      "operand": [
+                                        { "type": "Property", "path": "value",
+                                          "source": { "type": "Property", "path": "code", "scope": "Coding" } },
+                                        { "type": "Literal", "value": "E08" }
+                                      ]
+                                    },
+                                    { "type": "StartsWith",
+                                      "operand": [
+                                        { "type": "Property", "path": "value",
+                                          "source": { "type": "Property", "path": "code", "scope": "Coding" } },
+                                        { "type": "Literal", "value": "E11" }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCodeFilter().get(0).getCodePrefixes())
+                .containsExactlyInAnyOrder("E08", "E11");
+    }
+
+    @Test
+    void extract_existsWithCustomStartsWithFunction_capturesCodePrefix() {
+        // PAT-121b: user-defined CodeStartsWith(prop, literal) function — the
+        // shared-library helper that wraps the built-in StartsWith. We match
+        // FunctionRef with a name containing "startsWith" (case-insensitive).
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "X",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "C", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Condition" } }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{ "alias": "Coding",
+                                    "expression": { "type": "Property", "path": "coding", "source": { "type": "Property", "path": "code", "scope": "C" } } }],
+                                "where": {
+                                  "type": "FunctionRef", "name": "CodeStartsWith",
+                                  "operand": [
+                                    { "type": "Property", "path": "value",
+                                      "source": { "type": "Property", "path": "code", "scope": "Coding" } },
+                                    { "type": "Literal", "value": "J18" }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCodeFilter().get(0).getCodePrefixes())
+                .containsExactly("J18");
+    }
+
+    @Test
+    void extract_existsWithCodingSystemValue_resolvesSystemUrlViaValueUnwrap() {
+        // PAT-121c: CQL `Coding.system.value = 'http://...'` produces
+        // Property(path="value", source=Property(path="system")). Previously the
+        // extractor only matched Property(path="system") directly and missed the
+        // .value wrapper — measure 3's Condition came out with system=null.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "X",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "C", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Condition" } }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{ "alias": "Coding",
+                                    "expression": { "type": "Property", "path": "coding", "source": { "type": "Property", "path": "code", "scope": "C" } } }],
+                                "where": {
+                                  "type": "Equal",
+                                  "operand": [
+                                    { "type": "Property", "path": "value",
+                                      "source": { "type": "Property", "path": "system", "scope": "Coding" } },
+                                    { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "http://hl7.org/fhir/sid/icd-10-cm" }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCodeFilter().get(0).getCodeSystemUrl())
+                .isEqualTo("http://hl7.org/fhir/sid/icd-10-cm");
+    }
+
+    @Test
+    void extract_patientFilter_collectsAgeRange() {
+        // PAT-121a: `AgeInYearsAt(...) >= 18 and AgeInYearsAt(...) <= 64`
+        // — ELM uses CalculateAge(precision=Year). minAge/maxAge are inclusive.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "Initial Population",
+                          "expression": {
+                            "type": "And",
+                            "operand": [
+                              { "type": "GreaterOrEqual", "operand": [
+                                  { "type": "CalculateAge", "precision": "Year",
+                                    "operand": { "type": "Property", "path": "birthDate.value", "source": { "type": "ExpressionRef", "name": "Patient" } } },
+                                  { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}Integer", "value": "18" }
+                              ]},
+                              { "type": "LessOrEqual", "operand": [
+                                  { "type": "CalculateAge", "precision": "Year",
+                                    "operand": { "type": "Property", "path": "birthDate.value", "source": { "type": "ExpressionRef", "name": "Patient" } } },
+                                  { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}Integer", "value": "64" }
+                              ]}
+                            ]
+                          }
+                        },
+                        {
+                          "name": "PatRetrieve",
+                          "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Patient" }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo patient = result.stream()
+                .filter(r -> "Patient".equals(r.getType())).findFirst().orElseThrow();
+        assertThat(patient.getPatientFilter()).isNotNull();
+        assertThat(patient.getPatientFilter().getMinAge()).isEqualTo(18);
+        assertThat(patient.getPatientFilter().getMaxAge()).isEqualTo(64);
+        assertThat(patient.getPatientFilter().getAgeUnit()).isEqualTo("Year");
+    }
+
+    @Test
+    void extract_patientFilter_collectsGender() {
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "MaleOnly",
+                          "expression": {
+                            "type": "Equal",
+                            "operand": [
+                              { "type": "Property", "path": "value",
+                                "source": { "type": "Property", "path": "gender", "source": { "type": "ExpressionRef", "name": "Patient" } } },
+                              { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "male" }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "PatRetrieve",
+                          "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Patient" }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo patient = result.stream()
+                .filter(r -> "Patient".equals(r.getType())).findFirst().orElseThrow();
+        assertThat(patient.getPatientFilter()).isNotNull();
+        assertThat(patient.getPatientFilter().getGender()).containsExactly("male");
+    }
+
+    @Test
+    void extract_patientFilter_noConstraints_leavesPatientFilterNull() {
+        // Without any age or gender comparison in the library, patientFilter
+        // stays null so measures applicable to all demographics don't show an
+        // empty filter panel.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        { "name": "PatRetrieve", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Patient" } }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo patient = result.stream()
+                .filter(r -> "Patient".equals(r.getType())).findFirst().orElseThrow();
+        assertThat(patient.getPatientFilter()).isNull();
+    }
+
+    @Test
+    void extract_retrieveWithUnresolvableConceptRef_leavesNoCodes() {
+        // When the ConceptRef name has no matching concept in library.concepts.def
+        // (e.g. declared in an external library), we should gracefully extract
+        // nothing for it — not throw, not fall back to using the ref name as code.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "X",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{ "alias": "P", "expression": { "type": "Retrieve", "dataType": "{http://hl7.org/fhir}Procedure" } }],
+                            "where": {
+                              "type": "Equivalent",
+                              "operand": [
+                                { "type": "Property", "path": "code", "scope": "P" },
+                                { "type": "ConceptRef", "name": "UnknownExternalConcept" }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        assertThat(result).hasSize(1);
+        // No code filter created for unresolvable ConceptRef (no fallback pollution)
+        assertThat(result.get(0).getCodeFilter()).isNullOrEmpty();
+    }
+
+    @Test
+    void extract_letPattern_resolvesQueryLetRefToOuterAliasProperty() {
+        // PAT-158 — choice-type access using the recommended `let` pattern:
+        //   [MedicationRequest] MR
+        //     let medCC: MR.medication as FHIR.CodeableConcept
+        //     where exists (from medCC.coding Coding
+        //       where Coding.system.value = 'http://www.whocc.no/atc'
+        //         and StartsWith(Coding.code.value, 'A10'))
+        // Inner Query's source bottoms at QueryLetRef("medCC") instead of an
+        // AliasRef. Pre-fix, extractCodePathFromPropertyChain returned null,
+        // codeProperty stayed null, and deduplicateRequirements dropped the
+        // entire code filter (system URL + StartsWith prefix) — the
+        // MedicationRequest entry came back with codeFilter=null even though
+        // the where clause clearly described an ATC A10* filter.
+        // Production HbA1c measure (id=3) reproduced this exactly.
+        String elmJson = """
+                {
+                  "library": {
+                    "statements": {
+                      "def": [
+                        {
+                          "name": "Diabetes Medications",
+                          "expression": {
+                            "type": "Query",
+                            "source": [{
+                              "alias": "MR",
+                              "expression": {
+                                "type": "Retrieve",
+                                "dataType": "{http://hl7.org/fhir}MedicationRequest"
+                              }
+                            }],
+                            "let": [{
+                              "identifier": "medCC",
+                              "expression": {
+                                "type": "As",
+                                "operand": {
+                                  "type": "Property",
+                                  "path": "medication",
+                                  "scope": "MR"
+                                }
+                              }
+                            }],
+                            "where": {
+                              "type": "Exists",
+                              "operand": {
+                                "type": "Query",
+                                "source": [{
+                                  "alias": "Coding",
+                                  "expression": {
+                                    "type": "Property",
+                                    "path": "coding",
+                                    "source": { "type": "QueryLetRef", "name": "medCC" }
+                                  }
+                                }],
+                                "where": {
+                                  "type": "And",
+                                  "operand": [
+                                    {
+                                      "type": "Equal",
+                                      "operand": [
+                                        {
+                                          "type": "Property",
+                                          "path": "value",
+                                          "source": {
+                                            "type": "Property",
+                                            "path": "system",
+                                            "scope": "Coding"
+                                          }
+                                        },
+                                        { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "http://www.whocc.no/atc" }
+                                      ]
+                                    },
+                                    {
+                                      "type": "StartsWith",
+                                      "operand": [
+                                        {
+                                          "type": "Property",
+                                          "path": "value",
+                                          "source": {
+                                            "type": "Property",
+                                            "path": "code",
+                                            "scope": "Coding"
+                                          }
+                                        },
+                                        { "type": "Literal", "valueType": "{urn:hl7-org:elm-types:r1}String", "value": "A10" }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """;
+        List<DataRequirementInfo> result = extractor.extract(elmJson);
+        DataRequirementInfo medReq = result.stream()
+                .filter(r -> "MedicationRequest".equals(r.getType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("MedicationRequest not in extracted requirements"));
+        assertThat(medReq.getCodeFilter()).hasSize(1);
+        DataRequirementInfo.CodeFilterInfo cf = medReq.getCodeFilter().get(0);
+        assertThat(cf.getPath())
+                .as("codeProperty must resolve to the outer-alias property the let binding targets")
+                .isEqualTo("medication");
+        assertThat(cf.getCodeSystemUrl()).isEqualTo("http://www.whocc.no/atc");
+        assertThat(cf.getCodePrefixes()).containsExactly("A10");
     }
 }

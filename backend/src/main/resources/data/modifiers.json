@@ -565,8 +565,13 @@
     "inputTypes": ["list_of_observations"],
     "returnType": "list_of_observations",
     "cqlTemplate": "DuringMeasurementPeriod",
-    "resourceAlias": "O",
-    "whereClause": "(case when O.effective is FHIR.Period then FHIRHelpers.ToInterval(O.effective as FHIR.Period) overlaps \"Measurement Period\" when O.effective is FHIR.dateTime then FHIRHelpers.ToDateTime(O.effective as FHIR.dateTime) in \"Measurement Period\" when O.effective is FHIR.instant then FHIRHelpers.ToDateTime(O.effective as FHIR.instant) in \"Measurement Period\" else false end)"
+    "during": {
+      "alias": "O",
+      "dateFieldSpec": {
+        "field": "effective",
+        "types": ["Period", "dateTime", "instant"]
+      }
+    }
   },
   {
     "id": "DuringMeasurementPeriodCondition",
@@ -575,8 +580,16 @@
     "inputTypes": ["list_of_conditions"],
     "returnType": "list_of_conditions",
     "cqlTemplate": "DuringMeasurementPeriod",
-    "resourceAlias": "C",
-    "whereClause": "(case when C.onset is FHIR.Period then FHIRHelpers.ToInterval(C.onset as FHIR.Period) overlaps \"Measurement Period\" when C.onset is FHIR.dateTime then FHIRHelpers.ToDateTime(C.onset as FHIR.dateTime) in \"Measurement Period\" when C.recordedDate is not null then FHIRHelpers.ToDateTime(C.recordedDate) in \"Measurement Period\" else false end)"
+    "during": {
+      "alias": "C",
+      "dateFieldSpec": {
+        "field": "onset",
+        "types": ["Period", "dateTime"],
+        "fallbacks": [
+          { "field": "recordedDate", "type": "dateTime" }
+        ]
+      }
+    }
   },
   {
     "id": "DuringMeasurementPeriodEncounter",
@@ -585,8 +598,13 @@
     "inputTypes": ["list_of_encounters"],
     "returnType": "list_of_encounters",
     "cqlTemplate": "DuringMeasurementPeriod",
-    "resourceAlias": "E",
-    "whereClause": "E.period is not null and FHIRHelpers.ToInterval(E.period) overlaps \"Measurement Period\""
+    "during": {
+      "alias": "E",
+      "dateFieldSpec": {
+        "field": "period",
+        "types": ["Period"]
+      }
+    }
   },
   {
     "id": "DuringMeasurementPeriodProcedure",
@@ -595,8 +613,13 @@
     "inputTypes": ["list_of_procedures"],
     "returnType": "list_of_procedures",
     "cqlTemplate": "DuringMeasurementPeriod",
-    "resourceAlias": "P",
-    "whereClause": "(case when P.performed is FHIR.Period then FHIRHelpers.ToInterval(P.performed as FHIR.Period) overlaps \"Measurement Period\" when P.performed is FHIR.dateTime then FHIRHelpers.ToDateTime(P.performed as FHIR.dateTime) in \"Measurement Period\" else false end)"
+    "during": {
+      "alias": "P",
+      "dateFieldSpec": {
+        "field": "performed",
+        "types": ["Period", "dateTime"]
+      }
+    }
   },
   {
     "id": "DuringMeasurementPeriodMedicationRequest",
@@ -605,8 +628,13 @@
     "inputTypes": ["list_of_medication_requests"],
     "returnType": "list_of_medication_requests",
     "cqlTemplate": "DuringMeasurementPeriod",
-    "resourceAlias": "M",
-    "whereClause": "M.authoredOn is not null and FHIRHelpers.ToDateTime(M.authoredOn) in \"Measurement Period\""
+    "during": {
+      "alias": "M",
+      "dateFieldSpec": {
+        "field": "authoredOn",
+        "types": ["dateTime"]
+      }
+    }
   },
   {
     "id": "DuringMeasurementPeriodMedicationStatement",
@@ -615,7 +643,12 @@
     "inputTypes": ["list_of_medication_statements"],
     "returnType": "list_of_medication_statements",
     "cqlTemplate": "DuringMeasurementPeriod",
-    "resourceAlias": "MS",
-    "whereClause": "(case when MS.effective is FHIR.Period then FHIRHelpers.ToInterval(MS.effective as FHIR.Period) overlaps \"Measurement Period\" when MS.effective is FHIR.dateTime then FHIRHelpers.ToDateTime(MS.effective as FHIR.dateTime) in \"Measurement Period\" else false end)"
+    "during": {
+      "alias": "MS",
+      "dateFieldSpec": {
+        "field": "effective",
+        "types": ["Period", "dateTime"]
+      }
+    }
   }
 ]

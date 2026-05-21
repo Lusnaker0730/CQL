@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,7 +39,13 @@ class CdsInvocationServiceTest {
         FhirContext fhirContext = FhirContext.forR4();
         ObjectMapper objectMapper = new ObjectMapper();
         invocationService = new CdsInvocationService(
-                executionService, tupleStrategy, planDefinitionStrategy, fhirContext, objectMapper);
+                executionService, tupleStrategy, planDefinitionStrategy, fhirContext, objectMapper,
+                Optional.empty(),  // cdsInvocationTimer
+                Optional.empty(),  // cdsInvocationCounter
+                Optional.empty(),  // cdsInvocationErrorCounter
+                Optional.empty(),  // analyticsService
+                Optional.empty(),  // prefetchResolver
+                Optional.empty()); // recentInvocationsService
     }
 
     @Test
@@ -244,6 +251,65 @@ class CdsInvocationServiceTest {
         assertThat(response.getDebug().getError().getPhase()).isEqualTo("cql_execution");
         assertThat(response.getDebug().getError().getErrorType()).isEqualTo("RuntimeException");
         assertThat(response.getDebug().getError().getMessage()).isEqualTo("boom");
+    }
+
+    @Test
+    void invoke_debugModeTrue_translatorErrorWrappedInExecutionException_shouldClassifyAsTranslation() {
+        // BUG-115: translator failures bubble up as CqlExecutionException with message
+        // "Execution failed: CQL translation failed with N error(s): ...". Prior
+        // heuristic only checked top-level class name → misclassified as cql_execution.
+        // Fix walks cause chain AND scans message content.
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("svc-xlate-err").title("Xlate Err").cqlContent("broken cql").build();
+
+        RuntimeException wrapped = new RuntimeException(
+                "Execution failed: CQL translation failed with 1 error(s): Could not resolve call");
+        when(executionService.execute(any())).thenThrow(wrapped);
+        when(tupleStrategy.createErrorCard(any())).thenReturn(CdsResponse.Card.builder()
+                .summary("err").indicator("warning").build());
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+        request.setDebugMode(true);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getDebug().getError().getPhase()).isEqualTo("cql_translation");
+    }
+
+    @Test
+    void invoke_debugModeTrue_translatorErrorAsNestedCause_shouldClassifyAsTranslation() {
+        // Second path: translator exception class appears deeper in cause chain.
+        // `CompilerException` class-name substring match triggers the translation verdict
+        // even if top-level is a generic wrapper.
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("svc-nested").title("Nested").cqlContent("broken").build();
+
+        Throwable translatorCause = new RuntimeException("inner") {
+            @Override
+            public String toString() { return "CqlCompilerException: inner"; }
+        };
+        // Use a class whose simple name contains "Compiler"
+        @SuppressWarnings("serial")
+        class CqlCompilerException extends RuntimeException {
+            CqlCompilerException(String m) { super(m); }
+        }
+        RuntimeException wrapped = new RuntimeException("outer", new CqlCompilerException("bad syntax"));
+        when(executionService.execute(any())).thenThrow(wrapped);
+        when(tupleStrategy.createErrorCard(any())).thenReturn(CdsResponse.Card.builder()
+                .summary("err").indicator("warning").build());
+
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+        request.setDebugMode(true);
+
+        CdsResponse response = invocationService.invoke(config, request);
+
+        assertThat(response.getDebug().getError().getPhase()).isEqualTo("cql_translation");
     }
 
     @Test
