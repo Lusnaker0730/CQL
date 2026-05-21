@@ -30,6 +30,9 @@ vi.mock('../../../api', () => ({
 // Stub Monaco — capture the `key` prop indirectly via a marker in the DOM
 // (Editor doesn't expose its key, but React's reconciliation will remount the
 // stub on key change, which we can detect via a per-mount counter).
+// IMPORTANT: include the `loader` export — the project's MonacoEditor
+// wrapper calls `loader.config({ monaco })` at module load, so omitting it
+// here causes a load-time error (`No "loader" export defined on mock`).
 let mountCounter = 0
 vi.mock('@monaco-editor/react', () => ({
   default: ({ defaultValue }: { defaultValue?: string }) => {
@@ -42,6 +45,7 @@ vi.mock('@monaco-editor/react', () => ({
       />
     )
   },
+  loader: { config: () => undefined, init: () => Promise.resolve({}) },
 }))
 
 import ResourceEditorDialog from '../ResourceEditorDialog'

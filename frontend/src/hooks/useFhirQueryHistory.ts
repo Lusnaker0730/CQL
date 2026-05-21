@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
-import { generateId } from '../utils/validation'
+import { generateId, getStoredUsername } from '../utils/validation'
 
-const STORAGE_KEY = 'fhir-query-history'
+const LEGACY_KEY = 'fhir-query-history'
 const MAX_ENTRIES = 50
 
 export interface HistoryEntry {
@@ -13,9 +13,25 @@ export interface HistoryEntry {
   isFavorite: boolean
 }
 
+// PAT-134: per-user scoping prevents PHI in FHIR search params (patient
+// identifiers, names, subject references, etc.) from leaking across user
+// sessions on shared devices. The storage key is computed per-user:
+//   - authenticated user → `fhir-query-history:{username}`
+//   - anonymous (no login) → legacy un-scoped key (scoping an anonymous
+//     bucket adds no privacy benefit and breaks the migration path for
+//     existing un-scoped data on dev machines)
+function getStorageKey(): string {
+  const username = getStoredUsername()
+  return username === 'anonymous' ? LEGACY_KEY : `${LEGACY_KEY}:${username}`
+}
+
 function loadHistory(): HistoryEntry[] {
+  // Confidentiality: read only from the CURRENT user's scoped key. Do
+  // NOT auto-restore the legacy un-scoped bucket during a scoped session —
+  // it may hold queries from a previous user on the same machine, and
+  // those queries can contain PHI in the params string.
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(getStorageKey())
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
@@ -23,7 +39,14 @@ function loadHistory(): HistoryEntry[] {
 }
 
 function saveHistory(entries: HistoryEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
+  const key = getStorageKey()
+  localStorage.setItem(key, JSON.stringify(entries))
+  // Migration cleanup: once we've persisted under a scoped key, delete the
+  // legacy un-scoped bucket so a later anonymous mount (or another user)
+  // cannot replay entries that pre-dated PAT-134.
+  if (key !== LEGACY_KEY) {
+    localStorage.removeItem(LEGACY_KEY)
+  }
 }
 
 export default function useFhirQueryHistory() {

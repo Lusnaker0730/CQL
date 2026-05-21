@@ -132,7 +132,13 @@ export default function ResourceEditorDialog({
           )}
 
           <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
+            {/* PAT-134: keying by mode+resourceType+resourceId forces React
+                to remount the Monaco editor when the resource being edited
+                changes. Without this, `defaultValue` (which is initial-only)
+                stays at the first-rendered JSON and never updates when the
+                parent reopens the dialog with a different resource. */}
             <Editor
+              key={`${mode}-${resourceType}-${resourceId || 'new'}`}
               height="400px"
               language="json"
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
