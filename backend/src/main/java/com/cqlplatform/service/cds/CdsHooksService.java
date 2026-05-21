@@ -10,6 +10,7 @@ import com.cqlplatform.repository.CdsServiceConfigRepository;
 import com.cqlplatform.repository.CqlLibraryRepository;
 import com.cqlplatform.validation.HookContextRequirements;
 import com.cqlplatform.validation.HookTypeValidator;
+import org.springframework.security.access.AccessDeniedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -36,13 +37,16 @@ public class CdsHooksService {
     private final ObjectMapper objectMapper;
     private final CdsInvocationService invocationService;
     private final CqlTupleCardStrategy tupleStrategy;
+    /**
+     * Optional dependencies — wrapped in {@link Optional} so Spring auto-injects
+     * {@code Optional.empty()} when no bean exists (e.g. test slices). Constructor
+     * injection replaces field-injection {@code @Autowired(required = false)}
+     * which violated the project standard ("禁止 @Autowired 在欄位上") and made
+     * test setup harder.
+     */
+    private final Optional<CdsFeedbackRepository> feedbackRepository;
+    private final Optional<CqlLibraryRepository> cqlLibraryRepository;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private CdsFeedbackRepository feedbackRepository;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private CqlLibraryRepository cqlLibraryRepository;
 
     @PostConstruct
     public void loadServicesFromDatabase() {
@@ -101,15 +105,36 @@ public class CdsHooksService {
 
         CdsServiceConfig config = entityToConfig(entity);
         if (Boolean.TRUE.equals(entity.getEnabled())) {
-            serviceConfigs.entrySet().removeIf(e -> {
-                CdsServiceConfig c = e.getValue();
-                return serviceName.equals(c.getServiceName());
-            });
-            serviceConfigs.put(config.getId(), config);
+            // Multi-step cache mutation (remove old versions + add new) is NOT
+            // atomic on a ConcurrentHashMap — two concurrent createService calls
+            // for the same serviceName could leave stale entries. Wrap in a
+            // synchronized block so the cache reflects exactly one version per
+            // serviceName at any observation point.
+            synchronized (serviceConfigs) {
+                serviceConfigs.entrySet().removeIf(e -> {
+                    CdsServiceConfig c = e.getValue();
+                    return serviceName.equals(c.getServiceName());
+                });
+                serviceConfigs.put(config.getId(), config);
+            }
         }
 
         log.info("Created CDS service: {} (v{})", entity.getId(), newVersion);
         return entityToResponse(entity);
+    }
+
+    /**
+     * Verifies that {@code username} is the owner of {@code entity} or {@code isAdmin}.
+     * Throws {@link AccessDeniedException} (mapped to HTTP 403 by the global
+     * exception handler) when neither condition holds. The check accepts a
+     * {@code null} {@code ownerUsername} as legacy / system-owned and skips the
+     * comparison so existing un-owned rows aren't accidentally locked out.
+     */
+    private void verifyOwnership(CdsServiceConfigEntity entity, String username, boolean isAdmin, String action) {
+        if (isAdmin) return;
+        String owner = entity.getOwnerUsername();
+        if (owner == null || owner.equals(username)) return;
+        throw new AccessDeniedException("You can only " + action + " your own services");
     }
 
     @Transactional
@@ -120,6 +145,41 @@ public class CdsHooksService {
         entity = repository.save(entity);
         log.info("Set service {} shared={}", id, shared);
         return entityToResponse(entity);
+    }
+
+    /**
+     * Update a CDS service after verifying caller ownership. Throws
+     * {@link AccessDeniedException} (→ 403) when the caller is neither the
+     * owner nor an admin. Throws {@link IllegalArgumentException} (→ 404) when
+     * the service doesn't exist. Prefer this over the bare {@link #updateService}
+     * unless you're in a server-internal context where ownership is implicit.
+     */
+    @Transactional
+    public CdsServiceConfigResponse updateServiceIfOwnedBy(
+            String id, CdsServiceConfigRequest request, String username, boolean isAdmin) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+        verifyOwnership(entity, username, isAdmin, "modify");
+        return updateService(id, request);
+    }
+
+    /** Same as {@link #deleteService(String)} but enforces ownership in the service layer. */
+    @Transactional
+    public void deleteServiceIfOwnedBy(String id, String username, boolean isAdmin) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+        verifyOwnership(entity, username, isAdmin, "delete");
+        deleteService(id);
+    }
+
+    /** Same as {@link #toggleServiceEnabled(String, boolean)} but enforces ownership. */
+    @Transactional
+    public CdsServiceConfigResponse toggleServiceEnabledIfOwnedBy(
+            String id, boolean enabled, String username, boolean isAdmin) {
+        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
+        verifyOwnership(entity, username, isAdmin, enabled ? "enable" : "disable");
+        return toggleServiceEnabled(id, enabled);
     }
 
     @Transactional
@@ -155,10 +215,16 @@ public class CdsHooksService {
 
         syncCqlLibrary(entity.getCqlContent());
 
-        if (Boolean.TRUE.equals(entity.getEnabled())) {
-            serviceConfigs.put(id, entityToConfig(entity));
-        } else {
-            serviceConfigs.remove(id);
+        // Two-step cache update (decide presence + put-or-remove) wrapped in
+        // the same lock as createService so concurrent writers see consistent
+        // state. ConcurrentHashMap individual op is thread-safe; the combination
+        // is not.
+        synchronized (serviceConfigs) {
+            if (Boolean.TRUE.equals(entity.getEnabled())) {
+                serviceConfigs.put(id, entityToConfig(entity));
+            } else {
+                serviceConfigs.remove(id);
+            }
         }
 
         log.info("Updated CDS service: {}", id);
@@ -171,7 +237,9 @@ public class CdsHooksService {
             throw new IllegalArgumentException("Service not found: " + id);
         }
         repository.deleteById(id);
-        serviceConfigs.remove(id);
+        synchronized (serviceConfigs) {
+            serviceConfigs.remove(id);
+        }
         log.info("Deleted CDS service: {}", id);
     }
 
@@ -247,10 +315,12 @@ public class CdsHooksService {
         entity.setEnabled(enabled);
         entity = repository.save(entity);
 
-        if (enabled) {
-            serviceConfigs.put(id, entityToConfig(entity));
-        } else {
-            serviceConfigs.remove(id);
+        synchronized (serviceConfigs) {
+            if (enabled) {
+                serviceConfigs.put(id, entityToConfig(entity));
+            } else {
+                serviceConfigs.remove(id);
+            }
         }
 
         log.info("Toggled CDS service {} enabled: {}", id, enabled);
@@ -314,10 +384,11 @@ public class CdsHooksService {
             return;
         }
 
-        if (feedbackRepository == null) {
+        if (feedbackRepository.isEmpty()) {
             log.warn("Feedback repository not available, skipping feedback persistence");
             return;
         }
+        CdsFeedbackRepository repo = feedbackRepository.get();
 
         for (CdsFeedbackRequest.FeedbackItem item : request.getFeedback()) {
             // Defense-in-depth: HTML-escape all free-text fields before persistence
@@ -339,7 +410,7 @@ public class CdsHooksService {
                 entity.setOverrideReasonDisplay(escapeHtml(item.getOverrideReason().getDisplay()));
             }
 
-            feedbackRepository.save(entity);
+            repo.save(entity);
         }
 
         log.info("Processed {} feedback items for service {}", request.getFeedback().size(), serviceId);
@@ -347,10 +418,9 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsFeedbackEntity> getFeedback(String serviceId) {
-        if (feedbackRepository == null) {
-            return List.of();
-        }
-        return feedbackRepository.findByServiceIdOrderByCreatedAtDesc(serviceId);
+        return feedbackRepository
+                .map(repo -> repo.findByServiceIdOrderByCreatedAtDesc(serviceId))
+                .orElseGet(List::of);
     }
 
     private static String escapeHtml(String value) {
@@ -506,13 +576,28 @@ public class CdsHooksService {
     }
 
     /**
-     * Sync CQL content from CDS service config to the cql_library table.
+     * Sync CQL content from CDS service config to the {@code cql_library} table.
+     *
+     * <p>Two failure modes are deliberately treated differently:
+     * <ul>
+     * <li><b>Parse failure</b> (no {@code library X version 'Y'} declaration) —
+     *   logged at WARN and silently returned. Lots of test/sandbox CQL has no
+     *   library declaration and shouldn't break service create/update.</li>
+     * <li><b>DB failure</b> — propagated so the surrounding {@code @Transactional}
+     *   rolls back the service create/update. Previously this was silently
+     *   caught (loss of CDS service ↔ cql_library consistency); the user saw
+     *   "service created" but later "library missing" when the service ran.</li>
+     * </ul>
+     *
+     * <p>If you call this from a non-transactional context, wrap in a try/catch
+     * and decide explicitly whether the caller should see DB failures.
      */
     private void syncCqlLibrary(String cqlContent) {
         if (cqlContent == null || cqlContent.isBlank())
             return;
-        if (cqlLibraryRepository == null)
+        if (cqlLibraryRepository.isEmpty())
             return;
+        CqlLibraryRepository repo = cqlLibraryRepository.get();
 
         java.util.regex.Matcher matcher = java.util.regex.Pattern
                 .compile("library\\s+\"?([^\"\\s]+)\"?\\s+version\\s+'([^']+)'")
@@ -526,26 +611,22 @@ public class CdsHooksService {
         String libName = matcher.group(1);
         String libVersion = matcher.group(2);
 
-        try {
-            Optional<CqlLibraryEntity> existing = cqlLibraryRepository.findByNameAndVersion(libName, libVersion);
-            if (existing.isPresent()) {
-                CqlLibraryEntity entity = existing.get();
-                entity.setCqlContent(cqlContent);
-                entity.setElmJson(null);
-                cqlLibraryRepository.save(entity);
-                log.info("Synced cql_library '{}' version '{}' with updated CQL content", libName, libVersion);
-            } else {
-                CqlLibraryEntity newLib = CqlLibraryEntity.builder()
-                        .name(libName)
-                        .version(libVersion)
-                        .cqlContent(cqlContent)
-                        .status("active")
-                        .build();
-                cqlLibraryRepository.save(newLib);
-                log.info("Created cql_library '{}' version '{}' from CDS service CQL", libName, libVersion);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to sync CQL library: {}", e.getMessage());
+        Optional<CqlLibraryEntity> existing = repo.findByNameAndVersion(libName, libVersion);
+        if (existing.isPresent()) {
+            CqlLibraryEntity entity = existing.get();
+            entity.setCqlContent(cqlContent);
+            entity.setElmJson(null);
+            repo.save(entity);
+            log.info("Synced cql_library '{}' version '{}' with updated CQL content", libName, libVersion);
+        } else {
+            CqlLibraryEntity newLib = CqlLibraryEntity.builder()
+                    .name(libName)
+                    .version(libVersion)
+                    .cqlContent(cqlContent)
+                    .status("active")
+                    .build();
+            repo.save(newLib);
+            log.info("Created cql_library '{}' version '{}' from CDS service CQL", libName, libVersion);
         }
     }
 

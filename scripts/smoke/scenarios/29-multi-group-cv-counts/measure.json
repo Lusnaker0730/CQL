@@ -1,0 +1,170 @@
+{
+  "name": "SmokeMultiGroupCvCounts",
+  "version": "1.0.0",
+  "description": "Smoke test scenario — multi-group continuous-variable measure. Issue #539 regression lock: per-group suffixed observation defines ('Measure Observation Value 1' / 'Measure Observation Value 2') must each contribute to their own group's score. Two groups (adults vs seniors), Count aggregation, independent population thresholds.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "continuous-variable",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "adults",
+      "description": "Adult patient count (CV)",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "measure-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Adult"},
+                {"id": "min_age", "type": "string", "value": "18"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      },
+      "observations": [
+        {
+          "observationId": "obs-adult-count",
+          "aggregateMethod": "Count",
+          "populationRef": "measure-population",
+          "criteria": {
+            "id": "And",
+            "name": "And",
+            "conjunction": true,
+            "returnType": "boolean",
+            "childInstances": [
+              {
+                "id": "AgeRange",
+                "name": "Age Range",
+                "type": "AgeRange",
+                "returnType": "boolean",
+                "fields": [
+                  {"id": "element_name", "type": "string", "value": "Adult"},
+                  {"id": "min_age", "type": "string", "value": "18"},
+                  {"id": "max_age", "type": "string", "value": ""},
+                  {"id": "unit_of_time", "type": "string", "value": "year"}
+                ],
+                "modifiers": []
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "groupId": "seniors",
+      "description": "Senior patient count (CV)",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Senior"},
+                {"id": "min_age", "type": "string", "value": "65"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "measure-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "AgeRange",
+              "name": "Age Range",
+              "type": "AgeRange",
+              "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Senior"},
+                {"id": "min_age", "type": "string", "value": "65"},
+                {"id": "max_age", "type": "string", "value": ""},
+                {"id": "unit_of_time", "type": "string", "value": "year"}
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      },
+      "observations": [
+        {
+          "observationId": "obs-senior-count",
+          "aggregateMethod": "Count",
+          "populationRef": "measure-population",
+          "criteria": {
+            "id": "And",
+            "name": "And",
+            "conjunction": true,
+            "returnType": "boolean",
+            "childInstances": [
+              {
+                "id": "AgeRange",
+                "name": "Age Range",
+                "type": "AgeRange",
+                "returnType": "boolean",
+                "fields": [
+                  {"id": "element_name", "type": "string", "value": "Senior"},
+                  {"id": "min_age", "type": "string", "value": "65"},
+                  {"id": "max_age", "type": "string", "value": ""},
+                  {"id": "unit_of_time", "type": "string", "value": "year"}
+                ],
+                "modifiers": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

@@ -1,5 +1,6 @@
 import FieldWrapper from './FieldWrapper'
 import ElementField from './ElementField'
+import { asObject } from '../../utils/fhirGuards'
 import type { ElementMetadata } from '../../types'
 
 interface GenericComplexFieldProps {
@@ -10,7 +11,7 @@ interface GenericComplexFieldProps {
 }
 
 export default function GenericComplexField({ element, value, onChange, depth }: GenericComplexFieldProps) {
-  const obj = (value as Record<string, unknown>) || {}
+  const obj = asObject(value)
 
   const handleChildChange = (childName: string, childValue: unknown) => {
     const newObj = { ...obj }

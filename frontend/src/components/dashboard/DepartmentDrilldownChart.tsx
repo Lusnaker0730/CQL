@@ -9,9 +9,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
+  // ResponsiveContainer removed: replaced by SafeResponsiveContainer wrapper
   Cell,
 } from 'recharts'
+import SafeResponsiveContainer from '../common/SafeResponsiveContainer'
 import { useTranslation } from 'react-i18next'
 
 interface DepartmentDrilldownChartProps {
@@ -37,7 +38,7 @@ export default function DepartmentDrilldownChart({ data, title }: DepartmentDril
         {title || t('dashboard.departmentScores')}
       </Typography>
       <Box sx={{ width: '100%', height: CHART_HEIGHT }}>
-        <ResponsiveContainer minWidth={0} minHeight={0}>
+        <SafeResponsiveContainer>
           <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="department" fontSize={11} />
@@ -49,7 +50,7 @@ export default function DepartmentDrilldownChart({ data, title }: DepartmentDril
               ))}
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+        </SafeResponsiveContainer>
       </Box>
     </Paper>
   )

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -17,7 +17,8 @@ import {
   Close as CloseIcon,
   DragIndicator as DragIcon,
 } from '@mui/icons-material'
-import { escapeCqlString } from '../../utils/cqlString'
+import { escapeCqlString, escapeCqlIdentifier } from '../../utils/cqlString'
+import { extractCqlName } from '../../utils/cqlNames'
 
 /** A modifier in the chain */
 export interface ChainModifier {
@@ -234,8 +235,6 @@ interface ModifierChainBuilderProps {
   codes?: string[]
 }
 
-let nextId = 1
-
 export default function ModifierChainBuilder({
   modifiers,
   onChange,
@@ -245,6 +244,7 @@ export default function ModifierChainBuilder({
 }: ModifierChainBuilderProps) {
   const { t } = useTranslation('builder')
   const [menuOpen, setMenuOpen] = useState(false)
+  const idRef = useRef(0)
 
   const availableModifiers = useMemo(() => MODIFIER_DEFS.filter((def) => {
     if (def.resourceTypes && !def.resourceTypes.includes(resourceType)) return false
@@ -259,7 +259,7 @@ export default function ModifierChainBuilder({
     for (const f of def.fields) {
       defaults[f.key] = f.options?.[0]?.value ?? ''
     }
-    onChange([...modifiers, { id: `mod_${nextId++}`, type, values: defaults }])
+    onChange([...modifiers, { id: `mod_${++idRef.current}`, type, values: defaults }])
     setMenuOpen(false)
   }
 
@@ -428,14 +428,22 @@ export function applyModifierChain(
   alias: string,
   resourceType: string,
   modifiers: ChainModifier[],
+  extraWhereClauses: string[] = [],
 ): string {
   let expr = baseExpr
-  const whereClauses: string[] = []
-  let wrapLast = false
+  const letClauses: string[] = []
+  const whereClauses: string[] = [...extraWhereClauses]
   let wrapFirst = false
   let wrapExists = false
   let wrapCount = false
   let sortClause = ''
+
+  // For Observation, value is a choice type (value[x]) — cast to Quantity
+  // before numeric comparisons so the engine picks the right dispatch.
+  // Per CLAUDE.md TWCDI: avoid raw `.value > N` on choice types.
+  const valueExpr = resourceType === 'Observation'
+    ? `(${alias}.value as Quantity)`
+    : `${alias}.value`
 
   for (const mod of modifiers) {
     switch (mod.type) {
@@ -459,22 +467,25 @@ export function applyModifierChain(
         break
       case 'qualifier':
         if (mod.values.matchValue) {
-          const quotedVal = mod.values.matchValue.replace(/^"(.*)"$/, '$1')
+          // matchValue comes from a select whose option values are full CQL
+          // declarations (e.g. `"HbA1c": '4548-4' from "LOINC"...`). Strip
+          // down to the bare identifier name and re-quote safely.
+          const name = escapeCqlIdentifier(extractCqlName(mod.values.matchValue))
           if (mod.values.matchType === 'valueSet') {
-            whereClauses.push(`${alias}.code in "${quotedVal}"`)
+            whereClauses.push(`${alias}.code in "${name}"`)
           } else {
-            whereClauses.push(`${alias}.code ~ "${quotedVal}"`)
+            whereClauses.push(`${alias}.code ~ "${name}"`)
           }
         }
         break
       case 'valueComparison':
         if (mod.values.minVal) {
           const unitSuffix = mod.values.unit ? ` '${escapeCqlString(mod.values.unit)}'` : ''
-          whereClauses.push(`${alias}.value ${mod.values.minOp || '>='} ${mod.values.minVal}${unitSuffix}`)
+          whereClauses.push(`${valueExpr} ${mod.values.minOp || '>='} ${mod.values.minVal}${unitSuffix}`)
         }
         if (mod.values.maxVal && mod.values.maxOp) {
           const unitSuffix = mod.values.unit ? ` '${escapeCqlString(mod.values.unit)}'` : ''
-          whereClauses.push(`${alias}.value ${mod.values.maxOp} ${mod.values.maxVal}${unitSuffix}`)
+          whereClauses.push(`${valueExpr} ${mod.values.maxOp} ${mod.values.maxVal}${unitSuffix}`)
         }
         break
       case 'booleanCheck':
@@ -499,8 +510,12 @@ export function applyModifierChain(
         // handled as post-wrapper below
         break
       case 'mostRecent':
-        wrapLast = true
-        sortClause = `\n    sort by FHIRHelpers.ToDateTime(effective as FHIR.dateTime)`
+        // Per CLAUDE.md TWCDI: HAPI DateTimeType doesn't implement Comparable,
+        // so `sort by X.dateField` crashes at evaluation. Extract via `let`
+        // (with explicit choice-type cast for safety) and sort desc + First().
+        wrapFirst = true
+        letClauses.push(`date: ${getDateValueExprForResource(resourceType, alias)}`)
+        sortClause = `\n    sort by date desc`
         break
       case 'first':
         wrapFirst = true
@@ -522,25 +537,26 @@ export function applyModifierChain(
     }
   }
 
-  // Build query
+  // Build query (let → where → sort, per CQL grammar)
+  const letStr = letClauses.length > 0
+    ? `\n    let ${letClauses.join(',\n      ')}`
+    : ''
   const whereStr = whereClauses.length > 0
     ? `\n    where ${whereClauses.join('\n      and ')}`
     : ''
-  const needsQuery = whereStr || sortClause
+  const needsQuery = letStr || whereStr || sortClause
 
   if (needsQuery) {
-    expr = `${expr} ${alias}${whereStr}${sortClause}`
+    expr = `${expr} ${alias}${letStr}${whereStr}${sortClause}`
   }
 
   // Apply wrappers
-  if (wrapLast) {
-    expr = needsQuery ? `Last(\n    ${expr}\n  )` : `Last(${expr})`
-  } else if (wrapFirst) {
+  if (wrapFirst) {
     expr = needsQuery ? `First(\n    ${expr}\n  )` : `First(${expr})`
   }
 
   if (wrapExists) {
-    if (wrapLast || wrapFirst) {
+    if (wrapFirst) {
       expr = `${expr} is not null`
     } else {
       expr = needsQuery ? `exists (\n    ${expr}\n  )` : `exists ${expr}`
@@ -590,5 +606,32 @@ function getDateExprForResource(resourceType: string, alias: string): string {
       return `${alias}.occurrence`
     default:
       return `${alias}.effective`
+  }
+}
+
+/**
+ * Date-value extraction for sort. Casts choice-typed fields to FHIR.dateTime
+ * and pulls the System.DateTime via `.value` so the sort never sees a raw
+ * HAPI DateTimeType (which doesn't implement Comparable).
+ */
+function getDateValueExprForResource(resourceType: string, alias: string): string {
+  switch (resourceType) {
+    case 'Observation':
+    case 'MedicationStatement':
+      return `(${alias}.effective as FHIR.dateTime).value`
+    case 'Condition':
+    case 'AllergyIntolerance':
+      return `(${alias}.onset as FHIR.dateTime).value`
+    case 'Procedure':
+      return `(${alias}.performed as FHIR.dateTime).value`
+    case 'MedicationRequest':
+    case 'ServiceRequest':
+      return `${alias}.authoredOn.value`
+    case 'Encounter':
+      return `${alias}.period.start.value`
+    case 'Immunization':
+      return `(${alias}.occurrence as FHIR.dateTime).value`
+    default:
+      return `(${alias}.effective as FHIR.dateTime).value`
   }
 }

@@ -3,6 +3,7 @@ package com.cqlplatform.service.authoring;
 import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.authoring.ArtifactRequest;
 import com.cqlplatform.model.authoring.AuthoringConstants;
+import com.cqlplatform.validation.ModifierValueValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ public class ExpressionTreeValidator {
 
     private final TemplateService templateService;
     private final ModifierService modifierService;
+    private final CustomModifierCqlBuilder customModifierCqlBuilder;
 
     /**
      * Allowed characters for CQL identifiers (define names, parameter names, etc.).
@@ -251,11 +253,23 @@ public class ExpressionTreeValidator {
         if (modifiers != null) {
             for (Map<String, Object> modifier : modifiers) {
                 String modId = (String) modifier.get("id");
-                if (modId != null && !modId.isBlank() && !modifierService.isValidModifierId(modId)) {
+                if (modId != null && modId.startsWith("custom_")) {
+                    // Custom modifier — validate the structured rules tree instead of the id.
+                    Object valuesObj = modifier.get("values");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> values = valuesObj instanceof Map ? (Map<String, Object>) valuesObj : null;
+                    try {
+                        customModifierCqlBuilder.validate(values);
+                    } catch (CustomModifierBuildException ex) {
+                        errors.add(String.format("%s: custom modifier '%s' invalid — %s",
+                                path, modId, ex.getMessage()));
+                    }
+                } else if (modId != null && !modId.isBlank() && !modifierService.isValidModifierId(modId)) {
                     String modName = (String) modifier.get("name");
                     errors.add(String.format("%s: unknown modifier id '%s'%s",
                             path, modId, modName != null ? " (name: " + modName + ")" : ""));
                 }
+                ModifierValueValidator.validate(modifier, path, errors);
             }
         }
     }

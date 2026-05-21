@@ -24,7 +24,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
   const { t } = useTranslation('authoring')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const pendingDeleteName = pendingDeleteId
-    ? subpopulations.find((sp) => sp.uniqueId === pendingDeleteId)?.subpopulationName || 'this subpopulation'
+    ? subpopulations.find((sp) => sp.uniqueId === pendingDeleteId)?.subpopulationName || t('subpopulations.fallbackName')
     : ''
 
   const handleAdd = () => {
@@ -32,7 +32,7 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
       ...subpopulations,
       {
         uniqueId: generateId(),
-        subpopulationName: 'Subpopulation ' + (subpopulations.length + 1),
+        subpopulationName: t('subpopulations.defaultName', { number: subpopulations.length + 1 }),
         special: false,
         childInstances: [],
         conjunction: true,

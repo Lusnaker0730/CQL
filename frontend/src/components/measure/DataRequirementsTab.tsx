@@ -162,8 +162,12 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
   const { t } = useTranslation('measures')
   const hasCodeFilter = requirement.codeFilter && requirement.codeFilter.length > 0
   const hasDateFilter = requirement.dateFilter && requirement.dateFilter.length > 0
+  const hasPatientFilter = requirement.patientFilter
+    && (requirement.patientFilter.minAge != null
+        || requirement.patientFilter.maxAge != null
+        || (requirement.patientFilter.gender && requirement.patientFilter.gender.length > 0))
 
-  if (!hasCodeFilter && !hasDateFilter) {
+  if (!hasCodeFilter && !hasDateFilter && !hasPatientFilter) {
     return (
       <TableRow>
         <TableCell colSpan={3}>
@@ -177,10 +181,73 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
 
   return (
     <>
-      {requirement.codeFilter?.map((cf, i) => (
+      {/* PAT-121a: Patient demographic filter (age / gender). Only appears on the
+          Patient row when the measure has demographic constraints — measures
+          applicable to all patients keep the row minimal. */}
+      {hasPatientFilter && requirement.patientFilter && (
+        <TableRow>
+          <TableCell>
+            <Chip label={t('dataRequirements.filterTypes.patient')} size="small" variant="outlined" color="secondary" sx={{ fontSize: '0.75rem' }} />
+          </TableCell>
+          <TableCell>
+            <Typography variant="body2" fontFamily="monospace">
+              {requirement.patientFilter.minAge != null || requirement.patientFilter.maxAge != null
+                ? 'age / gender'
+                : 'gender'}
+            </Typography>
+          </TableCell>
+          <TableCell>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              {(requirement.patientFilter.minAge != null || requirement.patientFilter.maxAge != null) && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  label={t('dataRequirements.ageRange', {
+                    min: requirement.patientFilter.minAge ?? '–',
+                    max: requirement.patientFilter.maxAge ?? '–',
+                    unit: requirement.patientFilter.ageUnit || 'Year',
+                  })}
+                  sx={{ fontSize: '0.7rem' }}
+                />
+              )}
+              {requirement.patientFilter.gender?.map((g) => (
+                <Chip
+                  key={g}
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  label={t('dataRequirements.gender', { value: g })}
+                  sx={{ fontSize: '0.7rem' }}
+                />
+              ))}
+            </Stack>
+          </TableCell>
+        </TableRow>
+      )}
+      {requirement.codeFilter?.map((cf, i) => {
+        // PAT-158 — dynamic filter-type chip. Previously hardcoded to "代碼"
+        // (code), so a row whose codeFilter actually carried a ValueSet (e.g.
+        // `[Condition: "Pneumonia"]`) was mis-labeled "代碼" — the user saw a
+        // value set name in the right-hand column but the type chip claimed
+        // it was a code. Now: ValueSet → "集值" (purple), prefix-only → "代碼前綴"
+        // (orange), code/codeSystem → "代碼" (blue, current default).
+        const hasCodes = cf.code && cf.code.length > 0
+        const hasPrefixes = cf.codePrefixes && cf.codePrefixes.length > 0
+        const filterTypeKey: 'valueSet' | 'codePrefix' | 'code' = cf.valueSet
+          ? 'valueSet'
+          : !hasCodes && hasPrefixes
+            ? 'codePrefix'
+            : 'code'
+        const chipColor: 'secondary' | 'warning' | 'info' = filterTypeKey === 'valueSet'
+          ? 'secondary'
+          : filterTypeKey === 'codePrefix'
+            ? 'warning'
+            : 'info'
+        return (
         <TableRow key={`code-${i}`}>
           <TableCell>
-            <Chip label={t('dataRequirements.filterTypes.code')} size="small" variant="outlined" color="info" sx={{ fontSize: '0.75rem' }} />
+            <Chip label={t(`dataRequirements.filterTypes.${filterTypeKey}`)} size="small" variant="outlined" color={chipColor} sx={{ fontSize: '0.75rem' }} />
           </TableCell>
           <TableCell>
             <Typography variant="body2" fontFamily="monospace">{cf.path}</Typography>
@@ -231,9 +298,28 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
                 ))}
               </Stack>
             )}
+            {/* PAT-121b: code prefixes from StartsWith patterns ("any ICD-10 code
+                starting with E08"). Rendered distinct from exact-code chips so
+                authors see this is a range match, not an enumerated list. */}
+            {cf.codePrefixes && cf.codePrefixes.length > 0 && (
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                {cf.codePrefixes.map((p, j) => (
+                  <Chip
+                    key={`prefix-${j}`}
+                    label={`${p}*`}
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    title={t('dataRequirements.prefixTooltip', { prefix: p })}
+                    sx={{ fontSize: '0.7rem' }}
+                  />
+                ))}
+              </Stack>
+            )}
           </TableCell>
         </TableRow>
-      ))}
+        )
+      })}
       {requirement.dateFilter?.map((df, i) => (
         <TableRow key={`date-${i}`}>
           <TableCell>

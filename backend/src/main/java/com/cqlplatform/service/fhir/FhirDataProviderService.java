@@ -5,6 +5,7 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import com.cqlplatform.exception.FhirServerUnavailableException;
+import com.cqlplatform.fhir.FhirErrorInspector;
 import com.cqlplatform.service.cql.CircuitBreakerRetrieveProvider;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -115,11 +116,22 @@ public class FhirDataProviderService {
 
         long start = System.currentTimeMillis();
 
-        // Fetch each resource type for ALL patients in one query
+        // PAT-112a: do NOT swallow per-resourceType or per-patient-batch failures.
+        // A failed bulk fetch previously left the result sparse with no upstream
+        // signal, so measure evaluation ran against incomplete data and the score
+        // silently skewed. Fail loud instead — the caller (measure evaluation /
+        // CDS invocation) propagates the exception to GlobalExceptionHandler which
+        // turns it into a FHIR_UPSTREAM_UNAVAILABLE envelope (PAT-110).
         for (String resourceType : resourceTypes) {
+            // Patient resources are fetched separately via batch GET below (L161+).
+            // Querying `Patient?subject=...` or `Patient?patient=...` is invalid (HAPI rejects
+            // with HAPI-0524 — neither is a Patient search param). Callers may legitimately
+            // include Patient in the retrieveTypes set; skipping here keeps the loop safe.
+            if ("Patient".equals(resourceType)) {
+                continue;
+            }
             try {
                 String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
-                // Build comma-separated patient ID list for _has or direct search
                 String patientList = String.join(",", patientIds.stream()
                         .map(id -> "Patient/" + id).toList());
 
@@ -127,6 +139,10 @@ public class FhirDataProviderService {
                         .byUrl(resourceType + "?" + searchParam + "=" + patientList + "&_count=5000")
                         .returnBundle(Bundle.class)
                         .execute();
+
+                // PAT-112c: 200 OK with embedded OperationOutcome(severity=error|fatal)
+                // must not be treated as valid data.
+                FhirErrorInspector.assertNoErrors(searchResult, "bulk fetch " + resourceType);
 
                 // Distribute resources to their patient buckets
                 if (searchResult.hasEntry()) {
@@ -139,12 +155,16 @@ public class FhirDataProviderService {
                         }
                     }
                 }
+            } catch (FhirServerUnavailableException e) {
+                throw e;
             } catch (Exception e) {
-                log.warn("Bulk fetch failed for {}: {}", resourceType, e.getMessage());
+                log.error("Bulk fetch failed for {}: {}", resourceType, e.getMessage());
+                throw new FhirServerUnavailableException(
+                        "Bulk fetch failed for " + resourceType + ": " + e.getMessage(), e);
             }
         }
 
-        // Also fetch Patient resources
+        // Also fetch Patient resources — same fail-loud rule applies.
         Bundle patientBatch = new Bundle();
         patientBatch.setType(Bundle.BundleType.BATCH);
         for (String pid : patientIds) {
@@ -154,6 +174,9 @@ public class FhirDataProviderService {
         }
         try {
             Bundle patientResponse = executeTransaction(fhirServerUrl, patientBatch);
+            // PAT-112c: batch transaction responses carry per-entry outcomes; reject any
+            // fatal/error before distributing resources.
+            FhirErrorInspector.assertNoErrors(patientResponse, "bulk Patient batch");
             if (patientResponse.hasEntry()) {
                 for (Bundle.BundleEntryComponent entry : patientResponse.getEntry()) {
                     if (entry.getResource() instanceof Patient patient && patient.hasId()) {
@@ -164,8 +187,12 @@ public class FhirDataProviderService {
                     }
                 }
             }
+        } catch (FhirServerUnavailableException e) {
+            throw e;
         } catch (Exception e) {
-            log.warn("Bulk Patient fetch failed: {}", e.getMessage());
+            log.error("Bulk Patient fetch failed: {}", e.getMessage());
+            throw new FhirServerUnavailableException(
+                    "Bulk Patient fetch failed: " + e.getMessage(), e);
         }
 
         long elapsed = System.currentTimeMillis() - start;
@@ -504,7 +531,11 @@ public class FhirDataProviderService {
             "MedicationDispense", "FamilyMemberHistory", "Flag", "Consent",
             "AdverseEvent", "QuestionnaireResponse", "ImagingStudy", "Media",
             "Specimen", "BodyStructure", "DetectedIssue", "SupplyDelivery",
-            "SupplyRequest", "VisionPrescription", "Account"
+            "SupplyRequest", "VisionPrescription", "Account",
+            // Coverage is a financial resource that uses `patient` (not `subject`) per FHIR R4.
+            // Surfaced by the smoke harness when SDE Payer's `[Coverage: "..."]` retrieve hit
+            // bulkFetchAllPatients with the wrong search param. HAPI-0524 rejected the request.
+            "Coverage"
     );
 
     private static class CountingRetrieveProvider implements RetrieveProvider {
@@ -538,21 +569,24 @@ public class FhirDataProviderService {
                     dataType, context, contextPath, contextValue,
                     codePath, valueSet, datePath, dateRange);
 
-            Iterable<Object> results;
-            try {
-                results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
-                        codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
-            } catch (Exception e) {
-                log.debug("Delegate retrieve threw exception for {}: {}", dataType, e.getMessage());
-                results = null;
-            }
+            // PAT-112a: let exceptions from the delegate propagate. Previously this
+            // catch set results=null and downstream returned an empty list, which is
+            // indistinguishable from "patient has no data". CDS would render "no
+            // alert" on a FHIR outage — a false negative with real patient-safety risk.
+            // CQL engine treats a thrown exception as evaluation failure; measure eval
+            // + CDS invocation surface it as a FHIR_UPSTREAM_UNAVAILABLE envelope.
+            Iterable<Object> results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
+                    codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
 
             List<Object> resultList = new ArrayList<>();
             if (results != null) {
                 results.forEach(resultList::add);
             }
 
-            // MANUAL FALLBACK: If delegate returned 0 results, try manual FHIR client
+            // MANUAL FALLBACK: if delegate returned 0 results (legitimate empty),
+            // try a direct FHIR client read. Exceptions from this fallback must
+            // also propagate — silently returning an empty list would mask the
+            // outage the same way.
             if (resultList.isEmpty() && contextValue != null && "Patient".equals(context)) {
                 String patientId = contextValue.toString();
                 if (patientId.startsWith("Patient/")) {
@@ -560,19 +594,23 @@ public class FhirDataProviderService {
                 }
 
                 if ("Patient".equals(dataType)) {
-                    // Fallback: read Patient by ID directly
-                    log.debug("Fallback: reading Patient/{}", patientId);
                     try {
                         IGenericClient fallbackClient = clientFactory.createClient(fhirServerUrl);
                         Patient patient = fallbackClient.read().resource(Patient.class).withId(patientId).execute();
                         if (patient != null) {
                             resultList.add(patient);
                         }
+                    } catch (ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException e) {
+                        // Legitimate 404 — patient does not exist. Not an outage.
+                        log.debug("Patient/{} not found on upstream (legitimate empty)", patientId);
                     } catch (Exception e) {
-                        log.debug("Patient fallback read failed: {}", e.getMessage());
+                        log.error("Patient/{} fallback read failed (upstream outage): {}", patientId, e.getMessage());
+                        throw new FhirServerUnavailableException(
+                                "Fallback read Patient/" + patientId + " failed: " + e.getMessage(), e);
                     }
                 } else {
-                    // Generic fallback: search by subject or patient parameter, with code filtering
+                    // Generic fallback: search by subject or patient parameter, with code filtering.
+                    // fallbackSearch now also throws on outage rather than returning empty.
                     resultList.addAll(fallbackSearch(dataType, patientId, codePath, codes));
                 }
             }
@@ -688,6 +726,9 @@ public class FhirDataProviderService {
 
                 Bundle bundle = search.returnBundle(Bundle.class).execute();
 
+                // PAT-112c: upstream may embed OperationOutcome error in a 200 response.
+                FhirErrorInspector.assertNoErrors(bundle, "fallback search " + dataType);
+
                 if (bundle.hasEntry()) {
                     for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
                         if (entry.getResource() != null) {
@@ -696,11 +737,15 @@ public class FhirDataProviderService {
                     }
                 }
             } catch (Exception e) {
-                log.debug("Fallback search {}?{}={} failed: {}",
+                log.error("Fallback search {}?{}={} failed (upstream outage): {}",
                         dataType, paramName, patientId, e.getMessage());
-                // If code-filtered search fails, do NOT fall back to unfiltered search.
-                // Returning unfiltered results causes wrong data (e.g., returning TNF-alpha
-                // instead of BMI observations).
+                // PAT-112a: propagate. Previously this swallowed the exception and
+                // returned an empty list, indistinguishable from "patient legitimately
+                // has 0 matching records". A failing search must not look like absence
+                // of data — CDS would render "no alert" and measure eval would undercount.
+                throw new FhirServerUnavailableException(
+                        "Fallback search " + dataType + "?" + paramName + "=" + patientId
+                                + " failed: " + e.getMessage(), e);
             }
             return results;
         }

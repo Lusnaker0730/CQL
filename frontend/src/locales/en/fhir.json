@@ -185,6 +185,8 @@
     "valueSetCount_one": "{{count}} ValueSet",
     "valueSetLoadError": "Failed to load ValueSets: {{error}}",
     "noValueSets": "No ValueSets found.",
+    "needsExpansion": "Needs expansion",
+    "needsExpansionTooltip": "This ValueSet uses compose rules (filters or referenced ValueSets) and needs terminology-server expansion to enumerate concrete codes.",
     "searchCodeSystems": "Search CodeSystems",
     "searchCodeSystemsPlaceholder": "e.g., LOINC, SNOMED",
     "codeSystemCount": "{{count}} CodeSystems",
@@ -266,7 +268,20 @@
     "resourceCount": "Resources",
     "active": "Active",
     "inactive": "Inactive",
-    "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
+    "fhirUrlPlaceholder": "https://fhir.example.com/fhir",
+    "health": {
+      "column": "Live Health",
+      "columnTooltip": "Auto-refreshes every 30s from the latest scheduled health check and circuit-breaker state.",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "unknown": "Unknown",
+      "availability24h": "Availability (24h): {{pct}}%",
+      "avgResponseMs": "Avg response: {{ms}} ms",
+      "errorCount24h": "Errors (24h): {{count}}",
+      "lastCheckedAt": "Last checked: {{at}}",
+      "noData": "No health checks recorded yet"
+    }
   },
   "degradation": {
     "titleGeneric": "EHR FHIR server is temporarily unavailable",

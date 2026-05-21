@@ -1,0 +1,142 @@
+{
+  "name": "SmokeMultiGroupStratifier",
+  "version": "1.0.0",
+  "description": "Multi-population-group proportion measure with per-group gender stratifier. Locks BUG-474 follow-up: stratifier results attach to the correct group rather than crossing buckets.",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "working-age",
+      "description": "Working-age adults",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Adult"},
+              {"id": "min_age", "type": "string", "value": "18"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "denominator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Mid-life"},
+              {"id": "min_age", "type": "string", "value": "50"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "numerator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Late mid-life"},
+              {"id": "min_age", "type": "string", "value": "60"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        }
+      },
+      "stratifiers": [
+        {
+          "stratifierId": "gender",
+          "description": "Stratify by gender (male)",
+          "criteria": {
+            "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+            "childInstances": [{
+              "id": "Gender", "name": "Gender", "type": "Gender", "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Male"},
+                {"id": "gender", "type": "string", "value": "male"}
+              ],
+              "modifiers": []
+            }]
+          }
+        }
+      ]
+    },
+    {
+      "groupId": "seniors",
+      "description": "Senior cohort",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "Senior"},
+              {"id": "min_age", "type": "string", "value": "65"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "denominator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "70 and over"},
+              {"id": "min_age", "type": "string", "value": "70"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        },
+        "numerator": {
+          "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+          "childInstances": [{
+            "id": "AgeRange", "name": "Age Range", "type": "AgeRange", "returnType": "boolean",
+            "fields": [
+              {"id": "element_name", "type": "string", "value": "75 and over"},
+              {"id": "min_age", "type": "string", "value": "75"},
+              {"id": "max_age", "type": "string", "value": ""},
+              {"id": "unit_of_time", "type": "string", "value": "year"}
+            ],
+            "modifiers": []
+          }]
+        }
+      },
+      "stratifiers": [
+        {
+          "stratifierId": "gender",
+          "description": "Stratify by gender (male)",
+          "criteria": {
+            "id": "And", "name": "And", "conjunction": true, "returnType": "boolean",
+            "childInstances": [{
+              "id": "Gender", "name": "Gender", "type": "Gender", "returnType": "boolean",
+              "fields": [
+                {"id": "element_name", "type": "string", "value": "Male"},
+                {"id": "gender", "type": "string", "value": "male"}
+              ],
+              "modifiers": []
+            }]
+          }
+        }
+      ]
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

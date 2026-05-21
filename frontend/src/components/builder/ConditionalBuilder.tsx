@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -31,24 +31,21 @@ interface Branch {
   result: string
 }
 
-let _nextId = 1
-function nextId(): string {
-  return String(_nextId++)
-}
-
 export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBuilderProps) {
   const { t } = useTranslation('builder')
   const copyToClipboard = useCopyToClipboard()
+  const idRef = useRef(0)
+  const nextId = useCallback(() => String(++idRef.current), [])
   const [name, setName] = useState('')
   const [style, setStyle] = useState<'if' | 'case'>('if')
-  const [branches, setBranches] = useState<Branch[]>([
-    { id: nextId(), condition: '', result: '' },
+  const [branches, setBranches] = useState<Branch[]>(() => [
+    { id: String(++idRef.current), condition: '', result: '' },
   ])
   const [elseResult, setElseResult] = useState('')
 
   const handleAddBranch = useCallback(() => {
     setBranches((prev) => [...prev, { id: nextId(), condition: '', result: '' }])
-  }, [])
+  }, [nextId])
 
   const handleRemoveBranch = useCallback((id: string) => {
     setBranches((prev) => prev.filter((b) => b.id !== id))
@@ -76,12 +73,14 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
       }
       return `define "${name}":\n${lines.join('\n')}`
     } else {
+      // Wrap result in parens so commas/newlines in free-form CQL don't
+      // break the `when ... then ...` grammar. Same for the else branch.
       const lines: string[] = ['  case']
       filledBranches.forEach((b) => {
-        lines.push(`    when ${b.condition} then ${b.result}`)
+        lines.push(`    when ${b.condition} then (${b.result})`)
       })
       if (elseResult.trim()) {
-        lines.push(`    else ${elseResult}`)
+        lines.push(`    else (${elseResult})`)
       }
       lines.push('  end')
       return `define "${name}":\n${lines.join('\n')}`

@@ -68,7 +68,8 @@
     "name": "概念名稱",
     "selectCodes": "選擇要包含的代碼：",
     "noCodesAvailable": "無可用代碼。請先新增代碼。",
-    "display": "顯示名稱（選填）"
+    "display": "顯示名稱（選填）",
+    "editWarning": "編輯會重建概念。請重新選擇所有代碼，原有清單不會自動載入。"
   },
   "parameters": {
     "name": "參數名稱",
@@ -104,7 +105,8 @@
       "ifElse": "If / Else",
       "caseWhen": "Case / When",
       "nullCheck": "Null 檢查"
-    }
+    },
+    "editWarning": "編輯會重新命名定義並覆寫內容。原運算式不會自動載入，請在下方欄位重新輸入。"
   },
   "functions": {
     "name": "函式名稱",

@@ -266,7 +266,9 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                           onChange={(e) => handleUpdate(rec.uid, { indicator: e.target.value })}
                         >
                           {CDS_INDICATOR_TYPES.map((ind) => (
-                            <MenuItem key={ind} value={ind}>{ind.charAt(0).toUpperCase() + ind.slice(1)}</MenuItem>
+                            <MenuItem key={ind} value={ind}>
+                              {t(`recommendations.indicator${ind.charAt(0).toUpperCase()}${ind.slice(1)}`)}
+                            </MenuItem>
                           ))}
                         </Select>
                       </FormControl>

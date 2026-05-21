@@ -6,7 +6,9 @@ import com.cqlplatform.security.RateLimitFilter;
 import com.cqlplatform.security.RequestTracingFilter;
 import com.cqlplatform.security.UserRateLimitFilter;
 import com.cqlplatform.security.XssFilter;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +40,7 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final RequestTracingFilter requestTracingFilter;
@@ -58,6 +61,31 @@ public class SecurityConfig {
 
     @Value("${management.prometheus.auth.password:}")
     private String prometheusAuthPassword;
+
+    /**
+     * PAT-150 — make the Prometheus scrape auth state visible at startup so ops
+     * can confirm whether scrapes will succeed. The chain is intentionally
+     * fail-closed (returns 401 for everything when credentials are blank), so
+     * a misconfiguration silently breaks scraping until someone notices the
+     * Prometheus dashboard going stale; this log line shortcuts that.
+     */
+    @PostConstruct
+    void logPrometheusAuthState() {
+        if (prometheusPublic) {
+            log.warn("Prometheus scrape endpoint is PUBLIC (management.prometheus.public=true) — "
+                    + "do not run this in production unless the network already restricts access");
+            return;
+        }
+        boolean credsConfigured = prometheusAuthUsername != null && !prometheusAuthUsername.isBlank()
+                && prometheusAuthPassword != null && !prometheusAuthPassword.isBlank();
+        if (credsConfigured) {
+            log.info("Prometheus scrape auth: ENABLED (basic auth, username={})", prometheusAuthUsername);
+        } else {
+            log.warn("Prometheus scrape auth: BROKEN — management.prometheus.public=false but "
+                    + "MANAGEMENT_PROMETHEUS_AUTH_USERNAME / MANAGEMENT_PROMETHEUS_AUTH_PASSWORD are not set; "
+                    + "all scrape requests will return 401 until configured");
+        }
+    }
 
     /**
      * PAT-113: dedicated filter chain for {@code /actuator/prometheus} with HTTP

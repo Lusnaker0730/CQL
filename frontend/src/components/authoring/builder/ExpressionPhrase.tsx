@@ -65,7 +65,7 @@ function buildAgeRangePhrase(element: ElementInstance, t: TFunction) {
   if (minAge && maxAge) {
     parts.push(<span key="between">{t('expression.between')}</span>)
     parts.push(<ValueChip key="min" label={`${minAge} ${unitLabel}`} />)
-    parts.push(<span key="and"> and </span>)
+    parts.push(<span key="and">{t('expression.andConnective')}</span>)
     parts.push(<ValueChip key="max" label={`${maxAge} ${unitLabel}`} />)
   } else if (minAge) {
     parts.push(<span key="gte">{t('expression.atLeast')}</span>)
@@ -203,7 +203,7 @@ function phraseToString(element: ElementInstance, t: TFunction): string {
       const max = getFieldValue(element, 'max_age')
       const unit = getFieldValue(element, 'unit_of_time') || 'year'
       const u = unit.endsWith('s') ? unit : unit + 's'
-      if (min && max) return `${stripHtml(t('expression.ageIs'))}${t('expression.between')}${min} ${u} and ${max} ${u}`
+      if (min && max) return `${stripHtml(t('expression.ageIs'))}${t('expression.between')}${t('expression.ageBetween', { min, max, unit: u })}`
       if (min) return `${stripHtml(t('expression.ageIs'))}${t('expression.atLeast')}${min} ${u}`
       if (max) return `${stripHtml(t('expression.ageIs'))}${t('expression.atMost')}${max} ${u}`
       return t('expression.ageRangeNotConfigured')

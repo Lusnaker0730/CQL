@@ -163,7 +163,14 @@ public class AuditFilter extends OncePerRequestFilter {
 
             auditLogRepository.save(auditLog);
         } catch (Exception e) {
-            log.warn("Failed to write audit log for {} {}: {}", request.getMethod(), path, e.getMessage());
+            // PAT-143: was log.warn — but PHI access / EXPORT / BATCH_IMPORT audit
+            // failures are compliance-relevant evidence loss. WARN is filtered out by
+            // most SIEM configs; ERROR with stack trace ensures the alert reaches ops.
+            // Note: request itself was already processed (filterChain.doFilter is
+            // before this catch), so this is post-action logging — auth was still
+            // enforced by upstream filters; we just lost the audit record.
+            log.error("Failed to write audit log for {} {}: {}",
+                    request.getMethod(), path, e.getMessage(), e);
         }
     }
 

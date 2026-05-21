@@ -1,0 +1,83 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-19-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "male",
+        "birthDate": "1950-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p1"}
+    },
+    {
+      "fullUrl": "Patient/smoke-19-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "male",
+        "birthDate": "1953-03-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p2"}
+    },
+    {
+      "fullUrl": "Patient/smoke-19-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "female",
+        "birthDate": "1955-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p3"}
+    },
+    {
+      "fullUrl": "Patient/smoke-19-p4",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p4",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "female",
+        "birthDate": "1960-03-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p4"}
+    },
+    {
+      "fullUrl": "Patient/smoke-19-p5",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p5",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "female",
+        "birthDate": "1965-06-01"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p5"}
+    },
+    {
+      "fullUrl": "Patient/smoke-19-p6",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p6",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "male",
+        "birthDate": "1980-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p6"}
+    },
+    {
+      "fullUrl": "Patient/smoke-19-p7",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-19-p7",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-19"}]},
+        "gender": "female",
+        "birthDate": "1990-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-19-p7"}
+    }
+  ]
+}

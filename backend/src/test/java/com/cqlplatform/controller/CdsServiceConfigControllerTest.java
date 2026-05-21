@@ -6,9 +6,9 @@ import com.cqlplatform.service.cds.CdsAnalyticsService;
 import com.cqlplatform.service.cds.CdsHooksService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -30,10 +30,10 @@ class CdsServiceConfigControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private CdsHooksService cdsHooksService;
 
-    @MockBean
+    @MockitoBean
     private CdsAnalyticsService analyticsService;
 
     private static final String CREATE_REQUEST = """
@@ -117,14 +117,12 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser(username = "testuser")
     void updateService_shouldReturn200() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").hook("patient-view").title("Service 1")
-                .ownerUsername("testuser").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
-
+        // PAT-138: ownership now enforced inside the service via
+        // updateServiceIfOwnedBy → returns response on success.
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").hook("patient-view").title("Updated").build();
-        when(cdsHooksService.updateService(eq("svc-1"), any())).thenReturn(resp);
+        when(cdsHooksService.updateServiceIfOwnedBy(eq("svc-1"), any(), eq("testuser"), eq(false)))
+                .thenReturn(resp);
 
         mockMvc.perform(put("/api/cds/services/svc-1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,10 +133,10 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser(username = "testuser")
     void updateService_notOwner_shouldReturn403() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").hook("patient-view").title("Service 1")
-                .ownerUsername("otheruser").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+        // Service throws AccessDeniedException → mapped to 403 by GlobalExceptionHandler.
+        when(cdsHooksService.updateServiceIfOwnedBy(eq("svc-1"), any(), eq("testuser"), eq(false)))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException(
+                        "You can only modify your own services"));
 
         mockMvc.perform(put("/api/cds/services/svc-1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -149,38 +147,27 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser(username = "admin", roles = "ADMIN")
     void deleteService_admin_shouldReturn204() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").hook("patient-view").title("Service 1")
-                .ownerUsername("otheruser").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
-
         mockMvc.perform(delete("/api/cds/services/svc-1"))
                 .andExpect(status().isNoContent());
 
-        verify(cdsHooksService).deleteService("svc-1");
+        verify(cdsHooksService).deleteServiceIfOwnedBy("svc-1", "admin", true);
     }
 
     @Test
     @WithMockUser(username = "testuser", roles = "USER")
     void deleteService_owner_shouldReturn204() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").hook("patient-view").title("Service 1")
-                .ownerUsername("testuser").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
-
         mockMvc.perform(delete("/api/cds/services/svc-1"))
                 .andExpect(status().isNoContent());
 
-        verify(cdsHooksService).deleteService("svc-1");
+        verify(cdsHooksService).deleteServiceIfOwnedBy("svc-1", "testuser", false);
     }
 
     @Test
     @WithMockUser(username = "testuser", roles = "USER")
     void deleteService_notOwner_shouldReturn403() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").hook("patient-view").title("Service 1")
-                .ownerUsername("otheruser").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
+        org.mockito.Mockito.doThrow(new org.springframework.security.access.AccessDeniedException(
+                "You can only delete your own services"))
+                .when(cdsHooksService).deleteServiceIfOwnedBy("svc-1", "testuser", false);
 
         mockMvc.perform(delete("/api/cds/services/svc-1"))
                 .andExpect(status().isForbidden());
@@ -189,12 +176,10 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser
     void enableService_shouldReturn200() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").ownerUsername("user").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").enabled(true).build();
-        when(cdsHooksService.toggleServiceEnabled("svc-1", true)).thenReturn(resp);
+        when(cdsHooksService.toggleServiceEnabledIfOwnedBy(eq("svc-1"), eq(true), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn(resp);
 
         mockMvc.perform(patch("/api/cds/services/svc-1/enable"))
                 .andExpect(status().isOk())
@@ -204,12 +189,10 @@ class CdsServiceConfigControllerTest {
     @Test
     @WithMockUser
     void disableService_shouldReturn200() throws Exception {
-        CdsServiceConfigResponse existing = CdsServiceConfigResponse.builder()
-                .id("svc-1").ownerUsername("user").build();
-        when(cdsHooksService.getService("svc-1")).thenReturn(existing);
         CdsServiceConfigResponse resp = CdsServiceConfigResponse.builder()
                 .id("svc-1").enabled(false).build();
-        when(cdsHooksService.toggleServiceEnabled("svc-1", false)).thenReturn(resp);
+        when(cdsHooksService.toggleServiceEnabledIfOwnedBy(eq("svc-1"), eq(false), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn(resp);
 
         mockMvc.perform(patch("/api/cds/services/svc-1/disable"))
                 .andExpect(status().isOk())

@@ -152,7 +152,8 @@ export const fhirApi = {
   },
 
   getProfile: async (url: string): Promise<unknown> => {
-    const response = await api.get(`/fhir/ig/profiles/${encodeURIComponent(url)}`)
+    // PAT-119: use query-param form; Tomcat rejects encoded slashes in path.
+    const response = await api.get(`/fhir/ig/profiles/detail`, { params: { url } })
     return response.data
   },
 
@@ -163,7 +164,8 @@ export const fhirApi = {
   },
 
   getIgValueSet: async (url: string): Promise<unknown> => {
-    const response = await api.get(`/fhir/ig/valuesets/${encodeURIComponent(url)}`)
+    // PAT-119: use query-param form; Tomcat rejects encoded slashes in path.
+    const response = await api.get(`/fhir/ig/valuesets/detail`, { params: { url } })
     return response.data
   },
 
@@ -174,7 +176,8 @@ export const fhirApi = {
   },
 
   getIgCodeSystem: async (url: string): Promise<unknown> => {
-    const response = await api.get(`/fhir/ig/codesystems/${encodeURIComponent(url)}`)
+    // PAT-119: use query-param form; Tomcat rejects encoded slashes in path.
+    const response = await api.get(`/fhir/ig/codesystems/detail`, { params: { url } })
     return response.data
   },
 

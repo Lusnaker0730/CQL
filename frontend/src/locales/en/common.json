@@ -23,7 +23,6 @@
     "switchToDark": "Switch to dark mode",
     "settings": "Settings",
     "help": "Help",
-    "github": "GitHub",
     "logout": "Logout",
     "terminologyLookup": "Terminology Lookup"
   },
@@ -232,6 +231,7 @@
     "alreadyHaveAccount": "Already have an account? Sign in",
     "noAccount": "Don't have an account? Register",
     "registrationFailed": "Registration failed",
+    "registrationPending": "Registration request received. If approved, you will receive confirmation by email or from an administrator.",
     "invalidCredentials": "Invalid username or password",
     "resetPassword": "Reset Password",
     "resetPasswordSubtitle": "Enter your email to receive a reset link",

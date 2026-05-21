@@ -11,10 +11,23 @@ import java.time.LocalTime;
 
 public class AuditLogSpecification {
 
+    /**
+     * Single backslash literal — passed as the escape character to {@link
+     * jakarta.persistence.criteria.CriteriaBuilder#like(jakarta.persistence.criteria.Expression,
+     * String, char)} so {@link InputValidator#escapeLikeWildcards(String)}'s
+     * pre-escaped patterns are interpreted correctly.
+     *
+     * <p>PAT-146 — without this, PostgreSQL (with default
+     * {@code standard_conforming_strings=on}) does not treat backslash as an
+     * escape, so a user input containing literal {@code %} would still expand
+     * as a wildcard despite the escape pass.
+     */
+    private static final char LIKE_ESCAPE = '\\';
+
     private AuditLogSpecification() {}
 
     public static Specification<AuditLogEntity> fromSearchRequest(AuditLogSearchRequest request) {
-        Specification<AuditLogEntity> spec = Specification.where(null);
+        Specification<AuditLogEntity> spec = Specification.unrestricted();
 
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             spec = spec.and(usernameContains(request.getUsername()));
@@ -50,7 +63,10 @@ public class AuditLogSpecification {
     }
 
     private static Specification<AuditLogEntity> usernameContains(String username) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("username")), "%" + InputValidator.escapeLikeWildcards(username.toLowerCase()) + "%");
+        return (root, query, cb) -> cb.like(
+                cb.lower(root.get("username")),
+                "%" + InputValidator.escapeLikeWildcards(username.toLowerCase()) + "%",
+                LIKE_ESCAPE);
     }
 
     private static Specification<AuditLogEntity> actionEquals(String action) {
@@ -58,7 +74,10 @@ public class AuditLogSpecification {
     }
 
     private static Specification<AuditLogEntity> resourceTypeEquals(String resourceType) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("resourceType")), "%" + InputValidator.escapeLikeWildcards(resourceType.toLowerCase()) + "%");
+        return (root, query, cb) -> cb.like(
+                cb.lower(root.get("resourceType")),
+                "%" + InputValidator.escapeLikeWildcards(resourceType.toLowerCase()) + "%",
+                LIKE_ESCAPE);
     }
 
     private static Specification<AuditLogEntity> statusCodeEquals(Integer statusCode) {

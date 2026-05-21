@@ -12,11 +12,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
@@ -151,6 +154,20 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
+    // PAT-117: malformed request body (bad JSON, wrong shape, type mismatch) is a
+    // client error, not a server error. Previously fell through to handleGenericException
+    // and returned 500 "An internal error occurred" — which surfaced to users as broken
+    // buttons with no clue what's wrong.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        String msg = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : ex.getMessage();
+        log.warn("Malformed request body: {}", msg);
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request",
+                "Request body is not valid JSON or does not match the expected schema.");
+    }
+
     // Thrown when an AbortPolicy-backed thread pool is saturated. Today that's
     // patientImportExecutor (bulk EHR import). 503 + Retry-After lets the client
     // back off rather than interpret a 500 as a platform bug.
@@ -169,11 +186,58 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    /**
+     * Client disconnected mid-response — broken pipe / aborted SSE / network hiccup. The response
+     * stream is already closed by the time this bubbles up, so we MUST NOT try to write an
+     * ErrorResponse body: doing so previously triggered a second-order
+     * {@code HttpMessageNotWritableException} inside the handler itself, surfacing as the
+     * misleading {@code Failure in @ExceptionHandler ... handleGenericException} ERROR-level
+     * log entries we saw in production (PAT-160).
+     *
+     * <p>Returning {@code void} tells Spring "nothing more to write." We log at INFO without
+     * a stacktrace because the cause is the client, not us, and the upstream stacks were
+     * blowing past the useful signal in our log aggregator.
+     */
+    @ExceptionHandler({
+            AsyncRequestNotUsableException.class,
+            org.apache.catalina.connector.ClientAbortException.class
+    })
+    public void handleClientDisconnect(Exception ex) {
+        log.info("Client disconnected mid-response ({}): {}",
+                ex.getClass().getSimpleName(), ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        // PAT-160: defensive — if a generic IOException carries a "Broken pipe" /
+        // "Connection reset" message (Tomcat surfaces some disconnects this way before
+        // wrapping them as AsyncRequestNotUsableException), treat it as a client
+        // disconnect rather than a server error. Writing a JSON body to the dead stream
+        // would just trigger a second-order HttpMessageNotWritableException.
+        if (isClientDisconnect(ex)) {
+            log.info("Client disconnected mid-response ({}): {}",
+                    ex.getClass().getSimpleName(), ex.getMessage());
+            return null;
+        }
         log.error("Unhandled exception", ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
                 "An internal error occurred. Please contact support.");
+    }
+
+    private static boolean isClientDisconnect(Throwable t) {
+        Throwable cur = t;
+        for (int i = 0; cur != null && i < 8; i++) {  // bounded walk to avoid pathological chains
+            if (cur instanceof IOException) {
+                String msg = cur.getMessage();
+                if (msg != null && (msg.contains("Broken pipe")
+                        || msg.contains("Connection reset")
+                        || msg.contains("Connection closed"))) {
+                    return true;
+                }
+            }
+            cur = cur.getCause();
+        }
+        return false;
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String error, String message) {

@@ -2,11 +2,14 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.entity.MeasureReportEntity;
+import com.cqlplatform.entity.MeasureReportGroupEntity;
 import com.cqlplatform.entity.MeasureThresholdEntity;
 import com.cqlplatform.model.measure.EnhancedDashboardData;
 import com.cqlplatform.model.measure.QualityReport;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
 import com.cqlplatform.model.measure.ThresholdAlert;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
+import com.cqlplatform.repository.MeasureReportGroupRepository;
 import com.cqlplatform.repository.MeasureReportRepository;
 import com.cqlplatform.repository.MeasureThresholdRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +29,25 @@ public class DashboardService {
 
     private final MeasureDefinitionRepository definitionRepository;
     private final MeasureReportRepository reportRepository;
+    private final MeasureReportGroupRepository reportGroupRepository;
     private final MeasureThresholdRepository thresholdRepository;
+
+    /**
+     * Whether a measure's score is meaningful to average / aggregate alongside other
+     * measures of different types. Proportion / ratio / composite all live on a 0–100%
+     * scale (or unitless ratio that the dashboard renders as %); continuous-variable
+     * scores are raw clinical values (e.g. HbA1c=5.6 mmol/L) — averaging them with %
+     * yields nonsense. Cohort produces patient counts, not scores. The trend chart and
+     * department-average code use this rule to pick which scores to combine.
+     */
+    static boolean isProportionScaleScoring(String scoringType) {
+        if (scoringType == null) return true;
+        return switch (scoringType) {
+            case ScoringTypeConstants.CONTINUOUS_VARIABLE,
+                 ScoringTypeConstants.COHORT -> false;
+            default -> true;
+        };
+    }
 
     @Transactional(readOnly = true)
     public EnhancedDashboardData getEnhancedDashboard(String department) {
@@ -95,12 +116,31 @@ public class DashboardService {
                             return d.getName() != null ? d.getName() : String.valueOf(d.getId());
                         }));
 
+        // Pull units from the normalized group rows (a single report can have multiple
+        // groups, but the per-measure unit is stable across groups in practice; we take
+        // the first non-null one). Only meaningful for continuous-variable; left null
+        // for proportion/ratio/cohort where score is dimensionless.
+        Map<Long, String> unitByReportId = new HashMap<>();
+        for (MeasureReportEntity r : reports) {
+            if (r.getId() == null) continue;
+            List<MeasureReportGroupEntity> groups = reportGroupRepository
+                    .findByMeasureReportIdOrderByOrdinalAsc(r.getId());
+            for (MeasureReportGroupEntity g : groups) {
+                if (g.getMeasureScoreUnit() != null && !g.getMeasureScoreUnit().isBlank()) {
+                    unitByReportId.put(r.getId(), g.getMeasureScoreUnit());
+                    break;
+                }
+            }
+        }
+
         return reports.stream()
                 .map(r -> EnhancedDashboardData.TrendDataPoint.builder()
                         .period(formatPeriodLabel(r.getPeriodStart(), r.getPeriodEnd()))
                         .measureName(displayNameById.getOrDefault(r.getMeasureDefinitionId(), r.getMeasureName()))
                         .measureId(r.getMeasureDefinitionId())
                         .score(r.getMeasureScore())
+                        .scoringType(r.getScoringType())
+                        .unit(unitByReportId.get(r.getId()))
                         .build())
                 .collect(Collectors.toList());
     }
@@ -201,8 +241,7 @@ public class DashboardService {
             String scoring = m.getScoringType() != null ? m.getScoringType() : "proportion";
             String status = "no_data";
             if (score != null) {
-                boolean isProportionLike = !"continuous-variable".equals(scoring);
-                if (isProportionLike) {
+                if (isProportionScaleScoring(scoring)) {
                     proportionScored++;
                     proportionTotal += score;
                 }
@@ -301,20 +340,26 @@ public class DashboardService {
         return scores;
     }
 
+    /**
+     * Average latest score per department, restricted to proportion-scale measures.
+     * Mixing CV (raw clinical values) and cohort (patient counts) into the same average
+     * as proportions used to produce nonsense numbers like 42.6% — see PAT-124.
+     */
     private Map<String, Double> computeDepartmentScores() {
-        // Load measures with departments — only need id and department
-        Map<Long, String> measureDepts = new HashMap<>();
-        definitionRepository.findAll().forEach(m -> {
-            if (m.getDepartment() != null) {
-                measureDepts.put(m.getId(), m.getDepartment());
-            }
-        });
+        record MeasureMeta(Long id, String department, String scoringType) {}
+
+        List<MeasureMeta> measureMeta = new ArrayList<>();
+        for (MeasureDefinitionEntity m : definitionRepository.findAll()) {
+            if (m.getDepartment() == null) continue;
+            measureMeta.add(new MeasureMeta(m.getId(), m.getDepartment(), m.getScoringType()));
+        }
 
         Map<String, List<Double>> scoresByDept = new HashMap<>();
-        for (var entry : measureDepts.entrySet()) {
-            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(entry.getKey());
+        for (MeasureMeta meta : measureMeta) {
+            if (!isProportionScaleScoring(meta.scoringType())) continue;
+            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(meta.id());
             if (!latest.isEmpty() && latest.get(0).getMeasureScore() != null) {
-                scoresByDept.computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
+                scoresByDept.computeIfAbsent(meta.department(), k -> new ArrayList<>())
                         .add(latest.get(0).getMeasureScore());
             }
         }

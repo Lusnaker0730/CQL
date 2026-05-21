@@ -1,0 +1,24 @@
+{
+  "periodStart": "2022-01-01",
+  "periodEnd": "2022-06-30",
+  "score": 60.0,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 7,
+    "denominator": 5,
+    "numerator": 3
+  },
+  "stratifiers": [
+    {
+      "strataId": "gender",
+      "expectedStrata": [
+        {"strataValue": "true",  "populations": {"initial-population": 3, "denominator": 2, "numerator": 2}, "score": 100.0},
+        {"strataValue": "false", "populations": {"initial-population": 4, "denominator": 3, "numerator": 1}, "score": 33.33}
+      ],
+      "scoreTolerance": 0.5
+    }
+  ],
+  "supplementalDataDefinesPresent": ["SDE Sex", "SDE Payer"],
+  "maxEvaluationTimeMs": 8000,
+  "_note": "Locks the StratifierEvaluator + standard SDE pipeline (PAT-???). Stratifier returns boolean (Patient.gender = 'male') so strata bucket on 'true' (males = p1/p2/p6) vs 'false' (females = p3/p4/p5/p7). Within each bucket, IP/Denom/Numer counts per the parent measure's age cohort. SDE assertion is light-touch: just verify the CQL contains the standard SDE defines (proves CqlBuilder ran the SDE branch — runtime SDE values aren't reliably surfaced in the summary response)."
+}

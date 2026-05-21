@@ -185,6 +185,8 @@
     "valueSetCount_one": "{{count}} 個值集",
     "valueSetLoadError": "無法載入值集：{{error}}",
     "noValueSets": "未找到值集。",
+    "needsExpansion": "需展開",
+    "needsExpansionTooltip": "此值集使用 compose 規則（filter 或引用其他值集），需由術語伺服器展開才能列出具體代碼。",
     "searchCodeSystems": "搜尋代碼系統",
     "searchCodeSystemsPlaceholder": "例如：LOINC, SNOMED",
     "codeSystemCount": "{{count}} 個代碼系統",
@@ -266,7 +268,20 @@
     "resourceCount": "資源數",
     "active": "啟用",
     "inactive": "停用",
-    "fhirUrlPlaceholder": "https://fhir.example.com/fhir"
+    "fhirUrlPlaceholder": "https://fhir.example.com/fhir",
+    "health": {
+      "column": "即時健康狀態",
+      "columnTooltip": "每 30 秒自動更新，資料來源為最近一次排程健康檢查及 circuit breaker 狀態。",
+      "healthy": "健康",
+      "degraded": "降級",
+      "down": "中斷",
+      "unknown": "未知",
+      "availability24h": "24 小時可用率：{{pct}}%",
+      "avgResponseMs": "平均回應時間：{{ms}} 毫秒",
+      "errorCount24h": "24 小時錯誤次數：{{count}}",
+      "lastCheckedAt": "最後檢查時間：{{at}}",
+      "noData": "尚無健康檢查紀錄"
+    }
   },
   "degradation": {
     "titleGeneric": "EHR FHIR 伺服器暫時無法使用",

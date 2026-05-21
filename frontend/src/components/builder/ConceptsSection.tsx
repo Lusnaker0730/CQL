@@ -8,6 +8,7 @@ import {
   Checkbox,
   FormControlLabel,
   Box,
+  Alert,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { Add as AddIcon } from '@mui/icons-material'
@@ -15,6 +16,7 @@ import ElementListItem from './ElementListItem'
 import { extractCqlName } from '../../utils/cqlNames'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
+import { escapeCqlString, escapeCqlIdentifier } from '../../utils/cqlString'
 
 interface ConceptsSectionProps {
   concepts: string[]
@@ -54,9 +56,9 @@ export default function ConceptsSection({
 
   const handleAdd = () => {
     if (!conceptName.trim() || selectedCodes.length === 0) return
-    const codeRefs = selectedCodes.map((c) => `"${c}"`).join(', ')
-    const displayPart = displayText.trim() ? ` display '${displayText.trim()}'` : ''
-    const snippet = `concept "${conceptName}": { ${codeRefs} }${displayPart}`
+    const codeRefs = selectedCodes.map((c) => `"${escapeCqlIdentifier(c)}"`).join(', ')
+    const displayPart = displayText.trim() ? ` display '${escapeCqlString(displayText.trim())}'` : ''
+    const snippet = `concept "${escapeCqlIdentifier(conceptName)}": { ${codeRefs} }${displayPart}`
     setPreviewSnippet(snippet)
   }
 
@@ -117,6 +119,11 @@ export default function ConceptsSection({
         </Button>
       ) : (
         <Stack spacing={1} sx={{ p: 1, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03), borderRadius: 1 }}>
+          {editingItem && (
+            <Alert severity="info" sx={{ py: 0, fontSize: '0.8rem' }}>
+              {t('concepts.editWarning')}
+            </Alert>
+          )}
           <TextField
             size="small"
             label={t('concepts.name')}

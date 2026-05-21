@@ -35,6 +35,16 @@
       "multiples": "指標網格",
       "overlay": "疊圖比較"
     },
+    "trendSections": {
+      "proportion": "比例 / 比率 / 複合（0–100%）",
+      "proportionHint": "分數天生在 0–100% 範圍的指標；可以安全地疊在同一張圖上。",
+      "continuousVariable": "連續型變數（原始臨床值）",
+      "continuousVariableHint": "每個指標各有自己的臨床範圍與單位（例如 HbA1c 用 mmol/L）；每個指標獨立一張圖，Y 軸自動縮放。",
+      "cohort": "群體計數（人數）",
+      "cohortHint": "符合條件的病人人數（非分數）；每個指標一張人數趨勢圖。",
+      "noTrendData": "此計分類型尚無趨勢資料。",
+      "unknownUnit": "數值"
+    },
     "noDepartmentData": "無部門資料",
     "periodType": "期間",
     "monthly": "月度",
@@ -43,6 +53,7 @@
     "departmentScores": "部門分數",
     "qualityReport": "品質報告",
     "noReportData": "無報告資料",
+    "tablePreviewTruncated": "顯示前 {{shown}} 筆 / 共 {{total}} 筆",
     "averageScore": "比例指標平均",
     "aboveTarget": "達標",
     "belowTarget": "未達標",
@@ -411,10 +422,15 @@
     "filterTypes": {
       "code": "代碼",
       "valueSet": "值集",
+      "codePrefix": "代碼前綴",
       "codeSystem": "代碼系統",
       "date": "日期",
-      "dateFilter": "日期篩選"
-    }
+      "dateFilter": "日期篩選",
+      "patient": "病人"
+    },
+    "ageRange": "年齡 {{min}}–{{max}} {{unit}}",
+    "gender": "性別：{{value}}",
+    "prefixTooltip": "代碼以「{{prefix}}」開頭（範圍比對，非列舉清單）"
   },
   "evaluation": {
     "title": "評估：{{name}}",
@@ -631,7 +647,12 @@
     "period2Start": "期間 2 開始",
     "period2End": "期間 2 結束",
     "comparing": "比較中...",
-    "compare": "比較",
+    "compare": "比較（查詢已存報告）",
+    "compareHint": "從已儲存的指標報告中撈取與所選期間重疊的資料，不會執行新評估。",
+    "compareLive": "即時評估並比較",
+    "compareLiveHint": "依所選期間各跑一次即時評估（打目前的 FHIR 伺服器），存成新報告後再比較。依病人數量可能耗時數十秒至數分鐘。",
+    "evaluatingPeriod": "正在評估期間 {{current}} / {{total}}...",
+    "comparingLive": "彙整比較結果中...",
     "period1": "期間 1",
     "period2": "期間 2",
     "na": "N/A",
@@ -640,9 +661,23 @@
     "scoreTrend": "分數趨勢",
     "periods": "期間數",
     "loading": "載入中...",
-    "loadTrend": "載入趨勢",
+    "loadTrend": "載入歷史趨勢",
+    "loadTrendHint": "顯示此指標最近 N 筆已存報告，無論報告期間為何。",
+    "trendLiveSection": "即時趨勢評估",
+    "trendLiveHint": "以所選結束日期為起點往前切 N 段相同長度的期間，每段各跑一次即時評估。",
+    "trendEndDate": "結束日期",
+    "trendInterval": "期間長度",
+    "trendIntervals": {
+      "monthly": "月",
+      "quarterly": "季",
+      "yearly": "年"
+    },
+    "runLiveTrend": "執行即時趨勢",
+    "runningLiveTrend": "正在評估第 {{current}} / {{total}} 段...",
+    "liveTrendNote": "即時模式會依序評估 {{count}} 段期間，可能耗時數分鐘。",
     "scoreProgression": "{{name}} - 分數變化趨勢",
-    "noReportData": "未找到此指標的報告資料。"
+    "noReportData": "未找到此指標的報告資料。",
+    "slotFailed": "第 {{current}} 段失敗：{{error}}"
   },
   "share": {
     "title": "共享：{{name}}",
@@ -761,6 +796,11 @@
     "defaultStatus": "完成",
     "downloadReport": "下載報告",
     "deleteReport": "刪除報告",
+    "deleteConfirmTitle": "確定要刪除此報告嗎？",
+    "deleteConfirmBody": "永久刪除 {{measure}}（{{periodStart}} – {{periodEnd}}）的報告？此操作無法復原。",
+    "cancel": "取消",
+    "confirmDelete": "刪除",
+    "deleting": "刪除中...",
     "emptyState": "尚無報告。評估指標以產生報告。",
     "exportFormats": {
       "fhirJson": "FHIR MeasureReport (JSON)",
@@ -932,6 +972,9 @@
     "array": "（陣列）",
     "addCount": "新增 ({{count}})",
     "available": "（{{count}} 個可用）",
+    "addAttributeAria": "新增屬性（共 {{count}} 個可選欄位）",
+    "metadataLoadError": "無法載入 {{resourceType}} 的中介資料。",
+    "requiredAria": "必填",
     "idLabel": "ID：",
     "idPlaceholder": "resource-id",
     "twcore": {
@@ -939,7 +982,9 @@
       "searchPlaceholder": "搜尋代碼、顯示名稱或中文名稱...",
       "noMatchingCodes": "未找到符合的代碼。",
       "noTerminology": "無可用的 TWCORE 術語。",
-      "use": "使用"
+      "loadError": "無法載入 TWCORE 術語：{{message}}",
+      "use": "使用",
+      "useAria": "使用代碼 {{code}}"
     },
     "identifierPresets": {
       "label": "識別碼類型",
@@ -995,14 +1040,20 @@
       "country": "國家",
       "hideSystemCode": "隱藏系統 / 代碼",
       "showSystemCode": "顯示系統 / 代碼",
-      "identifierSystemPlaceholder": "例如 http://hospital.org/mrn"
+      "identifierSystemPlaceholder": "例如 http://hospital.org/mrn",
+      "selectCode": "選擇…",
+      "noCodings": "尚未新增編碼，請於下方新增。",
+      "codeSearchError": "查詢代碼失敗：{{message}}",
+      "jsonSuffix": "(JSON)",
+      "jsonParseError": "JSON 格式錯誤，變更未儲存：{{message}}"
     },
     "arrayField": {
       "add": "新增",
       "removeItem": "移除項目"
     },
     "choiceType": {
-      "type": "類型"
+      "type": "類型",
+      "noChoices": "此欄位無可用的選擇型別。"
     }
   }
 }

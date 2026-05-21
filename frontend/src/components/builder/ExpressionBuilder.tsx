@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Stack,
@@ -56,9 +56,6 @@ const WRAPPING_FUNCTIONS = [
   { value: 'First', label: 'First(...)' },
 ]
 
-let rowIdCounter = 0
-function nextId() { return `row-${++rowIdCounter}` }
-
 export default function ExpressionBuilder({
   expressions,
   parameters,
@@ -66,9 +63,11 @@ export default function ExpressionBuilder({
   onCancel,
 }: ExpressionBuilderProps) {
   const { t } = useTranslation('builder')
+  const rowIdRef = useRef(0)
+  const nextId = useCallback(() => `row-${++rowIdRef.current}`, [])
   const [name, setName] = useState('')
-  const [rows, setRows] = useState<ExpressionRow[]>([
-    { id: nextId(), operand: '', operator: '', value: '', unit: '', conjunction: 'and' },
+  const [rows, setRows] = useState<ExpressionRow[]>(() => [
+    { id: `row-${++rowIdRef.current}`, operand: '', operator: '', value: '', unit: '', conjunction: 'and' },
   ])
   const [wrapping, setWrapping] = useState('')
   const [previewSnippet, setPreviewSnippet] = useState('')

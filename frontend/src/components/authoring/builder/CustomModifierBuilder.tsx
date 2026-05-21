@@ -13,6 +13,11 @@ import type { Modifier } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
 import { useQueryBuilderResources, useQueryBuilderOperators } from '../../../hooks/useCqlImport'
 import { CONJUNCTION_COLOR_AND, CONJUNCTION_COLOR_OR } from '../../../constants/authoringConstants'
+import { escapeCqlString, escapeCqlIdentifier } from '../../../utils/cqlString'
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?)?$/
+const DURATION_NUM_RE = /^\d+(\.\d+)?$/
+const ALLOWED_DURATION_UNITS = new Set(['year', 'years', 'month', 'months', 'week', 'weeks', 'day', 'days', 'hour', 'hours', 'minute', 'minutes'])
 
 /** A single rule: field → operator → value */
 interface ModifierRule {
@@ -20,6 +25,10 @@ interface ModifierRule {
   field: string
   operator: string
   value: string
+  /** Field type captured at selection time. The backend rebuilds the CQL from this
+   *  structured tree and uses fieldType to disambiguate equals/not_equals between
+   *  code (~), decimal (=), and string ('=') comparisons. */
+  fieldType?: string
 }
 
 /** A group of rules combined with AND/OR */
@@ -30,22 +39,23 @@ interface ModifierRuleGroup {
   groups: ModifierRuleGroup[]
 }
 
-// Fallback operators when API data isn't available yet
-const FALLBACK_OPERATORS_BY_TYPE: Record<string, Array<{ op: string; label: string }>> = {
+// Fallback operators when API data isn't available yet. Labels resolve via
+// i18n at use site so the dropdown isn't English-only on first paint.
+const FALLBACK_OPERATORS_BY_TYPE: Record<string, Array<{ op: string; labelKey?: string; label?: string }>> = {
   code: [
-    { op: 'equals', label: 'equals' },
-    { op: 'not_equals', label: 'does not equal' },
-    { op: 'in', label: 'is in' },
-    { op: 'is_null', label: 'is null' },
-    { op: 'is_not_null', label: 'is not null' },
+    { op: 'equals', labelKey: 'customModifier.ops.equals' },
+    { op: 'not_equals', labelKey: 'customModifier.ops.notEquals' },
+    { op: 'in', labelKey: 'customModifier.ops.in' },
+    { op: 'is_null', labelKey: 'customModifier.ops.isNull' },
+    { op: 'is_not_null', labelKey: 'customModifier.ops.isNotNull' },
   ],
   string: [
-    { op: 'equals', label: 'equals' },
-    { op: 'not_equals', label: 'does not equal' },
-    { op: 'starts_with', label: 'starts with' },
-    { op: 'ends_with', label: 'ends with' },
-    { op: 'contains', label: 'contains' },
-    { op: 'is_null', label: 'is null' },
+    { op: 'equals', labelKey: 'customModifier.ops.equals' },
+    { op: 'not_equals', labelKey: 'customModifier.ops.notEquals' },
+    { op: 'starts_with', labelKey: 'customModifier.ops.startsWith' },
+    { op: 'ends_with', labelKey: 'customModifier.ops.endsWith' },
+    { op: 'contains', labelKey: 'customModifier.ops.contains' },
+    { op: 'is_null', labelKey: 'customModifier.ops.isNull' },
   ],
   decimal: [
     { op: 'equals', label: '=' },
@@ -54,14 +64,14 @@ const FALLBACK_OPERATORS_BY_TYPE: Record<string, Array<{ op: string; label: stri
     { op: 'gte', label: '>=' },
     { op: 'lt', label: '<' },
     { op: 'lte', label: '<=' },
-    { op: 'is_null', label: 'is null' },
+    { op: 'is_null', labelKey: 'customModifier.ops.isNull' },
   ],
   dateTime: [
-    { op: 'before', label: 'is before' },
-    { op: 'after', label: 'is after' },
-    { op: 'within_last', label: 'within the last' },
-    { op: 'is_null', label: 'is null' },
-    { op: 'is_not_null', label: 'is not null' },
+    { op: 'before', labelKey: 'customModifier.ops.before' },
+    { op: 'after', labelKey: 'customModifier.ops.after' },
+    { op: 'within_last', labelKey: 'customModifier.ops.withinLast' },
+    { op: 'is_null', labelKey: 'customModifier.ops.isNull' },
+    { op: 'is_not_null', labelKey: 'customModifier.ops.isNotNull' },
   ],
 }
 
@@ -90,7 +100,7 @@ function toLabel(name: string): string {
 }
 
 function createEmptyRule(): ModifierRule {
-  return { id: generateId(), field: '', operator: '', value: '' }
+  return { id: generateId(), field: '', operator: '', value: '', fieldType: '' }
 }
 
 function createEmptyGroup(): ModifierRuleGroup {
@@ -154,8 +164,8 @@ export default function CustomModifierBuilder({
     if (!apiOperators || apiOperators.length === 0) return FALLBACK_OPERATORS_BY_TYPE
     const grouped: Record<string, Array<{ op: string; label: string }>> = {}
     for (const op of apiOperators) {
-      for (const t of op.applicableTypes) {
-        const normalizedType = t === 'CodeableConcept' || t === 'Coding' ? 'code' : t === 'Quantity' ? 'decimal' : t === 'Period' ? 'dateTime' : t
+      for (const opType of op.applicableTypes) {
+        const normalizedType = opType === 'CodeableConcept' || opType === 'Coding' ? 'code' : opType === 'Quantity' ? 'decimal' : opType === 'Period' ? 'dateTime' : opType
         if (!grouped[normalizedType]) grouped[normalizedType] = []
         if (!grouped[normalizedType].some((o) => o.op === op.id)) {
           grouped[normalizedType].push({ op: op.id, label: op.label })
@@ -164,10 +174,10 @@ export default function CustomModifierBuilder({
     }
     // Add custom operators not in backend (within_last for dateTime, ends_with for string)
     if (grouped.dateTime && !grouped.dateTime.some((o) => o.op === 'within_last')) {
-      grouped.dateTime.push({ op: 'within_last', label: 'within the last' })
+      grouped.dateTime.push({ op: 'within_last', label: t('customModifier.ops.withinLast') })
     }
     if (grouped.string && !grouped.string.some((o) => o.op === 'ends_with')) {
-      grouped.string.splice(3, 0, { op: 'ends_with', label: 'ends with' })
+      grouped.string.splice(3, 0, { op: 'ends_with', label: t('customModifier.ops.endsWith') })
     }
     // Add decimal-specific operators (gt/gte/lt/lte aliases for > >= < <=)
     if (grouped.decimal) {
@@ -185,7 +195,7 @@ export default function CustomModifierBuilder({
       }
     }
     return grouped
-  }, [apiOperators])
+  }, [apiOperators, t])
 
   const handleReset = () => {
     setRootGroup(createEmptyGroup())
@@ -197,8 +207,14 @@ export default function CustomModifierBuilder({
   }
 
   const getOperatorsForType = useCallback((type: string) => {
-    return operatorsByType[type] || operatorsByType.string || FALLBACK_OPERATORS_BY_TYPE.string
-  }, [operatorsByType])
+    const raw = operatorsByType[type] || operatorsByType.string || FALLBACK_OPERATORS_BY_TYPE.string
+    // Resolve labelKey → translated label at lookup time so the dropdown
+    // never renders raw English when API data isn't loaded yet.
+    return raw.map((entry) => {
+      if ('labelKey' in entry && entry.labelKey) return { op: entry.op, label: t(entry.labelKey) }
+      return { op: entry.op, label: entry.label || entry.op }
+    })
+  }, [operatorsByType, t])
 
   const handleAdd = () => {
     if (!isGroupValid(rootGroup)) return
@@ -207,7 +223,7 @@ export default function CustomModifierBuilder({
     const cqlWhere = buildCqlWhereClause(rootGroup, availableFields)
     const modifier: Modifier = {
       id: `custom_${generateId()}`,
-      name: 'Custom Filter',
+      name: t('customModifier.defaultName'),
       inputTypes: [inputType],
       returnType: inputType,
       cqlTemplate: `({expression}).where(${cqlWhere})`,
@@ -416,7 +432,11 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
         <Select
           value={rule.field}
           label={t('customModifier.propertyLabel')}
-          onChange={(e) => onChange({ field: e.target.value, operator: '', value: '' })}
+          onChange={(e) => {
+            const newField = e.target.value
+            const newType = availableFields.find((f) => f.field === newField)?.type || 'string'
+            onChange({ field: newField, fieldType: newType, operator: '', value: '' })
+          }}
         >
           {availableFields.map((f) => (
             <MenuItem key={f.field} value={f.field}>{f.label}</MenuItem>
@@ -527,34 +547,64 @@ function buildRuleClause(
   const fieldDef = fields.find((f) => f.field === rule.field)
   if (!fieldDef) return null
 
-  // Map field path to FHIR CQL accessor
-  const accessor = rule.field.includes('.') ? rule.field : rule.field
+  // Build a safe accessor from the field path. The path comes from the
+  // resource metadata API but we still split on `.` and apply identifier
+  // rules so a hostile/typo'd path can't inject CQL.
+  const accessor = rule.field
+    .split('.')
+    .map((part) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(part) ? part : `"${escapeCqlIdentifier(part)}"`)
+    .join('.')
+
+  const numericLiteral = (raw: string): string | null => {
+    const v = raw.trim()
+    return /^-?\d+(\.\d+)?$/.test(v) ? v : null
+  }
 
   switch (rule.operator) {
     case 'is_null': return `${accessor} is null`
     case 'is_not_null': return `${accessor} is not null`
     case 'equals':
-      if (fieldDef.type === 'code') return `${accessor} ~ '${rule.value}'`
-      if (fieldDef.type === 'decimal') return `${accessor} = ${rule.value}`
-      return `${accessor} = '${rule.value}'`
+      if (fieldDef.type === 'code') return `${accessor} ~ '${escapeCqlString(rule.value)}'`
+      if (fieldDef.type === 'decimal') {
+        const n = numericLiteral(rule.value)
+        return n === null ? null : `${accessor} = ${n}`
+      }
+      return `${accessor} = '${escapeCqlString(rule.value)}'`
     case 'not_equals':
-      if (fieldDef.type === 'code') return `${accessor} !~ '${rule.value}'`
-      if (fieldDef.type === 'decimal') return `${accessor} != ${rule.value}`
-      return `${accessor} != '${rule.value}'`
-    case 'gt': return `${accessor} > ${rule.value}`
-    case 'gte': return `${accessor} >= ${rule.value}`
-    case 'lt': return `${accessor} < ${rule.value}`
-    case 'lte': return `${accessor} <= ${rule.value}`
-    case 'starts_with': return `StartsWith(${accessor}, '${rule.value}')`
-    case 'ends_with': return `EndsWith(${accessor}, '${rule.value}')`
-    case 'contains': return `PositionOf('${rule.value}', ${accessor}) >= 0`
-    case 'before': return `${accessor} before @${rule.value}`
-    case 'after': return `${accessor} after @${rule.value}`
+      if (fieldDef.type === 'code') return `${accessor} !~ '${escapeCqlString(rule.value)}'`
+      if (fieldDef.type === 'decimal') {
+        const n = numericLiteral(rule.value)
+        return n === null ? null : `${accessor} != ${n}`
+      }
+      return `${accessor} != '${escapeCqlString(rule.value)}'`
+    case 'gt':
+    case 'gte':
+    case 'lt':
+    case 'lte': {
+      const n = numericLiteral(rule.value)
+      if (n === null) return null
+      const sym = rule.operator === 'gt' ? '>' : rule.operator === 'gte' ? '>=' : rule.operator === 'lt' ? '<' : '<='
+      return `${accessor} ${sym} ${n}`
+    }
+    case 'starts_with': return `StartsWith(${accessor}, '${escapeCqlString(rule.value)}')`
+    case 'ends_with': return `EndsWith(${accessor}, '${escapeCqlString(rule.value)}')`
+    case 'contains': return `PositionOf('${escapeCqlString(rule.value)}', ${accessor}) >= 0`
+    case 'before':
+    case 'after': {
+      // CQL date literal `@YYYY-MM-DD[Thh:mm[:ss[.fff]]]` — reject anything else
+      // so we don't paste arbitrary user text after the `@` sigil.
+      if (!ISO_DATE_RE.test(rule.value)) return null
+      return `${accessor} ${rule.operator} @${rule.value}`
+    }
     case 'within_last': {
       const [num, unit] = rule.value.split(' ')
+      if (!num || !unit) return null
+      if (!DURATION_NUM_RE.test(num) || !ALLOWED_DURATION_UNITS.has(unit)) return null
       return `${accessor} >= Now() - ${num} ${unit}`
     }
-    case 'in': return `${accessor} in "${rule.value}"`
+    case 'in':
+      // The value is a value-set name picked from a list — re-quote safely.
+      return `${accessor} in "${escapeCqlIdentifier(rule.value)}"`
     default: return null
   }
 }

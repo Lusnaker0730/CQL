@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SEARCH_DEBOUNCE_CODE_MS } from '../../constants/timing'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import {
   Stack,
   TextField,
@@ -36,6 +37,7 @@ import { useLookupCode, useSearchCodes } from '../../hooks/useTerminology'
 import { ALL_CODE_SYSTEMS, CODE_SYSTEM_GROUPS, findCodeSystemByUrl, findCodeSystemByLabel } from '../../constants/codeSystems'
 import type { PredefinedCodeSystem } from '../../constants/codeSystems'
 import type { TwcoreCatalogEntry } from '../../types/authoring'
+import { escapeCqlString, escapeCqlIdentifier } from '../../utils/cqlString'
 
 interface CodesSectionProps {
   codes: string[]
@@ -66,24 +68,18 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
   const [codeValue, setCodeValue] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [searchText, setSearchText] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_CODE_MS)
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
   const lookupMutation = useLookupCode()
   const { data: searchResults, isFetching: isSearching, isError: isSearchError } = useSearchCodes(systemUrl, debouncedSearch)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_CODE_MS)
-    return () => clearTimeout(timer)
-  }, [searchText])
-
   const handleSystemChange = (url: string) => {
     setSystemUrl(url)
     const match = findCodeSystemByUrl(url)
     setSystemAlias(match?.label || '')
     setSearchText('')
-    setDebouncedSearch('')
   }
 
   const handleLookup = () => {
@@ -104,13 +100,14 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     setCodeValue(code)
     setDisplayName(display)
     setSearchText('')
-    setDebouncedSearch('')
   }
 
   const handleAdd = () => {
     if (!systemUrl || !codeValue || !systemAlias) return
-    const csSnippet = `codesystem "${systemAlias}": '${systemUrl}'`
-    const codeSnippet = `code "${displayName || codeValue}": '${codeValue}' from "${systemAlias}"${displayName ? ` display '${displayName}'` : ''}`
+    const aliasIdent = escapeCqlIdentifier(systemAlias)
+    const codeIdent = escapeCqlIdentifier(displayName || codeValue)
+    const csSnippet = `codesystem "${aliasIdent}": '${escapeCqlString(systemUrl)}'`
+    const codeSnippet = `code "${codeIdent}": '${escapeCqlString(codeValue)}' from "${aliasIdent}"${displayName ? ` display '${escapeCqlString(displayName)}'` : ''}`
     if (editingItem) {
       setPreviewSnippet(codeSnippet)
     } else {
@@ -148,7 +145,6 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     setCodeValue('')
     setDisplayName('')
     setSearchText('')
-    setDebouncedSearch('')
     setEditingItem(null)
     setPreviewSnippet('')
   }
@@ -165,15 +161,19 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
     const knownSystem = findCodeSystemByUrl(entry.system)
     const alias = knownSystem?.label || entry.name
     const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
-    const csSnippet = `codesystem "${alias}": '${entry.system}'`
-    const codeSnippet = `code "${displayLabel}": '${code.code}' from "${alias}" display '${code.display}'`
+    const aliasIdent = escapeCqlIdentifier(alias)
+    const codeIdent = escapeCqlIdentifier(displayLabel)
+    const csSnippet = `codesystem "${aliasIdent}": '${escapeCqlString(entry.system)}'`
+    const codeSnippet = `code "${codeIdent}": '${escapeCqlString(code.code)}' from "${aliasIdent}" display '${escapeCqlString(code.display)}'`
     setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
   }
 
   const handleFhirCodeClick = (sys: PredefinedCodeSystem, code: { code: string; display: string; displayZh: string }) => {
-    const csSnippet = `codesystem "${sys.alias}": '${sys.url}'`
+    const aliasIdent = escapeCqlIdentifier(sys.alias)
     const displayLabel = code.displayZh ? `${code.display} (${code.displayZh})` : code.display
-    const codeSnippet = `code "${displayLabel}": '${code.code}' from "${sys.alias}" display '${code.display}'`
+    const codeIdent = escapeCqlIdentifier(displayLabel)
+    const csSnippet = `codesystem "${aliasIdent}": '${escapeCqlString(sys.url)}'`
+    const codeSnippet = `code "${codeIdent}": '${escapeCqlString(code.code)}' from "${aliasIdent}" display '${escapeCqlString(code.display)}'`
     setPreviewSnippet(`${csSnippet}\n${codeSnippet}`)
   }
 

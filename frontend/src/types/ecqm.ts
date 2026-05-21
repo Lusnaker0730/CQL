@@ -105,6 +105,12 @@ export interface ObservationEntry {
   observationUnit?: string
   /** FHIR property path for duration/quantity (e.g. 'period', 'value') */
   observationProperty?: string
+  /**
+   * PAT-129: percentile rank (0–100) when {@link aggregateMethod} === 'Percentile'.
+   * Required for that method to produce valid CQL; absent / out-of-range values
+   * are flagged in the editor.
+   */
+  percentileValue?: number
 }
 
 export interface StratifierElement {
@@ -116,6 +122,13 @@ export interface StratifierElement {
 export interface SupplementalDataElement {
   name: string
   criteria?: ConjunctionGroup
+  /** Stable client-side id for React keys on custom SDEs. Absent on legacy
+   *  rows; EcqmSdeTab falls back to array index for those. */
+  id?: string
+  /** Marks the row as a custom SDE (not one of the standard SDE
+   *  Ethnicity/Race/Sex/Payer templates). Lets name collisions with
+   *  standard SDE names stay in the custom list instead of disappearing. */
+  custom?: boolean
 }
 
 export interface PublishResult {

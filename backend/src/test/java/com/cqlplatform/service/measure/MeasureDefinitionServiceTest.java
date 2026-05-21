@@ -2,10 +2,13 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
+import com.cqlplatform.exception.CqlTranslationException;
+import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.service.NotificationService;
+import com.cqlplatform.service.cql.CqlTranslationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +37,9 @@ class MeasureDefinitionServiceTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private CqlTranslationService cqlTranslationService;
 
     @InjectMocks
     private MeasureDefinitionService service;
@@ -344,5 +350,134 @@ class MeasureDefinitionServiceTest {
         List<MeasureAuditEntity> result = service.getAuditTrail(1L);
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getAction()).isEqualTo("CREATE");
+    }
+
+    // =====================================================================
+    // PAT-140 — preCompileElm error propagation (regression for silent-null bug)
+    // =====================================================================
+
+    @Test
+    void create_withInvalidCql_shouldThrowAndNotPersist() {
+        // Previously: translation failure silently logged a warn and stored null
+        // elmJson, so the measure looked saved but evaluation failed later with
+        // a cryptic error. PAT-140 propagates the error so the user sees it
+        // immediately and the @Transactional save rolls back.
+        CqlTranslationResponse failed = CqlTranslationResponse.builder()
+                .success(false)
+                .errors(List.of(CqlTranslationResponse.CqlError.builder()
+                        .severity("ERROR").message("Syntax error")
+                        .startLine(1).startColumn(1).endLine(1).endColumn(1).build()))
+                .build();
+        when(cqlTranslationService.translate(any())).thenReturn(failed);
+        when(repository.existsByNameAndVersion(any(), any())).thenReturn(false);
+
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("Bad")
+                .version("1.0.0")
+                .cqlContent("library Bad version '1.0.0'\ndefine \"X\": broken")
+                .build();
+
+        assertThatThrownBy(() -> service.create(definition))
+                .isInstanceOf(CqlTranslationException.class)
+                .hasMessageContaining("CQL translation failed")
+                .satisfies(ex -> {
+                    CqlTranslationException te = (CqlTranslationException) ex;
+                    assertThat(te.getErrors()).hasSize(1);
+                    assertThat(te.getErrors().get(0).getMessage()).isEqualTo("Syntax error");
+                });
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_withValidCql_shouldStoreElmJson() {
+        CqlTranslationResponse ok = CqlTranslationResponse.builder()
+                .success(true).elmJson("{\"library\":{}}").build();
+        when(cqlTranslationService.translate(any())).thenReturn(ok);
+        when(repository.existsByNameAndVersion(any(), any())).thenReturn(false);
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("Good")
+                .version("1.0.0")
+                .cqlContent("library Good version '1.0.0'\ndefine \"X\": true")
+                .build();
+
+        MeasureDefinition result = service.create(definition);
+        assertThat(result.getElmJson()).isEqualTo("{\"library\":{}}");
+    }
+
+    @Test
+    void update_withChangedCqlThatFailsTranslation_shouldThrowAndRollBack() {
+        MeasureDefinitionEntity existing = createEntity(1L, "Test", "1.0.0");
+        existing.setCqlContent("library old");
+        existing.setElmJson("{\"old\":{}}");
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+
+        CqlTranslationResponse failed = CqlTranslationResponse.builder()
+                .success(false)
+                .errors(List.of(CqlTranslationResponse.CqlError.builder()
+                        .severity("ERROR").message("Cannot resolve identifier")
+                        .startLine(5).startColumn(1).endLine(5).endColumn(20).build()))
+                .build();
+        when(cqlTranslationService.translate(any())).thenReturn(failed);
+
+        MeasureDefinition update = MeasureDefinition.builder()
+                .id(1L)
+                .name("Test")
+                .version("1.0.0")
+                .cqlContent("library Test version '1.0.0'\ndefine \"X\": missingThing")
+                .build();
+
+        assertThatThrownBy(() -> service.update(1L, update))
+                .isInstanceOf(CqlTranslationException.class)
+                .satisfies(ex -> assertThat(((CqlTranslationException) ex).getErrors())
+                        .anyMatch(e -> "Cannot resolve identifier".equals(e.getMessage())));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void update_withUnchangedCql_shouldNotRetranslate() {
+        // Avoid wasting a translation cycle when the user only edits metadata.
+        MeasureDefinitionEntity existing = createEntity(1L, "Test", "1.0.0");
+        existing.setCqlContent("library Test version '1.0.0'\ndefine \"X\": true");
+        existing.setElmJson("{\"cached\":{}}");
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        MeasureDefinition update = MeasureDefinition.builder()
+                .id(1L)
+                .name("Test")
+                .version("1.0.0")
+                .description("only the description changed")
+                .cqlContent("library Test version '1.0.0'\ndefine \"X\": true")
+                .build();
+
+        service.update(1L, update);
+
+        verify(cqlTranslationService, never()).translate(any());
+    }
+
+    @Test
+    void preCompileElm_translatorThrows_shouldWrapAsCqlTranslationException() {
+        // If the translator itself crashes (NPE etc.), we still surface a
+        // structured 400 error instead of a 500 stack trace.
+        when(cqlTranslationService.translate(any()))
+                .thenThrow(new RuntimeException("translator crashed"));
+        when(repository.existsByNameAndVersion(any(), any())).thenReturn(false);
+
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("Crashy")
+                .version("1.0.0")
+                .cqlContent("library Crashy version '1.0.0'")
+                .build();
+
+        assertThatThrownBy(() -> service.create(definition))
+                .isInstanceOf(CqlTranslationException.class)
+                .hasMessageContaining("translator crashed");
     }
 }

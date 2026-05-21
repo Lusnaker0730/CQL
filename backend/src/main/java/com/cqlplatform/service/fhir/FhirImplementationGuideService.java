@@ -138,7 +138,8 @@ public class FhirImplementationGuideService {
                         vs.getName(),
                         vs.getTitle(),
                         vs.getStatus() != null ? vs.getStatus().toCode() : null,
-                        countValueSetConcepts(vs)
+                        countValueSetConcepts(vs),
+                        hasComposeRules(vs)
                 ))
                 .collect(Collectors.toList());
     }
@@ -222,6 +223,23 @@ public class FhirImplementationGuideService {
         return 0;
     }
 
+    /**
+     * PAT-119: many TWCORE ValueSets use {@code compose.include.filter} (e.g.
+     * "all SNOMED CT descendants of X") or {@code compose.include.valueSet}
+     * (reference another VS) instead of inline {@code concept} lists. Previously
+     * the UI just showed "0 concepts" which read as "empty / broken"; callers
+     * now use this flag to render a hint that the VS needs terminology-server
+     * expansion to enumerate actual codes.
+     */
+    private boolean hasComposeRules(ValueSet vs) {
+        if (!vs.hasCompose()) return false;
+        for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
+            if (include.hasFilter() && !include.getFilter().isEmpty()) return true;
+            if (include.hasValueSet() && !include.getValueSet().isEmpty()) return true;
+        }
+        return false;
+    }
+
     // DTOs
     public record PackageMetadata(
             String name,
@@ -248,7 +266,11 @@ public class FhirImplementationGuideService {
             String name,
             String title,
             String status,
-            int conceptCount
+            int conceptCount,
+            /** PAT-119: true when the ValueSet uses compose.include.filter or
+             *  compose.include.valueSet (needs terminology-server expansion to
+             *  enumerate). Frontend renders a hint chip instead of "0". */
+            boolean hasComposeRules
     ) {}
 
     public record CodeSystemSummary(

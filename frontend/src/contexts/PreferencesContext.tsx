@@ -1,6 +1,7 @@
 import { createContext, useState, useCallback, type ReactNode } from 'react'
 import type { PaletteMode } from '@mui/material'
 import { DEFAULT_FHIR_SERVER_URL } from '../config/env'
+import { safeLocalStorage } from '../utils/safeStorage'
 
 export interface Preferences {
   editorFontSize: number
@@ -23,13 +24,13 @@ const DEFAULT_PREFERENCES: Preferences = {
 const STORAGE_KEY = 'cql-platform-preferences'
 
 function loadPreferences(): Preferences {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
+  const stored = safeLocalStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    try {
       return { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) }
+    } catch {
+      // Corrupt JSON in storage — drop it and fall back to defaults.
     }
-  } catch {
-    // ignore parse errors
   }
   return DEFAULT_PREFERENCES
 }
@@ -49,13 +50,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const updatePreferences = useCallback((updates: Partial<Preferences>) => {
     setPreferences((prev) => {
       const next = { ...prev, ...updates }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      // PAT-149: best-effort write — Safari Private (quota=0) used to throw
+      // here and unwind the setState callback, leaving in-memory state stale.
+      safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       return next
     })
   }, [])
 
   const resetPreferences = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
+    safeLocalStorage.removeItem(STORAGE_KEY)
     setPreferences(DEFAULT_PREFERENCES)
   }, [])
 

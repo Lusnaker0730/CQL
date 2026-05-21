@@ -8,6 +8,7 @@ import {
   MenuItem,
   ToggleButtonGroup,
   ToggleButton,
+  Alert,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { Add as AddIcon } from '@mui/icons-material'
@@ -181,6 +182,11 @@ export default function DefinitionsSection({
 
           {mode === 'template' ? (
             <>
+              {editingItem && (
+                <Alert severity="info" sx={{ py: 0, fontSize: '0.8rem' }}>
+                  {t('definitions.editWarning')}
+                </Alert>
+              )}
               <TextField
                 size="small"
                 label={t('definitions.name')}

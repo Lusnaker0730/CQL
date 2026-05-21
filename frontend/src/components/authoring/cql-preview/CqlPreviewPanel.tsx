@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import DOMPurify from 'dompurify'
 import { useTranslation } from 'react-i18next'
 import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
 import { WarningAmber as StaleIcon } from '@mui/icons-material'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from '../../common/MonacoEditor'
 import GradientButton from '../../common/GradientButton'
 import { useGenerateArtifactCql, useValidateArtifactCql, useFormatCql } from '../../../hooks/useArtifactCql'
 import { usePreferences } from '../../../hooks/usePreferences'
@@ -17,6 +17,13 @@ interface CqlPreviewPanelProps {
   onSaveBeforeGenerate?: () => Promise<void>
   isDirty?: boolean
 }
+
+// Module-scope guards: Monaco's setTheme is global so the previous unguarded
+// call repainted every editor on the page on every keystroke; cqlRegistered
+// belongs at module scope (not per-mount) since the language registration
+// is global to monaco.
+let cqlLanguageRegistered = false
+let lastAppliedTheme: string | null = null
 
 export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDirty }: CqlPreviewPanelProps) {
   const { t } = useTranslation('authoring')
@@ -36,19 +43,21 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   const isDark = preferences.themeMode === 'dark'
 
   // Register CQL language and colorize when cql or theme changes
-  const cqlRegistered = useRef(false)
   useEffect(() => {
     if (!cql || !monaco) {
       setColorizedHtml('')
       return
     }
     let cancelled = false
-    if (!cqlRegistered.current) {
+    if (!cqlLanguageRegistered) {
       registerCqlLanguage(monaco)
-      cqlRegistered.current = true
+      cqlLanguageRegistered = true
     }
     const themeName = isDark ? 'cql-theme-dark' : 'cql-theme'
-    monaco.editor.setTheme(themeName)
+    if (lastAppliedTheme !== themeName) {
+      monaco.editor.setTheme(themeName)
+      lastAppliedTheme = themeName
+    }
 
     monaco.editor.colorize(cql, 'cql', { tabSize: 2 }).then((html) => {
       if (!cancelled) setColorizedHtml(html)
@@ -82,32 +91,38 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
   }
 
   const handleGenerate = async () => {
+    if (generateMutation.isPending) return
     try { await saveFirst() } catch { return }
-    generateMutation.mutate(artifactId, {
-      onSuccess: (data) => {
-        setCql(data.cql)
-        setValidation(null)
-        setCqlIsStale(false)
-      },
-    })
+    try {
+      const data = await generateMutation.mutateAsync(artifactId)
+      setCql(data.cql)
+      setValidation(null)
+      setCqlIsStale(false)
+    } catch {
+      // mutation surface error via mutation.error UI
+    }
   }
 
   const handleValidate = async () => {
+    // Bail if either step is in flight — prevents duplicate validate→generate
+    // chains where last writer wins on setValidation/setCql, and avoids
+    // setting state on an unmounted component if the user navigates away.
+    if (validateMutation.isPending || generateMutation.isPending) return
     try { await saveFirst() } catch { return }
-    validateMutation.mutate(artifactId, {
-      onSuccess: (data) => {
-        setValidation(data)
-        if (!cql) {
-          generateMutation.mutate(artifactId, {
-            onSuccess: (genData) => setCql(genData.cql),
-          })
-        }
-      },
-    })
+    try {
+      const validateData = await validateMutation.mutateAsync(artifactId)
+      setValidation(validateData)
+      if (!cql) {
+        const genData = await generateMutation.mutateAsync(artifactId)
+        setCql(genData.cql)
+      }
+    } catch {
+      // mutation error surfaces via the validateMutation.error UI
+    }
   }
 
   const handleFormat = () => {
-    if (!cql) return
+    if (!cql || formatMutation.isPending) return
     formatMutation.mutate(cql, {
       onSuccess: (data) => setCql(data.cql),
     })

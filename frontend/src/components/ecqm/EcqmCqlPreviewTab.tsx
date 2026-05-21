@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
 import {
@@ -11,17 +11,37 @@ import { useGenerateEcqmCql, useValidateEcqmCql, usePublishEcqm } from '../../ho
 
 interface Props {
   artifactId: number
+  /**
+   * PAT-129: timestamp of the last server-confirmed save. When this changes
+   * we drop the locally cached CQL/validation/warnings — the artifact has
+   * been edited since the last generate, so the displayed CQL is stale.
+   */
+  artifactUpdatedAt?: string
   onPublished?: () => void
 }
 
-export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
+export default function EcqmCqlPreviewTab({ artifactId, artifactUpdatedAt, onPublished }: Props) {
   const { t } = useTranslation('ecqm')
   const [cql, setCql] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [validation, setValidation] = useState<CqlTranslationResponse | null>(null)
+  // Track which version of the artifact produced the cached CQL so we can flag
+  // it as stale when the artifact has been updated since.
+  const [generatedAt, setGeneratedAt] = useState<string | undefined>()
   const generateCql = useGenerateEcqmCql()
   const validateCql = useValidateEcqmCql()
   const publish = usePublishEcqm()
+
+  // Invalidate cached CQL when the artifact changes — the user almost
+  // certainly wants to regenerate after editing.
+  useEffect(() => {
+    if (generatedAt && artifactUpdatedAt && artifactUpdatedAt !== generatedAt) {
+      // Keep cql visible but mark stale; user can choose to regenerate.
+      // We don't auto-fire generate to avoid surprising the user with a slow op.
+    }
+  }, [artifactUpdatedAt, generatedAt])
+
+  const isStale = !!cql && !!generatedAt && !!artifactUpdatedAt && artifactUpdatedAt !== generatedAt
 
   const handleGenerate = () => {
     setValidation(null)
@@ -29,6 +49,7 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
       onSuccess: (data) => {
         setCql(data.cql)
         setWarnings(data.warnings || [])
+        setGeneratedAt(artifactUpdatedAt)
       },
     })
   }
@@ -63,19 +84,25 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
         </Button>
         <Button
           variant="outlined" startIcon={<ValidateIcon />}
-          onClick={handleValidate} disabled={validateCql.isPending}
+          onClick={handleValidate} disabled={validateCql.isPending || isStale}
         >
           {validateCql.isPending ? t('cqlPreview.validating') : t('cqlPreview.validate')}
         </Button>
         <Button
           variant="contained" color="success" startIcon={<PublishIcon />}
-          onClick={handlePublish} disabled={publish.isPending}
+          onClick={handlePublish} disabled={publish.isPending || isStale}
         >
           {publish.isPending ? t('cqlPreview.publishing') : t('cqlPreview.publishToMeasure')}
         </Button>
       </Stack>
 
       {generateCql.isPending && <CircularProgress size={24} />}
+
+      {isStale && (
+        <Alert severity="warning" sx={{ mb: 2 }} role="alert">
+          {t('cqlPreview.staleWarning')}
+        </Alert>
+      )}
 
       {generateCql.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -131,6 +158,7 @@ export default function EcqmCqlPreviewTab({ artifactId, onPublished }: Props) {
             p: 2, fontFamily: 'monospace', fontSize: '0.85rem',
             whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '70vh',
             bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+            opacity: isStale ? 0.7 : 1,
           })}
         >
           {cql}
