@@ -258,8 +258,31 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        authoring-cql)
+            # CDS authoring → CQL generation smoke (PAT-103 LibraryDefinitionPicker
+            # contract at integration level). Scenario POSTs an ArtifactRequest
+            # body that matches what the frontend picker produces, then calls
+            # the generate-CQL endpoint. Assertion is substring-based on the
+            # generated CQL so we lock both the include statement and the body
+            # reference without being brittle on unrelated whitespace/comments.
+            artifact_file="$scenario_dir/artifact.json"
+            if [ ! -f "$artifact_file" ]; then
+                echo "    ✗ missing $artifact_file" >&2
+                failed_scenarios+=("$name")
+                continue
+            fi
+            if ! response=$(bash "$SCRIPT_DIR/lib/generate-authoring-cql.sh" "$artifact_file"); then
+                failed_scenarios+=("$name"); continue
+            fi
+            if echo "$response" | bash "$SCRIPT_DIR/lib/assert-authoring-cql.sh" - "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql)" >&2
             failed_scenarios+=("$name")
             ;;
     esac
