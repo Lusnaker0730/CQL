@@ -354,6 +354,11 @@ export default function InvokeServicePanel() {
 
       {stringFields.map((field: CdsContextField) => (
         <TextField
+          // Explicit, predictable id makes the <label htmlFor=...> ↔ <input id=...>
+          // association resolvable by React Testing Library's getByLabelText in
+          // jsdom (MUI's auto-generated useId values aren't always traversable
+          // in the test environment).
+          id={`cds-context-${field.name}`}
           key={field.name}
           label={t(`sandbox.${field.name}Label`, { defaultValue: field.name })}
           placeholder={t(`sandbox.${field.name}Placeholder`, { defaultValue: '' })}

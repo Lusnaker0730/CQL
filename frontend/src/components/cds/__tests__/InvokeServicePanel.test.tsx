@@ -93,26 +93,25 @@ async function selectServiceAndInvoke() {
   const item = await screen.findByText(/Test Service/)
   fireEvent.click(item)
 
-  // Provide required context fields (patient-view requires userId + patientId).
-  // Wait for the conditional fields to render after selectedHook propagates.
-  // Conditional context-field render: stringFields renders after selectedHook
-  // propagates from the Select onChange.
-  const userInput = await screen.findByLabelText('sandbox.userIdLabel')
+  // Conditional context fields render only after selectedHook propagates. The
+  // SUT gives the TextFields explicit ids (`cds-context-userId` /
+  // `cds-context-patientId`) so we query them directly by id — RTL's
+  // getByLabelText can't always follow MUI's auto-generated useId association
+  // in jsdom.
+  const userInput = (await screen.findByLabelText('sandbox.userIdLabel'))
+    ?? document.getElementById('cds-context-userId') as HTMLInputElement
   fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
-  fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
-    target: { value: 'Patient/1' },
-  })
+  const patientInput = screen.queryByLabelText('sandbox.patientIdLabel')
+    ?? document.getElementById('cds-context-patientId') as HTMLInputElement
+  fireEvent.change(patientInput, { target: { value: 'Patient/1' } })
 
   fireEvent.click(screen.getByRole('button', { name: 'invoke.invokeButton' }))
 }
 
-// Skipped pending #548 — MUI v6 Select + jsdom interaction. The P0
-// critical-card feedback fix (the real production change in
-// InvokeServicePanel.tsx) is shipped and verified by code review; the
-// supplementary tests below need a different selector strategy or a
-// userEvent-based interaction to reliably exercise MUI v6's portal-based
-// Select dropdown under jsdom.
-describe.skip('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
+// #548 fix: SUT now stamps explicit ids on the conditional context-field
+// TextFields so RTL's getByLabelText can resolve the label association
+// reliably in jsdom (MUI's auto-generated useId values weren't traversable).
+describe('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
   beforeEach(() => {
     invokeMock.mockReset()
     feedbackMock.mockReset()
