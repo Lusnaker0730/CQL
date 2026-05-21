@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useDispatch } from 'react-redux'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { setCqlContent } from '../../store/editorSlice'
+import type { RootState } from '../../store'
 
 import {
   Box,
@@ -29,12 +30,12 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
-import {
-  Info as InfoIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import InfoIcon from '@mui/icons-material/Info'
+import WarningIcon from '@mui/icons-material/Warning'
+import ErrorIcon from '@mui/icons-material/Error'
+import CheckIcon from '@mui/icons-material/CheckCircle'
 import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { alpha } from '@mui/material/styles'
@@ -62,6 +63,19 @@ import {
 } from '../../constants/cdsHooks'
 import type { CdsContextField } from '../../constants/cdsHooks'
 
+// CDS Cards links may come from third-party services. Reject anything that
+// isn't an absolute http(s) URL — defends against `javascript:` / `data:` /
+// relative-protocol injections from a hostile service definition.
+function isSafeHttpUrl(raw: string | undefined): boolean {
+  if (!raw) return false
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function getIndicatorIcon(indicator: string) {
   switch (indicator) {
     case 'critical':
@@ -78,6 +92,7 @@ export default function InvokeServicePanel() {
   const { data: servicesData, isLoading: loadingServices, isError: servicesError } = useCdsServices()
   const { data: serviceConfigs } = useCdsServiceConfigs()
   const dispatch = useDispatch()
+  const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const invokeMutation = useInvokeCdsService()
   const feedbackMutation = useSubmitCdsFeedback()
   const { t } = useTranslation('cds')
@@ -100,6 +115,19 @@ export default function InvokeServicePanel() {
   const [currentCritical, setCurrentCritical] = useState<CdsCard | null>(null)
   const [normalCards, setNormalCards] = useState<CdsCard[]>([])
 
+  // Guards post-await setState calls when the user navigates away mid-flight.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  // Tracks the CQL we last auto-loaded into the editor so we don't silently
+  // overwrite user edits when they switch the service dropdown.
+  const lastAutoLoadedCqlRef = useRef<string>('')
+
   const services = useMemo(
     () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
     [servicesData?.services]
@@ -113,13 +141,26 @@ export default function InvokeServicePanel() {
 
   const stringFields = useMemo(() => getStringContextFields(selectedHook), [selectedHook])
 
+  // Auto-load the selected service's CQL into the editor, but only when the
+  // editor is "clean" — empty, or still showing whatever we last auto-loaded.
+  // This prevents silently discarding user edits when they switch services.
   useEffect(() => {
-    if (selectedService && serviceConfigs) {
-      const config = serviceConfigs.find((s) => s.id === selectedService)
-      if (config && config.cqlContent) {
-        dispatch(setCqlContent(config.cqlContent))
-      }
+    if (!selectedService || !serviceConfigs) return
+    const config = serviceConfigs.find((s) => s.id === selectedService)
+    if (!config?.cqlContent) return
+    const editorIsClean =
+      !cqlContent.trim() ||
+      cqlContent === lastAutoLoadedCqlRef.current ||
+      cqlContent === config.cqlContent
+    if (editorIsClean) {
+      dispatch(setCqlContent(config.cqlContent))
+      lastAutoLoadedCqlRef.current = config.cqlContent
+    } else {
+      showNotification(t('invoke.editorPreservedNotice'), 'info')
     }
+    // cqlContent intentionally excluded — re-running on every keystroke would
+    // either no-op or fight the user's typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedService, serviceConfigs, dispatch])
 
   const handleInvoke = async () => {
@@ -127,6 +168,10 @@ export default function InvokeServicePanel() {
 
     const service = services.find((s) => s.id === selectedService)
     if (!service) return
+
+    // Clear any previous response so the user sees a fresh loading state
+    // rather than stale cards lingering during the await.
+    setCdsResponse(null)
 
     try {
       // Build context from dynamic string fields
@@ -147,6 +192,7 @@ export default function InvokeServicePanel() {
           debugMode,
         },
       })
+      if (!isMountedRef.current) return
       setCdsResponse(response)
 
       // Partition cards: critical vs normal
@@ -167,11 +213,12 @@ export default function InvokeServicePanel() {
         setCriticalQueue([])
       }
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('invoke.invokeFailed', { error: extractApiError(error) }), 'error')
     }
   }
 
-  const handleAcceptCritical = () => {
+  const advanceCriticalQueue = () => {
     if (criticalQueue.length > 0) {
       setCurrentCritical(criticalQueue[0])
       setCriticalQueue(criticalQueue.slice(1))
@@ -180,13 +227,49 @@ export default function InvokeServicePanel() {
     }
   }
 
-  const handleOverrideCritical = (_reason: string) => {
-    if (criticalQueue.length > 0) {
-      setCurrentCritical(criticalQueue[0])
-      setCriticalQueue(criticalQueue.slice(1))
-    } else {
-      setCurrentCritical(null)
+  // Critical-card flows must record feedback just like normal cards. Without
+  // this, the highest-severity decisions are missing from analytics.
+  const submitCriticalFeedback = async (
+    cardUuid: string,
+    outcome: typeof FEEDBACK_ACCEPTED | typeof FEEDBACK_OVERRIDDEN,
+    reason?: string,
+  ) => {
+    if (!selectedService) return
+    try {
+      await feedbackMutation.mutateAsync({
+        serviceId: selectedService,
+        feedback: {
+          feedback: [
+            outcome === FEEDBACK_ACCEPTED
+              ? { card: cardUuid, outcome: FEEDBACK_ACCEPTED }
+              : {
+                  card: cardUuid,
+                  outcome: FEEDBACK_OVERRIDDEN,
+                  overrideReason: {
+                    code: FEEDBACK_OVERRIDE_CODE,
+                    display: reason?.trim() || FEEDBACK_OVERRIDE_DEFAULT_DISPLAY,
+                  },
+                },
+          ],
+        },
+      })
+    } catch {
+      // Surface as a non-blocking warning; the queue still advances so the
+      // clinician isn't trapped by a transient feedback-endpoint failure.
+      showNotification(t('invoke.criticalFeedbackFailed'), 'warning')
     }
+  }
+
+  const handleAcceptCritical = async () => {
+    const cardUuid = currentCritical?.uuid
+    if (cardUuid) await submitCriticalFeedback(cardUuid, FEEDBACK_ACCEPTED)
+    advanceCriticalQueue()
+  }
+
+  const handleOverrideCritical = async (reason: string) => {
+    const cardUuid = currentCritical?.uuid
+    if (cardUuid) await submitCriticalFeedback(cardUuid, FEEDBACK_OVERRIDDEN, reason)
+    advanceCriticalQueue()
   }
 
   const handleAccept = async (cardUuid: string) => {
@@ -233,8 +316,12 @@ export default function InvokeServicePanel() {
   return (
     <Stack spacing={2}>
       <FormControl fullWidth size="small">
-        <InputLabel>{t('invoke.serviceLabel')}</InputLabel>
-        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
+        {/* Explicit id/labelId so React Testing Library's getByLabelText can
+            resolve the Select via its associated InputLabel. MUI's auto-
+            generated ids work in production but jsdom tests can't follow
+            them reliably. */}
+        <InputLabel id="invoke-service-label">{t('invoke.serviceLabel')}</InputLabel>
+        <Select labelId="invoke-service-label" value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
           {services.map((service: CdsServiceDefinition) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
@@ -243,17 +330,17 @@ export default function InvokeServicePanel() {
         </Select>
       </FormControl>
 
-      {selectedService && (
-        <Box>
-          {services
-            .filter((s) => s.id === selectedService)
-            .map((service) => (
-              <Typography key={service.id} variant="body2" color="text.secondary">
-                {service.description}
-              </Typography>
-            ))}
-        </Box>
-      )}
+      {selectedService && (() => {
+        const service = services.find((s) => s.id === selectedService)
+        if (!service) return null
+        return (
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              {service.description}
+            </Typography>
+          </Box>
+        )
+      })()}
 
       <FhirServerUrlField
         value={fhirServer}
@@ -399,7 +486,7 @@ export default function InvokeServicePanel() {
                             key={`${link.label}-${i}`}
                             variant="outlined"
                             size="small"
-                            href={link.url && (link.url.startsWith('https://') || link.url.startsWith('http://')) ? link.url : '#'}
+                            href={isSafeHttpUrl(link.url) ? link.url : '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             sx={(theme) => ({

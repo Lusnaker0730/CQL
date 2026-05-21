@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation, Trans } from 'react-i18next'
 import { alpha } from '@mui/material/styles'
@@ -30,16 +30,16 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  History as HistoryIcon,
-  Code as CodeIcon,
-  Save as SaveIcon,
-  Share as ShareIcon,
-  LibraryBooks as LibraryBooksIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import HistoryIcon from '@mui/icons-material/History'
+import CodeIcon from '@mui/icons-material/Code'
+import SaveIcon from '@mui/icons-material/Save'
+import ShareIcon from '@mui/icons-material/Share'
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks'
 import {
   useCdsServiceConfigs,
   useCreateCdsService,
@@ -87,6 +87,20 @@ export default function ManageServicesPanel() {
 
   const currentUsername = useMemo(() => getStoredUsername(), [])
 
+  // Guards post-await setState calls when the user navigates away mid-flight.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  // Tracks the CQL we last loaded into the editor so handleSelectService can
+  // tell whether the user has untouched-since-load content (safe to overwrite)
+  // or in-progress edits (should warn).
+  const lastLoadedCqlRef = useRef<string>('')
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<CdsServiceConfigResponse | null>(null)
   const [activeServiceId, setActiveServiceId] = useState<string | null>(null)
@@ -124,6 +138,8 @@ export default function ManageServicesPanel() {
   const handleClose = () => {
     setDialogOpen(false)
     setEditingService(null)
+    setFormData(DEFAULT_FORM_DATA)
+    setFormErrors({})
   }
 
   const handleSave = async () => {
@@ -144,8 +160,10 @@ export default function ManageServicesPanel() {
       } else {
         await createMutation.mutateAsync(formData)
       }
+      if (!isMountedRef.current) return
       handleClose()
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('manage.saveFailed', { error: extractApiError(error) }), 'error')
     }
   }
@@ -153,8 +171,10 @@ export default function ManageServicesPanel() {
   const handleDelete = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id)
+      if (!isMountedRef.current) return
       setPendingDeleteId(null)
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('manage.deleteFailed', { error: extractApiError(error) }), 'error')
     }
   }
@@ -167,8 +187,10 @@ export default function ManageServicesPanel() {
   const handleRollback = async (serviceName: string, version: number) => {
     try {
       await rollbackMutation.mutateAsync({ serviceName, version })
+      if (!isMountedRef.current) return
       setVersionsDialogOpen(false)
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('manage.rollbackFailed', { error: extractApiError(error) }), 'error')
     }
   }
@@ -178,10 +200,20 @@ export default function ManageServicesPanel() {
       setActiveServiceId(null)
       return
     }
-    setActiveServiceId(service.id)
     if (service.cqlContent) {
+      // Warn before clobbering edits the user hasn't pushed back to a service.
+      const hasUnsavedEdits =
+        cqlContent.trim() !== '' &&
+        cqlContent !== service.cqlContent &&
+        cqlContent !== lastLoadedCqlRef.current
+      if (hasUnsavedEdits) {
+        const proceed = window.confirm(t('manage.switchServiceConfirm'))
+        if (!proceed) return
+      }
       dispatch(setCqlContent(service.cqlContent))
+      lastLoadedCqlRef.current = service.cqlContent
     }
+    setActiveServiceId(service.id)
   }
 
   const handleSaveCqlToService = async () => {
@@ -203,8 +235,14 @@ export default function ManageServicesPanel() {
           enabled: service.enabled,
         },
       })
+      if (!isMountedRef.current) return
+      // Once the user has pushed edits back to the service, what's in the
+      // editor is no longer "unsaved" — update the baseline so the next
+      // service switch doesn't trigger a false-positive confirm dialog.
+      lastLoadedCqlRef.current = cqlContent
       showNotification(t('manage.cqlSavedToService'), 'success')
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('manage.cqlSaveFailed', { error: extractApiError(error) }), 'error')
     }
   }

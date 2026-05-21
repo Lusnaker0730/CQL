@@ -16,14 +16,14 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import {
-  KeyboardArrowDown as ExpandIcon,
-  KeyboardArrowUp as CollapseIcon,
-  BugReport as DebugIcon,
-  CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
-  RadioButtonUnchecked as EmptyIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import ExpandIcon from '@mui/icons-material/KeyboardArrowDown'
+import CollapseIcon from '@mui/icons-material/KeyboardArrowUp'
+import DebugIcon from '@mui/icons-material/BugReport'
+import SuccessIcon from '@mui/icons-material/CheckCircle'
+import ErrorIcon from '@mui/icons-material/Error'
+import EmptyIcon from '@mui/icons-material/RadioButtonUnchecked'
 import { useTranslation } from 'react-i18next'
 import type { CdsDebugInfo, PrefetchStatus, FhirServerDiagnostics } from '../../types'
 import ExpressionTraceTable from '../debug/ExpressionTraceTable'

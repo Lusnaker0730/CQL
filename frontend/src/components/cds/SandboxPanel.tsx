@@ -32,14 +32,14 @@ import {
   Tooltip,
   Switch,
 } from '@mui/material'
-import {
-  ViewModule as BuilderIcon,
-  Code as JsonIcon,
-  FolderOpen as LoadIcon,
-  Save as SaveIcon,
-  RestartAlt as ResetIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import BuilderIcon from '@mui/icons-material/ViewModule'
+import JsonIcon from '@mui/icons-material/Code'
+import LoadIcon from '@mui/icons-material/FolderOpen'
+import SaveIcon from '@mui/icons-material/Save'
+import ResetIcon from '@mui/icons-material/RestartAlt'
+import DeleteIcon from '@mui/icons-material/Delete'
 import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import {
@@ -69,7 +69,17 @@ import { generateId, getStoredUsername } from '../../utils/validation'
 import { getIndicatorColor, getStringContextFields, getObjectContextFields } from '../../constants/cdsHooks'
 import type { CdsContextField } from '../../constants/cdsHooks'
 
-const LOCALSTORAGE_KEY = 'cds-sandbox-draft'
+const LOCALSTORAGE_KEY_BASE = 'cds-sandbox-draft'
+const LEGACY_LOCALSTORAGE_KEY = 'cds-sandbox-draft'
+
+// Per-user key so a shared workstation can't leak draft prefetch (which may
+// contain test patient data) between users. Falls back to the bare key for
+// anonymous sessions.
+function getDraftStorageKey(username: string): string {
+  return username && username !== 'anonymous'
+    ? `${LOCALSTORAGE_KEY_BASE}:${username}`
+    : LOCALSTORAGE_KEY_BASE
+}
 
 interface DraftData {
   contextFields?: Record<string, string>
@@ -77,14 +87,18 @@ interface DraftData {
   testDataJson: string
 }
 
-function loadDraft(): DraftData | null {
-  try {
-    const raw = localStorage.getItem(LOCALSTORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (parsed.testDataJson) return parsed
-  } catch {
-    // ignore
+function loadDraft(key: string): DraftData | null {
+  // Try the per-user key first, then the legacy un-scoped key once so the
+  // user's existing draft isn't lost on first migration.
+  for (const tryKey of [key, LEGACY_LOCALSTORAGE_KEY]) {
+    try {
+      const raw = localStorage.getItem(tryKey)
+      if (!raw) continue
+      const parsed = JSON.parse(raw)
+      if (parsed.testDataJson) return parsed
+    } catch {
+      // ignore
+    }
   }
   return null
 }
@@ -139,8 +153,10 @@ function SandboxPanelInner() {
   const updatePresetMutation = useUpdateSandboxPreset()
   const deletePresetMutation = useDeleteSandboxPreset()
 
-  // Phase 1: localStorage draft restore
-  const draft = useMemo(() => loadDraft(), [])
+  // Per-user localStorage scope (cds-sandbox-draft:<username>). Computed once
+  // per mount; if username changes (rare — only on logout/login) we'll reload.
+  const draftStorageKey = useMemo(() => getDraftStorageKey(getStoredUsername()), [])
+  const draft = useMemo(() => loadDraft(draftStorageKey), [draftStorageKey])
   const defaultJson = JSON.stringify(DEFAULT_PREFETCH, null, 2)
 
   // Migrate old draft format: { patientId } → { contextFields: { patientId } }
@@ -171,8 +187,22 @@ function SandboxPanelInner() {
   const [presetDescription, setPresetDescription] = useState('')
   const [presetShared, setPresetShared] = useState(false)
 
-  const syncingRef = useRef(false)
+  // Source-tag for the bidirectional Builder ↔ JSON sync. The previous
+  // `syncingRef` flag was set true and back to false synchronously inside the
+  // same effect body, so the *opposite* effect never saw `true` (effects fire
+  // after render). Tagging the source of the latest mutation and clearing it
+  // only after the mirror effect runs avoids the ping-pong.
+  const lastSyncSourceRef = useRef<'builder' | 'json' | null>(null)
   const initializedRef = useRef(false)
+
+  // Guards post-await setState calls when the user navigates away mid-flight.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   // Phase 1: localStorage debounced save
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -181,7 +211,7 @@ function SandboxPanelInner() {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     draftTimerRef.current = setTimeout(() => {
       try {
-        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({ contextFields, testDataJson }))
+        localStorage.setItem(draftStorageKey, JSON.stringify({ contextFields, testDataJson }))
       } catch {
         // storage full or unavailable
       }
@@ -189,7 +219,7 @@ function SandboxPanelInner() {
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     }
-  }, [contextFields, testDataJson])
+  }, [contextFields, testDataJson, draftStorageKey])
 
   const services = useMemo(
     () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
@@ -228,11 +258,17 @@ function SandboxPanelInner() {
     }
   }, [dispatch, testDataJson])
 
-  // Sync: Visual Builder -> JSON (prefetch)
+  // Sync: Visual Builder -> JSON (prefetch). Skip when the *latest* mutation
+  // was a JSON edit feeding the builder — otherwise we'd echo the same data
+  // back as JSON and the user's freshly typed JSON gets stomped by the
+  // builder's serialization.
   useEffect(() => {
-    if (syncingRef.current) return
+    if (lastSyncSourceRef.current === 'json') {
+      lastSyncSourceRef.current = null
+      return
+    }
     if (state.entries.length > 0) {
-      syncingRef.current = true
+      lastSyncSourceRef.current = 'builder'
       const bundleJson = serializeToBundle(state.entries)
       try {
         const prefetch = bundleToPrefetch(bundleJson)
@@ -240,7 +276,6 @@ function SandboxPanelInner() {
       } catch {
         // ignore conversion errors
       }
-      syncingRef.current = false
     }
   }, [state.entries])
 
@@ -259,15 +294,15 @@ function SandboxPanelInner() {
       setTestDataJson(val)
       if (jsonSyncTimerRef.current) clearTimeout(jsonSyncTimerRef.current)
       jsonSyncTimerRef.current = setTimeout(() => {
-        if (syncingRef.current) return
         try {
           const prefetch = JSON.parse(val)
           const bundleJson = prefetchToBundle(prefetch)
           const entries = parseFromBundle(bundleJson)
           if (entries.length > 0) {
-            syncingRef.current = true
+            // Tag this dispatch as JSON-originated so the builder→JSON effect
+            // skips its mirror update and doesn't replace the user's typed JSON.
+            lastSyncSourceRef.current = 'json'
             dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
-            syncingRef.current = false
           }
         } catch {
           // Invalid JSON -- don't sync
@@ -284,9 +319,9 @@ function SandboxPanelInner() {
         const bundleJson = prefetchToBundle(prefetch)
         const entries = parseFromBundle(bundleJson)
         if (entries.length > 0) {
-          syncingRef.current = true
+          // Tag as 'json' so the mirror-back effect skips one cycle.
+          lastSyncSourceRef.current = 'json'
           dispatch({ type: 'LOAD_FROM_JSON', payload: entries })
-          syncingRef.current = false
         }
       } catch {
         // ignore
@@ -312,8 +347,13 @@ function SandboxPanelInner() {
     setContextFields({ patientId: DEFAULT_PATIENT_ID })
     setActivePreset(null)
     loadPrefetchIntoBuilder(defaultJson)
-    localStorage.removeItem(LOCALSTORAGE_KEY)
-  }, [defaultJson, loadPrefetchIntoBuilder])
+    localStorage.removeItem(draftStorageKey)
+    // Clean up legacy un-scoped key on first reset post-migration so we don't
+    // keep restoring it on subsequent mounts.
+    if (draftStorageKey !== LEGACY_LOCALSTORAGE_KEY) {
+      localStorage.removeItem(LEGACY_LOCALSTORAGE_KEY)
+    }
+  }, [defaultJson, loadPrefetchIntoBuilder, draftStorageKey])
 
   const handleOpenSaveDialog = useCallback(() => {
     if (activePreset) {
@@ -340,14 +380,17 @@ function SandboxPanelInner() {
     try {
       if (activePreset) {
         const updated = await updatePresetMutation.mutateAsync({ id: activePreset.id, request })
+        if (!isMountedRef.current) return
         setActivePreset(updated)
       } else {
         const created = await createPresetMutation.mutateAsync(request)
+        if (!isMountedRef.current) return
         setActivePreset(created)
       }
       showNotification(t('sandbox.presets.saveSuccess'), 'success')
       setSaveDialogOpen(false)
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('sandbox.presets.saveFailed', { error: extractApiError(error) }), 'error')
     }
   }, [
@@ -369,9 +412,11 @@ function SandboxPanelInner() {
       e.stopPropagation()
       try {
         await deletePresetMutation.mutateAsync(id)
+        if (!isMountedRef.current) return
         if (activePreset?.id === id) setActivePreset(null)
         showNotification(t('sandbox.presets.deleteSuccess'), 'success')
       } catch (error) {
+        if (!isMountedRef.current) return
         showNotification(t('sandbox.presets.deleteFailed', { error: extractApiError(error) }), 'error')
       }
     },
@@ -430,6 +475,7 @@ function SandboxPanelInner() {
           dryRun,
         },
       })
+      if (!isMountedRef.current) return
       setSandboxResponse(response)
 
       // Partition cards: critical vs normal
@@ -450,6 +496,7 @@ function SandboxPanelInner() {
         setCriticalQueue([])
       }
     } catch (error) {
+      if (!isMountedRef.current) return
       showNotification(t('sandbox.invokeFailed', { error: extractApiError(error) }), 'error')
     }
   }
