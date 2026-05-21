@@ -13,10 +13,11 @@ import {
   Stack,
   InputAdornment,
 } from '@mui/material'
-import {
-  ExpandMore as ExpandMoreIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the Proxy-based mock
+// pattern that previously worked).
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import SearchIcon from '@mui/icons-material/Search'
 import { useTranslation } from 'react-i18next'
 import type { CodingItem } from '../../config/twcore/types'
 

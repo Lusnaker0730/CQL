@@ -3,13 +3,8 @@ import { render, fireEvent } from '@testing-library/react'
 import { useState } from 'react'
 import ResourceSelector from '../ResourceSelector'
 
-vi.mock('@mui/icons-material', () => {
-  const Stub = () => null
-  return new Proxy(
-    { default: Stub },
-    { get: (_t, prop) => (prop === '__esModule' ? true : Stub) },
-  )
-})
+// PR #501 / PAT-161 pattern: SUT uses sub-path icon imports; no barrel mock
+// is needed (and the Proxy version no longer works under vitest 4).
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
