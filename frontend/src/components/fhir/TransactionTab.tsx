@@ -19,7 +19,6 @@ import Editor, { type OnMount } from '../common/MonacoEditor'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
-import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 import { formatJson } from '../../utils/fhirBrowserUtils'
 
@@ -111,7 +110,7 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
 
       {executeMutation.isError && (
         <Alert severity="error">
-          {t('transaction.transactionFailed', { error: extractApiError(executeMutation.error) })}
+          {t('transaction.transactionFailed', { error: (executeMutation.error as Error).message })}
         </Alert>
       )}
 

@@ -150,8 +150,7 @@ function ProfilesTab() {
     try {
       const json = await fhirApi.getProfile(profile.url)
       setDetail({ open: true, title: profile.title || profile.name, json: JSON.stringify(json, null, 2) })
-    } catch (err) {
-      console.error('IG profile load failed:', profile.url, err)
+    } catch {
       setDetail({ open: true, title: t('ig.loadError'), json: t('ig.loadProfileFailed') })
     }
     setLoadingDetail(false)
@@ -263,8 +262,7 @@ function ValueSetsTab() {
     try {
       const json = await fhirApi.getIgValueSet(vs.url)
       setDetail({ open: true, title: vs.title || vs.name, json: JSON.stringify(json, null, 2) })
-    } catch (err) {
-      console.error('IG ValueSet load failed:', vs.url, err)
+    } catch {
       setDetail({ open: true, title: t('ig.loadError'), json: t('ig.loadValueSetFailed') })
     }
     setLoadingDetail(false)
@@ -378,8 +376,7 @@ function CodeSystemsTab() {
     try {
       const json = await fhirApi.getIgCodeSystem(cs.url)
       setDetail({ open: true, title: cs.title || cs.name, json: JSON.stringify(json, null, 2) })
-    } catch (err) {
-      console.error('IG CodeSystem load failed:', cs.url, err)
+    } catch {
       setDetail({ open: true, title: t('ig.loadError'), json: t('ig.loadCodeSystemFailed') })
     }
     setLoadingDetail(false)

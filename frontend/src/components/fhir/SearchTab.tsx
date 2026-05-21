@@ -15,17 +15,15 @@ import {
   Button,
   Box,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  NavigateBefore as PrevIcon,
-  NavigateNext as NextIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501 — see ResourceEditorDialog for why.
+import SearchIcon from '@mui/icons-material/Search'
+import AddIcon from '@mui/icons-material/Add'
+import PrevIcon from '@mui/icons-material/NavigateBefore'
+import NextIcon from '@mui/icons-material/NavigateNext'
 import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
-import { extractApiError } from '../../utils/errorUtils'
 import {
   getResourceCount,
   getDisplayFields,
@@ -79,16 +77,10 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
       const p = params?.raw ?? searchParams
       return fhirApi.search(rt, p, fhirServer)
     },
-    // Read the actual params we searched with from `variables` rather than
-    // closure-captured React state — `setSearchParams` from history-replay
-    // hasn't necessarily committed yet when this fires, so reading state
-    // would record the *previous* search and history would drift.
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       setSearchResult(data as FhirBundle)
       setCurrentPage(0)
-      const recordedType = variables?.type || resourceType
-      const recordedParams = variables?.raw ?? searchParams
-      addEntry(recordedType, recordedParams, fhirServer)
+      addEntry(resourceType, searchParams, fhirServer)
     },
   })
 
@@ -176,7 +168,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
 
       {searchMutation.isError && (
         <Alert severity="error">
-          {t('search.searchFailed', { error: extractApiError(searchMutation.error) })}
+          {t('search.searchFailed', { error: (searchMutation.error as Error).message })}
         </Alert>
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Stack,
   TextField,
@@ -13,7 +13,9 @@ import {
   Typography,
   Box,
 } from '@mui/material'
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501 — see ResourceEditorDialog for why.
+import DeleteIcon from '@mui/icons-material/Delete'
+import AddIcon from '@mui/icons-material/Add'
 import { useTranslation } from 'react-i18next'
 import { RESOURCE_SEARCH_PARAMS } from '../../utils/fhirBrowserUtils'
 
@@ -61,19 +63,18 @@ export default function SearchParamBuilder({
     { name: '_id', type: 'token', label: 'ID' },
   ]
 
-  // Re-parse when the parent prop `value` changes externally — e.g. a
-  // history-replay calls `setSearchParams(entry.params)` on the parent and
-  // the structured rows must reflect the new params. To avoid feedback with
-  // the local onChange path, skip when the incoming value already matches
-  // the serialized local state.
+  // Track mode and value in refs so the resourceType-change effect can read
+  // current values without re-running when they change independently
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const valueRef = useRef(value)
+  valueRef.current = value
+
   useEffect(() => {
-    if (mode !== 'structured') return
-    if (serializeParams(params) === value) return
-    setParams(parseParamsString(value))
-    // `params` is intentionally excluded — including it creates the very
-    // loop we're avoiding (every setParams triggers re-run).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, mode])
+    if (modeRef.current === 'structured') {
+      setParams(parseParamsString(valueRef.current))
+    }
+  }, [resourceType])
 
   const handleModeChange = (_: unknown, newMode: 'structured' | 'raw' | null) => {
     if (!newMode) return

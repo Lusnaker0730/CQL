@@ -25,7 +25,6 @@ import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
-import { extractApiError } from '../../utils/errorUtils'
 
 export default function TerminologyTab() {
   const { t } = useTranslation('fhir')
@@ -98,7 +97,7 @@ export default function TerminologyTab() {
             </GradientButton>
             {expandMutation.isError && (
               <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
-                {extractApiError(expandMutation.error)}
+                {(expandMutation.error as Error).message}
               </Alert>
             )}
             {expandCodes.length > 0 && (
@@ -160,7 +159,7 @@ export default function TerminologyTab() {
             </GradientButton>
             {lookupMutation.isError && (
               <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
-                {extractApiError(lookupMutation.error)}
+                {(lookupMutation.error as Error).message}
               </Alert>
             )}
             {lookupData && (
@@ -223,7 +222,7 @@ export default function TerminologyTab() {
             </GradientButton>
             {searchMutation.isError && (
               <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
-                {extractApiError(searchMutation.error)}
+                {(searchMutation.error as Error).message}
               </Alert>
             )}
             {searchResults.length > 0 && (

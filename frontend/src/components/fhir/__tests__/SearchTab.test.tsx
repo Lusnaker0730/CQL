@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
 
-vi.mock('@mui/icons-material', () => {
-  const Stub = () => null
-  return new Proxy(
-    { default: Stub },
-    { get: (_t, prop) => (prop === '__esModule' ? true : Stub) },
-  )
-})
+// PR #501 / PAT-161 pattern: SUT uses sub-path icon imports; no barrel mock
+// is needed (and the Proxy version no longer works under vitest 4).
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({

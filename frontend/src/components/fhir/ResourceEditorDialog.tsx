@@ -18,10 +18,11 @@ import {
   Stack,
   useTheme,
 } from '@mui/material'
-import {
-  Save as SaveIcon,
-  CheckCircle as ValidateIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the Proxy-based mock
+// pattern that previously worked).
+import SaveIcon from '@mui/icons-material/Save'
+import ValidateIcon from '@mui/icons-material/CheckCircle'
 import { useTranslation } from 'react-i18next'
 import Editor, { type OnMount } from '../common/MonacoEditor'
 import type * as Monaco from 'monaco-editor'
@@ -131,13 +132,7 @@ export default function ResourceEditorDialog({
           )}
 
           <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
-            {/* MUI Dialog keeps children mounted across open/close, so Monaco's
-                `defaultValue` (only honoured on first mount) becomes stale when
-                the same dialog is reused for a different resource. Forcing
-                remount via key={mode-resourceType-resourceId} resets the editor
-                cleanly each time it's opened with new initial JSON. */}
             <Editor
-              key={`${mode}-${resourceType}-${resourceId ?? 'new'}`}
               height="400px"
               language="json"
               theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}

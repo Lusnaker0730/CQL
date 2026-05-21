@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'
-import { extractApiError } from '../../utils/errorUtils'
 import ResourceDetailDialog from './ResourceDetailDialog'
 
 interface ReadTabProps {
@@ -67,7 +66,7 @@ export default function ReadTab({ fhirServer, resourceType }: ReadTabProps) {
 
       {readMutation.isError && (
         <Alert severity="error">
-          {t('read.readFailed', { error: extractApiError(readMutation.error) })}
+          {t('read.readFailed', { error: (readMutation.error as Error).message })}
         </Alert>
       )}
 

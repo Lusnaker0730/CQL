@@ -1,13 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '../../../test/test-utils'
 
-vi.mock('@mui/icons-material', () => {
-  const Stub = () => null
-  return new Proxy(
-    { default: Stub },
-    { get: (_t, prop) => (prop === '__esModule' ? true : Stub) },
-  )
-})
+// PR #501 / PAT-161 pattern: SUT components use sub-path icon imports
+// (`@mui/icons-material/Save` etc.), so no barrel mock is needed. The old
+// Proxy-based mock broke under vitest 4 with the cryptic "Cannot create
+// proxy with a non-object as target or handler" error.
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
