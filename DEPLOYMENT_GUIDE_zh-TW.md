@@ -43,7 +43,7 @@
 | 服務 | 技術 | 用途 |
 |------|------|------|
 | **Frontend** | React + TypeScript + Nginx | SPA 前端，透過 Nginx 反向代理 API |
-| **Backend** | Spring Boot 3.2 + Java 21 | REST API、CQL 引擎、CDS Hooks |
+| **Backend** | Spring Boot 4.0 + Java 21 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
 | **PostgreSQL** | PostgreSQL 16 Alpine | 使用者、CQL 程式庫、指標定義等資料儲存 |
 | **HAPI FHIR** | HAPI FHIR Server (R4) | FHIR 資料儲存與術語服務 |
 | **Ollama** | Ollama + qwen2.5-coder:7b | 本地 GPU AI — CQL 錯誤修正建議（選用） |
@@ -160,6 +160,7 @@ docker compose up -d --build
 | `SMART_ISSUER` | SMART on FHIR issuer URL | — |
 | `SMART_AUTH_ENDPOINT` | SMART 授權端點 | — |
 | `SMART_TOKEN_ENDPOINT` | SMART Token 端點 | — |
+| `AUTH_SELF_REGISTRATION_ENABLED` | 是否開放 `POST /api/auth/register` 自助註冊（PAT-157）。預設 `false` —— 醫療 / TFDA 受規範部署慣例要求由 admin 統一配發帳號（IEC 62304 access control）。設為 `true` 才會真的建立帳號；否則無論成功失敗都回傳統一的「待審核」訊息（同時也是「使用者名稱已被佔用」的回應 —— 避免 CWE-200 使用者列舉）。**VM-specific 部署建議透過 `docker-compose.override.yml` 設定**，避免污染 tracked 的 `docker-compose.yml`。 | `false` |
 
 ### 4.4 AI 相關（詳見第 5 節）
 
@@ -312,11 +313,13 @@ AI_CLOUD_TIMEOUT=60
 
 ## 6. 各服務詳細說明
 
-### 6.1 Backend（Spring Boot）
+### 6.1 Backend（Spring Boot 4.0）
 
 **映像建置**：多階段 Docker Build
 - 建置階段：`maven:3.9-eclipse-temurin-21`
 - 執行階段：`eclipse-temurin:21-jre-alpine`（非 root 使用者 `appuser`）
+
+**主要相依版本**：Spring Boot 4.0.6 / HAPI FHIR 8.8.1 / Spring Security 6.5.9 / Jackson 3.1.1 / Tomcat 10.1.54 / CQL Framework 4.5.0
 
 **JVM 參數**：`-Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError`
 
@@ -343,7 +346,7 @@ AI_CLOUD_TIMEOUT=60
 ### 6.2 Frontend（Nginx）
 
 **映像建置**：多階段 Docker Build
-- 建置階段：`node:20-alpine`（`npm ci && npm run build`）
+- 建置階段：`node:26-alpine`（`npm ci && npm run build`，`NODE_OPTIONS=--max-old-space-size=4096` 避免 Vite + Monaco bundle OOM —— PR #543）
 - 執行階段：`nginxinc/nginx-unprivileged:alpine`
 
 **資源限制**：0.5 CPU / 256 MB RAM
@@ -382,6 +385,7 @@ Frontend 容器內嵌的 Nginx 負責所有路由：
 |------|----------|------|
 | `/api/health` | `backend:8080/actuator/health` | 健康檢查 |
 | `/actuator/` | 回傳 404 | 封鎖直接存取 actuator |
+| `/api/ws/notifications` | `backend:8080`（含 `Upgrade` / `Connection: upgrade`） | **PAT-167** WebSocket 通知推送 — 取代舊 SSE `/api/notifications/subscribe`。`proxy_read_timeout 86400s`；backend 每 25 秒送 protocol-level ping frame，Cloudflare WS 300s idle 視為 activity 不會砍連線。 |
 | `/api/` | `backend:8080` | 所有 REST API（逾時 180s） |
 | `/cds-services` | `backend:8080` | CDS Hooks |
 | `/grafana/` | `grafana:3000` | 監控儀表板 |
@@ -596,6 +600,50 @@ curl -s http://localhost:8081/actuator/prometheus | grep hikaricp
 docker compose ps
 docker compose logs --since 5m     # 最近 5 分鐘日誌
 docker compose top                  # 各容器 process 列表
+```
+
+### 開啟自助註冊（PAT-157）
+
+預設 `POST /api/auth/register` 不會真的建立帳號，僅回傳「待審核」訊息（避免 CWE-200 user enumeration）。
+要開放使用者自助註冊，**不要**直接改動 git 追蹤的 `docker-compose.yml`（會跟未來的 `git pull` 衝突）；而是建立 untracked 的 override 檔：
+
+```bash
+cat > docker/docker-compose.override.yml <<'EOF'
+# VM-specific overrides (not tracked in git).
+services:
+  backend:
+    environment:
+      - AUTH_SELF_REGISTRATION_ENABLED=true
+EOF
+docker compose up -d backend
+```
+
+驗證：
+
+```bash
+docker exec docker-backend-1 sh -c 'echo $AUTH_SELF_REGISTRATION_ENABLED'   # 應為 true
+# 然後 POST /api/auth/register 會回傳真實 JWT + role: USER 而非「待審核」訊息
+```
+
+### WebSocket 通知失敗（PAT-167）
+
+如果瀏覽器 console 出現 `wss://...` 連不上或 1006 abnormal closure：
+
+```bash
+# 1. 確認 backend WebSocket 端點在 nginx 內部直連可用
+docker exec docker-backend-1 wget -q --header='Upgrade: websocket' --header='Connection: Upgrade' \
+  --header='Sec-WebSocket-Version: 13' --header='Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  --header='Origin: http://localhost:8080' -S -O- 'http://localhost:8080/api/ws/notifications?ticket=...' 2>&1 | head -3
+# 應該看到 HTTP/1.1 101
+
+# 2. 確認 nginx 對該 location 有 Upgrade headers
+grep -A8 'location /api/ws/notifications' docker/nginx.conf
+
+# 3. 若連線只持續約 100 秒就被砍，那是 Cloudflare SSE 殘留問題 —
+#    本端 backend 已改 WebSocket protocol-level ping（25s 一次），
+#    Cloudflare 應該認為是 activity 而不會 idle-timeout。
+#    若你還用舊版前端 bundle，會持續打 /api/notifications/subscribe（已不存在 → 401/500）—
+#    請使用者 Ctrl+Shift+R 強制刷新。
 ```
 
 ---

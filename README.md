@@ -1,6 +1,6 @@
 # CQL Platform
 
-> **Version 2.5.0** | Updated 2026-05-04
+> **Version 2.6.0** | Updated 2026-05-21
 
 A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, CDS authoring, eCQM visual authoring with CQL generation, electronic quality measure (eCQM) evaluation, quality measure dashboards, FHIR resource browsing, EHR integration (SMART Backend Services), TW Core synthetic patient generation, AI-assisted CQL repair, an interactive Learn Center, internationalization (i18n), and an admin dashboard with audit logging. The platform is developed under an IEC 62304 / ISO 14971 / TFDA workflow with automated regulatory document generation.
 
@@ -583,7 +583,12 @@ This starts all services with exposed ports:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/notifications` | GET | List user notifications |
+| `/api/notifications/unread-count` | GET | Unread count |
 | `/api/notifications/{id}/read` | POST | Mark notification as read |
+| `/api/notifications/read-all` | POST | Mark all as read |
+| `/api/notifications/{id}` | DELETE | Delete one notification |
+| `/api/ws/notifications?ticket=...` | WS upgrade | **PAT-167** real-time notification push via WebSocket (replaces the old SSE `/api/notifications/subscribe` endpoint). Handshake gated on a single-use ticket from `/api/auth/sse-ticket`. Backend sends a protocol-level ping every 25s so Cloudflare's WS idle window never expires. |
+| `/api/auth/sse-ticket` | POST | Issue a single-use, 30s TTL ticket for the WebSocket handshake |
 | `/api/sandbox-presets` | GET/POST | Sandbox presets for CDS/eCQM testing |
 
 ### Settings & Version
@@ -644,7 +649,8 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 | `ENCRYPTION_KEY` | AES-256 encryption key | (required in production) |
 | `SPRING_DATASOURCE_URL` | PostgreSQL connection URL | `jdbc:postgresql://localhost:5432/cqlplatform` |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile (dev/docker/prod) | `dev` |
-| `VSAC_API_KEY` | VSAC API key for terminology | (optional) |
+| `VSAC_API_KEY` | VSAC API key for terminology — **shared across all users** (server-side proxy; see PAT-145 SettingsController) | (optional) |
+| `AUTH_SELF_REGISTRATION_ENABLED` | Allow `POST /api/auth/register` to create new accounts (PAT-157). Defaults to `false` — medical / TFDA-regulated deployments require admin-controlled provisioning per IEC 62304. When `false`, the endpoint returns a uniform "registration pending" response (also matches the duplicate-username response, mitigating CWE-200 user enumeration). | `false` |
 | `AUDIT_RETENTION_DAYS` | Audit log retention period | `365` |
 | `OKTA_ISSUER_URI` | Okta OIDC issuer URI | (optional) |
 | `OKTA_CLIENT_ID` | Okta OIDC client ID | (optional) |
@@ -659,17 +665,19 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 ## Key Dependencies
 
 ### Backend
-- Spring Boot 3.5.12 (Java 21, Tomcat 10.1.x)
+- Spring Boot 4.0.6 (Java 21, Tomcat 10.1.54)
 - CQL Framework (cql-to-elm, engine) 4.5.0
-- HAPI FHIR 8.6.6
+- HAPI FHIR 8.8.1
 - CQF Clinical Reasoning
-- Resilience4j 2.2.0
+- Resilience4j 2.4.0 (`resilience4j-spring-boot4`)
+- Jackson 3.1.1 (Spring Boot 4 default; deserialization `fail-on-null-for-primitives` restored to false)
 - PostgreSQL 16 (prod & dev) / H2 (test only)
 - Flyway 55+ forward migrations under `db/migration/` (manual rollback scripts under `db/rollback/`)
+- Spring WebSocket (real-time notification push; replaces SSE since PAT-167 — see `Notifications & WebSocket` below)
 - Caffeine in-process cache (token version, ValueSet)
 - Apache POI (Excel export)
 - FreeMarker (CQL template engine)
-- Spring Security 6.5.x with JWT
+- Spring Security 6.5.9 with JWT
 
 ### Frontend
 - React 18 + TypeScript 5.3
@@ -683,9 +691,10 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 - React Router 6.20
 - Recharts 3.7 (dashboard charts)
 - DOMPurify 3.3 (XSS sanitization)
-- react-window (virtualized lists)
+- react-window 2.x (virtualized lists; new List API)
 - react-helmet-async (head management)
-- Vitest + React Testing Library (unit tests)
+- Vitest 4.1 + React Testing Library (unit tests). SUTs use sub-path icon imports (`@mui/icons-material/Save` etc.) per PAT-161/PR #501 to avoid loading the icon barrel during vitest collection.
+- ESLint 9 (flat config) + typescript-eslint 8
 - Playwright (e2e)
 
 ## Example CQL
