@@ -95,6 +95,12 @@ async function selectServiceAndInvoke() {
 
   // Provide required context fields (patient-view requires userId + patientId).
   // Wait for the conditional fields to render after selectedHook propagates.
+  await waitFor(() => {
+    const inputs = screen.queryAllByRole('textbox')
+    // eslint-disable-next-line no-console
+    if (inputs.length < 2) console.warn('TextField count', inputs.length, 'labels:', inputs.map(i => i.getAttribute('aria-label') || '(no aria-label)'))
+    expect(inputs.length).toBeGreaterThanOrEqual(2)
+  })
   const userInput = await screen.findByLabelText('sandbox.userIdLabel')
   fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
   fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
