@@ -1,0 +1,11 @@
+{
+  "type": "authoring-cql",
+  "cqlContains": [
+    "include SharedLogic version '1.2.0' called shared",
+    "\"shared\".\"HasDiabetes\""
+  ],
+  "cqlDoesNotContain": [
+    "externalCqlElement"
+  ],
+  "_note": "PAT-103 contract lock at integration-smoke level. Scenario POSTs the exact ArtifactRequest body that the CDS LibraryDefinitionPicker would produce, then calls POST /artifacts/{id}/cql. Asserts the backend Jackson → DTO → entity → builder → FreeMarker pipeline preserves all four field values (libraryName/libraryVersion/definitionName/alias) and emits both the top-level include statement and the alias.\"DefName\" body reference. Also sanity-checks that no internal tree-node markers leaked into the generated CQL."
+}

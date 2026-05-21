@@ -51,17 +51,39 @@ const NHI_LETTER_MAP: Record<string, number> = {
 
 const NHI_LETTERS = Object.keys(NHI_LETTER_MAP)
 
-/** Generate a valid Taiwan NHI ID (ROC national ID format) */
+/**
+ * Generate a valid Taiwan ROC national ID.
+ *
+ * <p>Algorithm (Article 4, 戶籍法施行細則):
+ * <ol>
+ *   <li>Map first letter to two digits via {@link NHI_LETTER_MAP}.</li>
+ *   <li>Build 11 weighted digits: {@code [d1, d2, gender, r1..r7, check]}.</li>
+ *   <li>Weights: {@code [1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1]}.</li>
+ *   <li>Total weighted sum must be {@code ≡ 0 (mod 10)}.</li>
+ * </ol>
+ *
+ * <p>PAT-148 — the previous implementation used 9 weights, which excluded the
+ * 7th random digit ({@code r7}) from the weighted sum. The check digit was
+ * therefore correct for the first 9 positions only, and roughly 90% of
+ * generated IDs failed external validators (FHIR profile checks against
+ * TW NHI conformance, etc.). The bug went unnoticed because there was no
+ * test; {@code twDemographics.test.ts} now locks the official algorithm
+ * across a 200-sample batch.
+ */
 export function generateNhiId(gender: 'male' | 'female'): string {
   const letter = randomElement(NHI_LETTERS)
   const genderDigit = gender === 'male' ? 1 : 2
   const digits = Array.from({ length: 7 }, () => randomInt(0, 9))
 
-  // Compute check digit
+  // Compute check digit (PAT-148 — 10 weights cover all 10 positions before
+  // the check digit; the check digit itself is added with weight 1 implicitly
+  // when validators sum the full 11-digit run, so deriving it as
+  // (10 − sum mod 10) mod 10 makes the full weighted sum congruent to 0
+  // modulo 10 as required.)
   const n = NHI_LETTER_MAP[letter]
   const d1 = Math.floor(n / 10)
   const d2 = n % 10
-  const weights = [1, 9, 8, 7, 6, 5, 4, 3, 2]
+  const weights = [1, 9, 8, 7, 6, 5, 4, 3, 2, 1]
   const allDigits = [d1, d2, genderDigit, ...digits]
   let sum = 0
   for (let i = 0; i < weights.length; i++) {

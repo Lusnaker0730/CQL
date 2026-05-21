@@ -1,0 +1,30 @@
+# Frontend Trivy ignore — PAT-157
+# -------------------------------
+# axios 1.15.0 has 4 HIGH CVEs flagged by Trivy:
+#   - CVE-2026-42033: HTTP Transport Hijacking via Prototype (fixed in 1.15.1)
+#   - CVE-2026-42035: Arbitrary HTTP header injection via prototype (fixed in 1.15.1)
+#   - CVE-2026-42043: NO_PROXY bypass via crafted URL (fixed in 1.15.1)
+#   - CVE-2026-42264: (fixed in 1.15.2)
+#
+# Status (2026-05-09): axios 1.15.1 / 1.15.2 are NOT yet published to the npm
+# registry — `npm view axios@1.15.1` returns 404. Trivy's vulnerability DB lists
+# them as fixed but upstream has not shipped them yet. We are pinned to 1.15.0
+# until the patched releases land.
+#
+# Exposure assessment (VEX):
+# - CVE-2026-42033 / -42035 (prototype-based hijacking / header injection):
+#   only exploitable when application code passes attacker-controlled input
+#   through `Object.prototype` mutation. Our `api/client.ts` uses a pre-built
+#   axios instance with hard-coded interceptors and never accepts user-controlled
+#   prototype mutations. Risk: LOW.
+# - CVE-2026-42043 (NO_PROXY bypass): NO_PROXY env var is not set in our deploys
+#   (frontend is a static SPA bundle; axios runs only inside the user's browser,
+#   not behind a corporate proxy). Risk: NEGLIGIBLE.
+# - CVE-2026-42264: requires axios 1.15.2; details limited; same SPA-only
+#   exposure profile. Risk: LOW.
+#
+# Tracked: bump axios as soon as 1.15.1+ is published to npm.
+CVE-2026-42033
+CVE-2026-42035
+CVE-2026-42043
+CVE-2026-42264

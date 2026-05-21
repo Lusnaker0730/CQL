@@ -18,6 +18,7 @@
     "dateRange": "日期範圍",
     "dateFrom": "起始日",
     "dateTo": "結束日",
+    "dateRangeReversed": "起始日必須早於或等於結束日",
     "generate": "產生病人資料",
     "generating": "產生中..."
   },
@@ -53,14 +54,21 @@
     "patientCount": "已產生 {{count}} 筆病人資料",
     "download": "下載 JSON",
     "uploadToServer": "上傳至 FHIR 伺服器",
+    "uploadServerLabel": "目標 FHIR 伺服器（可留空，使用後端預設）",
+    "uploadServerHelperText": "留空時使用後端設定的預設 FHIR 伺服器",
     "uploading": "上傳中...",
-    "uploadSuccess": "成功上傳 {{count}} 筆資源",
+    "uploadSuccess": "成功上傳 {{count}} 位病人",
+    "uploadAllFailed": "全部 {{count}} 位病人上傳失敗",
+    "uploadPartial": "已上傳 {{succeeded}} 位、{{failed}} 位失敗 — 詳見下方清單",
     "uploadError": "上傳失敗：{{error}}",
+    "uploadProgress": "已上傳 {{done}}/{{total}}（{{failed}} 位失敗）",
+    "uploadFailureList": "{{count}} 位病人上傳失敗：",
     "serverUrl": "FHIR 伺服器網址",
     "preview": "預覽",
     "copyJson": "複製 JSON",
     "copied": "已複製！",
     "clear": "清除結果",
+    "expandToView": "展開以檢視 JSON…",
     "resourceSummary": "資源：{{conditions}} 診斷、{{observations}} 觀察、{{medications}} 用藥、{{allergies}} 過敏、{{encounters}} 就診"
   },
   "categories": {
@@ -103,5 +111,6 @@
   },
   "errors": {
     "pageError": "病人產生器錯誤"
-  }
+  },
+  "overwriteConfirm": "您已產生 {{count}} 位病人，再次產生將覆蓋這些結果。要繼續嗎？"
 }

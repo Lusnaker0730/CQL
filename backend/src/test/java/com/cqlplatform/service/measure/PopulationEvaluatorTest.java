@@ -182,6 +182,121 @@ class PopulationEvaluatorTest {
     }
 
     @Test
+    void aggregateCv_perGroupPath_readsObservationFromRawResultsNotCanonicalMap() {
+        // Regression lock for BUG-474 follow-up.
+        // The per-group eCQM path canonicalizes suffixed population define names ("Initial
+        // Population 1" → "Initial Population") into a FILTERED map containing only
+        // PopulationDefinition entries. "Measure Observation Value" is a top-level CQL
+        // define (not a population), so it only lives in the raw results map. The pre-fix
+        // 3-arg aggregateCvPatientResults received the canonical map for BOTH lookups,
+        // which silently dropped every patient's observation → measureScore stuck at null
+        // (smoke scenarios 03/05–09 all surfaced as `score: null`).
+        Map<String, CqlExecutionResponse.ExpressionResult> canonical = new LinkedHashMap<>();
+        canonical.put("Initial Population", boolResult(true));
+        canonical.put("Measure Population", boolResult(true));
+        // Raw results has BOTH the canonical population entries AND the observation define.
+        Map<String, CqlExecutionResponse.ExpressionResult> raw = new LinkedHashMap<>(canonical);
+        raw.put("Measure Observation Value", boolResult(true));
+
+        java.util.List<Double> observationValues = new java.util.ArrayList<>();
+        Map<String, Integer> counts = evaluator.initializeCvPopulationCounts();
+
+        evaluator.aggregateCvPatientResults(counts, canonical, raw, observationValues);
+
+        assertThat(counts.get("Initial Population")).isEqualTo(1);
+        assertThat(counts.get("Measure Population")).isEqualTo(1);
+        // The fix: observation extracted from raw map → 1 boolean TRUE = 1.0
+        assertThat(observationValues).containsExactly(1.0);
+    }
+
+    @Test
+    void aggregateCv_perGroupSuffixedObservationDefines_readsExplicitNames() {
+        // Issue #539 regression lock.
+        // Multi-group CV measures: EcqmCqlBuilder emits "Measure Observation Value 1" /
+        // "... 2" per group, not the unsuffixed canonical name. The 5-arg overload accepts
+        // the explicit observation expression names and looks them up in allResults.
+        Map<String, CqlExecutionResponse.ExpressionResult> canonical = new LinkedHashMap<>();
+        canonical.put("Initial Population", boolResult(true));
+        canonical.put("Measure Population", boolResult(true));
+        Map<String, CqlExecutionResponse.ExpressionResult> raw = new LinkedHashMap<>(canonical);
+        // Group 1's observation define — suffixed
+        raw.put("Measure Observation Value 1", boolResult(true));
+        // Group 2's observation — should NOT be picked up when we ask for group 1
+        raw.put("Measure Observation Value 2", boolResult(true));
+
+        java.util.List<Double> observationValues = new java.util.ArrayList<>();
+        Map<String, Integer> counts = evaluator.initializeCvPopulationCounts();
+
+        evaluator.aggregateCvPatientResults(
+                counts, canonical, raw,
+                java.util.List.of("Measure Observation Value 1"),
+                observationValues);
+
+        // Only group 1's observation contributes → 1 boolean TRUE = 1.0
+        assertThat(observationValues).containsExactly(1.0);
+        assertThat(counts.get("Initial Population")).isEqualTo(1);
+        assertThat(counts.get("Measure Population")).isEqualTo(1);
+    }
+
+    @Test
+    void aggregateCv_perGroupMultipleObservationDefines_aggregatesAll() {
+        // A single group may declare multiple observations (e.g. count + average together);
+        // each one's values should accumulate into the group's bucket.
+        Map<String, CqlExecutionResponse.ExpressionResult> canonical = new LinkedHashMap<>();
+        canonical.put("Initial Population", boolResult(true));
+        canonical.put("Measure Population", boolResult(true));
+        Map<String, CqlExecutionResponse.ExpressionResult> raw = new LinkedHashMap<>(canonical);
+        raw.put("Obs A", boolResult(true));   // → 1.0
+        raw.put("Obs B", CqlExecutionResponse.ExpressionResult.builder()
+                .value(42.0).valueType("Decimal").build()); // → 42.0
+
+        java.util.List<Double> observationValues = new java.util.ArrayList<>();
+        Map<String, Integer> counts = evaluator.initializeCvPopulationCounts();
+
+        evaluator.aggregateCvPatientResults(
+                counts, canonical, raw,
+                java.util.List.of("Obs A", "Obs B"),
+                observationValues);
+
+        assertThat(observationValues).containsExactly(1.0, 42.0);
+    }
+
+    @Test
+    void aggregateCv_emptyObservationNames_fallsBackToCanonical() {
+        // Empty list (not null) should still trigger the legacy unsuffixed-name fallback,
+        // matching the 4-arg overload's behavior.
+        Map<String, CqlExecutionResponse.ExpressionResult> raw = new LinkedHashMap<>();
+        raw.put("Initial Population", boolResult(true));
+        raw.put("Measure Population", boolResult(true));
+        raw.put("Measure Observation Value", boolResult(true));
+
+        java.util.List<Double> observationValues = new java.util.ArrayList<>();
+        Map<String, Integer> counts = evaluator.initializeCvPopulationCounts();
+
+        evaluator.aggregateCvPatientResults(
+                counts, raw, raw, java.util.List.of(), observationValues);
+
+        assertThat(observationValues).containsExactly(1.0);
+    }
+
+    @Test
+    void aggregateCv_legacyTwoArgOverload_stillWorks() {
+        // The legacy single-group path passes the same raw map for both lookups — make sure
+        // the 2-arg convenience overload keeps the same behavior after the 3-map refactor.
+        Map<String, CqlExecutionResponse.ExpressionResult> raw = new LinkedHashMap<>();
+        raw.put("Initial Population", boolResult(true));
+        raw.put("Measure Population", boolResult(true));
+        raw.put("Measure Observation Value", boolResult(true));
+
+        java.util.List<Double> observationValues = new java.util.ArrayList<>();
+        Map<String, Integer> counts = evaluator.initializeCvPopulationCounts();
+
+        evaluator.aggregateCvPatientResults(counts, raw, observationValues);
+
+        assertThat(observationValues).containsExactly(1.0);
+    }
+
+    @Test
     void ratio_noDenomExceptionsConcept() {
         // Ratio doesn't have Denominator Exceptions (proportion-only per FHIR spec).
         // Even if the map had one, ratio aggregation ignores it.

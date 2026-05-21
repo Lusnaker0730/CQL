@@ -53,6 +53,7 @@
     "departmentScores": "Department Scores",
     "qualityReport": "Quality Report",
     "noReportData": "No report data available",
+    "tablePreviewTruncated": "Showing {{shown}} of {{total}} measures",
     "averageScore": "Proportion Avg",
     "aboveTarget": "Above Target",
     "belowTarget": "Below Target",
@@ -421,6 +422,7 @@
     "filterTypes": {
       "code": "Code",
       "valueSet": "Value Set",
+      "codePrefix": "Code Prefix",
       "codeSystem": "Code System",
       "date": "Date",
       "dateFilter": "Date filter",

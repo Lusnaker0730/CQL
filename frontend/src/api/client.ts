@@ -103,8 +103,13 @@ api.interceptors.response.use(
       }
     }
 
-    // For 403 or non-recoverable 401 (auth endpoints), redirect to login
-    if (status === 403 || (status === 401 && isAuthEndpoint)) {
+    // BUG-117 — only treat 401 on auth endpoints as session loss. A 403 means
+    // the token is valid but the role lacks permission (e.g. USER hitting an
+    // ADMIN-only endpoint like /settings/ai-status); previously we logged the
+    // user out for any 403, which bounced freshly-logged-in non-admins straight
+    // back to /login. Components that receive a 403 should surface it as
+    // "insufficient permission" instead of treating it as authentication loss.
+    if (status === 401 && isAuthEndpoint) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       if (window.location.pathname !== '/login') {

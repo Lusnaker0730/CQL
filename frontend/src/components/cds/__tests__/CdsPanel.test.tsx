@@ -1,19 +1,46 @@
-import { describe, it, expect } from 'vitest'
-import { screen } from '@testing-library/react'
-import { render } from '../../../test/test-utils'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '../../../test/test-utils'
 import CdsPanel from '../CdsPanel'
 
-describe('CdsPanel', () => {
-  it('should render CDS panel', () => {
-    render(<CdsPanel />)
-    // Panel should be present in the DOM
-    expect(document.querySelector('[class*="MuiBox"]') || document.body.firstChild).toBeTruthy()
+// Stub heavy MUI icon barrel.
+// PR #501 / PAT-161 pattern: SUT uses sub-path icon imports; no barrel
+// mock needed (and the Proxy version no longer works under vitest 4).
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { changeLanguage: vi.fn() },
+  }),
+  Trans: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}))
+
+// Each tab panel just renders a marker so we don't load the actual heavy
+// children (Sandbox, Manage, etc.).
+vi.mock('../InvokeServicePanel', () => ({ default: () => <div>stub-invoke</div> }))
+vi.mock('../ManageServicesPanel', () => ({ default: () => <div>stub-manage</div> }))
+vi.mock('../AnalyticsPanel', () => ({ default: () => <div>stub-analytics</div> }))
+vi.mock('../SandboxPanel', () => ({ default: () => <div>stub-sandbox</div> }))
+vi.mock('../ApiKeyManager', () => ({ default: () => <div>stub-keys</div> }))
+vi.mock('../RecentInvocationsPanel', () => ({ default: () => <div>stub-recent</div> }))
+
+describe('CdsPanel — PAT-132 admin tab visibility (P2)', () => {
+  it('renders the admin-only Recent Invocations tab when role is ADMIN', () => {
+    render(<CdsPanel />, {
+      preloadedState: {
+        auth: { user: { id: 1, username: 'admin', role: 'ADMIN' }, token: 't' },
+      },
+    })
+    // Tab labels resolve to i18n keys under the mock; the admin-only one is
+    // 'panel.tabRecent'.
+    expect(screen.getByRole('tab', { name: /panel\.tabRecent/ })).toBeInTheDocument()
   })
 
-  it('should have invoke or service-related UI elements', () => {
-    render(<CdsPanel />)
-    // Look for buttons or text related to CDS services
-    const buttons = screen.queryAllByRole('button')
-    expect(buttons.length).toBeGreaterThanOrEqual(0) // Panel renders without error
+  it('hides the Recent Invocations tab for non-admin roles', () => {
+    render(<CdsPanel />, {
+      preloadedState: {
+        auth: { user: { id: 2, username: 'doc', role: 'USER' }, token: 't' },
+      },
+    })
+    expect(screen.queryByRole('tab', { name: /panel\.tabRecent/ })).toBeNull()
   })
 })

@@ -15,8 +15,11 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material'
-import { Refresh as RefreshIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { api } from '../../api/client'
+import { REFETCH_10S } from '../../constants/queryConstants'
 
 interface InvocationRecord {
   timestamp: string
@@ -36,7 +39,7 @@ export default function RecentInvocationsPanel() {
     queryKey: ['cds-recent-invocations'],
     queryFn: () =>
       api.get<InvocationRecord[]>('/admin/cds/recent-invocations?limit=100').then((r) => r.data),
-    refetchInterval: 10_000,
+    refetchInterval: REFETCH_10S,
   })
 
   if (isLoading) return <CircularProgress />

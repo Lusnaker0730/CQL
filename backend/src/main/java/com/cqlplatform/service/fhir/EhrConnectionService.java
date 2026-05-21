@@ -106,7 +106,12 @@ public class EhrConnectionService {
         log.info("Soft-deleted EHR connection '{}' (id={})", existing.getName(), id);
     }
 
+    @Transactional
     public EhrConnectionEntity testConnection(Long id) {
+        // PAT-142: read-modify-save sequence (findById → setStatus/setLastTestedAt/
+        // setLastTestMessage → save) needs an explicit transactional boundary so the
+        // success and failure paths atomically commit; same convention as the
+        // create / update / delete methods in this class.
         EhrConnectionEntity connection = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
         try {

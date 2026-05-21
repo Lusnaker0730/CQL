@@ -225,10 +225,29 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
           </TableCell>
         </TableRow>
       )}
-      {requirement.codeFilter?.map((cf, i) => (
+      {requirement.codeFilter?.map((cf, i) => {
+        // PAT-158 — dynamic filter-type chip. Previously hardcoded to "代碼"
+        // (code), so a row whose codeFilter actually carried a ValueSet (e.g.
+        // `[Condition: "Pneumonia"]`) was mis-labeled "代碼" — the user saw a
+        // value set name in the right-hand column but the type chip claimed
+        // it was a code. Now: ValueSet → "集值" (purple), prefix-only → "代碼前綴"
+        // (orange), code/codeSystem → "代碼" (blue, current default).
+        const hasCodes = cf.code && cf.code.length > 0
+        const hasPrefixes = cf.codePrefixes && cf.codePrefixes.length > 0
+        const filterTypeKey: 'valueSet' | 'codePrefix' | 'code' = cf.valueSet
+          ? 'valueSet'
+          : !hasCodes && hasPrefixes
+            ? 'codePrefix'
+            : 'code'
+        const chipColor: 'secondary' | 'warning' | 'info' = filterTypeKey === 'valueSet'
+          ? 'secondary'
+          : filterTypeKey === 'codePrefix'
+            ? 'warning'
+            : 'info'
+        return (
         <TableRow key={`code-${i}`}>
           <TableCell>
-            <Chip label={t('dataRequirements.filterTypes.code')} size="small" variant="outlined" color="info" sx={{ fontSize: '0.75rem' }} />
+            <Chip label={t(`dataRequirements.filterTypes.${filterTypeKey}`)} size="small" variant="outlined" color={chipColor} sx={{ fontSize: '0.75rem' }} />
           </TableCell>
           <TableCell>
             <Typography variant="body2" fontFamily="monospace">{cf.path}</Typography>
@@ -299,7 +318,8 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
             )}
           </TableCell>
         </TableRow>
-      ))}
+        )
+      })}
       {requirement.dateFilter?.map((df, i) => (
         <TableRow key={`date-${i}`}>
           <TableCell>

@@ -6,14 +6,18 @@ import com.cqlplatform.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
 
+/**
+ * PAT-167: removed the {@code /subscribe} SSE endpoint. Real-time push moved
+ * to the WebSocket handler at {@code /api/notifications/ws} — see
+ * {@code WebSocketConfig} and {@code NotificationWebSocketHandler}. The REST
+ * CRUD surface here is unchanged.
+ */
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
@@ -58,12 +62,5 @@ public class NotificationController {
         String username = ownershipVerifier.getCurrentUsername();
         notificationService.deleteNotification(id, username);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Subscribe to Notifications", description = "SSE endpoint for real-time notification push")
-    public SseEmitter subscribe() {
-        String username = ownershipVerifier.getCurrentUsername();
-        return notificationService.subscribe(username);
     }
 }

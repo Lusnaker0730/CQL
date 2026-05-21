@@ -25,6 +25,10 @@ interface ModifierRule {
   field: string
   operator: string
   value: string
+  /** Field type captured at selection time. The backend rebuilds the CQL from this
+   *  structured tree and uses fieldType to disambiguate equals/not_equals between
+   *  code (~), decimal (=), and string ('=') comparisons. */
+  fieldType?: string
 }
 
 /** A group of rules combined with AND/OR */
@@ -96,7 +100,7 @@ function toLabel(name: string): string {
 }
 
 function createEmptyRule(): ModifierRule {
-  return { id: generateId(), field: '', operator: '', value: '' }
+  return { id: generateId(), field: '', operator: '', value: '', fieldType: '' }
 }
 
 function createEmptyGroup(): ModifierRuleGroup {
@@ -428,7 +432,11 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
         <Select
           value={rule.field}
           label={t('customModifier.propertyLabel')}
-          onChange={(e) => onChange({ field: e.target.value, operator: '', value: '' })}
+          onChange={(e) => {
+            const newField = e.target.value
+            const newType = availableFields.find((f) => f.field === newField)?.type || 'string'
+            onChange({ field: newField, fieldType: newType, operator: '', value: '' })
+          }}
         >
           {availableFields.map((f) => (
             <MenuItem key={f.field} value={f.field}>{f.label}</MenuItem>

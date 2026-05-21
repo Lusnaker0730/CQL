@@ -24,8 +24,10 @@ import {
 } from '@mui/material'
 import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { useSelector } from 'react-redux'
 import { usePreferences } from '../../hooks/usePreferences'
 import { settingsApi, type VsacStatus, type AiStatus } from '../../api/settingsApi'
+import type { RootState } from '../../store'
 import FhirServerUrlField from './FhirServerUrlField'
 
 interface PreferencesDialogProps {
@@ -49,7 +51,9 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
   const [aiSaving, setAiSaving] = useState(false)
   const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Guards post-await setState calls when the user closes the dialog mid-flight.
+  // Guards post-await setState calls when the user closes the dialog mid-flight
+  // (PAT-133 P1). Combined with the isAdmin gate below so non-admins don't even
+  // attempt the ADMIN-only fetches.
   const isMountedRef = useRef(true)
   useEffect(() => {
     isMountedRef.current = true
@@ -58,8 +62,14 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
     }
   }, [])
 
+  // /api/settings/{vsac-status,ai-status} are ADMIN-only (SettingsController
+  // PAT-145). Skip the calls entirely for non-admins so opening Preferences
+  // doesn't surface a 403 in the network panel for the operator-only fields
+  // (BUG-117 follow-up).
+  const isAdmin = useSelector((state: RootState) => state.auth.user?.role === 'ADMIN')
+
   useEffect(() => {
-    if (open) {
+    if (open && isAdmin) {
       settingsApi.getVsacStatus()
         .then((s) => isMountedRef.current && setVsacStatus(s))
         .catch(() => isMountedRef.current && setVsacStatus(null))
@@ -77,7 +87,7 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
       setShowApiKey(false)
       setShowAiApiKey(false)
     }
-  }, [open])
+  }, [open, isAdmin])
 
   const handleSaveVsacKey = async () => {
     setVsacSaving(true)

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DOMPurify from 'dompurify'
 import { Box } from '@mui/material'
 import { PREVIEW_MAX_HEIGHT } from '../../constants/layout'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from '../common/MonacoEditor'
 import { usePreferences } from '../../hooks/usePreferences'
 
 interface CqlPreviewBoxProps {

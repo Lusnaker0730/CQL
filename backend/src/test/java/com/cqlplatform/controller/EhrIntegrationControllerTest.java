@@ -9,9 +9,9 @@ import com.cqlplatform.service.fhir.PatientImportService;
 import com.cqlplatform.service.fhir.PatientSearchService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,13 +33,13 @@ class EhrIntegrationControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private EhrConnectionService connectionService;
 
-    @MockBean
+    @MockitoBean
     private PatientSearchService patientSearchService;
 
-    @MockBean
+    @MockitoBean
     private PatientImportService patientImportService;
 
     private EhrConnectionEntity createConnection(Long id, String name) {

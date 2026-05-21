@@ -4,7 +4,8 @@
     "tagline": "A CQL development platform designed for Taiwan's healthcare systems",
     "description": "Integrated with TWCORE IG specifications, providing visual CQL editing, quality measures, CDS decision support, and more to help healthcare organizations improve care quality.",
     "learnMore": "Start Learning",
-    "tryDemo": "Browse Tutorials"
+    "tryDemo": "Browse Tutorials",
+    "tutorialAttribution": "Tutorial content translated from the official HL7 CQL site (cql.hl7.org)"
   },
   "features": {
     "title": "Platform Features",

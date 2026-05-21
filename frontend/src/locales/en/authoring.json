@@ -477,6 +477,7 @@
     "duplicateName": "Duplicate base element name",
     "defaultName": "Base Element {{number}}",
     "calculatedDefaultName": "Calculated Value {{number}}",
+    "unaryDefaultName": "Unary Value {{number}}",
     "fallbackName": "this base element"
   },
   "arithmetic": {
@@ -490,7 +491,23 @@
     "cqlPreview": "CQL Preview:",
     "literalValue": "Value",
     "modeElement": "Element",
-    "modeLiteral": "Literal"
+    "modeLiteral": "Literal",
+    "modeQuantity": "Quantity",
+    "quantityValue": "Value",
+    "quantityUnit": "Unit",
+    "addOperand": "Add operand",
+    "removeOperand": "Remove operand",
+    "operandLabel": "Operand {{number}}",
+    "invalidForTypes": "(invalid for operand types)"
+  },
+  "arithmeticUnary": {
+    "unaryElement": "Unary Function",
+    "function": "Function",
+    "operand": "Operand",
+    "namePlaceholder": "Unary Result Name",
+    "cqlPreview": "CQL Preview:",
+    "precision": "Precision",
+    "precisionInvalid": "Non-negative integer"
   },
   "parameters": {
     "title": "Parameters",

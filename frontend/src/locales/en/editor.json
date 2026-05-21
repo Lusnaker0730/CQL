@@ -66,6 +66,7 @@
     "debugMode": "Debug Mode",
     "results": "Results",
     "warnings": "Warnings",
+    "failedGeneric": "Execution failed",
     "expression": "Expression",
     "type": "Type",
     "value": "Value",
