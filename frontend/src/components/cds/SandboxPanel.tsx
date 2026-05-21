@@ -32,14 +32,14 @@ import {
   Tooltip,
   Switch,
 } from '@mui/material'
-import {
-  ViewModule as BuilderIcon,
-  Code as JsonIcon,
-  FolderOpen as LoadIcon,
-  Save as SaveIcon,
-  RestartAlt as ResetIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import BuilderIcon from '@mui/icons-material/ViewModule'
+import JsonIcon from '@mui/icons-material/Code'
+import LoadIcon from '@mui/icons-material/FolderOpen'
+import SaveIcon from '@mui/icons-material/Save'
+import ResetIcon from '@mui/icons-material/RestartAlt'
+import DeleteIcon from '@mui/icons-material/Delete'
 import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import {

@@ -23,12 +23,12 @@ import {
   Paper,
   Tooltip,
 } from '@mui/material'
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  ContentCopy as CopyIcon,
-  VpnKey as KeyIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import CopyIcon from '@mui/icons-material/ContentCopy'
+import KeyIcon from '@mui/icons-material/VpnKey'
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '../../hooks/useCdsHooks'
 import { getStoredUsername } from '../../utils/validation'
 import { useNotification } from '../../hooks/useNotification'

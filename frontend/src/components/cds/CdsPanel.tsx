@@ -4,7 +4,11 @@ import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 
 import { Paper, Typography, Tabs, Tab } from '@mui/material'
-import { Analytics as AnalyticsIcon, VpnKey as KeyIcon, History as HistoryIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import AnalyticsIcon from '@mui/icons-material/Analytics'
+import KeyIcon from '@mui/icons-material/VpnKey'
+import HistoryIcon from '@mui/icons-material/History'
 import TabPanel, { a11yProps } from '../common/TabPanel'
 import InvokeServicePanel from './InvokeServicePanel'
 import ManageServicesPanel from './ManageServicesPanel'

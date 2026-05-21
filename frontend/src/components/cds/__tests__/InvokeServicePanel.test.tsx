@@ -4,13 +4,8 @@ import type { CdsResponse } from '../../../types'
 
 // Skip the heavy MUI icon barrel — the proxy stub stops vitest from opening
 // thousands of icon files (Windows EMFILE).
-vi.mock('@mui/icons-material', () => {
-  const Stub = () => null
-  return new Proxy(
-    { default: Stub },
-    { get: (_t, prop) => (prop === '__esModule' ? true : Stub) },
-  )
-})
+// PR #501 / PAT-161 pattern: SUT uses sub-path icon imports; no barrel
+// mock needed (and the Proxy version no longer works under vitest 4).
 
 // i18n mock: return key strings (with {{var}} interpolation) so we can query
 // by key.

@@ -30,16 +30,16 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  History as HistoryIcon,
-  Code as CodeIcon,
-  Save as SaveIcon,
-  Share as ShareIcon,
-  LibraryBooks as LibraryBooksIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import HistoryIcon from '@mui/icons-material/History'
+import CodeIcon from '@mui/icons-material/Code'
+import SaveIcon from '@mui/icons-material/Save'
+import ShareIcon from '@mui/icons-material/Share'
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks'
 import {
   useCdsServiceConfigs,
   useCreateCdsService,

@@ -30,12 +30,12 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
-import {
-  Info as InfoIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import InfoIcon from '@mui/icons-material/Info'
+import WarningIcon from '@mui/icons-material/Warning'
+import ErrorIcon from '@mui/icons-material/Error'
+import CheckIcon from '@mui/icons-material/CheckCircle'
 import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { alpha } from '@mui/material/styles'

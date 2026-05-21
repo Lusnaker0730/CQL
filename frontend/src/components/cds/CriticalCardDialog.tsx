@@ -15,7 +15,9 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material'
-import { Error as ErrorIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection (vitest 4 chokes on the old Proxy mock).
+import ErrorIcon from '@mui/icons-material/Error'
 import type { CdsCard } from '../../types'
 
 interface CriticalCardDialogProps {
