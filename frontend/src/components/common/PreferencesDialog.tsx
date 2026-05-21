@@ -24,8 +24,10 @@ import {
 } from '@mui/material'
 import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { useSelector } from 'react-redux'
 import { usePreferences } from '../../hooks/usePreferences'
 import { settingsApi, type VsacStatus, type AiStatus } from '../../api/settingsApi'
+import type { RootState } from '../../store'
 import FhirServerUrlField from './FhirServerUrlField'
 
 interface PreferencesDialogProps {
@@ -49,8 +51,13 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
   const [aiSaving, setAiSaving] = useState(false)
   const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // /api/settings/{vsac-status,ai-status} are ADMIN-only (SettingsController
+  // PAT-145). Skip the calls entirely for non-admins so opening Preferences
+  // doesn't surface a 403 in the network panel for the operator-only fields.
+  const isAdmin = useSelector((state: RootState) => state.auth.user?.role === 'ADMIN')
+
   useEffect(() => {
-    if (open) {
+    if (open && isAdmin) {
       settingsApi.getVsacStatus()
         .then(setVsacStatus)
         .catch(() => setVsacStatus(null))
@@ -58,7 +65,7 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
         .then(setAiStatus)
         .catch(() => setAiStatus(null))
     }
-  }, [open])
+  }, [open, isAdmin])
 
   const handleSaveVsacKey = async () => {
     setVsacSaving(true)

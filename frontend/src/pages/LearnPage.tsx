@@ -145,6 +145,23 @@ export default function LearnPage() {
         </Box>
       </Box>
 
+      {/* Translation attribution — content adapted from HL7 CQL official site */}
+      <Box sx={(t) => ({ bgcolor: alpha(t.palette.info.main, 0.06), borderBottom: 1, borderColor: 'divider' })}>
+        <Container maxWidth="lg" sx={{ py: 0.75 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {t('hero.tutorialAttribution')}{' '}
+            <a
+              href="https://cql.hl7.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'underline' }}
+            >
+              cql.hl7.org
+            </a>
+          </Typography>
+        </Container>
+      </Box>
+
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Container maxWidth="lg">

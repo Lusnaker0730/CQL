@@ -15,15 +15,24 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * PAT-145 — class-level {@code @PreAuthorize} as defense-in-depth on top of the
+ * URL-path rule in {@code SecurityConfig:191} ({@code /api/admin/**}). If the
+ * path matcher is ever weakened or the controller's {@code @RequestMapping}
+ * moved outside {@code /api/admin/}, this annotation still guards every public
+ * endpoint. Keep this annotation in sync with the path-based rule.
+ */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'DEPARTMENT_ADMIN')")
 public class AdminController {
 
     private final UserRepository userRepository;

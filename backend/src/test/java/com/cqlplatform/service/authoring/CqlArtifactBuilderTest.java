@@ -16,7 +16,7 @@ class CqlArtifactBuilderTest {
 
     CqlArtifactBuilderTest() {
         templateEngine = new CqlTemplateEngine();
-        engine = new ExpressionCqlEngine(templateEngine, null);
+        engine = new ExpressionCqlEngine(templateEngine, null, new CustomModifierCqlBuilder());
         builder = new CqlArtifactBuilder(engine, templateEngine);
     }
 

@@ -23,7 +23,7 @@ import {
   CheckCircle as ValidateIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
-import Editor, { type OnMount } from '@monaco-editor/react'
+import Editor, { type OnMount } from '../common/MonacoEditor'
 import type * as Monaco from 'monaco-editor'
 import { useMutation } from '@tanstack/react-query'
 import { fhirApi } from '../../api'

@@ -1,0 +1,11 @@
+{
+  "periodStart": "2026-01-01",
+  "periodEnd": "2026-06-30",
+  "score": 4.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 4
+  },
+  "maxEvaluationTimeMs": 8000,
+  "_note": "Exercises PAT-161/162/163/164 arithmetic CQL emission. The 5 base elements above cover: (1) N-ary 3-operand mixed precedence (PAT-163 a + (b * c)), (2) unary Abs (PAT-162), (3) unary Round with precision arg (PAT-164 Round(x, N)), (4) N-ary with `mod` keyword operator (PAT-161), (5) N-ary with Quantity literal operands (PAT-161). The cohort population logic is intentionally trivial — score=4 just verifies measure evaluates after the new arithmetic emit code runs. Translation failure on any new path would 4xx the save call and fail the smoke before evaluation."
+}

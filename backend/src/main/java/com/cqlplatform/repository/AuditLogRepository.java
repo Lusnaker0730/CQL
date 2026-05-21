@@ -45,7 +45,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long>,
     @Query("SELECT a FROM AuditLogEntity a WHERE a.createdAt > :after AND a.statusCode IN (401, 403) ORDER BY a.createdAt DESC")
     Page<AuditLogEntity> findSecurityEvents(@Param("after") LocalDateTime after, Pageable pageable);
 
-    @Modifying
+    /**
+     * PAT-146 — {@code clearAutomatically=true} ensures that any audit-log
+     * entities loaded into the persistence context within the same transaction
+     * are evicted after the bulk DELETE, so subsequent reads in that
+     * transaction don't return stale (already-deleted) rows.
+     */
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM AuditLogEntity a WHERE a.createdAt < :before")
     int deleteByCreatedAtBefore(@Param("before") LocalDateTime before);
 

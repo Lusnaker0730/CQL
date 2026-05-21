@@ -53,6 +53,7 @@
     "departmentScores": "部門分數",
     "qualityReport": "品質報告",
     "noReportData": "無報告資料",
+    "tablePreviewTruncated": "顯示前 {{shown}} 筆 / 共 {{total}} 筆",
     "averageScore": "比例指標平均",
     "aboveTarget": "達標",
     "belowTarget": "未達標",
@@ -421,6 +422,7 @@
     "filterTypes": {
       "code": "代碼",
       "valueSet": "值集",
+      "codePrefix": "代碼前綴",
       "codeSystem": "代碼系統",
       "date": "日期",
       "dateFilter": "日期篩選",

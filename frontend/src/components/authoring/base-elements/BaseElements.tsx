@@ -4,10 +4,16 @@ import {
   Box, Stack, Typography, IconButton, Tooltip, TextField, Card, CardContent, Chip,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Menu, MenuItem, ListItemIcon, ListItemText,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon, Calculate as CalculateIcon, AccountTree as TreeIcon } from '@mui/icons-material'
+// Sub-path icon imports (not barrel): see ArithmeticElement for rationale.
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import CalculateIcon from '@mui/icons-material/Calculate'
+import TreeIcon from '@mui/icons-material/AccountTree'
+import FunctionsIcon from '@mui/icons-material/Functions'
 import GradientButton from '../../common/GradientButton'
 import ConjunctionGroup from '../builder/ConjunctionGroup'
 import ArithmeticElement from './ArithmeticElement'
+import ArithmeticUnaryElement from './ArithmeticUnaryElement'
 import type { BaseElement, ElementInstance, FormTemplateCategory, ModifierDefinition } from '../../../types/authoring'
 import type { DynamicEntry } from '../element-select/ElementSelectDropdown'
 import { generateId } from '../../../utils/validation'
@@ -59,6 +65,8 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
   }
 
   const handleAddArithmetic = () => {
+    // PAT-163: new arithmetic elements start with the N-ary shape (2 operands +
+    // 1 operator); the editor never writes legacy left_*/right_* fields anymore.
     onChange([
       ...baseElements,
       {
@@ -67,13 +75,32 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         type: 'arithmeticExpression',
         returnType: 'system_quantity',
         fields: [
-          { id: 'left_mode', type: 'string', name: 'Left Mode', value: 'element' },
-          { id: 'left_operand_id', type: 'string', name: 'Left Operand', value: '' },
-          { id: 'left_literal', type: 'string', name: 'Left Literal', value: '' },
-          { id: 'operator', type: 'string', name: 'Operator', value: '+' },
-          { id: 'right_mode', type: 'string', name: 'Right Mode', value: 'element' },
-          { id: 'right_operand_id', type: 'string', name: 'Right Operand', value: '' },
-          { id: 'right_literal', type: 'string', name: 'Right Literal', value: '' },
+          { id: 'operands', type: 'json', name: 'operands', value: [
+            { mode: 'element' },
+            { mode: 'element' },
+          ] as unknown as string },
+          { id: 'operators', type: 'json', name: 'operators', value: ['+'] as unknown as string },
+        ],
+        childInstances: [],
+        conjunction: false,
+      },
+    ])
+    setAddMenuAnchor(null)
+  }
+
+  const handleAddUnary = () => {
+    onChange([
+      ...baseElements,
+      {
+        uniqueId: generateId(),
+        name: t('baseElements.unaryDefaultName', { number: baseElements.filter((be) => be.type === 'arithmeticUnary').length + 1 }),
+        type: 'arithmeticUnary',
+        returnType: 'system_quantity',
+        fields: [
+          { id: 'function', type: 'string', name: 'Function', value: 'Abs' },
+          { id: 'operand_mode', type: 'string', name: 'Operand Mode', value: 'element' },
+          { id: 'operand_id', type: 'string', name: 'Operand', value: '' },
+          { id: 'operand_literal', type: 'string', name: 'Operand Literal', value: '' },
         ],
         childInstances: [],
         conjunction: false,
@@ -126,6 +153,10 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
             <ListItemIcon><CalculateIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t('arithmetic.arithmeticElement')}</ListItemText>
           </MenuItem>
+          <MenuItem onClick={handleAddUnary}>
+            <ListItemIcon><FunctionsIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('arithmeticUnary.unaryElement')}</ListItemText>
+          </MenuItem>
         </Menu>
       </Stack>
 
@@ -144,6 +175,18 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
           {baseElements.map((be) =>
             be.type === 'arithmeticExpression' ? (
               <ArithmeticElement
+                key={be.uniqueId}
+                element={be}
+                availableOperands={baseElements
+                  .filter((b) => b.uniqueId !== be.uniqueId)
+                  .map((b) => ({ uniqueId: b.uniqueId, name: b.name, returnType: b.returnType }))}
+                onUpdate={(updates) =>
+                  onChange(baseElements.map((b) => (b.uniqueId === be.uniqueId ? { ...b, ...updates } : b)))
+                }
+                onDelete={() => setPendingDeleteId(be.uniqueId)}
+              />
+            ) : be.type === 'arithmeticUnary' ? (
+              <ArithmeticUnaryElement
                 key={be.uniqueId}
                 element={be}
                 availableOperands={baseElements

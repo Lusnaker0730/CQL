@@ -1,0 +1,26 @@
+{
+  "periodStart": "2026-01-01",
+  "periodEnd": "2026-06-30",
+  "groups": [
+    {
+      "groupId": "adults",
+      "populations": {
+        "initial-population": 4,
+        "measure-population": 4
+      },
+      "score": 4.0,
+      "scoreTolerance": 0.001
+    },
+    {
+      "groupId": "seniors",
+      "populations": {
+        "initial-population": 2,
+        "measure-population": 2
+      },
+      "score": 2.0,
+      "scoreTolerance": 0.001
+    }
+  ],
+  "maxEvaluationTimeMs": 10000,
+  "_note": "Issue #539 multi-group CV regression lock. EcqmCqlBuilder emits suffixed observation defines: `Measure Observation Value 1` for the adults group, `Measure Observation Value 2` for the seniors group. Pre-fix, PopulationEvaluator.aggregateCvPatientResults only looked up the unsuffixed canonical name, so both groups reported score=null. Now each group's observation define name is passed explicitly via the 5-arg overload, and buildMultiGroupResult routes CV measures through the new per-group observationValuesByGroup bucket. Ages at 2026-06-30: p1(M,76)/p2(F,71)/p3(M,41)/p4(F,26)/p5(M,16). Adults group (>=18): IP=4(p1-p4), MP=4, Count=4. Seniors group (>=65): IP=2(p1,p2), MP=2, Count=2."
+}

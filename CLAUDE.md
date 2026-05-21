@@ -6,7 +6,7 @@
 
 | 層 | 技術 | 版本 |
 |----|------|------|
-| Backend | Spring Boot / Java / Maven | 3.2.0 / 21 |
+| Backend | Spring Boot / Java / Maven | 4.0.6 / 21 |
 | Frontend | React / TypeScript / Vite | 18 / 5.3 / 5.0 |
 | UI | Material-UI (MUI) | 5.14 |
 | Editor | Monaco Editor | 4.6 |

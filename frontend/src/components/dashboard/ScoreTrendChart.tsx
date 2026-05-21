@@ -21,9 +21,10 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
+  // ResponsiveContainer removed: replaced by SafeResponsiveContainer wrapper
   ReferenceLine,
 } from 'recharts'
+import SafeResponsiveContainer from '../common/SafeResponsiveContainer'
 import { useTranslation } from 'react-i18next'
 import type { TrendSeriesPoint, MeasureThreshold } from '../../types'
 import { CHART_COLORS } from '../../constants/chartColors'
@@ -83,8 +84,18 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
     [grouped.proportion],
   )
 
-  const targetLines = thresholds.filter((th) => th.thresholdType === 'target')
-  const warningLines = thresholds.filter((th) => th.thresholdType === 'warning')
+  // PAT-151: memoize to match the rest of the derived state in this file. The
+  // filter recreates the array on every render otherwise, which propagates new
+  // identities into ProportionSection's ReferenceLine map and forces recharts
+  // to rebuild those nodes unnecessarily.
+  const targetLines = useMemo(
+    () => thresholds.filter((th) => th.thresholdType === 'target'),
+    [thresholds],
+  )
+  const warningLines = useMemo(
+    () => thresholds.filter((th) => th.thresholdType === 'warning'),
+    [thresholds],
+  )
 
   const handleModeChange = (_: React.MouseEvent<HTMLElement>, next: ChartMode | null) => {
     if (next) setMode(next)
@@ -213,7 +224,7 @@ function ProportionSection({ points, mode, targetLines, warningLines, theme, t, 
                 {name}
               </Typography>
               <Box sx={{ width: '100%', height: SMALL_CHART_HEIGHT }}>
-                <ResponsiveContainer minWidth={0} minHeight={0}>
+                <SafeResponsiveContainer>
                   <LineChart data={rows} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="period" fontSize={10} tick={{ fontSize: 10 }} />
@@ -251,7 +262,7 @@ function ProportionSection({ points, mode, targetLines, warningLines, theme, t, 
                       />
                     ))}
                   </LineChart>
-                </ResponsiveContainer>
+                </SafeResponsiveContainer>
               </Box>
             </Box>
           ))}
@@ -284,7 +295,7 @@ function ProportionSection({ points, mode, targetLines, warningLines, theme, t, 
             </Stack>
           )}
           <Box sx={{ width: '100%', height: CHART_HEIGHT }}>
-            <ResponsiveContainer minWidth={0} minHeight={0}>
+            <SafeResponsiveContainer>
               <LineChart data={rows} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="period" fontSize={11} />
@@ -324,7 +335,7 @@ function ProportionSection({ points, mode, targetLines, warningLines, theme, t, 
                   />
                 ))}
               </LineChart>
-            </ResponsiveContainer>
+            </SafeResponsiveContainer>
           </Box>
         </>
       )}
@@ -406,7 +417,7 @@ function PerMeasureSection({ family, points, t }: PerMeasureSectionProps) {
                 </Typography>
               </Stack>
               <Box sx={{ width: '100%', height: SMALL_CHART_HEIGHT }}>
-                <ResponsiveContainer minWidth={0} minHeight={0}>
+                <SafeResponsiveContainer>
                   <LineChart data={rows} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="period" fontSize={10} tick={{ fontSize: 10 }} />
@@ -437,7 +448,7 @@ function PerMeasureSection({ family, points, t }: PerMeasureSectionProps) {
                       isAnimationActive={false}
                     />
                   </LineChart>
-                </ResponsiveContainer>
+                </SafeResponsiveContainer>
               </Box>
             </Box>
           )
