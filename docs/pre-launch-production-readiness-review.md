@@ -103,7 +103,7 @@
 - **現況**：`GET /cds-services` unauth（spec 允許）+ `POST /cds-services/{id}` 無 rate limit
 - **風險**：惡意使用者 enumerate 所有 service + 密集 POST = DoS
 - **修法**：Bucket4j per-IP rate limit（e.g. 60 req/min per IP on invocation）；discovery 低 limit
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — BUG-087 + PAT-107`（POST invocation tier `CDS_INVOKE` 10 RPM/IP 由 BUG-087 pen-test fix 已上線；PAT-107 補 discovery GET 獨立 tier `CDS_DISCOVERY` 預設 20 RPM/IP、env var `RATE_LIMIT_CDS_DISCOVERY_RPM` 可調。驗證：`RateLimitFilterTest` 17/17 pass，含新增 `shouldApplyCdsDiscoveryTierLimit` 與 `cdsDiscoveryAndInvokeTiersShouldHaveIndependentBuckets` 雙 bucket 隔離測試。Metric `rate_limit_exceeded{tier="CDS_DISCOVERY"}` 可接 Grafana alert）
 
 ### #9 HikariCP pool = 20 對真實 load 太小
 - **現況**：`application.yml:48` `maximum-pool-size: 20`；measure pool 也 20
