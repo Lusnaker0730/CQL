@@ -97,10 +97,13 @@ async function selectServiceAndInvoke() {
   // Wait for the conditional fields to render after selectedHook propagates.
   await waitFor(() => {
     const inputs = screen.queryAllByRole('textbox')
-    // eslint-disable-next-line no-console
-    if (inputs.length < 2) console.warn('TextField count', inputs.length, 'labels:', inputs.map(i => i.getAttribute('aria-label') || '(no aria-label)'))
+    const comboboxes = screen.queryAllByRole('combobox')
+    const labels = Array.from(document.querySelectorAll('label')).map(l => l.textContent)
+    if (inputs.length < 2) {
+      throw new Error(`DEBUG: textboxes=${inputs.length} comboboxes=${comboboxes.length} all_labels=${JSON.stringify(labels)}`)
+    }
     expect(inputs.length).toBeGreaterThanOrEqual(2)
-  })
+  }, { timeout: 2000 })
   const userInput = await screen.findByLabelText('sandbox.userIdLabel')
   fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
   fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
