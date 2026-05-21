@@ -3,9 +3,9 @@ package com.cqlplatform.controller;
 import com.cqlplatform.service.fhir.VsacService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -23,7 +23,7 @@ class SettingsControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private VsacService vsacService;
 
     @Test
@@ -33,7 +33,18 @@ class SettingsControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "testuser")
+    @WithMockUser(username = "regular", roles = {"USER"})
+    void getVsacStatus_regularUserAuthenticated_shouldReturn403() throws Exception {
+        // PAT-145 regression: settings GET endpoints leak the configured VSAC URL
+        // and AI provider/model — operator-only info, not for regular users.
+        // Class-level @PreAuthorize("hasRole('ADMIN')") closes this gap; this test
+        // locks the rule against future weakening.
+        mockMvc.perform(get("/api/settings/vsac-status"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
     void getVsacStatus_configured_shouldReturnStatus() throws Exception {
         when(vsacService.isConfigured()).thenReturn(true);
         when(vsacService.getApiUrl()).thenReturn("https://vsac.nlm.nih.gov/vsac/svs/RetrieveMultipleValueSets");
@@ -45,7 +56,7 @@ class SettingsControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "testuser")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
     void getVsacStatus_notConfigured_shouldReturnFalse() throws Exception {
         when(vsacService.isConfigured()).thenReturn(false);
         when(vsacService.getApiUrl()).thenReturn("");

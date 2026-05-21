@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { safeLocalStorage } from '../utils/safeStorage'
 
 interface AuthState {
   user: { username: string; role: string; forcePasswordChange?: boolean; department?: string } | null
@@ -16,14 +17,23 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-const token = localStorage.getItem('token')
-const userStr = localStorage.getItem('user')
-const user = userStr ? JSON.parse(userStr) : null
+// PAT-149: every storage access goes through safeLocalStorage so Safari Private
+// mode (quota=0 → setItem throws) or storage-disabled browsers can still load
+// the app + complete reducers. The trade-off is "user has to log in again on
+// next refresh" instead of "module-load throw → white screen."
+const token = safeLocalStorage.getItem('token')
+const userStr = safeLocalStorage.getItem('user')
+let user: { username: string; role: string; forcePasswordChange?: boolean; department?: string } | null = null
+try {
+  user = userStr ? JSON.parse(userStr) : null
+} catch {
+  user = null
+}
 const isExpired = token ? isTokenExpired(token) : true
 
 if (isExpired && token) {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
+  safeLocalStorage.removeItem('token')
+  safeLocalStorage.removeItem('user')
 }
 
 const initialState: AuthState = {
@@ -46,26 +56,26 @@ const authSlice = createSlice({
       state.user = { username, role, forcePasswordChange, department }
       state.isAuthenticated = true
       state.loading = false
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange, department }))
+      safeLocalStorage.setItem('token', token)
+      safeLocalStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange, department }))
     },
     clearForcePasswordChange: (state) => {
       if (state.user) {
         state.user.forcePasswordChange = false
-        localStorage.setItem('user', JSON.stringify(state.user))
+        safeLocalStorage.setItem('user', JSON.stringify(state.user))
       }
     },
     updateToken: (state, action: PayloadAction<string>) => {
       state.token = action.payload
-      localStorage.setItem('token', action.payload)
+      safeLocalStorage.setItem('token', action.payload)
     },
     logout: (state) => {
       state.token = null
       state.user = null
       state.isAuthenticated = false
       state.loading = false
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      safeLocalStorage.removeItem('token')
+      safeLocalStorage.removeItem('user')
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload

@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { authApi } from '../../api'
 import { clearForcePasswordChange } from '../../store/authSlice'
 import { validatePassword } from '../../utils/validation'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface ForcePasswordChangeDialogProps {
   open: boolean
@@ -56,10 +57,21 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
     setLoading(true)
     try {
       await authApi.changePassword({ currentPassword, newPassword })
+      // PAT-147: clear plain-text passwords from React state once they're no
+      // longer needed. The dialog will close as soon as
+      // clearForcePasswordChange dispatches, but until React unmounts the
+      // component the values would otherwise sit in the heap (visible via
+      // React DevTools) for an arbitrary tick.
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setFieldErrors({})
       dispatch(clearForcePasswordChange())
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } }
-      setError(axiosErr.response?.data?.error || t('auth.changePasswordFailed'))
+      // PAT-147: extractApiError unwraps both AxiosError and structured server
+      // errors — replaces the previous bare `err.response?.data?.error` lookup
+      // that missed non-Axios reject paths (matches the PAT-144 hooks pattern).
+      setError(extractApiError(err) || t('auth.changePasswordFailed'))
     } finally {
       setLoading(false)
     }

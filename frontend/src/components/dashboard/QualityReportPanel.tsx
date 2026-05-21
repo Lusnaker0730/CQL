@@ -12,17 +12,16 @@ import {
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import type { QualityReportData } from '../../types'
+// PAT-151: replaced the local formatScore with the shared dashboardFormat
+// helpers so threshold and score columns no longer hard-code "%" — the
+// continuous-variable + cohort cases now match what ScoreTrendChart does.
+import { formatScoreValue, formatThresholdValue } from '../../utils/dashboardFormat'
 
 interface QualityReportPanelProps {
   report: QualityReportData | null
 }
 
-function formatScore(score: number | undefined | null, scoringType?: string, naLabel = 'N/A'): string {
-  if (score == null) return naLabel
-  // Continuous-variable scores are raw values (e.g., HbA1c 5.6), not percentages
-  if (scoringType === 'continuous-variable') return score.toFixed(1)
-  return `${score.toFixed(1)}%`
-}
+const MEASURE_TABLE_PREVIEW_LIMIT = 10
 
 export default function QualityReportPanel({ report }: QualityReportPanelProps) {
   const { t } = useTranslation('measures')
@@ -74,14 +73,20 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
             </TableRow>
           </TableHead>
           <TableBody>
-            {report.measureScores.slice(0, 10).map((ms) => (
+            {report.measureScores.slice(0, MEASURE_TABLE_PREVIEW_LIMIT).map((ms) => (
               <TableRow key={ms.measureId}>
                 <TableCell>{ms.measureName}</TableCell>
                 <TableCell align="right">
-                  {formatScore(ms.score, ms.scoringType, tCommon('notAvailable'))}
+                  {formatScoreValue(ms.score, {
+                    scoringType: ms.scoringType,
+                    naLabel: tCommon('notAvailable'),
+                  })}
                 </TableCell>
                 <TableCell align="right">
-                  {ms.targetThreshold != null ? `${ms.targetThreshold}%` : '-'}
+                  {/* PAT-151: was hard-coded `${targetThreshold}%`. Continuous-variable
+                      thresholds (HbA1c 7.0 mmol/L) and cohort thresholds (raw counts)
+                      were rendered as percentages, which is wrong. */}
+                  {formatThresholdValue(ms.targetThreshold, { scoringType: ms.scoringType })}
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -100,6 +105,21 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
             ))}
           </TableBody>
         </Table>
+      )}
+
+      {/* PAT-151: previously the table silently truncated to 10 rows; users with
+          11+ measures had no idea more existed. Show a truncation footer. */}
+      {report.measureScores.length > MEASURE_TABLE_PREVIEW_LIMIT && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', textAlign: 'center', mt: 1 }}
+        >
+          {t('dashboard.tablePreviewTruncated', {
+            shown: MEASURE_TABLE_PREVIEW_LIMIT,
+            total: report.measureScores.length,
+          })}
+        </Typography>
       )}
     </Paper>
   )

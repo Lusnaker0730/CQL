@@ -60,10 +60,29 @@ class TlsContextFactoryTest {
     }
 
     @Test
-    void createHostnameVerifier_hostnameVerificationDisabled_returnsPermissiveVerifier() {
+    void createHostnameVerifier_hostnameVerificationDisabled_globalGuardOff_appliesStrictAnyway() {
+        // PAT-142: per-connection hostnameVerification=false MUST be ignored by default.
+        // A misconfigured DB column on a prod connection used to silently turn into an
+        // accept-all verifier — catastrophic against MITM. Operators must explicitly
+        // opt in via security.tls.allow-disable-hostname-verification=true.
         EhrConnectionEntity connection = new EhrConnectionEntity();
         connection.setTlsEnabled(true);
         connection.setHostnameVerification(false);
+
+        // factory defaults allowDisableHostnameVerification = false (Spring @Value default)
+        HostnameVerifier result = factory.createHostnameVerifier(connection);
+        assertNull(result, "Strict default verification should apply when global guard is off");
+    }
+
+    @Test
+    void createHostnameVerifier_hostnameVerificationDisabled_globalGuardOn_returnsPermissiveVerifier() {
+        EhrConnectionEntity connection = new EhrConnectionEntity();
+        connection.setTlsEnabled(true);
+        connection.setHostnameVerification(false);
+
+        // Operator explicitly opted in
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                factory, "allowDisableHostnameVerification", true);
 
         HostnameVerifier result = factory.createHostnameVerifier(connection);
         assertNotNull(result);

@@ -19,12 +19,14 @@ public class EcqmExternalCqlLibraryService {
     private final EcqmExternalCqlLibraryRepository repository;
     private final ExternalCqlProcessingHelper processingHelper;
 
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> listByArtifact(Long artifactId) {
         return repository.findByArtifactId(artifactId).stream()
                 .map(processingHelper::entityToMap)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public Optional<Map<String, Object>> getByIdAndArtifactId(Long id, Long artifactId) {
         return repository.findByIdAndArtifactId(id, artifactId).map(processingHelper::entityToMap);
     }

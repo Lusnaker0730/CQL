@@ -1,0 +1,46 @@
+{
+  "periodStart": "2026-01-01",
+  "periodEnd": "2026-06-30",
+  "groups": [
+    {
+      "groupId": "working-age",
+      "populations": {
+        "initial-population": 5,
+        "denominator": 4,
+        "numerator": 3
+      },
+      "score": 75.0,
+      "scoreTolerance": 0.5,
+      "stratifiers": [
+        {
+          "strataId": "gender",
+          "expectedStrata": [
+            {"strataValue": "true",  "populations": {"initial-population": 3, "denominator": 2, "numerator": 2}, "score": 100.0},
+            {"strataValue": "false", "populations": {"initial-population": 2, "denominator": 2, "numerator": 1}, "score": 50.0}
+          ]
+        }
+      ]
+    },
+    {
+      "groupId": "seniors",
+      "populations": {
+        "initial-population": 2,
+        "denominator": 2,
+        "numerator": 1
+      },
+      "score": 50.0,
+      "scoreTolerance": 0.5,
+      "stratifiers": [
+        {
+          "strataId": "gender",
+          "expectedStrata": [
+            {"strataValue": "true",  "populations": {"initial-population": 1, "denominator": 1, "numerator": 1}, "score": 100.0},
+            {"strataValue": "false", "populations": {"initial-population": 1, "denominator": 1, "numerator": 0}, "score": 0.0}
+          ]
+        }
+      ]
+    }
+  ],
+  "maxEvaluationTimeMs": 10000,
+  "_note": "BUG #474 stratifier follow-up regression lock. Two groups, each with its own gender stratifier define (`Stratifier gender 1` for working-age, `Stratifier gender 2` for seniors). Pre-fix the stratifier evaluation crossed buckets between groups because StratifierEvaluator looked up populations against the unsuffixed canonical names which existed in neither group's CQL output. Now per-group canonicalization via PopulationEvaluator.buildExpressionMap routes each stratifier to the right group. Ages at 2026-06-30: p1(M,76)/p2(F,71)/p3(M,64)/p4(F,51)/p5(M,41)/p6(F,16). Working-age: IP=5(p1-p5), Denom=4(p1-p4), Numer=3(p1-p3), score=75; stratifier-gender-true=3males(p1,p3,p5)/2denom/2numer=100; stratifier-gender-false=2females(p2,p4)/2denom/1numer=50. Seniors: IP=2(p1,p2), Denom=2(p1,p2), Numer=1(p1), score=50; stratifier-gender-true=1male(p1)/1/1=100; stratifier-gender-false=1female(p2)/1/0=0."
+}

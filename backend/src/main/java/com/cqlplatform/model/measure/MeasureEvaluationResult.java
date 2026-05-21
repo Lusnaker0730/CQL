@@ -42,6 +42,21 @@ public class MeasureEvaluationResult {
      */
     private ExecutionErrorInfo errorInfo;
 
+    /**
+     * Number of patients whose CQL evaluation failed during this run (PAT-140).
+     * A non-zero value with status=COMPLETE means the score was computed from a
+     * partial cohort — the UI uses this to surface a warning so authors don't
+     * silently report a denominator that lost members to runtime errors.
+     */
+    private Integer errorCount;
+
+    /**
+     * Total patients submitted for evaluation in this run (denominator before
+     * filtering, before population logic). Pairs with {@link #errorCount} so the
+     * caller can compute the failure ratio without re-fetching the patient list.
+     */
+    private Integer evaluatedPatientCount;
+
     @Data
     @Builder
     @NoArgsConstructor

@@ -87,26 +87,50 @@ export function useTestCaseDraft({
   return { restoredDraft, dismissDraft }
 }
 
+/**
+ * PAT-144: storage helpers wrap every read/write so Safari Private mode
+ * (sessionStorage allowed, localStorage tiny quota) and "QuotaExceeded" /
+ * "SecurityError" don't bubble up and crash the calling component. Failures
+ * are best-effort: a missed save just means the draft isn't restored next
+ * time — strictly better than uncaught throw on a routine UI action.
+ */
+
 /** Remove the draft from localStorage (call on successful save). */
 export function clearTestCaseDraft(measureId: number, testCaseId: number | null): void {
-  localStorage.removeItem(getDraftKey(measureId, testCaseId))
+  try {
+    localStorage.removeItem(getDraftKey(measureId, testCaseId))
+  } catch {
+    // best-effort
+  }
 }
 
 /** sessionStorage helpers for preserving which test case is being edited */
 const EDITING_KEY_PREFIX = 'testcase-editing'
 
 export function saveEditingState(measureId: number, testCaseId: number | 'new'): void {
-  sessionStorage.setItem(`${EDITING_KEY_PREFIX}-${measureId}`, String(testCaseId))
+  try {
+    sessionStorage.setItem(`${EDITING_KEY_PREFIX}-${measureId}`, String(testCaseId))
+  } catch {
+    // best-effort
+  }
 }
 
 export function loadEditingState(measureId: number): number | 'new' | null {
-  const raw = sessionStorage.getItem(`${EDITING_KEY_PREFIX}-${measureId}`)
-  if (!raw) return null
-  if (raw === 'new') return 'new'
-  const id = parseInt(raw, 10)
-  return isNaN(id) ? null : id
+  try {
+    const raw = sessionStorage.getItem(`${EDITING_KEY_PREFIX}-${measureId}`)
+    if (!raw) return null
+    if (raw === 'new') return 'new'
+    const id = parseInt(raw, 10)
+    return isNaN(id) ? null : id
+  } catch {
+    return null
+  }
 }
 
 export function clearEditingState(measureId: number): void {
-  sessionStorage.removeItem(`${EDITING_KEY_PREFIX}-${measureId}`)
+  try {
+    sessionStorage.removeItem(`${EDITING_KEY_PREFIX}-${measureId}`)
+  } catch {
+    // best-effort
+  }
 }

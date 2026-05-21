@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
-import Editor, { BeforeMount, OnMount, OnChange } from '@monaco-editor/react'
+import Editor, { type BeforeMount, type OnMount, type OnChange } from '../common/MonacoEditor'
 import type { editor } from 'monaco-editor'
 import { Box, CircularProgress } from '@mui/material'
 import { alpha } from '@mui/material/styles'

@@ -424,8 +424,8 @@ public class CqlExecutionService {
                     // Batch evaluation failed (e.g. ambiguous overload in FHIRHelpers).
                     // Fall back to per-expression evaluation so only the failing
                     // expression(s) return errors while the rest succeed.
-                    log.warn("Batch CQL evaluation failed, falling back to per-expression evaluation: {}",
-                            batchEx.getMessage());
+                    log.warn("Batch CQL evaluation failed ({}), falling back to per-expression evaluation: {}",
+                            batchEx.getClass().getSimpleName(), batchEx.getMessage(), batchEx);
                     batchFailed = true;
                 }
 
@@ -869,10 +869,20 @@ public class CqlExecutionService {
             Environment environment = new Environment(ctx.libraryManager(), dataProviders, terminologyProvider);
             long t5 = System.currentTimeMillis();
             CqlEngine engine = new CqlEngine(environment);
+            // Mirror doExecute (PAT-066): without a DebugMap the engine's
+            // shouldDebug() returns NONE and per-expression runtime exceptions are
+            // silently swallowed. The pre-translated path is the one
+            // MeasureEvaluationService uses for every patient, so missing this
+            // hides per-define errors across the entire measure pipeline (PAT-141).
+            org.opencds.cqf.cql.engine.debug.DebugMap debugMap =
+                    new org.opencds.cqf.cql.engine.debug.DebugMap();
+            debugMap.setLoggingEnabled(true);
+            engine.getState().setDebugMap(debugMap);
             long t6 = System.currentTimeMillis();
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
             Map<String, ExpressionResult> results = new LinkedHashMap<>();
+            List<String> runtimeErrors = new ArrayList<>();
 
             // Normal mode: evaluate all expressions at once
             EvaluationResult evaluationResult = null;
@@ -891,7 +901,8 @@ public class CqlExecutionService {
                         t2-t1, t3-t2, t4-t3, t5-t4, t6-t5, t8-t7,
                         t8-t0);
             } catch (Exception batchEx) {
-                log.warn("Batch CQL evaluation failed, falling back to per-expression: {}", batchEx.getMessage());
+                log.warn("Batch CQL evaluation failed ({}), falling back to per-expression: {}",
+                        batchEx.getClass().getSimpleName(), batchEx.getMessage(), batchEx);
                 batchFailed = true;
             }
 
@@ -938,9 +949,30 @@ public class CqlExecutionService {
                 }
             }
 
+            // Harvest engine-captured per-expression exceptions that didn't surface
+            // via direct throw (mirrors doExecute line 535-551). Without this, batch
+            // evaluation that swallows per-expression failures returns null/partial
+            // results and the caller never sees why.
+            org.opencds.cqf.cql.engine.debug.DebugResult engineDebug = engine.getState().getDebugResult();
+            if (engineDebug != null && engineDebug.getMessages() != null) {
+                for (org.opencds.cqf.cql.engine.exception.CqlException ce : engineDebug.getMessages()) {
+                    String msg = ce.getMessage();
+                    if (msg == null) continue;
+                    org.opencds.cqf.cql.engine.debug.SourceLocator loc = ce.getSourceLocator();
+                    String formatted = (loc != null) ? ("[" + loc + "] " + msg) : msg;
+                    if (runtimeErrors.stream().noneMatch(e -> e.endsWith(msg))) {
+                        runtimeErrors.add(formatted);
+                    }
+                    log.warn("Engine CqlException at [{}]: {}", loc, msg);
+                }
+            }
+
             long executionTime = System.currentTimeMillis() - startTime;
             return CqlExecutionResponse.builder()
+                    .success(true)
+                    .patientId(request.getPatientId())
                     .results(results)
+                    .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .fhirServerUrl(fhirServerUrl)
@@ -1106,6 +1138,11 @@ public class CqlExecutionService {
         if (compiled.getLibrary() != null
                 && compiled.getLibrary().getStatements() != null
                 && compiled.getLibrary().getStatements().getDef() != null) {
+            // CqlEngine.Libraries.resolveExpressionRef uses binarySearch — the def
+            // list MUST be pre-sorted by name or lookups throw "Could not resolve
+            // expression reference". The translator emits defs in source order;
+            // only LibraryManager.compileLibrary sorts automatically, so freshly
+            // translated libraries we seed manually must sort here.
             compiled.getLibrary().getStatements().getDef().sort(
                     Comparator.comparing(
                             org.hl7.elm.r1.ExpressionDef::getName,

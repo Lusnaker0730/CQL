@@ -621,6 +621,70 @@ class CqlExecutionIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // 11. Pre-translated path runtime error harvesting (PAT-141)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("11. Pre-translated path runtime error harvesting (PAT-141)")
+    class PreTranslatedRuntimeErrorTests {
+
+        @Test
+        @DisplayName("doExecutePreTranslated populates response.errors when a CQL define throws at runtime")
+        void preTranslatedRuntimeError_shouldSurfaceInResponse() {
+            // singleton() requires exactly 1 element — passing a 2-element list is a
+            // CqlException at evaluation time. The translator accepts the CQL fine.
+            // Without DebugMap (pre-PAT-141), this error is silently swallowed and
+            // response.errors stays null. With DebugMap set, the engine records the
+            // exception into State.debugResult and we harvest it.
+            String cql = """
+                    library RuntimeErrorLib version '1.0.0'
+                    using FHIR version '4.0.1'
+                    context Patient
+                    define "Bad": singleton from ({1, 2})
+                    define "Good": 5 + 3
+                    """;
+
+            CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(cql);
+            CqlExecutionRequest request = new CqlExecutionRequest();
+            CqlExecutionResponse response = executionService.executeWithPreTranslated(
+                    request, ctx, emptyRetrieveProvider());
+
+            // The good expression still evaluates
+            assertThat(response.isSuccess()).isTrue();
+            // The bad one shows up in response.errors (regression for PAT-141 — previously
+            // null because no DebugMap was attached to the engine and the response builder
+            // didn't carry .errors(...)).
+            assertThat(response.getErrors())
+                    .as("PAT-141: pre-translated path must surface per-define runtime errors")
+                    .isNotNull()
+                    .anyMatch(msg -> msg.toLowerCase().contains("multiple elements")
+                            || msg.toLowerCase().contains("at most one element"));
+        }
+
+        @Test
+        @DisplayName("doExecutePreTranslated sets success=true and patientId on the response (model parity with doExecute)")
+        void preTranslatedResponse_shouldMatchDoExecuteShape() {
+            String cql = """
+                    library ShapeLib version '1.0.0'
+                    using FHIR version '4.0.1'
+                    context Patient
+                    define "X": 1 + 1
+                    """;
+
+            CqlExecutionService.PreTranslatedContext ctx = executionService.translateOnce(cql);
+            CqlExecutionRequest request = new CqlExecutionRequest();
+            request.setPatientId("Patient/p1");
+            CqlExecutionResponse response = executionService.executeWithPreTranslated(
+                    request, ctx, emptyRetrieveProvider());
+
+            // PAT-141: pre-translated path now matches doExecute's response shape.
+            assertThat(response.isSuccess()).isTrue();
+            assertThat(response.getPatientId()).isEqualTo("Patient/p1");
+            assertThat(response.getResults()).containsKey("X");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Helpers
     // ═══════════════════════════════════════════════════════════════════════
 

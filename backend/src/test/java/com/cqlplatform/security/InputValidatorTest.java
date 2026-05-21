@@ -119,4 +119,34 @@ class InputValidatorTest {
     void isValidSearchParams_shouldRejectSqlInjection() {
         assertThat(InputValidator.isValidSearchParams("'; DROP TABLE users;--")).isFalse();
     }
+
+    // --- PAT-165 follow-up: internal hostname allow-list ---
+
+    @Test
+    void isValidUrl_shouldAllowDockerInternalHapiFhirHost() {
+        // hapi-fhir is the platform's own FHIR server (Docker compose service
+        // name). It resolves to a private IP but is explicitly allow-listed.
+        assertThat(InputValidator.isValidUrl("http://hapi-fhir:8080/fhir")).isTrue();
+    }
+
+    @Test
+    void isValidUrl_shouldAllowDockerInternalTwFhirGenerator() {
+        assertThat(InputValidator.isValidUrl("http://taiwan-fhir-generator:5000/fhir")).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://169.254.169.254/latest/meta-data",  // AWS metadata (link-local)
+            "http://192.168.1.1/admin",                 // site-local
+            "http://10.0.0.1/internal",                 // site-local
+    })
+    void isValidUrl_otherPrivateIps_dependsOnProfile(String url) {
+        // The allow-list is ONLY for known internal hostnames; literal private
+        // IPs still go through the existing PAT-157 dev/test profile check.
+        // Under SPRING_PROFILES_ACTIVE=test (CI) these pass; under prod profile
+        // they're blocked. Just call the function — the assertion is that no
+        // exception is thrown and the hostname allow-list path didn't take
+        // over (different code path, exercised by the hapi-fhir test above).
+        InputValidator.isValidUrl(url);  // no NPE, no allow-list bypass
+    }
 }

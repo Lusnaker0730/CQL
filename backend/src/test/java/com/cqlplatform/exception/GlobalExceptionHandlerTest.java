@@ -292,4 +292,56 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getMessage()).doesNotContain("secret");
         assertThat(response.getBody().getMessage()).isEqualTo("An internal error occurred. Please contact support.");
     }
+
+    // ===== PAT-160: client disconnect → void / no body =====
+
+    @Test
+    void handleClientDisconnect_asyncRequestNotUsable_shouldReturnVoidWithoutThrowing() {
+        // The handler returns void; Spring uses that as "do not write any body to the
+        // already-closed stream." Just verify it doesn't throw.
+        org.springframework.web.context.request.async.AsyncRequestNotUsableException ex =
+                new org.springframework.web.context.request.async.AsyncRequestNotUsableException(
+                        "ServletOutputStream failed to write: java.io.IOException: Broken pipe");
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> handler.handleClientDisconnect(ex))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void handleGenericException_brokenPipeIOException_shouldReturnNullNotErrorBody() {
+        // Defensive path: when a generic IOException carries a "Broken pipe" message,
+        // we treat it as a client disconnect and return null (Spring writes nothing).
+        // Without this, attempting to write a 500 ErrorResponse body to the closed
+        // stream triggered HttpMessageNotWritableException — the second-order
+        // "Failure in @ExceptionHandler" log entries we saw in production.
+        Exception ex = new java.io.IOException("Broken pipe");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+
+        assertThat(response).isNull();
+    }
+
+    @Test
+    void handleGenericException_brokenPipeCausedBy_shouldDetectViaCauseChain() {
+        // The disconnect IOException is often wrapped (e.g. JacksonException →
+        // IOException). Walk the cause chain so we still detect it.
+        Exception cause = new java.io.IOException("Broken pipe");
+        Exception ex = new RuntimeException("write failed", cause);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+
+        assertThat(response).isNull();
+    }
+
+    @Test
+    void handleGenericException_nonDisconnectIOException_stillReturns500() {
+        // Make sure we didn't over-broaden: a plain IOException without the disconnect
+        // message should still produce a 500 ErrorResponse like before.
+        Exception ex = new java.io.IOException("disk full");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }
