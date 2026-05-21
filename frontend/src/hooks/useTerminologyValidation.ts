@@ -125,8 +125,17 @@ export function useTerminologyValidation(elmJson: string | null) {
         }
 
         await Promise.allSettled(promises)
-      } catch {
-        // ELM parse error — no validation possible
+      } catch (e) {
+        // PAT-144: previously silent. Surface ELM parse failure as an error
+        // item so the UI can tell the user "validation skipped because the
+        // ELM is malformed" instead of showing an empty result that looks
+        // like "everything passed".
+        items.push({
+          name: '_elm',
+          type: 'parseError',
+          status: 'error',
+          detail: e instanceof Error ? e.message : 'ELM parse error',
+        })
       }
 
       if (!cancelled) {

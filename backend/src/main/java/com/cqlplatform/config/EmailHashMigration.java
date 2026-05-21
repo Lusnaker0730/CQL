@@ -39,7 +39,13 @@ public class EmailHashMigration implements CommandLineRunner {
                 log.info("Backfilled email_hash for {} existing users", updated);
             }
         } catch (Exception e) {
-            log.warn("EmailHashMigration skipped due to error (e.g. encryption key mismatch): {}", e.getMessage());
+            // PAT-150: log the full stack so the actual cause is visible — the
+            // previous message-only log lost the line / cause chain that would
+            // tell ops whether this is genuinely an encryption-key mismatch or
+            // something else (DB outage, decryption corruption, etc.). Migration
+            // is idempotent (only updates rows where emailHash is null) so a
+            // single startup failure doesn't corrupt — a rerun fixes it.
+            log.warn("EmailHashMigration skipped due to error; rerun on next startup will retry", e);
         }
     }
 }

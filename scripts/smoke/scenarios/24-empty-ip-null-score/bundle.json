@@ -1,0 +1,36 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-24-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-24-p1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-24"}]},
+        "birthDate": "1980-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-24-p1"}
+    },
+    {
+      "fullUrl": "Patient/smoke-24-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-24-p2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-24"}]},
+        "birthDate": "1985-03-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-24-p2"}
+    },
+    {
+      "fullUrl": "Patient/smoke-24-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-24-p3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-24"}]},
+        "birthDate": "1990-01-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-24-p3"}
+    }
+  ]
+}

@@ -17,6 +17,7 @@ import {
 } from '../../config/twcore'
 import type { CustomGenerationConfig } from '../../config/twcore'
 import type { ConfigFile } from '../../config/twcore/types'
+import { isDateRangeReversed } from '../../utils/dateDefaults'
 import ResourceSelector from './ResourceSelector'
 import SliderField from './SliderField'
 import DateRangeFields from './DateRangeFields'
@@ -71,6 +72,8 @@ export default function CustomGeneratorPanel({ isGenerating, onGenerate }: Custo
     selectedObservations.length > 0 ||
     selectedMedications.length > 0 ||
     selectedAllergies.length > 0
+
+  const dateRangeInvalid = isDateRangeReversed(dateFrom, dateTo)
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -132,7 +135,7 @@ export default function CustomGeneratorPanel({ isGenerating, onGenerate }: Custo
           size="large"
           startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : <GenerateIcon />}
           onClick={handleGenerate}
-          disabled={isGenerating || !hasSelection}
+          disabled={isGenerating || !hasSelection || dateRangeInvalid}
           sx={{ mt: 1 }}
         >
           {isGenerating ? t('custom.generating') : t('custom.generate')}

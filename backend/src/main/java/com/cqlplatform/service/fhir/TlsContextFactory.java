@@ -2,6 +2,7 @@ package com.cqlplatform.service.fhir;
 
 import com.cqlplatform.entity.EhrConnectionEntity;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.net.ssl.*;
@@ -27,6 +28,18 @@ import java.util.List;
 @Component
 @Slf4j
 public class TlsContextFactory {
+
+    /**
+     * Master kill-switch for the per-connection {@code hostnameVerification=false}
+     * option. When false (default), the DB column is ignored and strict hostname
+     * verification always applies — protects against an admin accidentally / maliciously
+     * disabling verification on a prod EHR connection and silently accepting MITM
+     * traffic. Operators who genuinely need lax verification (lab environments with
+     * self-signed certs against odd hostnames) must explicitly set
+     * {@code security.tls.allow-disable-hostname-verification=true} in non-prod yml.
+     */
+    @Value("${security.tls.allow-disable-hostname-verification:false}")
+    private boolean allowDisableHostnameVerification;
 
     /**
      * Build an SSLContext for the given EHR connection's TLS configuration.
@@ -78,7 +91,16 @@ public class TlsContextFactory {
         if (!connection.isTlsEnabled() || connection.isHostnameVerification()) {
             return null; // Use default (strict) hostname verification
         }
-        // Disabled hostname verification — for testing environments only
+        // PAT-142: never honour the per-connection disable flag unless the operator
+        // has explicitly opted in via security.tls.allow-disable-hostname-verification.
+        // A misconfigured DB column on a prod EHR connection used to silently turn into
+        // an accept-all hostname verifier — catastrophic against MITM.
+        if (!allowDisableHostnameVerification) {
+            log.warn("EHR connection {} has hostnameVerification=false but global "
+                    + "security.tls.allow-disable-hostname-verification is false — "
+                    + "applying strict hostname verification anyway", connection.getId());
+            return null;
+        }
         log.warn("Hostname verification disabled for EHR connection {} — use only in test environments", connection.getId());
         return (hostname, session) -> true;
     }

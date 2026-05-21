@@ -1,5 +1,6 @@
 import { Stack, TextField } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { isDateRangeReversed } from '../../utils/dateDefaults'
 
 interface DateRangeFieldsProps {
   dateFrom: string
@@ -15,6 +16,7 @@ export default function DateRangeFields({
   onDateToChange,
 }: DateRangeFieldsProps) {
   const { t } = useTranslation('patientGenerator')
+  const reversed = isDateRangeReversed(dateFrom, dateTo)
 
   return (
     <Stack direction="row" spacing={2}>
@@ -26,6 +28,8 @@ export default function DateRangeFields({
         size="small"
         InputLabelProps={{ shrink: true }}
         sx={{ flex: 1 }}
+        error={reversed}
+        helperText={reversed ? t('batch.dateRangeReversed') : undefined}
       />
       <TextField
         type="date"
@@ -35,6 +39,7 @@ export default function DateRangeFields({
         size="small"
         InputLabelProps={{ shrink: true }}
         sx={{ flex: 1 }}
+        error={reversed}
       />
     </Stack>
   )

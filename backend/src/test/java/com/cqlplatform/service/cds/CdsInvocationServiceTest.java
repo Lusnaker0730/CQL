@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,7 +39,13 @@ class CdsInvocationServiceTest {
         FhirContext fhirContext = FhirContext.forR4();
         ObjectMapper objectMapper = new ObjectMapper();
         invocationService = new CdsInvocationService(
-                executionService, tupleStrategy, planDefinitionStrategy, fhirContext, objectMapper);
+                executionService, tupleStrategy, planDefinitionStrategy, fhirContext, objectMapper,
+                Optional.empty(),  // cdsInvocationTimer
+                Optional.empty(),  // cdsInvocationCounter
+                Optional.empty(),  // cdsInvocationErrorCounter
+                Optional.empty(),  // analyticsService
+                Optional.empty(),  // prefetchResolver
+                Optional.empty()); // recentInvocationsService
     }
 
     @Test

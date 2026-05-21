@@ -6,6 +6,7 @@ on:
     types: [opened, edited, synchronize, labeled, unlabeled]
 
 permissions:
+  contents: read       # required for actions/checkout to clone the repo
   issues: read
   pull-requests: read
 
@@ -17,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 

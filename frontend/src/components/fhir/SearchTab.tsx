@@ -15,12 +15,11 @@ import {
   Button,
   Box,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  NavigateBefore as PrevIcon,
-  NavigateNext as NextIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501 — see ResourceEditorDialog for why.
+import SearchIcon from '@mui/icons-material/Search'
+import AddIcon from '@mui/icons-material/Add'
+import PrevIcon from '@mui/icons-material/NavigateBefore'
+import NextIcon from '@mui/icons-material/NavigateNext'
 import { useTranslation } from 'react-i18next'
 import GradientButton from '../common/GradientButton'
 import { useMutation } from '@tanstack/react-query'

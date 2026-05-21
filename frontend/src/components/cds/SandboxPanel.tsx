@@ -62,7 +62,7 @@ import {
 } from '../../contexts/BundleBuilderContext'
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
 import { bundleToPrefetch, prefetchToBundle } from '../../utils/bundlePrefetchConverter'
-import Editor from '@monaco-editor/react'
+import Editor from '../common/MonacoEditor'
 import GradientButton from '../common/GradientButton'
 import { DEFAULT_PATIENT_ID, DEFAULT_PREFETCH } from '../../constants/sandboxDefaults'
 import { generateId, getStoredUsername } from '../../utils/validation'

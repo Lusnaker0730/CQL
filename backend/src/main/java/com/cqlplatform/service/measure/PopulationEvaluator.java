@@ -141,13 +141,61 @@ public class PopulationEvaluator {
     /**
      * Aggregates a single patient's CQL results for continuous-variable measures.
      * Collects observation values into the shared accumulator list.
+     *
+     * <p>Convenience overload: uses the same map for population lookup and
+     * observation extraction. Suitable for the legacy single-group path where
+     * raw CQL results are passed directly.
      */
     public void aggregateCvPatientResults(Map<String, Integer> counts,
                                            Map<String, CqlExecutionResponse.ExpressionResult> results,
                                            List<Double> observationValues) {
-        boolean inInitPop = isPopulationTrue(results, "Initial Population");
-        boolean inMeasurePop = inInitPop && isPopulationTrue(results, "Measure Population");
-        boolean excluded = inMeasurePop && isPopulationTrue(results, "Measure Population Exclusion");
+        aggregateCvPatientResults(counts, results, results, observationValues);
+    }
+
+    /**
+     * Aggregates a single patient's CQL results for continuous-variable measures
+     * with separate maps for population lookup and observation extraction.
+     *
+     * <p>The per-group eCQM path canonicalizes suffixed population define names
+     * ({@code "Initial Population 1"} → {@code "Initial Population"}) into a
+     * filtered map, but that map intentionally only contains the
+     * {@code PopulationDefinition} entries. {@code "Measure Observation Value"}
+     * / {@code "Measure Observation Values"} are top-level CQL defines (not
+     * populations), so they exist only in the raw {@code allResults} map.
+     * Passing the same canonical map for both lookups caused the observation
+     * extraction to find nothing → CV measureScore stuck at {@code null}
+     * (BUG-474 follow-up regression — surfaced by smoke scenarios 03 / 05–09).
+     *
+     * <p>Delegates to the 5-arg variant with {@code null} observation names,
+     * which falls back to the canonical unsuffixed defines.
+     */
+    public void aggregateCvPatientResults(Map<String, Integer> counts,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> populationResults,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                           List<Double> observationValues) {
+        aggregateCvPatientResults(counts, populationResults, allResults, null, observationValues);
+    }
+
+    /**
+     * Multi-group CV aggregation — caller supplies the per-group observation
+     * define names (typically from {@code GroupDefinition.observations[*]
+     * .criteriaExpression}, e.g. {@code "Measure Observation Value 1"} for
+     * group 1). When {@code observationExprNames} is {@code null} or empty,
+     * the function falls back to the canonical unsuffixed names — preserving
+     * the legacy single-group behavior.
+     *
+     * <p>Issue #539: multi-group CV measures were silently broken because
+     * {@code EcqmCqlBuilder} emits suffixed observation defines per group but
+     * the aggregator was hard-coded to look up the unsuffixed canonical names.
+     */
+    public void aggregateCvPatientResults(Map<String, Integer> counts,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> populationResults,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                           List<String> observationExprNames,
+                                           List<Double> observationValues) {
+        boolean inInitPop = isPopulationTrue(populationResults, "Initial Population");
+        boolean inMeasurePop = inInitPop && isPopulationTrue(populationResults, "Measure Population");
+        boolean excluded = inMeasurePop && isPopulationTrue(populationResults, "Measure Population Exclusion");
         boolean effectiveMp = inMeasurePop && !excluded;
 
         if (inInitPop) increment(counts, "Initial Population");
@@ -155,12 +203,19 @@ public class PopulationEvaluator {
         if (excluded) increment(counts, "Measure Population Exclusion");
 
         if (effectiveMp) {
-            // Collect observation values — try episode-based list first, then patient-based scalar
-            List<Double> values = extractObservationValues(results, OBSERVATION_VALUES_EXPR);
-            if (values.isEmpty()) {
-                values = extractObservationValues(results, OBSERVATION_VALUE_EXPR);
+            if (observationExprNames == null || observationExprNames.isEmpty()) {
+                // Legacy fallback: try episode-based list then patient-based scalar.
+                List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
+                if (values.isEmpty()) {
+                    values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
+                }
+                observationValues.addAll(values);
+            } else {
+                // Per-group: each named observation contributes its values.
+                for (String exprName : observationExprNames) {
+                    observationValues.addAll(extractObservationValues(allResults, exprName));
+                }
             }
-            observationValues.addAll(values);
         }
     }
 
@@ -274,8 +329,13 @@ public class PopulationEvaluator {
     /**
      * Resolves each population's criteriaExpression in this group to its CqlExecutionResponse result.
      * Returns a canonical map keyed by population display name ("Initial Population", etc.).
+     *
+     * <p>Public so {@link MeasureEvaluationService} can canonicalize per-group CQL results
+     * (with suffixes like "Initial Population 1" / "Initial Population 2") before calling
+     * {@link #aggregatePatientResults}, which expects unsuffixed keys. Required for multi-group
+     * eCQM evaluation per BUG #474.
      */
-    private Map<String, CqlExecutionResponse.ExpressionResult> buildExpressionMap(
+    public Map<String, CqlExecutionResponse.ExpressionResult> buildExpressionMap(
             GroupDefinition group, Map<String, CqlExecutionResponse.ExpressionResult> allResults) {
         Map<String, CqlExecutionResponse.ExpressionResult> canonical = new LinkedHashMap<>();
         if (group.getPopulations() == null) return canonical;

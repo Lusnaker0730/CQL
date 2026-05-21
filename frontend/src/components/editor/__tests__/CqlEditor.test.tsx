@@ -1,20 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { render } from '../../../test/test-utils'
 
-// Mock Monaco editor since it requires a browser environment
-vi.mock('@monaco-editor/react', () => ({
-  default: ({ value, defaultValue, onChange }: { value?: string; defaultValue?: string; onChange?: (v: string) => void }) => (
-    <textarea
-      data-testid="monaco-editor"
-      value={value ?? defaultValue ?? ''}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
-  ),
-}))
-
-// Dynamically import after mocking
-const { default: CqlEditor } = await import('../CqlEditor')
+// Monaco editor is globally stubbed in src/test/setup.ts (vi.mock on
+// '@monaco-editor/react' + 'monaco-editor'); the per-file mock that lived
+// here got out of sync with PR #526's wrapper (didn't export `loader`).
+import CqlEditor from '../CqlEditor'
 
 describe('CqlEditor', () => {
   it('should render editor component', () => {
