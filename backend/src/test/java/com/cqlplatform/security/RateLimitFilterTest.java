@@ -264,9 +264,18 @@ class RateLimitFilterTest {
         when(request.getRequestURI()).thenReturn("/cds-services/my-service");
         assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.CDS_INVOKE);
 
-        // CDS discovery (GET) should NOT be CDS_INVOKE
+        // CDS discovery (GET /cds-services) routes to its own CDS_DISCOVERY tier
+        // (tighter than DEFAULT to curb unauth enumeration). Supports both forms.
         when(request.getMethod()).thenReturn("GET");
         when(request.getRequestURI()).thenReturn("/cds-services/");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.CDS_DISCOVERY);
+
+        when(request.getRequestURI()).thenReturn("/cds-services");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.CDS_DISCOVERY);
+
+        // But GET on a service instance (per-user discovery suffix) stays DEFAULT —
+        // it doesn't enumerate the global catalog so it doesn't need the tight tier.
+        when(request.getRequestURI()).thenReturn("/cds-services/u/alice");
         assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.DEFAULT);
     }
 
@@ -308,6 +317,54 @@ class RateLimitFilterTest {
 
         filter.doFilterInternal(request, response, filterChain);
         verify(response, atLeastOnce()).setStatus(429);
+    }
+
+    @Test
+    void shouldApplyCdsDiscoveryTierLimit() throws Exception {
+        // CDS_DISCOVERY tier — GET /cds-services. Tighter than DEFAULT (60 RPM)
+        // because the endpoint is unauth'd per CDS spec and ripe for enumeration.
+        props.setCdsDiscoveryRpm(2);
+        filter = new RateLimitFilter(props, meterRegistry);
+
+        when(request.getRemoteAddr()).thenReturn("10.0.1.3");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestURI()).thenReturn("/cds-services");
+        StringWriter sw = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+
+        for (int i = 0; i < 2; i++) {
+            filter.doFilterInternal(request, response, filterChain);
+        }
+        verify(filterChain, times(2)).doFilter(request, response);
+
+        filter.doFilterInternal(request, response, filterChain);
+        verify(response, atLeastOnce()).setStatus(429);
+    }
+
+    @Test
+    void cdsDiscoveryAndInvokeTiersShouldHaveIndependentBuckets() throws Exception {
+        // Discovery GETs and invocation POSTs from the same IP must not share a
+        // bucket — an attacker saturating discovery shouldn't block legitimate
+        // invocations and vice versa.
+        props.setCdsDiscoveryRpm(1);
+        props.setCdsInvokeRpm(1);
+        filter = new RateLimitFilter(props, meterRegistry);
+
+        when(request.getRemoteAddr()).thenReturn("10.0.1.4");
+        // No response writer stub — neither of the two calls below exceed its bucket.
+
+        // Burn discovery bucket
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestURI()).thenReturn("/cds-services");
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Invocation bucket should still have capacity
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/cds-services/my-hook");
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Both legitimate calls made it through
+        verify(filterChain, times(2)).doFilter(request, response);
     }
 
     @Test
