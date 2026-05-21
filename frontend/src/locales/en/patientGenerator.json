@@ -18,6 +18,7 @@
     "dateRange": "Date Range",
     "dateFrom": "From",
     "dateTo": "To",
+    "dateRangeReversed": "From date must be on or before To date",
     "generate": "Generate Patients",
     "generating": "Generating..."
   },
@@ -53,14 +54,21 @@
     "patientCount": "{{count}} patient(s) generated",
     "download": "Download JSON",
     "uploadToServer": "Upload to FHIR Server",
+    "uploadServerLabel": "Target FHIR Server (optional — uses backend default if blank)",
+    "uploadServerHelperText": "Leave blank to use the configured backend default FHIR server",
     "uploading": "Uploading...",
-    "uploadSuccess": "Successfully uploaded {{count}} resources",
+    "uploadSuccess": "Successfully uploaded {{count}} patients",
+    "uploadAllFailed": "All {{count}} patients failed to upload",
+    "uploadPartial": "Uploaded {{succeeded}} patients, {{failed}} failed — see details below",
     "uploadError": "Upload failed: {{error}}",
+    "uploadProgress": "{{done}}/{{total}} uploaded ({{failed}} failed)",
+    "uploadFailureList": "{{count}} patient(s) failed to upload:",
     "serverUrl": "FHIR Server URL",
     "preview": "Preview",
     "copyJson": "Copy JSON",
     "copied": "Copied!",
     "clear": "Clear Results",
+    "expandToView": "Expand to view JSON…",
     "resourceSummary": "Resources: {{conditions}} conditions, {{observations}} observations, {{medications}} medications, {{allergies}} allergies, {{encounters}} encounters"
   },
   "categories": {
@@ -103,5 +111,6 @@
   },
   "errors": {
     "pageError": "Patient Generator Error"
-  }
+  },
+  "overwriteConfirm": "You have {{count}} previously generated patient(s). Generating again will replace them. Continue?"
 }
