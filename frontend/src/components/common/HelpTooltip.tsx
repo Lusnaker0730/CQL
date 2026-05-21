@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import { IconButton, Tooltip } from '@mui/material'
-import { HelpOutline as HelpIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import HelpIcon from '@mui/icons-material/HelpOutline'
 import { useTranslation } from 'react-i18next'
 
 interface HelpTooltipProps {

@@ -22,7 +22,12 @@ import {
   Chip,
   Alert,
 } from '@mui/material'
-import { Visibility, VisibilityOff, CheckCircle, Cancel } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
+import CheckCircle from '@mui/icons-material/CheckCircle'
+import Cancel from '@mui/icons-material/Cancel'
 import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
 import { usePreferences } from '../../hooks/usePreferences'

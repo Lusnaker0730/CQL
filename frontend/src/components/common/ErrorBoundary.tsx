@@ -1,7 +1,10 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { Paper, Typography, Button, Stack, Box } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { ErrorOutline as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import ErrorIcon from '@mui/icons-material/ErrorOutline'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { Translation } from 'react-i18next'
 
 interface ErrorBoundaryProps {

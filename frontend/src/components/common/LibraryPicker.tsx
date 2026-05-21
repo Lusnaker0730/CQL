@@ -17,11 +17,11 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material'
-import {
-  Star as StarIcon,
-  History as HistoryIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+// Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
+// barrel during vitest collection.
+import StarIcon from '@mui/icons-material/Star'
+import HistoryIcon from '@mui/icons-material/History'
+import SearchIcon from '@mui/icons-material/Search'
 import { useQuery } from '@tanstack/react-query'
 import { cqlApi } from '../../api'
 import { useLibraryHistory } from '../../hooks/useLibraryHistory'
