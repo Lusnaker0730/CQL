@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
-import userEvent from '@testing-library/user-event'
 import type { CdsResponse } from '../../../types'
 
 // Skip the heavy MUI icon barrel — the proxy stub stops vitest from opening
@@ -86,28 +85,29 @@ const criticalResponse: CdsResponse = {
 }
 
 async function selectServiceAndInvoke() {
-  // Use userEvent — fireEvent.click on a MUI Select menu item only updates
-  // the visible display but does not always fire the controlled-value
-  // onChange in jsdom (the hidden input's `value` attribute updates as MUI's
-  // own bookkeeping, but the React state setter never runs). userEvent
-  // simulates the full pointer event sequence MUI listens for, so the
-  // onChange propagates and the conditional context fields actually render.
-  const user = userEvent.setup()
-  const select = screen.getByRole('combobox', { name: 'invoke.serviceLabel' })
-  await user.click(select)
-  const item = await screen.findByRole('option', { name: /Test Service/ })
-  await user.click(item)
+  // Drive the MUI Select via its hidden `MuiSelect-nativeInput` rather than
+  // the visible combobox + dropdown menu item. Both fireEvent.click and
+  // userEvent.click on the rendered MenuItem update MUI's internal bookkeeping
+  // (the native input's `value` attribute, the combobox's display text) but
+  // do NOT consistently fire the controlled-value onChange under jsdom — so
+  // setSelectedService never runs and the downstream conditional context
+  // fields never render. Firing a change event on the native input directly
+  // is the canonical MUI Select testing escape hatch.
+  const nativeInput = document.querySelector(
+    'input.MuiSelect-nativeInput',
+  ) as HTMLInputElement
+  fireEvent.change(nativeInput, { target: { value: 'svc-1' } })
 
   // After the onChange fires, stringFields.map renders the userId / patientId
-  // TextFields. The SUT gives them explicit ids (`cds-context-userId` /
-  // `cds-context-patientId`) so the test can also fall back to getElementById
-  // if the label-association lookup were ever unreliable.
+  // TextFields. The SUT stamps explicit ids (`cds-context-userId` /
+  // `cds-context-patientId`) so the test has a deterministic fallback.
   const userInput = await screen.findByLabelText('sandbox.userIdLabel')
-  await user.type(userInput, 'Practitioner/1')
-  const patientInput = screen.getByLabelText('sandbox.patientIdLabel')
-  await user.type(patientInput, 'Patient/1')
+  fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
+  fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
+    target: { value: 'Patient/1' },
+  })
 
-  await user.click(screen.getByRole('button', { name: 'invoke.invokeButton' }))
+  fireEvent.click(screen.getByRole('button', { name: 'invoke.invokeButton' }))
 }
 
 // #548 fix: SUT now stamps explicit ids on the conditional context-field
