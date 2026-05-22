@@ -91,12 +91,16 @@ const criticalResponse: CdsResponse = {
 
 async function selectServiceAndInvoke() {
   // Tests render <InvokeServicePanel initialService="svc-1" /> so selectedService
-  // is already set when the component mounts (the dropdown click can't reliably
-  // propagate the controlled onChange under jsdom — see #548). The conditional
-  // context-field TextFields therefore render on first paint.
-  const userInput = await screen.findByLabelText('sandbox.userIdLabel')
+  // is already set when the component mounts (driving MUI Select's controlled
+  // onChange via fireEvent is unreliable under jsdom — see #548). The
+  // conditional context-field TextFields therefore render on first paint.
+  //
+  // MUI appends a `*` to required field labels, so an exact-match
+  // `getByLabelText('sandbox.userIdLabel')` misses — match by regex anchored
+  // at the start of the label text.
+  const userInput = await screen.findByLabelText(/^sandbox\.userIdLabel/)
   fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
-  fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
+  fireEvent.change(screen.getByLabelText(/^sandbox\.patientIdLabel/), {
     target: { value: 'Patient/1' },
   })
 
