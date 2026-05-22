@@ -13,10 +13,15 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) => {
       if (!opts) return key
-      return Object.entries(opts).reduce(
-        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
-        key,
-      )
+      // String-based interpolation — `new RegExp('{{...}}')` throws under V8
+      // (`{` is parsed as a quantifier opener), which would crash any
+      // TextField that calls `t(key, { defaultValue })`. split/join avoids
+      // building a regex at all.
+      let out = key
+      for (const [k, v] of Object.entries(opts)) {
+        out = out.split(`{{${k}}}`).join(String(v))
+      }
+      return out
     },
     i18n: { changeLanguage: vi.fn() },
   }),
