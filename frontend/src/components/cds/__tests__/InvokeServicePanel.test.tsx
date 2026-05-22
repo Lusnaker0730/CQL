@@ -85,22 +85,10 @@ const criticalResponse: CdsResponse = {
 }
 
 async function selectServiceAndInvoke() {
-  // Drive the MUI Select via its hidden `MuiSelect-nativeInput` rather than
-  // the visible combobox + dropdown menu item. Both fireEvent.click and
-  // userEvent.click on the rendered MenuItem update MUI's internal bookkeeping
-  // (the native input's `value` attribute, the combobox's display text) but
-  // do NOT consistently fire the controlled-value onChange under jsdom — so
-  // setSelectedService never runs and the downstream conditional context
-  // fields never render. Firing a change event on the native input directly
-  // is the canonical MUI Select testing escape hatch.
-  const nativeInput = document.querySelector(
-    'input.MuiSelect-nativeInput',
-  ) as HTMLInputElement
-  fireEvent.change(nativeInput, { target: { value: 'svc-1' } })
-
-  // After the onChange fires, stringFields.map renders the userId / patientId
-  // TextFields. The SUT stamps explicit ids (`cds-context-userId` /
-  // `cds-context-patientId`) so the test has a deterministic fallback.
+  // Tests render <InvokeServicePanel initialService="svc-1" /> so selectedService
+  // is already set when the component mounts (the dropdown click can't reliably
+  // propagate the controlled onChange under jsdom — see #548). The conditional
+  // context-field TextFields therefore render on first paint.
   const userInput = await screen.findByLabelText('sandbox.userIdLabel')
   fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
   fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
@@ -122,7 +110,7 @@ describe('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
 
   it('submits feedback with outcome=accepted when user accepts a critical card', async () => {
     invokeMock.mockResolvedValue(criticalResponse)
-    render(<InvokeServicePanel />, { preloadedState: baseAuth })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
 
     await selectServiceAndInvoke()
 
@@ -141,7 +129,7 @@ describe('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
 
   it('submits feedback with outcome=overridden + reason when user overrides a critical card', async () => {
     invokeMock.mockResolvedValue(criticalResponse)
-    render(<InvokeServicePanel />, { preloadedState: baseAuth })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
 
     await selectServiceAndInvoke()
 
@@ -172,7 +160,7 @@ describe('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
 
   it('uses the default-display fallback when override reason is blank', async () => {
     invokeMock.mockResolvedValue(criticalResponse)
-    render(<InvokeServicePanel />, { preloadedState: baseAuth })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
 
     await selectServiceAndInvoke()
 
