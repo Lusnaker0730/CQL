@@ -13,10 +13,15 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) => {
       if (!opts) return key
-      return Object.entries(opts).reduce(
-        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
-        key,
-      )
+      // String-based interpolation — `new RegExp('{{...}}')` throws under V8
+      // (`{` is parsed as a quantifier opener), which would crash any
+      // TextField that calls `t(key, { defaultValue })`. split/join avoids
+      // building a regex at all.
+      let out = key
+      for (const [k, v] of Object.entries(opts)) {
+        out = out.split(`{{${k}}}`).join(String(v))
+      }
+      return out
     },
     i18n: { changeLanguage: vi.fn() },
   }),
@@ -85,34 +90,27 @@ const criticalResponse: CdsResponse = {
 }
 
 async function selectServiceAndInvoke() {
-  // Open the service select. getByLabelText on a MUI Select returns the
-  // hidden <input> (which doesn't respond to mouseDown); use the visible
-  // combobox role with the same accessible name instead.
-  const select = screen.getByRole('combobox', { name: 'invoke.serviceLabel' })
-  fireEvent.mouseDown(select)
-  const item = await screen.findByText(/Test Service/)
-  fireEvent.click(item)
-
-  // Provide required context fields (patient-view requires userId + patientId).
-  // Wait for the conditional fields to render after selectedHook propagates.
-  // Conditional context-field render: stringFields renders after selectedHook
-  // propagates from the Select onChange.
-  const userInput = await screen.findByLabelText('sandbox.userIdLabel')
+  // Tests render <InvokeServicePanel initialService="svc-1" /> so selectedService
+  // is already set when the component mounts (driving MUI Select's controlled
+  // onChange via fireEvent is unreliable under jsdom — see #548). The
+  // conditional context-field TextFields therefore render on first paint.
+  //
+  // MUI appends a `*` to required field labels, so an exact-match
+  // `getByLabelText('sandbox.userIdLabel')` misses — match by regex anchored
+  // at the start of the label text.
+  const userInput = await screen.findByLabelText(/^sandbox\.userIdLabel/)
   fireEvent.change(userInput, { target: { value: 'Practitioner/1' } })
-  fireEvent.change(screen.getByLabelText('sandbox.patientIdLabel'), {
+  fireEvent.change(screen.getByLabelText(/^sandbox\.patientIdLabel/), {
     target: { value: 'Patient/1' },
   })
 
   fireEvent.click(screen.getByRole('button', { name: 'invoke.invokeButton' }))
 }
 
-// Skipped pending #548 — MUI v6 Select + jsdom interaction. The P0
-// critical-card feedback fix (the real production change in
-// InvokeServicePanel.tsx) is shipped and verified by code review; the
-// supplementary tests below need a different selector strategy or a
-// userEvent-based interaction to reliably exercise MUI v6's portal-based
-// Select dropdown under jsdom.
-describe.skip('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
+// #548 fix: SUT now stamps explicit ids on the conditional context-field
+// TextFields so RTL's getByLabelText can resolve the label association
+// reliably in jsdom (MUI's auto-generated useId values weren't traversable).
+describe('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
   beforeEach(() => {
     invokeMock.mockReset()
     feedbackMock.mockReset()
@@ -121,7 +119,7 @@ describe.skip('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () =
 
   it('submits feedback with outcome=accepted when user accepts a critical card', async () => {
     invokeMock.mockResolvedValue(criticalResponse)
-    render(<InvokeServicePanel />, { preloadedState: baseAuth })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
 
     await selectServiceAndInvoke()
 
@@ -140,7 +138,7 @@ describe.skip('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () =
 
   it('submits feedback with outcome=overridden + reason when user overrides a critical card', async () => {
     invokeMock.mockResolvedValue(criticalResponse)
-    render(<InvokeServicePanel />, { preloadedState: baseAuth })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
 
     await selectServiceAndInvoke()
 
@@ -171,7 +169,7 @@ describe.skip('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () =
 
   it('uses the default-display fallback when override reason is blank', async () => {
     invokeMock.mockResolvedValue(criticalResponse)
-    render(<InvokeServicePanel />, { preloadedState: baseAuth })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
 
     await selectServiceAndInvoke()
 

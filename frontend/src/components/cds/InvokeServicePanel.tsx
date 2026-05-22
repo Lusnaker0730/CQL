@@ -88,7 +88,18 @@ function getIndicatorIcon(indicator: string) {
   }
 }
 
-export default function InvokeServicePanel() {
+interface InvokeServicePanelProps {
+  /**
+   * Optional initial service id. Used for deep-link / pre-fill flows and to
+   * make jsdom tests deterministic — driving MUI Select's controlled
+   * onChange via fireEvent / userEvent is unreliable under jsdom (see #548),
+   * so tests pre-select via this prop instead of clicking the dropdown.
+   * Production callers normally omit this.
+   */
+  initialService?: string
+}
+
+export default function InvokeServicePanel({ initialService = '' }: InvokeServicePanelProps = {}) {
   const { data: servicesData, isLoading: loadingServices, isError: servicesError } = useCdsServices()
   const { data: serviceConfigs } = useCdsServiceConfigs()
   const dispatch = useDispatch()
@@ -100,7 +111,7 @@ export default function InvokeServicePanel() {
 
   const { showNotification } = useNotification()
 
-  const [selectedService, setSelectedService] = useState<string>('')
+  const [selectedService, setSelectedService] = useState<string>(initialService)
   const [contextFields, setContextFields] = useState<Record<string, string>>({})
   const [fhirServer, setFhirServer] = useState(FHIR_SERVER_PRESETS[0].url)
   const [fhirServerError, setFhirServerError] = useState<string | null>(null)
@@ -354,6 +365,11 @@ export default function InvokeServicePanel() {
 
       {stringFields.map((field: CdsContextField) => (
         <TextField
+          // Explicit, predictable id makes the <label htmlFor=...> ↔ <input id=...>
+          // association resolvable by React Testing Library's getByLabelText in
+          // jsdom (MUI's auto-generated useId values aren't always traversable
+          // in the test environment).
+          id={`cds-context-${field.name}`}
           key={field.name}
           label={t(`sandbox.${field.name}Label`, { defaultValue: field.name })}
           placeholder={t(`sandbox.${field.name}Placeholder`, { defaultValue: '' })}
