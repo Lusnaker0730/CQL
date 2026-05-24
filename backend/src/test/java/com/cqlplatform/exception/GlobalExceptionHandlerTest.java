@@ -227,6 +227,47 @@ class GlobalExceptionHandlerTest {
                 .doesNotContain("HttpMessageNotReadableException");
     }
 
+    // ===== HttpRequestMethodNotSupportedException → 405 (bot scanner hygiene) =====
+    // Before this handler, GET probes against POST-only endpoints fell through
+    // to handleGenericException → log.error("Unhandled exception", ex) and
+    // returned 500. Bot scanners drove ~130 false ERROR entries/day in
+    // production, drowning real failures in monitoring.
+
+    @Test
+    void handleMethodNotSupported_shouldReturn405WithAllowHeader() {
+        org.springframework.web.HttpRequestMethodNotSupportedException ex =
+                new org.springframework.web.HttpRequestMethodNotSupportedException(
+                        "GET",
+                        java.util.List.of("POST", "PUT"));
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleMethodNotSupported(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(response.getHeaders().getFirst("Allow"))
+                .as("Allow header advertises supported methods per RFC 7231 §6.5.5")
+                .contains("POST").contains("PUT");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(405);
+        assertThat(response.getBody().getMessage()).contains("GET");
+    }
+
+    @Test
+    void handleMediaTypeNotSupported_shouldReturn415() {
+        org.springframework.web.HttpMediaTypeNotSupportedException ex =
+                new org.springframework.web.HttpMediaTypeNotSupportedException(
+                        org.springframework.http.MediaType.TEXT_PLAIN,
+                        java.util.List.of(org.springframework.http.MediaType.APPLICATION_JSON));
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleMediaTypeNotSupported(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(415);
+        assertThat(response.getBody().getMessage()).contains("text/plain");
+    }
+
     // ===== AccessDeniedException → 403 =====
 
     @Test
