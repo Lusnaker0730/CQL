@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -152,6 +154,37 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    // Bot scanners probe endpoints with the wrong HTTP method (e.g. GET on a
+    // POST-only API). Without an explicit handler these fall through to
+    // handleGenericException, which (a) log.error's "Unhandled exception" so the
+    // log aggregator sees ERROR-level noise that drowns out real failures, and
+    // (b) tries to write a 500 body that triggers a secondary "Failure in
+    // @ExceptionHandler" WARN. Handle them as the 405 they are.
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("Method not allowed: {} (supported: {})", ex.getMethod(),
+                ex.getSupportedHttpMethods());
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (ex.getSupportedHttpMethods() != null) {
+            builder.allow(ex.getSupportedHttpMethods().toArray(new org.springframework.http.HttpMethod[0]));
+        }
+        return builder.body(ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.METHOD_NOT_ALLOWED.value())
+                .error("Method Not Allowed")
+                .message("HTTP method " + ex.getMethod() + " is not supported for this endpoint.")
+                .requestId(MDC.get("requestId"))
+                .build());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        log.warn("Unsupported media type: {} (supported: {})", ex.getContentType(),
+                ex.getSupportedMediaTypes());
+        return buildResponse(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type",
+                "Content-Type " + ex.getContentType() + " is not supported for this endpoint.");
     }
 
     // PAT-117: malformed request body (bad JSON, wrong shape, type mismatch) is a
