@@ -231,10 +231,31 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0
     restart: unless-stopped
+    environment:
+      # BUG-120: Telegram delivery. Set both in docker/.env (gitignored).
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    # Mirror the Prometheus pattern: keep the bot token out of any committed config
+    # and out of the image layer by writing it to a file at entrypoint time, and
+    # render the deployment-specific chat_id into the config from env.
+    entrypoint:
+      - /bin/sh
+      - -c
     command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - |
+        if [ -z "$$TELEGRAM_BOT_TOKEN" ] || [ -z "$$TELEGRAM_CHAT_ID" ]; then
+          echo "FATAL: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID unset — set them in docker/.env." >&2
+          exit 1
+        fi
+        printf '%s' "$$TELEGRAM_BOT_TOKEN" > /tmp/telegram_token
+        chmod 600 /tmp/telegram_token
+        sed "s/__TELEGRAM_CHAT_ID__/$$TELEGRAM_CHAT_ID/g" \
+          /etc/alertmanager/alertmanager.yml > /tmp/alertmanager.yml
+        exec /bin/alertmanager \
+          --config.file=/tmp/alertmanager.yml \
+          --storage.path=/alertmanager
     depends_on:
       - prometheus
     networks:

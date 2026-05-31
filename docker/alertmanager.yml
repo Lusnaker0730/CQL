@@ -1,38 +1,41 @@
 global:
   resolve_timeout: 5m
 
+# BUG-120: Alertmanager now delivers to Telegram (native telegram_configs, v0.26+).
+# The bot token is NOT committed — the alertmanager container writes it to
+# /tmp/telegram_token from the TELEGRAM_BOT_TOKEN env var at startup (see
+# docker-compose.yml entrypoint), and substitutes __TELEGRAM_CHAT_ID__ from
+# TELEGRAM_CHAT_ID. Both come from docker/.env (gitignored). This file is a
+# template; the rendered copy lives at /tmp/alertmanager.yml inside the container.
 route:
   group_by: ['alertname', 'severity']
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
-  receiver: 'default'
+  receiver: 'telegram'
   routes:
+    # Critical alerts re-notify more aggressively (hourly) until resolved.
     - match:
         severity: critical
-      receiver: 'pager'
+      receiver: 'telegram'
       repeat_interval: 1h
-    - match:
-        severity: warning
-      receiver: 'slack'
-      repeat_interval: 4h
 
 receivers:
-  - name: 'default'
-    webhook_configs:
-      - url: 'http://localhost:9095/webhook'
+  - name: 'telegram'
+    telegram_configs:
+      - bot_token_file: /tmp/telegram_token
+        chat_id: __TELEGRAM_CHAT_ID__
+        # Plain text (no parse_mode): alert descriptions interpolate URIs / values
+        # that may contain &, <, > — HTML/Markdown parse modes would break on those.
+        parse_mode: ''
         send_resolved: true
+        message: |-
+          {{ if eq .Status "firing" }}🔴 FIRING{{ else }}✅ RESOLVED{{ end }} [{{ .CommonLabels.severity }}] {{ .CommonLabels.alertname }}
+          {{ range .Alerts }}• {{ .Annotations.summary }}
+            {{ .Annotations.description }}
+          {{ end }}
 
-  - name: 'pager'
-    webhook_configs:
-      - url: 'http://localhost:9095/pager'
-        send_resolved: true
-
-  - name: 'slack'
-    webhook_configs:
-      - url: 'http://localhost:9095/slack'
-        send_resolved: true
-
+# Critical alert of a given alertname suppresses a warning of the same alertname.
 inhibit_rules:
   - source_match:
       severity: 'critical'
