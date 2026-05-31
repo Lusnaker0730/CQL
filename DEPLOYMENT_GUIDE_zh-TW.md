@@ -422,13 +422,35 @@ Frontend 容器內嵌的 Nginx 負責所有路由：
 | CqlQueueSaturation | 佇列深度 > 40（上限 50） | Warning | 2 分鐘 |
 | FhirCircuitBreakerOpen | FHIR 斷路器開啟 | Critical | 1 分鐘 |
 
-### 8.3 Alertmanager 路由
+### 8.3 Alertmanager 路由（Telegram）
+
+告警經 Prometheus 評估後送 Alertmanager，由原生 `telegram_configs` 推播到 Telegram。
 
 | 嚴重程度 | 接收方式 | 重複發送間隔 |
 |----------|----------|--------------|
-| Critical | Pager webhook | 每 1 小時 |
-| Warning | Slack webhook | 每 4 小時 |
-| 其他 | 通用 webhook | 每 12 小時 |
+| Critical | Telegram | 每 1 小時 |
+| Warning / 其他 | Telegram | 每 4 小時 |
+
+**設定步驟（一次性）：**
+
+1. 向 Telegram [@BotFather](https://t.me/BotFather) 送 `/newbot` 建立 bot，取得 **bot token**。
+2. 把 bot 加進目標群組／頻道（或直接私訊 bot）。
+3. 取得 **chat_id**：對 bot 送任一訊息後開啟
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`，讀 `result[].message.chat.id`
+   （群組為負數，如 `-1001234567890`）。
+4. 在 `docker/.env` 填入（**勿 commit**，`.env` 已 gitignore）：
+   ```
+   TELEGRAM_BOT_TOKEN=<token>
+   TELEGRAM_CHAT_ID=<chat_id>
+   ```
+5. 重啟 alertmanager：`docker compose up -d --no-deps --force-recreate alertmanager`。
+
+> 安全性：bot token 不寫進任何 committed 設定；alertmanager 容器啟動時從 env 寫入
+> `/tmp/telegram_token`（`bot_token_file`），並把 `chat_id` 由 env 注入。兩者任一未設
+> 則容器拒絕啟動（fail-fast，避免靜默無告警）。
+>
+> 驗證投遞：`docker exec <alertmanager> amtool alert add test severity=warning --alertmanager.url=http://localhost:9093`
+> 應在數十秒內收到 Telegram 訊息。
 
 ### 8.4 Grafana
 
