@@ -2,11 +2,11 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: ['alertmanager:9093']
-
+# Alertmanager removed (BUG-120): the only receivers ever configured pointed at
+# a non-existent webhook on localhost:9095 (placeholder scaffold, never implemented),
+# so no alert was ever deliverable. Rules below still evaluate and surface firing
+# alerts in the Prometheus UI (:9090/alerts); they are simply not pushed anywhere.
+# To re-enable notifications, restore an `alerting:` block + a real receiver.
 rule_files:
   - '/etc/prometheus/prometheus-alerts.yml'
 

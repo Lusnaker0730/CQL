@@ -49,9 +49,6 @@ services:
   grafana:
     profiles:
       - disabled
-  alertmanager:
-    profiles:
-      - disabled
 
 # Fresh volume per smoke project; `docker compose down -v` wipes it cleanly.
 volumes:

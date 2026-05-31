@@ -49,7 +49,6 @@
 | **Ollama** | Ollama + qwen2.5-coder:7b | 本地 GPU AI — CQL 錯誤修正建議（選用） |
 | **Prometheus** | Prometheus v2.51 | 指標收集（scrape interval 10s） |
 | **Grafana** | Grafana 10.4 | 儀表板視覺化 |
-| **Alertmanager** | Alertmanager v0.27 | 告警路由（webhook / Slack / pager） |
 | **Taiwan FHIR Generator** | Python 3.11 + Flask | 台灣 TWCORE 病患資料批次產生（選用） |
 
 ---
@@ -422,13 +421,16 @@ Frontend 容器內嵌的 Nginx 負責所有路由：
 | CqlQueueSaturation | 佇列深度 > 40（上限 50） | Warning | 2 分鐘 |
 | FhirCircuitBreakerOpen | FHIR 斷路器開啟 | Critical | 1 分鐘 |
 
-### 8.3 Alertmanager 路由
+### 8.3 告警通知（BUG-120：已移除 Alertmanager）
 
-| 嚴重程度 | 接收方式 | 重複發送間隔 |
-|----------|----------|--------------|
-| Critical | Pager webhook | 每 1 小時 |
-| Warning | Slack webhook | 每 4 小時 |
-| 其他 | 通用 webhook | 每 12 小時 |
+原本的 Alertmanager 三個 receiver（default / pager / slack）全部指向不存在的
+`localhost:9095` webhook（初版監控骨架留下的 placeholder，從未實作），任何告警
+都送不出去且會在 Alertmanager log 持續累積 connection-refused 錯誤，因此已移除。
+
+目前狀態：上述告警規則仍由 Prometheus 評估，可在 Prometheus UI（`:9090/alerts`）
+直接檢視 firing 狀態，但**不會主動推播**到任何外部通道。若日後要恢復通知，於
+`docker/prometheus.yml` 補回 `alerting:` 區塊並設定一個真實 receiver（Slack
+`slack_configs` 或 Email `email_configs`）即可。
 
 ### 8.4 Grafana
 

@@ -190,7 +190,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Audit logging of all API access with full context, request ID correlation, and configurable retention
 - CSV injection prevention in all export endpoints (audit logs, measure reports)
 - Rate limiting (`RateLimitProperties`), XSS sanitization (DOMPurify), FHIR resource type whitelisting
-- Prometheus + Grafana monitoring with custom CQL/CDS/measure metrics; Alertmanager rules
+- Prometheus + Grafana monitoring with custom CQL/CDS/measure metrics; alert rules evaluated in Prometheus
 - Resilience4j circuit breakers, connection pooling, execution thread pool with queuing
 - Sentry-compatible error tracking via `ErrorTrackingConfig`
 - Kubernetes manifests, network policies, sealed secrets, and GitHub Actions CI/CD
@@ -313,9 +313,8 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │   ├── docker-compose.dev-pg.yml # Local Postgres-only for backend dev
 │   ├── .env.example            # Secrets template
 │   ├── nginx.conf              # Reverse proxy with TLS, Grafana, Prometheus
-│   ├── alertmanager.yml        # Alert routing
 │   ├── prometheus.yml          # Metrics scraping
-│   ├── prometheus-alerts.yml   # Alert rules
+│   ├── prometheus-alerts.yml   # Alert rules (evaluated in Prometheus UI)
 │   └── scripts/                # backup-db.sh, restore-db.sh
 │
 ├── e2e/                        # Playwright end-to-end tests
