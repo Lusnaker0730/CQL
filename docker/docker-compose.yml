@@ -34,6 +34,10 @@ services:
       - "max_wal_senders=3"
 
   backend:
+    # Prod pulls the CI-built image from GHCR (deploy.yml pushes on every main CI).
+    # `build:` is kept so local dev (`docker compose build backend`) still works.
+    # Pin a specific build with BACKEND_IMAGE_TAG=sha-xxxxxxx in docker/.env (default: latest).
+    image: ghcr.io/lusnaker0730/cql/backend:${BACKEND_IMAGE_TAG:-latest}
     build:
       context: ../backend
       dockerfile: Dockerfile
@@ -94,6 +98,9 @@ services:
           memory: 1.5G
 
   frontend:
+    # Prod pulls the CI-built image from GHCR; `build:` kept for local dev.
+    # Pin with FRONTEND_IMAGE_TAG=sha-xxxxxxx in docker/.env (default: latest).
+    image: ghcr.io/lusnaker0730/cql/frontend:${FRONTEND_IMAGE_TAG:-latest}
     build:
       context: ../frontend
       dockerfile: Dockerfile
