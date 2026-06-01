@@ -28,9 +28,11 @@
         <resilience4j.version>2.4.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
         <jackson-bom.version>3.1.1</jackson-bom.version>
-        <!-- CVE overrides above the versions shipped with Spring Boot 3.5.12 -->
-        <tomcat.version>10.1.54</tomcat.version>
-        <thymeleaf.version>3.1.4.RELEASE</thymeleaf.version>
+        <!-- CVE overrides above the versions shipped with Spring Boot 4.0.6 -->
+        <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513 -->
+        <tomcat.version>10.1.55</tomcat.version>
+        <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
+        <thymeleaf.version>3.1.5.RELEASE</thymeleaf.version>
         <spring-security.version>6.5.9</spring-security.version>
         <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10. Fixed in 42.7.11. -->
         <postgresql.version>42.7.11</postgresql.version>
