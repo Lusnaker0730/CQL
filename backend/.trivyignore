@@ -21,3 +21,21 @@
 CVE-2026-33180
 CVE-2026-34359
 CVE-2026-34361
+
+# CVE-2026-45367 — HAPI FHIR org.hl7.fhir.r4 6.7.9: ReDoS via FHIRPath
+# matches()/replaceMatches(). Fixed in 6.9.7, but org.hl7.fhir.r4 is in the group
+# that CANNOT be upgraded independently of hapi-fhir core 8.8.1 (AbstractMethodError
+# at runtime — same constraint as above; needs a HAPI major upgrade).
+# Exposure assessment (VEX): the impact is CPU exhaustion (DoS), not data exposure.
+# FHIRPath evaluation only runs inside authenticated CQL execution / FHIR validation,
+# which is bounded by the execution thread pool + per-run timeout (PAT-066), so a
+# crafted pattern degrades a single request rather than the service. Risk: LOW.
+# Tracked for the HAPI 9.x upgrade alongside the entries above.
+CVE-2026-45367
+
+# CVE-2026-43869 — org.apache.thrift:libthrift 0.22.0: security bypass. No fixed
+# version published upstream yet (Trivy reports "affected", no fix). VEX: libthrift
+# is a transitive dependency; this application runs no Apache Thrift RPC server and
+# exposes no Thrift endpoint (it is a Spring Boot REST + WebSocket service), so the
+# bypass is not reachable. Risk: NEGLIGIBLE. Remove once an upstream fix ships.
+CVE-2026-43869
