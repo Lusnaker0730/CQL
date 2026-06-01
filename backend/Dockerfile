@@ -28,6 +28,10 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
 
-# Run the application — set heap to 70% of container memory limit (1G → 716m)
-# to prevent OOM during CQL execution while leaving room for metaspace/threads.
-ENTRYPOINT ["java", "-Xmx716m", "-Xms256m", "-jar", "app.jar"]
+# Run the application — heap ~67% of the 1.5G container memory limit (compose
+# `deploy.resources.limits.memory`), leaving ~500MB for metaspace/threads/direct
+# buffers and transient CQL-execution allocations. The previous 716m was sized for
+# a 1G limit (stale); the container is actually 1.5G, so the old gen sat at ~87%
+# of its 477MB cap and fired HighHeapUsage despite a flat, non-leaking live set
+# (BUG-122). At -Xmx1024m the SerialGC old gen is ~680MB → ~61% used.
+ENTRYPOINT ["java", "-Xmx1024m", "-Xms512m", "-jar", "app.jar"]
