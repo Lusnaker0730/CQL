@@ -228,6 +228,23 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Trivy's pom.xml analyzer resolves the full dependency tree by fetching
+      # POMs; against oss.sonatype.org (declared for the cqframework artifacts) it
+      # intermittently gets HTTP 429 and FATALs the whole scan. Restore the Maven
+      # cache that backend-test populated (this job `needs: backend-test`) and
+      # pre-resolve so Trivy reads POMs from ~/.m2 locally instead of hammering the
+      # remote repo. See: "populate the local Maven cache before scanning".
+      - name: Set up JDK 21 (restore Maven cache for Trivy)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Pre-resolve backend dependencies into ~/.m2
+        working-directory: backend
+        run: mvn -B -q dependency:go-offline || true
+
       - name: Run Trivy on backend
         uses: aquasecurity/trivy-action@master
         with:
