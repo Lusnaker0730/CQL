@@ -113,17 +113,41 @@ docker compose --profile twcore up -d
 docker compose --profile ollama --profile twcore up -d
 ```
 
-### 3.5 重新建置映像
+### 3.5 更新部署（從 GHCR pull CI 預建映像，推薦）
+
+`backend` / `frontend` 在 `docker-compose.yml` 同時有 `image:`（指向 GHCR）與 `build:`。
+**正式機請 pull CI 已建好的映像，不要在 VM 上 build**——VM 只有 2 核，本地
+`docker compose build` 會把 CPU 打滿、拖慢正在服務的容器（曾導致 backend 啟動被
+拖到 ~12 分鐘）。CI（`.github/workflows/deploy.yml`）會在每次 main CI 成功時把
+映像 push 到 `ghcr.io/lusnaker0730/cql/{backend,frontend}`（公開、可匿名 pull，VM
+不需 `docker login`）。
 
 ```bash
-# 單獨重建後端
-docker compose build backend
+cd /opt/CQL/docker
 
-# 單獨重建前端
-docker compose build frontend
+# 只更新程式碼（最常見）：pull 新映像 + 重啟，~30s，不需 git pull、不需 build
+docker compose pull backend frontend
+docker compose up -d --no-build backend frontend
 
-# 重建並重新啟動
-docker compose up -d --build
+# 若同時改了 compose / .env / prometheus 設定 / DB migration，才需要先：
+#   cd /opt/CQL && git pull
+```
+
+**指定版本 / 回滾**：預設拉 `:latest`（會浮動）。要可重現部署或回滾，於 `docker/.env`
+釘住某次 build 的 sha tag（CI 每個 commit 各推一個 `sha-xxxxxxx`）：
+
+```bash
+# docker/.env
+BACKEND_IMAGE_TAG=sha-ca9ebf7
+FRONTEND_IMAGE_TAG=sha-ca9ebf7
+```
+回滾就把 tag 換成舊的 sha 再 `docker compose up -d --no-build backend frontend`。
+
+**本地 dev 仍可自行 build**（`build:` 保留）：
+
+```bash
+docker compose build backend        # 本地建置並以同名 image tag 標記
+docker compose up -d --build         # 建置 + 重啟
 ```
 
 ---
