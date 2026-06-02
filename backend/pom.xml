@@ -22,7 +22,12 @@
     <properties>
         <java.version>21</java.version>
         <cql.version>4.5.0</cql.version>
-        <hapi.fhir.version>8.8.1</hapi.fhir.version>
+        <hapi.fhir.version>8.10.0</hapi.fhir.version>
+        <!-- org.hl7.fhir.* (FHIR core). HAPI 8.10.0 bundles 6.9.4.1; we pin the whole
+             set to 6.9.9 to clear CVE-2026-45367 (r4 FHIRPath ReDoS, fixed 6.9.7) and
+             the 6.7.9-era CVEs. Same 6.9.x line as HAPI's bundled core, so ABI-safe
+             (the old 6.7.9→6.9.7 skew that caused AbstractMethodError no longer applies). -->
+        <fhir-core.version>6.9.9</fhir-core.version>
         <mockito.version>5.23.0</mockito.version>
         <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.4.0</resilience4j.version>
@@ -41,39 +46,73 @@
     <dependencyManagement>
         <dependencies>
             <!--
-              Override transitive org.hl7.fhir.* at 6.7.9 to fix CVE-2026-33180 (auth leak in redirects).
-              Only override packages that Trivy flags AND are ABI-compatible with hapi-fhir 8.6.6.
-              Do NOT override r4/r5/validation/utilities (6.6.7) — they are tightly coupled to hapi-fhir core.
+              Pin the ENTIRE org.hl7.fhir.* set to ${fhir-core.version} (6.9.9) on top of
+              hapi-fhir 8.10.0 (which bundles 6.9.4.1). This clears CVE-2026-45367 (r4
+              FHIRPath ReDoS, fixed in 6.9.7) plus the 6.7.9-era CVEs (33180/34359/34361).
+              All 12 artifacts pinned together → no version skew between core packages.
+              (The previous partial override left r4/r5/model/support/utilities/validation
+              at the HAPI-bundled version because crossing 6.7→6.9 independently triggered
+              AbstractMethodError; staying within the 6.9.x line removes that constraint.)
             -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.convertors</artifactId>
-                <version>6.9.7</version>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>${fhir-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2</artifactId>
-                <version>6.9.7</version>
+                <version>${fhir-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2016may</artifactId>
-                <version>6.9.7</version>
+                <version>${fhir-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.7</version>
+                <version>${fhir-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3.support</artifactId>
-                <version>6.9.7</version>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.r4</artifactId>
+                <version>${fhir-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4b</artifactId>
-                <version>6.9.7</version>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.r5</artifactId>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.model</artifactId>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.support</artifactId>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.validation</artifactId>
+                <version>${fhir-core.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
