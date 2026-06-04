@@ -41,9 +41,11 @@ import FhirServerUrlField from '../common/FhirServerUrlField'
 interface ExecutionPanelProps {
   /** Returns the latest CQL content from the editor, flushing to Redux if needed */
   getLatestCql?: () => string
+  /** Current editor content for render-time enablement checks. */
+  cqlContent?: string
 }
 
-export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
+export default function ExecutionPanel({ getLatestCql, cqlContent }: ExecutionPanelProps) {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
   const cqlContentFromRedux = useSelector((state: RootState) => state.editor.cqlContent)
@@ -72,7 +74,9 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
     })
   }
 
-  const hasCql = !!(getLatestCql ? getLatestCql() : cqlContentFromRedux)
+  // Never call getLatestCql() during render: the editor flush path dispatches
+  // to Redux, which triggers the render-phase update warning seen in the browser.
+  const hasCql = Boolean(cqlContent?.trim() || cqlContentFromRedux?.trim())
 
   const toggleExpanded = (name: string) => {
     const newExpanded = new Set(expandedResults)

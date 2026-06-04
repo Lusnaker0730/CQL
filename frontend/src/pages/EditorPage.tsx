@@ -604,7 +604,7 @@ export default function EditorPage() {
                     />
                   </TabPanel>
                   <TabPanel value={rightPanelTab} index={1} prefix="editor" sx={{ height: '100%' }}>
-                    <ExecutionPanel getLatestCql={syncAndGetContent} />
+                    <ExecutionPanel getLatestCql={syncAndGetContent} cqlContent={localContent} />
                   </TabPanel>
                   <TabPanel value={rightPanelTab} index={2} prefix="editor" sx={{ height: '100%' }}>
                     <LibraryDependencyPanel
