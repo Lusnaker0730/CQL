@@ -734,7 +734,7 @@ public class FhirTerminologyService {
 
     public Map<String, Map<String, Object>> getCacheStats() {
         Map<String, Map<String, Object>> stats = new HashMap<>();
-        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "vsacValueSets", "codeSearch")) {
+        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "cqlTranslation", "vsacValueSets", "codeSearch")) {
             Cache cache = cacheManager.getCache(name);
             if (cache instanceof CaffeineCache caffeineCache) {
                 com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCache = caffeineCache.getNativeCache();
