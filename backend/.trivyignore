@@ -39,3 +39,25 @@ CVE-2026-45367
 # exposes no Thrift endpoint (it is a Spring Boot REST + WebSocket service), so the
 # bypass is not reachable. Risk: NEGLIGIBLE. Remove once an upstream fix ships.
 CVE-2026-43869
+
+# HAPI FHIR org.hl7.fhir.* — newly-surfaced CVEs (BUG-125)
+# --------------------------------------------------------
+# CVE-2026-55471 — org.hl7.fhir.utilities 6.7.9: XXE in XsltUtilities.saxonTransform.
+# No fixed version for 6.7.9, and utilities is in the group that CANNOT be upgraded
+# independently of hapi-fhir core 8.8.1 (AbstractMethodError — same constraint as above;
+# needs a HAPI major upgrade).
+# Exposure assessment (VEX): NOT reachable. This application performs no XSLT / StructureMap
+# transformation — there is no call to XsltUtilities.saxonTransform / TransformerFactory /
+# javax.xml.transform anywhere in the codebase (verified by source grep). The XXE sink is
+# never invoked. Risk: NEGLIGIBLE.
+CVE-2026-55471
+
+# CVE-2026-55470 — org.hl7.fhir.convertors / org.hl7.fhir.validation: incomplete fix for
+# CVE-2026-45367 (DSTU2 path). convertors is bumped to 6.9.10 in pom.xml (fix applied there);
+# the residual is org.hl7.fhir.validation, coupled to hapi-fhir core with no independent fix.
+# Exposure assessment (VEX): NOT exposed. The platform is R4-only and never performs DSTU2
+# version conversion. CdsInvocationService explicitly detects a DSTU2 client server and falls
+# back to the default R4 server (no DSTU2 resource is parsed/converted); "DSTU2" elsewhere is
+# only a string label in CQL `using` declarations. Same family as the already-VEX'd
+# CVE-2026-45367. Risk: LOW. Tracked for the HAPI 9.x upgrade.
+CVE-2026-55470
