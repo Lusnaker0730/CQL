@@ -35,4 +35,25 @@ public class CqlTranslationServiceTest {
                 + (response.getErrors() != null ? response.getErrors().toString() : ""));
         Assertions.assertTrue(response.getErrors().isEmpty(), "There should be no errors");
     }
+
+    // BUG-126: a repeat translate of identical CQL+options must hit the
+    // cqlTranslation cache and return the same cached instance (proves @Cacheable
+    // is wired without depending on the request's default option values).
+    @Test
+    public void testTranslateIsCached() {
+        String cql = "library CacheTest version '1.0.0'\n" +
+                "using FHIR version '4.0.1'\n" +
+                "context Patient\n" +
+                "define \"X\": true";
+
+        CqlTranslationRequest request = new CqlTranslationRequest();
+        request.setCql(cql);
+
+        CqlTranslationResponse first = cqlTranslationService.translate(request);
+        CqlTranslationResponse second = cqlTranslationService.translate(request);
+
+        Assertions.assertTrue(first.isSuccess());
+        Assertions.assertSame(first, second,
+                "second identical translate should return the cached instance");
+    }
 }

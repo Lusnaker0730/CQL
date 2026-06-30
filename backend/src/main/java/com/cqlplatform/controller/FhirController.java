@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.fhir.ResourceElementMetadata;
 import com.cqlplatform.security.InputValidator;
 import com.cqlplatform.service.fhir.*;
@@ -552,6 +553,15 @@ public class FhirController {
             @RequestParam String code) {
 
         FhirTerminologyService.CodeLookupResult result = terminologyService.lookupCode(system, code);
+        // BUG-124: an unrecognised code is HTTP 404 (client "not found"), NOT a 5xx.
+        // Previously the service wrapped tx.fhir.org's 4xx into FhirServerUnavailable
+        // (503), which surfaced a "FHIR Server Unavailable" degradation banner and
+        // tripped the HighErrorRate alert on every lookup of a code the public
+        // terminology server does not host (the common case during CQL authoring).
+        if (!result.found()) {
+            throw new ResourceNotFoundException(
+                    "Code '" + code + "' not found in CodeSystem '" + system + "'");
+        }
         return ResponseEntity.ok(result);
     }
 

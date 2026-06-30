@@ -64,6 +64,35 @@ class FhirControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // --- BUG-124: $lookup of an unrecognised code is 404, not 503 ---
+
+    @Test
+    @WithMockUser
+    void lookupCode_notFound_shouldReturn404() throws Exception {
+        when(terminologyService.lookupCode(eq("http://loinc.org"), eq("0000-0")))
+                .thenReturn(FhirTerminologyService.CodeLookupResult.notFound("http://loinc.org", "0000-0"));
+
+        mockMvc.perform(get("/api/fhir/CodeSystem/$lookup")
+                        .param("system", "http://loinc.org")
+                        .param("code", "0000-0"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    void lookupCode_found_shouldReturn200WithDisplay() throws Exception {
+        when(terminologyService.lookupCode(eq("http://loinc.org"), eq("4548-4")))
+                .thenReturn(FhirTerminologyService.CodeLookupResult.found(
+                        "http://loinc.org", "4548-4", "LOINC", "Hemoglobin A1c", List.of()));
+
+        mockMvc.perform(get("/api/fhir/CodeSystem/$lookup")
+                        .param("system", "http://loinc.org")
+                        .param("code", "4548-4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.display").value("Hemoglobin A1c"))
+                .andExpect(jsonPath("$.found").value(true));
+    }
+
     @Test
     @WithMockUser
     void searchResources_invalidParams_shouldReturn400() throws Exception {
