@@ -203,4 +203,53 @@ class FhirTerminologyServiceTest {
         assertTrue(result.hasCompose());
         assertFalse(result.hasExpansion());
     }
+
+    // --- BUG-124: $lookup not-found classification + negative result ---
+
+    @Test
+    void isClientError_4xxStatuses_returnTrue() {
+        // 404 not found and 400 invalid request both mean "the server understood
+        // and rejected the code/request" — a negative result, not an outage.
+        assertTrue(FhirTerminologyService.isClientError(
+                new ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException("not found"))); // 404
+        assertTrue(FhirTerminologyService.isClientError(
+                new ca.uhn.fhir.rest.server.exceptions.InvalidRequestException("bad request"))); // 400
+    }
+
+    @Test
+    void isClientError_5xxAndConnectionFailures_returnFalse() {
+        // 500 from upstream and a connection failure (status 0, no HTTP response)
+        // are both genuine outages → must NOT be classified as not-found.
+        assertFalse(FhirTerminologyService.isClientError(
+                new ca.uhn.fhir.rest.server.exceptions.InternalErrorException("boom")));           // 500
+        assertFalse(FhirTerminologyService.isClientError(
+                new ca.uhn.fhir.rest.client.exceptions.FhirClientConnectionException("conn")));    // 0
+    }
+
+    @Test
+    void codeLookupResult_notFound_hasFoundFalseAndNoData() {
+        FhirTerminologyService.CodeLookupResult r =
+                FhirTerminologyService.CodeLookupResult.notFound(SNOMED_SYSTEM, "99999");
+        assertFalse(r.found());
+        assertEquals(SNOMED_SYSTEM, r.system());
+        assertEquals("99999", r.code());
+        assertNull(r.display());
+        assertTrue(r.designations().isEmpty());
+    }
+
+    @Test
+    void lookupCode_foundInLocalIg_returnsFoundResult() {
+        // Local IG hit must never touch the remote server and must report found=true.
+        CodeSystem cs = new CodeSystem();
+        cs.setUrl(SNOMED_SYSTEM);
+        cs.setName("SNOMED CT");
+        cs.addConcept().setCode("160245001").setDisplay("No current problems");
+        codeSystemsByUrl.put(SNOMED_SYSTEM, cs);
+
+        FhirTerminologyService.CodeLookupResult r =
+                terminologyService.lookupCode(SNOMED_SYSTEM, "160245001");
+
+        assertTrue(r.found());
+        assertEquals("No current problems", r.display());
+    }
 }
