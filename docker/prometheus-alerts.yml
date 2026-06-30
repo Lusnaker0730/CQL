@@ -16,11 +16,17 @@ groups:
           summary: "High HTTP error rate detected"
           description: "More than 5% of HTTP requests are returning 5xx errors for {{ $labels.uri }}"
 
-      # High P95 latency (>5 seconds over 5 minutes)
+      # P95 latency, tiered by endpoint cost profile (BUG-126). A single flat 5s
+      # threshold false-fired on inherently slow endpoints: /api/cql/fix-suggestion
+      # is an AI/LLM call (cloud timeout 60s), /api/cql/translate|validate are
+      # CPU-bound cql2elm, /api/cql/execute runs CQL (timeout 120s). PromQL now uses
+      # `sum by (le, uri)` for a correct per-endpoint P95.
+      #
+      # Tier 1 — general endpoints: 5s.
       - alert: HighLatency
         expr: |
           histogram_quantile(0.95,
-            rate(http_server_requests_seconds_bucket{application="cql-platform"}[5m])
+            sum by (le, uri) (rate(http_server_requests_seconds_bucket{application="cql-platform", uri!~"/api/cql/(fix-suggestion|translate|validate|execute)"}[5m]))
           ) > 5
         for: 5m
         labels:
@@ -28,6 +34,32 @@ groups:
         annotations:
           summary: "High P95 latency detected"
           description: "P95 latency is above 5 seconds for {{ $labels.uri }}"
+
+      # Tier 2 — CQL compilation (cql2elm, CPU-bound): 15s.
+      - alert: HighLatencyCqlCompile
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, uri) (rate(http_server_requests_seconds_bucket{application="cql-platform", uri=~"/api/cql/(translate|validate)"}[5m]))
+          ) > 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency on CQL compilation"
+          description: "P95 latency is above 15 seconds for {{ $labels.uri }} (cql2elm is CPU-bound; sustained means CPU contention or a cache miss storm)"
+
+      # Tier 3 — long-running endpoints (AI suggestion, CQL execution): 30s.
+      - alert: HighLatencyLongRunning
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, uri) (rate(http_server_requests_seconds_bucket{application="cql-platform", uri=~"/api/cql/(fix-suggestion|execute)"}[5m]))
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency on long-running endpoint"
+          description: "P95 latency is above 30 seconds for {{ $labels.uri }} (AI suggestion / CQL execution, near their request timeouts)"
 
       # CQL execution failures
       - alert: CqlExecutionFailures

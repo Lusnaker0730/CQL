@@ -59,6 +59,17 @@ public class CqlTranslationService {
                 return t;
             });
 
+    // BUG-126: cache translation results to cut P95 latency on repeat translations
+    // (editor re-renders, undo/redo to a prior state, reopened libraries, multiple
+    // clients). Keyed on normalized CQL + the four compiler options so different
+    // option sets don't collide. cql2elm is deterministic for the same input, so this
+    // is safe (same staleness window as the existing `validate` cache for DB-resolved
+    // includes, bounded by the cqlTranslation TTL). @Cacheable does not cache thrown
+    // exceptions, so the null/blank guard below still runs on every real call.
+    @Cacheable(value = "cqlTranslation",
+            key = "T(com.cqlplatform.service.cql.CqlTranslationService).normalizeCacheKey(#request.cql)"
+                + " + '|' + #request.enableLocators + '|' + #request.enableAnnotations"
+                + " + '|' + #request.enableResultTypes + '|' + #request.validateUnits")
     public CqlTranslationResponse translate(CqlTranslationRequest request) {
         if (request.getCql() == null || request.getCql().isBlank()) {
             throw new IllegalArgumentException("CQL content must not be null or empty");
