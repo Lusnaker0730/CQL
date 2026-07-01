@@ -28,10 +28,19 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
 
-# Run the application — heap ~67% of the 1.5G container memory limit (compose
-# `deploy.resources.limits.memory`), leaving ~500MB for metaspace/threads/direct
-# buffers and transient CQL-execution allocations. The previous 716m was sized for
-# a 1G limit (stale); the container is actually 1.5G, so the old gen sat at ~87%
-# of its 477MB cap and fired HighHeapUsage despite a flat, non-leaking live set
-# (BUG-122). At -Xmx1024m the SerialGC old gen is ~680MB → ~61% used.
-ENTRYPOINT ["java", "-Xmx1024m", "-Xms512m", "-jar", "app.jar"]
+# Run the application.
+#
+# GC: explicit G1 (BUG-127). Without a -XX GC flag the JVM ergonomics pick SerialGC
+# whenever -Xmx (1024m) sits below the 1792m "server-class" threshold — and SerialGC's
+# single-threaded, whole-heap stop-the-world full GC froze every request thread. 30-day
+# Prometheus history showed MarkSweepCompact pauses peaking at 209s (and Copy minor GCs
+# at 24.6s), which is why unrelated endpoints (translate/execute/login/refresh/even the
+# /actuator/prometheus scrape) all spiked to 20-205s at the same instant. CPU never
+# exceeded 71% of the 2 cores, so this was GC-pause-bound, not CPU-bound. G1 is
+# concurrent/parallel with a 200ms pause target — no whole-heap STW freezes.
+#
+# Heap stays -Xmx1024m: 30-day peak heap *used* was only 553M (~54%), so the size was
+# never the problem — the collector was. G1's dynamic regions also drop SerialGC's fixed
+# ~680M old-gen cap (the BUG-122 HighHeapUsage tuning target), lowering the per-pool
+# used/max ratio rather than raising it.
+ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200", "-Xmx1024m", "-Xms512m", "-jar", "app.jar"]
