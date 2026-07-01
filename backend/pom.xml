@@ -21,7 +21,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <cql.version>4.5.0</cql.version>
+        <cql.version>4.8.0</cql.version>
         <hapi.fhir.version>8.8.1</hapi.fhir.version>
         <mockito.version>5.23.0</mockito.version>
         <byte-buddy.version>1.15.11</byte-buddy.version>
@@ -131,7 +131,7 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>0.12.6</version>
+            <version>0.13.0</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
