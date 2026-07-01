@@ -40,11 +40,14 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
   return (
     <Box>
       <Typography variant="h6" sx={{ mb: 2 }}>{t('testing.title')}</Typography>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         {t('testing.description')}
       </Typography>
-
       <Stack spacing={2} sx={{ mb: 3 }}>
         <TextField
           label={t('testing.fhirServerLabel')}
@@ -76,19 +79,19 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
           {testMutation.isPending && <CircularProgress size={20} sx={{ ml: 1, verticalAlign: 'middle' }} />}
         </Box>
       </Stack>
-
       {testMutation.isError && (
         <Alert severity="error" onClose={() => testMutation.reset()} sx={{ mb: 2 }}>
           <Typography variant="subtitle2">{t('testing.testFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(testMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('testing.testFailedHint')}
           </Typography>
         </Alert>
       )}
-
       {result && (
         <>
           <Alert
@@ -199,11 +202,15 @@ export default function ArtifactTester({ artifactId }: ArtifactTesterProps) {
         </>
       )}
     </Box>
-  )
+  );
 }
 
 function BooleanChip({ value }: { value?: string }) {
-  if (!value) return <Typography variant="caption" color="text.secondary">-</Typography>
+  if (!value) return (
+    <Typography variant="caption" sx={{
+      color: "text.secondary"
+    }}>-</Typography>
+  );
   const isTrue = value === 'true'
   return <Chip label={value} size="small" color={isTrue ? 'success' : 'default'} variant="outlined" />
 }

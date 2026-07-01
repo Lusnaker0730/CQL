@@ -117,11 +117,15 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
           />
         ))
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.functions').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'Function' })}
@@ -135,9 +139,13 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
             onChange={(e) => setName(e.target.value)}
           />
 
-          <Typography variant="caption" color="text.secondary">{t('functions.arguments')}</Typography>
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>{t('functions.arguments')}</Typography>
           {args.map((arg, idx) => (
-            <Stack key={idx} direction="row" spacing={0.5} alignItems="center">
+            <Stack key={idx} direction="row" spacing={0.5} sx={{
+              alignItems: "center"
+            }}>
               <TextField
                 size="small"
                 label={t('functions.argName')}
@@ -196,7 +204,6 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -206,5 +213,5 @@ export default function FunctionsSection({ functions, onInsert, onDelete, onGoTo
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

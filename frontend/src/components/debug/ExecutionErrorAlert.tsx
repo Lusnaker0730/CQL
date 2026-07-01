@@ -49,7 +49,9 @@ export default function ExecutionErrorAlert({ errorInfo }: ExecutionErrorAlertPr
   return (
     <Alert severity={phaseColor(errorInfo.phase)} icon={false}>
       <AlertTitle>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Chip
             size="small"
             color={phaseColor(errorInfo.phase)}
@@ -63,14 +65,17 @@ export default function ExecutionErrorAlert({ errorInfo }: ExecutionErrorAlertPr
       <Typography variant="body2" sx={{ mt: 1 }}>
         {errorInfo.message}
       </Typography>
-
       {errorInfo.stackTraceSummary && errorInfo.stackTraceSummary.length > 0 && (
         <Box sx={{ mt: 1 }}>
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <IconButton size="small" onClick={() => setStackOpen(!stackOpen)}>
               {stackOpen ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
             </IconButton>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {t('debug.stackTrace')}
             </Typography>
           </Stack>
@@ -84,5 +89,5 @@ export default function ExecutionErrorAlert({ errorInfo }: ExecutionErrorAlertPr
         </Box>
       )}
     </Alert>
-  )
+  );
 }

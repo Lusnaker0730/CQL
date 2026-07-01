@@ -90,7 +90,9 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <SharedIcon color="primary" />
           <Typography variant="h6">
             {t('share.title', { name: library.name, version: library.version })}
@@ -162,7 +164,9 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
               <ListItem key={username} sx={{ py: 0.25 }}>
                 <ListItemText
                   primary={username}
-                  primaryTypographyProps={{ variant: 'body2' }}
+                  slotProps={{
+                    primary: { variant: 'body2' }
+                  }}
                 />
                 <ListItemSecondaryAction>
                   <IconButton
@@ -179,7 +183,9 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
             ))}
           </List>
         ) : (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('share.notShared')}
           </Typography>
         )}
@@ -187,8 +193,15 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
         <Divider sx={{ my: 1.5 }} />
 
         {/* Owner info & Transfer */}
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}>
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <Typography variant="subtitle2">{t('share.owner')}</Typography>
             <Chip label={library.ownerUsername || t('share.unassigned')} size="small" />
           </Stack>
@@ -232,5 +245,5 @@ export default function LibraryShareDialog({ open, onClose, library }: LibrarySh
         <Button onClick={onClose}>{t('common:actions.close')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

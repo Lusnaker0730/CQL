@@ -26,10 +26,12 @@ export default function DateRangeFields({
         value={dateFrom}
         onChange={(e) => onDateFromChange(e.target.value)}
         size="small"
-        InputLabelProps={{ shrink: true }}
         sx={{ flex: 1 }}
         error={reversed}
         helperText={reversed ? t('batch.dateRangeReversed') : undefined}
+        slotProps={{
+          inputLabel: { shrink: true }
+        }}
       />
       <TextField
         type="date"
@@ -37,10 +39,12 @@ export default function DateRangeFields({
         value={dateTo}
         onChange={(e) => onDateToChange(e.target.value)}
         size="small"
-        InputLabelProps={{ shrink: true }}
         sx={{ flex: 1 }}
         error={reversed}
+        slotProps={{
+          inputLabel: { shrink: true }
+        }}
       />
     </Stack>
-  )
+  );
 }

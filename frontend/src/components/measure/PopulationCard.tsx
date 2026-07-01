@@ -42,7 +42,7 @@ interface PopulationCardProps {
 function resultTypeLabel(rt: string | null, fallback: string = 'unknown'): string {
   if (!rt) return fallback
   const last = rt.split('.').pop() || rt
-  return last.replace(/^System\./, '')
+  return last.replace(/^System\./, '');
 }
 
 export default function PopulationCard({
@@ -75,9 +75,22 @@ export default function PopulationCard({
         borderLeftColor: isRequired ? 'primary.main' : 'grey.400',
       }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-        <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-          <Typography variant="subtitle2" fontWeight={600}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "flex-start"
+        }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            mb: 1
+          }}>
+          <Typography variant="subtitle2" sx={{
+            fontWeight: 600
+          }}>
             {label}
           </Typography>
           <Chip
@@ -107,7 +120,6 @@ export default function PopulationCard({
           </span>
         </Tooltip>
       </Stack>
-
       {showAssociationType && (
         <FormControl sx={{ mb: 1.5 }}>
           <FormLabel sx={{ fontSize: '0.75rem' }}>{t('populationCard.association')}</FormLabel>
@@ -121,7 +133,6 @@ export default function PopulationCard({
           </RadioGroup>
         </FormControl>
       )}
-
       <Stack spacing={1.5}>
         <TextField
           select={expressions.length > 0}
@@ -136,7 +147,13 @@ export default function PopulationCard({
           </MenuItem>
           {expressions.map((expr) => (
             <MenuItem key={expr.name} value={expr.name}>
-              <Stack direction="row" spacing={1} alignItems="center" width="100%">
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: "center",
+                  width: "100%"
+                }}>
                 <span>{expr.name}</span>
                 {expr.resultType && (
                   <Chip
@@ -164,5 +181,5 @@ export default function PopulationCard({
         />
       </Stack>
     </Paper>
-  )
+  );
 }

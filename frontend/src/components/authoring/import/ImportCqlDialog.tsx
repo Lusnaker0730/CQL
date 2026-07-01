@@ -204,7 +204,9 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
         <Stack spacing={2} sx={{ mt: 1 }}>
           {!importResult ? (
             <>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 {t('importCql.description')}
               </Typography>
 
@@ -251,7 +253,9 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
                     {(importMutation.error as Error)?.message || 'Unknown error'}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {t('importCql.parseFailedHint')}
                   </Typography>
                 </Alert>
@@ -266,7 +270,9 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                   : t('importCql.parseWarning')}
               </Alert>
 
-              <Stack direction="row" spacing={2} flexWrap="wrap">
+              <Stack direction="row" spacing={2} sx={{
+                flexWrap: "wrap"
+              }}>
                 <Chip label={t('importCql.libraryChip', { name: importResult.name })} />
                 <Chip label={t('importCql.versionChip', { version: importResult.version })} variant="outlined" />
                 <Chip label={t('importCql.fhirChip', { version: importResult.fhirVersion })} variant="outlined" />
@@ -277,12 +283,25 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                   <Typography variant="subtitle2">{t('importCql.errorsFound', { count: importResult.errors.length })}</Typography>
                   <Box sx={{ maxHeight: 150, overflow: 'auto', mt: 0.5 }}>
                     {importResult.errors.map((err, i) => (
-                      <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace', mb: 0.25 }}>
+                      <Typography
+                        key={i}
+                        variant="caption"
+                        sx={{
+                          display: "block",
+                          fontFamily: 'monospace',
+                          mb: 0.25
+                        }}>
                         {i + 1}. {err.message}
                       </Typography>
                     ))}
                   </Box>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mt: 0.5
+                    }}>
                     {t('importCql.errorsHint')}
                   </Typography>
                 </Alert>
@@ -293,7 +312,9 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                     {t('importCql.valueSets', { count: importResult.valueSets.length })}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Stack direction="row" spacing={0.5} sx={{
+                    flexWrap: "wrap"
+                  }}>
                     {importResult.valueSets.map((vs) => (
                       <Chip key={vs.oid} label={vs.name} size="small" variant="outlined" sx={{ mb: 0.5 }} />
                     ))}
@@ -387,5 +408,5 @@ export default function ImportCqlDialog({ open, onClose, onImported }: ImportCql
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }

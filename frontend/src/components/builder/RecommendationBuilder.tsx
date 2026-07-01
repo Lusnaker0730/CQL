@@ -173,8 +173,16 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
     multiline = false,
   ) => (
     <Stack spacing={0.5}>
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary",
+            flex: 1
+          }}>
           {label}
         </Typography>
         <ToggleButtonGroup
@@ -203,9 +211,10 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
           label={labelExpr}
           value={field.value}
           onChange={(e) => setField((s) => ({ ...s, value: e.target.value }))}
-          SelectProps={{ displayEmpty: true }}
-          InputLabelProps={{ shrink: true }}
-        >
+          slotProps={{
+            select: { displayEmpty: true },
+            inputLabel: { shrink: true }
+          }}>
           <MenuItem value="" disabled><em>{t('recommendation.selectDefinition')}</em></MenuItem>
           {expressions.map((expr) => (
             <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
@@ -224,7 +233,6 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
         onChange={(e) => setName(e.target.value)}
         helperText={t('recommendation.nameHint')}
       />
-
       {/* Condition — select an existing definition as trigger */}
       <TextField
         select
@@ -232,22 +240,20 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
         label={t('recommendation.condition')}
         value={condition}
         onChange={(e) => setCondition(e.target.value)}
-        SelectProps={{ displayEmpty: true }}
-        InputLabelProps={{ shrink: true }}
         helperText={t('recommendation.conditionHint')}
-      >
+        slotProps={{
+          select: { displayEmpty: true },
+          inputLabel: { shrink: true }
+        }}>
         <MenuItem value="">{t('recommendation.conditionNone')}</MenuItem>
         {expressions.map((expr) => (
           <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
         ))}
       </TextField>
-
       {/* Summary */}
       {renderFieldWithMode(t('recommendation.summary'), t('recommendation.summaryExpr'), summary, setSummary)}
-
       {/* Detail */}
       {renderFieldWithMode(t('recommendation.detail'), t('recommendation.detailExpr'), detail, setDetail, true)}
-
       {/* Indicator + Grade row */}
       <Stack direction="row" spacing={1}>
         <TextField
@@ -278,10 +284,8 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
           ))}
         </TextField>
       </Stack>
-
       {/* Source Label */}
       {renderFieldWithMode(t('recommendation.sourceLabel'), t('recommendation.sourceLabelExpr'), sourceLabel, setSourceLabel)}
-
       {/* Rationale */}
       <TextField
         size="small"
@@ -292,7 +296,6 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
         onChange={(e) => setRationale(e.target.value)}
         placeholder={t('recommendation.rationalePlaceholder')}
       />
-
       {/* Selection Behavior */}
       <TextField
         select
@@ -305,17 +308,22 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
         <MenuItem value="at-most-one">{t('recommendation.selectionAtMostOne')}</MenuItem>
         <MenuItem value="any">{t('recommendation.selectionAny')}</MenuItem>
       </TextField>
-
       <Divider />
-
       {/* Links */}
       <Stack spacing={0.5}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary"
+          }}>
           {t('recommendation.links')}
         </Typography>
         {links.map((link) => (
           <Paper key={link.id} variant="outlined" sx={{ p: 0.75 }}>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{
+              alignItems: "center"
+            }}>
               <TextField
                 select
                 size="small"
@@ -351,18 +359,23 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
           {t('recommendation.addLink')}
         </Button>
       </Stack>
-
       <Divider />
-
       {/* Suggestions */}
       <Stack spacing={0.5}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary"
+          }}>
           {t('recommendation.suggestions')}
         </Typography>
         {suggestions.map((sug) => (
           <Paper key={sug.id} variant="outlined" sx={{ p: 0.75 }}>
             <Stack spacing={0.5}>
-              <Stack direction="row" spacing={0.5} alignItems="center">
+              <Stack direction="row" spacing={0.5} sx={{
+                alignItems: "center"
+              }}>
                 <TextField
                   size="small"
                   label={t('recommendation.suggestionLabel')}
@@ -387,9 +400,13 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
 
               {/* Actions within suggestion */}
               <Stack spacing={0.5} sx={{ pl: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">{t('recommendation.actions')}</Typography>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('recommendation.actions')}</Typography>
                 {sug.actions.map((act) => (
-                  <Stack key={act.id} direction="row" spacing={0.5} alignItems="center">
+                  <Stack key={act.id} direction="row" spacing={0.5} sx={{
+                    alignItems: "center"
+                  }}>
                     <Chip label={act.type} size="small" sx={{ fontSize: '0.65rem' }} />
                     <TextField
                       size="small"
@@ -425,12 +442,12 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
           {t('recommendation.addSuggestion')}
         </Button>
       </Stack>
-
       {/* CQL Preview */}
       <CqlPreviewBox code={cqlPreview} />
-
       {/* Action buttons */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <GradientButton onClick={handleInsert} disabled={!cqlPreview}>
           {t('common.insert')}
         </GradientButton>
@@ -444,5 +461,5 @@ export default function RecommendationBuilder({ expressions, onInsert, onCancel 
         <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
-  )
+  );
 }

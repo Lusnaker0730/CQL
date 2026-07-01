@@ -24,10 +24,16 @@ export default function PatientImportHistory() {
 
   if (imports.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          py: 2,
+          textAlign: 'center'
+        }}>
         {t('ehr.noImports')}
       </Typography>
-    )
+    );
   }
 
   return (

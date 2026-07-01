@@ -78,10 +78,11 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
   return (
     <Stack spacing={2}>
       <Typography variant="subtitle2">{t('transaction.title')}</Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         {t('transaction.description')}
       </Typography>
-
       <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
         <Editor
           height="350px"
@@ -98,7 +99,6 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
           }}
         />
       </Box>
-
       <GradientButton
         onClick={() => executeMutation.mutate()}
         disabled={executeMutation.isPending}
@@ -107,16 +107,20 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
       >
         {executeMutation.isPending ? t('transaction.executing') : t('transaction.executeButton')}
       </GradientButton>
-
       {executeMutation.isError && (
         <Alert severity="error">
           {t('transaction.transactionFailed', { error: (executeMutation.error as Error).message })}
         </Alert>
       )}
-
       {result && (
         <Box>
-          <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              mb: 1
+            }}>
             <Typography variant="subtitle2">{t('transaction.response')}</Typography>
             <Button size="small" startIcon={<CopyIcon />} onClick={handleCopyResult}>
               {t('transaction.copy')}
@@ -140,10 +144,9 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
           </Box>
         </Box>
       )}
-
       <Snackbar open={copied} autoHideDuration={COPY_FEEDBACK_TIMEOUT_MS} onClose={() => setCopied(false)}>
         <Alert severity="success" variant="filled">{t('transaction.jsonCopied')}</Alert>
       </Snackbar>
     </Stack>
-  )
+  );
 }

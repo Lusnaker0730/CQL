@@ -67,7 +67,6 @@ export default function PatientSearchPanel({ connections, onSelectPatient }: Pat
       <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
         {t('ehr.patientSearch')}
       </Typography>
-
       <Stack spacing={2} sx={{ mb: 2 }}>
         <TextField
           select
@@ -138,13 +137,17 @@ export default function PatientSearchPanel({ connections, onSelectPatient }: Pat
           </GradientButton>
         </Box>
       </Stack>
-
       {searchEnabled && results.length === 0 && !isFetching && (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            py: 2,
+            textAlign: 'center'
+          }}>
           {t('ehr.noResults')}
         </Typography>
       )}
-
       {results.length > 0 && (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
@@ -188,5 +191,5 @@ export default function PatientSearchPanel({ connections, onSelectPatient }: Pat
         </TableContainer>
       )}
     </Box>
-  )
+  );
 }

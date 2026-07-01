@@ -105,7 +105,13 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
 
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('validation.title')}</Typography>
         <Stack direction="row" spacing={1}>
           <Button
@@ -127,13 +133,11 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
           </GradientButton>
         </Stack>
       </Stack>
-
       {!report && !isLoading && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t('validation.instructions')}
         </Alert>
       )}
-
       {report && (
         <>
           {/* Summary Banner */}
@@ -142,8 +146,12 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
             icon={report.valid ? <ValidIcon /> : <InvalidIcon />}
             sx={{ mb: 2 }}
           >
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Typography variant="body2" fontWeight={600}>
+            <Stack direction="row" spacing={2} sx={{
+              alignItems: "center"
+            }}>
+              <Typography variant="body2" sx={{
+                fontWeight: 600
+              }}>
                 {report.valid ? t('validation.passed') : t('validation.failed')}
               </Typography>
               <Stack direction="row" spacing={1}>
@@ -157,7 +165,9 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
                   <Chip label={t('validation.infoCount', { count: report.infoCount })} size="small" color="info" variant="outlined" />
                 )}
               </Stack>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 ({report.validationTimeMs}ms)
               </Typography>
             </Stack>
@@ -174,7 +184,13 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
             return (
               <Accordion key={catKey} defaultExpanded={errorCount > 0}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: "center",
+                      width: '100%'
+                    }}>
                     {catCfg.icon}
                     <Typography variant="subtitle2" sx={{ flex: 1 }}>
                       {t(catCfg.labelKey)}
@@ -205,9 +221,10 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
                           <ListItemText
                             primary={issue.message}
                             secondary={issue.fixHint}
-                            primaryTypographyProps={{ variant: 'body2', fontSize: '0.85rem' }}
-                            secondaryTypographyProps={{ variant: 'caption' }}
-                          />
+                            slotProps={{
+                              primary: { variant: 'body2', sx: { fontSize: '0.85rem' } },
+                              secondary: { variant: 'caption' }
+                            }} />
                           {issue.fixHint && onNavigateToTab && (
                             <Button
                               size="small"
@@ -219,12 +236,12 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
                             </Button>
                           )}
                         </ListItem>
-                      )
+                      );
                     })}
                   </List>
                 </AccordionDetails>
               </Accordion>
-            )
+            );
           })}
 
           {/* No issues at all */}
@@ -236,5 +253,5 @@ export default function MeasureValidationPanel({ measureId, onNavigateToTab }: M
         </>
       )}
     </Box>
-  )
+  );
 }

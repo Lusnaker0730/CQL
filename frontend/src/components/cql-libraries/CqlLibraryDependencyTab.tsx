@@ -29,12 +29,13 @@ export default function CqlLibraryDependencyTab({ libraryId, libraryName }: CqlL
   return (
     <Box sx={{ maxWidth: 800 }}>
       <SectionHeader title={t('dependency.title')} />
-
       {/* Direct Dependencies */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" gutterBottom>{t('dependency.directDeps')}</Typography>
         {dependencies && dependencies.length > 0 ? (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={0.5} useFlexGap sx={{
+            flexWrap: "wrap"
+          }}>
             {dependencies.map((dep) => (
               <Chip
                 key={dep.id}
@@ -46,19 +47,21 @@ export default function CqlLibraryDependencyTab({ libraryId, libraryName }: CqlL
             ))}
           </Stack>
         ) : (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('dependency.noDeps')}
           </Typography>
         )}
       </Box>
-
       <Divider sx={{ my: 2 }} />
-
       {/* Dependents (who depends on this library) */}
       <Box>
         <Typography variant="subtitle2" gutterBottom>{t('dependency.dependents')}</Typography>
         {dependents && dependents.length > 0 ? (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={0.5} useFlexGap sx={{
+            flexWrap: "wrap"
+          }}>
             {dependents.map((dep) => (
               <Chip
                 key={dep.id}
@@ -70,11 +73,13 @@ export default function CqlLibraryDependencyTab({ libraryId, libraryName }: CqlL
             ))}
           </Stack>
         ) : (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('dependency.noDependents')}
           </Typography>
         )}
       </Box>
     </Box>
-  )
+  );
 }

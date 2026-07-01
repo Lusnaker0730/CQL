@@ -67,11 +67,18 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
         onChange={(e) => setName(e.target.value)}
         helperText={t('cdsCard.nameHint')}
       />
-
       {/* Summary */}
       <Stack spacing={0.5}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              flex: 1
+            }}>
             {t('cdsCard.summary')}
           </Typography>
           <ToggleButtonGroup
@@ -98,9 +105,10 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             label={t('cdsCard.summaryExpr')}
             value={summary.value}
             onChange={(e) => setSummary((s) => ({ ...s, value: e.target.value }))}
-            SelectProps={{ displayEmpty: true }}
-            InputLabelProps={{ shrink: true }}
-          >
+            slotProps={{
+              select: { displayEmpty: true },
+              inputLabel: { shrink: true }
+            }}>
             <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
               <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
@@ -108,11 +116,18 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           </TextField>
         )}
       </Stack>
-
       {/* Detail */}
       <Stack spacing={0.5}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              flex: 1
+            }}>
             {t('cdsCard.detail')}
           </Typography>
           <ToggleButtonGroup
@@ -141,9 +156,10 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             label={t('cdsCard.detailExpr')}
             value={detail.value}
             onChange={(e) => setDetail((s) => ({ ...s, value: e.target.value }))}
-            SelectProps={{ displayEmpty: true }}
-            InputLabelProps={{ shrink: true }}
-          >
+            slotProps={{
+              select: { displayEmpty: true },
+              inputLabel: { shrink: true }
+            }}>
             <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
               <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
@@ -151,7 +167,6 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           </TextField>
         )}
       </Stack>
-
       {/* Indicator */}
       <TextField
         select
@@ -164,11 +179,18 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           <MenuItem key={ind} value={ind}>{ind}</MenuItem>
         ))}
       </TextField>
-
       {/* Source Label */}
       <Stack spacing={0.5}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              flex: 1
+            }}>
             {t('cdsCard.sourceLabel')}
           </Typography>
           <ToggleButtonGroup
@@ -195,9 +217,10 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
             label={t('cdsCard.sourceLabelExpr')}
             value={sourceLabel.value}
             onChange={(e) => setSourceLabel((s) => ({ ...s, value: e.target.value }))}
-            SelectProps={{ displayEmpty: true }}
-            InputLabelProps={{ shrink: true }}
-          >
+            slotProps={{
+              select: { displayEmpty: true },
+              inputLabel: { shrink: true }
+            }}>
             <MenuItem value="" disabled><em>{t('cdsCard.selectDefinition')}</em></MenuItem>
             {expressions.map((expr) => (
               <MenuItem key={expr} value={`"${expr}"`}>{expr}</MenuItem>
@@ -205,12 +228,12 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
           </TextField>
         )}
       </Stack>
-
       {/* CQL Preview */}
       <CqlPreviewBox code={cqlPreview} />
-
       {/* Action buttons */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <GradientButton
           onClick={handleInsert}
           disabled={!cqlPreview}
@@ -230,5 +253,5 @@ export default function CdsCardBuilder({ expressions, onInsert, onCancel }: CdsC
         <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
-  )
+  );
 }

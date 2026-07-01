@@ -7,7 +7,7 @@ import {
   Publish as PublishIcon,
   Save as SaveIcon,
   CheckCircle as CheckIcon,
-  ErrorOutline as ErrorIcon,
+  ErrorOutlined as ErrorIcon,
 } from '@mui/icons-material'
 import type { EcqmArtifact } from '../../types/ecqm'
 import type { SaveStatus } from './EcqmArtifactWorkspace'
@@ -30,18 +30,30 @@ export default function EcqmArtifactWorkspaceHeader({
     switch (saveStatus) {
       case 'saving':
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: 'text.secondary'
+            }}>
             <CircularProgress size={14} color="inherit" />
             <Typography variant="caption">{t('workspace.saving')}</Typography>
           </Stack>
-        )
+        );
       case 'saved':
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'success.main' }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: 'success.main'
+            }}>
             <CheckIcon fontSize="small" />
             <Typography variant="caption">{t('workspace.saved')}</Typography>
           </Stack>
-        )
+        );
       case 'dirty':
         return (
           <Typography variant="caption" sx={{ color: 'warning.main' }}>
@@ -50,11 +62,17 @@ export default function EcqmArtifactWorkspaceHeader({
         )
       case 'error':
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'error.main' }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: 'error.main'
+            }}>
             <ErrorIcon fontSize="small" />
             <Typography variant="caption">{t('workspace.saveFailed')}</Typography>
           </Stack>
-        )
+        );
       default:
         return null
     }
@@ -62,15 +80,21 @@ export default function EcqmArtifactWorkspaceHeader({
 
   return (
     <Box sx={{ px: 3, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-      <Stack direction="row" alignItems="center" spacing={2}>
+      <Stack direction="row" spacing={2} sx={{
+        alignItems: "center"
+      }}>
         <Tooltip title={t('header.backToList')}>
           <IconButton onClick={onBack} aria-label={t('header.backToList')}>
             <BackIcon />
           </IconButton>
         </Tooltip>
         <Box sx={{ flex: 1 }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6" fontWeight={600}>{artifact.name}</Typography>
+          <Stack direction="row" spacing={1.5} sx={{
+            alignItems: "center"
+          }}>
+            <Typography variant="h6" sx={{
+              fontWeight: 600
+            }}>{artifact.name}</Typography>
             {saveIndicator}
           </Stack>
           <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
@@ -107,5 +131,5 @@ export default function EcqmArtifactWorkspaceHeader({
         </Button>
       </Stack>
     </Box>
-  )
+  );
 }

@@ -190,7 +190,9 @@ export default function AdminUsersPage() {
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{
+          fontWeight: 700
+        }}>
           {t('users.title')}
         </Typography>
         <Button
@@ -202,19 +204,16 @@ export default function AdminUsersPage() {
           {t('users.createUser')}
         </Button>
       </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
-
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
           {success}
         </Alert>
       )}
-
       <Paper sx={{ borderRadius: 2 }}>
         <TableContainer>
           <Table>
@@ -238,14 +237,18 @@ export default function AdminUsersPage() {
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">{t('users.noUsersFound')}</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>{t('users.noUsersFound')}</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 users.map((user) => (
                   <TableRow key={user.id} hover>
                     <TableCell>
-                      <Typography fontWeight={500}>
+                      <Typography sx={{
+                        fontWeight: 500
+                      }}>
                         {user.username}
                         {isCurrentUser(user.username) && (
                           <Chip label={t('users.youChip')} size="small" sx={{ ml: 1 }} variant="outlined" />
@@ -256,7 +259,9 @@ export default function AdminUsersPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {user.email || '--'}
                       </Typography>
                     </TableCell>
@@ -296,7 +301,9 @@ export default function AdminUsersPage() {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '--'}
                       </Typography>
                     </TableCell>
@@ -330,7 +337,6 @@ export default function AdminUsersPage() {
           </Table>
         </TableContainer>
       </Paper>
-
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{t('users.createDialog.title')}</DialogTitle>
@@ -343,7 +349,9 @@ export default function AdminUsersPage() {
               fullWidth
               required
               autoFocus
-              inputProps={{ maxLength: 50 }}
+              slotProps={{
+                htmlInput: { maxLength: 50 }
+              }}
             />
             <TextField
               label={t('users.createDialog.passwordLabel')}
@@ -353,7 +361,9 @@ export default function AdminUsersPage() {
               fullWidth
               required
               helperText={t('users.createDialog.passwordHelperText')}
-              inputProps={{ maxLength: 100 }}
+              slotProps={{
+                htmlInput: { maxLength: 100 }
+              }}
             />
             <TextField
               label={t('users.createDialog.emailLabel')}
@@ -361,7 +371,9 @@ export default function AdminUsersPage() {
               value={createForm.email}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
               fullWidth
-              inputProps={{ maxLength: 200 }}
+              slotProps={{
+                htmlInput: { maxLength: 200 }
+              }}
             />
             <FormControl fullWidth>
               <InputLabel>{t('users.createDialog.roleLabel')}</InputLabel>
@@ -391,7 +403,6 @@ export default function AdminUsersPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Temporary Password Dialog */}
       <Dialog open={resetDialogOpen} onClose={handleCloseResetDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{t('users.resetDialog.title')}</DialogTitle>
@@ -410,24 +421,26 @@ export default function AdminUsersPage() {
               <TextField
                 fullWidth
                 value={resetResult.temporaryPassword}
-                InputProps={{
-                  readOnly: true,
-                  sx: { fontFamily: 'monospace', fontSize: '1.1rem' },
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title={copied ? t('users.resetDialog.copiedTooltip') : t('users.resetDialog.copyTooltip')}>
-                        <IconButton onClick={handleCopy} size="small" aria-label={t('users.resetDialog.copyAriaLabel')}>
-                          {copied ? (
-                            <CheckIcon color="success" />
-                          ) : (
-                            <CopyIcon />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  ),
-                }}
                 sx={{ mb: 2 }}
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                    sx: { fontFamily: 'monospace', fontSize: '1.1rem' },
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title={copied ? t('users.resetDialog.copiedTooltip') : t('users.resetDialog.copyTooltip')}>
+                          <IconButton onClick={handleCopy} size="small" aria-label={t('users.resetDialog.copyAriaLabel')}>
+                            {copied ? (
+                              <CheckIcon color="success" />
+                            ) : (
+                              <CopyIcon />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }
+                }}
               />
               <Alert severity="warning">
                 {t('users.resetDialog.shareWarning')}
@@ -441,7 +454,6 @@ export default function AdminUsersPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Confirmation Dialog */}
       <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}>
         <DialogTitle sx={{ fontWeight: 700 }}>{confirmDialog.title}</DialogTitle>
@@ -456,5 +468,5 @@ export default function AdminUsersPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

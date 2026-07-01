@@ -36,9 +36,10 @@ export default function FhirBrowser() {
       <Typography variant="h6" gutterBottom>
         {t('browser.title')}
       </Typography>
-
       <Stack spacing={2}>
-        <Stack direction="row" spacing={1} alignItems="flex-start">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "flex-start"
+        }}>
           <FhirServerUrlField
             value={fhirServer}
             onChange={(value) => {
@@ -105,5 +106,5 @@ export default function FhirBrowser() {
         </TabPanel>
       </Stack>
     </Paper>
-  )
+  );
 }

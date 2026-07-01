@@ -64,8 +64,16 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" fontWeight={600}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1
+        }}>
+        <Typography variant="subtitle2" sx={{
+          fontWeight: 600
+        }}>
           {label} {required && <Typography component="span" color="error">*</Typography>}
         </Typography>
         <Button
@@ -95,7 +103,7 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
         onSelect={handleLibrarySelect}
       />
     </Paper>
-  )
+  );
 })
 
 export default EcqmPopulationTreeEditor

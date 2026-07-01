@@ -167,7 +167,6 @@ export default function GenerationResultPanel({
           color="success"
         />
       </Stack>
-
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         <Button variant="contained" startIcon={<DownloadIcon />} onClick={onDownload}>
           {t('result.download')}
@@ -182,7 +181,6 @@ export default function GenerationResultPanel({
           {t('result.clear')}
         </Button>
       </Stack>
-
       <Box sx={{ mb: 2 }}>
         <FhirServerUrlField
           label={t('result.uploadServerLabel')}
@@ -191,7 +189,6 @@ export default function GenerationResultPanel({
           helperText={t('result.uploadServerHelperText')}
         />
       </Box>
-
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         <Button
           variant="outlined"
@@ -202,11 +199,18 @@ export default function GenerationResultPanel({
           {uploading ? t('result.uploading') : t('result.uploadToServer')}
         </Button>
       </Stack>
-
       {uploadProgress && (uploading || uploadProgress.failures.length > 0) && (
         <Box sx={{ mb: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              mb: 0.5
+            }}>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {t('result.uploadProgress', {
                 done: uploadProgress.done,
                 total: uploadProgress.total,
@@ -220,7 +224,9 @@ export default function GenerationResultPanel({
           />
           {uploadProgress.failures.length > 0 && (
             <Alert severity="warning" sx={{ mt: 1, maxHeight: 160, overflow: 'auto' }}>
-              <Typography variant="caption" fontWeight={600} gutterBottom>
+              <Typography variant="caption" gutterBottom sx={{
+                fontWeight: 600
+              }}>
                 {t('result.uploadFailureList', { count: uploadProgress.failures.length })}
               </Typography>
               {uploadProgress.failures.map((f) => (
@@ -232,7 +238,6 @@ export default function GenerationResultPanel({
           )}
         </Box>
       )}
-
       {results.map((patientData, idx) => {
         const pat = patientData.patient
         const nameObj = (pat.name as Array<{ text?: string }>)?.[0]
@@ -251,7 +256,9 @@ export default function GenerationResultPanel({
           >
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1, mr: 1 }}>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="body2" sx={{
+                  fontWeight: 600
+                }}>
                   {patientName}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -287,8 +294,8 @@ export default function GenerationResultPanel({
               </Box>
             </AccordionDetails>
           </Accordion>
-        )
+        );
       })}
     </Paper>
-  )
+  );
 }

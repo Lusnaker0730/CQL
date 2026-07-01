@@ -26,9 +26,16 @@ export default function Footer() {
         borderColor: alpha(theme.palette.primary.main, 0.1),
       })}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Stack direction="row" spacing={3}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('footer.line', { line: cursorPosition.line, column: cursorPosition.column })}
           </Typography>
           <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -107,5 +114,5 @@ export default function Footer() {
         </Stack>
       </Stack>
     </Box>
-  )
+  );
 }

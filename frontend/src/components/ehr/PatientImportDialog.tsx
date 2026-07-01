@@ -61,7 +61,9 @@ export default function PatientImportDialog({
       <DialogContent>
         <Stack spacing={2}>
           <Box>
-            <Typography variant="subtitle2" color="text.secondary">
+            <Typography variant="subtitle2" sx={{
+              color: "text.secondary"
+            }}>
               {t('ehr.patientName')}
             </Typography>
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
@@ -71,7 +73,9 @@ export default function PatientImportDialog({
 
           {patient.birthDate && (
             <Box>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography variant="subtitle2" sx={{
+                color: "text.secondary"
+              }}>
                 {t('ehr.birthDate')}
               </Typography>
               <Typography variant="body2">{patient.birthDate}</Typography>
@@ -128,5 +132,5 @@ export default function PatientImportDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

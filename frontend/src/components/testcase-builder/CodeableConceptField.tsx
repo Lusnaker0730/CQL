@@ -234,7 +234,7 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
       {codings.map((coding, i) => (
         // Stable-ish key: prefer a content-derived signature so add/remove
         // doesn't re-mount unrelated rows. Fall back to index for empty new rows.
-        <CodingField
+        (<CodingField
           key={`${coding.system ?? ''}|${coding.code ?? ''}|${i}`}
           coding={coding}
           onChange={(c) => updateCoding(i, c)}
@@ -242,21 +242,24 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
           onTwcoreBrowse={() => handleTwcoreBrowse(i)}
           onTerminologySearch={() => handleTerminologySearch(i)}
           bindingUrl={element.bindingValueSetUrl}
-        />
+        />)
       ))}
-
       {codings.length === 0 && (
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+            display: 'block',
+            mb: 0.5
+          }}>
           {t('testCaseBuilder.fields.noCodings')}
         </Typography>
       )}
-
       <Box sx={ADD_CODING_BOX_SX}>
         <Button size="small" startIcon={<AddIcon />} onClick={addCoding} sx={ADD_CODING_BUTTON_SX}>
           {t('testCaseBuilder.fields.addCoding')}
         </Button>
       </Box>
-
       <TextField
         label={t('testCaseBuilder.fields.text')}
         size="small"
@@ -265,7 +268,6 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
         onChange={(e) => onChange({ ...cc, text: e.target.value || undefined })}
         sx={TEXT_FIELD_SX}
       />
-
       {twcoreOpen && (
         <TwcoreCodePicker
           open={twcoreOpen}
@@ -275,5 +277,5 @@ export default function CodeableConceptField({ element, value, onChange }: Codea
         />
       )}
     </FieldWrapper>
-  )
+  );
 }

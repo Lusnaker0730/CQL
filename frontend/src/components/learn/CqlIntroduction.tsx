@@ -12,18 +12,34 @@ export default function CqlIntroduction() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.introduction.title')}
       </Typography>
-
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* What is CQL */}
         <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.introduction.what.title')}
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "text.secondary",
+                lineHeight: 1.8
+              }}>
               {t('learn.introduction.what.content')}
             </Typography>
           </Paper>
@@ -32,10 +48,21 @@ export default function CqlIntroduction() {
         {/* Why CQL */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.introduction.why.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2
+              }}>
               {t('learn.introduction.why.problems')}
             </Typography>
             <List dense disablePadding>
@@ -46,7 +73,9 @@ export default function CqlIntroduction() {
                   </ListItemIcon>
                   <ListItemText
                     primary={t(`learn.introduction.why.${key}`)}
-                    primaryTypographyProps={{ variant: 'body2' }}
+                    slotProps={{
+                      primary: { variant: 'body2' }
+                    }}
                   />
                 </ListItem>
               ))}
@@ -60,11 +89,23 @@ export default function CqlIntroduction() {
         {/* CQL + FHIR Relationship */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               <RelationIcon sx={{ mr: 1, verticalAlign: 'middle', fontSize: 22 }} />
               {t('learn.introduction.relationship.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.8
+              }}>
               {t('learn.introduction.relationship.content')}
             </Typography>
             {['fhirModel', 'cqlLogic', 'together'].map((key) => (
@@ -81,7 +122,13 @@ export default function CqlIntroduction() {
         {/* Application Scenarios */}
         <Grid size={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               <AppIcon sx={{ mr: 1, verticalAlign: 'middle', fontSize: 22 }} />
               {t('learn.introduction.applications.title')}
             </Typography>
@@ -107,5 +154,5 @@ export default function CqlIntroduction() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

@@ -142,7 +142,6 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
       <Typography variant="h6" gutterBottom>
         {t('panel.title')}
       </Typography>
-
       <Stack spacing={2}>
         <Autocomplete
           size="small"
@@ -210,8 +209,10 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             }}
             size="small"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             error={!!dateError}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
           <TextField
             label={t('panel.periodEnd')}
@@ -223,9 +224,11 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
             }}
             size="small"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             error={!!dateError}
             helperText={dateError}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
         </Stack>
 
@@ -269,12 +272,20 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
           <Box>
             <Card variant="outlined" sx={{ mb: 2 }}>
               <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2
+                  }}>
                   <Box>
                     <Typography variant="h6" sx={{ color: 'secondary.main' }}>
                       {result.measureName || result.measureId}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {result.periodStart} - {result.periodEnd}
                     </Typography>
                   </Box>
@@ -291,13 +302,19 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                 )}
 
                 {result.groups?.map((group) => (
-                  <Box key={group.groupId} mb={2}>
+                  <Box key={group.groupId} sx={{
+                    mb: 2
+                  }}>
                     <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.primary' }}>
                       {group.description || t('evaluationResult.groupLabel', { groupId: group.groupId })}
                     </Typography>
 
                     {group.measureScore !== undefined && group.measureScore !== null && (
-                      <Box mb={3} sx={{ textAlign: 'center' }}>
+                      <Box
+                        sx={{
+                          mb: 3,
+                          textAlign: 'center'
+                        }}>
                         <Typography
                           sx={{
                             fontSize: '3rem',
@@ -308,7 +325,13 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                         >
                           {group.measureScore.toFixed(1)}%
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "text.secondary",
+                            mb: 1.5,
+                            display: 'block'
+                          }}>
                           {t('evaluationResult.measureScore')}
                         </Typography>
                         <LinearProgress
@@ -363,10 +386,17 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
 
                     {/* Stratification Results */}
                     {group.stratifiers && group.stratifiers.length > 0 && (
-                      <Box mt={2}>
-                        <Stack direction="row" alignItems="center" spacing={1}
+                      <Box sx={{
+                        mt: 2
+                      }}>
+                        <Stack
+                          direction="row"
+                          spacing={1}
                           onClick={() => setStratExpanded(!stratExpanded)}
-                          sx={{ cursor: 'pointer' }}>
+                          sx={{
+                            alignItems: "center",
+                            cursor: 'pointer'
+                          }}>
                           <IconButton size="small" aria-label={t('evaluationResult.toggleStratification')}>
                             {stratExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
@@ -389,7 +419,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                 {group.stratifiers.map((strat: StratifierResult) => (
                                   <TableRow key={`${strat.strataId}-${strat.strataValue}`}>
                                     <TableCell>
-                                      <Typography variant="body2" fontWeight={500}>{strat.strataId}</Typography>
+                                      <Typography variant="body2" sx={{
+                                        fontWeight: 500
+                                      }}>{strat.strataId}</Typography>
                                     </TableCell>
                                     <TableCell>
                                       <Chip label={strat.strataValue} size="small" />
@@ -405,7 +437,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                                       )}
                                     </TableCell>
                                     <TableCell>
-                                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                                      <Stack direction="row" spacing={0.5} sx={{
+                                        flexWrap: "wrap"
+                                      }}>
                                         {strat.populations?.map((pop) => (
                                           <Chip
                                             key={pop.populationType}
@@ -428,7 +462,9 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
                 ))}
 
                 {result.supplementalData && Object.keys(result.supplementalData).length > 0 && (
-                  <Box mt={2}>
+                  <Box sx={{
+                    mt: 2
+                  }}>
                     <Typography variant="subtitle2" gutterBottom>
                       {t('evaluationResult.supplementalData')}
                     </Typography>
@@ -456,11 +492,16 @@ export default function MeasurePanel({ selectedMeasure }: MeasurePanelProps) {
         )}
 
         {!result && !evaluateMutation.isPending && (
-          <Typography variant="body2" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              textAlign: "center"
+            }}>
             {t('panel.emptyState')}
           </Typography>
         )}
       </Stack>
     </Paper>
-  )
+  );
 }

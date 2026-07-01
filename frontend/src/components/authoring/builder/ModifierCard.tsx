@@ -45,8 +45,15 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
   return (
     <Card variant="outlined" sx={{ backgroundColor: 'action.hover' }}>
       <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 600,
+              flex: 1
+            }}>
             {modifier.name}
           </Typography>
           {missingFields.length > 0 && (
@@ -54,7 +61,9 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
               <WarnIcon fontSize="small" color="warning" />
             </Tooltip>
           )}
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {modifier.returnType.replace(/_/g, ' ')}
           </Typography>
           <Tooltip title={t('modifier.removeModifier')}>
@@ -78,7 +87,7 @@ export default function ModifierCard({ modifier, onRemove, onUpdateValues }: Mod
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ----- Type-Specific Value Editors -----
@@ -105,15 +114,25 @@ function ModifierValueEditor({
   // LookBack modifiers: value (number) + unit (time dropdown)
   if (modType === 'LookBackModifier' || modifier.id.startsWith('LookBack')) {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">{t('modifier.withinLast')}</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>{t('modifier.withinLast')}</Typography>
         <TextField
           size="small"
           type="number"
           value={modifier.values.value ?? ''}
           onChange={(e) => onValueChange('value', e.target.value)}
           sx={{ width: 80 }}
-          inputProps={{ min: 0 }}
+          slotProps={{
+            htmlInput: { min: 0 }
+          }}
         />
         <FormControl size="small" sx={{ minWidth: 120 }}>
           <Select
@@ -128,15 +147,21 @@ function ModifierValueEditor({
           </Select>
         </FormControl>
       </Stack>
-    )
+    );
   }
 
   // ValueComparison: operator + value (+ optional max)
   if (modType === 'ValueComparisonNumber' || modType === 'ValueComparisonObservation') {
     return (
-      <Stack spacing={1} mt={1}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="text.secondary">{t('modifier.min')}</Typography>
+      <Stack spacing={1} sx={{
+        mt: 1
+      }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>{t('modifier.min')}</Typography>
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <Select
               value={modifier.values.minOperator ?? ''}
@@ -158,8 +183,12 @@ function ModifierValueEditor({
             placeholder={t('modifier.value')}
           />
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="text.secondary">{t('modifier.max')}</Typography>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>{t('modifier.max')}</Typography>
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <Select
               value={modifier.values.maxOperator ?? ''}
@@ -191,27 +220,41 @@ function ModifierValueEditor({
           />
         )}
       </Stack>
-    )
+    );
   }
 
   // ConvertUnits / WithUnit
   if (modType === 'ConvertUnits' || modType === 'WithUnit') {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">{t('modifier.unit')}:</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>{t('modifier.unit')}:</Typography>
         <UcumUnitField
           value={(modifier.values.unit as string) ?? ''}
           onChange={(val) => onValueChange('unit', val)}
           sx={{ width: 250 }}
         />
       </Stack>
-    )
+    );
   }
 
   // BooleanComparison: Is (Not) Null/True/False
   if (modType === 'BooleanComparison') {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>{t('modifier.comparison')}</InputLabel>
           <Select
@@ -225,14 +268,22 @@ function ModifierValueEditor({
           </Select>
         </FormControl>
       </Stack>
-    )
+    );
   }
 
   // String modifiers (Equals, StartsWith, EndsWith): single text value
   if (modType === 'EqualsString' || modType === 'StartsWithString' || modType === 'EndsWithString') {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">{t('modifier.value')}:</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>{t('modifier.value')}:</Typography>
         <TextField
           size="small"
           value={modifier.values.value ?? ''}
@@ -241,20 +292,28 @@ function ModifierValueEditor({
           placeholder={t('modifier.enterText')}
         />
       </Stack>
-    )
+    );
   }
 
   // Time/DateTime: value + precision
   if (modType.includes('TimePrecise') || modType.includes('DateTimePrecise')) {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
         <TextField
           size="small"
           type={modType.includes('DateTime') ? 'datetime-local' : 'time'}
           value={modifier.values.value ?? ''}
           onChange={(e) => onValueChange('value', e.target.value)}
           sx={{ flex: 1 }}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{
+            inputLabel: { shrink: true }
+          }}
         />
         <FormControl size="small" sx={{ minWidth: 120 }}>
           <InputLabel>{t('modifier.precision')}</InputLabel>
@@ -273,15 +332,21 @@ function ModifierValueEditor({
           </Select>
         </FormControl>
       </Stack>
-    )
+    );
   }
 
   // Qualifier: qualifier type + value set or code
   if (modType === 'Qualifier') {
     return (
-      <Stack spacing={1} mt={1}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="text.secondary">{t('modifier.matchBy')}</Typography>
+      <Stack spacing={1} sx={{
+        mt: 1
+      }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>{t('modifier.matchBy')}</Typography>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <Select
               value={modifier.values.qualifier ?? 'value set'}
@@ -313,14 +378,22 @@ function ModifierValueEditor({
           />
         )}
       </Stack>
-    )
+    );
   }
 
   // Before/After Interval: value input
   if (modType === 'BeforeInterval' || modType === 'AfterInterval') {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {modType === 'BeforeInterval' ? t('modifier.before') : t('modifier.after')}
         </Typography>
         <TextField
@@ -331,14 +404,22 @@ function ModifierValueEditor({
           placeholder={t('modifier.enterValueOrExpr')}
         />
       </Stack>
-    )
+    );
   }
 
   // Contains modifiers: value (+ optional unit for quantity)
   if (modType.startsWith('Contains')) {
     return (
-      <Stack direction="row" spacing={1} mt={1} alignItems="center">
-        <Typography variant="body2" color="text.secondary">{t('modifier.contains')}</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          alignItems: "center"
+        }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>{t('modifier.contains')}</Typography>
         <TextField
           size="small"
           value={modifier.values.value ?? ''}
@@ -354,12 +435,19 @@ function ModifierValueEditor({
           />
         )}
       </Stack>
-    )
+    );
   }
 
   // Fallback: generic key-value text fields
   return (
-    <Stack direction="row" spacing={1} mt={1} flexWrap="wrap" useFlexGap>
+    <Stack
+      direction="row"
+      spacing={1}
+      useFlexGap
+      sx={{
+        mt: 1,
+        flexWrap: "wrap"
+      }}>
       {Object.entries(modifier.values).map(([key, val]) => (
         <TextField
           key={key}
@@ -371,5 +459,5 @@ function ModifierValueEditor({
         />
       ))}
     </Stack>
-  )
+  );
 }

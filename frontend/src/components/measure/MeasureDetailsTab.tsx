@@ -141,24 +141,23 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           </GradientButton>
         }
       />
-
       {updateMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(updateMutation.error)}
         </Alert>
       )}
-
       {updateMutation.isSuccess && !isDirty && (
         <Alert severity="success" sx={{ mb: 2 }}>
           {t('details.updateSuccess')}
         </Alert>
       )}
-
       <Stack spacing={1}>
         {/* General Information */}
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               {generalFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
               <Typography variant="subtitle2">{t('details.generalInformation')}</Typography>
             </Stack>
@@ -172,7 +171,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 fullWidth
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
-                inputProps={{ maxLength: MEASURE.name.maxLength }}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.name.maxLength }
+                }}
               />
               <Stack direction="row" spacing={2}>
                 <TextField
@@ -181,7 +182,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   fullWidth
                   value={form.version}
                   onChange={(e) => updateField('version', e.target.value)}
-                  inputProps={{ maxLength: MEASURE.version.maxLength }}
+                  slotProps={{
+                    htmlInput: { maxLength: MEASURE.version.maxLength }
+                  }}
                 />
                 <TextField
                   label={t('details.fields.status')}
@@ -216,7 +219,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.measureSet || ''}
                   onChange={(e) => updateField('measureSet', e.target.value)}
                   placeholder={t('details.fields.measureSetPlaceholder')}
-                  inputProps={{ maxLength: MEASURE.measureSet.maxLength }}
+                  slotProps={{
+                    htmlInput: { maxLength: MEASURE.measureSet.maxLength }
+                  }}
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
@@ -227,7 +232,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.nqfNumber || ''}
                   onChange={(e) => updateField('nqfNumber', e.target.value)}
                   placeholder={t('details.fields.nqfNumberPlaceholder')}
-                  inputProps={{ maxLength: MEASURE.nqfNumber.maxLength }}
+                  slotProps={{
+                    htmlInput: { maxLength: MEASURE.nqfNumber.maxLength }
+                  }}
                 />
                 <TextField
                   label={t('details.fields.cmsMeasureId')}
@@ -236,7 +243,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   value={form.cmsMeasureId || ''}
                   onChange={(e) => updateField('cmsMeasureId', e.target.value)}
                   placeholder={t('details.fields.cmsMeasureIdPlaceholder')}
-                  inputProps={{ maxLength: MEASURE.cmsMeasureId.maxLength }}
+                  slotProps={{
+                    htmlInput: { maxLength: MEASURE.cmsMeasureId.maxLength }
+                  }}
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
@@ -284,7 +293,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
         {/* Measure Overview */}
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               {overviewFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
               <Typography variant="subtitle2">{t('details.measureOverview')}</Typography>
             </Stack>
@@ -297,7 +308,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 fullWidth
                 value={form.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
-                inputProps={{ maxLength: MEASURE.title.maxLength }}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.title.maxLength }
+                }}
               />
               <TextField
                 label={t('details.overviewFields.description')}
@@ -307,8 +320,10 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 rows={3}
                 value={form.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
-                inputProps={{ maxLength: MEASURE.description.maxLength }}
                 helperText={`${(form.description || '').length} / ${MEASURE.description.maxLength}`}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.description.maxLength }
+                }}
               />
               <TextField
                 label={t('details.overviewFields.rationale')}
@@ -319,8 +334,10 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 value={form.rationale || ''}
                 onChange={(e) => updateField('rationale', e.target.value)}
                 placeholder={t('details.overviewFields.rationalePlaceholder')}
-                inputProps={{ maxLength: MEASURE.rationale.maxLength }}
                 helperText={`${(form.rationale || '').length} / ${MEASURE.rationale.maxLength}`}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.rationale.maxLength }
+                }}
               />
               <TextField
                 label={t('details.overviewFields.clinicalGuidance')}
@@ -331,8 +348,10 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 value={form.clinicalGuidance || ''}
                 onChange={(e) => updateField('clinicalGuidance', e.target.value)}
                 placeholder={t('details.overviewFields.clinicalGuidancePlaceholder')}
-                inputProps={{ maxLength: MEASURE.clinicalGuidance.maxLength }}
                 helperText={`${(form.clinicalGuidance || '').length} / ${MEASURE.clinicalGuidance.maxLength}`}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.clinicalGuidance.maxLength }
+                }}
               />
             </Stack>
           </AccordionDetails>
@@ -341,7 +360,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
         {/* Steward & Developers */}
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               {stewardFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
               <Typography variant="subtitle2">{t('details.stewardDevelopers')}</Typography>
             </Stack>
@@ -355,19 +376,27 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 value={form.steward || ''}
                 onChange={(e) => updateField('steward', e.target.value)}
                 placeholder={t('details.stewardFields.stewardPlaceholder')}
-                inputProps={{ maxLength: MEASURE.steward.maxLength }}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.steward.maxLength }
+                }}
               />
               <Divider />
-              <Typography variant="caption" color="text.secondary">{t('details.stewardFields.developers')}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('details.stewardFields.developers')}</Typography>
               {(form.developers || []).map((dev, i) => (
-                <Stack key={i} direction="row" spacing={1} alignItems="center">
+                <Stack key={i} direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <TextField
                     size="small"
                     fullWidth
                     value={dev}
                     onChange={(e) => updateDeveloper(i, e.target.value)}
                     placeholder={t('details.stewardFields.developerPlaceholder')}
-                    inputProps={{ maxLength: MEASURE.developer.maxLength }}
+                    slotProps={{
+                      htmlInput: { maxLength: MEASURE.developer.maxLength }
+                    }}
                   />
                   <IconButton size="small" aria-label={t('details.stewardFields.removeDeveloper')} color="error" onClick={() => removeDeveloper(i)}>
                     <DeleteIcon fontSize="small" />
@@ -384,7 +413,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
         {/* References */}
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               {refsFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
               <Typography variant="subtitle2">{t('details.references')}</Typography>
               {(form.references || []).length > 0 && (
@@ -395,7 +426,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
           <AccordionDetails>
             <Stack spacing={2}>
               {(form.references || []).map((ref, i) => (
-                <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                <Stack key={i} direction="row" spacing={1} sx={{
+                  alignItems: "flex-start"
+                }}>
                   <TextField
                     select
                     label={t('details.referenceFields.type')}
@@ -415,7 +448,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                     value={ref.reference}
                     onChange={(e) => updateReference(i, 'reference', e.target.value)}
                     placeholder={t('details.referenceFields.referencePlaceholder')}
-                    inputProps={{ maxLength: MEASURE.reference.maxLength }}
+                    slotProps={{
+                      htmlInput: { maxLength: MEASURE.reference.maxLength }
+                    }}
                   />
                   <IconButton size="small" aria-label={t('details.referenceFields.removeReference')} color="error" onClick={() => removeReference(i)}>
                     <DeleteIcon fontSize="small" />
@@ -442,7 +477,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
         {/* Legal */}
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               {legalFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
               <Typography variant="subtitle2">{t('details.legal')}</Typography>
             </Stack>
@@ -457,7 +494,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 rows={2}
                 value={form.copyright || ''}
                 onChange={(e) => updateField('copyright', e.target.value)}
-                inputProps={{ maxLength: MEASURE.copyright.maxLength }}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.copyright.maxLength }
+                }}
               />
               <TextField
                 label={t('details.legalFields.disclaimer')}
@@ -467,12 +506,14 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 rows={2}
                 value={form.disclaimer || ''}
                 onChange={(e) => updateField('disclaimer', e.target.value)}
-                inputProps={{ maxLength: MEASURE.disclaimer.maxLength }}
+                slotProps={{
+                  htmlInput: { maxLength: MEASURE.disclaimer.maxLength }
+                }}
               />
             </Stack>
           </AccordionDetails>
         </Accordion>
       </Stack>
     </Box>
-  )
+  );
 }

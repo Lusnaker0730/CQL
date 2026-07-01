@@ -40,7 +40,9 @@ const ElementListItem = memo(function ElementListItem({
         sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
         onClick={onGoTo}
       >
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <Typography
             variant="body2"
             sx={{
@@ -79,7 +81,7 @@ const ElementListItem = memo(function ElementListItem({
         </Tooltip>
       </Stack>
     </Box>
-  )
+  );
 })
 
 export default ElementListItem

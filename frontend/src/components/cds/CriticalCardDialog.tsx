@@ -63,7 +63,6 @@ export default function CriticalCardDialog({
       // Critical cards must be acted on (Accept / Override). Block both Esc
       // and backdrop-click via the canonical onClose-reason guard rather than
       // a backdrop preventDefault hack.
-      disableEscapeKeyDown
       onClose={(_event, reason) => {
         if (reason === 'backdropClick') return
         // No other dismissal paths today, but if MUI adds one we want the
@@ -73,28 +72,41 @@ export default function CriticalCardDialog({
       fullWidth
     >
       <DialogTitle>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <ErrorIcon color="error" />
           <Typography variant="h6">{t('critical.alertTitle')}</Typography>
         </Stack>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <Chip label={card.indicator} size="small" color="error" />
-            <Typography variant="subtitle1" fontWeight="bold">
+            <Typography variant="subtitle1" sx={{
+              fontWeight: "bold"
+            }}>
               {card.summary}
             </Typography>
           </Stack>
 
           {card.detail && (
-            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                whiteSpace: 'pre-line'
+              }}>
               {card.detail}
             </Typography>
           )}
 
           {card.source && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {card.source.label}
             </Typography>
           )}
@@ -155,5 +167,5 @@ export default function CriticalCardDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

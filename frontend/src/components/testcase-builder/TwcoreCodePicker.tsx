@@ -82,12 +82,14 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
           sx={{ mb: 2, mt: 0.5 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }
           }}
         />
 
@@ -106,7 +108,13 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
         )}
 
         {!isLoading && !isError && filtered.length === 0 && (
-          <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 3 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              textAlign: "center",
+              py: 3
+            }}>
             {search ? t('testCaseBuilder.twcore.noMatchingCodes') : t('testCaseBuilder.twcore.noTerminology')}
           </Typography>
         )}
@@ -116,7 +124,12 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box>
                 <Typography variant="subtitle2">{entry.name}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    wordBreak: 'break-all'
+                  }}>
                   {entry.system}
                 </Typography>
               </Box>
@@ -125,7 +138,14 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
               {entry.categories.map((cat) => (
                 <Box key={cat.name} sx={{ mb: 1.5 }}>
                   {cat.name && (
-                    <Typography variant="caption" fontWeight={600} color="primary.main" sx={{ mb: 0.5, display: 'block' }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 600,
+                        color: "primary.main",
+                        mb: 0.5,
+                        display: 'block'
+                      }}>
                       {cat.name}
                     </Typography>
                   )}
@@ -145,10 +165,14 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
                         }}
                       >
                         <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography variant="body2" fontWeight={500} noWrap>
+                          <Typography variant="body2" noWrap sx={{
+                            fontWeight: 500
+                          }}>
                             {code.code}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap>
+                          <Typography variant="caption" noWrap sx={{
+                            color: "text.secondary"
+                          }}>
                             {code.display}
                             {code.displayZh && code.displayZh !== code.display && ` / ${code.displayZh}`}
                           </Typography>
@@ -172,5 +196,5 @@ export default function TwcoreCodePicker({ open, onClose, onSelect, resourceType
         ))}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

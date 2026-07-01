@@ -287,30 +287,56 @@ export default function EcqmTutorial() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.ecqmTutorial.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.ecqmTutorial.subtitle')}
       </Typography>
-
       <Stepper orientation="vertical" sx={{ '& .MuiStepConnector-line': { minHeight: 20 } }}>
         {/* Step 1: Understanding eCQM Structure */}
         <Step active expanded>
           <StepLabel>
-            <Typography variant="h6" fontWeight={700} color="primary.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.ecqmTutorial.step1.title')}
             </Typography>
           </StepLabel>
           <StepContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.ecqmTutorial.step1.description')}
             </Typography>
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step1.populationFlow')}
                   </Typography>
                   <CodeBlock code={ECQM_STRUCTURE_CODE} maxHeight={300} />
@@ -318,7 +344,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step1.scoringTypes')}
                   </Typography>
                   <CodeBlock code={SCORING_TYPES_CODE} maxHeight={300} />
@@ -335,19 +366,35 @@ export default function EcqmTutorial() {
         {/* Step 2: Building a Proportion Measure */}
         <Step active expanded>
           <StepLabel>
-            <Typography variant="h6" fontWeight={700} color="primary.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.ecqmTutorial.step2.title')}
             </Typography>
           </StepLabel>
           <StepContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.ecqmTutorial.step2.description')}
             </Typography>
 
             <Grid container spacing={2}>
               <Grid size={12}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step2.libraryHeader')}
                   </Typography>
                   <CodeBlock code={DIABETES_HEADER_CODE} maxHeight={360} />
@@ -355,7 +402,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step2.ipp')}
                   </Typography>
                   <CodeBlock code={DIABETES_IPP_CODE} maxHeight={260} />
@@ -363,7 +415,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step2.denominator')}
                   </Typography>
                   <CodeBlock code={DIABETES_DENOM_CODE} maxHeight={260} />
@@ -371,7 +428,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step2.numerator')}
                   </Typography>
                   <CodeBlock code={DIABETES_NUMER_CODE} maxHeight={280} />
@@ -379,7 +441,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step2.denomExclusion')}
                   </Typography>
                   <CodeBlock code={DIABETES_EXCL_CODE} maxHeight={280} />
@@ -387,7 +454,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={12}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step2.completeCql')}
                   </Typography>
                   <CodeBlock code={DIABETES_COMPLETE_CODE} maxHeight={600} />
@@ -400,19 +472,35 @@ export default function EcqmTutorial() {
         {/* Step 3: Testing and Validation */}
         <Step active expanded>
           <StepLabel>
-            <Typography variant="h6" fontWeight={700} color="primary.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.ecqmTutorial.step3.title')}
             </Typography>
           </StepLabel>
           <StepContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.ecqmTutorial.step3.description')}
             </Typography>
 
             <Grid container spacing={2}>
               <Grid size={12}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step3.testBundle')}
                   </Typography>
                   <CodeBlock code={TESTING_BUNDLE_CODE} maxHeight={500} />
@@ -429,19 +517,35 @@ export default function EcqmTutorial() {
         {/* Step 4: CMS Measure Example */}
         <Step active expanded>
           <StepLabel>
-            <Typography variant="h6" fontWeight={700} color="primary.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.ecqmTutorial.step4.title')}
             </Typography>
           </StepLabel>
           <StepContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.ecqmTutorial.step4.description')}
             </Typography>
 
             <Grid container spacing={2}>
               <Grid size={12}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step4.cms146Cql')}
                   </Typography>
                   <CodeBlock code={CMS146_CODE} maxHeight={600} />
@@ -449,7 +553,12 @@ export default function EcqmTutorial() {
               </Grid>
               <Grid size={12}>
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 1
+                    }}>
                     {t('learn.ecqmTutorial.step4.twcoreMapping')}
                   </Typography>
                   <CodeBlock code={CMS146_TWCORE_CODE} maxHeight={500} />
@@ -464,5 +573,5 @@ export default function EcqmTutorial() {
         </Step>
       </Stepper>
     </Box>
-  )
+  );
 }

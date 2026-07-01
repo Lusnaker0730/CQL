@@ -41,7 +41,13 @@ export default function VersionCompareDialog({
       <DialogTitle>{t('compare.title')}</DialogTitle>
       <DialogContent dividers>
         {noDifferences && oldVersion && newVersion ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              py: 2,
+              textAlign: 'center'
+            }}>
             {t('compare.noDifferences')}
           </Typography>
         ) : (
@@ -69,5 +75,5 @@ export default function VersionCompareDialog({
         <Button onClick={onClose}>{t('common:actions.close')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

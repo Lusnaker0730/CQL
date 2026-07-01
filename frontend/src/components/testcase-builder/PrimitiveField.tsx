@@ -41,14 +41,16 @@ export default function PrimitiveField({ element, value, onChange }: PrimitiveFi
           onChange(v === '' ? undefined : parseInt(v, 10))
         }}
         required={element.isRequired}
-        inputProps={{
-          min: type === 'positiveInt' ? 1 : type === 'unsignedInt' ? 0 : undefined,
-          step: 1,
-        }}
         helperText={element.description || undefined}
         sx={{ mb: 1 }}
+        slotProps={{
+          htmlInput: {
+            min: type === 'positiveInt' ? 1 : type === 'unsignedInt' ? 0 : undefined,
+            step: 1,
+          }
+        }}
       />
-    )
+    );
   }
 
   if (type === 'decimal') {
@@ -64,11 +66,13 @@ export default function PrimitiveField({ element, value, onChange }: PrimitiveFi
           onChange(v === '' ? undefined : parseFloat(v))
         }}
         required={element.isRequired}
-        inputProps={{ step: 0.01 }}
         helperText={element.description || undefined}
         sx={{ mb: 1 }}
+        slotProps={{
+          htmlInput: { step: 0.01 }
+        }}
       />
-    )
+    );
   }
 
   if (type === 'date') {
@@ -81,11 +85,13 @@ export default function PrimitiveField({ element, value, onChange }: PrimitiveFi
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value || undefined)}
         required={element.isRequired}
-        InputLabelProps={{ shrink: true }}
         helperText={element.description || undefined}
         sx={{ mb: 1 }}
+        slotProps={{
+          inputLabel: { shrink: true }
+        }}
       />
-    )
+    );
   }
 
   if (type === 'dateTime' || type === 'instant') {
@@ -101,11 +107,13 @@ export default function PrimitiveField({ element, value, onChange }: PrimitiveFi
           onChange(v ? v + ':00' : undefined)
         }}
         required={element.isRequired}
-        InputLabelProps={{ shrink: true }}
         helperText={element.description || undefined}
         sx={{ mb: 1 }}
+        slotProps={{
+          inputLabel: { shrink: true }
+        }}
       />
-    )
+    );
   }
 
   if (type === 'markdown') {

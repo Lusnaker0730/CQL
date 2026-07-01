@@ -22,7 +22,9 @@ export default function DebugModeSwitch({ checked, onChange, label, disabled }: 
         />
       }
       label={
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <DebugIcon sx={{ fontSize: 16, color: checked ? 'secondary.main' : 'text.secondary' }} />
           <Typography variant="body2" color={checked ? 'secondary.main' : 'text.secondary'}>
             {label}
@@ -30,5 +32,5 @@ export default function DebugModeSwitch({ checked, onChange, label, disabled }: 
         </Stack>
       }
     />
-  )
+  );
 }

@@ -23,7 +23,7 @@ import {
 import {
   ContentCopy as CopyIcon,
   Check as CheckIcon,
-  AddCircleOutline as UseIcon,
+  AddCircleOutlined as UseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material'
@@ -89,14 +89,19 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
             <CircularProgress size={24} />
           </Box>
         ) : valueSets.length === 0 && search.length >= 2 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              py: 2,
+              textAlign: 'center'
+            }}>
             {t('valueSet.noResults')}
           </Typography>
         ) : (
@@ -107,12 +112,16 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
                   {expandedUrl === vs.url ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                   <ListItemText
                     primary={
-                      <Typography variant="body2" fontWeight={500} noWrap>
+                      <Typography variant="body2" noWrap sx={{
+                        fontWeight: 500
+                      }}>
                         {vs.title || vs.name}
                       </Typography>
                     }
                     secondary={
-                      <Typography variant="caption" color="text.secondary" noWrap>
+                      <Typography variant="caption" noWrap sx={{
+                        color: "text.secondary"
+                      }}>
                         {vs.url}
                       </Typography>
                     }
@@ -130,12 +139,20 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
                         {t('valueSet.expandFailed', { error: expandError })}
                       </Alert>
                     ) : expandedCodes.length === 0 ? (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {t('valueSet.noCodesFound')}
                       </Typography>
                     ) : (
                       <>
-                        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          sx={{
+                            alignItems: "center",
+                            mb: 0.5
+                          }}>
                           <Chip
                             label={t('valueSet.resultCount', { count: expandedCodes.length })}
                             size="small"
@@ -211,5 +228,5 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
         )}
       </Box>
     </Box>
-  )
+  );
 }

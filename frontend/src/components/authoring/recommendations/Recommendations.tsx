@@ -7,7 +7,7 @@ import {
 } from '@mui/material'
 import {
   Add as AddIcon, Delete as DeleteIcon, ArrowUpward, ArrowDownward,
-  LinkOutlined, HelpOutline as HelpIcon,
+  LinkOutlined, HelpOutlined as HelpIcon,
   MedicalServices as MedIcon, Assignment as ServiceIcon,
 } from '@mui/icons-material'
 import GradientButton from '../../common/GradientButton'
@@ -176,13 +176,18 @@ export default function Recommendations({ recommendations, subpopulations, onCha
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('recommendations.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={handleAdd}>
           {t('recommendations.add')}
         </GradientButton>
       </Stack>
-
       {recommendations.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
@@ -194,7 +199,13 @@ export default function Recommendations({ recommendations, subpopulations, onCha
           {recommendations.map((rec, index) => (
             <Card key={rec.uid} variant="outlined">
               <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mb: 2
+                  }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     {t('recommendations.recNumber', { index: index + 1 })}
                   </Typography>
@@ -296,7 +307,13 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                   </Stack>
                 </Collapse>
 
-                <Stack direction="row" spacing={2} mb={2} alignItems="center">
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  sx={{
+                    mb: 2,
+                    alignItems: "center"
+                  }}>
                   <FormControl size="small" sx={{ minWidth: 260 }}>
                     <InputLabel>{t('recommendations.strengthLabel')}</InputLabel>
                     <Select
@@ -339,10 +356,22 @@ export default function Recommendations({ recommendations, subpopulations, onCha
 
                 {/* Subpopulation assignment */}
                 <Divider sx={{ my: 1.5 }} />
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 1,
+                    display: 'block'
+                  }}>
                   {t('recommendations.applyToSubpops')}
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    flexWrap: "wrap",
+                    mb: 2
+                  }}>
                   {allSubpopsForRec.map((sp) => {
                     const isSelected = (rec.subpopulations || []).some((s) => s.uniqueId === sp.uniqueId)
                     return (
@@ -361,14 +390,29 @@ export default function Recommendations({ recommendations, subpopulations, onCha
 
                 {/* Links */}
                 <Divider sx={{ my: 1.5 }} />
-                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                  <Typography variant="caption" color="text.secondary">{t('recommendations.links')}</Typography>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mb: 1
+                  }}>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>{t('recommendations.links')}</Typography>
                   <IconButton size="small" onClick={() => handleAddLink(rec.uid)} aria-label={t('recommendations.addLink')}>
                     <LinkOutlined fontSize="small" />
                   </IconButton>
                 </Stack>
                 {(rec.links || []).map((link, li) => (
-                  <Stack key={`link-${rec.uid}-${li}`} direction="row" spacing={1} mb={1} alignItems="center">
+                  <Stack
+                    key={`link-${rec.uid}-${li}`}
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      mb: 1,
+                      alignItems: "center"
+                    }}>
                     <FormControl size="small" sx={{ minWidth: 100 }}>
                       <Select
                         value={link.type}
@@ -401,8 +445,16 @@ export default function Recommendations({ recommendations, subpopulations, onCha
 
                 {/* Suggestions */}
                 <Divider sx={{ my: 1.5 }} />
-                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                  <Typography variant="caption" color="text.secondary">{t('recommendations.suggestions')}</Typography>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mb: 1
+                  }}>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>{t('recommendations.suggestions')}</Typography>
                   <IconButton size="small" onClick={() => handleAddSuggestion(rec.uid)} aria-label={t('recommendations.addSuggestion')}>
                     <AddIcon fontSize="small" />
                   </IconButton>
@@ -410,7 +462,13 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                 {(rec.suggestions || []).map((sug, si) => (
                   <Card key={sug.uid} variant="outlined" sx={{ mb: 1, backgroundColor: 'action.hover' }}>
                     <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                          alignItems: "center",
+                          mb: 1
+                        }}>
                         <TextField
                           size="small"
                           label={t('recommendations.suggestionLabel')}
@@ -438,7 +496,14 @@ export default function Recommendations({ recommendations, subpopulations, onCha
                         </IconButton>
                       </Stack>
                       {(sug.actions || []).map((act, ai) => (
-                        <Stack key={`action-${sug.uid}-${ai}`} direction="row" spacing={1} alignItems="center" mb={0.5}>
+                        <Stack
+                          key={`action-${sug.uid}-${ai}`}
+                          direction="row"
+                          spacing={1}
+                          sx={{
+                            alignItems: "center",
+                            mb: 0.5
+                          }}>
                           <Chip
                             icon={act.resource?.resourceType === 'MedicationRequest' ? <MedIcon /> : <ServiceIcon />}
                             label={t('recommendations.create')}
@@ -477,7 +542,6 @@ export default function Recommendations({ recommendations, subpopulations, onCha
           ))}
         </Stack>
       )}
-
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('recommendations.deleteTitle')}</DialogTitle>
         <DialogContent>
@@ -496,5 +560,5 @@ export default function Recommendations({ recommendations, subpopulations, onCha
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

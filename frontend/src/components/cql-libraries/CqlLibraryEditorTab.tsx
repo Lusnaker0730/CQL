@@ -165,13 +165,11 @@ export default function CqlLibraryEditorTab({
         </GradientButton>
         {validating && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
       </Stack>
-
       {validationSuccess === true && (
         <Alert severity="success" sx={{ mx: 1.5, mt: 1 }}>
           {t('editor.validationSuccess')}
         </Alert>
       )}
-
       {validationSuccess === false && validationErrors.length > 0 && (
         <Alert severity="error" sx={{ mx: 1.5, mt: 1 }}>
           <Typography variant="subtitle2">
@@ -179,14 +177,20 @@ export default function CqlLibraryEditorTab({
           </Typography>
           <Box sx={{ mt: 0.5, maxHeight: 150, overflow: 'auto' }}>
             {validationErrors.map((err, i) => (
-              <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace', mb: 0.25 }}>
+              <Typography
+                key={i}
+                variant="caption"
+                sx={{
+                  display: "block",
+                  fontFamily: 'monospace',
+                  mb: 0.25
+                }}>
                 {err.startLine ? `[${err.startLine}:${err.startColumn || 0}] ` : ''}{err.message}
               </Typography>
             ))}
           </Box>
         </Alert>
       )}
-
       <Box
         sx={(theme) => ({
           flex: 1,
@@ -217,5 +221,5 @@ export default function CqlLibraryEditorTab({
         />
       </Box>
     </Box>
-  )
+  );
 }

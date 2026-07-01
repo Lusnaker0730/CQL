@@ -252,7 +252,12 @@ export default function ManageServicesPanel() {
 
   return (
     <Stack spacing={2}>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Typography variant="subtitle1">{t('manage.title')}</Typography>
         <GradientButton
           startIcon={<AddIcon />}
@@ -261,7 +266,6 @@ export default function ManageServicesPanel() {
           {t('manage.newService')}
         </GradientButton>
       </Box>
-
       {activeServiceId && (
         <Alert
           severity="info"
@@ -281,11 +285,9 @@ export default function ManageServicesPanel() {
           <Trans i18nKey="manage.editingAlert" ns="cds" values={{ name: services?.find((s) => s.id === activeServiceId)?.title }} components={{ strong: <strong /> }} />
         </Alert>
       )}
-
       {services?.length === 0 && (
         <Alert severity="info">{t('manage.noServices')}</Alert>
       )}
-
       {services?.map((service) => {
         const isOwner = !service.ownerUsername || service.ownerUsername === currentUsername
         const isShared = service.shared
@@ -311,10 +313,22 @@ export default function ManageServicesPanel() {
             })}
           >
             <CardContent sx={{ pb: 1 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "flex-start"
+                }}>
                 <Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: "bold",
+                        color: 'text.primary'
+                      }}>
                       {service.title}
                     </Typography>
                     {service.version && <Chip label={t('manage.versionLabel', { version: service.version })} size="small" variant="outlined" />}
@@ -325,7 +339,9 @@ export default function ManageServicesPanel() {
                       variant="outlined"
                     />
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {t('manage.serviceDetails', { id: service.id, hook: service.hook })}
                     {service.serviceName && service.serviceName !== service.id && t('manage.serviceNameSuffix', { name: service.serviceName })}
                   </Typography>
@@ -335,7 +351,9 @@ export default function ManageServicesPanel() {
                     </Typography>
                   )}
                 </Box>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <Chip
                     label={service.enabled ? t('manage.enabled') : t('manage.disabled')}
                     color={service.enabled ? 'success' : 'default'}
@@ -385,9 +403,8 @@ export default function ManageServicesPanel() {
               </Stack>
             </CardContent>
           </Card>
-        )
+        );
       })}
-
       <Dialog open={dialogOpen} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{editingService ? t('manage.editDialogTitle') : t('manage.createDialogTitle')}</DialogTitle>
         <DialogContent>
@@ -404,7 +421,9 @@ export default function ManageServicesPanel() {
               disabled={!!editingService}
               helperText={formErrors.id || t('manage.serviceIdHelperText')}
               error={!!formErrors.id}
-              inputProps={{ maxLength: CDS_SERVICE.id.maxLength }}
+              slotProps={{
+                htmlInput: { maxLength: CDS_SERVICE.id.maxLength }
+              }}
             />
 
             <TextField
@@ -419,10 +438,14 @@ export default function ManageServicesPanel() {
               required
               error={!!formErrors.title}
               helperText={formErrors.title}
-              inputProps={{ maxLength: CDS_SERVICE.title.maxLength }}
+              slotProps={{
+                htmlInput: { maxLength: CDS_SERVICE.title.maxLength }
+              }}
             />
 
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <FormControl fullWidth size="small">
                 <InputLabel>{t('manage.hookTypeLabel')}</InputLabel>
                 <Select
@@ -458,8 +481,10 @@ export default function ManageServicesPanel() {
               fullWidth
               multiline
               rows={2}
-              inputProps={{ maxLength: CDS_SERVICE.description.maxLength }}
               helperText={`${(formData.description || '').length} / ${CDS_SERVICE.description.maxLength}`}
+              slotProps={{
+                htmlInput: { maxLength: CDS_SERVICE.description.maxLength }
+              }}
             />
 
             <FormControl fullWidth size="small">
@@ -477,7 +502,9 @@ export default function ManageServicesPanel() {
               </Select>
             </FormControl>
 
-            <Stack direction="row" justifyContent="flex-end">
+            <Stack direction="row" sx={{
+              justifyContent: "flex-end"
+            }}>
               <Button
                 size="small"
                 startIcon={<LibraryBooksIcon />}
@@ -532,7 +559,6 @@ export default function ManageServicesPanel() {
           </GradientButton>
         </DialogActions>
       </Dialog>
-
       <Dialog open={versionsDialogOpen} onClose={() => setVersionsDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('manage.versionsDialogTitle', { name: versionsServiceName })}</DialogTitle>
         <DialogContent>
@@ -560,7 +586,9 @@ export default function ManageServicesPanel() {
               ))}
             </List>
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {t('manage.noVersions')}
             </Typography>
           )}
@@ -569,7 +597,6 @@ export default function ManageServicesPanel() {
           <Button onClick={() => setVersionsDialogOpen(false)}>{tc('actions.close')}</Button>
         </DialogActions>
       </Dialog>
-
       <ConfirmDeleteDialog
         open={!!pendingDeleteId}
         itemName={t('manage.deleteItemName')}
@@ -579,5 +606,5 @@ export default function ManageServicesPanel() {
         isPending={deleteMutation.isPending}
       />
     </Stack>
-  )
+  );
 }

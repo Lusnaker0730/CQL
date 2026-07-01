@@ -116,7 +116,9 @@ export default function CreateLibraryDialog({ open, onClose, onCreated }: Create
             onBlur={() => setNameTouched(true)}
             error={!!nameError}
             helperText={nameError || t('create.nameHint')}
-            inputProps={{ maxLength: NAME_MAX_LENGTH }}
+            slotProps={{
+              htmlInput: { maxLength: NAME_MAX_LENGTH }
+            }}
           />
 
           {/* Description */}
@@ -140,8 +142,10 @@ export default function CreateLibraryDialog({ open, onClose, onCreated }: Create
             rows={6}
             value={cqlContent || defaultTemplate}
             onChange={(e) => setCqlContent(e.target.value)}
-            InputProps={{
-              sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' },
+            slotProps={{
+              input: {
+                sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' },
+              }
             }}
           />
 
@@ -164,5 +168,5 @@ export default function CreateLibraryDialog({ open, onClose, onCreated }: Create
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

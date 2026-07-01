@@ -12,32 +12,52 @@ export default function QuickStartGuide() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.quickStart.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 4
+        }}>
         {t('learn.quickStart.subtitle')}
       </Typography>
-
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
         <Stepper orientation="vertical">
           {STEPS.map((key, index) => (
             <Step key={key} active expanded>
               <StepLabel
-                StepIconProps={{
-                  sx: {
-                    color: 'primary.main',
-                    '&.Mui-active': { color: 'primary.main' },
-                    fontSize: 28,
-                  },
+                slotProps={{
+                  stepIcon: {
+                    sx: {
+                      color: 'primary.main',
+                      '&.Mui-active': { color: 'primary.main' },
+                      fontSize: 28,
+                    },
+                  }
                 }}
               >
-                <Typography variant="subtitle1" fontWeight={700}>
+                <Typography variant="subtitle1" sx={{
+                  fontWeight: 700
+                }}>
                   {t(`learn.quickStart.${key}.title`)}
                 </Typography>
               </StepLabel>
               <StepContent>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8, py: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    lineHeight: 1.8,
+                    py: 1
+                  }}>
                   {t(`learn.quickStart.${key}.content`)}
                 </Typography>
                 {index === 2 && (
@@ -52,9 +72,10 @@ export default function QuickStartGuide() {
           ))}
         </Stepper>
       </Paper>
-
       <Alert severity="info" sx={{ borderRadius: 3 }}>
-        <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+        <Typography variant="subtitle2" gutterBottom sx={{
+          fontWeight: 700
+        }}>
           {t('learn.quickStart.nextSteps')}
         </Typography>
         <Typography variant="body2" sx={{ mb: 1.5 }}>
@@ -66,11 +87,13 @@ export default function QuickStartGuide() {
               <ListItemIcon sx={{ minWidth: 28 }}>
                 <ArrowIcon sx={{ fontSize: 16, color: 'info.main' }} />
               </ListItemIcon>
-              <ListItemText primary={t(`learn.quickStart.${key}`)} primaryTypographyProps={{ variant: 'body2' }} />
+              <ListItemText primary={t(`learn.quickStart.${key}`)} slotProps={{
+                primary: { variant: 'body2' }
+              }} />
             </ListItem>
           ))}
         </List>
       </Alert>
     </Box>
-  )
+  );
 }

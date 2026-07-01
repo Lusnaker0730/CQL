@@ -46,11 +46,15 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   const renderOption = useCallback(
     (props: React.HTMLAttributes<HTMLLIElement>, option: string | CodeSearchResult) => (
       <Box component="li" {...props} key={typeof option === 'string' ? option : option.code}>
-        <Typography variant="body2" fontWeight={500}>
+        <Typography variant="body2" sx={{
+          fontWeight: 500
+        }}>
           {typeof option === 'string' ? option : option.code}
         </Typography>
         {typeof option !== 'string' && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {option.display}
           </Typography>
         )}
@@ -130,7 +134,9 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
   if (!hasBinding) {
     return (
       <Box sx={{ mb: 1 }}>
-        <Stack direction="row" alignItems="flex-start" spacing={0.5}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "flex-start"
+        }}>
           <TextField
             label={element.name}
             size="small"
@@ -146,12 +152,14 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
         </Stack>
         {errorAlert}
       </Box>
-    )
+    );
   }
 
   return (
     <Box sx={{ mb: 1 }}>
-      <Stack direction="row" alignItems="flex-start" spacing={0.5}>
+      <Stack direction="row" spacing={0.5} sx={{
+        alignItems: "flex-start"
+      }}>
         <Autocomplete
           freeSolo
           options={options}
@@ -188,5 +196,5 @@ export default function CodeField({ element, value, onChange }: CodeFieldProps) 
       </Stack>
       {errorAlert}
     </Box>
-  )
+  );
 }

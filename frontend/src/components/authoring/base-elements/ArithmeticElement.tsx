@@ -7,8 +7,8 @@ import { alpha } from '@mui/material/styles'
 // Sub-path icon imports (not barrel): see PR #501 — barrel `from '@mui/icons-material'`
 // triggers Vite to enumerate 10k icon files at test-collection time.
 import DeleteIcon from '@mui/icons-material/Delete'
-import RemoveIcon from '@mui/icons-material/RemoveCircleOutline'
-import AddIcon from '@mui/icons-material/AddCircleOutline'
+import RemoveIcon from '@mui/icons-material/RemoveCircleOutlined'
+import AddIcon from '@mui/icons-material/AddCircleOutlined'
 import type { BaseElement, ElementField } from '../../../types/authoring'
 import { escapeCqlIdentifier } from '../../../utils/cqlString'
 import OperandField from './OperandField'
@@ -150,7 +150,13 @@ export default function ArithmeticElement({
   return (
     <Card variant="outlined" sx={{ borderLeft: 3, borderLeftColor: 'secondary.main' }}>
       <CardContent>
-        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            mb: 2
+          }}>
           <TextField
             value={element.name}
             onChange={(e) => onUpdate({ name: e.target.value })}
@@ -172,7 +178,13 @@ export default function ArithmeticElement({
           {operands.map((operand, idx) => (
             <Box key={idx}>
               {idx > 0 && (
-                <Stack direction="row" alignItems="center" sx={{ pl: 1, my: 0.5 }}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    alignItems: "center",
+                    pl: 1,
+                    my: 0.5
+                  }}>
                   <TextField
                     select
                     size="small"
@@ -206,7 +218,9 @@ export default function ArithmeticElement({
                 </Stack>
               )}
 
-              <Stack direction="row" alignItems="flex-start" spacing={0.5}>
+              <Stack direction="row" spacing={0.5} sx={{
+                alignItems: "flex-start"
+              }}>
                 <Box sx={{ flex: 1 }}>
                   <OperandField
                     mode={operand.mode ?? 'element'}
@@ -262,7 +276,9 @@ export default function ArithmeticElement({
 
         {preview && (
           <Box sx={(theme) => ({ mt: 1.5, p: 1, bgcolor: alpha(theme.palette.primary.main, 0.04), borderRadius: 1 })}>
-            <Typography variant="caption" color="text.secondary">{t('arithmetic.cqlPreview')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('arithmetic.cqlPreview')}</Typography>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
               define &quot;{safeNameDisplay}&quot;: {preview}
             </Typography>
@@ -270,5 +286,5 @@ export default function ArithmeticElement({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

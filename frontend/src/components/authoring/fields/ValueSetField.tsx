@@ -92,7 +92,13 @@ export default function ValueSetField({
   return (
     <Box>
       {/* VSAC Status + Action Buttons */}
-      <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          mb: 1.5
+        }}>
         <Chip
           icon={<AuthIcon sx={{ fontSize: 16 }} />}
           label={t('valueSetField.vsacAuthenticated')}
@@ -107,22 +113,38 @@ export default function ValueSetField({
           {t('valueSetField.addCode')}
         </GradientButton>
       </Stack>
-
       {/* Listed Value Sets */}
       {valueSets.length > 0 && (
         <Box sx={{ mb: 1 }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600,
+              mb: 0.5,
+              display: 'block'
+            }}>
             {t('valueSetField.valueSets')}
           </Typography>
           <Stack spacing={0.5}>
             {valueSets.map((vs, i) => (
-              <Stack key={`vs-${i}`} direction="row" alignItems="center" spacing={1}
-                sx={{ py: 0.5, px: 1, backgroundColor: 'action.hover', borderRadius: 1 }}
-              >
+              <Stack
+                key={`vs-${i}`}
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: "center",
+                  py: 0.5,
+                  px: 1,
+                  backgroundColor: 'action.hover',
+                  borderRadius: 1
+                }}>
                 <VsIcon fontSize="small" color="primary" />
                 <Typography variant="body2" sx={{ flex: 1 }}>
                   {vs.name}{' '}
-                  <Typography component="span" variant="caption" color="text.secondary">({vs.oid})</Typography>
+                  <Typography component="span" variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>({vs.oid})</Typography>
                 </Typography>
                 <Tooltip title={t('valueSetField.remove')}>
                   <IconButton size="small" onClick={() => handleRemoveValueSet(i)} aria-label={t('valueSetField.removeValueSet')}>
@@ -134,21 +156,42 @@ export default function ValueSetField({
           </Stack>
         </Box>
       )}
-
       {/* Listed Codes */}
       {codes.length > 0 && (
         <Box sx={{ mb: 1 }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600,
+              mb: 0.5,
+              display: 'block'
+            }}>
             {t('valueSetField.codes')}
           </Typography>
           <Stack spacing={0.5}>
             {codes.map((c, i) => (
-              <Stack key={`code-${i}`} direction="row" alignItems="center" spacing={1}
-                sx={{ py: 0.5, px: 1, backgroundColor: 'action.hover', borderRadius: 1 }}
-              >
+              <Stack
+                key={`code-${i}`}
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: "center",
+                  py: 0.5,
+                  px: 1,
+                  backgroundColor: 'action.hover',
+                  borderRadius: 1
+                }}>
                 <Chip label={c.codeSystem.name} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                <Typography variant="body2" fontWeight={600}>{c.code}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{c.display}</Typography>
+                <Typography variant="body2" sx={{
+                  fontWeight: 600
+                }}>{c.code}</Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    flex: 1
+                  }}>{c.display}</Typography>
                 <Tooltip title={t('valueSetField.remove')}>
                   <IconButton size="small" onClick={() => handleRemoveCode(i)} aria-label={t('valueSetField.removeCode')}>
                     <DeleteIcon fontSize="small" />
@@ -159,7 +202,6 @@ export default function ValueSetField({
           </Stack>
         </Box>
       )}
-
       {/* Empty state with legacy OID input */}
       {!hasRichData && (
         <TextField
@@ -172,7 +214,6 @@ export default function ValueSetField({
           sx={{ mt: 0.5 }}
         />
       )}
-
       <ChooseCodeDialog open={codeDialogOpen} onClose={() => setCodeDialogOpen(false)} onSelect={handleAddCode} resourceType={effectiveResourceType} />
       <AddValueSetDialog
         open={vsDialogOpen}
@@ -182,7 +223,7 @@ export default function ValueSetField({
         resourceType={effectiveResourceType}
       />
     </Box>
-  )
+  );
 }
 
 function deriveResourceType(fieldType?: string): string | undefined {
@@ -306,7 +347,6 @@ function AddValueSetDialog({
         {t('valueSetField.addVsTitle')}
         <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
-
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3 }}>
         <Tab label={t('valueSetField.searchVsac')} />
         <Tab label={t('valueSetField.enterOid')} />
@@ -317,7 +357,6 @@ function AddValueSetDialog({
           disabled={!resourceType}
         />
       </Tabs>
-
       <DialogContent sx={{ minHeight: 300 }}>
         {tab === 0 ? (
           <Box>
@@ -328,17 +367,19 @@ function AddValueSetDialog({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               sx={{ mb: 2 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: isSearching ? (
-                  <InputAdornment position="end">
-                    <CircularProgress size={18} />
-                  </InputAdornment>
-                ) : null,
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: isSearching ? (
+                    <InputAdornment position="end">
+                      <CircularProgress size={18} />
+                    </InputAdornment>
+                  ) : null,
+                }
               }}
             />
 
@@ -363,7 +404,9 @@ function AddValueSetDialog({
                         <Typography variant="body2">{vs.title || vs.name}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="caption" color="text.secondary">{vs.url}</Typography>
+                        <Typography variant="caption" sx={{
+                          color: "text.secondary"
+                        }}>{vs.url}</Typography>
                       </TableCell>
                       <TableCell>
                         <Button size="small" variant="outlined">{t('valueSetField.select')}</Button>
@@ -373,11 +416,23 @@ function AddValueSetDialog({
                 </TableBody>
               </Table>
             ) : searchQuery.length >= 2 && !isSearching ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 4
+                }}>
                 {t('valueSetField.noVsFound', { query: searchQuery })}
               </Typography>
             ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 4
+                }}>
                 {t('valueSetField.vsSearchHint')}
               </Typography>
             )}
@@ -404,7 +459,7 @@ function AddValueSetDialog({
           </Stack>
         ) : (
           /* Browse TWCORE tab */
-          <Box>
+          (<Box>
             <TextField
               fullWidth
               size="small"
@@ -412,21 +467,28 @@ function AddValueSetDialog({
               value={twcoreFilter}
               onChange={(e) => setTwcoreFilter(e.target.value)}
               sx={{ mb: 2 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
-
             {isTwcoreLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress size={24} />
               </Box>
             ) : filteredTwcore.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 4
+                }}>
                 {twcoreFilter
                   ? t('valueSetField.noCodesMatch', { filter: twcoreFilter })
                   : t('valueSetField.noTwcoreCodes', { type: resourceType })}
@@ -434,14 +496,29 @@ function AddValueSetDialog({
             ) : (
               filteredTwcore.map((entry) => (
                 <Box key={entry.resourceType} sx={{ mb: 1 }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      fontWeight: 600,
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     {entry.name}
                   </Typography>
                   {entry.categories.map((cat) => (
                     <Accordion key={cat.name} disableGutters variant="outlined" sx={{ '&:before': { display: 'none' }, mb: 0.5 }}>
                       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
-                        <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
-                          <Typography variant="body2" fontWeight={600}>{cat.name}</Typography>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          sx={{
+                            alignItems: "center",
+                            width: '100%'
+                          }}>
+                          <Typography variant="body2" sx={{
+                            fontWeight: 600
+                          }}>{cat.name}</Typography>
                           <Chip label={t('valueSetField.codesCount', { count: cat.codes.length })} size="small" sx={{ fontSize: '0.7rem' }} />
                           <Box sx={{ flex: 1 }} />
                           <Button
@@ -473,13 +550,23 @@ function AddValueSetDialog({
                                 onClick={() => handleSelectTwcoreCode(entry.system, entry.name, c.code, c.display, c.displayZh)}
                               >
                                 <TableCell sx={{ py: 0.5 }}>
-                                  <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>{c.code}</Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      fontWeight: 600,
+                                      fontSize: '0.8rem'
+                                    }}>{c.code}</Typography>
                                 </TableCell>
                                 <TableCell sx={{ py: 0.5 }}>
                                   <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>{c.display}</Typography>
                                 </TableCell>
                                 <TableCell sx={{ py: 0.5 }}>
-                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>{c.displayZh}</Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: "text.secondary",
+                                      fontSize: '0.8rem'
+                                    }}>{c.displayZh}</Typography>
                                 </TableCell>
                                 <TableCell sx={{ py: 0.5 }}>
                                   <Button size="small" variant="outlined" sx={{ fontSize: '0.7rem', minWidth: 'auto', py: 0 }}>{t('valueSetField.select')}</Button>
@@ -494,10 +581,9 @@ function AddValueSetDialog({
                 </Box>
               ))
             )}
-          </Box>
+          </Box>)
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={handleClose}>{t('actions.cancel', { ns: 'common' })}</Button>
         {tab === 1 && (
@@ -507,5 +593,5 @@ function AddValueSetDialog({
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }

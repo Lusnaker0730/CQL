@@ -162,12 +162,21 @@ export default function ElementRefBuilder({
 
   return (
     <Stack spacing={1}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary"
+        }}>
         {t('elementRef.selectElement')}
       </Typography>
-
       {allOptions.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('elementRef.noElements')}
         </Typography>
       ) : (
@@ -178,9 +187,10 @@ export default function ElementRefBuilder({
             label={t('elementRef.selectElement')}
             value={selectedElement}
             onChange={(e) => handleSelect(e.target.value)}
-            SelectProps={{ displayEmpty: true }}
-            InputLabelProps={{ shrink: true }}
-          >
+            slotProps={{
+              select: { displayEmpty: true },
+              inputLabel: { shrink: true }
+            }}>
             {/* Search */}
             <ListSubheader sx={{ p: 0.5 }}>
               <TextField
@@ -190,14 +200,16 @@ export default function ElementRefBuilder({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ fontSize: 16 }} />
-                    </InputAdornment>
-                  ),
-                }}
                 sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ fontSize: 16 }} />
+                      </InputAdornment>
+                    ),
+                  }
+                }}
               />
             </ListSubheader>
 
@@ -229,10 +241,22 @@ export default function ElementRefBuilder({
 
           {/* Modifier presets */}
           <Box>
-            <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: "text.secondary",
+                mb: 0.5,
+                display: 'block'
+              }}>
               {t('elementRef.modifier')}
             </Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5}>
+            <Stack
+              direction="row"
+              sx={{
+                flexWrap: "wrap",
+                gap: 0.5
+              }}>
               {MODIFIER_PRESETS.map((preset, idx) => (
                 <Chip
                   key={idx}
@@ -273,7 +297,6 @@ export default function ElementRefBuilder({
           />
         </>
       )}
-
       {previewSnippet ? (
         <SnippetPreview
           snippet={previewSnippet}
@@ -289,5 +312,5 @@ export default function ElementRefBuilder({
         </Stack>
       )}
     </Stack>
-  )
+  );
 }

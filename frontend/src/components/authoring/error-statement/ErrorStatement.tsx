@@ -63,17 +63,26 @@ export default function ErrorStatementEditor({ errorStatement, onChange }: Error
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('errorStatement.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={handleAddClause}>
           {t('errorStatement.add')}
         </GradientButton>
       </Stack>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         {t('errorStatement.description')}
       </Typography>
-
       {clauses.length === 0 && !elseClause ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
@@ -85,7 +94,13 @@ export default function ErrorStatementEditor({ errorStatement, onChange }: Error
           {clauses.map((clause, index) => (
             <Card key={`${clause.ifCondition.value}-${index}`} variant="outlined">
               <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mb: 2
+                  }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'warning.main' }}>
                     {index === 0 ? t('errorStatement.if') : t('errorStatement.elseIf')}
                   </Typography>
@@ -151,5 +166,5 @@ export default function ErrorStatementEditor({ errorStatement, onChange }: Error
         </Stack>
       )}
     </Box>
-  )
+  );
 }

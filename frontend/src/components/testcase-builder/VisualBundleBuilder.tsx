@@ -25,7 +25,12 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
         {/* Left: Resource list */}
         <Box sx={{ width: 220, borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
           <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="caption" fontWeight={600} color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: "text.secondary"
+              }}>
               {t('testCaseBuilder.bundleEntries')}
             </Typography>
             <AddResourceButton onDirty={onDirty} />
@@ -40,29 +45,49 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
             <ResourceForm onDirty={onDirty} />
           ) : (
             <Stack
-              alignItems="center"
-              justifyContent="center"
               spacing={2}
-              sx={{ height: '100%', opacity: 0.7, py: 4 }}
-            >
+              sx={{
+                alignItems: "center",
+                justifyContent: "center",
+                height: '100%',
+                opacity: 0.7,
+                py: 4
+              }}>
               {state.entries.length === 0 ? (
                 <>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {t('testCaseBuilder.buildTestBundle')}
                   </Typography>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: "center",
+                      flexWrap: 'wrap',
+                      justifyContent: 'center'
+                    }}>
                     <Chip icon={<PersonIcon />} label={t('testCaseBuilder.stepPatient')} size="small" variant="outlined" />
                     <ArrowIcon fontSize="small" color="disabled" />
                     <Chip icon={<EncounterIcon />} label={t('testCaseBuilder.stepEncounter')} size="small" variant="outlined" />
                     <ArrowIcon fontSize="small" color="disabled" />
                     <Chip icon={<ClinicalIcon />} label={t('testCaseBuilder.stepClinical')} size="small" variant="outlined" />
                   </Stack>
-                  <Typography variant="caption" color="text.disabled" textAlign="center" maxWidth={300}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.disabled",
+                      textAlign: "center",
+                      maxWidth: 300
+                    }}>
                     {t('testCaseBuilder.startGuide')}
                   </Typography>
                 </>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('testCaseBuilder.selectResource')}
                 </Typography>
               )}
@@ -71,5 +96,5 @@ export default function VisualBundleBuilder({ onDirty }: VisualBundleBuilderProp
         </Box>
       </Box>
     </Paper>
-  )
+  );
 }

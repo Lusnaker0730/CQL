@@ -73,13 +73,23 @@ export default function CqlPlayground() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.playground.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.playground.subtitle')}
       </Typography>
-
       <Grid container spacing={3}>
         <Grid size={12}>
           <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
@@ -114,7 +124,12 @@ export default function CqlPlayground() {
                   </MenuItem>
                 ))}
               </Menu>
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  ml: 'auto'
+                }}>
                 {t('learn.playground.lines', { count: lineCount })}
               </Typography>
             </Box>
@@ -143,5 +158,5 @@ export default function CqlPlayground() {
         )}
       </Grid>
     </Box>
-  )
+  );
 }

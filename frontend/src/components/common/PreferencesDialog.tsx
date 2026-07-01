@@ -133,7 +133,9 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
       <DialogTitle>{t('preferences.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('preferences.editorSettings')}
           </Typography>
 
@@ -196,7 +198,9 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
 
           <Divider />
 
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('preferences.appearance')}
           </Typography>
 
@@ -214,7 +218,9 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
 
           <Divider />
 
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('preferences.defaults')}
           </Typography>
 
@@ -227,7 +233,9 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
 
           <Divider />
 
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('preferences.terminology')}
           </Typography>
 
@@ -248,7 +256,13 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
             </Box>
 
             {vsacStatus && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: 'block',
+                  mb: 1
+                }}>
                 {t('preferences.vsacUrl')}: {vsacStatus.url}
               </Typography>
             )}
@@ -262,14 +276,16 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
               onChange={(e) => setVsacApiKey(e.target.value)}
               placeholder={t('preferences.vsacApiKeyPlaceholder')}
               helperText={t('preferences.vsacApiKeyHelp')}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setShowApiKey(!showApiKey)} edge="end">
-                      {showApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowApiKey(!showApiKey)} edge="end">
+                        {showApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
 
@@ -292,7 +308,9 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
 
           <Divider />
 
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('preferences.aiFixSuggestion')}
           </Typography>
 
@@ -348,14 +366,16 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
                   onChange={(e) => setAiApiKey(e.target.value)}
                   placeholder={t('preferences.aiApiKeyPlaceholder')}
                   helperText={t('preferences.aiApiKeyHelp')}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowAiApiKey(!showAiApiKey)} edge="end">
-                          {showAiApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowAiApiKey(!showAiApiKey)} edge="end">
+                            {showAiApiKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }
                   }}
                 />
 
@@ -388,5 +408,5 @@ export default function PreferencesDialog({ open, onClose }: PreferencesDialogPr
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

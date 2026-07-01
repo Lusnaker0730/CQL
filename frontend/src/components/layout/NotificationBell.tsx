@@ -20,7 +20,7 @@ import {
 } from '@mui/material'
 import {
   Notifications as NotificationsIcon,
-  CheckCircleOutline as ApprovedIcon,
+  CheckCircleOutlined as ApprovedIcon,
   Cancel as RejectedIcon,
   Share as SharedIcon,
   RateReview as SubmittedIcon,
@@ -115,7 +115,6 @@ export default function NotificationBell() {
           <NotificationsIcon sx={{ fontSize: 20 }} />
         </Badge>
       </IconButton>
-
       <Popover
         open={open}
         anchorEl={anchorEl}
@@ -129,7 +128,9 @@ export default function NotificationBell() {
         }}
       >
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography variant="subtitle1" sx={{
+            fontWeight: 600
+          }}>
             {t('notifications.title')}
           </Typography>
           {unreadCount > 0 && (
@@ -147,7 +148,9 @@ export default function NotificationBell() {
         {notifications.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
             <EmptyIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography color="text.secondary">
+            <Typography sx={{
+              color: "text.secondary"
+            }}>
               {t('notifications.empty')}
             </Typography>
           </Box>
@@ -169,8 +172,10 @@ export default function NotificationBell() {
                   primary={
                     <Typography
                       variant="body2"
-                      fontWeight={n.read ? 400 : 600}
                       noWrap
+                      sx={{
+                        fontWeight: n.read ? 400 : 600
+                      }}
                     >
                       {n.title}
                     </Typography>
@@ -178,11 +183,15 @@ export default function NotificationBell() {
                   secondary={
                     <Stack>
                       {n.message && (
-                        <Typography variant="caption" color="text.secondary" noWrap>
+                        <Typography variant="caption" noWrap sx={{
+                          color: "text.secondary"
+                        }}>
                           {n.message}
                         </Typography>
                       )}
-                      <Typography variant="caption" color="text.disabled">
+                      <Typography variant="caption" sx={{
+                        color: "text.disabled"
+                      }}>
                         {timeAgo(n.createdAt, t)}
                       </Typography>
                     </Stack>
@@ -201,5 +210,5 @@ export default function NotificationBell() {
         )}
       </Popover>
     </>
-  )
+  );
 }

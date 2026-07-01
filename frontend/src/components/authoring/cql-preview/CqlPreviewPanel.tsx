@@ -141,7 +141,6 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
           </Typography>
         </Alert>
       )}
-
       {cqlIsStale && !isDirty && (
         <Alert severity="warning" sx={{ mb: 1 }} icon={<StaleIcon fontSize="small" />}>
           <Typography variant="caption">
@@ -149,8 +148,9 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
           </Typography>
         </Alert>
       )}
-
-      <Stack direction="row" spacing={1} mb={2}>
+      <Stack direction="row" spacing={1} sx={{
+        mb: 2
+      }}>
         <GradientButton onClick={handleGenerate} disabled={isLoading}>
           {saving ? t('cqlPreview.saving') : t('cqlPreview.generateCql')}
         </GradientButton>
@@ -162,31 +162,37 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
         </GradientButton>
         {(isLoading || formatMutation.isPending) && <CircularProgress size={20} sx={{ alignSelf: 'center' }} />}
       </Stack>
-
       {saveError && (
         <Alert severity="error" onClose={() => { setSaveError(null); setSaveErrorDetails([]) }} sx={{ mb: 2 }}>
           <Typography variant="subtitle2">{t('header.saveFailed')}</Typography>
           <Typography variant="body2">{saveError}</Typography>
           {saveErrorDetails.map((detail, i) => (
-            <Typography key={i} variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+            <Typography
+              key={i}
+              variant="caption"
+              sx={{
+                display: "block",
+                mt: 0.5,
+                fontFamily: 'monospace'
+              }}>
               • {detail}
             </Typography>
           ))}
         </Alert>
       )}
-
       {generateMutation.isError && (
         <Alert severity="error" onClose={() => generateMutation.reset()} sx={{ mb: 2 }}>
           <Typography variant="subtitle2">{t('cqlPreview.genFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(generateMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('cqlPreview.genFailedHint')}
           </Typography>
         </Alert>
       )}
-
       {formatMutation.isError && (
         <Alert severity="error" onClose={() => formatMutation.reset()} sx={{ mb: 2 }}>
           <Typography variant="subtitle2">{t('cqlPreview.formatFailed')}</Typography>
@@ -195,7 +201,6 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
           </Typography>
         </Alert>
       )}
-
       {validation && (
         <Box sx={{ mb: 2 }}>
           {validation.success ? (
@@ -205,7 +210,13 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
               <Typography variant="subtitle2">
                 {t('cqlPreview.validationErrors', { count: errors.length })}
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block",
+                  mb: 1
+                }}>
                 {t('cqlPreview.validationReview')}
               </Typography>
             </Alert>
@@ -217,16 +228,23 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
                   ? (err as { message: string }).message
                   : String(err)
                 return (
-                  <Typography key={i} variant="caption" color="error" display="block" sx={{ fontFamily: 'monospace', mb: 0.5 }}>
+                  <Typography
+                    key={i}
+                    variant="caption"
+                    color="error"
+                    sx={{
+                      display: "block",
+                      fontFamily: 'monospace',
+                      mb: 0.5
+                    }}>
                     {i + 1}. {msg}
                   </Typography>
-                )
+                );
               })}
             </Box>
           )}
         </Box>
       )}
-
       {cql ? (
         <Box
           sx={(theme) => ({
@@ -256,5 +274,5 @@ export default function CqlPreviewPanel({ artifactId, onSaveBeforeGenerate, isDi
         </Box>
       )}
     </Box>
-  )
+  );
 }

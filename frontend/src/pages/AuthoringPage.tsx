@@ -83,7 +83,9 @@ export default function AuthoringPage() {
                 mb: 1,
               }}
             />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {t('page.subtitle')}
             </Typography>
           </Box>
@@ -114,11 +116,12 @@ export default function AuthoringPage() {
           />
         </>
       )}
-
       {selectedId && !fullArtifact && (
         <Card sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ p: 2, backgroundColor: theme.palette.secondary.main }}>
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack direction="row" spacing={2} sx={{
+              alignItems: "center"
+            }}>
               <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
               <Skeleton variant="text" width={200} height={32} sx={{ bgcolor: alpha(theme.palette.common.white, 0.15) }} />
               <Box sx={{ flex: 1 }} />
@@ -141,7 +144,6 @@ export default function AuthoringPage() {
           </Box>
         </Card>
       )}
-
       {selectedId && fullArtifact && (
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <ArtifactWorkspace
@@ -151,7 +153,6 @@ export default function AuthoringPage() {
           />
         </Box>
       )}
-
       {/* Delete confirmation dialog */}
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
         <DialogTitle>{t('page.deleteTitle')}</DialogTitle>
@@ -172,12 +173,11 @@ export default function AuthoringPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
       <Snackbar open={deleteError} autoHideDuration={5000} onClose={() => setDeleteError(false)}>
         <Alert severity="error" onClose={() => setDeleteError(false)}>
           {t('page.deleteError')}
         </Alert>
       </Snackbar>
     </Box>
-  )
+  );
 }

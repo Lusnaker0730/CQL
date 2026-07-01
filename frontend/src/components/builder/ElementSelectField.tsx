@@ -132,9 +132,10 @@ export default function ElementSelectField({
       label={label || t('expression.select')}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      SelectProps={{ displayEmpty: true }}
-      InputLabelProps={{ shrink: true }}
-    >
+      slotProps={{
+        select: { displayEmpty: true },
+        inputLabel: { shrink: true }
+      }}>
       {/* Search input at the top of the dropdown */}
       <ListSubheader sx={{ p: 0.5 }}>
         <TextField
@@ -144,21 +145,21 @@ export default function ElementSelectField({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.stopPropagation()}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 16 }} />
-              </InputAdornment>
-            ),
-          }}
           sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 16 }} />
+                </InputAdornment>
+              ),
+            }
+          }}
         />
       </ListSubheader>
-
       <MenuItem value="" disabled>
         <em>{t('expression.select')}</em>
       </MenuItem>
-
       {['definition', 'parameter', 'function', 'builtin'].map((cat) => {
         const items = grouped.get(cat)
         if (!items || items.length === 0) return null
@@ -193,5 +194,5 @@ export default function ElementSelectField({
         ]
       })}
     </TextField>
-  )
+  );
 }

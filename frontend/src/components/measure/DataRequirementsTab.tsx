@@ -62,7 +62,13 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
   if (!measure.cqlContent) {
     return (
       <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-        <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: "center",
+            mb: 1
+          }}>
           <Typography variant="h6">{t('dataRequirements.title')}</Typography>
           <HelpTooltip text={helpContent.measures.dataRequirements} />
         </Stack>
@@ -70,37 +76,41 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
           {t('dataRequirements.noCql')}
         </Alert>
       </Box>
-    )
+    );
   }
 
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-      <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          alignItems: "center",
+          mb: 1
+        }}>
         <Typography variant="h6">{t('dataRequirements.title')}</Typography>
         <HelpTooltip text={helpContent.measures.dataRequirements} />
       </Stack>
-
       {isLoading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
       )}
-
       {isError && (
         <Alert severity="error">
           {t('dataRequirements.extractionError', { error: extractApiError(error) })}
         </Alert>
       )}
-
       {!isLoading && !isError && requirements.length === 0 && (
         <Alert severity="info">
           {t('dataRequirements.noRequirements')}
         </Alert>
       )}
-
       {!isLoading && requirements.length > 0 && (
         <>
-          <Stack direction="row" spacing={1} mb={2}>
+          <Stack direction="row" spacing={1} sx={{
+            mb: 2
+          }}>
             <Chip
               icon={<StorageIcon />}
               label={t('dataRequirements.resourceTypes', { count: resourceTypeCount })}
@@ -125,9 +135,13 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
           {Object.entries(grouped).map(([resourceType, reqs]) => (
             <Accordion key={resourceType} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <Chip label={resourceType} size="small" color="primary" />
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {t('dataRequirements.requirementCount', { count: reqs.length })}
                   </Typography>
                 </Stack>
@@ -155,7 +169,7 @@ export default function DataRequirementsTab({ measure }: DataRequirementsTabProp
         </>
       )}
     </Box>
-  )
+  );
 }
 
 function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) {
@@ -171,12 +185,17 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
     return (
       <TableRow>
         <TableCell colSpan={3}>
-          <Typography variant="body2" color="text.secondary" fontStyle="italic">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              fontStyle: "italic"
+            }}>
             {t('dataRequirements.noFilters', { type: requirement.type })}
           </Typography>
         </TableCell>
       </TableRow>
-    )
+    );
   }
 
   return (
@@ -190,14 +209,18 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
             <Chip label={t('dataRequirements.filterTypes.patient')} size="small" variant="outlined" color="secondary" sx={{ fontSize: '0.75rem' }} />
           </TableCell>
           <TableCell>
-            <Typography variant="body2" fontFamily="monospace">
+            <Typography variant="body2" sx={{
+              fontFamily: "monospace"
+            }}>
               {requirement.patientFilter.minAge != null || requirement.patientFilter.maxAge != null
                 ? 'age / gender'
                 : 'gender'}
             </Typography>
           </TableCell>
           <TableCell>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.5} useFlexGap sx={{
+              flexWrap: "wrap"
+            }}>
               {(requirement.patientFilter.minAge != null || requirement.patientFilter.maxAge != null) && (
                 <Chip
                   size="small"
@@ -245,80 +268,107 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
             ? 'warning'
             : 'info'
         return (
-        <TableRow key={`code-${i}`}>
-          <TableCell>
-            <Chip label={t(`dataRequirements.filterTypes.${filterTypeKey}`)} size="small" variant="outlined" color={chipColor} sx={{ fontSize: '0.75rem' }} />
-          </TableCell>
-          <TableCell>
-            <Typography variant="body2" fontFamily="monospace">{cf.path}</Typography>
-          </TableCell>
-          <TableCell>
-            {cf.valueSet && (
-              <Stack spacing={0.5}>
-                <Typography variant="body2" fontWeight={500}>
-                  {cf.valueSetName || t('dataRequirements.filterTypes.valueSet')}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" fontFamily="monospace">
-                  {cf.valueSet}
-                </Typography>
-              </Stack>
-            )}
-            {!cf.valueSet && cf.codeSystemUrl && (
-              <Stack spacing={0.5}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Chip
-                    label={t('dataRequirements.filterTypes.codeSystem')}
-                    size="small"
-                    variant="outlined"
-                    color="success"
-                    sx={{ fontSize: '0.7rem' }}
-                  />
-                  {cf.codeSystemName && (
-                    <Typography variant="body2" fontWeight={500}>
-                      {cf.codeSystemName}
-                    </Typography>
-                  )}
+          <TableRow key={`code-${i}`}>
+            <TableCell>
+              <Chip label={t(`dataRequirements.filterTypes.${filterTypeKey}`)} size="small" variant="outlined" color={chipColor} sx={{ fontSize: '0.75rem' }} />
+            </TableCell>
+            <TableCell>
+              <Typography variant="body2" sx={{
+                fontFamily: "monospace"
+              }}>{cf.path}</Typography>
+            </TableCell>
+            <TableCell>
+              {cf.valueSet && (
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" sx={{
+                    fontWeight: 500
+                  }}>
+                    {cf.valueSetName || t('dataRequirements.filterTypes.valueSet')}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      fontFamily: "monospace"
+                    }}>
+                    {cf.valueSet}
+                  </Typography>
                 </Stack>
-                <Typography variant="caption" color="text.secondary" fontFamily="monospace">
-                  {cf.codeSystemUrl}
-                </Typography>
-              </Stack>
-            )}
-            {cf.code && cf.code.length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                {cf.code.map((c, j) => (
-                  <Chip
-                    key={j}
-                    label={c.display || c.code || 'code'}
-                    size="small"
-                    variant="outlined"
-                    title={c.system ? `${c.system}|${c.code}` : c.code}
-                    sx={{ fontSize: '0.7rem' }}
-                  />
-                ))}
-              </Stack>
-            )}
-            {/* PAT-121b: code prefixes from StartsWith patterns ("any ICD-10 code
-                starting with E08"). Rendered distinct from exact-code chips so
-                authors see this is a range match, not an enumerated list. */}
-            {cf.codePrefixes && cf.codePrefixes.length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-                {cf.codePrefixes.map((p, j) => (
-                  <Chip
-                    key={`prefix-${j}`}
-                    label={`${p}*`}
-                    size="small"
-                    variant="outlined"
-                    color="warning"
-                    title={t('dataRequirements.prefixTooltip', { prefix: p })}
-                    sx={{ fontSize: '0.7rem' }}
-                  />
-                ))}
-              </Stack>
-            )}
-          </TableCell>
-        </TableRow>
-        )
+              )}
+              {!cf.valueSet && cf.codeSystemUrl && (
+                <Stack spacing={0.5}>
+                  <Stack direction="row" spacing={0.5} sx={{
+                    alignItems: "center"
+                  }}>
+                    <Chip
+                      label={t('dataRequirements.filterTypes.codeSystem')}
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      sx={{ fontSize: '0.7rem' }}
+                    />
+                    {cf.codeSystemName && (
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500
+                      }}>
+                        {cf.codeSystemName}
+                      </Typography>
+                    )}
+                  </Stack>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      fontFamily: "monospace"
+                    }}>
+                    {cf.codeSystemUrl}
+                  </Typography>
+                </Stack>
+              )}
+              {cf.code && cf.code.length > 0 && (
+                <Stack direction="row" spacing={0.5} useFlexGap sx={{
+                  flexWrap: "wrap"
+                }}>
+                  {cf.code.map((c, j) => (
+                    <Chip
+                      key={j}
+                      label={c.display || c.code || 'code'}
+                      size="small"
+                      variant="outlined"
+                      title={c.system ? `${c.system}|${c.code}` : c.code}
+                      sx={{ fontSize: '0.7rem' }}
+                    />
+                  ))}
+                </Stack>
+              )}
+              {/* PAT-121b: code prefixes from StartsWith patterns ("any ICD-10 code
+                  starting with E08"). Rendered distinct from exact-code chips so
+                  authors see this is a range match, not an enumerated list. */}
+              {cf.codePrefixes && cf.codePrefixes.length > 0 && (
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  useFlexGap
+                  sx={{
+                    flexWrap: "wrap",
+                    mt: 0.5
+                  }}>
+                  {cf.codePrefixes.map((p, j) => (
+                    <Chip
+                      key={`prefix-${j}`}
+                      label={`${p}*`}
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                      title={t('dataRequirements.prefixTooltip', { prefix: p })}
+                      sx={{ fontSize: '0.7rem' }}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </TableCell>
+          </TableRow>
+        );
       })}
       {requirement.dateFilter?.map((df, i) => (
         <TableRow key={`date-${i}`}>
@@ -326,15 +376,22 @@ function RequirementRows({ requirement }: { requirement: DataRequirementInfo }) 
             <Chip label={t('dataRequirements.filterTypes.date')} size="small" variant="outlined" color="warning" sx={{ fontSize: '0.75rem' }} />
           </TableCell>
           <TableCell>
-            <Typography variant="body2" fontFamily="monospace">{df.path}</Typography>
+            <Typography variant="body2" sx={{
+              fontFamily: "monospace"
+            }}>{df.path}</Typography>
           </TableCell>
           <TableCell>
-            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                fontStyle: "italic"
+              }}>
               {t('dataRequirements.filterTypes.dateFilter')}
             </Typography>
           </TableCell>
         </TableRow>
       ))}
     </>
-  )
+  );
 }

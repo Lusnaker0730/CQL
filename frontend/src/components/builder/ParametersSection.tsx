@@ -262,8 +262,10 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             label={t('parameters.intervalStart')}
             value={intervalStart}
             onChange={(e) => handleIntervalStart(e.target.value)}
-            InputLabelProps={{ shrink: true }}
             sx={{ flex: 1 }}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
           <TextField
             size="small"
@@ -271,11 +273,13 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
             label={t('parameters.intervalEnd')}
             value={intervalEnd}
             onChange={(e) => handleIntervalEnd(e.target.value)}
-            InputLabelProps={{ shrink: true }}
             sx={{ flex: 1 }}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
         </Stack>
-      )
+      );
     }
 
     if (isIntervalNumType) {
@@ -332,11 +336,15 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
           )
         })
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.parameters').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'Parameter' })}
@@ -381,7 +389,6 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -391,5 +398,5 @@ export default function ParametersSection({ parameters, onInsert, onDelete, onGo
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

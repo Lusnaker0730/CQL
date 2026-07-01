@@ -28,7 +28,6 @@ export default function CqlLibraryMetadataTab({ library, onChange, readOnly = fa
   return (
     <Box sx={{ maxWidth: 800 }}>
       <SectionHeader title={t('workspace.tabs.metadata')} />
-
       <Stack spacing={2.5}>
         <TextField
           label={t('metadata.description')}
@@ -42,21 +41,29 @@ export default function CqlLibraryMetadataTab({ library, onChange, readOnly = fa
 
         <Divider />
 
-        <Stack direction="row" spacing={3} alignItems="center">
+        <Stack direction="row" spacing={3} sx={{
+          alignItems: "center"
+        }}>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t('metadata.status')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('metadata.status')}</Typography>
             <Box sx={{ mt: 0.5 }}>
               <StatusChip status={library.status} />
             </Box>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t('metadata.accessLevel')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('metadata.accessLevel')}</Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
               {library.accessLevel || '-'}
             </Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t('metadata.owner')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('metadata.owner')}</Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
               {library.ownerUsername || '-'}
             </Typography>
@@ -68,13 +75,17 @@ export default function CqlLibraryMetadataTab({ library, onChange, readOnly = fa
         <Box>
           <Typography variant="subtitle2" gutterBottom>{t('metadata.dependencies')}</Typography>
           {library.dependencies && library.dependencies.length > 0 ? (
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.5} useFlexGap sx={{
+              flexWrap: "wrap"
+            }}>
               {library.dependencies.map((dep) => (
                 <Chip key={dep} label={dep} size="small" variant="outlined" />
               ))}
             </Stack>
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {t('dependency.noDeps')}
             </Typography>
           )}
@@ -84,15 +95,19 @@ export default function CqlLibraryMetadataTab({ library, onChange, readOnly = fa
 
         <Stack direction="row" spacing={4}>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t('metadata.createdAt')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('metadata.createdAt')}</Typography>
             <Typography variant="body2">{formattedCreated}</Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t('metadata.updatedAt')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('metadata.updatedAt')}</Typography>
             <Typography variant="body2">{formattedUpdated}</Typography>
           </Box>
         </Stack>
       </Stack>
     </Box>
-  )
+  );
 }

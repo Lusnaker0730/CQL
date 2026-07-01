@@ -105,17 +105,21 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
     }
     if (Array.isArray(value)) {
       return (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('execution.listItems', { count: value.length })}
         </Typography>
-      )
+      );
     }
     if (typeof value === 'object') {
       return (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {JSON.stringify(value).substring(0, 50)}...
-        </Typography>
-      )
+                  </Typography>
+      );
     }
     return <Typography variant="body2">{String(value)}</Typography>
   }
@@ -125,7 +129,6 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
       <Typography variant="h6" gutterBottom>
         {t('execution.title')}
       </Typography>
-
       <Stack spacing={2}>
         <FhirServerUrlField
           value={fhirServerUrl}
@@ -142,7 +145,9 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
           placeholder={t('execution.patientIdPlaceholder')}
         />
 
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={2} sx={{
+          alignItems: "center"
+        }}>
           <GradientButton
             startIcon={isExecuting ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
             onClick={handleExecute}
@@ -177,7 +182,9 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
             />
           }
           label={
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{
+              alignItems: "center"
+            }}>
               <DebugIcon sx={{ fontSize: 16, color: debugMode ? 'secondary.main' : 'text.secondary' }} />
               <Typography variant="body2" color={debugMode ? 'secondary.main' : 'text.secondary'}>
                 {t('execution.debugMode')}
@@ -322,5 +329,5 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
         {debugTrace && <DebugPanel trace={debugTrace} />}
       </Stack>
     </Paper>
-  )
+  );
 }

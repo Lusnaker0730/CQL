@@ -68,14 +68,15 @@ export default function PatientGeneratorPage() {
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{
+          fontWeight: 700
+        }}>
           {t('title')}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {t('subtitle')}
         </Typography>
       </Box>
-
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs
           value={tab}
@@ -94,7 +95,6 @@ export default function PatientGeneratorPage() {
           ))}
         </Tabs>
       </Box>
-
       <Stack spacing={3}>
         {tab === 0 && (
           <BatchGeneratorPanel
@@ -122,5 +122,5 @@ export default function PatientGeneratorPage() {
         />
       </Stack>
     </Container>
-  )
+  );
 }

@@ -104,14 +104,16 @@ function OverviewCards({ data }: { data: DashboardSummary }) {
             >
               {card.value}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {card.label}
             </Typography>
           </Paper>
         </Grid>
       ))}
     </Grid>
-  )
+  );
 }
 
 function RecentEvaluationsTable({
@@ -135,19 +137,23 @@ function RecentEvaluationsTable({
     >
       <Stack
         direction="row"
-        alignItems="center"
         spacing={1}
-        sx={{ px: 3, pt: 2.5, pb: 1.5 }}
-      >
+        sx={{
+          alignItems: "center",
+          px: 3,
+          pt: 2.5,
+          pb: 1.5
+        }}>
         <TrendingUpIcon sx={{ color: theme.palette.primary.main, fontSize: 22 }} />
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           {t('dashboard.recentEvaluations')}
         </Typography>
       </Stack>
-
       {rows.length === 0 ? (
         <Box sx={{ px: 3, pb: 3 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('dashboard.noRecentEvaluations')}
           </Typography>
         </Box>
@@ -188,13 +194,17 @@ function RecentEvaluationsTable({
                     {ev.status ? (
                       <StatusChip status={ev.status} size="small" />
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         --
                       </Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {formatDate(ev.createdAt)}
                     </Typography>
                   </TableCell>
@@ -205,7 +215,7 @@ function RecentEvaluationsTable({
         </TableContainer>
       )}
     </Paper>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -283,13 +293,18 @@ export default function MeasureDashboardPage() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: 'auto' }}>
       {/* Header */}
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{
+          alignItems: "center",
+          mb: 2
+        }}>
         <DashboardIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {t('dashboard.title')}
         </Typography>
       </Stack>
-
       {/* Filter bar */}
       <DashboardFilterBar
         department={department}
@@ -297,7 +312,6 @@ export default function MeasureDashboardPage() {
         periodType={periodType}
         onPeriodTypeChange={setPeriodType}
       />
-
       {/* Overview cards + Alerts */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 9 }}>
@@ -307,14 +321,12 @@ export default function MeasureDashboardPage() {
           <ThresholdAlertPanel alerts={alerts} />
         </Grid>
       </Grid>
-
       {/* Score Trend Chart (full width) */}
       {trendData.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <ScoreTrendChart data={trendData} title={t('dashboard.scoreTrend')} />
         </Box>
       )}
-
       {/* Department drill-down + Score distribution */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -322,7 +334,9 @@ export default function MeasureDashboardPage() {
             <DepartmentDrilldownChart data={enhancedData.departmentScores} />
           ) : (
             <Paper variant="outlined" sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography color="text.secondary">{t('dashboard.noDepartmentData')}</Typography>
+              <Typography sx={{
+                color: "text.secondary"
+              }}>{t('dashboard.noDepartmentData')}</Typography>
             </Paper>
           )}
         </Grid>
@@ -330,7 +344,6 @@ export default function MeasureDashboardPage() {
           <ScoreDistributionChart data={data.byScoring} />
         </Grid>
       </Grid>
-
       {/* Recent evaluations + Quality report */}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 7 }}>
@@ -341,5 +354,5 @@ export default function MeasureDashboardPage() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

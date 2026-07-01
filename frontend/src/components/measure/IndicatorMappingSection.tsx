@@ -80,9 +80,15 @@ export default function IndicatorMappingSection({
     <>
       <Accordion defaultExpanded={hasMappings}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <LinkIcon fontSize="small" color="primary" />
-            <Typography fontWeight={600}>
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
+            <LinkIcon color="primary" sx={{
+              fontSize: "small"
+            }} />
+            <Typography sx={{
+              fontWeight: 600
+            }}>
               {t('indicators.title')}
             </Typography>
             {hasMappings && (
@@ -92,7 +98,9 @@ export default function IndicatorMappingSection({
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={2}>
-            <Stack direction="row" spacing={2} alignItems="flex-start">
+            <Stack direction="row" spacing={2} sx={{
+              alignItems: "flex-start"
+            }}>
               <TextField
                 label={t('indicators.mohCode')}
                 value={measure.mohIndicatorCode || ''}
@@ -101,16 +109,18 @@ export default function IndicatorMappingSection({
                 size="small"
                 sx={{ flex: 1 }}
                 placeholder="e.g. MOHW-QI-001"
-                InputProps={{
-                  endAdornment: !readOnly ? (
-                    <InputAdornment position="end">
-                      <Tooltip title={t('indicators.browse')}>
-                        <IconButton size="small" onClick={() => handleBrowse('MOH')}>
-                          <SearchIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  ) : undefined,
+                slotProps={{
+                  input: {
+                    endAdornment: !readOnly ? (
+                      <InputAdornment position="end">
+                        <Tooltip title={t('indicators.browse')}>
+                          <IconButton size="small" onClick={() => handleBrowse('MOH')}>
+                            <SearchIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ) : undefined,
+                  }
                 }}
               />
               <TextField
@@ -121,20 +131,24 @@ export default function IndicatorMappingSection({
                 size="small"
                 sx={{ flex: 1 }}
                 placeholder="e.g. P4P-DM-001"
-                InputProps={{
-                  endAdornment: !readOnly ? (
-                    <InputAdornment position="end">
-                      <Tooltip title={t('indicators.browse')}>
-                        <IconButton size="small" onClick={() => handleBrowse('NHIA_P4P')}>
-                          <SearchIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  ) : undefined,
+                slotProps={{
+                  input: {
+                    endAdornment: !readOnly ? (
+                      <InputAdornment position="end">
+                        <Tooltip title={t('indicators.browse')}>
+                          <IconButton size="small" onClick={() => handleBrowse('NHIA_P4P')}>
+                            <SearchIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ) : undefined,
+                  }
                 }}
               />
             </Stack>
-            <Stack direction="row" spacing={2} alignItems="flex-start">
+            <Stack direction="row" spacing={2} sx={{
+              alignItems: "flex-start"
+            }}>
               <TextField
                 label={t('indicators.drgCode')}
                 value={measure.drgIndicatorCode || ''}
@@ -143,16 +157,18 @@ export default function IndicatorMappingSection({
                 size="small"
                 sx={{ flex: 1 }}
                 placeholder="e.g. DRG-001"
-                InputProps={{
-                  endAdornment: !readOnly ? (
-                    <InputAdornment position="end">
-                      <Tooltip title={t('indicators.browse')}>
-                        <IconButton size="small" onClick={() => handleBrowse('DRG')}>
-                          <SearchIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  ) : undefined,
+                slotProps={{
+                  input: {
+                    endAdornment: !readOnly ? (
+                      <InputAdornment position="end">
+                        <Tooltip title={t('indicators.browse')}>
+                          <IconButton size="small" onClick={() => handleBrowse('DRG')}>
+                            <SearchIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ) : undefined,
+                  }
                 }}
               />
               <TextField
@@ -176,7 +192,9 @@ export default function IndicatorMappingSection({
             </Stack>
             {!readOnly && (
               <Box>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('indicators.hint')}
                 </Typography>
               </Box>
@@ -184,7 +202,6 @@ export default function IndicatorMappingSection({
           </Stack>
         </AccordionDetails>
       </Accordion>
-
       <IndicatorCatalogDialog
         open={catalogOpen}
         onClose={() => setCatalogOpen(false)}
@@ -192,5 +209,5 @@ export default function IndicatorMappingSection({
         sourceFilter={catalogSource}
       />
     </>
-  )
+  );
 }

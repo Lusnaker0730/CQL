@@ -151,11 +151,12 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <Typography variant="subtitle2">{t('bulkExport.title')}</Typography>
         <HelpTooltip text={helpContent.fhir.bulkExport} />
       </Stack>
-
       {!exportStatusUrl && (
         <>
           <FormControl fullWidth size="small">
@@ -188,8 +189,10 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
             size="small"
             fullWidth
             type="datetime-local"
-            InputLabelProps={{ shrink: true }}
             helperText={t('bulkExport.sinceHelperText')}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
 
           <FormControl fullWidth size="small">
@@ -213,14 +216,18 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
           </GradientButton>
         </>
       )}
-
       {exportError && (
         <Alert severity="error">{t('bulkExport.exportError', { error: exportError })}</Alert>
       )}
-
       {exportStatusUrl && (
         <Box>
-          <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              mb: 1
+            }}>
             <Typography variant="subtitle2">{t('bulkExport.exportStatus')}</Typography>
             <Chip label={getStatusLabel()} size="small" color={getStatusColor()} sx={{ fontWeight: 600 }} />
             {exportStatus?.status === 'completed' && (
@@ -234,7 +241,9 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
 
           {isPolling && <LinearProgress sx={{ mb: 2 }} />}
 
-          <Stack direction="row" spacing={1} mb={2}>
+          <Stack direction="row" spacing={1} sx={{
+            mb: 2
+          }}>
             {isPolling && (
               <Button
                 variant="outlined"
@@ -301,5 +310,5 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
         </Box>
       )}
     </Stack>
-  )
+  );
 }

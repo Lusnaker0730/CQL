@@ -82,19 +82,22 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, twcor
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }
           }}
         />
       </Box>
-
       {isEmpty ? (
         <Box sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('elementSelect.noElements')}
           </Typography>
         </Box>
@@ -129,9 +132,10 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, twcor
                           ) : entry.name
                         }
                         secondary={t(`elementDescriptions.${entry.id}`, { defaultValue: '' }) || entry.returnType?.replace(/_/g, ' ') || category.name}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                        secondaryTypographyProps={{ variant: 'caption' }}
-                      />
+                        slotProps={{
+                          primary: { variant: 'body2' },
+                          secondary: { variant: 'caption' }
+                        }} />
                     </ListItemButton>
                   ))}
                 </List>
@@ -169,9 +173,10 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, twcor
                           </Box>
                         }
                         secondary={entry.description}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                        secondaryTypographyProps={{ variant: 'caption' }}
-                      />
+                        slotProps={{
+                          primary: { variant: 'body2' },
+                          secondary: { variant: 'caption' }
+                        }} />
                     </ListItemButton>
                   ))}
                 </List>
@@ -181,6 +186,6 @@ export default function ElementSelectDropdown({ templates, dynamicEntries, twcor
         </>
       )}
     </Box>
-  )
+  );
 }
 

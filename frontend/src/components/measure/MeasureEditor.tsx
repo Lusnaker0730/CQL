@@ -254,16 +254,26 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       )}
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ px: 2, pt: 1, pb: 0.5 }}
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          px: 2,
+          pt: 1,
+          pb: 0.5
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Typography variant="subtitle1" noWrap sx={{ maxWidth: 240 }}>
             {measure.title || measure.name}
           </Typography>
           <StatusChip status={measure.status || 'draft'} />
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              ml: 1
+            }}>
             v{measure.version}
           </Typography>
           <Button
@@ -275,7 +285,9 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             {t('editor.buttons.versioning')}
           </Button>
         </Stack>
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           {!measure.lockedBy && (
             <Button
               size="small"
@@ -410,7 +422,6 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <Tab label={t('editor.tabs.validate')} />
         </Tabs>
       </Box>
-
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {tab === 0 && (
           <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
@@ -442,7 +453,6 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           />
         )}
       </Box>
-
       <CreateVersionDialog
         open={versionDialogOpen}
         onClose={() => setVersionDialogOpen(false)}
@@ -451,7 +461,6 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         isPending={versionMutation.isPending}
         entityType="measure"
       />
-
       <VersionHistoryDialog
         open={historyDialogOpen}
         onClose={() => setHistoryDialogOpen(false)}
@@ -459,28 +468,24 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         onSelectVersion={handleSelectVersion}
         entityType="measure"
       />
-
       <VersionDiffDialog
         open={diffDialogOpen}
         onClose={() => setDiffDialogOpen(false)}
         versions={diffVersions}
         onCompare={handleCompare}
       />
-
       <MeasureShareDialog
         open={shareDialogOpen}
         onClose={() => setShareDialogOpen(false)}
         measure={measure}
         onMeasureUpdate={onMeasureUpdate}
       />
-
       <AuditTrailDialog
         open={auditDialogOpen}
         onClose={() => setAuditDialogOpen(false)}
         measureId={measure.id}
         measureName={measure.title || measure.name}
       />
-
       <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('editor.rejectDialog.title')}</DialogTitle>
         <DialogContent>
@@ -522,7 +527,6 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           </Button>
         </DialogActions>
       </Dialog>
-
       <Menu
         anchorEl={exportAnchor}
         open={Boolean(exportAnchor)}
@@ -535,7 +539,6 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>
-
       <Menu
         anchorEl={versionAnchor}
         open={Boolean(versionAnchor)}
@@ -552,5 +555,5 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         </MenuItem>
       </Menu>
     </Paper>
-  )
+  );
 }

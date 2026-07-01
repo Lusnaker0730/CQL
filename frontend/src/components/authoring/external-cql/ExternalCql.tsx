@@ -70,7 +70,13 @@ export function ExternalCqlView({
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('externalCql.title')}</Typography>
         <GradientButton
           startIcon={<UploadIcon />}
@@ -87,7 +93,6 @@ export function ExternalCqlView({
           onChange={handleFileSelect}
         />
       </Stack>
-
       {/* Drop zone */}
       <Box
         onDrop={handleDrop}
@@ -109,40 +114,36 @@ export function ExternalCqlView({
           {t('externalCql.dropHint')}
         </Typography>
       </Box>
-
       {uploadMutation.isPending && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <CircularProgress size={16} />
           <Typography variant="body2">{t('externalCql.uploading')}</Typography>
         </Box>
       )}
-
       {uploadMutation.isError && (
         <Alert severity="error" onClose={() => uploadMutation.reset()} sx={{ mb: 2 }}>
           <Typography variant="subtitle2">{t('externalCql.uploadFailed')}</Typography>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {(uploadMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('externalCql.uploadFileHint')}
           </Typography>
         </Alert>
       )}
-
       {uploadMutation.isSuccess && (
         <Alert severity="success" sx={{ mb: 2 }}>
           {t('externalCql.uploadSuccess')}
         </Alert>
       )}
-
       {isLoading && <CircularProgress size={24} />}
-
       {!!error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {t('externalCql.loadError')}
         </Alert>
       )}
-
       {!isLoading && libraries.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
@@ -196,7 +197,6 @@ export function ExternalCqlView({
           </Table>
         </TableContainer>
       )}
-
       {/* Details Dialog */}
       <Dialog open={!!detailsLib} onClose={() => setDetailsLib(null)} maxWidth="md" fullWidth>
         <DialogTitle>
@@ -208,7 +208,9 @@ export function ExternalCqlView({
               {detailsLib.details?.definitions && detailsLib.details.definitions.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.definitions')}</Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Stack direction="row" spacing={0.5} sx={{
+                    flexWrap: "wrap"
+                  }}>
                     {detailsLib.details.definitions.map((d) => (
                       <Chip
                         key={d.name}
@@ -225,7 +227,9 @@ export function ExternalCqlView({
               {detailsLib.details?.parameters && detailsLib.details.parameters.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.parametersLabel')}</Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Stack direction="row" spacing={0.5} sx={{
+                    flexWrap: "wrap"
+                  }}>
                     {detailsLib.details.parameters.map((p) => (
                       <Chip key={p} label={p} size="small" variant="outlined" sx={{ mb: 0.5 }} />
                     ))}
@@ -236,7 +240,9 @@ export function ExternalCqlView({
               {detailsLib.details?.valueSets && detailsLib.details.valueSets.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('externalCql.valueSetsLabel')}</Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Stack direction="row" spacing={0.5} sx={{
+                    flexWrap: "wrap"
+                  }}>
                     {detailsLib.details.valueSets.map((vs) => (
                       <Chip key={vs} label={vs} size="small" variant="outlined" sx={{ mb: 0.5 }} />
                     ))}
@@ -248,7 +254,13 @@ export function ExternalCqlView({
                 <Alert severity="warning">
                   <Typography variant="subtitle2">{t('externalCql.translationWarnings')}</Typography>
                   {detailsLib.details.errors.map((err, i) => (
-                    <Typography key={i} variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
+                    <Typography
+                      key={i}
+                      variant="caption"
+                      sx={{
+                        display: "block",
+                        fontFamily: 'monospace'
+                      }}>
                       {err.message}
                     </Typography>
                   ))}
@@ -291,7 +303,6 @@ export function ExternalCqlView({
           <Button onClick={() => setDetailsLib(null)}>{t('actions.close', { ns: 'common' })}</Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete Confirmation */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
         <DialogTitle>{t('externalCql.deleteTitle')}</DialogTitle>
@@ -306,7 +317,7 @@ export function ExternalCqlView({
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }
 
 /** CDS authoring wrapper — default export for backward compatibility */
