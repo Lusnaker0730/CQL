@@ -1,4 +1,5 @@
 import { createTheme, alpha } from '@mui/material/styles'
+import { alertClasses } from '@mui/material/Alert'
 import { zhTW } from '@mui/material/locale'
 
 type PaletteMode = 'light' | 'dark'
@@ -301,21 +302,23 @@ export function createAppTheme(mode: PaletteMode, language?: string) {
           root: {
             borderRadius: 10,
           },
-          standardError: {
-            backgroundColor: alpha(palette.error.main, 0.08),
-            border: `1px solid ${alpha(palette.error.main, 0.2)}`,
-          },
-          standardWarning: {
-            backgroundColor: alpha(palette.warning.main, 0.08),
-            border: `1px solid ${alpha(palette.warning.main, 0.2)}`,
-          },
-          standardInfo: {
-            backgroundColor: alpha(palette.primary.main, 0.08),
-            border: `1px solid ${alpha(palette.primary.main, 0.2)}`,
-          },
-          standardSuccess: {
-            backgroundColor: alpha(palette.success.main, 0.08),
-            border: `1px solid ${alpha(palette.success.main, 0.2)}`,
+          standard: {
+            [`&.${alertClasses.colorError}`]: {
+              backgroundColor: alpha(palette.error.main, 0.08),
+              border: `1px solid ${alpha(palette.error.main, 0.2)}`,
+            },
+            [`&.${alertClasses.colorWarning}`]: {
+              backgroundColor: alpha(palette.warning.main, 0.08),
+              border: `1px solid ${alpha(palette.warning.main, 0.2)}`,
+            },
+            [`&.${alertClasses.colorInfo}`]: {
+              backgroundColor: alpha(palette.primary.main, 0.08),
+              border: `1px solid ${alpha(palette.primary.main, 0.2)}`,
+            },
+            [`&.${alertClasses.colorSuccess}`]: {
+              backgroundColor: alpha(palette.success.main, 0.08),
+              border: `1px solid ${alpha(palette.success.main, 0.2)}`,
+            },
           },
         },
       },

@@ -17,7 +17,7 @@ import {
   Logout as LogoutIcon,
   Person as PersonIcon,
   Settings as SettingsIcon,
-  HelpOutline as HelpIcon,
+  HelpOutlined as HelpIcon,
   ManageSearch as ManageSearchIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -173,7 +173,9 @@ export default function Header() {
 
           <Box sx={{ flexGrow: 1 }} />
 
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             {user && (
               <Chip
                 icon={<PersonIcon sx={{ color: 'rgba(255,255,255,0.8) !important', fontSize: 16 }} />}
@@ -242,10 +244,9 @@ export default function Header() {
           </Stack>
         </Toolbar>
       </AppBar>
-
       <PreferencesDialog open={prefsOpen} onClose={() => setPrefsOpen(false)} />
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
       <TerminologyLookupDrawer />
     </>
-  )
+  );
 }

@@ -37,7 +37,9 @@ export default function EcqmArtifactModal({ open, onClose, onSubmit }: Props) {
           <TextField
             label={t('modal.name')} required fullWidth autoFocus
             value={name} onChange={(e) => setName(e.target.value)}
-            inputProps={{ maxLength: ECQM.name.maxLength }}
+            slotProps={{
+              htmlInput: { maxLength: ECQM.name.maxLength }
+            }}
           />
           <TextField
             label={t('modal.scoringType')} select fullWidth
@@ -58,8 +60,10 @@ export default function EcqmArtifactModal({ open, onClose, onSubmit }: Props) {
           <TextField
             label={t('modal.description')} fullWidth multiline rows={2}
             value={description} onChange={(e) => setDescription(e.target.value)}
-            inputProps={{ maxLength: ECQM.description.maxLength }}
             helperText={`${description.length} / ${ECQM.description.maxLength}`}
+            slotProps={{
+              htmlInput: { maxLength: ECQM.description.maxLength }
+            }}
           />
         </Stack>
       </DialogContent>
@@ -68,5 +72,5 @@ export default function EcqmArtifactModal({ open, onClose, onSubmit }: Props) {
         <Button variant="contained" onClick={handleSubmit} disabled={!name.trim()}>{t('common:actions.create')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

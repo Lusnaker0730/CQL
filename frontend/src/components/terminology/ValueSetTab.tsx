@@ -121,7 +121,9 @@ export default function ValueSetTab() {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack direction="row" spacing={2} sx={{
+        alignItems: "center"
+      }}>
         <TextField
           label={t('valueSet.searchLabel')}
           value={searchTitle}
@@ -129,17 +131,19 @@ export default function ValueSetTab() {
           size="small"
           sx={{ flex: 1 }}
           placeholder={t('valueSet.searchPlaceholder')}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: isSearching ? (
-              <InputAdornment position="end">
-                <CircularProgress size={18} />
-              </InputAdornment>
-            ) : undefined,
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              endAdornment: isSearching ? (
+                <InputAdornment position="end">
+                  <CircularProgress size={18} />
+                </InputAdornment>
+              ) : undefined,
+            }
           }}
         />
         <ToggleButtonGroup
@@ -161,14 +165,17 @@ export default function ValueSetTab() {
           </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
-
       {searchError && (
         <Alert severity="error">{t('valueSet.searchFailed', { error: extractApiError(searchError) })}</Alert>
       )}
-
       {searchResults && searchResults.length > 0 && (
         <Box>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              color: "text.secondary",
+              mb: 1
+            }}>
             {t('valueSet.resultCount', { count: searchResults.length })}
           </Typography>
           <Stack spacing={1}>
@@ -187,10 +194,19 @@ export default function ValueSetTab() {
                 }}
                 onClick={() => handleExpand(vs)}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="body2" fontWeight={600} noWrap>
+                    <Stack direction="row" spacing={1} sx={{
+                      alignItems: "center"
+                    }}>
+                      <Typography variant="body2" noWrap sx={{
+                        fontWeight: 600
+                      }}>
                         {vs.title || vs.name}
                       </Typography>
                       {vs.source && (
@@ -203,7 +219,9 @@ export default function ValueSetTab() {
                         />
                       )}
                     </Stack>
-                    <Typography variant="caption" color="text.secondary" noWrap>
+                    <Typography variant="caption" noWrap sx={{
+                      color: "text.secondary"
+                    }}>
                       {vs.url}
                     </Typography>
                   </Box>
@@ -226,26 +244,30 @@ export default function ValueSetTab() {
           </Stack>
         </Box>
       )}
-
       {searchResults && searchResults.length === 0 && debouncedTitle.length >= 2 && (
-        <Typography color="text.secondary" variant="body2">{t('valueSet.noResults')}</Typography>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>{t('valueSet.noResults')}</Typography>
       )}
-
       {expandMutation.isPending && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
           <CircularProgress size={24} />
         </Box>
       )}
-
       {expandMutation.isError && expansionMatchesSelection && (
         <Alert severity="error">
           {t('valueSet.expandFailed', { error: extractApiError(expandMutation.error) })}
         </Alert>
       )}
-
       {expandMutation.data && selectedVs && expansionMatchesSelection && (
         <Box>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              mb: 1
+            }}>
             <Typography variant="subtitle2">
               {t('valueSet.codesIn', { name: selectedVs.title || selectedVs.name })}
             </Typography>
@@ -287,7 +309,9 @@ export default function ValueSetTab() {
                 {filteredCodes.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3}>
-                      <Typography variant="body2" color="text.secondary">{t('valueSet.noCodesFound')}</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>{t('valueSet.noCodesFound')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -297,5 +321,5 @@ export default function ValueSetTab() {
         </Box>
       )}
     </Stack>
-  )
+  );
 }

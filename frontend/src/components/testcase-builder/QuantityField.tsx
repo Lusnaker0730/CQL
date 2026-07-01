@@ -49,8 +49,10 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
             const v = e.target.value
             onChange({ ...qty, value: v === '' ? undefined : parseFloat(v) })
           }}
-          inputProps={{ step: 0.01 }}
           sx={{ flex: 1 }}
+          slotProps={{
+            htmlInput: { step: 0.01 }
+          }}
         />
         <UcumUnitField
           label={t('testCaseBuilder.fields.unit')}
@@ -87,5 +89,5 @@ export default function QuantityField({ element, value, onChange }: QuantityFiel
         </Box>
       </Collapse>
     </FieldWrapper>
-  )
+  );
 }

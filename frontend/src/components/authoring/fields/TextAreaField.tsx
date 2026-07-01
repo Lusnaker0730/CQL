@@ -21,7 +21,9 @@ export default function TextAreaField({ label, value, onChange, placeholder, hel
       rows={2}
       placeholder={placeholder}
       helperText={maxLength ? `${value.length} / ${maxLength}` : helperText}
-      inputProps={maxLength ? { maxLength } : undefined}
+      slotProps={{
+        htmlInput: maxLength ? { maxLength } : undefined
+      }}
     />
-  )
+  );
 }

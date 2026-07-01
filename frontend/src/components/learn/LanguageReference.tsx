@@ -293,22 +293,43 @@ export default function LanguageReference() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.languageRef.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.languageRef.subtitle')}
       </Typography>
-
       {SECTIONS.map(({ key, codes }) => (
         <Accordion key={key} defaultExpanded sx={{ mb: 2, borderRadius: '12px !important', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider' }} elevation={0}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6" fontWeight={700} color="primary.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t(`learn.languageRef.${key}.title`)}
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t(`learn.languageRef.${key}.description`)}
             </Typography>
 
@@ -316,7 +337,12 @@ export default function LanguageReference() {
               {codes.map(({ code, label }) => (
                 <Grid key={label} size={12}>
                   <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
+                        mb: 1
+                      }}>
                       {t(`learn.languageRef.${key}.${label}`)}
                     </Typography>
                     <CodeBlock code={code} maxHeight={360} />
@@ -332,5 +358,5 @@ export default function LanguageReference() {
         </Accordion>
       ))}
     </Box>
-  )
+  );
 }

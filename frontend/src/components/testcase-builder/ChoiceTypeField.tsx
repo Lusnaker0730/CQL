@@ -56,19 +56,29 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
   if (choiceTypes.length === 0) {
     return (
       <Box sx={{ mb: 1 }}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary"
+          }}>
           {element.name}[x] {element.isRequired && '*'}
         </Typography>
         <Alert severity="warning" variant="outlined" sx={{ mt: 0.5, py: 0, fontSize: '0.7rem' }}>
           {t('testCaseBuilder.choiceType.noChoices')}
         </Alert>
       </Box>
-    )
+    );
   }
 
   return (
     <Box sx={{ mb: 1 }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary"
+        }}>
         {element.name}[x] {element.isRequired && '*'}
       </Typography>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
@@ -95,5 +105,5 @@ export default function ChoiceTypeField({ element, value, onChange, initialChoic
         </Box>
       </Box>
     </Box>
-  )
+  );
 }

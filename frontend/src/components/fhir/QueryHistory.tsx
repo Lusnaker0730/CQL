@@ -44,8 +44,20 @@ export default function QueryHistory({
   return (
     <Box sx={{ mb: 1 }}>
       {favorites.length > 0 && (
-        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap",
+            mb: 0.5
+          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              mr: 0.5
+            }}>
             {t('history.favorites')}
           </Typography>
           {favorites.map(entry => (
@@ -71,10 +83,20 @@ export default function QueryHistory({
           ))}
         </Stack>
       )}
-
       {recent.length > 0 && (
-        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
-          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              mr: 0.5
+            }}>
             {t('history.recent')}
           </Typography>
           {recent.map(entry => (
@@ -107,5 +129,5 @@ export default function QueryHistory({
         </Stack>
       )}
     </Box>
-  )
+  );
 }

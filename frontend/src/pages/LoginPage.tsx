@@ -162,10 +162,20 @@ export default function LoginPage() {
             >
               <MedicalIcon sx={{ fontSize: 32, color: 'common.white' }} />
             </Box>
-            <Typography variant="h5" fontWeight={700} color="text.primary">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+                color: "text.primary"
+              }}>
               {t('app.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mt: 0.5
+              }}>
               {isRegister ? t('auth.createAccount') : t('auth.signInSubtitle')}
             </Typography>
           </Box>
@@ -281,5 +291,5 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }

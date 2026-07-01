@@ -129,7 +129,9 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             required
             fullWidth
             size="small"
-            inputProps={{ maxLength: EHR_CONNECTION.name.maxLength }}
+            slotProps={{
+              htmlInput: { maxLength: EHR_CONNECTION.name.maxLength }
+            }}
           />
 
           <TextField
@@ -140,7 +142,9 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
             fullWidth
             size="small"
             placeholder={t('ehr.fhirUrlPlaceholder')}
-            inputProps={{ maxLength: EHR_CONNECTION.fhirServerUrl.maxLength }}
+            slotProps={{
+              htmlInput: { maxLength: EHR_CONNECTION.fhirServerUrl.maxLength }
+            }}
           />
 
           <TextField
@@ -207,7 +211,9 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
                 fullWidth
                 size="small"
                 placeholder="https://auth.example.com/token"
-                inputProps={{ maxLength: EHR_CONNECTION.tokenEndpoint.maxLength }}
+                slotProps={{
+                  htmlInput: { maxLength: EHR_CONNECTION.tokenEndpoint.maxLength }
+                }}
               />
               <TextField
                 label={t('ehr.scopes')}
@@ -227,8 +233,10 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
                 multiline
                 rows={6}
                 helperText={t('ehr.privateKeyHelperText')}
-                inputProps={{ style: { fontFamily: 'monospace', fontSize: '0.8rem' } }}
                 placeholder={'-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----'}
+                slotProps={{
+                  htmlInput: { style: { fontFamily: 'monospace', fontSize: '0.8rem' } }
+                }}
               />
             </>
           )}
@@ -252,5 +260,5 @@ export default function EhrConnectionForm({ open, connection, onClose }: EhrConn
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

@@ -28,7 +28,9 @@ export default function SnippetPreview({
   return (
     <Stack spacing={0.75}>
       <CqlPreviewBox code={snippet} />
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <GradientButton onClick={onInsert} disabled={insertDisabled}>
           {insertLabel}
         </GradientButton>
@@ -40,5 +42,5 @@ export default function SnippetPreview({
         <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
-  )
+  );
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, memo } from 'react'
 import { Box, Typography, Stack, TextField, InputAdornment, Chip, Button, Tooltip } from '@mui/material'
-import { FilterList as FilterIcon, RemoveCircleOutline as ExcludeIcon, Search as SearchIcon, Clear as ClearIcon, AccountTree as SubGroupIcon } from '@mui/icons-material'
+import { FilterList as FilterIcon, RemoveCircleOutlined as ExcludeIcon, Search as SearchIcon, Clear as ClearIcon, AccountTree as SubGroupIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import ConjunctionConnector from './ConjunctionConnector'
 import ArtifactElement from './ArtifactElement'
@@ -151,7 +151,13 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
     >
       {/* Nested group: clickable badge chip to toggle conjunction type */}
       {!isRoot && (
-        <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            mb: 1
+          }}>
           <Tooltip title={t(`conjunction.clickToChange${nextConjunction(conjunctionId)}`)}>
             <Chip
               label={conjunctionId.toUpperCase()}
@@ -169,12 +175,13 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
               }}
             />
           </Tooltip>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('conjunction.elementCount', { count: group.childInstances.length })}
           </Typography>
         </Stack>
       )}
-
       {/* Search bar — root level only, when there are 3+ elements */}
       {isRoot && group.childInstances.length >= 3 && (
         <TextField
@@ -183,26 +190,27 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" sx={{ opacity: 0.5 }} />
-              </InputAdornment>
-            ),
-            endAdornment: localSearch ? (
-              <InputAdornment position="end">
-                <ClearIcon
-                  fontSize="small"
-                  sx={{ cursor: 'pointer', opacity: 0.5, '&:hover': { opacity: 1 } }}
-                  onClick={() => setLocalSearch('')}
-                />
-              </InputAdornment>
-            ) : null,
-          }}
           sx={{ mb: 1.5 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" sx={{ opacity: 0.5 }} />
+                </InputAdornment>
+              ),
+              endAdornment: localSearch ? (
+                <InputAdornment position="end">
+                  <ClearIcon
+                    fontSize="small"
+                    sx={{ cursor: 'pointer', opacity: 0.5, '&:hover': { opacity: 1 } }}
+                    onClick={() => setLocalSearch('')}
+                  />
+                </InputAdornment>
+              ) : null,
+            }
+          }}
         />
       )}
-
       {/* Filter result indicator */}
       {isFiltering && hiddenCount > 0 && (
         <Chip
@@ -212,7 +220,6 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
           sx={{ mb: 1, fontSize: '0.75rem' }}
         />
       )}
-
       {/* Children */}
       {group.childInstances.length === 0 ? (
         <Box
@@ -234,10 +241,22 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
               <ExcludeIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.5, mb: 1 }} />
             ) : null
           )}
-          <Typography variant="body2" color="text.secondary" fontWeight={500} mb={0.5}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 500,
+              mb: 0.5
+            }}>
             {t('conjunction.noElements', { treeName: treeName.toLowerCase() })}
           </Typography>
-          <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              display: "block",
+              mb: 0.5
+            }}>
             {treeName === 'Inclusions'
               ? t('conjunction.inclusionHint')
               : treeName === 'Exclusions'
@@ -247,12 +266,16 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
         </Box>
       ) : filteredChildren.length === 0 ? (
         <Box sx={{ py: 2, textAlign: 'center', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('conjunction.noFilterMatch', { filter: isRoot ? localSearch : searchFilter })}
           </Typography>
         </Box>
       ) : (
-        <Stack spacing={1} mb={2}>
+        <Stack spacing={1} sx={{
+          mb: 2
+        }}>
           {filteredChildren.map((child, index) => (
             <Box key={child.uniqueId}>
               {child.conjunction ? (
@@ -309,9 +332,10 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
           ))}
         </Stack>
       )}
-
       {/* Add Element + Add Sub-Group */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <ElementSelect
           templates={templates}
           dynamicEntries={dynamicEntries}
@@ -329,7 +353,7 @@ const ConjunctionGroup = memo(function ConjunctionGroup({
         </Button>
       </Stack>
     </Box>
-  )
+  );
 })
 
 export default ConjunctionGroup

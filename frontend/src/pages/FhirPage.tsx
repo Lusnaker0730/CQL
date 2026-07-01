@@ -30,11 +30,12 @@ export default function FhirPage() {
             mb: 1,
           })}
         />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('page.subtitle')}
         </Typography>
       </Box>
-
       <Tabs
         value={tabIndex}
         onChange={(_, v) => setTabIndex(v)}
@@ -44,12 +45,11 @@ export default function FhirPage() {
         <Tab icon={<IgIcon />} iconPosition="start" label={t('page.tabTwCoreIg')} />
         <Tab icon={<EhrIcon />} iconPosition="start" label={t('page.tabEhrConnections')} />
       </Tabs>
-
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {tabIndex === 0 && <FhirBrowser />}
         {tabIndex === 1 && <ImplementationGuideBrowser />}
         {tabIndex === 2 && <EhrConnectionList />}
       </Box>
     </Box>
-  )
+  );
 }

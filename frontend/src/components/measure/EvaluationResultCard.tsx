@@ -54,12 +54,20 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
   return (
     <Card variant="outlined">
       <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2
+          }}>
           <Box>
             <Typography variant="h6" sx={{ color: 'secondary.main' }}>
               {result.measureName || result.measureId}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {result.periodStart} - {result.periodEnd}
             </Typography>
           </Box>
@@ -76,48 +84,90 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
         )}
 
         {result.groups?.map((group) => (
-          <Box key={group.groupId} mb={2}>
+          <Box key={group.groupId} sx={{
+            mb: 2
+          }}>
             <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.primary' }}>
               {group.description || t('evaluationResult.groupLabel', { groupId: group.groupId })}
             </Typography>
 
             {group.observationStatistics ? (
-              <Box mb={3} sx={{ textAlign: 'center' }}>
+              <Box
+                sx={{
+                  mb: 3,
+                  textAlign: 'center'
+                }}>
                 <Typography
                   sx={{ fontSize: '3rem', fontWeight: 700, color: 'primary.main', lineHeight: 1.1 }}
                 >
                   {group.measureScore?.toFixed(1) ?? '—'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 1.5,
+                    display: 'block'
+                  }}>
                   {t(`evaluationResult.aggregateMethods.${group.observationStatistics.aggregateMethod}`,
                      group.observationStatistics.aggregateMethod)}
                   {group.observationStatistics.unit ? ` (${group.observationStatistics.unit})` : ''}
                 </Typography>
-                <Stack direction="row" justifyContent="center" spacing={3} mt={1.5}>
-                  <Box textAlign="center">
+                <Stack
+                  direction="row"
+                  spacing={3}
+                  sx={{
+                    justifyContent: "center",
+                    mt: 1.5
+                  }}>
+                  <Box sx={{
+                    textAlign: "center"
+                  }}>
                     <Typography variant="h6">{group.observationStatistics.observationCount}</Typography>
-                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.count')}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('evaluationResult.observations.count')}</Typography>
                   </Box>
-                  <Box textAlign="center">
+                  <Box sx={{
+                    textAlign: "center"
+                  }}>
                     <Typography variant="h6">{group.observationStatistics.minimum?.toFixed(1)}</Typography>
-                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.min')}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('evaluationResult.observations.min')}</Typography>
                   </Box>
-                  <Box textAlign="center">
+                  <Box sx={{
+                    textAlign: "center"
+                  }}>
                     <Typography variant="h6">{group.observationStatistics.maximum?.toFixed(1)}</Typography>
-                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.max')}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('evaluationResult.observations.max')}</Typography>
                   </Box>
-                  <Box textAlign="center">
+                  <Box sx={{
+                    textAlign: "center"
+                  }}>
                     <Typography variant="h6">{group.observationStatistics.average?.toFixed(1)}</Typography>
-                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.avg')}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('evaluationResult.observations.avg')}</Typography>
                   </Box>
-                  <Box textAlign="center">
+                  <Box sx={{
+                    textAlign: "center"
+                  }}>
                     <Typography variant="h6">{group.observationStatistics.median?.toFixed(1)}</Typography>
-                    <Typography variant="caption" color="text.secondary">{t('evaluationResult.observations.median')}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('evaluationResult.observations.median')}</Typography>
                   </Box>
                 </Stack>
               </Box>
             ) : group.measureScore !== undefined && group.measureScore !== null && (
-              <Box mb={3} sx={{ textAlign: 'center' }}>
+              <Box
+                sx={{
+                  mb: 3,
+                  textAlign: 'center'
+                }}>
                 <Typography
                   sx={{
                     fontSize: '3rem',
@@ -128,7 +178,13 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                 >
                   {group.measureScore.toFixed(1)}%
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 1.5,
+                    display: 'block'
+                  }}>
                   {t('evaluationResult.measureScore')}
                 </Typography>
                 <LinearProgress
@@ -182,14 +238,17 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
             </TableContainer>
 
             {group.stratifiers && group.stratifiers.length > 0 && (
-              <Box mt={2}>
+              <Box sx={{
+                mt: 2
+              }}>
                 <Stack
                   direction="row"
-                  alignItems="center"
                   spacing={1}
                   onClick={() => setStratExpanded(!stratExpanded)}
-                  sx={{ cursor: 'pointer' }}
-                >
+                  sx={{
+                    alignItems: "center",
+                    cursor: 'pointer'
+                  }}>
                   <IconButton size="small" aria-label={t('evaluationResult.toggleStratification')}>
                     {stratExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </IconButton>
@@ -212,7 +271,9 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                         {group.stratifiers.map((strat: StratifierResult, idx: number) => (
                           <TableRow key={idx}>
                             <TableCell>
-                              <Typography variant="body2" fontWeight={500}>
+                              <Typography variant="body2" sx={{
+                                fontWeight: 500
+                              }}>
                                 {strat.strataId}
                               </Typography>
                             </TableCell>
@@ -230,7 +291,9 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                               )}
                             </TableCell>
                             <TableCell>
-                              <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                              <Stack direction="row" spacing={0.5} sx={{
+                                flexWrap: "wrap"
+                              }}>
                                 {strat.populations?.map((pop, pidx) => (
                                   <Chip
                                     key={pidx}
@@ -253,7 +316,9 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
         ))}
 
         {result.supplementalData && Object.keys(result.supplementalData).length > 0 && (
-          <Box mt={2}>
+          <Box sx={{
+            mt: 2
+          }}>
             <Typography variant="subtitle2" gutterBottom>
               {t('evaluationResult.supplementalData')}
             </Typography>
@@ -277,5 +342,5 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

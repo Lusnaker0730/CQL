@@ -57,12 +57,16 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>
           {t('riskAdjustment.title')}
         </Typography>
 
         {items.map((item, index) => (
-          <Stack key={item.definition} direction="row" spacing={1} alignItems="flex-start">
+          <Stack key={item.definition} direction="row" spacing={1} sx={{
+            alignItems: "flex-start"
+          }}>
             <Chip
               label={item.definition}
               sx={{ mt: 1, minWidth: 160 }}
@@ -72,9 +76,11 @@ const RiskAdjustmentSection: React.FC<RiskAdjustmentSectionProps> = ({
               label={t('riskAdjustment.description')}
               value={item.description}
               onChange={(e) => handleDescriptionChange(index, e.target.value)}
-              inputProps={{ maxLength: 128 }}
               fullWidth
               disabled={readOnly}
+              slotProps={{
+                htmlInput: { maxLength: 128 }
+              }}
             />
             {!readOnly && (
               <IconButton

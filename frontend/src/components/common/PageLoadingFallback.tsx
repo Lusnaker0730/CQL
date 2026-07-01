@@ -18,14 +18,18 @@ function PageLoadingFallback() {
             : `linear-gradient(180deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 50%, ${theme.palette.background.paper} 100%)`,
       }}
     >
-      <Stack alignItems="center" spacing={2}>
+      <Stack spacing={2} sx={{
+        alignItems: "center"
+      }}>
         <CircularProgress sx={{ color: 'primary.main' }} />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('status.loading')}
         </Typography>
       </Stack>
     </Box>
-  )
+  );
 }
 
 export default memo(PageLoadingFallback)

@@ -108,7 +108,9 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <SharedIcon color="primary" />
           <Typography variant="h6">
             {t('share.title', { name: measure.title || measure.name })}
@@ -183,7 +185,9 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
               <ListItem key={username} sx={{ py: 0.25 }}>
                 <ListItemText
                   primary={username}
-                  primaryTypographyProps={{ variant: 'body2' }}
+                  slotProps={{
+                    primary: { variant: 'body2' }
+                  }}
                 />
                 <ListItemSecondaryAction>
                   <IconButton
@@ -200,15 +204,24 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
             ))}
           </List>
         ) : (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('share.noSharedUsers')}
           </Typography>
         )}
 
         <Divider sx={{ my: 1.5 }} />
 
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}>
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <Typography variant="subtitle2">{t('share.owner')}</Typography>
             <Chip label={measure.ownerUsername || t('share.unassigned')} size="small" />
           </Stack>
@@ -252,5 +265,5 @@ export default function MeasureShareDialog({ open, onClose, measure, onMeasureUp
         <Button onClick={onClose}>{t('share.close')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

@@ -308,7 +308,13 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
 
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">
           {isNew ? t('testCaseEditor.newTitle') : t('testCaseEditor.editTitle', { name: testCase?.title })}
         </Typography>
@@ -333,13 +339,11 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           </GradientButton>
         </Stack>
       </Stack>
-
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(saveMutation.error)}
         </Alert>
       )}
-
       {showDraftAlert && (
         <Alert
           severity="info"
@@ -373,7 +377,6 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           {t('testCaseEditor.draftRestored')}
         </Alert>
       )}
-
       <Stack spacing={2}>
         <TextField
           label={t('testCaseEditor.fields.title')}
@@ -383,7 +386,9 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           value={title}
           onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
           placeholder={t('testCaseEditor.fields.titlePlaceholder')}
-          inputProps={{ maxLength: TEST_CASE.title.maxLength }}
+          slotProps={{
+            htmlInput: { maxLength: TEST_CASE.title.maxLength }
+          }}
         />
 
         <TextField
@@ -394,8 +399,10 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           rows={2}
           value={description}
           onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
-          inputProps={{ maxLength: TEST_CASE.description.maxLength }}
           helperText={`${description.length} / ${TEST_CASE.description.maxLength}`}
+          slotProps={{
+            htmlInput: { maxLength: TEST_CASE.description.maxLength }
+          }}
         />
 
         <Autocomplete
@@ -410,14 +417,19 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
               size="small"
               fullWidth
               placeholder={t('testCaseEditor.fields.seriesPlaceholder')}
-              inputProps={{ ...params.inputProps, maxLength: TEST_CASE.series.maxLength }}
+              slotProps={{
+                ...params.slotProps,
+                htmlInput: { ...params.slotProps.htmlInput, maxLength: TEST_CASE.series.maxLength }
+              }}
             />
           )}
         />
 
         <Divider />
 
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography variant="subtitle2" sx={{
+          color: "text.secondary"
+        }}>
           {t('testCaseEditor.expectedPopulations')}
         </Typography>
 
@@ -495,7 +507,6 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           )}
         </Box>
       </Stack>
-
       {ehrImportOpen && (
         <EhrImportForTestCase
           open={ehrImportOpen}
@@ -513,7 +524,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         />
       )}
     </Box>
-  )
+  );
 }
 
 export default function TestCaseEditor(props: TestCaseEditorProps) {

@@ -73,18 +73,26 @@ const ArtifactElement = memo(function ArtifactElement({
     >
       <Stack
         direction="row"
-        alignItems="center"
         spacing={1}
-        sx={{ px: 2, py: 1, cursor: 'pointer' }}
         onClick={() => setExpanded(!expanded)}
-      >
+        sx={{
+          alignItems: "center",
+          px: 2,
+          py: 1,
+          cursor: 'pointer'
+        }}>
         <IconButton size="small" aria-label={expanded ? t('element.collapse') : t('element.expand')}>
           {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
         </IconButton>
 
         <IconComp fontSize="small" sx={{ color: rtColor, opacity: 0.7 }} />
 
-        <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+            flex: 1
+          }}>
           {displayName}
         </Typography>
 
@@ -155,13 +163,11 @@ const ArtifactElement = memo(function ArtifactElement({
           </IconButton>
         </Tooltip>
       </Stack>
-
       {!expanded && (
         <Box sx={{ px: 2, pb: 1 }}>
           <ExpressionPhrase element={element} />
         </Box>
       )}
-
       <Collapse in={expanded}>
         <CardContent sx={{ pt: 0 }}>
           <ArtifactElementBody
@@ -173,7 +179,7 @@ const ArtifactElement = memo(function ArtifactElement({
         </CardContent>
       </Collapse>
     </Card>
-  )
+  );
 })
 
 export default ArtifactElement
@@ -188,7 +194,7 @@ function getModifierChainError(element: ElementInstance): { name: string; expect
   for (let i = 0; i < element.modifiers.length; i++) {
     const mod = element.modifiers[i]
     if (!mod.inputTypes.includes(currentType)) {
-      return { name: mod.name, expected: mod.inputTypes.join('/'), actual: currentType.replace(/_/g, ' ') }
+      return { name: mod.name, expected: mod.inputTypes.join('/'), actual: currentType.replace(/_/g, ' ') };
     }
     currentType = mod.returnType
   }

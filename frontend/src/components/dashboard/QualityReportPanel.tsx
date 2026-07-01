@@ -31,37 +31,53 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
     return (
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle2">{t('dashboard.qualityReport')}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            py: 2,
+            textAlign: 'center'
+          }}>
           {t('dashboard.noReportData')}
         </Typography>
       </Paper>
-    )
+    );
   }
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="subtitle2">{t('dashboard.qualityReport')}</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {report.periodLabel}
         </Typography>
       </Stack>
-
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <Box sx={{ textAlign: 'center', flex: 1 }}>
           <Typography variant="h5" color="primary">{report.averageScore.toFixed(1)}%</Typography>
           <Typography variant="caption">{t('dashboard.averageScore')}</Typography>
         </Box>
         <Box sx={{ textAlign: 'center', flex: 1 }}>
-          <Typography variant="h5" color="success.main">{report.measuresAboveTarget}</Typography>
+          <Typography variant="h5" sx={{
+            color: "success.main"
+          }}>{report.measuresAboveTarget}</Typography>
           <Typography variant="caption">{t('dashboard.aboveTarget')}</Typography>
         </Box>
         <Box sx={{ textAlign: 'center', flex: 1 }}>
-          <Typography variant="h5" color="error.main">{report.measuresBelowTarget}</Typography>
+          <Typography variant="h5" sx={{
+            color: "error.main"
+          }}>{report.measuresBelowTarget}</Typography>
           <Typography variant="caption">{t('dashboard.belowTarget')}</Typography>
         </Box>
       </Stack>
-
       {report.measureScores.length > 0 && (
         <Table size="small">
           <TableHead>
@@ -106,15 +122,17 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
           </TableBody>
         </Table>
       )}
-
       {/* PAT-151: previously the table silently truncated to 10 rows; users with
           11+ measures had no idea more existed. Show a truncation footer. */}
       {report.measureScores.length > MEASURE_TABLE_PREVIEW_LIMIT && (
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: 'block', textAlign: 'center', mt: 1 }}
-        >
+          sx={{
+            color: "text.secondary",
+            display: 'block',
+            textAlign: 'center',
+            mt: 1
+          }}>
           {t('dashboard.tablePreviewTruncated', {
             shown: MEASURE_TABLE_PREVIEW_LIMIT,
             total: report.measureScores.length,
@@ -122,5 +140,5 @@ export default function QualityReportPanel({ report }: QualityReportPanelProps) 
         </Typography>
       )}
     </Paper>
-  )
+  );
 }

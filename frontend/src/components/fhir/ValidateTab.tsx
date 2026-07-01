@@ -60,10 +60,11 @@ export default function ValidateTab() {
   return (
     <Stack spacing={2}>
       <Typography variant="subtitle2">{t('validate.title')}</Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         {t('validate.description')}
       </Typography>
-
       <Box sx={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 1 }}>
         <Editor
           height="300px"
@@ -80,7 +81,6 @@ export default function ValidateTab() {
           }}
         />
       </Box>
-
       <GradientButton
         onClick={() => validateMutation.mutate()}
         disabled={validateMutation.isPending}
@@ -89,13 +89,11 @@ export default function ValidateTab() {
       >
         {validateMutation.isPending ? t('validate.validating') : t('validate.validateButton')}
       </GradientButton>
-
       {validateMutation.isError && (
         <Alert severity="error">
           {t('validate.validationFailed', { error: (validateMutation.error as Error).message })}
         </Alert>
       )}
-
       {validationStatus !== 'none' && (
         <Chip
           label={validationStatus === 'valid' ? t('validate.valid') : t('validate.invalid')}
@@ -104,7 +102,6 @@ export default function ValidateTab() {
           sx={{ alignSelf: 'flex-start' }}
         />
       )}
-
       {issues.length > 0 && (
         <TableContainer
           sx={{
@@ -146,5 +143,5 @@ export default function ValidateTab() {
         </TableContainer>
       )}
     </Stack>
-  )
+  );
 }

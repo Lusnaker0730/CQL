@@ -34,8 +34,16 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={600}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3
+        }}>
+        <Typography variant="h5" sx={{
+          fontWeight: 600
+        }}>
           <ScienceIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           {t('list.title')}
         </Typography>
@@ -43,11 +51,9 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
           {t('list.newEcqm')}
         </Button>
       </Stack>
-
       {artifacts.length === 0 && (
         <Alert severity="info">{t('list.emptyState')}</Alert>
       )}
-
       <Stack spacing={2}>
         {artifacts.map((a) => (
           <Card
@@ -56,11 +62,21 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
             onClick={() => onSelect(a.id)}
           >
             <CardContent sx={{ pb: 0.5 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "flex-start"
+                }}>
                 <Box>
                   <Typography variant="h6">{a.name}</Typography>
                   {a.description && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        mt: 0.5
+                      }}>
                       {a.description}
                     </Typography>
                   )}
@@ -90,7 +106,6 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
           </Card>
         ))}
       </Stack>
-
       <Dialog open={deleteId !== null} onClose={() => setDeleteId(null)}>
         <DialogTitle>{t('list.deleteTitle')}</DialogTitle>
         <DialogContent>
@@ -104,5 +119,5 @@ export default function EcqmArtifactList({ artifacts, onSelect, onCreate, onDupl
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

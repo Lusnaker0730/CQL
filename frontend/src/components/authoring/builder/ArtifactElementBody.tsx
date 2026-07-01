@@ -5,7 +5,7 @@ import {
 } from '@mui/material'
 import {
   Build as ModifierIcon, Close as CloseIcon, Check as CheckIcon, Handyman as BuildIcon,
-  ArrowForward as ArrowIcon, ChevronLeft as BackIcon, AddCircleOutline as AddIcon,
+  ArrowForward as ArrowIcon, ChevronLeft as BackIcon, AddCircleOutlined as AddIcon,
 } from '@mui/icons-material'
 import { useTranslation, Trans } from 'react-i18next'
 import StringField from '../fields/StringField'
@@ -106,9 +106,10 @@ export default function ArtifactElementBody({
     <Box>
       {/* Natural Language Summary */}
       <ExpressionPhrase element={element} variant="full" />
-
       {/* Element Fields */}
-      <Stack spacing={2} my={2}>
+      <Stack spacing={2} sx={{
+        my: 2
+      }}>
         {(element.fields || [])
           .filter((field) => !(hideElementName && field.id === 'element_name'))
           .map((field) => (
@@ -126,10 +127,14 @@ export default function ArtifactElementBody({
           />
         ))}
       </Stack>
-
       {/* Return Type */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-        <Typography variant="body2" fontWeight={600} color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary"
+          }}>
           {t('elementBody.returnType')}
         </Typography>
         <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />
@@ -137,15 +142,21 @@ export default function ArtifactElementBody({
           {formatReturnType(currentReturnType)}
         </Typography>
       </Box>
-
       {/* Modifiers */}
       {element.modifiers && element.modifiers.length > 0 && (
         <>
           <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle2" color="text.secondary" mb={1}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              color: "text.secondary",
+              mb: 1
+            }}>
             {t('elementBody.modifiers')}
           </Typography>
-          <Stack spacing={0.5} mb={1}>
+          <Stack spacing={0.5} sx={{
+            mb: 1
+          }}>
             {element.modifiers.map((mod, i) => (
               <Box key={`${mod.id}-${i}`}>
                 {canHaveModifiers && (
@@ -164,7 +175,6 @@ export default function ArtifactElementBody({
           </Stack>
         </>
       )}
-
       {/* Add Modifiers Buttons */}
       {canHaveModifiers && (
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
@@ -189,7 +199,6 @@ export default function ArtifactElementBody({
           )}
         </Stack>
       )}
-
       {/* Modifier Selection Dialog */}
       <SelectModifiersDialog
         open={modifierDialogOpen}
@@ -200,7 +209,6 @@ export default function ArtifactElementBody({
         onAdd={handleAddModifier}
         onRemove={handleRemoveModifier}
       />
-
       {/* Custom Modifier Builder Dialog */}
       <CustomModifierBuilder
         open={customBuilderOpen}
@@ -212,7 +220,7 @@ export default function ArtifactElementBody({
         }}
       />
     </Box>
-  )
+  );
 }
 
 // ----- Insert Modifier Inline Button -----
@@ -312,7 +320,9 @@ function SelectModifiersDialog({
         <ExpressionPhrase element={element} variant="full" />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 2 }}>
-          <Typography variant="body2" fontWeight={600}>{t('elementBody.returnType')}</Typography>
+          <Typography variant="body2" sx={{
+            fontWeight: 600
+          }}>{t('elementBody.returnType')}</Typography>
           <Typography variant="body2">
             {formatReturnType(element.returnType)}
             {chain.length > 0 && (
@@ -330,7 +340,15 @@ function SelectModifiersDialog({
             <Divider sx={{ my: 1.5 }}>
               <Chip label={t('elementBody.withModifiers')} size="small" color="primary" />
             </Divider>
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                alignItems: "center",
+                mb: 1.5,
+                flexWrap: 'wrap',
+                gap: 0.5
+              }}>
               <BackIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
               {chain.map((mod, i) => (
                 <Box key={`${mod.id}-${i}`} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
@@ -376,7 +394,9 @@ function SelectModifiersDialog({
                 <MenuItem key={mod.id} value={mod.id}>
                   <Box>
                     <Typography variant="body2">{mod.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {formatReturnType(mod.inputTypes[0])} → {formatReturnType(mod.returnType)}
                     </Typography>
                   </Box>
@@ -385,7 +405,13 @@ function SelectModifiersDialog({
             </Select>
           </FormControl>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              textAlign: 'center',
+              py: 2
+            }}>
             {t('elementBody.noMoreModifiers')}
           </Typography>
         )}
@@ -393,7 +419,9 @@ function SelectModifiersDialog({
         {selectedMod && (
           <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" gutterBottom>{selectedMod.name}</Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               <Trans
                 i18nKey="elementBody.modAccepts"
                 ns="authoring"
@@ -407,7 +435,13 @@ function SelectModifiersDialog({
               </Typography>
             )}
             {selectedMod.values && Object.keys(selectedMod.values).length > 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: 'block',
+                  mt: 0.5
+                }}>
                 {t('elementBody.modRequires', { fields: Object.keys(selectedMod.values).join(', ') })}
               </Typography>
             )}
@@ -425,7 +459,7 @@ function SelectModifiersDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 // ----- Field Renderer -----
@@ -444,10 +478,12 @@ function FieldRenderer({
   const { t } = useTranslation('authoring')
   if (field.static) {
     return (
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         {field.name}: {String(field.value || '')}
       </Typography>
-    )
+    );
   }
 
   // Add guidance for element_name and comment fields
@@ -561,7 +597,7 @@ function getEffectiveReturnType(element: ElementInstance): string {
 function formatReturnType(returnType: string): string {
   return returnType
     .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**

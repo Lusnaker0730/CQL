@@ -19,7 +19,9 @@ export default function StringField({ label, value, onChange, placeholder, helpe
       fullWidth
       placeholder={placeholder}
       helperText={helperText}
-      inputProps={maxLength ? { maxLength } : undefined}
+      slotProps={{
+        htmlInput: maxLength ? { maxLength } : undefined
+      }}
     />
-  )
+  );
 }

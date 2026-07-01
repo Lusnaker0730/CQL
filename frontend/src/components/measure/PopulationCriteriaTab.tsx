@@ -486,8 +486,16 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-        <Stack direction="row" spacing={0.5} alignItems="center">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <Typography variant="h6">{t('populationCriteria.title')}</Typography>
           <HelpTooltip text={helpContent.measures.populationCriteria} />
         </Stack>
@@ -504,15 +512,22 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           </GradientButton>
         </Stack>
       </Stack>
-
       {/* Completeness indicator */}
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          mb: 2
+        }}>
         <Tooltip
           arrow
           title={
             <Stack spacing={0.5} sx={{ py: 0.5 }}>
               {completenessChecks.map((c) => (
-                <Stack key={c.key} direction="row" spacing={0.5} alignItems="center">
+                <Stack key={c.key} direction="row" spacing={0.5} sx={{
+                  alignItems: "center"
+                }}>
                   {c.done ? (
                     <CheckCircleIcon sx={{ fontSize: 14, color: 'success.light' }} />
                   ) : (
@@ -526,8 +541,20 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             </Stack>
           }
         >
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, cursor: 'default' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              flex: 1,
+              cursor: 'default'
+            }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                whiteSpace: 'nowrap'
+              }}>
               {t('populationCriteria.completeness.label')} {completedCount}/{completenessChecks.length}
             </Typography>
             <LinearProgress
@@ -547,19 +574,16 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           </Stack>
         </Tooltip>
       </Stack>
-
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(saveMutation.error)}
         </Alert>
       )}
-
       {autoMapAlert && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setAutoMapAlert(null)}>
           {autoMapAlert}
         </Alert>
       )}
-
       {scoringChanged && (
         <Alert
           severity="info"
@@ -573,13 +597,11 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           <Trans i18nKey="populationCriteria.scoringChanged" ns="measures" values={{ scoringType: measure.scoringType }} components={{ strong: <strong /> }} />
         </Alert>
       )}
-
       {patientExpressions.length === 0 && measure.cqlContent && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t('populationCriteria.noExpressions')}
         </Alert>
       )}
-
       {validationMessages.length > 0 && (
         <Alert severity={hasErrors ? 'error' : 'warning'} sx={{ mb: 2 }}>
           <Stack spacing={0.5}>
@@ -591,7 +613,6 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
           </Stack>
         </Alert>
       )}
-
       <Box sx={{ display: 'flex', gap: 2, minHeight: 0 }}>
         {/* Left sidebar navigation */}
         <Paper
@@ -630,7 +651,9 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   )}
                   <ListItemText
                     primary={item.label}
-                    primaryTypographyProps={{ variant: 'body2', fontSize: '0.8rem' }}
+                    slotProps={{
+                      primary: { variant: 'body2', sx: { fontSize: '0.8rem' } }
+                    }}
                   />
                 </ListItemButton>
               ))}
@@ -649,7 +672,9 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   )}
                   <ListItemText
                     primary={item.label}
-                    primaryTypographyProps={{ variant: 'body2', fontSize: '0.8rem' }}
+                    slotProps={{
+                      primary: { variant: 'body2', sx: { fontSize: '0.8rem' } }
+                    }}
                   />
                 </ListItemButton>
               ))}
@@ -702,9 +727,19 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
 
             return (
               <Paper key={groupIdx} id={`pop-group-${groupIdx}`} variant="outlined" sx={{ p: 2 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="subtitle1" fontWeight={600}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2
+                  }}>
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
+                    <Typography variant="subtitle1" sx={{
+                      fontWeight: 600
+                    }}>
                       {t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
                     </Typography>
                     <Chip label={t('populationCriteria.populationCount', { count: pops.length })} size="small" />
@@ -715,7 +750,6 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     </IconButton>
                   )}
                 </Stack>
-
                 <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
                   <TextField
                     label={t('populationCriteria.fields.groupDescription')}
@@ -742,7 +776,6 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     helperText={t('populationCriteria.fields.rateDescriptionHelper')}
                   />
                 </Stack>
-
                 <TextField
                   select
                   label={t('populationCriteria.fields.populationBasis')}
@@ -759,11 +792,12 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     </MenuItem>
                   ))}
                 </TextField>
-
                 <Grid container spacing={2}>
                   {/* Left column: standard populations */}
                   <Grid size={{ xs: 12, md: hasExclusions ? 6 : 12 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    <Typography variant="subtitle2" gutterBottom sx={{
+                      color: "text.secondary"
+                    }}>
                       {t('populationCriteria.populations')}
                     </Typography>
                     <Stack spacing={1.5}>
@@ -793,7 +827,9 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   {/* Right column: exclusion / exception populations */}
                   {hasExclusions && (
                     <Grid size={{ xs: 12, md: 6 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      <Typography variant="subtitle2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         {t('populationCriteria.exclusions')}
                       </Typography>
                       <Stack spacing={1.5}>
@@ -818,7 +854,6 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     </Grid>
                   )}
                 </Grid>
-
                 <Stack direction="row" spacing={1} sx={{ alignSelf: 'flex-start', mt: 2 }}>
                   {showDualIpButton && (
                     <Button
@@ -859,7 +894,6 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     </>
                   )}
                 </Stack>
-
                 {OBSERVATION_REQUIRED_SCORING.has(measure.scoringType) && (
                   <>
                     <Divider sx={{ my: 2 }} />
@@ -872,7 +906,6 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     />
                   </>
                 )}
-
                 <Divider sx={{ my: 2 }} />
                 <UcumUnitField
                   label={t('populationCriteria.scoringUnit.label')}
@@ -883,7 +916,7 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                   helperText={t('populationCriteria.scoringUnit.helper')}
                 />
               </Paper>
-            )
+            );
           })}
         </Stack>
       )}
@@ -895,20 +928,33 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             const strats = group.stratifiers || []
             return (
               <Paper key={groupIdx} variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={2}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 2
+                  }}>
                   {t('populationCriteria.groupLabel', { number: groupIdx + 1 })}
                 </Typography>
-
                 {strats.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 2
+                    }}>
                     {t('populationCriteria.noStratifiers')}
                   </Typography>
                 ) : (
-                  <Stack spacing={1.5} mb={2}>
+                  <Stack spacing={1.5} sx={{
+                    mb: 2
+                  }}>
                     {strats.map((strat, stratIdx) => (
                       <Paper key={stratIdx} variant="outlined" sx={{ p: 1.5 }}>
                         <Stack spacing={1.5}>
-                          <Stack direction="row" spacing={1} alignItems="center">
+                          <Stack direction="row" spacing={1} sx={{
+                            alignItems: "center"
+                          }}>
                             <TextField
                               label={t('populationCriteria.stratifierFields.stratifierId')}
                               size="small"
@@ -941,13 +987,15 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                               label={t('populationCriteria.stratifierFields.populationAssociations')}
                               size="small"
                               fullWidth
-                              SelectProps={{
-                                multiple: true,
-                                renderValue: (selected) =>
-                                  (selected as string[]).map((v) => popLabel(v)).join(', '),
-                              }}
                               value={strat.associations || []}
                               onChange={(e) => updateStratifier(groupIdx, stratIdx, 'associations', e.target.value as unknown as string[])}
+                              slotProps={{
+                                select: {
+                                  multiple: true,
+                                  renderValue: (selected) =>
+                                    (selected as string[]).map((v) => popLabel(v)).join(', '),
+                                }
+                              }}
                             >
                               {stratifierAssociationOptions.map((type) => (
                                 <MenuItem key={type} value={type}>
@@ -974,12 +1022,11 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                     ))}
                   </Stack>
                 )}
-
                 <Button size="small" startIcon={<AddIcon />} onClick={() => addStratifier(groupIdx)} sx={{ alignSelf: 'flex-start' }}>
                   {t('populationCriteria.stratifierFields.addStratifier')}
                 </Button>
               </Paper>
-            )
+            );
           })}
         </Stack>
       )}
@@ -989,10 +1036,17 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={3}>
             <Box>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              <Typography variant="subtitle1" gutterBottom sx={{
+                fontWeight: 600
+              }}>
                 {t('populationCriteria.reporting.improvementNotation')}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1.5
+                }}>
                 {t('populationCriteria.reporting.improvementNotationHelper')}
               </Typography>
               <TextField
@@ -1014,10 +1068,17 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             <Divider />
 
             <Box>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              <Typography variant="subtitle1" gutterBottom sx={{
+                fontWeight: 600
+              }}>
                 {t('populationCriteria.reporting.rateAggregation')}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1.5
+                }}>
                 {t('populationCriteria.reporting.rateAggregationHelper')}
               </Typography>
               <TextField
@@ -1038,7 +1099,9 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
       {/* Sub-tab 3: Supplemental */}
       {subTab === 3 && (
         <Stack spacing={2}>
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <Typography variant="h6">{t('populationCriteria.riskAdjustment')}</Typography>
             <HelpTooltip text={helpContent.measures.riskAdjustment} />
           </Stack>
@@ -1048,7 +1111,9 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
             expressionNames={expressionNames}
             readOnly={measure.status === 'active'}
           />
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <Typography variant="h6">{t('populationCriteria.supplementalData')}</Typography>
             <HelpTooltip text={helpContent.measures.supplementalData} />
           </Stack>
@@ -1063,5 +1128,5 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
         </Box>
       </Box>
     </Box>
-  )
+  );
 }

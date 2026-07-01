@@ -43,7 +43,10 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   // Local optimistic state — mirrors server artifact but updates immediately on user edits
   const [localOverrides, setLocalOverrides] = useState<Partial<EcqmArtifactRequest>>({})
   const localArtifact = useMemo<EcqmArtifact>(
-    () => ({ ...artifact, ...localOverrides }) as EcqmArtifact,
+    () => (({
+      ...artifact,
+      ...localOverrides
+    }) as EcqmArtifact),
     [artifact, localOverrides]
   )
   const updateMutation = useUpdateEcqmArtifact()
@@ -85,7 +88,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
 
   // Auto-save timer
   const pendingRef = useRef<Partial<EcqmArtifactRequest> | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const save = useCallback((updates: Partial<EcqmArtifactRequest>) => {
     const a = artifactRef.current

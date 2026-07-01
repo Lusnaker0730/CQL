@@ -139,11 +139,15 @@ export default function DefinitionsSection({
           />
         ))
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.definitions').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'Definition' })}
@@ -304,7 +308,6 @@ export default function DefinitionsSection({
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -314,5 +317,5 @@ export default function DefinitionsSection({
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

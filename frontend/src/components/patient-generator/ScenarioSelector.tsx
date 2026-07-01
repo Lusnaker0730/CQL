@@ -57,7 +57,6 @@ export default function ScenarioSelector({ isGenerating, onGenerate }: ScenarioS
       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
         {t('scenarios.description')}
       </Typography>
-
       <Grid container spacing={2}>
         {scenariosConfig.scenarios.map((scenario) => (
           <Grid key={scenario.id} size={{ xs: 12, sm: 6, md: 4 }}>
@@ -76,7 +75,9 @@ export default function ScenarioSelector({ isGenerating, onGenerate }: ScenarioS
                   <Typography variant="h5" component="span">
                     {scenario.icon}
                   </Typography>
-                  <Typography variant="subtitle1" fontWeight={600}>
+                  <Typography variant="subtitle1" sx={{
+                    fontWeight: 600
+                  }}>
                     {scenario.name}
                   </Typography>
                 </Stack>
@@ -135,5 +136,5 @@ export default function ScenarioSelector({ isGenerating, onGenerate }: ScenarioS
         ))}
       </Grid>
     </Paper>
-  )
+  );
 }

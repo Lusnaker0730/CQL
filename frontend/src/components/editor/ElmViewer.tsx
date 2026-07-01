@@ -86,7 +86,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         <Tab
           {...a11yProps(1, 'elm')}
           label={
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <span>{t('elm.errors')}</span>
               {errors.length > 0 && (
                 <Chip label={errors.length} color="error" size="small" />
@@ -97,7 +99,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         <Tab
           {...a11yProps(2, 'elm')}
           label={
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <span>{t('elm.warnings')}</span>
               {warnings.length > 0 && (
                 <Chip label={warnings.length} color="warning" size="small" />
@@ -109,7 +113,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
         <Tab
           {...a11yProps(4, 'elm')}
           label={
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <span>{t('elm.terminology')}</span>
               {isTermValidating ? (
                 <CircularProgress size={14} />
@@ -124,12 +130,13 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
           }
         />
       </Tabs>
-
       <TabPanel value={tabValue} index={0} prefix="elm" sx={{ p: 2 }}>
         {metadata ? (
           <Stack spacing={2}>
             <Box>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography variant="subtitle2" sx={{
+                color: "text.secondary"
+              }}>
                 {t('elm.library')}
               </Typography>
               <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
@@ -139,7 +146,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
 
             {metadata.usings.length > 0 && (
               <Box>
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle2" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('elm.using')}
                 </Typography>
                 {metadata.usings.map((u: { localIdentifier: string; version: string }, i: number) => (
@@ -161,7 +170,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
 
             {metadata.includes.length > 0 && (
               <Box>
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle2" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('elm.includes')}
                 </Typography>
                 {metadata.includes.map((inc: { localIdentifier: string; path: string; version: string }, i: number) => (
@@ -183,7 +194,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
 
             {metadata.parameters.length > 0 && (
               <Box>
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle2" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('elm.parameters')}
                 </Typography>
                 {metadata.parameters.map((p: { name: string }, i: number) => (
@@ -205,7 +218,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
 
             {metadata.valueSets.length > 0 && (
               <Box>
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle2" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('elm.valueSets')}
                 </Typography>
                 {metadata.valueSets.map((vs: { name: string }, i: number) => (
@@ -227,7 +242,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
 
             {metadata.statements.length > 0 && (
               <Box>
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle2" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('elm.expressions', { count: metadata.statements.length })}
                 </Typography>
                 {metadata.statements.map((stmt: { name: string; context: string }, i: number) => (
@@ -248,12 +265,13 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             )}
           </Stack>
         ) : (
-          <Typography color="text.secondary">
+          <Typography sx={{
+            color: "text.secondary"
+          }}>
             {t('elm.noElmData')}
           </Typography>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={1} prefix="elm" sx={{ p: 2 }}>
         {errors.length > 0 ? (
           <Stack spacing={1}>
@@ -269,9 +287,19 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                   borderRadius: '0 8px 8px 0',
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "flex-start"
+                  }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight="bold" sx={{ color: 'error.dark' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: "bold",
+                        color: 'error.dark'
+                      }}>
                       {t('elm.lineCol', { line: error.startLine, column: error.startColumn })}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.primary' }}>{error.message}</Typography>
@@ -329,7 +357,12 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                     <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderTopColor: 'divider' }}>
                       {activeSuggestion.errorMessage ? (
                         <>
-                          <Typography variant="body2" color="error.main" sx={{ mb: 1 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: "error.main",
+                              mb: 1
+                            }}>
                             {activeSuggestion.errorMessage}
                           </Typography>
                           <Button size="small" onClick={() => setActiveSuggestion(null)}>
@@ -340,7 +373,12 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                         <>
                           {activeSuggestion.explanation && (
                             <Box sx={{ mb: 1.5 }}>
-                              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontWeight: "bold",
+                                  color: "text.secondary"
+                                }}>
                                 {t('elm.aiExplanation')}
                               </Typography>
                               <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -350,7 +388,12 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                           )}
                           {activeSuggestion.suggestedCql && (
                             <Box sx={{ mb: 1.5 }}>
-                              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontWeight: "bold",
+                                  color: "text.secondary"
+                                }}>
                                 {t('elm.suggestedFix')}
                               </Typography>
                               <Box
@@ -400,10 +443,11 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             ))}
           </Stack>
         ) : (
-          <Typography color="success.main">{t('elm.noErrors')}</Typography>
+          <Typography sx={{
+            color: "success.main"
+          }}>{t('elm.noErrors')}</Typography>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={2} prefix="elm" sx={{ p: 2 }}>
         {warnings.length > 0 ? (
           <Stack spacing={1}>
@@ -419,7 +463,12 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                   borderRadius: '0 8px 8px 0',
                 }}
               >
-                <Typography variant="body2" fontWeight="bold" sx={{ color: 'warning.dark' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: "bold",
+                    color: 'warning.dark'
+                  }}>
                   {t('elm.lineCol', { line: warning.startLine, column: warning.startColumn })}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.primary' }}>{warning.message}</Typography>
@@ -427,10 +476,11 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             ))}
           </Stack>
         ) : (
-          <Typography color="text.secondary">{t('elm.noWarnings')}</Typography>
+          <Typography sx={{
+            color: "text.secondary"
+          }}>{t('elm.noWarnings')}</Typography>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={3} prefix="elm" sx={{ p: 2 }}>
         {elmJson ? (
           <Box
@@ -451,17 +501,20 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             {formattedElm}
           </Box>
         ) : (
-          <Typography color="text.secondary">
+          <Typography sx={{
+            color: "text.secondary"
+          }}>
             {t('elm.noElmJson')}
           </Typography>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={4} prefix="elm" sx={{ p: 2 }}>
         {isTermValidating ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={20} />
-            <Typography color="text.secondary">{t('elm.validatingTerminology')}</Typography>
+            <Typography sx={{
+              color: "text.secondary"
+            }}>{t('elm.validatingTerminology')}</Typography>
           </Box>
         ) : terminologyResults.length > 0 ? (
           <TableContainer>
@@ -496,7 +549,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500
+                      }}>{item.name}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
@@ -504,7 +559,9 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">{item.detail || '—'}</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>{item.detail || '—'}</Typography>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -512,11 +569,13 @@ export default function ElmViewer({ terminologyResults = [], isTermValidating = 
             </Table>
           </TableContainer>
         ) : (
-          <Typography color="text.secondary">
+          <Typography sx={{
+            color: "text.secondary"
+          }}>
             {t('elm.noTerminology')}
           </Typography>
         )}
       </TabPanel>
     </Paper>
-  )
+  );
 }

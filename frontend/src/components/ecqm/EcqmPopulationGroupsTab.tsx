@@ -61,22 +61,38 @@ export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers
 
   return (
     <Box sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('populationGroups.title')}</Typography>
         <Button startIcon={<AddIcon />} onClick={addGroup}>{t('populationGroups.addGroup')}</Button>
       </Stack>
-
       {groups.length === 0 && (
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          sx={{
+            color: "text.secondary",
+            mb: 2
+          }}>
           {t('populationGroups.emptyState')}
         </Typography>
       )}
-
       {groups.map((group, idx) => (
         <Accordion key={group.groupId} defaultExpanded={idx === 0}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1 }}>
-              <Typography fontWeight={600}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: "center",
+                flex: 1
+              }}>
+              <Typography sx={{
+                fontWeight: 600
+              }}>
                 {t('populationGroups.groupLabel', { number: idx + 1 })}{group.description ? `: ${group.description}` : ''}
               </Typography>
             </Stack>
@@ -102,5 +118,5 @@ export default function EcqmPopulationGroupsTab({ artifact, templates, modifiers
         </Accordion>
       ))}
     </Box>
-  )
+  );
 }

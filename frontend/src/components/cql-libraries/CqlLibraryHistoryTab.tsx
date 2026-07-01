@@ -124,15 +124,21 @@ export default function CqlLibraryHistoryTab({
           ) : undefined
         }
       />
-
       {selectedIds.size > 0 && selectedIds.size < 2 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            mb: 1,
+            display: 'block'
+          }}>
           {t('compare.selectTwo')}
         </Typography>
       )}
-
       {sortedVersions.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('history.noHistory')}
         </Typography>
       ) : (
@@ -171,7 +177,9 @@ export default function CqlLibraryHistoryTab({
                       </TableCell>
                     )}
                     <TableCell>
-                      <Typography variant="body2" fontWeight={isCurrent ? 600 : 400}>
+                      <Typography variant="body2" sx={{
+                        fontWeight: isCurrent ? 600 : 400
+                      }}>
                         v{ver.version}
                         {isCurrent && (
                           <Typography
@@ -194,7 +202,9 @@ export default function CqlLibraryHistoryTab({
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                      <Stack direction="row" spacing={0.5} sx={{
+                        justifyContent: "flex-end"
+                      }}>
                         {!isCurrent && onLoadVersion && (
                           <Button
                             size="small"
@@ -215,13 +225,12 @@ export default function CqlLibraryHistoryTab({
                       </Stack>
                     </TableCell>
                   </TableRow>
-                )
+                );
               })}
             </TableBody>
           </Table>
         </TableContainer>
       )}
-
       {/* Create Draft Confirmation */}
       <Dialog open={draftSource !== null} onClose={() => setDraftSource(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('draft.createTitle')}</DialogTitle>
@@ -243,7 +252,6 @@ export default function CqlLibraryHistoryTab({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Version Compare Dialog */}
       <VersionCompareDialog
         open={compareOpen}
@@ -252,5 +260,5 @@ export default function CqlLibraryHistoryTab({
         newVersion={compareVersions.new}
       />
     </Box>
-  )
+  );
 }

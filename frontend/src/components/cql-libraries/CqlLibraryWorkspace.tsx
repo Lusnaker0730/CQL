@@ -11,7 +11,7 @@ import {
   ArrowBack as BackIcon,
   Save as SaveIcon,
   CheckCircle as CheckIcon,
-  ErrorOutline as ErrorIcon,
+  ErrorOutlined as ErrorIcon,
   NewReleases as VersionIcon,
   Download as ExportIcon,
 } from '@mui/icons-material'
@@ -50,7 +50,10 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
   // Local optimistic state
   const [localOverrides, setLocalOverrides] = useState<Partial<CqlLibrary>>({})
   const merged = useMemo<CqlLibrary>(
-    () => ({ ...library, ...localOverrides }) as CqlLibrary,
+    () => (({
+      ...library,
+      ...localOverrides
+    }) as CqlLibrary),
     [library, localOverrides]
   )
 
@@ -80,7 +83,7 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
 
   // Auto-save timer
   const pendingRef = useRef<Partial<CqlLibrary> | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const save = useCallback((updates: Partial<CqlLibrary>) => {
     const lib = libraryRef.current
@@ -227,18 +230,30 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
     switch (saveStatus) {
       case 'saving':
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: 'text.secondary'
+            }}>
             <CircularProgress size={14} color="inherit" />
             <Typography variant="caption">{t('workspace.saving')}</Typography>
           </Stack>
-        )
+        );
       case 'saved':
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'success.main' }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: 'success.main'
+            }}>
             <CheckIcon fontSize="small" />
             <Typography variant="caption">{t('workspace.saved')}</Typography>
           </Stack>
-        )
+        );
       case 'dirty':
         return (
           <Typography variant="caption" sx={{ color: 'warning.main' }}>
@@ -247,11 +262,17 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
         )
       case 'error':
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'error.main' }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: 'error.main'
+            }}>
             <ErrorIcon fontSize="small" />
             <Typography variant="caption">{t('workspace.saveFailed')}</Typography>
           </Stack>
-        )
+        );
       default:
         return null
     }
@@ -260,13 +281,19 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ px: 3, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Stack direction="row" alignItems="center" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{
+          alignItems: "center"
+        }}>
           <Tooltip title={t('header.backToList')}>
             <IconButton onClick={handleBack}><BackIcon /></IconButton>
           </Tooltip>
           <Box sx={{ flex: 1 }}>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Typography variant="h6" fontWeight={600}>{merged.name}</Typography>
+            <Stack direction="row" spacing={1.5} sx={{
+              alignItems: "center"
+            }}>
+              <Typography variant="h6" sx={{
+                fontWeight: 600
+              }}>{merged.name}</Typography>
               {saveIndicator}
               {readOnly && (
                 <Chip label={t('workspace.readOnly')} size="small" color="warning" variant="outlined" />
@@ -314,7 +341,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           </Tooltip>
         </Stack>
       </Box>
-
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
           <Tab label={t('workspace.tabs.cqlEditor')} />
@@ -324,7 +350,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           <Tab label={t('workspace.tabs.sharing')} />
         </Tabs>
       </Box>
-
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {tab === 0 && (
           <CqlLibraryEditorTab
@@ -364,7 +389,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           </Box>
         )}
       </Box>
-
       {/* Unsaved changes confirmation dialog */}
       <Dialog open={showBackConfirm} onClose={() => setShowBackConfirm(false)}>
         <DialogTitle>{t('workspace.unsavedTitle')}</DialogTitle>
@@ -381,7 +405,6 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Create Version dialog */}
       <Dialog open={showVersionDialog} onClose={() => setShowVersionDialog(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('version.createConfirmTitle')}</DialogTitle>
@@ -419,5 +442,5 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

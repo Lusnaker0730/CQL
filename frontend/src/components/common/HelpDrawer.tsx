@@ -31,8 +31,16 @@ export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
       <Box sx={{ width: 360, p: 3 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6" color="secondary.main">
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2
+          }}>
+          <Typography variant="h6" sx={{
+            color: "secondary.main"
+          }}>
             {t('help.quickStartGuide')}
           </Typography>
           <IconButton onClick={onClose} aria-label={t('dialogs.closeHelp')}>
@@ -48,7 +56,9 @@ export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mb: 0.5 }}>
                 {t(`help.quickStart.${key}.title`)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 {t(`help.quickStart.${key}.content`)}
               </Typography>
             </Box>
@@ -56,5 +66,5 @@ export default function HelpDrawer({ open, onClose }: HelpDrawerProps) {
         </Stack>
       </Box>
     </Drawer>
-  )
+  );
 }

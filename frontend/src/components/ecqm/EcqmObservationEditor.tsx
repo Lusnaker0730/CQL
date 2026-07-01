@@ -62,8 +62,16 @@ export default function EcqmObservationEditor({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-        <Typography variant="subtitle2" fontWeight={600}>{t('observation.title')}</Typography>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1.5
+        }}>
+        <Typography variant="subtitle2" sx={{
+          fontWeight: 600
+        }}>{t('observation.title')}</Typography>
         <IconButton
           size="small"
           color="error"
@@ -73,8 +81,14 @@ export default function EcqmObservationEditor({
           <DeleteIcon fontSize="small" />
         </IconButton>
       </Stack>
-
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={2}
+        useFlexGap
+        sx={{
+          flexWrap: "wrap",
+          mb: 2
+        }}>
         <TextField
           label={t('observation.aggregateMethod')} select size="small" sx={{ width: 200 }}
           value={observation.aggregateMethod}
@@ -96,7 +110,6 @@ export default function EcqmObservationEditor({
               const v = raw === '' ? undefined : Number(raw)
               onChange({ ...observation, percentileValue: v })
             }}
-            inputProps={{ min: 0, max: 100, step: 1 }}
             error={
               observation.percentileValue == null ||
               observation.percentileValue < 0 ||
@@ -109,6 +122,9 @@ export default function EcqmObservationEditor({
                   ? t('observation.percentileRange')
                   : t('observation.percentileHint')
             }
+            slotProps={{
+              htmlInput: { min: 0, max: 100, step: 1 }
+            }}
           />
         )}
         <TextField
@@ -120,9 +136,14 @@ export default function EcqmObservationEditor({
           helperText={!observation.populationRef ? t('observation.populationRefRequired') : ' '}
         />
       </Stack>
-
       <Box sx={{ mb: 2 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            mb: 0.5,
+            display: 'block'
+          }}>
           {t('observation.observationType')}
         </Typography>
         <ToggleButtonGroup
@@ -135,7 +156,9 @@ export default function EcqmObservationEditor({
           {OBSERVATION_TYPES.map((type) => (
             <ToggleButton key={type} value={type} sx={{ textTransform: 'none', px: 2 }}>
               <Tooltip title={t(`observation.types.${type}Desc`)}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
+                <Stack direction="row" spacing={0.5} sx={{
+                  alignItems: "center"
+                }}>
                   {TYPE_ICONS[type]}
                   <span>{t(`observation.types.${type}`)}</span>
                 </Stack>
@@ -144,7 +167,6 @@ export default function EcqmObservationEditor({
           ))}
         </ToggleButtonGroup>
       </Box>
-
       {obsType === 'duration' && (
         <Box sx={{ mb: 1 }}>
           <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
@@ -168,13 +190,17 @@ export default function EcqmObservationEditor({
             </TextField>
           </Stack>
           <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
-            <Typography variant="body2" fontFamily="monospace" fontSize={13}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontFamily: "monospace",
+                fontSize: 13
+              }}>
               {t('observation.durationPreview', { unit: currentUnit, param: paramName, property: currentProperty })}
             </Typography>
           </Alert>
         </Box>
       )}
-
       {obsType === 'quantity' && (
         <Box sx={{ mb: 1 }}>
           <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
@@ -189,13 +215,17 @@ export default function EcqmObservationEditor({
             </TextField>
           </Stack>
           <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
-            <Typography variant="body2" fontFamily="monospace" fontSize={13}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontFamily: "monospace",
+                fontSize: 13
+              }}>
               {t('observation.quantityPreview', { param: paramName, property: currentProperty })}
             </Typography>
           </Alert>
         </Box>
       )}
-
       {obsType === 'criteria' && (
         <EcqmPopulationTreeEditor
           label={t('observation.criteria')}
@@ -206,5 +236,5 @@ export default function EcqmObservationEditor({
         />
       )}
     </Paper>
-  )
+  );
 }

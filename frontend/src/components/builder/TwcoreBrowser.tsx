@@ -37,13 +37,22 @@ export default function TwcoreBrowser({ emptyMessage, onCodeClick }: TwcoreBrows
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
       />
-
       {isLoading ? (
-        <Stack alignItems="center" py={1}>
+        <Stack
+          sx={{
+            alignItems: "center",
+            py: 1
+          }}>
           <CircularProgress size={20} />
         </Stack>
       ) : filteredCatalog.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic',
+            fontSize: '0.8rem'
+          }}>
           {emptyMessage}
         </Typography>
       ) : (
@@ -58,8 +67,15 @@ export default function TwcoreBrowser({ emptyMessage, onCodeClick }: TwcoreBrows
               sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent' }}
             >
               <AccordionSummary expandIcon={<ExpandMore sx={{ fontSize: 16 }} />} sx={{ minHeight: 32, px: 0.5, '& .MuiAccordionSummary-content': { my: 0.25 } }}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
+                <Stack direction="row" spacing={0.5} sx={{
+                  alignItems: "center"
+                }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 500,
+                      fontSize: '0.8rem'
+                    }}>
                     {entry.name}
                   </Typography>
                   <Chip label={entry.resourceType} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
@@ -94,7 +110,12 @@ export default function TwcoreBrowser({ emptyMessage, onCodeClick }: TwcoreBrows
                                   </Typography>
                                   {' '}{code.display}
                                   {code.displayZh && (
-                                    <Typography component="span" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                    <Typography
+                                      component="span"
+                                      sx={{
+                                        color: "text.secondary",
+                                        fontSize: '0.7rem'
+                                      }}>
                                       {' '}({code.displayZh})
                                     </Typography>
                                   )}
@@ -113,5 +134,5 @@ export default function TwcoreBrowser({ emptyMessage, onCodeClick }: TwcoreBrows
         </Stack>
       )}
     </>
-  )
+  );
 }

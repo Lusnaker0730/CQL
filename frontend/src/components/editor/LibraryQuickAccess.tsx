@@ -113,16 +113,21 @@ export default function LibraryQuickAccess() {
           {t('quickAccess.title')}
         </Typography>
       </Box>
-
       {/* Favorites */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setFavoritesOpen(!favoritesOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.5,
+          cursor: 'pointer',
+          flexShrink: 0
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
           <Typography variant="subtitle2">{t('quickAccess.favorites')}</Typography>
         </Stack>
@@ -130,7 +135,14 @@ export default function LibraryQuickAccess() {
       </Stack>
       <Collapse in={favoritesOpen} sx={{ flexShrink: 0 }}>
         {favoritesList.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              px: 2,
+              py: 1,
+              display: 'block'
+            }}>
             {t('quickAccess.noFavorites')}
           </Typography>
         ) : (
@@ -152,30 +164,37 @@ export default function LibraryQuickAccess() {
                 <ListItemText
                   primary={item.libraryName}
                   secondary={`v${item.libraryVersion}`}
-                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
+                  slotProps={{
+                    primary: { variant: 'body2', noWrap: true },
+                    secondary: { variant: 'caption' }
+                  }} />
               </ListItemButton>
             ))}
           </List>
         )}
       </Collapse>
-
       <Divider sx={{ flexShrink: 0 }} />
-
       {/* Recent */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setRecentOpen(!recentOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.5,
+          cursor: 'pointer',
+          flexShrink: 0
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <HistoryIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
           <Typography variant="subtitle2">{t('quickAccess.recent')}</Typography>
         </Stack>
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           {recent.length > 0 && (
             <IconButton
               size="small"
@@ -194,7 +213,14 @@ export default function LibraryQuickAccess() {
       </Stack>
       <Collapse in={recentOpen} sx={{ flexShrink: 0 }}>
         {recent.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              px: 2,
+              py: 1,
+              display: 'block'
+            }}>
             {t('quickAccess.noRecent')}
           </Typography>
         ) : (
@@ -220,26 +246,31 @@ export default function LibraryQuickAccess() {
                 <ListItemText
                   primary={item.name}
                   secondary={`v${item.version}`}
-                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
+                  slotProps={{
+                    primary: { variant: 'body2', noWrap: true },
+                    secondary: { variant: 'caption' }
+                  }} />
               </ListItemButton>
             ))}
           </List>
         )}
       </Collapse>
-
       <Divider sx={{ flexShrink: 0 }} />
-
       {/* Browse Libraries with filter tabs */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setBrowseOpen(!browseOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.5,
+          cursor: 'pointer',
+          flexShrink: 0
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <SharedIcon sx={{ fontSize: 16, color: 'primary.main' }} />
           <Typography variant="subtitle2">{t('quickAccess.browse')}</Typography>
           <Chip label={filteredLibraries.length} size="small" sx={{ height: 16, fontSize: '0.65rem' }} />
@@ -262,7 +293,14 @@ export default function LibraryQuickAccess() {
           <Tab label={t('quickAccess.public')} />
         </Tabs>
         {filteredLibraries.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              px: 2,
+              py: 1,
+              display: 'block'
+            }}>
             {t('quickAccess.noLibraries')}
           </Typography>
         ) : (
@@ -275,26 +313,31 @@ export default function LibraryQuickAccess() {
                 <ListItemText
                   primary={lib.name}
                   secondary={`v${lib.version} - ${lib.status}`}
-                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { variant: 'body2', noWrap: true },
+                    secondary: { variant: 'caption', noWrap: true }
+                  }} />
               </ListItemButton>
             ))}
           </List>
         )}
       </Collapse>
-
       <Divider sx={{ flexShrink: 0 }} />
-
       {/* CQL Repository */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setRepoOpen(!repoOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.5,
+          cursor: 'pointer',
+          flexShrink: 0
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <RepositoryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
           <Typography variant="subtitle2">{t('quickAccess.repository')}</Typography>
         </Stack>
@@ -306,7 +349,14 @@ export default function LibraryQuickAccess() {
             <CircularProgress size={18} />
           </Box>
         ) : repoLibraries.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              px: 2,
+              py: 1,
+              display: 'block'
+            }}>
             {t('quickAccess.noRepository')}
           </Typography>
         ) : (
@@ -316,9 +366,10 @@ export default function LibraryQuickAccess() {
                 <ListItemText
                   primary={lib.name}
                   secondary={`v${lib.version} — ${lib.description}`}
-                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { variant: 'body2', noWrap: true },
+                    secondary: { variant: 'caption', noWrap: true }
+                  }} />
                 <IconButton
                   size="small"
                   onClick={(e) => {
@@ -336,18 +387,22 @@ export default function LibraryQuickAccess() {
           </List>
         )}
       </Collapse>
-
       <Divider sx={{ flexShrink: 0 }} />
-
       {/* TWCDI Templates */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.5, cursor: 'pointer', flexShrink: 0 }}
         onClick={() => setTwcdiOpen(!twcdiOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.5,
+          cursor: 'pointer',
+          flexShrink: 0
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <TwcdiIcon sx={{ fontSize: 16, color: 'primary.main' }} />
           <Typography variant="subtitle2">{t('quickAccess.twcdiTemplates')}</Typography>
         </Stack>
@@ -364,13 +419,14 @@ export default function LibraryQuickAccess() {
               <ListItemText
                 primary={template.name}
                 secondary={template.description}
-                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
-              />
+                slotProps={{
+                  primary: { variant: 'body2', noWrap: true },
+                  secondary: { variant: 'caption', noWrap: true }
+                }} />
             </ListItemButton>
           ))}
         </List>
       </Collapse>
     </Paper>
-  )
+  );
 }

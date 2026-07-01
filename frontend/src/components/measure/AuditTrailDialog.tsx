@@ -61,7 +61,9 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <HistoryIcon color="primary" />
           <Typography variant="h6">{t('audit.title', { name: measureName })}</Typography>
         </Stack>
@@ -74,7 +76,13 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
         )}
 
         {!isLoading && auditEntries.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             {t('audit.emptyState')}
           </Typography>
         )}
@@ -86,7 +94,13 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
               return (
                 <Box key={entry.id}>
                   <ListItem sx={{ px: 0, py: 1 }}>
-                    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ width: '100%' }}>
+                    <Stack
+                      direction="row"
+                      spacing={1.5}
+                      sx={{
+                        alignItems: "flex-start",
+                        width: '100%'
+                      }}>
                       <Box
                         sx={{
                           mt: 0.25,
@@ -104,7 +118,13 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
                         {config.icon}
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          sx={{
+                            alignItems: "center",
+                            mb: 0.25
+                          }}>
                           <Chip
                             label={entry.action.replace(/_/g, ' ')}
                             size="small"
@@ -113,7 +133,9 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
                             sx={{ fontSize: '0.7rem', height: 20 }}
                           />
                           {entry.performedBy && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {t('audit.by', { user: entry.performedBy })}
                             </Typography>
                           )}
@@ -123,7 +145,9 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
                             {entry.details}
                           </Typography>
                         )}
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                          color: "text.secondary"
+                        }}>
                           {formatDate(entry.createdAt)}
                         </Typography>
                       </Box>
@@ -131,7 +155,7 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
                   </ListItem>
                   {idx < auditEntries.length - 1 && <Divider />}
                 </Box>
-              )
+              );
             })}
           </List>
         )}
@@ -140,5 +164,5 @@ export default function AuditTrailDialog({ open, onClose, measureId, measureName
         <Button onClick={onClose}>{t('audit.close')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

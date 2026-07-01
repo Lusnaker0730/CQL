@@ -137,7 +137,6 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         onRemove={removeEntry}
         onClearHistory={clearHistory}
       />
-
       <SearchParamBuilder
         resourceType={resourceType}
         value={searchParams}
@@ -145,7 +144,6 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         mode={searchMode}
         onModeChange={setSearchMode}
       />
-
       <Stack direction="row" spacing={1}>
         <GradientButton
           onClick={handleSearch}
@@ -165,21 +163,27 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           {t('search.createResource')}
         </Button>
       </Stack>
-
       {searchMutation.isError && (
         <Alert severity="error">
           {t('search.searchFailed', { error: (searchMutation.error as Error).message })}
         </Alert>
       )}
-
       {searchMutation.isPending && (
         <Alert severity="info">{t('search.searching')}</Alert>
       )}
-
       {searchResult && (
         <Box>
-          <Stack direction="row" spacing={1} alignItems="center" mb={1} justifyContent="space-between">
-            <Stack direction="row" spacing={1} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              mb: 1,
+              justifyContent: "space-between"
+            }}>
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <Typography variant="subtitle2">{t('search.results')}</Typography>
               <Chip
                 label={t('search.resourceCount', { count: totalEntries || getResourceCount(searchResult) })}
@@ -187,9 +191,13 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
                 sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.main', fontWeight: 600 }}
               />
             </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               {totalPages > 1 && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {currentPage + 1} / {totalPages}
                 </Typography>
               )}
@@ -265,7 +273,6 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
           )}
         </Box>
       )}
-
       <ResourceDetailDialog
         open={detailOpen}
         resource={selectedResource}
@@ -276,7 +283,6 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         onDeleted={handleRefresh}
         onUpdated={handleRefresh}
       />
-
       <ResourceEditorDialog
         open={createOpen}
         mode="create"
@@ -289,5 +295,5 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         }}
       />
     </Stack>
-  )
+  );
 }

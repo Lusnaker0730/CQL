@@ -47,11 +47,13 @@ export default function LibraryDependencyPanel({
   if (!libraryId || !libraryName) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('dependency.saveFirst')}
         </Typography>
       </Box>
-    )
+    );
   }
 
   return (
@@ -64,23 +66,29 @@ export default function LibraryDependencyPanel({
           borderColor: (theme) => alpha(theme.palette.primary.main, 0.1),
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <TreeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
             {t('dependency.title')}
           </Typography>
         </Stack>
       </Box>
-
       {/* Dependencies (what this library uses) */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.75, cursor: 'pointer' }}
         onClick={() => setDepsOpen(!depsOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.75,
+          cursor: 'pointer'
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <DependencyIcon sx={{ fontSize: 16, color: 'info.main' }} />
           <Typography variant="subtitle2">
             {t('dependency.dependencies')}
@@ -95,7 +103,14 @@ export default function LibraryDependencyPanel({
             <CircularProgress size={20} />
           </Box>
         ) : dependencies.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 2, pb: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              px: 2,
+              pb: 1,
+              display: 'block'
+            }}>
             {t('dependency.noDependencies')}
           </Typography>
         ) : (
@@ -118,9 +133,10 @@ export default function LibraryDependencyPanel({
                 <ListItemText
                   primary={dep.name}
                   secondary={`v${dep.version}`}
-                  primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
+                  slotProps={{
+                    primary: { variant: 'body2', noWrap: true },
+                    secondary: { variant: 'caption' }
+                  }} />
                 <Chip
                   label={dep.status}
                   size="small"
@@ -132,18 +148,21 @@ export default function LibraryDependencyPanel({
           </List>
         )}
       </Collapse>
-
       <Divider />
-
       {/* Dependents (impact analysis - what uses this library) */}
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 1.5, py: 0.75, cursor: 'pointer' }}
         onClick={() => setDependentsOpen(!dependentsOpen)}
-      >
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.75,
+          cursor: 'pointer'
+        }}>
+        <Stack direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <DependentIcon sx={{ fontSize: 16, color: 'warning.main' }} />
           <Typography variant="subtitle2">
             {t('dependency.impactAnalysis')}
@@ -158,7 +177,14 @@ export default function LibraryDependencyPanel({
             <CircularProgress size={20} />
           </Box>
         ) : dependents.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 2, pb: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              px: 2,
+              pb: 1,
+              display: 'block'
+            }}>
             {t('dependency.noDependents')}
           </Typography>
         ) : (
@@ -187,9 +213,10 @@ export default function LibraryDependencyPanel({
                   <ListItemText
                     primary={dep.name}
                     secondary={`v${dep.version}`}
-                    primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
+                    slotProps={{
+                      primary: { variant: 'body2', noWrap: true },
+                      secondary: { variant: 'caption' }
+                    }} />
                   <Chip
                     label={dep.status}
                     size="small"
@@ -203,5 +230,5 @@ export default function LibraryDependencyPanel({
         )}
       </Collapse>
     </Box>
-  )
+  );
 }

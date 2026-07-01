@@ -79,9 +79,11 @@ export default function VersionHistoryDialog({
         {versions.length === 0 ? (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ px: 3, py: 2 }}
-          >
+            sx={{
+              color: "text.secondary",
+              px: 3,
+              py: 2
+            }}>
             {t('version.noHistory')}
           </Typography>
         ) : (
@@ -106,7 +108,9 @@ export default function VersionHistoryDialog({
                       onClick={() => handleRowClick(entry)}
                     >
                       <TableCell>
-                        <Typography variant="body2" fontWeight={500}>
+                        <Typography variant="body2" sx={{
+                          fontWeight: 500
+                        }}>
                           {entry.version}
                         </Typography>
                       </TableCell>
@@ -114,7 +118,9 @@ export default function VersionHistoryDialog({
                         <StatusChip status={entry.status} />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" sx={{
+                          color: "text.secondary"
+                        }}>
                           {formatDate(entry.updatedAt || entry.createdAt)}
                         </Typography>
                       </TableCell>
@@ -140,5 +146,5 @@ export default function VersionHistoryDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

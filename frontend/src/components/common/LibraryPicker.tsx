@@ -98,7 +98,9 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
           {/* Favorites section */}
           {favoritesList.length > 0 && (
             <>
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" spacing={0.5} sx={{
+                alignItems: "center"
+              }}>
                 <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
                 <Typography variant="subtitle2">{t('libraryPicker.favorites')}</Typography>
               </Stack>
@@ -115,9 +117,10 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
                     <ListItemText
                       primary={item.libraryName}
                       secondary={`v${item.libraryVersion}`}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
+                      slotProps={{
+                        primary: { variant: 'body2' },
+                        secondary: { variant: 'caption' }
+                      }} />
                   </ListItemButton>
                 ))}
               </List>
@@ -128,7 +131,9 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
           {/* Recent section */}
           {recentList.length > 0 && (
             <>
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" spacing={0.5} sx={{
+                alignItems: "center"
+              }}>
                 <HistoryIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                 <Typography variant="subtitle2">{t('libraryPicker.recent')}</Typography>
               </Stack>
@@ -145,9 +150,10 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
                     <ListItemText
                       primary={item.libraryName}
                       secondary={`v${item.libraryVersion}`}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
+                      slotProps={{
+                        primary: { variant: 'body2' },
+                        secondary: { variant: 'caption' }
+                      }} />
                   </ListItemButton>
                 ))}
               </List>
@@ -156,7 +162,9 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
           )}
 
           {/* Search */}
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
             <Typography variant="subtitle2">{t('libraryPicker.searchLibraries')}</Typography>
           </Stack>
@@ -166,7 +174,9 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
             placeholder={t('libraryPicker.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} /> }}
+            slotProps={{
+              input: { startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} /> }
+            }}
           />
           {isFetching && <CircularProgress size={20} />}
           {searchError && (
@@ -183,23 +193,30 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
                   <ListItemText
                     primary={lib.name}
                     secondary={`v${lib.version}`}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
+                    slotProps={{
+                      primary: { variant: 'body2' },
+                      secondary: { variant: 'caption' }
+                    }} />
                 </ListItemButton>
               ))}
             </List>
           )}
           {debouncedSearch.length > 0 && !isFetching && searchResults.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {t('libraryPicker.noLibraries')}
             </Typography>
           )}
 
           {loading && (
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <CircularProgress size={16} />
-              <Typography variant="body2" color="text.secondary">{t('libraryPicker.loading')}</Typography>
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>{t('libraryPicker.loading')}</Typography>
             </Stack>
           )}
         </Stack>
@@ -208,5 +225,5 @@ export default function LibraryPicker({ open, onClose, onSelect }: LibraryPicker
         <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

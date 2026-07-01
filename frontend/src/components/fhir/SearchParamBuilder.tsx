@@ -125,8 +125,16 @@ export default function SearchParamBuilder({
 
   return (
     <Box>
-      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-        <Typography variant="caption" color="text.secondary">{t('searchParams.title')}</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          mb: 1
+        }}>
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>{t('searchParams.title')}</Typography>
         <ToggleButtonGroup
           value={mode}
           exclusive
@@ -138,7 +146,6 @@ export default function SearchParamBuilder({
           <ToggleButton value="raw">{t('searchParams.raw')}</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
-
       {mode === 'raw' ? (
         <TextField
           value={value}
@@ -151,7 +158,9 @@ export default function SearchParamBuilder({
       ) : (
         <Stack spacing={1}>
           {params.map((param, idx) => (
-            <Stack key={idx} direction="row" spacing={1} alignItems="center">
+            <Stack key={idx} direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <FormControl size="small" sx={{ minWidth: 160 }}>
                 <InputLabel>{t('searchParams.parameterLabel')}</InputLabel>
                 <Select
@@ -187,5 +196,5 @@ export default function SearchParamBuilder({
         </Stack>
       )}
     </Box>
-  )
+  );
 }

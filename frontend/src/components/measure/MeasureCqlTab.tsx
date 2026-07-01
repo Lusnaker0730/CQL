@@ -133,7 +133,16 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          p: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          flexWrap: 'wrap'
+        }}>
         <Button
           size="small"
           variant="outlined"
@@ -171,7 +180,6 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
           <Chip label={t('cql.warningCount', { count: warningCount })} size="small" color="warning" sx={{ height: 22 }} />
         )}
       </Stack>
-
       {restoredDraft && (
         <Alert
           severity="info"
@@ -185,17 +193,14 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
           {t('cql.draftRestored')}
         </Alert>
       )}
-
       {translateMutation.isError && (
         <Alert severity="error" sx={{ mx: 1, mt: 1 }}>
           {t('cql.translationFailed', { error: extractApiError(translateMutation.error) })}
         </Alert>
       )}
-
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <CqlEditor ref={cqlEditorRef} height="100%" readOnly={readOnly} onContentChanged={handleContentChanged} />
       </Box>
-
       <ImportCqlFromLibraryDialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
@@ -203,5 +208,5 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
         hasExistingContent={!!localContent.trim()}
       />
     </Box>
-  )
+  );
 }

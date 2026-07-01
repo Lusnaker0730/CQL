@@ -63,15 +63,25 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={2}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>
           {t('observations.title')}
         </Typography>
 
         {items.map((item, index) => (
           <Paper key={`obs-${item.criteriaExpression || index}-${item.aggregateMethod}`} variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={2}>
-              <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                <Typography variant="body2" fontWeight={500}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}>
+                <Typography variant="body2" sx={{
+                  fontWeight: 500
+                }}>
                   {t('observations.observationLabel', { number: index + 1 })}
                 </Typography>
                 {!readOnly && (

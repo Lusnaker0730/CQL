@@ -21,10 +21,12 @@ export default function DebugPanel({ trace }: DebugPanelProps) {
       <ExpressionTraceTable traces={trace.expressionTraces} />
       <RetrieveTraceTable traces={trace.retrieveTraces} />
       <Box>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {t('debug.totalTime', { ms: trace.totalTimeMs })}
         </Typography>
       </Box>
     </Stack>
-  )
+  );
 }

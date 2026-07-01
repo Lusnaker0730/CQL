@@ -15,7 +15,7 @@ import {
 import {
   ContentCopy as CopyIcon,
   Check as CheckIcon,
-  AddCircleOutline as UseIcon,
+  AddCircleOutlined as UseIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
@@ -88,7 +88,6 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
         )}
         size="small"
       />
-
       <TextField
         label={t('codeLookup.codeLabel')}
         placeholder={t('codeLookup.codePlaceholder')}
@@ -98,7 +97,6 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
         onChange={(e) => setCode(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
       />
-
       <GradientButton
         startIcon={<SearchIcon />}
         onClick={handleLookup}
@@ -107,16 +105,20 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
       >
         {lookupMutation.isPending ? t('codeLookup.lookingUp') : t('codeLookup.lookupCode')}
       </GradientButton>
-
       {lookupMutation.isError && (
         <Typography variant="body2" color="error">
           {t('codeLookup.lookupFailed', { error: extractApiError(lookupMutation.error) })}
         </Typography>
       )}
-
       {result && (
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, overflow: 'auto' }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 1
+            }}>
             <Typography variant="subtitle2">{t('codeLookup.codeDetails')}</Typography>
             <Stack direction="row" spacing={0.5}>
               <Tooltip title={isCopied(COPIED_KEY) ? t('drawer.copied') : t('drawer.copyTooltip')}>
@@ -144,27 +146,46 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
           <Divider sx={{ mb: 1 }} />
           <Stack spacing={0.75}>
             <Box>
-              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailSystem')}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('codeLookup.detailSystem')}</Typography>
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{result.system}</Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailCode')}</Typography>
-              <Typography variant="body2" fontWeight={600}>{result.code}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('codeLookup.detailCode')}</Typography>
+              <Typography variant="body2" sx={{
+                fontWeight: 600
+              }}>{result.code}</Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailDisplay')}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('codeLookup.detailDisplay')}</Typography>
               <Typography variant="body2">{result.display}</Typography>
             </Box>
             {result.name && (
               <Box>
-                <Typography variant="caption" color="text.secondary">{t('codeLookup.detailName')}</Typography>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('codeLookup.detailName')}</Typography>
                 <Typography variant="body2">{result.name}</Typography>
               </Box>
             )}
             {result.designations && result.designations.length > 0 && (
               <Box>
-                <Typography variant="caption" color="text.secondary">{t('codeLookup.detailDesignations')}</Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('codeLookup.detailDesignations')}</Typography>
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  useFlexGap
+                  sx={{
+                    flexWrap: "wrap",
+                    mt: 0.25
+                  }}>
                   {result.designations.map((d, i) => (
                     <Chip key={i} label={d} size="small" sx={{ height: 22, fontSize: '0.7rem' }} />
                   ))}
@@ -175,5 +196,5 @@ export default function DrawerCodeLookupPanel({ onSelect }: DrawerCodeLookupPane
         </Paper>
       )}
     </Box>
-  )
+  );
 }

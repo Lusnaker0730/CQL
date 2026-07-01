@@ -95,10 +95,18 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
 
   return (
     <Paper sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Box>
           <Typography variant="h6">{t('schedules.title')}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {measure.title || measure.name} v{measure.version}
           </Typography>
         </Box>
@@ -109,7 +117,6 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
           {onClose && <Button size="small" onClick={onClose}>{t('schedules.close')}</Button>}
         </Stack>
       </Stack>
-
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -130,7 +137,9 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
                   <Switch size="small" checked={s.enabled} onChange={() => handleToggle(s)} />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="caption" fontFamily="monospace">{s.cronExpression}</Typography>
+                  <Typography variant="caption" sx={{
+                    fontFamily: "monospace"
+                  }}>{s.cronExpression}</Typography>
                 </TableCell>
                 <TableCell>{s.periodType}</TableCell>
                 <TableCell>
@@ -165,7 +174,12 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
             {!isLoading && schedules.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      py: 2
+                    }}>
                     {t('schedules.emptyState')}
                   </Typography>
                 </TableCell>
@@ -174,13 +188,11 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
           </TableBody>
         </Table>
       </TableContainer>
-
       {triggerMutation.isSuccess && (
         <Alert severity="success" sx={{ mt: 2 }}>
           {t('schedules.manualComplete', { status: triggerMutation.data?.status })}
         </Alert>
       )}
-
       {/* Create Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('schedules.createDialog.title')}</DialogTitle>
@@ -223,5 +235,5 @@ export default function MeasureScheduleManager({ measure, onClose }: MeasureSche
         </DialogActions>
       </Dialog>
     </Paper>
-  )
+  );
 }

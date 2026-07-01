@@ -85,13 +85,18 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
-      <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          alignItems: "center",
+          mb: 1
+        }}>
         <Typography variant="h6">
           {t('evaluation.title', { name: measure.title || measure.name })}
         </Typography>
         <HelpTooltip text={helpContent.measures.evaluate} />
       </Stack>
-
       <Stack spacing={2}>
         <FhirServerUrlField
           value={fhirServer}
@@ -120,8 +125,10 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
             onChange={(e) => { setPeriodStart(e.target.value); setDateError(null) }}
             size="small"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             error={!!dateError}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
           <TextField
             label={t('evaluation.periodEnd')}
@@ -130,9 +137,11 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
             onChange={(e) => { setPeriodEnd(e.target.value); setDateError(null) }}
             size="small"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             error={!!dateError}
             helperText={dateError}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
         </Stack>
 
@@ -171,11 +180,16 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
         {result && <EvaluationResultCard result={result} />}
 
         {!result && !evaluateMutation.isPending && (
-          <Typography variant="body2" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              textAlign: "center"
+            }}>
             {t('evaluation.emptyState')}
           </Typography>
         )}
       </Stack>
     </Box>
-  )
+  );
 }

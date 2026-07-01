@@ -24,10 +24,15 @@ export default function ConceptGuide() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.concepts.title')}
       </Typography>
-
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {CONCEPTS.map(({ key, code }, index) => (
           <Grid size={{ xs: 12, md: 6 }} key={key}>
@@ -61,11 +66,19 @@ export default function ConceptGuide() {
                   >
                     {index + 1}
                   </Box>
-                  <Typography variant="subtitle1" fontWeight={700}>
+                  <Typography variant="subtitle1" sx={{
+                    fontWeight: 700
+                  }}>
                     {t(`learn.concepts.${key}.title`)}
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 1.5 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    lineHeight: 1.7,
+                    mb: 1.5
+                  }}>
                   {t(`learn.concepts.${key}.content`)}
                 </Typography>
               </Box>
@@ -77,15 +90,14 @@ export default function ConceptGuide() {
               <Box sx={{ px: 2.5, pb: 2.5 }}>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   sx={{
+                    color: "text.secondary",
                     display: 'block',
                     bgcolor: 'action.hover',
                     p: 1.5,
                     borderRadius: 1.5,
-                    lineHeight: 1.6,
-                  }}
-                >
+                    lineHeight: 1.6
+                  }}>
                   {t(`learn.concepts.${key}.explanation`)}
                 </Typography>
               </Box>
@@ -94,5 +106,5 @@ export default function ConceptGuide() {
         ))}
       </Grid>
     </Box>
-  )
+  );
 }

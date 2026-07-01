@@ -198,16 +198,40 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     const result = runResultMap.get(tc.id!)
     return (
       <Paper key={tc.id} variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 2,
+            py: 1
+          }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              flex: 1,
+              minWidth: 0
+            }}>
             {STATUS_ICON[tc.status || 'pending']}
-            <Typography variant="body2" fontWeight={500} noWrap>{tc.title}</Typography>
+            <Typography variant="body2" noWrap sx={{
+              fontWeight: 500
+            }}>{tc.title}</Typography>
             {tc.series && <Chip label={tc.series} size="small" sx={{ height: 18, fontSize: '0.6rem' }} />}
             {tc.description && (
-              <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>{tc.description}</Typography>
+              <Typography
+                variant="caption"
+                noWrap
+                sx={{
+                  color: "text.secondary",
+                  flex: 1
+                }}>{tc.description}</Typography>
             )}
           </Stack>
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             {tc.expectedPopulations && (
               <Stack direction="row" spacing={0.25}>
                 {Object.entries(tc.expectedPopulations).filter(([, v]) => v).map(([key]) => (
@@ -237,7 +261,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             <Box sx={{ px: 2, py: 1 }}>
               {result.phaseError && (
                 <Alert severity="error" sx={{ mb: 1 }}>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
                     <Chip
                       size="small"
                       color="error"
@@ -254,7 +280,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
               {result.populationTrace && (
                 <Accordion defaultExpanded sx={{ mt: 1 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{
+                      fontWeight: 600
+                    }}>
                       {t('testCases.populationTraceTitle')}
                     </Typography>
                   </AccordionSummary>
@@ -267,7 +295,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
               {result.coverage && (
                 <Accordion sx={{ mt: 0.5 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{
+                      fontWeight: 600
+                    }}>
                       {t('testCases.coverageTitle')}
                     </Typography>
                   </AccordionSummary>
@@ -280,7 +310,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
               {result.debugTrace && (
                 <Accordion sx={{ mt: 0.5 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{
+                      fontWeight: 600
+                    }}>
                       {t('testCases.debugPanelTitle')}
                     </Typography>
                   </AccordionSummary>
@@ -293,7 +325,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           </>
         )}
       </Paper>
-    )
+    );
   }
 
   if (editing !== null) {
@@ -310,8 +342,16 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Stack direction="row" spacing={1} alignItems="center">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Typography variant="h6">{t('testCases.title')}</Typography>
           <HelpTooltip text={helpContent.measures.testCases} />
           {totalCount > 0 && (
@@ -333,7 +373,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             </Stack>
           )}
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('testCases.debugMode')} />
           <Button
             size="small"
@@ -384,29 +426,33 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           </GradientButton>
         </Stack>
       </Stack>
-
       {!measure.cqlContent && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t('testCases.saveCqlFirst')}
         </Alert>
       )}
-
       {runAllMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(runAllMutation.error)}
         </Alert>
       )}
-
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
       ) : testCases.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary" gutterBottom>
+          <Typography gutterBottom sx={{
+            color: "text.secondary"
+          }}>
             {t('testCases.emptyTitle')}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 2
+            }}>
             {t('testCases.emptyDescription')}
           </Typography>
           <Button
@@ -422,7 +468,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           {Array.from(groupedTestCases.groups.entries()).map(([series, tcs]) => (
             <Accordion key={series} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <Typography variant="subtitle2">{series}</Typography>
                   <Chip label={`${tcs.length}`} size="small" sx={{ height: 20 }} />
                 </Stack>
@@ -442,5 +490,5 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         measureId={measure.id!}
       />
     </Box>
-  )
+  );
 }

@@ -128,7 +128,9 @@ export default function VersionDiffDialog({
             </Select>
           </FormControl>
 
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('diff.vs')}
           </Typography>
 
@@ -237,7 +239,13 @@ export default function VersionDiffDialog({
             {diffTab === 1 && (
               <Box sx={{ maxHeight: '55vh', overflow: 'auto' }}>
                 {(!diffResult.metadataChanges || diffResult.metadataChanges.length === 0) ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      py: 4,
+                      textAlign: 'center'
+                    }}>
                     {t('diff.noMetadataChanges')}
                   </Typography>
                 ) : (
@@ -247,7 +255,9 @@ export default function VersionDiffDialog({
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <ChangeIcon fontSize="small" color="info" />
                         </ListItemIcon>
-                        <ListItemText primary={change} primaryTypographyProps={{ variant: 'body2' }} />
+                        <ListItemText primary={change} slotProps={{
+                          primary: { variant: 'body2' }
+                        }} />
                       </ListItem>
                     ))}
                   </List>
@@ -258,7 +268,13 @@ export default function VersionDiffDialog({
             {diffTab === 2 && (
               <Box sx={{ maxHeight: '55vh', overflow: 'auto' }}>
                 {(!diffResult.populationChanges || diffResult.populationChanges.length === 0) ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      py: 4,
+                      textAlign: 'center'
+                    }}>
                     {t('diff.noPopulationChanges')}
                   </Typography>
                 ) : (
@@ -268,7 +284,9 @@ export default function VersionDiffDialog({
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <ChangeIcon fontSize="small" color="warning" />
                         </ListItemIcon>
-                        <ListItemText primary={change} primaryTypographyProps={{ variant: 'body2' }} />
+                        <ListItemText primary={change} slotProps={{
+                          primary: { variant: 'body2' }
+                        }} />
                       </ListItem>
                     ))}
                   </List>
@@ -300,5 +318,5 @@ export default function VersionDiffDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }
