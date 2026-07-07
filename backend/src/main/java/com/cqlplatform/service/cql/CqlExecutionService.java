@@ -71,6 +71,15 @@ public class CqlExecutionService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter cqlExecutionErrorCounter;
 
+    /**
+     * Resolves a stored, authenticated EhrConnection when a request carries a
+     * {@code connectionId} (Phase 1 — clinic executes against its own secured FHIR).
+     * Field-injected (required=false) so the existing integration-test constructors,
+     * which don't need it, keep working; it is only used when connectionId is set.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.cqlplatform.service.fhir.EhrConnectionService ehrConnectionService;
+
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
@@ -323,9 +332,14 @@ public class CqlExecutionService {
                                 request.getCql()));
             }
 
-            String fhirServerUrl = request.getFhirServerUrl() != null
-                    ? request.getFhirServerUrl() : defaultFhirServerUrl;
-            log.debug("Using FHIR server URL: {}", fhirServerUrl);
+            // Phase 1: resolve an authenticated EhrConnection when the request targets one.
+            // When present, the FHIR URL + credentials come from the connection.
+            com.cqlplatform.entity.EhrConnectionEntity connection = resolveConnection(request);
+
+            String fhirServerUrl = connection != null ? connection.getFhirServerUrl()
+                    : (request.getFhirServerUrl() != null ? request.getFhirServerUrl() : defaultFhirServerUrl);
+            log.debug("Using FHIR server URL: {} (authenticated connection={})",
+                    fhirServerUrl, connection != null ? connection.getId() : "none");
 
             // Setup terminology provider
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
@@ -340,6 +354,12 @@ public class CqlExecutionService {
                     pfp.setTerminologyProvider(terminologyProvider);
                 }
                 retrieveProvider = prefetchProvider;
+            } else if (connection != null) {
+                // Authenticated clinic connection: retrieve directly via the authenticated
+                // REST client. The batch auto-prefetch optimisation is not yet wired for
+                // connections (Phase 1 follow-up) — correctness is unaffected, only per-
+                // retrieve batching.
+                retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider, connection);
             } else if (request.getPatientId() != null) {
                 // Auto-prefetch: batch-fetch all needed resource types in one FHIR request
                 retrieveProvider = tryAutoPrefetch(request, fhirServerUrl, terminologyProvider, translator, elmJson);
@@ -1171,6 +1191,28 @@ public class CqlExecutionService {
      * Parses ELM to find Retrieve data types, then batch-fetches them.
      * Returns null if prefetch fails (caller should fall back to REST provider).
      */
+    /**
+     * Resolve the request's connectionId to a stored, active EhrConnection, or null when
+     * no connectionId is set. Fail-closed: when a connectionId IS given we must never
+     * silently fall back to an unauthenticated server, so a missing/inactive connection
+     * throws rather than degrading to the default FHIR server.
+     */
+    private com.cqlplatform.entity.EhrConnectionEntity resolveConnection(CqlExecutionRequest request) {
+        if (request.getConnectionId() == null) {
+            return null;
+        }
+        if (ehrConnectionService == null) {
+            throw new IllegalStateException("EHR connections are not available in this context");
+        }
+        com.cqlplatform.entity.EhrConnectionEntity connection =
+                ehrConnectionService.getById(request.getConnectionId()); // throws if not found
+        if (!connection.isActive()) {
+            throw new IllegalArgumentException(
+                    "EHR connection " + request.getConnectionId() + " is inactive");
+        }
+        return connection;
+    }
+
     private RetrieveProvider tryAutoPrefetch(CqlExecutionRequest request, String fhirServerUrl,
             TerminologyProvider terminologyProvider, CqlTranslator translator, String elmJson) {
         try {

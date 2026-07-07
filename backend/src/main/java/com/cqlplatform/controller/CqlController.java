@@ -104,13 +104,33 @@ public class CqlController {
     }
 
     @PostMapping("/execute")
-    @Operation(summary = "Execute CQL", description = "Executes CQL against a FHIR server")
+    @Operation(summary = "Execute CQL", description = "Executes CQL against a FHIR server or a stored EHR connection")
     public ResponseEntity<CqlExecutionResponse> execute(@Valid @RequestBody CqlExecutionRequest request) {
         if (request.getFhirServerUrl() != null) {
             InputValidator.requireValidUrl(request.getFhirServerUrl());
         }
+        // Executing against a stored EhrConnection uses that connection's credentials to
+        // reach a real clinic FHIR server (PHI). Until per-tenant authorization lands
+        // (Phase 2), restrict connection-based execution to the same roles that manage
+        // connections. Raw-URL / default-server execution is unchanged.
+        if (request.getConnectionId() != null) {
+            requireConnectionUseRole();
+        }
         CqlExecutionResponse response = executionService.execute(request);
         return ResponseEntity.ok(response);
+    }
+
+    /** Interim (pre-tenant) authorization for executing against a stored EHR connection. */
+    private void requireConnectionUseRole() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        boolean allowed = auth != null && auth.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_ADMIN") || a.equals("ROLE_DEPARTMENT_ADMIN"));
+        if (!allowed) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Executing against a stored EHR connection requires ADMIN or DEPARTMENT_ADMIN");
+        }
     }
 
     @GetMapping("/libraries")
