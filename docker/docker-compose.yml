@@ -29,7 +29,17 @@ services:
       - "-c"
       - "archive_mode=on"
       - "-c"
-      - "archive_command=test ! -f /backups/wal/%f && cp %p /backups/wal/%f || true"
+      # WAL archiving. The dir is self-healed each call (mkdir -p) so a fresh
+      # postgres-backup volume works without manual setup. The `test -f || cp`
+      # form is idempotent (re-archiving an existing segment is a no-op success)
+      # AND surfaces real copy failures — unlike the old `... || true`, which
+      # masked every failure and let PostgreSQL recycle un-archived WAL into the
+      # void (BUG: /backups/wal never existed + was root-owned → 0 WAL kept,
+      # failed_count stayed 0). Requires /backups to be postgres-writable; a
+      # fresh volume is root-owned, so `mkdir -p` fails LOUDLY (visible in the
+      # postgres log + archiver failed_count) instead of silently — see
+      # DEPLOYMENT_GUIDE §9 for the one-time `chown postgres /backups`.
+      - "archive_command=mkdir -p /backups/wal && ( test -f /backups/wal/%f || cp %p /backups/wal/%f )"
       - "-c"
       - "max_wal_senders=3"
 
@@ -272,6 +282,27 @@ services:
         limits:
           cpus: '0.25'
           memory: 128M
+
+  node-exporter:
+    # Host-level metrics (disk / cpu / mem). The app-only Prometheus job was blind
+    # to the VM itself filling up — the tail of the "unbounded logs / WAL / local
+    # backups grow → disk full → postgres corruption" risk chain had NO alert.
+    # Powers DiskSpaceLow / DiskSpaceCritical, and BackupStale via the textfile
+    # collector (backup-db.sh writes cql_backup_last_success_timestamp_seconds there).
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.textfile.directory=/host/opt/CQL/docker/node-exporter-textfile'
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - cql-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 64M
 
   taiwan-fhir-generator:
     profiles: [twcore]
