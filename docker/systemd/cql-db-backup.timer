@@ -1,0 +1,15 @@
+# CQL Platform — daily trigger for the DB backup unit.
+# Install: see docker/systemd/README.md
+[Unit]
+Description=CQL Platform run the DB backup daily at 02:00
+Documentation=https://github.com/Lusnaker0730/CQL/blob/main/DEPLOYMENT_GUIDE_zh-TW.md
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+# Spread load off an exact minute; harmless on a single host but good hygiene.
+RandomizedDelaySec=900
+# If the VM was off at 02:00, run the backup once it next boots.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

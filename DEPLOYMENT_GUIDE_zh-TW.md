@@ -496,6 +496,44 @@ cd docker/
 
 - 輸出：`docker/postgres-backup/cqlplatform_YYYYMMDD_HHMMSS.sql.gz`
 - 自動清理 30 天以前的備份
+- 同時寫出 Prometheus 新鮮度指標（`node-exporter` textfile collector）→ `BackupStale` / `BackupMetricMissing` 告警
+
+### 9.1.1 自動每日備份（systemd timer）
+
+**正式機必須啟用**，不要依賴人工每天手動跑。安裝一次即可（詳見 `docker/systemd/README.md`）：
+
+```bash
+cd /opt/CQL   # 先 git pull 取得 units
+ln -sf /opt/CQL/docker/systemd/cql-db-backup.service /etc/systemd/system/
+ln -sf /opt/CQL/docker/systemd/cql-db-backup.timer   /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now cql-db-backup.timer
+systemctl list-timers cql-db-backup.timer     # 確認 NEXT 執行時間
+```
+
+> **限制（刻意）**：目前只做**本機**備份 —— 備份與 DB 同在一台 VM，整台壞會同歸於盡。
+> 異地備援（rclone/S3/B2 + gpg）為後續項目。
+
+### 9.1.2 WAL 歸檔（archive_command）
+
+`docker-compose.yml` 的 postgres `archive_command` 會把 WAL 段複製到
+`postgres-backup` volume 的 `/backups/wal`。
+
+> **⚠️ 歷史 bug（已修）**：舊版命令結尾有 `|| true`，且 `/backups/wal` 目錄從未建立、
+> 又是 root 擁有（postgres 使用者寫不進去）。結果 `cp` 每次都失敗、被 `|| true` 吞掉，
+> PostgreSQL 卻以為歸檔成功並回收 WAL —— **44 個 WAL 段全部丟進虛空，`failed_count`
+> 永遠是 0，監控完全看不出來**。新版命令自我修復目錄且移除 `|| true`，失敗會真實反映。
+
+**一次性設定**（全新 `postgres-backup` volume 才需要，讓 postgres 能寫入）：
+
+```bash
+docker exec docker-postgres-1 chown -R postgres:postgres /backups
+# 驗證歸檔真的動了：切一個 WAL 後，/backups/wal 應出現 16MB 的檔案
+docker exec docker-postgres-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT pg_switch_wal();"
+docker exec docker-postgres-1 ls -la /backups/wal/     # 應有 16MB WAL 檔，非空目錄
+```
+
+> **注意**：保留 WAL ≠ PITR。時間點還原還需要定期 base backup（`pg_basebackup`），目前尚未接。
+> 現階段 DR 主力是上面的每日 `pg_dump`。
 
 ### 9.2 還原
 

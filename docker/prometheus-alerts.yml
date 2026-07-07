@@ -190,3 +190,73 @@ groups:
         annotations:
           summary: "Patient import queue is saturating"
           description: "Patient import queue depth is {{ $value }} (capacity: 100). New bulk imports will be rejected with 503 once the queue fills."
+
+  # Infrastructure / host-level alerts (node-exporter). These close the gap where
+  # the app-only Prometheus job was blind to the VM itself — the failure mode that
+  # ends the "unbounded logs / WAL / local backups grow → disk full → postgres
+  # write failure / corruption" chain with NO warning until postgres already broke.
+  - name: infrastructure-alerts
+    rules:
+      # Root filesystem running low. 15% free on a 96G disk ≈ 14G left — act soon.
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay|squashfs"}
+            /
+            node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay|squashfs"}
+          ) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host disk space low"
+          description: "Root filesystem has {{ $value | humanizePercentage }} free. Check /var/lib/docker (container logs), /backups/wal, and postgres-backup/ growth."
+
+      # Emergency: <5% free. postgres write failure / corruption is imminent.
+      - alert: DiskSpaceCritical
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay|squashfs"}
+            /
+            node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay|squashfs"}
+          ) < 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host disk space CRITICAL"
+          description: "Root filesystem has only {{ $value | humanizePercentage }} free. PostgreSQL writes may fail and corrupt data. Free space NOW."
+
+      # The daily DB backup has not succeeded in >26h (timer is daily; 26h gives a
+      # one-cycle grace). Fed by backup-db.sh writing a node-exporter textfile metric.
+      - alert: BackupStale
+        expr: time() - cql_backup_last_success_timestamp_seconds > 93600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database backup is stale"
+          description: "Last successful pg_dump was {{ $value | humanizeDuration }} ago (threshold 26h). The daily backup timer may have stopped — check `systemctl status cql-db-backup.timer` on the VM."
+
+      # The backup freshness metric is absent entirely — either the backup has NEVER
+      # run, or the node-exporter textfile collector can't read it. Either way we are
+      # flying blind on backups, which is exactly the pre-incident state.
+      - alert: BackupMetricMissing
+        expr: absent(cql_backup_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup freshness metric missing"
+          description: "cql_backup_last_success_timestamp_seconds is absent. The daily backup may never have run, or node-exporter's textfile collector is misconfigured. Verify the backup timer and /opt/CQL/docker/node-exporter-textfile."
+
+      # Host metrics collector itself down — we lose disk visibility (and the disk
+      # alerts silently stop evaluating). Monitor the monitor.
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-exporter is down"
+          description: "Host-level metrics have been unreachable for >5m. DiskSpaceLow/Critical cannot fire while this is down."

@@ -1,0 +1,19 @@
+# CQL Platform — daily PostgreSQL backup unit.
+# Install: see docker/systemd/README.md
+[Unit]
+Description=CQL Platform daily PostgreSQL backup (pg_dump + retention + freshness metric)
+Documentation=https://github.com/Lusnaker0730/CQL/blob/main/DEPLOYMENT_GUIDE_zh-TW.md
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Runs backup-db.sh, which shells into the postgres container via the Docker
+# socket (so this must run as a user that can reach docker — root on the VM).
+WorkingDirectory=/opt/CQL/docker
+ExecStart=/usr/bin/env bash /opt/CQL/docker/scripts/backup-db.sh
+# A dump that hangs (locked table, stalled container) must not block forever.
+TimeoutStartSec=1800
+# Be gentle on the 2-core VM — never starve the live services during a dump.
+Nice=10
+IOSchedulingClass=idle
