@@ -2,6 +2,7 @@ package com.cqlplatform.service.cql;
 
 import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.model.CqlLibrary;
+import com.cqlplatform.model.LibraryMetadataDTO;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.CqlTranslationResponse.TranslationMetadata;
@@ -71,6 +72,31 @@ class CqlLibraryServiceTest {
                 .build();
         entity.setDependencyList(List.of());
         return entity;
+    }
+
+    @Test
+    void getLibrariesMetadata_usesProjectionNotFindAll_andParsesElm() {
+        String elm = "{\"library\":{\"statements\":{\"def\":["
+                + "{\"name\":\"Has Diabetes\"},{\"name\":\"Patient\"}]},"
+                + "\"valueSets\":{\"def\":[{\"name\":\"Diabetes VS\"}]}}}";
+        CqlLibraryRepository.LibraryMetadataView view = new CqlLibraryRepository.LibraryMetadataView() {
+            public String getName() { return "DiabetesLib"; }
+            public String getVersion() { return "1.0.0"; }
+            public String getElmJson() { return elm; }
+        };
+        when(libraryRepository.findAllMetadata()).thenReturn(List.of(view));
+
+        List<LibraryMetadataDTO> result = libraryService.getLibrariesMetadata();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("DiabetesLib");
+        assertThat(result.get(0).getVersion()).isEqualTo("1.0.0");
+        assertThat(result.get(0).getExpressions()).containsExactly("Has Diabetes"); // Patient excluded
+        assertThat(result.get(0).getValueSets()).containsExactly("Diabetes VS");
+        // The whole point: the metadata path must use the lightweight projection,
+        // never findAll() (which would load the heavy cql_content TEXT).
+        verify(libraryRepository).findAllMetadata();
+        verify(libraryRepository, never()).findAll();
     }
 
     @Test
