@@ -191,9 +191,12 @@ cql:
     timeout-seconds: 120
     translation-timeout-seconds: 30
     measure-timeout-seconds: 120
-    thread-pool-size: 10
-    max-pool-size: 20
-    queue-capacity: 50
+    # Tunable via env (docker/.env) so the 2-core VM can be right-sized WITHOUT an
+    # image rebuild. Defaults preserve prior behaviour; cql2elm + evaluate are
+    # CPU-bound, so lower these if the pool saturates on a small host.
+    thread-pool-size: ${CQL_EXECUTION_THREAD_POOL_SIZE:10}
+    max-pool-size: ${CQL_EXECUTION_MAX_POOL_SIZE:20}
+    queue-capacity: ${CQL_EXECUTION_QUEUE_CAPACITY:50}
     max-retrieve-count: 10000
     max-collection-size: 1000
     max-patient-count: 50000
