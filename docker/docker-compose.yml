@@ -87,6 +87,14 @@ services:
       # `openssl rand -base64 24`; must match the value in the prometheus container env.
       - METRICS_SCRAPE_USER=${METRICS_SCRAPE_USER:-prometheus}
       - METRICS_SCRAPE_PASSWORD=${METRICS_SCRAPE_PASSWORD}
+      # CQL execution thread pool — now tunable via docker/.env WITHOUT rebuilding
+      # the image (previously baked into application.yml). Defaults preserve current
+      # behaviour (10/20/50). On this 2-core VM, cql2elm + evaluate are CPU-bound;
+      # if Grafana shows sustained CqlQueueSaturation or CPU thrash, lower these
+      # (e.g. THREAD_POOL_SIZE=4 / MAX_POOL_SIZE=8) — no image rebuild needed.
+      - CQL_EXECUTION_THREAD_POOL_SIZE=${CQL_EXECUTION_THREAD_POOL_SIZE:-10}
+      - CQL_EXECUTION_MAX_POOL_SIZE=${CQL_EXECUTION_MAX_POOL_SIZE:-20}
+      - CQL_EXECUTION_QUEUE_CAPACITY=${CQL_EXECUTION_QUEUE_CAPACITY:-50}
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,7 +169,13 @@ services:
           memory: 8G
 
   hapi-fhir:
-    image: hapiproject/hapi:latest
+    # Pinned by digest for reproducibility. `:latest` meant any `docker compose pull`
+    # could silently upgrade the clinical FHIR data store — HAPI major bumps often
+    # carry breaking schema migrations, with no clean rollback. This digest is the
+    # image running in production as of 2026-07-07; bump it deliberately (and test)
+    # when intentionally upgrading HAPI. To read the current tag:
+    #   docker image inspect hapiproject/hapi@sha256:34c86f… --format '{{.RepoTags}}'
+    image: hapiproject/hapi@sha256:34c86fd5805df77c2b9d9c10538050b16ac3dc244352da0ebe4717f931330775
     restart: unless-stopped
     environment:
       - hapi.fhir.default_encoding=json
@@ -175,6 +189,11 @@ services:
     networks:
       - cql-network
     healthcheck:
+      # Intentionally disabled: the hapiproject/hapi image is distroless — no shell,
+      # curl or wget — so a container-level HTTP healthcheck cannot be expressed.
+      # (Do NOT "restore" this with a CMD-SHELL check; it will fail on a missing sh.)
+      # The backend tolerates HAPI unreadiness via its FHIR client retry + circuit
+      # breaker (resilience4j), and depends_on uses service_started accordingly.
       disable: true
     deploy:
       resources:
