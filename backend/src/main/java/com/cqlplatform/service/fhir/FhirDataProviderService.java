@@ -229,8 +229,21 @@ public class FhirDataProviderService {
     }
 
     public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider) {
-        log.debug("Creating RetrieveProvider for URL: {}", fhirServerUrl);
-        IGenericClient client = createClient(fhirServerUrl);
+        return createDataProvider(fhirServerUrl, terminologyProvider, null);
+    }
+
+    /**
+     * Build a RetrieveProvider. When {@code connection} is non-null the FHIR client is
+     * built with that connection's credentials (Basic / Bearer / SMART Backend / mTLS)
+     * so CQL executes against a clinic's own secured FHIR server; otherwise an
+     * unauthenticated client for {@code fhirServerUrl} is used (unchanged behaviour).
+     */
+    public RetrieveProvider createDataProvider(String fhirServerUrl, TerminologyProvider terminologyProvider,
+                                               com.cqlplatform.entity.EhrConnectionEntity connection) {
+        log.debug("Creating RetrieveProvider for URL: {} (authenticated={})", fhirServerUrl, connection != null);
+        IGenericClient client = connection != null
+                ? fhirClientFactory.createAuthenticatedClient(connection)
+                : createClient(fhirServerUrl);
         SearchParameterResolver searchParameterResolver = new SearchParameterResolver(fhirContext);
 
         try {
