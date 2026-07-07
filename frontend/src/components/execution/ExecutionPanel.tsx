@@ -34,6 +34,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import { setPatientId, setFhirServerUrl } from '../../store/executionSlice'
 import { useExecute } from '../../hooks/useCql'
+import { freshPrecompiledElm } from '../../utils/executionElm'
 import DebugPanel from './DebugPanel'
 import { usePreferences } from '../../hooks/usePreferences'
 import FhirServerUrlField from '../common/FhirServerUrlField'
@@ -47,6 +48,8 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
   const { t } = useTranslation('editor')
   const dispatch = useDispatch()
   const cqlContentFromRedux = useSelector((state: RootState) => state.editor.cqlContent)
+  const editorElmJson = useSelector((state: RootState) => state.editor.elmJson)
+  const elmSourceCql = useSelector((state: RootState) => state.editor.elmSourceCql)
   const { patientId, fhirServerUrl, isExecuting, results, errors, warnings, executionTimeMs, debugTrace } = useSelector(
     (state: RootState) => state.execution
   )
@@ -64,11 +67,17 @@ export default function ExecutionPanel({ getLatestCql }: ExecutionPanelProps) {
 
   const handleExecute = () => {
     const cql = getLatestCql ? getLatestCql() : cqlContentFromRedux
+    // Reuse the already-translated ELM only when it matches this exact text, so
+    // the backend skips re-translation. Any edit since the last translate makes
+    // the strings differ → elmJson is undefined → backend translates. This guards
+    // against executing stale ELM (wrong clinical results).
+    const elmJson = freshPrecompiledElm(cql, editorElmJson, elmSourceCql)
     executeMutation.mutate({
       cql,
       patientId: patientId || undefined,
       fhirServerUrl: fhirServerUrl || undefined,
       debugMode,
+      elmJson,
     })
   }
 
