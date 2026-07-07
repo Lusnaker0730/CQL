@@ -327,6 +327,9 @@ public class MeasureController {
         if (request.getFhirServerUrl() != null) {
             InputValidator.requireValidUrl(request.getFhirServerUrl());
         }
+        if (request.getConnectionId() != null) {
+            requireConnectionUseRole();
+        }
         request.setMeasureId(measureId);
 
         if (subject != null) {
@@ -374,8 +377,24 @@ public class MeasureController {
         if (request.getFhirServerUrl() != null) {
             InputValidator.requireValidUrl(request.getFhirServerUrl());
         }
+        if (request.getConnectionId() != null) {
+            requireConnectionUseRole();
+        }
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
         return ResponseEntity.ok(result);
+    }
+
+    /** Interim (pre-tenant) authorization for evaluating against a stored EHR connection. */
+    private void requireConnectionUseRole() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        boolean allowed = auth != null && auth.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_ADMIN") || a.equals("ROLE_DEPARTMENT_ADMIN"));
+        if (!allowed) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Evaluating against a stored EHR connection requires ADMIN or DEPARTMENT_ADMIN");
+        }
     }
 
     // ===== Reports =====
