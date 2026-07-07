@@ -90,8 +90,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
         if (path != null) {
+            // Sensitive credential endpoints share the tight AUTH tier. reset-password
+            // (token exchange that sets a new password) belongs here alongside
+            // login/register/forgot-password — it was previously falling into the 6x
+            // looser DEFAULT tier. refresh/logout stay in DEFAULT on purpose: legit
+            // clients hit refresh frequently, and AUTH's low RPM would break them.
             if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")
-                    || path.startsWith("/api/auth/forgot-password")) {
+                    || path.startsWith("/api/auth/forgot-password")
+                    || path.startsWith("/api/auth/reset-password")) {
                 return RateTier.AUTH;
             }
             if (path.startsWith("/cds-services/") && "POST".equalsIgnoreCase(method)) {
@@ -142,7 +148,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientKey(HttpServletRequest request) {
-        return request.getRemoteAddr();
+        // Resolve the REAL client IP, not the proxy container's address. Keying on
+        // request.getRemoteAddr() here collapsed every external client (behind the
+        // Cloudflare → nginx chain) into one shared bucket — a single attacker could
+        // exhaust the whole site's AUTH bucket and lock all users out. Shared with
+        // AuditFilter so the two filters agree on client identity.
+        return ClientIpResolver.resolve(request);
     }
 
     static class TokenBucket {

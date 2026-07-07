@@ -230,6 +230,34 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void shouldIsolateBucketsPerRealClientBehindProxy() throws Exception {
+        // Both requests arrive from the SAME proxy container IP (private) but carry
+        // different real clients in X-Forwarded-For. Before the fix they shared one
+        // bucket (keyed on getRemoteAddr), so one client could lock everyone out; now
+        // each real client gets its own bucket.
+        props.setAuthRpm(1);
+        filter = new RateLimitFilter(props, meterRegistry);
+
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/api/auth/login");
+        when(request.getRemoteAddr()).thenReturn("172.18.0.5"); // trusted private proxy peer
+        StringWriter sw = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+
+        // Client A exhausts its own AUTH bucket (rpm=1)
+        when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.1");
+        filter.doFilterInternal(request, response, filterChain); // allowed
+        filter.doFilterInternal(request, response, filterChain); // blocked (429)
+
+        // Client B (same proxy peer, different real IP) still has a full bucket
+        when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.2");
+        filter.doFilterInternal(request, response, filterChain); // allowed
+
+        verify(filterChain, times(2)).doFilter(request, response); // A#1 + B#1
+        verify(response, atLeastOnce()).setStatus(429);            // A#2 only
+    }
+
+    @Test
     void shouldResolveTierCorrectly() {
         when(request.getMethod()).thenReturn("POST");
         when(request.getRequestURI()).thenReturn("/api/cql/translate");
@@ -257,6 +285,11 @@ class RateLimitFilterTest {
         assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.AUTH);
 
         when(request.getRequestURI()).thenReturn("/api/auth/forgot-password");
+        assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.AUTH);
+
+        // reset-password is a sensitive credential endpoint and must share AUTH tier
+        // (previously it fell into the 6x looser DEFAULT tier).
+        when(request.getRequestURI()).thenReturn("/api/auth/reset-password");
         assertThat(RateLimitFilter.resolveTier(request)).isEqualTo(RateLimitFilter.RateTier.AUTH);
 
         // CDS_INVOKE tier — POST only
