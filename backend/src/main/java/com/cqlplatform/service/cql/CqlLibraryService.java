@@ -2,6 +2,7 @@ package com.cqlplatform.service.cql;
 
 import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.model.CqlLibrary;
+import com.cqlplatform.model.LibraryMetadataDTO;
 import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.repository.CqlLibraryRepository;
@@ -98,6 +99,19 @@ public class CqlLibraryService {
                 .findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(searchTerm, searchTerm)
                 .stream()
                 .map(this::entityToModel)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lightweight metadata for all libraries, backed by a projection that loads only
+     * (name, version, elmJson) — NOT the heavy cql_content TEXT. Previously the
+     * metadata endpoint went through getAllLibraries() (full entities) and threw the
+     * cql_content away; this skips loading it entirely.
+     */
+    @Transactional(readOnly = true)
+    public List<LibraryMetadataDTO> getLibrariesMetadata() {
+        return libraryRepository.findAllMetadata().stream()
+                .map(v -> LibraryMetadataDTO.fromElm(v.getName(), v.getVersion(), v.getElmJson()))
                 .collect(Collectors.toList());
     }
 

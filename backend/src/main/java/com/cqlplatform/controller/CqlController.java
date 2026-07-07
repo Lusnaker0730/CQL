@@ -183,11 +183,9 @@ public class CqlController {
     @GetMapping("/libraries/metadata")
     @Operation(summary = "Get Library Metadata", description = "Returns lightweight metadata for all libraries")
     public ResponseEntity<List<LibraryMetadataDTO>> getLibrariesMetadata() {
-        List<CqlLibrary> libraries = libraryService.getAllLibraries();
-        List<LibraryMetadataDTO> metadata = libraries.stream()
-                .map(LibraryMetadataDTO::fromLibrary)
-                .toList();
-        return ResponseEntity.ok(metadata);
+        // Backed by a projection that loads only (name, version, elmJson), skipping
+        // the heavy cql_content TEXT this endpoint never reads (was: getAllLibraries()).
+        return ResponseEntity.ok(libraryService.getLibrariesMetadata());
     }
 
     @GetMapping("/libraries/{id}/fhir")
