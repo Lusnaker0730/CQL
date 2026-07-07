@@ -21,26 +21,36 @@ public class LibraryMetadataDTO {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static LibraryMetadataDTO fromLibrary(CqlLibrary library) {
+        return fromElm(library.getName(), library.getVersion(), library.getElmJson());
+    }
+
+    /**
+     * Build metadata from just the fields this DTO actually needs (name, version, and
+     * the ELM JSON it parses). Lets callers use a lightweight repository projection
+     * that skips the heavy {@code cql_content} TEXT column — the metadata endpoint
+     * never reads it — instead of loading full library entities.
+     */
+    public static LibraryMetadataDTO fromElm(String name, String version, String elmJson) {
         List<String> expressions = new ArrayList<>();
         List<String> valueSets = new ArrayList<>();
         List<String> codes = new ArrayList<>();
         List<String> functions = new ArrayList<>();
 
-        if (library.getElmJson() != null) {
+        if (elmJson != null) {
             try {
-                JsonNode root = MAPPER.readTree(library.getElmJson());
+                JsonNode root = MAPPER.readTree(elmJson);
                 JsonNode lib = root.path("library");
 
                 // Extract expressions
                 JsonNode statements = lib.path("statements").path("def");
                 if (statements.isArray()) {
                     for (JsonNode stmt : statements) {
-                        String name = stmt.path("name").asText("");
-                        if (!"Patient".equals(name)) {
+                        String stmtName = stmt.path("name").asText("");
+                        if (!"Patient".equals(stmtName)) {
                             if (stmt.has("operand")) {
-                                functions.add(name);
+                                functions.add(stmtName);
                             } else {
-                                expressions.add(name);
+                                expressions.add(stmtName);
                             }
                         }
                     }
@@ -67,8 +77,8 @@ public class LibraryMetadataDTO {
         }
 
         return LibraryMetadataDTO.builder()
-                .name(library.getName())
-                .version(library.getVersion())
+                .name(name)
+                .version(version)
                 .expressions(expressions)
                 .valueSets(valueSets)
                 .codes(codes)
