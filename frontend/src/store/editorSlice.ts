@@ -7,6 +7,15 @@ interface EditorState {
   past: string[]
   future: string[]
   elmJson: string | null
+  /**
+   * The exact CQL text that `elmJson` was translated from. Lets the execute path
+   * verify the pre-compiled ELM still matches the text about to run before sending
+   * it (skipping re-translation only when it's a genuine match). null when there is
+   * no current ELM. Deliberately NOT cleared on edit — freshness is decided by
+   * string equality, so returning to a previously-translated text re-enables the
+   * optimization.
+   */
+  elmSourceCql: string | null
   errors: CqlError[]
   warnings: CqlError[]
   isTranslating: boolean
@@ -68,6 +77,7 @@ const initialState: EditorState = {
   past: [],
   future: [],
   elmJson: null,
+  elmSourceCql: null,
   errors: [],
   warnings: [],
   isTranslating: false,
@@ -106,6 +116,9 @@ const editorSlice = createSlice({
     setElmJson: (state, action: PayloadAction<string | null>) => {
       state.elmJson = action.payload
     },
+    setElmSourceCql: (state, action: PayloadAction<string | null>) => {
+      state.elmSourceCql = action.payload
+    },
     setErrors: (state, action: PayloadAction<CqlError[]>) => {
       state.errors = action.payload
     },
@@ -129,6 +142,7 @@ const editorSlice = createSlice({
       state.past = []
       state.future = []
       state.elmJson = null
+      state.elmSourceCql = null
       state.errors = []
       state.warnings = []
     },
@@ -141,6 +155,7 @@ export const {
   undo,
   redo,
   setElmJson,
+  setElmSourceCql,
   setErrors,
   setWarnings,
   setIsTranslating,

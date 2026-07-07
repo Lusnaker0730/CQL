@@ -147,6 +147,15 @@ export interface CqlExecutionRequest {
   fhirServerUrl?: string
   debugMode?: boolean
   expressionNames?: string[]
+  /**
+   * Pre-compiled ELM JSON. When present, the backend executes it directly and
+   * skips the (CPU-heavy) cql2elm translation. MUST correspond exactly to `cql`
+   * — the frontend only sets this when the ELM was translated from this exact
+   * text (see ExecutionPanel's freshness gate). The backend falls back to
+   * translating `cql` if the ELM fails to deserialize, so a mismatch is safe but
+   * defeats the optimization.
+   */
+  elmJson?: string
 }
 
 export interface CqlExecutionResponse {
