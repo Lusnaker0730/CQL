@@ -130,6 +130,15 @@ public class MeasureReportEntity {
     @Column(name = "department", length = 100)
     private String department;
 
+    /**
+     * Tenant (clinic) this report belongs to — the isolation boundary (Phase 2).
+     * Assigned server-side at save; existing rows were backfilled to the default tenant.
+     * Nullable for now (foundation); the enforcement PR scopes reads and makes it NOT NULL.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
