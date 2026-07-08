@@ -69,6 +69,13 @@ public class UserEntity {
     @Column(name = "department", length = 100)
     private String department;
 
+    /**
+     * Tenant (clinic) this user belongs to — the multi-tenancy isolation boundary
+     * (Phase 2). Nullable until assigned; enforcement is added in follow-up work.
+     */
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     @Column(name = "token_version", nullable = false)
     @Builder.Default
     private Integer tokenVersion = 0;
