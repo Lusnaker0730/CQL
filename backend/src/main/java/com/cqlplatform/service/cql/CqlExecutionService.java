@@ -844,8 +844,11 @@ public class CqlExecutionService {
             org.hl7.elm.r1.Library elmLibrary = ctx.elmLibrary();
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
 
-            String fhirServerUrl = request.getFhirServerUrl() != null
-                    ? request.getFhirServerUrl() : defaultFhirServerUrl;
+            // Phase 1: authenticated EHR connection (clinic evaluates the measure against
+            // its own secured FHIR server). Fail-closed via resolveConnection.
+            com.cqlplatform.entity.EhrConnectionEntity connection = resolveConnection(request);
+            String fhirServerUrl = connection != null ? connection.getFhirServerUrl()
+                    : (request.getFhirServerUrl() != null ? request.getFhirServerUrl() : defaultFhirServerUrl);
 
             long t1 = System.currentTimeMillis();
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
@@ -858,6 +861,10 @@ public class CqlExecutionService {
                     pfp.setTerminologyProvider(terminologyProvider);
                 }
                 retrieveProvider = prefetchProvider;
+            } else if (connection != null) {
+                // Authenticated clinic connection: retrieve via the authenticated REST client.
+                // (Batch prefetch for connections is a Phase 1 follow-up — correctness unaffected.)
+                retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider, connection);
             } else if (request.getPatientId() != null) {
                 // Extract retrieve types directly from pre-translated ELM Library object
                 Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary(), ctx.libraryManager());

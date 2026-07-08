@@ -469,6 +469,9 @@ public class MeasureEvaluationService {
         execRequest.setCql(context.getMeasureCql());
         execRequest.setPatientId(patientId);
         execRequest.setFhirServerUrl(context.getFhirServerUrl());
+        // Phase 1: carry the authenticated EHR connection through so the measure evaluates
+        // against the clinic's own secured FHIR server (doExecutePreTranslated resolves it).
+        execRequest.setConnectionId(context.getConnectionId());
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("Measurement Period",
