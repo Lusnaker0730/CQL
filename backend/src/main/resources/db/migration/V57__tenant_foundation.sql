@@ -1,4 +1,4 @@
--- V56: Tenant (Clinic) — hard multi-tenancy foundation
+-- V57: Tenant (Clinic) — hard multi-tenancy foundation
 --
 -- Introduces a Tenant entity as the isolation boundary for the multi-clinic platform
 -- (Roadmap Phase 2). A clinic = a tenant; the existing `department` (V26) stays as an
