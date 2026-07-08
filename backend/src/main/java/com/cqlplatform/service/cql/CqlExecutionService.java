@@ -1212,11 +1212,12 @@ public class CqlExecutionService {
             throw new IllegalStateException("EHR connections are not available in this context");
         }
         com.cqlplatform.entity.EhrConnectionEntity connection =
-                // Unscoped: the execute path may run on async executor threads (parallel
-                // measure evaluation) where the request-thread TenantContext isn't visible.
-                // Still gated by the interim ADMIN/DEPT_ADMIN guard; execute-path tenant
-                // scoping + async propagation is a Phase 2 follow-up (PR#4).
-                ehrConnectionService.getByIdUnscoped(request.getConnectionId()); // throws if not found
+                // Tenant-scoped: PR#4 propagates the caller's tenant onto the async measure
+                // executor threads (MeasureEvaluationService), so getById resolves the
+                // connection within the caller's tenant on both sync and async paths. A
+                // cross-tenant connectionId reads as not-found. (The interim ADMIN guard on
+                // the controllers is retained as defence-in-depth during tenant rollout.)
+                ehrConnectionService.getById(request.getConnectionId()); // throws if not found / cross-tenant
         if (!connection.isActive()) {
             throw new IllegalArgumentException(
                     "EHR connection " + request.getConnectionId() + " is inactive");
