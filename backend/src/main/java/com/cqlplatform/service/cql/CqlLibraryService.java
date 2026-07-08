@@ -24,6 +24,18 @@ public class CqlLibraryService {
 
     private final CqlTranslationService translationService;
     private final CqlLibraryRepository libraryRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional
     public CqlLibrary saveLibrary(String cqlContent, String description) {
@@ -61,6 +73,7 @@ public class CqlLibraryService {
                     .description(description)
                     .status("active")
                     .dependencyList(dependencies)
+                    .tenantId(effectiveTenantId())
                     .build();
         }
 
@@ -225,6 +238,7 @@ public class CqlLibraryService {
                 .description(latest.getDescription())
                 .status("draft")
                 .dependencyList(latest.getDependencyList() != null ? new ArrayList<>(latest.getDependencyList()) : new ArrayList<>())
+                .tenantId(latest.getTenantId())
                 .build();
 
         newEntity = libraryRepository.save(newEntity);
