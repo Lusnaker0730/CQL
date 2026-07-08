@@ -197,10 +197,14 @@ public class CqlExecutionService {
         Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
+        // Phase 2: capture the caller's tenant and propagate it onto the execute thread so
+        // DatabaseLibrarySourceProvider resolves included libraries within that tenant.
+        final Long callerTenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
         Future<CqlExecutionResponse> future;
         try {
             future = executorService.submit(
-                    () -> doExecute(request, prefetchProvider, startTime));
+                    () -> com.cqlplatform.security.TenantContext.callWith(callerTenantId,
+                            () -> doExecute(request, prefetchProvider, startTime)));
         } catch (java.util.concurrent.RejectedExecutionException e) {
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
