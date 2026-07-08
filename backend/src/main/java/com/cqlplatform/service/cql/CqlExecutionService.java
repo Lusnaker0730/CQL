@@ -1212,7 +1212,11 @@ public class CqlExecutionService {
             throw new IllegalStateException("EHR connections are not available in this context");
         }
         com.cqlplatform.entity.EhrConnectionEntity connection =
-                ehrConnectionService.getById(request.getConnectionId()); // throws if not found
+                // Unscoped: the execute path may run on async executor threads (parallel
+                // measure evaluation) where the request-thread TenantContext isn't visible.
+                // Still gated by the interim ADMIN/DEPT_ADMIN guard; execute-path tenant
+                // scoping + async propagation is a Phase 2 follow-up (PR#4).
+                ehrConnectionService.getByIdUnscoped(request.getConnectionId()); // throws if not found
         if (!connection.isActive()) {
             throw new IllegalArgumentException(
                     "EHR connection " + request.getConnectionId() + " is inactive");
