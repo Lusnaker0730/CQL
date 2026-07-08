@@ -69,7 +69,7 @@ public class RefreshTokenService {
 
         int tokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0;
         String accessToken = jwtTokenProvider.generateToken(
-                user.getUsername(), user.getRole().name(), user.getDepartment(), tokenVersion);
+                user.getUsername(), user.getRole().name(), user.getDepartment(), user.getTenantId(), tokenVersion);
 
         log.info("Created refresh token family {} for user {}", familyId, user.getUsername());
         return new TokenPair(accessToken, rawToken, jwtTokenProvider.getAccessExpirationMs());
@@ -139,7 +139,7 @@ public class RefreshTokenService {
 
         int tokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0;
         String accessToken = jwtTokenProvider.generateToken(
-                user.getUsername(), user.getRole().name(), user.getDepartment(), tokenVersion);
+                user.getUsername(), user.getRole().name(), user.getDepartment(), user.getTenantId(), tokenVersion);
 
         log.debug("Rotated refresh token for family {} user {}", oldToken.getFamilyId(), user.getUsername());
         return new TokenPair(accessToken, newRawToken, jwtTokenProvider.getAccessExpirationMs());

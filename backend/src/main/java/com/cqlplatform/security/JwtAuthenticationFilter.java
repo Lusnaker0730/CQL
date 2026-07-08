@@ -50,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        try {
         String header = request.getHeader("Authorization");
         String requestPath = request.getRequestURI();
 
@@ -105,9 +106,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                // Phase 2: expose the caller's tenant for row-level isolation (cleared in finally).
+                TenantContext.setCurrentTenantId(jwtTokenProvider.getTenantId(token));
             }
         }
 
         filterChain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();
+        }
     }
 }
