@@ -33,13 +33,25 @@ public class MeasureDefinitionService {
     private final MeasureAuditRepository auditRepository;
     private final NotificationService notificationService;
     private final CqlTranslationService cqlTranslationService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Value("${measure.locking.timeout-minutes:30}")
     private int lockTimeoutMinutes;
 
     @Transactional
     public MeasureDefinition create(MeasureDefinition definition) {
-        if (repository.existsByNameAndVersion(definition.getName(), definition.getVersion())) {
+        if (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), definition.getName(), definition.getVersion())) {
             throw new IllegalArgumentException(
                     "Measure already exists: " + definition.getName() + " v" + definition.getVersion());
         }
@@ -58,7 +70,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition update(Long id, MeasureDefinition definition) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         // Check lock — only the lock holder can save while locked
@@ -131,17 +143,17 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public Optional<MeasureDefinition> getById(Long id) {
-        return repository.findById(id).map(this::entityToModel);
+        return repository.findByIdAndTenantId(id, effectiveTenantId()).map(this::entityToModel);
     }
 
     @Transactional(readOnly = true)
     public Optional<MeasureDefinition> getByNameAndVersion(String name, String version) {
-        return repository.findByNameAndVersion(name, version).map(this::entityToModel);
+        return repository.findByTenantIdAndNameAndVersion(effectiveTenantId(), name, version).map(this::entityToModel);
     }
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getAll() {
-        return repository.findAll().stream()
+        return repository.findByTenantId(effectiveTenantId()).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -156,15 +168,16 @@ public class MeasureDefinitionService {
         boolean hasSearch = searchTerm != null && !searchTerm.isBlank();
         boolean hasDept = department != null && !department.isBlank();
 
+        Long tenantId = effectiveTenantId();
         List<MeasureDefinitionEntity> entities;
         if (hasSearch && hasDept) {
-            entities = repository.findByDepartmentAndSearchTerm(department, InputValidator.escapeLikeWildcards(searchTerm));
+            entities = repository.findByTenantIdAndDepartmentAndSearchTerm(tenantId, department, InputValidator.escapeLikeWildcards(searchTerm));
         } else if (hasDept) {
-            entities = repository.findByDepartment(department);
+            entities = repository.findByTenantIdAndDepartment(tenantId, department);
         } else if (hasSearch) {
-            entities = repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm);
+            entities = repository.searchByTenant(tenantId, InputValidator.escapeLikeWildcards(searchTerm));
         } else {
-            entities = repository.findAll();
+            entities = repository.findByTenantId(tenantId);
         }
         return entities.stream()
                 .map(this::entityToModel)
@@ -182,12 +195,12 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition createVersion(Long id, String versionType) {
-        MeasureDefinitionEntity existing = repository.findById(id)
+        MeasureDefinitionEntity existing = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         String newVersion = bumpVersion(existing.getVersion(), versionType);
 
-        if (repository.existsByNameAndVersion(existing.getName(), newVersion)) {
+        if (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), existing.getName(), newVersion)) {
             throw new IllegalArgumentException("Version already exists: " + existing.getName() + " v" + newVersion);
         }
 
@@ -200,6 +213,7 @@ public class MeasureDefinitionService {
         newEntity.setId(null);
         newEntity.setVersion(newVersion);
         newEntity.setStatus(DRAFT);
+        newEntity.setTenantId(existing.getTenantId()); // version chain stays in the source tenant
         newEntity = repository.save(newEntity);
 
         log.info("Created version {} for measure {}", newVersion, existing.getName());
@@ -208,7 +222,7 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getHistory(String name) {
-        return repository.findByName(name).stream()
+        return repository.findByTenantIdAndName(effectiveTenantId(), name).stream()
                 .sorted(Comparator.comparing(MeasureDefinitionEntity::getVersion, new SemanticVersionComparator()).reversed())
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
@@ -358,7 +372,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition shareMeasure(Long id, String targetUsername, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -382,7 +396,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition unshareMeasure(Long id, String targetUsername, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -399,7 +413,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition transferOwnership(Long id, String newOwner, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -413,7 +427,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition setAccessLevel(Long id, String accessLevel, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -428,7 +442,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition lockMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         if (entity.getLockedBy() != null && !isLockExpired(entity) && !entity.getLockedBy().equals(currentUser)) {
@@ -445,7 +459,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition unlockMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         if (entity.getLockedBy() == null) {
@@ -501,7 +515,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition submitForReview(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
         validateTransition(entity.getStatus(), IN_REVIEW);
@@ -520,7 +534,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition approveMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
         validateTransition(entity.getStatus(), ACTIVE);
@@ -543,7 +557,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition rejectMeasure(Long id, String reason, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
         validateTransition(entity.getStatus(), DRAFT);
@@ -566,7 +580,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition retireMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
         validateTransition(entity.getStatus(), RETIRED);
@@ -665,6 +679,7 @@ public class MeasureDefinitionService {
                 .drgIndicatorCode(model.getDrgIndicatorCode())
                 .indicatorCategory(model.getIndicatorCategory())
                 .department(model.getDepartment())
+                .tenantId(effectiveTenantId())
                 .build();
     }
 
