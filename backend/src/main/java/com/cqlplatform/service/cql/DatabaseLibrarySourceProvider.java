@@ -91,12 +91,21 @@ public class DatabaseLibrarySourceProvider implements LibrarySourceProvider {
             return null;
         }
 
+        // Phase 2: resolve included libraries within the caller's tenant when one is present
+        // (propagated onto async translate/execute threads via TenantContext.callWith). A null
+        // tenant (legacy caller / single-tenant deployment) falls back to unscoped lookup — the
+        // pre-tenant behaviour — so nothing changes for the current deployment.
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
         Optional<CqlLibraryEntity> entity;
         if (version != null && !version.isBlank()) {
-            entity = libraryRepository.findByNameAndVersion(name, version);
+            entity = tenantId != null
+                    ? libraryRepository.findByTenantIdAndNameAndVersion(tenantId, name, version)
+                    : libraryRepository.findByNameAndVersion(name, version);
         } else {
             // Resolve latest version
-            List<CqlLibraryEntity> versions = libraryRepository.findByName(name);
+            List<CqlLibraryEntity> versions = tenantId != null
+                    ? libraryRepository.findByTenantIdAndName(tenantId, name)
+                    : libraryRepository.findByName(name);
             entity = versions.stream()
                     .max(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()));
         }

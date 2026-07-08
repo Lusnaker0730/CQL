@@ -2,8 +2,10 @@ package com.cqlplatform.service.cql;
 
 import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.security.TenantContext;
 import kotlinx.io.Source;
 import org.hl7.elm.r1.VersionedIdentifier;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +15,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -27,6 +30,36 @@ class DatabaseLibrarySourceProviderTest {
     void setUp() {
         repo = mock(CqlLibraryRepository.class);
         provider = new DatabaseLibrarySourceProvider(repo);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
+
+    @Test
+    @DisplayName("with a tenant in context, resolves within that tenant (scoped, not unscoped)")
+    void tenantScopedResolution() {
+        TenantContext.setCurrentTenantId(5L);
+        when(repo.findByTenantIdAndNameAndVersion(5L, "MyLib", "1.0.0"))
+                .thenReturn(Optional.of(entity("MyLib", "1.0.0", "library MyLib version '1.0.0'\n")));
+
+        assertThat(provider.getLibrarySource(vid("MyLib", "1.0.0"))).isNotNull();
+        verify(repo).findByTenantIdAndNameAndVersion(5L, "MyLib", "1.0.0");
+        verify(repo, never()).findByNameAndVersion("MyLib", "1.0.0"); // never the unscoped path
+    }
+
+    @Test
+    @DisplayName("with a tenant, version-less lookup scopes latest to that tenant")
+    void tenantScopedLatestResolution() {
+        TenantContext.setCurrentTenantId(5L);
+        when(repo.findByTenantIdAndName(5L, "MyLib")).thenReturn(List.of(
+                entity("MyLib", "1.0.0", "library MyLib version '1.0.0'\n"),
+                entity("MyLib", "1.2.0", "library MyLib version '1.2.0'\n")));
+
+        assertThat(provider.getLibrarySource(vid("MyLib", null))).isNotNull();
+        verify(repo).findByTenantIdAndName(5L, "MyLib");
+        verify(repo, never()).findByName("MyLib");
     }
 
     // ── Helpers ──
