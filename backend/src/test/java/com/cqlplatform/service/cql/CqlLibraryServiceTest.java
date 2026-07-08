@@ -7,9 +7,14 @@ import com.cqlplatform.model.CqlTranslationRequest;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.CqlTranslationResponse.TranslationMetadata;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.entity.TenantEntity;
+import com.cqlplatform.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,6 +36,9 @@ class CqlLibraryServiceTest {
     @Mock
     private CqlLibraryRepository libraryRepository;
 
+    @Mock
+    private TenantRepository tenantRepository;
+
     @InjectMocks
     private CqlLibraryService libraryService;
 
@@ -39,6 +47,9 @@ class CqlLibraryServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Phase 2: create paths derive tenant from TenantContext; set one so existing
+        // saveLibrary/create tests exercise the effectiveTenantId path without a repo stub.
+        TenantContext.setCurrentTenantId(7L);
         successResponse = CqlTranslationResponse.builder()
                 .success(true)
                 .elmJson("{\"library\":{}}")
@@ -72,6 +83,41 @@ class CqlLibraryServiceTest {
                 .build();
         entity.setDependencyList(List.of());
         return entity;
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
+
+    @Test
+    void saveLibrary_setsTenantFromContext() {
+        when(translationService.translate(any(CqlTranslationRequest.class))).thenReturn(successResponse);
+        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.empty());
+        when(libraryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        libraryService.saveLibrary("library TestLib version '1.0'", "d");
+
+        ArgumentCaptor<CqlLibraryEntity> captor = ArgumentCaptor.forClass(CqlLibraryEntity.class);
+        verify(libraryRepository).save(captor.capture());
+        assertThat(captor.getValue().getTenantId()).isEqualTo(7L); // from TenantContext (setUp)
+    }
+
+    @Test
+    void saveLibrary_fallsBackToDefaultTenantWhenNoContext() {
+        TenantContext.clear(); // legacy caller: no tenant in context
+        TenantEntity def = TenantEntity.builder().code("default").name("Default Tenant").build();
+        def.setId(99L);
+        when(tenantRepository.findByCode("default")).thenReturn(Optional.of(def));
+        when(translationService.translate(any(CqlTranslationRequest.class))).thenReturn(successResponse);
+        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.empty());
+        when(libraryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        libraryService.saveLibrary("library TestLib version '1.0'", "d");
+
+        ArgumentCaptor<CqlLibraryEntity> captor = ArgumentCaptor.forClass(CqlLibraryEntity.class);
+        verify(libraryRepository).save(captor.capture());
+        assertThat(captor.getValue().getTenantId()).isEqualTo(99L); // default tenant
     }
 
     @Test
