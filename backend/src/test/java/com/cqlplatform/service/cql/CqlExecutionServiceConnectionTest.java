@@ -55,7 +55,7 @@ class CqlExecutionServiceConnectionTest {
         c.setId(7L);
         c.setActive(true);
         c.setFhirServerUrl("https://clinic.example/fhir");
-        when(ehrConnectionService.getByIdUnscoped(7L)).thenReturn(c);
+        when(ehrConnectionService.getById(7L)).thenReturn(c);
 
         assertThat(resolve(req(7L))).isSameAs(c);
     }
@@ -65,7 +65,7 @@ class CqlExecutionServiceConnectionTest {
         EhrConnectionEntity c = new EhrConnectionEntity();
         c.setId(8L);
         c.setActive(false);
-        when(ehrConnectionService.getByIdUnscoped(8L)).thenReturn(c);
+        when(ehrConnectionService.getById(8L)).thenReturn(c);
 
         assertThatThrownBy(() -> resolve(req(8L)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -74,7 +74,7 @@ class CqlExecutionServiceConnectionTest {
 
     @Test
     void missingConnectionPropagatesAndDoesNotFallBack() {
-        when(ehrConnectionService.getByIdUnscoped(9L))
+        when(ehrConnectionService.getById(9L))
                 .thenThrow(new IllegalArgumentException("EHR connection not found: 9"));
 
         assertThatThrownBy(() -> resolve(req(9L)))
