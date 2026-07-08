@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -93,7 +93,7 @@ class CqlLibraryServiceTest {
     @Test
     void saveLibrary_setsTenantFromContext() {
         when(translationService.translate(any(CqlTranslationRequest.class))).thenReturn(successResponse);
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("TestLib"), eq("1.0"))).thenReturn(Optional.empty());
         when(libraryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         libraryService.saveLibrary("library TestLib version '1.0'", "d");
@@ -110,7 +110,7 @@ class CqlLibraryServiceTest {
         def.setId(99L);
         when(tenantRepository.findByCode("default")).thenReturn(Optional.of(def));
         when(translationService.translate(any(CqlTranslationRequest.class))).thenReturn(successResponse);
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("TestLib"), eq("1.0"))).thenReturn(Optional.empty());
         when(libraryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         libraryService.saveLibrary("library TestLib version '1.0'", "d");
@@ -118,6 +118,22 @@ class CqlLibraryServiceTest {
         ArgumentCaptor<CqlLibraryEntity> captor = ArgumentCaptor.forClass(CqlLibraryEntity.class);
         verify(libraryRepository).save(captor.capture());
         assertThat(captor.getValue().getTenantId()).isEqualTo(99L); // default tenant
+    }
+
+    @Test
+    void getAllLibraries_scopesToCallerTenant() {
+        when(libraryRepository.findByTenantId(7L)).thenReturn(List.of()); // 7L from setUp
+        libraryService.getAllLibraries();
+        verify(libraryRepository).findByTenantId(7L);        // exact caller tenant, not findAll
+        verify(libraryRepository, never()).findAll();
+    }
+
+    @Test
+    void getLibrary_scopesToCallerTenant() {
+        when(libraryRepository.findByTenantIdAndNameAndVersion(7L, "TestLib", "1.0"))
+                .thenReturn(Optional.empty());
+        libraryService.getLibrary("TestLib-1.0");
+        verify(libraryRepository).findByTenantIdAndNameAndVersion(7L, "TestLib", "1.0");
     }
 
     @Test
@@ -130,7 +146,7 @@ class CqlLibraryServiceTest {
             public String getVersion() { return "1.0.0"; }
             public String getElmJson() { return elm; }
         };
-        when(libraryRepository.findAllMetadata()).thenReturn(List.of(view));
+        when(libraryRepository.findMetadataByTenantId(anyLong())).thenReturn(List.of(view));
 
         List<LibraryMetadataDTO> result = libraryService.getLibrariesMetadata();
 
@@ -141,14 +157,15 @@ class CqlLibraryServiceTest {
         assertThat(result.get(0).getValueSets()).containsExactly("Diabetes VS");
         // The whole point: the metadata path must use the lightweight projection,
         // never findAll() (which would load the heavy cql_content TEXT).
-        verify(libraryRepository).findAllMetadata();
+        verify(libraryRepository).findMetadataByTenantId(anyLong());
         verify(libraryRepository, never()).findAll();
+        verify(libraryRepository, never()).findByTenantId(anyLong());
     }
 
     @Test
     void saveLibrary_validCql_shouldStoreAndReturn() {
         when(translationService.translate(any(CqlTranslationRequest.class))).thenReturn(successResponse);
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("TestLib"), eq("1.0"))).thenReturn(Optional.empty());
         when(libraryRepository.save(any())).thenAnswer(inv -> {
             CqlLibraryEntity e = inv.getArgument(0);
             e.setId(1L);
@@ -179,7 +196,7 @@ class CqlLibraryServiceTest {
     @Test
     void getLibrary_existing_shouldReturnLibrary() {
         CqlLibraryEntity entity = createTestEntity();
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.of(entity));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("TestLib"), eq("1.0"))).thenReturn(Optional.of(entity));
 
         Optional<CqlLibrary> result = libraryService.getLibrary("TestLib-1.0");
         assertThat(result).isPresent();
@@ -188,7 +205,7 @@ class CqlLibraryServiceTest {
 
     @Test
     void getLibrary_nonExisting_shouldReturnEmpty() {
-        when(libraryRepository.findByNameAndVersion("nonexistent", "1.0")).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("nonexistent"), eq("1.0"))).thenReturn(Optional.empty());
 
         Optional<CqlLibrary> result = libraryService.getLibrary("nonexistent-1.0");
         assertThat(result).isEmpty();
@@ -197,7 +214,7 @@ class CqlLibraryServiceTest {
     @Test
     void getLibraryByNameAndVersion_shouldFindCorrectLibrary() {
         CqlLibraryEntity entity = createTestEntity();
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.of(entity));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("TestLib"), eq("1.0"))).thenReturn(Optional.of(entity));
 
         Optional<CqlLibrary> result = libraryService.getLibraryByNameAndVersion("TestLib", "1.0");
         assertThat(result).isPresent();
@@ -206,7 +223,7 @@ class CqlLibraryServiceTest {
     @Test
     void getAllLibraries_shouldReturnAllStored() {
         CqlLibraryEntity entity = createTestEntity();
-        when(libraryRepository.findAll()).thenReturn(List.of(entity));
+        when(libraryRepository.findByTenantId(anyLong())).thenReturn(List.of(entity));
 
         List<CqlLibrary> all = libraryService.getAllLibraries();
         assertThat(all).hasSize(1);
@@ -215,9 +232,9 @@ class CqlLibraryServiceTest {
     @Test
     void searchLibraries_byName_shouldFilter() {
         CqlLibraryEntity entity = createTestEntity();
-        when(libraryRepository.findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase("Test", "Test"))
+        when(libraryRepository.searchByTenant(anyLong(), eq("Test")))
                 .thenReturn(List.of(entity));
-        when(libraryRepository.findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase("Nonexistent", "Nonexistent"))
+        when(libraryRepository.searchByTenant(anyLong(), eq("Nonexistent")))
                 .thenReturn(List.of());
 
         List<CqlLibrary> found = libraryService.searchLibraries("Test");
@@ -230,7 +247,7 @@ class CqlLibraryServiceTest {
     @Test
     void searchLibraries_nullSearch_shouldReturnAll() {
         CqlLibraryEntity entity = createTestEntity();
-        when(libraryRepository.findAll()).thenReturn(List.of(entity));
+        when(libraryRepository.findByTenantId(anyLong())).thenReturn(List.of(entity));
 
         List<CqlLibrary> result = libraryService.searchLibraries(null);
         assertThat(result).hasSize(1);
@@ -239,7 +256,7 @@ class CqlLibraryServiceTest {
     @Test
     void deleteLibrary_shouldRemoveFromStore() {
         CqlLibraryEntity entity = createTestEntity();
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0")).thenReturn(Optional.of(entity));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), eq("TestLib"), eq("1.0"))).thenReturn(Optional.of(entity));
 
         libraryService.deleteLibrary("TestLib-1.0");
 
@@ -248,7 +265,7 @@ class CqlLibraryServiceTest {
 
     @Test
     void updateLibrary_nonExisting_shouldThrow() {
-        when(libraryRepository.findByNameAndVersion(any(), any())).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndNameAndVersion(anyLong(), any(), any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> libraryService.updateLibrary("nonexistent-1.0", "cql", "desc"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -263,7 +280,7 @@ class CqlLibraryServiceTest {
         v2.setVersion("2.0");
         v2.setId(2L);
 
-        when(libraryRepository.findByName("TestLib")).thenReturn(List.of(v1, v2));
+        when(libraryRepository.findByTenantIdAndName(anyLong(), eq("TestLib"))).thenReturn(List.of(v1, v2));
 
         Optional<CqlLibrary> latest = libraryService.getLatestLibrary("TestLib");
         assertThat(latest).isPresent();
@@ -278,7 +295,7 @@ class CqlLibraryServiceTest {
         v2.setVersion("2.0");
         v2.setId(2L);
 
-        when(libraryRepository.findByName("TestLib")).thenReturn(List.of(v1, v2));
+        when(libraryRepository.findByTenantIdAndName(anyLong(), eq("TestLib"))).thenReturn(List.of(v1, v2));
 
         List<CqlLibrary> versions = libraryService.getLibraryVersions("TestLib");
         assertThat(versions).hasSize(2);

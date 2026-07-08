@@ -56,7 +56,7 @@ public class CqlLibraryService {
         }
 
         // Check if this name+version already exists and update it
-        Optional<CqlLibraryEntity> existing = libraryRepository.findByNameAndVersion(libraryId, version);
+        Optional<CqlLibraryEntity> existing = libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), libraryId, version);
         CqlLibraryEntity entity;
         if (existing.isPresent()) {
             entity = existing.get();
@@ -86,19 +86,19 @@ public class CqlLibraryService {
     @Transactional(readOnly = true)
     public Optional<CqlLibrary> getLibrary(String id) {
         return parseId(id)
-                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                 .map(this::entityToModel);
     }
 
     @Transactional(readOnly = true)
     public Optional<CqlLibrary> getLibraryByNameAndVersion(String name, String version) {
-        return libraryRepository.findByNameAndVersion(name, version)
+        return libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), name, version)
                 .map(this::entityToModel);
     }
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getAllLibraries() {
-        return libraryRepository.findAll().stream()
+        return libraryRepository.findByTenantId(effectiveTenantId()).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -109,7 +109,7 @@ public class CqlLibraryService {
             return getAllLibraries();
         }
         return libraryRepository
-                .findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(searchTerm, searchTerm)
+                .searchByTenant(effectiveTenantId(), searchTerm)
                 .stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
@@ -123,14 +123,14 @@ public class CqlLibraryService {
      */
     @Transactional(readOnly = true)
     public List<LibraryMetadataDTO> getLibrariesMetadata() {
-        return libraryRepository.findAllMetadata().stream()
+        return libraryRepository.findMetadataByTenantId(effectiveTenantId()).stream()
                 .map(v -> LibraryMetadataDTO.fromElm(v.getName(), v.getVersion(), v.getElmJson()))
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public void deleteLibrary(String id) {
-        parseId(id).flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+        parseId(id).flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                 .ifPresent(libraryRepository::delete);
         log.info("Deleted library: {}", id);
     }
@@ -138,7 +138,7 @@ public class CqlLibraryService {
     @Transactional
     public CqlLibrary updateLibrary(String id, String cqlContent, String description) {
         Optional<CqlLibraryEntity> existing = parseId(id)
-                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]));
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]));
 
         if (existing.isEmpty()) {
             throw new IllegalArgumentException("Library not found: " + id);
@@ -150,7 +150,7 @@ public class CqlLibraryService {
         // If the new translation produced a different name-version, remove old entry
         String newId = updated.getName() + "-" + updated.getVersion();
         if (!newId.equals(id)) {
-            parseId(id).flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+            parseId(id).flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                     .ifPresent(libraryRepository::delete);
         }
 
@@ -159,7 +159,7 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public Optional<CqlLibrary> getLatestLibrary(String name) {
-        List<CqlLibraryEntity> versions = libraryRepository.findByName(name);
+        List<CqlLibraryEntity> versions = libraryRepository.findByTenantIdAndName(effectiveTenantId(), name);
         if (versions.isEmpty()) return Optional.empty();
 
         return versions.stream()
@@ -169,7 +169,7 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getLibraryVersions(String name) {
-        return libraryRepository.findByName(name).stream()
+        return libraryRepository.findByTenantIdAndName(effectiveTenantId(), name).stream()
                 .sorted(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()).reversed())
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
@@ -197,7 +197,7 @@ public class CqlLibraryService {
 
     @Transactional
     public CqlLibrary createVersion(String name, String versionType) {
-        List<CqlLibraryEntity> versions = libraryRepository.findByName(name);
+        List<CqlLibraryEntity> versions = libraryRepository.findByTenantIdAndName(effectiveTenantId(), name);
         if (versions.isEmpty()) {
             throw new IllegalArgumentException("Library not found: " + name);
         }
@@ -209,7 +209,7 @@ public class CqlLibraryService {
         String newVersion = bumpVersion(latest.getVersion(), versionType);
 
         // Check if version already exists
-        if (libraryRepository.existsByNameAndVersion(name, newVersion)) {
+        if (libraryRepository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), name, newVersion)) {
             throw new IllegalArgumentException("Version already exists: " + name + " v" + newVersion);
         }
 
@@ -248,7 +248,7 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getHistory(String name) {
-        return libraryRepository.findByName(name).stream()
+        return libraryRepository.findByTenantIdAndName(effectiveTenantId(), name).stream()
                 .sorted(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()).reversed())
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
@@ -274,7 +274,7 @@ public class CqlLibraryService {
     @Transactional
     public CqlLibrary shareLibrary(String id, String targetUsername, String currentUser) {
         CqlLibraryEntity entity = parseId(id)
-                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                 .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
 
         if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
@@ -297,7 +297,7 @@ public class CqlLibraryService {
     @Transactional
     public CqlLibrary unshareLibrary(String id, String targetUsername, String currentUser) {
         CqlLibraryEntity entity = parseId(id)
-                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                 .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
 
         if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
@@ -317,7 +317,7 @@ public class CqlLibraryService {
     @Transactional
     public CqlLibrary transferOwnership(String id, String newOwner, String currentUser) {
         CqlLibraryEntity entity = parseId(id)
-                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                 .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
 
         if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
@@ -333,7 +333,7 @@ public class CqlLibraryService {
     @Transactional
     public CqlLibrary setAccessLevel(String id, String accessLevel, String currentUser) {
         CqlLibraryEntity entity = parseId(id)
-                .flatMap(nv -> libraryRepository.findByNameAndVersion(nv[0], nv[1]))
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                 .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
 
         if (entity.getOwnerUsername() != null && !entity.getOwnerUsername().equals(currentUser)) {
