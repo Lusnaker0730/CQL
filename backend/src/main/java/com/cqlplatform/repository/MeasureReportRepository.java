@@ -71,4 +71,37 @@ public interface MeasureReportRepository extends JpaRepository<MeasureReportEnti
             "AND r.createdAt = (SELECT MAX(r2.createdAt) FROM MeasureReportEntity r2 " +
             "WHERE r2.measureDefinitionId = :measureId)")
     List<MeasureReportEntity> findLatestByMeasureDefinitionId(@Param("measureId") Long measureId);
+
+    // Phase 2 — tenant-scoped MANAGEMENT queries (reports carry PHI; must not leak cross-tenant).
+    java.util.Optional<MeasureReportEntity> findByIdAndTenantId(Long id, Long tenantId);
+
+    List<MeasureReportEntity> findTop50ByTenantIdOrderByCreatedAtDesc(Long tenantId);
+
+    List<MeasureReportEntity> findByTenantIdAndMeasureDefinitionIdOrderByCreatedAtDesc(
+            Long tenantId, Long measureDefinitionId, Pageable pageable);
+
+    List<MeasureReportEntity> findByTenantIdAndMeasureNameOrderByCreatedAtDesc(Long tenantId, String measureName);
+
+    List<MeasureReportEntity> findByTenantIdAndMeasureNameOrderByPeriodStartAsc(Long tenantId, String measureName);
+
+    List<MeasureReportEntity> findByTenantIdAndMeasureNameAndPeriodStartAndPeriodEnd(
+            Long tenantId, String measureName, LocalDate periodStart, LocalDate periodEnd);
+
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.tenantId = :tenantId AND r.measureName = :measureName " +
+            "AND r.periodStart >= :rangeStart AND r.periodEnd <= :rangeEnd ORDER BY r.createdAt DESC")
+    List<MeasureReportEntity> findByTenantIdAndMeasureNameAndPeriodOverlap(
+            @Param("tenantId") Long tenantId, @Param("measureName") String measureName,
+            @Param("rangeStart") LocalDate rangeStart, @Param("rangeEnd") LocalDate rangeEnd);
+
+    List<MeasureReportEntity> findByTenantIdAndMeasureDefinitionIdAndPeriodStartAndPeriodEnd(
+            Long tenantId, Long measureDefinitionId, LocalDate periodStart, LocalDate periodEnd);
+
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.tenantId = :tenantId AND r.measureDefinitionId = :measureId " +
+            "AND r.periodStart <= :rangeEnd AND r.periodEnd >= :rangeStart ORDER BY r.createdAt DESC")
+    List<MeasureReportEntity> findByTenantIdAndMeasureDefinitionIdAndPeriodOverlap(
+            @Param("tenantId") Long tenantId, @Param("measureId") Long measureId,
+            @Param("rangeStart") LocalDate rangeStart, @Param("rangeEnd") LocalDate rangeEnd);
+
+    List<MeasureReportEntity> findByTenantIdAndMeasureDefinitionIdOrderByPeriodStartAsc(
+            Long tenantId, Long measureDefinitionId);
 }
