@@ -4,7 +4,10 @@ import com.cqlplatform.entity.MeasureScheduleEntity;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationRequest;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import com.cqlplatform.entity.MeasureDefinitionEntity;
+import com.cqlplatform.repository.MeasureDefinitionRepository;
 import com.cqlplatform.repository.MeasureScheduleRepository;
+import com.cqlplatform.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +29,7 @@ public class ScheduledMeasureEvaluationService {
     private final MeasureScheduleRepository scheduleRepository;
     private final MeasureDefinitionService definitionService;
     private final MeasureEvaluationService evaluationService;
+    private final MeasureDefinitionRepository measureDefinitionRepository;
 
     @Value("${measure.scheduling.enabled:true}")
     private boolean schedulingEnabled;
@@ -55,26 +59,36 @@ public class ScheduledMeasureEvaluationService {
     }
 
     private void runScheduledEvaluation(MeasureScheduleEntity schedule) {
-        MeasureDefinition definition = definitionService.getById(schedule.getMeasureDefinitionId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Measure definition not found: " + schedule.getMeasureDefinitionId()));
+        // The scheduler runs off the request thread (no TenantContext). Resolve the measure's
+        // tenant with an unscoped system lookup and run the whole evaluation under it, so the
+        // tenant-scoped getById + report save + parallel fan-out all use the measure's tenant
+        // rather than falling back to the default tenant.
+        Long tenantId = measureDefinitionRepository.findById(schedule.getMeasureDefinitionId())
+                .map(MeasureDefinitionEntity::getTenantId)
+                .orElse(null);
+        TenantContext.callWith(tenantId, () -> {
+            MeasureDefinition definition = definitionService.getById(schedule.getMeasureDefinitionId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Measure definition not found: " + schedule.getMeasureDefinitionId()));
 
-        LocalDate[] period = computePeriod(schedule.getPeriodType());
+            LocalDate[] period = computePeriod(schedule.getPeriodType());
 
-        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
-        request.setMeasureId(definition.getId().toString());
-        request.setMeasureCql(definition.getCqlContent());
-        request.setPeriodStart(period[0]);
-        request.setPeriodEnd(period[1]);
-        request.setFhirServerUrl(schedule.getFhirServerUrl());
-        request.setReportType("summary");
+            MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+            request.setMeasureId(definition.getId().toString());
+            request.setMeasureCql(definition.getCqlContent());
+            request.setPeriodStart(period[0]);
+            request.setPeriodEnd(period[1]);
+            request.setFhirServerUrl(schedule.getFhirServerUrl());
+            request.setReportType("summary");
 
-        evaluationService.evaluateMeasure(request, definition.getId(), definition);
+            evaluationService.evaluateMeasure(request, definition.getId(), definition);
 
-        schedule.setLastRunAt(LocalDateTime.now());
-        schedule.setLastRunStatus(com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
-        updateNextRunTime(schedule);
-        scheduleRepository.save(schedule);
+            schedule.setLastRunAt(LocalDateTime.now());
+            schedule.setLastRunStatus(com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
+            updateNextRunTime(schedule);
+            scheduleRepository.save(schedule);
+            return null;
+        });
     }
 
     private LocalDate[] computePeriod(String periodType) {
