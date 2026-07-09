@@ -20,8 +20,26 @@ import java.util.stream.Collectors;
 public class DependencyAnalysisService {
 
     private final CqlLibraryRepository libraryRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
 
     private static final Pattern DEP_PATTERN = Pattern.compile("^(.+?)\\s+version\\s+'([^']+)'$");
+
+    /**
+     * Effective tenant: the caller's, or the default tenant for legacy callers with none.
+     * Dependency analysis runs on the request thread (invoked from CqlController), so the
+     * tenant is read straight off {@link com.cqlplatform.security.TenantContext}. Scoping the
+     * lookups keeps one clinic's dependency graph from resolving another clinic's libraries
+     * once (tenant_id, name, version) allows same-named libraries across tenants (V62).
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Data
     @Builder
@@ -81,7 +99,8 @@ public class DependencyAnalysisService {
         String name = libraryId.substring(0, dashIdx);
         String version = libraryId.substring(dashIdx + 1);
 
-        Optional<CqlLibraryEntity> entityOpt = libraryRepository.findByNameAndVersion(name, version);
+        Long tenantId = effectiveTenantId();
+        Optional<CqlLibraryEntity> entityOpt = libraryRepository.findByTenantIdAndNameAndVersion(tenantId, name, version);
         if (entityOpt.isEmpty()) {
             return emptyResult();
         }
@@ -103,7 +122,7 @@ public class DependencyAnalysisService {
 
         for (String dep : deps) {
             DependencyInfo info = analyzeDependency(dep, name + " v" + version,
-                    versionRequests, mismatches, circularDeps, ancestorPath);
+                    versionRequests, mismatches, circularDeps, ancestorPath, tenantId);
             depInfos.add(info);
         }
 
@@ -123,7 +142,8 @@ public class DependencyAnalysisService {
                                               Map<String, Map<String, List<String>>> versionRequests,
                                               List<VersionMismatch> mismatches,
                                               List<CircularDependency> circularDeps,
-                                              LinkedHashSet<String> ancestorPath) {
+                                              LinkedHashSet<String> ancestorPath,
+                                              Long tenantId) {
         Matcher matcher = DEP_PATTERN.matcher(dep.trim());
         String depName;
         String declaredVersion;
@@ -142,14 +162,14 @@ public class DependencyAnalysisService {
 
         Optional<CqlLibraryEntity> found;
         if (declaredVersion != null) {
-            found = libraryRepository.findByNameAndVersion(depName, declaredVersion);
+            found = libraryRepository.findByTenantIdAndNameAndVersion(tenantId, depName, declaredVersion);
             if (found.isEmpty()) {
                 // Fall back to latest if exact version not found
-                found = libraryRepository.findByName(depName).stream()
+                found = libraryRepository.findByTenantIdAndName(tenantId, depName).stream()
                         .max(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()));
             }
         } else {
-            found = libraryRepository.findByName(depName).stream()
+            found = libraryRepository.findByTenantIdAndName(tenantId, depName).stream()
                     .max(Comparator.comparing(CqlLibraryEntity::getVersion, new SemanticVersionComparator()));
         }
 
@@ -192,7 +212,7 @@ public class DependencyAnalysisService {
                 childPath.add(visitKey);
                 for (String td : transDeps) {
                     transitive.add(analyzeDependency(td, depName + " v" + resolvedVersion,
-                            versionRequests, mismatches, circularDeps, childPath));
+                            versionRequests, mismatches, circularDeps, childPath, tenantId));
                 }
             }
         }

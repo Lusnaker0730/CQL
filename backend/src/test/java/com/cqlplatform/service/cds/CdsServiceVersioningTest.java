@@ -36,7 +36,7 @@ class CdsServiceVersioningTest {
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
         cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
-                java.util.Optional.empty(), java.util.Optional.empty());
+                java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty());
     }
 
     @Test
