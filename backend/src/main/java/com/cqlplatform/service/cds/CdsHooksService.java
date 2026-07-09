@@ -46,6 +46,7 @@ public class CdsHooksService {
      */
     private final Optional<CdsFeedbackRepository> feedbackRepository;
     private final Optional<CqlLibraryRepository> cqlLibraryRepository;
+    private final Optional<com.cqlplatform.repository.TenantRepository> tenantRepository;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -611,7 +612,14 @@ public class CdsHooksService {
         String libName = matcher.group(1);
         String libVersion = matcher.group(2);
 
-        Optional<CqlLibraryEntity> existing = repo.findByNameAndVersion(libName, libVersion);
+        // Phase 2 (V62): cql_library is tenant-scoped. This runs on the request thread
+        // (CDS service create/update), so the tenant comes straight off TenantContext,
+        // defaulting to the default tenant for legacy callers with none. Both the lookup
+        // and the insert are scoped so a CDS sync never overwrites or collides with another
+        // clinic's same-named library.
+        Long tenantId = effectiveTenantId();
+        Optional<CqlLibraryEntity> existing =
+                repo.findByTenantIdAndNameAndVersion(tenantId, libName, libVersion);
         if (existing.isPresent()) {
             CqlLibraryEntity entity = existing.get();
             entity.setCqlContent(cqlContent);
@@ -624,10 +632,29 @@ public class CdsHooksService {
                     .version(libVersion)
                     .cqlContent(cqlContent)
                     .status("active")
+                    .tenantId(tenantId)
                     .build();
             repo.save(newLib);
             log.info("Created cql_library '{}' version '{}' from CDS service CQL", libName, libVersion);
         }
+    }
+
+    /**
+     * Effective tenant for CDS→cql_library sync: the caller's, or the default tenant for
+     * legacy callers with none. {@code tenantRepository} is Optional (absent in trimmed test
+     * slices); when it and the tenant context are both absent this returns null, which only
+     * happens in tests that also lack a cqlLibraryRepository — so no tenant-less row is ever
+     * persisted (see {@link #syncCqlLibrary} early-return guard).
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository
+                .flatMap(r -> r.findByCode("default"))
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElse(null);
     }
 
     @lombok.Data

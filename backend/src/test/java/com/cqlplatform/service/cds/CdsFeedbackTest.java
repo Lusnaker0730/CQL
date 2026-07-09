@@ -39,7 +39,7 @@ class CdsFeedbackTest {
         // (no more reflection hack needed). cqlLibraryRepository stays empty
         // since this test doesn't exercise CQL library sync.
         cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
-                java.util.Optional.of(feedbackRepository), java.util.Optional.empty());
+                java.util.Optional.of(feedbackRepository), java.util.Optional.empty(), java.util.Optional.empty());
     }
 
     @Test
