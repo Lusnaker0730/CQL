@@ -27,11 +27,23 @@ public class EcqmPublishService {
     private final MeasureDefinitionRepository measureRepository;
     private final EcqmCqlBuilder ecqmCqlBuilder;
     private final EcqmCqlGenerationService cqlGenerationService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @SuppressWarnings("unchecked")
     @Transactional
     public PublishResult publish(Long artifactId, String currentUser) {
-        EcqmArtifactEntity ecqm = ecqmRepository.findById(artifactId)
+        EcqmArtifactEntity ecqm = ecqmRepository.findByIdAndTenantId(artifactId, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("eCQM Artifact", artifactId));
 
         if (!ecqm.getOwnerUsername().equals(currentUser)) {
@@ -65,7 +77,7 @@ public class EcqmPublishService {
         // Create or update MeasureDefinition
         MeasureDefinitionEntity measureDef;
         if (ecqm.getPublishedMeasureId() != null) {
-            measureDef = measureRepository.findById(ecqm.getPublishedMeasureId())
+            measureDef = measureRepository.findByIdAndTenantId(ecqm.getPublishedMeasureId(), effectiveTenantId())
                     .orElse(newMeasureDefinition(ecqm, currentUser));
         } else {
             measureDef = newMeasureDefinition(ecqm, currentUser);
@@ -117,6 +129,7 @@ public class EcqmPublishService {
         return MeasureDefinitionEntity.builder()
                 .createdBy(currentUser)
                 .ownerUsername(currentUser)
+                .tenantId(ecqm.getTenantId()) // published measure inherits the artifact's tenant
                 .build();
     }
 
