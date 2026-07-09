@@ -12,4 +12,9 @@ public interface EcqmArtifactRepository extends JpaRepository<EcqmArtifactEntity
     List<EcqmArtifactEntity> findByOwnerUsername(String ownerUsername);
 
     boolean existsByNameAndVersionAndOwnerUsername(String name, String version, String ownerUsername);
+
+    // Phase 2 — tenant-scoped management queries.
+    java.util.Optional<EcqmArtifactEntity> findByIdAndTenantId(Long id, Long tenantId);
+
+    List<EcqmArtifactEntity> findByTenantIdAndOwnerUsername(Long tenantId, String ownerUsername);
 }
