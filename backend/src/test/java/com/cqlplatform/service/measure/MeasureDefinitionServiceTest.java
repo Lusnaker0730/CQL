@@ -41,12 +41,23 @@ class MeasureDefinitionServiceTest {
     @Mock
     private CqlTranslationService cqlTranslationService;
 
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
     @InjectMocks
     private MeasureDefinitionService service;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(service, "lockTimeoutMinutes", 30);
+        // Phase 2: management ops derive tenant from TenantContext; set one so tests exercise
+        // the effectiveTenantId path without a repo stub.
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(7L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
     }
 
     private MeasureDefinitionEntity createEntity(Long id, String name, String version) {
@@ -69,7 +80,7 @@ class MeasureDefinitionServiceTest {
                 .version("1.0.0")
                 .build();
 
-        when(repository.existsByNameAndVersion("TestMeasure", "1.0.0")).thenReturn(false);
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "TestMeasure", "1.0.0")).thenReturn(false);
         when(repository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity e = inv.getArgument(0);
             e.setId(1L);
@@ -92,7 +103,7 @@ class MeasureDefinitionServiceTest {
                 .version("1.0.0")
                 .build();
 
-        when(repository.existsByNameAndVersion("Existing", "1.0.0")).thenReturn(true);
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Existing", "1.0.0")).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(definition))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -102,7 +113,7 @@ class MeasureDefinitionServiceTest {
     @Test
     void getById_found_shouldReturnMeasure() {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         Optional<MeasureDefinition> result = service.getById(1L);
         assertThat(result).isPresent();
@@ -111,8 +122,16 @@ class MeasureDefinitionServiceTest {
 
     @Test
     void getById_notFound_shouldReturnEmpty() {
-        when(repository.findById(999L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
         assertThat(service.getById(999L)).isEmpty();
+    }
+
+    @Test
+    void getAll_scopesToCallerTenant() {
+        when(repository.findByTenantId(7L)).thenReturn(List.of()); // 7L from setUp (TenantContext)
+        service.getAll();
+        verify(repository).findByTenantId(7L);       // exact caller tenant, not findAll
+        verify(repository, never()).findAll();
     }
 
     @Test
@@ -128,8 +147,8 @@ class MeasureDefinitionServiceTest {
     @Test
     void createVersion_major_shouldBump() {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.2.3");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
-        when(repository.existsByNameAndVersion("Test", "2.0.0")).thenReturn(false);
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Test", "2.0.0")).thenReturn(false);
         when(repository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity e = inv.getArgument(0);
             if (e.getId() == null) e.setId(2L);
@@ -144,8 +163,8 @@ class MeasureDefinitionServiceTest {
     @Test
     void createVersion_minor_shouldBump() {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.2.3");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
-        when(repository.existsByNameAndVersion("Test", "1.3.0")).thenReturn(false);
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Test", "1.3.0")).thenReturn(false);
         when(repository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity e = inv.getArgument(0);
             if (e.getId() == null) e.setId(2L);
@@ -159,8 +178,8 @@ class MeasureDefinitionServiceTest {
     @Test
     void createVersion_patch_shouldBump() {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.2.3");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
-        when(repository.existsByNameAndVersion("Test", "1.2.4")).thenReturn(false);
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Test", "1.2.4")).thenReturn(false);
         when(repository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity e = inv.getArgument(0);
             if (e.getId() == null) e.setId(2L);
@@ -173,7 +192,7 @@ class MeasureDefinitionServiceTest {
 
     @Test
     void createVersion_notFound_shouldThrow() {
-        when(repository.findById(999L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.createVersion(999L, "major"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -186,7 +205,7 @@ class MeasureDefinitionServiceTest {
     void lockMeasure_unlocked_shouldSucceed() {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setLockedBy(null);
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -199,7 +218,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setLockedBy("otherUser");
         entity.setLockedAt(LocalDateTime.now());
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.lockMeasure(1L, "user1"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -211,7 +230,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setLockedBy("otherUser");
         entity.setLockedAt(LocalDateTime.now().minusMinutes(60)); // expired
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -224,7 +243,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setLockedBy("user1");
         entity.setLockedAt(LocalDateTime.now());
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -238,7 +257,7 @@ class MeasureDefinitionServiceTest {
         entity.setLockedBy("user1");
         entity.setLockedAt(LocalDateTime.now());
         entity.setOwnerUsername("user1");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.unlockMeasure(1L, "wrongUser"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -253,7 +272,7 @@ class MeasureDefinitionServiceTest {
         entity.setOwnerUsername("owner");
         entity.setSharedWithList(new ArrayList<>());
         entity.setAccessLevel("private");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -266,7 +285,7 @@ class MeasureDefinitionServiceTest {
     void shareMeasure_nonOwner_shouldThrow() {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setOwnerUsername("owner");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.shareMeasure(1L, "collaborator", "notOwner"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -280,7 +299,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setStatus("draft");
         entity.setOwnerUsername("owner");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -293,7 +312,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setStatus("active");
         entity.setOwnerUsername("owner");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.submitForReview(1L, "owner"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -305,7 +324,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setStatus("in-review");
         entity.setOwnerUsername("owner");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -318,7 +337,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setStatus("in-review");
         entity.setOwnerUsername("owner");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -331,7 +350,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
         entity.setStatus("active");
         entity.setOwnerUsername("owner");
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
 
@@ -369,7 +388,7 @@ class MeasureDefinitionServiceTest {
                         .startLine(1).startColumn(1).endLine(1).endColumn(1).build()))
                 .build();
         when(cqlTranslationService.translate(any())).thenReturn(failed);
-        when(repository.existsByNameAndVersion(any(), any())).thenReturn(false);
+        when(repository.existsByTenantIdAndNameAndVersion(anyLong(), any(), any())).thenReturn(false);
 
         MeasureDefinition definition = MeasureDefinition.builder()
                 .name("Bad")
@@ -393,7 +412,7 @@ class MeasureDefinitionServiceTest {
         CqlTranslationResponse ok = CqlTranslationResponse.builder()
                 .success(true).elmJson("{\"library\":{}}").build();
         when(cqlTranslationService.translate(any())).thenReturn(ok);
-        when(repository.existsByNameAndVersion(any(), any())).thenReturn(false);
+        when(repository.existsByTenantIdAndNameAndVersion(anyLong(), any(), any())).thenReturn(false);
         when(repository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity e = inv.getArgument(0);
             e.setId(1L);
@@ -416,7 +435,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity existing = createEntity(1L, "Test", "1.0.0");
         existing.setCqlContent("library old");
         existing.setElmJson("{\"old\":{}}");
-        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(existing));
 
         CqlTranslationResponse failed = CqlTranslationResponse.builder()
                 .success(false)
@@ -446,7 +465,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinitionEntity existing = createEntity(1L, "Test", "1.0.0");
         existing.setCqlContent("library Test version '1.0.0'\ndefine \"X\": true");
         existing.setElmJson("{\"cached\":{}}");
-        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(existing));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         MeasureDefinition update = MeasureDefinition.builder()
@@ -468,7 +487,7 @@ class MeasureDefinitionServiceTest {
         // structured 400 error instead of a 500 stack trace.
         when(cqlTranslationService.translate(any()))
                 .thenThrow(new RuntimeException("translator crashed"));
-        when(repository.existsByNameAndVersion(any(), any())).thenReturn(false);
+        when(repository.existsByTenantIdAndNameAndVersion(anyLong(), any(), any())).thenReturn(false);
 
         MeasureDefinition definition = MeasureDefinition.builder()
                 .name("Crashy")
