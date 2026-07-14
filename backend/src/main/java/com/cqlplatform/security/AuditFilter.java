@@ -26,6 +26,24 @@ import java.util.regex.Pattern;
 public class AuditFilter extends OncePerRequestFilter {
 
     private final AuditLogRepository auditLogRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /**
+     * Caller's tenant ?? default. This filter runs synchronously on the request thread,
+     * NESTED inside JwtAuthenticationFilter's try/finally — TenantContext is still set
+     * when we save (the finally-clear runs only after this filter returns). The fallback
+     * covers the paths that never set a tenant: anonymous/failed auth, the SSE-ticket
+     * branch, per-user CDS API-key auth, and legacy JWTs without a tenant claim.
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElse(null);
+    }
 
     private static final Set<String> AUDITED_PREFIXES = Set.of("/api/");
 
@@ -159,6 +177,7 @@ public class AuditFilter extends OncePerRequestFilter {
                     .connectionId(connectionId)
                     .patientFhirId(StringUtils.truncate(patientFhirId, 200))
                     .connectionName(StringUtils.truncate(connectionName, 200))
+                    .tenantId(effectiveTenantId())
                     .build();
 
             auditLogRepository.save(auditLog);
