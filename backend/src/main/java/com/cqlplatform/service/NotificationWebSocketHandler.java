@@ -43,13 +43,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     private final NotificationRepository repository;
+    private final com.cqlplatform.repository.UserRepository userRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final ObjectMapper objectMapper;
 
     private final Map<String, List<WebSocketSession>> sessions = new ConcurrentHashMap<>();
 
     public NotificationWebSocketHandler(NotificationRepository repository,
+                                         com.cqlplatform.repository.UserRepository userRepository,
+                                         com.cqlplatform.repository.TenantRepository tenantRepository,
                                          ObjectMapper objectMapper) {
         this.repository = repository;
+        this.userRepository = userRepository;
+        this.tenantRepository = tenantRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -68,7 +74,17 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
         // Mirror the SSE behaviour: send the initial unread count so the UI badge
         // is correct on first paint without waiting for a notification event.
-        long unread = repository.countByRecipientAndReadFalse(username);
+        // The WS handshake authenticates via ticket (no TenantContext on this thread),
+        // so resolve the user's tenant explicitly rather than via effectiveTenantId().
+        Long tenantId = userRepository.findByUsername(username)
+                .map(com.cqlplatform.entity.UserEntity::getTenantId)
+                .orElse(null);
+        if (tenantId == null) {
+            tenantId = tenantRepository.findByCode("default")
+                    .map(com.cqlplatform.entity.TenantEntity::getId)
+                    .orElse(null);
+        }
+        long unread = repository.countByTenantIdAndRecipientAndReadFalse(tenantId, username);
         sendJson(session, Map.of("type", "unread-count", "count", unread));
     }
 

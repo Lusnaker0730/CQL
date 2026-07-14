@@ -26,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final SseTicketService sseTicketService;
     private final TokenVersionService tokenVersionService;
     private final UserApiKeyService userApiKeyService;
+    private final com.cqlplatform.repository.UserRepository userRepository;
 
     /**
      * PAT-143 — convert from field-level {@code @Autowired(required=false)} for
@@ -38,11 +39,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                     SseTicketService sseTicketService,
                                     TokenVersionService tokenVersionService,
-                                    Optional<UserApiKeyService> userApiKeyService) {
+                                    Optional<UserApiKeyService> userApiKeyService,
+                                    Optional<com.cqlplatform.repository.UserRepository> userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.sseTicketService = sseTicketService;
         this.tokenVersionService = tokenVersionService;
         this.userApiKeyService = userApiKeyService.orElse(null);
+        this.userRepository = userRepository.orElse(null);
     }
 
     @Override
@@ -82,6 +85,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                    // Phase 2 (#698): API-key auth previously never set a tenant, so per-user
+                    // CDS requests fell back to the DEFAULT tenant downstream. Resolve the
+                    // key owner's tenant from the user record (authoritative — survives a
+                    // future tenant reassignment, unlike a tenant stamped on the key row).
+                    // The return below stays inside the try, so the finally-clear applies.
+                    if (userRepository != null) {
+                        userRepository.findByUsername(username)
+                                .map(com.cqlplatform.entity.UserEntity::getTenantId)
+                                .ifPresent(TenantContext::setCurrentTenantId);
+                    }
                     filterChain.doFilter(request, response);
                     return;
                 }
