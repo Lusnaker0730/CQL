@@ -53,6 +53,16 @@ public class FailedImportEntity {
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
+    /**
+     * Tenant (clinic) this row belongs to — the isolation boundary (Phase 2, V65 / #698).
+     * Assigned server-side at recordFailure; existing rows backfilled to the default tenant.
+     * Note: patient_fhir_id on this table is stored UNENCRYPTED, so tenant scoping is the
+     * primary containment for its PHI exposure.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
