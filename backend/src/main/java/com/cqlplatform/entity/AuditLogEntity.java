@@ -68,6 +68,15 @@ public class AuditLogEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Tenant (clinic) this row belongs to — the isolation boundary (Phase 2, V64 / #698).
+     * Foundation only: nullable, existing rows backfilled to the default tenant; the
+     * per-table enforcement PR assigns it server-side and scopes the reads.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

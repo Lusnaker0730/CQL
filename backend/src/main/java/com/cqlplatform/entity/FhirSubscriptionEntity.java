@@ -51,6 +51,15 @@ public class FhirSubscriptionEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    /**
+     * Tenant (clinic) this row belongs to — the isolation boundary (Phase 2, V64 / #698).
+     * Foundation only: nullable, existing rows backfilled to the default tenant; the
+     * per-table enforcement PR assigns it server-side and scopes the reads.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
