@@ -13,6 +13,9 @@ import com.cqlplatform.entity.FhirSubscriptionEntity;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.ehr.SubscriptionRequest;
 import com.cqlplatform.repository.FhirSubscriptionRepository;
+import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Subscription;
 import ca.uhn.fhir.rest.api.MethodOutcome;
@@ -46,6 +49,9 @@ class FhirSubscriptionServiceTest {
     @Mock
     private FhirClientFactory fhirClientFactory;
 
+    @Mock
+    private TenantRepository tenantRepository;
+
     @InjectMocks
     private FhirSubscriptionService service;
 
@@ -53,6 +59,13 @@ class FhirSubscriptionServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(service, "serverPort", 8080);
         ReflectionTestUtils.setField(service, "callbackBaseUrl", "http://test:8080");
+        // Exact-tenant assertions below rely on this (repo convention: tenant 7L).
+        TenantContext.setCurrentTenantId(7L);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
     }
 
     @Test
@@ -64,6 +77,7 @@ class FhirSubscriptionServiceTest {
 
         EhrConnectionEntity connection = new EhrConnectionEntity();
         connection.setId(connectionId);
+        connection.setTenantId(7L);
         when(connectionService.getById(connectionId)).thenReturn(connection);
 
         IGenericClient client = mock(IGenericClient.class);
@@ -86,6 +100,8 @@ class FhirSubscriptionServiceTest {
         assertThat(result.getFhirSubscriptionId()).isEqualTo("sub-123");
         assertThat(result.getCriteria()).isEqualTo("Patient?_lastUpdated=gt2024-01-01");
         assertThat(result.getCallbackUrl()).isEqualTo("http://test:8080/api/ehr/subscriptions/callback");
+        // Phase 2 — #698: the subscription inherits its connection's tenant
+        assertThat(result.getTenantId()).isEqualTo(7L);
     }
 
     @Test
@@ -121,34 +137,34 @@ class FhirSubscriptionServiceTest {
         Long connectionId = 1L;
         FhirSubscriptionEntity entity = new FhirSubscriptionEntity();
         entity.setConnectionId(connectionId);
-        when(subscriptionRepository.findByConnectionIdOrderByCreatedAtDesc(connectionId))
+        when(subscriptionRepository.findByTenantIdAndConnectionIdOrderByCreatedAtDesc(7L, connectionId))
                 .thenReturn(List.of(entity));
 
         List<FhirSubscriptionEntity> result = service.listSubscriptions(connectionId);
 
         assertThat(result).hasSize(1);
-        verify(subscriptionRepository).findByConnectionIdOrderByCreatedAtDesc(connectionId);
-        verify(subscriptionRepository, never()).findAllByOrderByCreatedAtDesc();
+        verify(subscriptionRepository).findByTenantIdAndConnectionIdOrderByCreatedAtDesc(7L, connectionId);
+        verify(subscriptionRepository, never()).findByTenantIdOrderByCreatedAtDesc(any());
     }
 
     @Test
     void listSubscriptions_withoutConnectionId_shouldReturnAll() {
         FhirSubscriptionEntity entity = new FhirSubscriptionEntity();
-        when(subscriptionRepository.findAllByOrderByCreatedAtDesc())
+        when(subscriptionRepository.findByTenantIdOrderByCreatedAtDesc(7L))
                 .thenReturn(List.of(entity));
 
         List<FhirSubscriptionEntity> result = service.listSubscriptions(null);
 
         assertThat(result).hasSize(1);
-        verify(subscriptionRepository).findAllByOrderByCreatedAtDesc();
-        verify(subscriptionRepository, never()).findByConnectionIdOrderByCreatedAtDesc(any());
+        verify(subscriptionRepository).findByTenantIdOrderByCreatedAtDesc(7L);
+        verify(subscriptionRepository, never()).findByTenantIdAndConnectionIdOrderByCreatedAtDesc(any(), any());
     }
 
     @Test
     void getSubscription_found_shouldReturn() {
         FhirSubscriptionEntity entity = new FhirSubscriptionEntity();
         entity.setId(1L);
-        when(subscriptionRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(subscriptionRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         FhirSubscriptionEntity result = service.getSubscription(1L);
 
@@ -157,7 +173,7 @@ class FhirSubscriptionServiceTest {
 
     @Test
     void getSubscription_notFound_shouldThrow() {
-        when(subscriptionRepository.findById(99L)).thenReturn(Optional.empty());
+        when(subscriptionRepository.findByIdAndTenantId(99L, 7L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getSubscription(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -170,7 +186,7 @@ class FhirSubscriptionServiceTest {
         entity.setId(1L);
         entity.setConnectionId(10L);
         entity.setFhirSubscriptionId("sub-123");
-        when(subscriptionRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(subscriptionRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         EhrConnectionEntity connection = new EhrConnectionEntity();
         when(connectionService.getById(10L)).thenReturn(connection);
@@ -224,7 +240,7 @@ class FhirSubscriptionServiceTest {
         entity.setConnectionId(10L);
         entity.setFhirSubscriptionId("sub-123");
         entity.setStatus("requested");
-        when(subscriptionRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(subscriptionRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         EhrConnectionEntity connection = new EhrConnectionEntity();
         when(connectionService.getById(10L)).thenReturn(connection);
