@@ -62,6 +62,55 @@ class DatabaseLibrarySourceProviderTest {
         verify(repo, never()).findByName("MyLib");
     }
 
+    @Test
+    @DisplayName("null TenantContext + default resolver — scopes to the default tenant, never unscoped (PAT-193)")
+    void nullTenant_withResolver_scopesToDefaultTenant() {
+        provider = new DatabaseLibrarySourceProvider(repo, () -> 7L);
+        when(repo.findByTenantIdAndNameAndVersion(7L, "MyLib", "1.0.0"))
+                .thenReturn(Optional.of(entity("MyLib", "1.0.0", "library MyLib version '1.0.0'\n")));
+
+        assertThat(provider.getLibrarySource(vid("MyLib", "1.0.0"))).isNotNull();
+        verify(repo).findByTenantIdAndNameAndVersion(7L, "MyLib", "1.0.0");
+        verify(repo, never()).findByNameAndVersion("MyLib", "1.0.0");
+    }
+
+    @Test
+    @DisplayName("null TenantContext + default resolver — version-less latest also scopes to default tenant")
+    void nullTenant_withResolver_scopesLatestToDefaultTenant() {
+        provider = new DatabaseLibrarySourceProvider(repo, () -> 7L);
+        when(repo.findByTenantIdAndName(7L, "MyLib")).thenReturn(List.of(
+                entity("MyLib", "1.0.0", "library MyLib version '1.0.0'\n"),
+                entity("MyLib", "1.2.0", "library MyLib version '1.2.0'\n")));
+
+        assertThat(provider.getLibrarySource(vid("MyLib", null))).isNotNull();
+        verify(repo).findByTenantIdAndName(7L, "MyLib");
+        verify(repo, never()).findByName("MyLib");
+    }
+
+    @Test
+    @DisplayName("null TenantContext + resolver that cannot resolve — degrades to the legacy unscoped lookup")
+    void nullTenant_resolverReturnsNull_fallsBackUnscoped() {
+        provider = new DatabaseLibrarySourceProvider(repo, () -> null);
+        when(repo.findByNameAndVersion("MyLib", "1.0.0"))
+                .thenReturn(Optional.of(entity("MyLib", "1.0.0", "library MyLib version '1.0.0'\n")));
+
+        assertThat(provider.getLibrarySource(vid("MyLib", "1.0.0"))).isNotNull();
+        verify(repo).findByNameAndVersion("MyLib", "1.0.0");
+    }
+
+    @Test
+    @DisplayName("explicit TenantContext wins over the default resolver")
+    void explicitTenant_beatsDefaultResolver() {
+        provider = new DatabaseLibrarySourceProvider(repo, () -> 7L);
+        TenantContext.setCurrentTenantId(5L);
+        when(repo.findByTenantIdAndNameAndVersion(5L, "MyLib", "1.0.0"))
+                .thenReturn(Optional.of(entity("MyLib", "1.0.0", "library MyLib version '1.0.0'\n")));
+
+        assertThat(provider.getLibrarySource(vid("MyLib", "1.0.0"))).isNotNull();
+        verify(repo).findByTenantIdAndNameAndVersion(5L, "MyLib", "1.0.0");
+        verify(repo, never()).findByTenantIdAndNameAndVersion(7L, "MyLib", "1.0.0");
+    }
+
     // ── Helpers ──
     private static VersionedIdentifier vid(String id, String version) {
         return new VersionedIdentifier().withId(id).withVersion(version);
