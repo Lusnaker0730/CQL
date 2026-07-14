@@ -42,9 +42,15 @@
     <dependencyManagement>
         <dependencies>
             <!--
-              Override transitive org.hl7.fhir.* at 6.7.9 to fix CVE-2026-33180 (auth leak in redirects).
-              Only override packages that Trivy flags AND are ABI-compatible with hapi-fhir 8.6.6.
-              Do NOT override r4/r5/validation/utilities (6.6.7) — they are tightly coupled to hapi-fhir core.
+              Override transitive org.hl7.fhir.* to pick up CVE fixes ahead of HAPI releases.
+              Only the standalone model libs (dstu2/dstu2016may/dstu3/r4b + convertors) can be
+              bumped independently. Do NOT bump r4/r5/validation past the HAPI-bundled version
+              (6.9.7 on hapi-fhir 8.8.1): javap check (BUG-124 method, re-run for BUG-130) shows
+              6.9.9's IValidationPolicyAdvisor adds abstract isSuppressMessageId(String,String,
+              Object...) and relativeDatePlaceHolder() that 8.8.1's FhirDefaultPolicyAdvisor does
+              not implement -> AbstractMethodError at runtime. Those stay VEX'd in .trivyignore
+              until a HAPI release bundles fhir core >= 6.9.9.
+              Current pins: 6.9.9 fixes CVE-2026-49485 (FHIRPath matches()/replaceMatches() ReDoS).
             -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
@@ -57,27 +63,27 @@
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2016may</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3.support</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4b</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
