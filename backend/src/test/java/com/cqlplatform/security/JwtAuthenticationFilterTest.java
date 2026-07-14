@@ -47,7 +47,7 @@ class JwtAuthenticationFilterTest {
     void setUp() {
         filter = new JwtAuthenticationFilter(
                 jwtTokenProvider, sseTicketService, tokenVersionService,
-                Optional.of(userApiKeyService));
+                Optional.of(userApiKeyService), Optional.empty());
         SecurityContextHolder.clearContext();
         // lenient(): not every test exercises the JWT path (no-Authorization /
         // api-key tests use different header/URI). Avoid Mockito strict-mode

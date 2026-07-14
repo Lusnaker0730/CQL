@@ -22,22 +22,34 @@ public class NotificationService {
 
     private final NotificationRepository repository;
     private final NotificationWebSocketHandler webSocketHandler;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     // ===== CRUD =====
 
     @Transactional(readOnly = true)
     public List<NotificationEntity> getNotifications(String recipient) {
-        return repository.findTop50ByRecipientOrderByCreatedAtDesc(recipient);
+        return repository.findTop50ByTenantIdAndRecipientOrderByCreatedAtDesc(effectiveTenantId(), recipient);
     }
 
     @Transactional(readOnly = true)
     public long getUnreadCount(String recipient) {
-        return repository.countByRecipientAndReadFalse(recipient);
+        return repository.countByTenantIdAndRecipientAndReadFalse(effectiveTenantId(), recipient);
     }
 
     @Transactional
     public NotificationEntity markAsRead(Long id, String recipient) {
-        NotificationEntity notification = repository.findById(id)
+        NotificationEntity notification = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found: " + id));
         if (!notification.getRecipient().equals(recipient)) {
             throw new IllegalArgumentException("Not your notification");
@@ -49,12 +61,12 @@ public class NotificationService {
 
     @Transactional
     public int markAllAsRead(String recipient) {
-        return repository.markAllAsRead(recipient);
+        return repository.markAllAsRead(effectiveTenantId(), recipient);
     }
 
     @Transactional
     public void deleteNotification(Long id, String recipient) {
-        NotificationEntity notification = repository.findById(id)
+        NotificationEntity notification = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found: " + id));
         if (!notification.getRecipient().equals(recipient)) {
             throw new IllegalArgumentException("Not your notification");
@@ -73,6 +85,9 @@ public class NotificationService {
                 .message(message)
                 .link(link)
                 .read(false)
+                // Workflow notifications are intra-tenant: the actor and the recipients
+                // (reviewers/owner) belong to the same clinic, so the actor's tenant applies.
+                .tenantId(effectiveTenantId())
                 .build();
         notification = repository.save(notification);
         webSocketHandler.pushToUser(recipient, notification);

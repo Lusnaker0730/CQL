@@ -31,8 +31,21 @@ class UserApiKeyServiceTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
     @InjectMocks
     private UserApiKeyService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setTenant() {
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(7L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
+    }
 
     @Test
     void generateApiKey_shouldReturnEntityWithCqlPrefix() {
@@ -138,7 +151,7 @@ class UserApiKeyServiceTest {
     void listKeys_shouldDelegateToRepository() {
         List<UserApiKeyEntity> keys = List.of(
                 UserApiKeyEntity.builder().id(1L).username("user").build());
-        when(repository.findByUsername("user")).thenReturn(keys);
+        when(repository.findByTenantIdAndUsername(7L, "user")).thenReturn(keys);
 
         List<UserApiKeyEntity> result = service.listKeys("user");
         assertThat(result).hasSize(1);
@@ -152,7 +165,7 @@ class UserApiKeyServiceTest {
                 .apiKey("cql_key")
                 .active(true)
                 .build();
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenReturn(entity);
 
         boolean result = service.revokeKey(1L, "user1");
@@ -169,7 +182,7 @@ class UserApiKeyServiceTest {
                 .apiKey("cql_key")
                 .active(true)
                 .build();
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         boolean result = service.revokeKey(1L, "otherUser");
 
@@ -178,7 +191,7 @@ class UserApiKeyServiceTest {
 
     @Test
     void revokeKey_notFound_shouldReturnFalse() {
-        when(repository.findById(999L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
 
         boolean result = service.revokeKey(999L, "user");
 

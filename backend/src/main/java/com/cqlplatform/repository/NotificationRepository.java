@@ -11,11 +11,15 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<NotificationEntity, Long> {
 
-    List<NotificationEntity> findTop50ByRecipientOrderByCreatedAtDesc(String recipient);
+    // Tenant-scoped (Phase 2 — #698): notifications are per-user, so the tenant predicate
+    // is defence-in-depth against same-username collisions across clinics.
+    List<NotificationEntity> findTop50ByTenantIdAndRecipientOrderByCreatedAtDesc(Long tenantId, String recipient);
 
-    long countByRecipientAndReadFalse(String recipient);
+    long countByTenantIdAndRecipientAndReadFalse(Long tenantId, String recipient);
+
+    java.util.Optional<NotificationEntity> findByIdAndTenantId(Long id, Long tenantId);
 
     @Modifying
-    @Query("UPDATE NotificationEntity n SET n.read = true, n.readAt = CURRENT_TIMESTAMP WHERE n.recipient = ?1 AND n.read = false")
-    int markAllAsRead(String recipient);
+    @Query("UPDATE NotificationEntity n SET n.read = true, n.readAt = CURRENT_TIMESTAMP WHERE n.tenantId = ?1 AND n.recipient = ?2 AND n.read = false")
+    int markAllAsRead(Long tenantId, String recipient);
 }

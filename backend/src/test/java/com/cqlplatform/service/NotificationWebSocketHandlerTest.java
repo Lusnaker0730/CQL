@@ -37,11 +37,17 @@ class NotificationWebSocketHandlerTest {
 
     private NotificationRepository repository;
     private NotificationWebSocketHandler handler;
+    private com.cqlplatform.repository.UserRepository userRepository;
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
 
     @BeforeEach
     void setUp() {
         repository = mock(NotificationRepository.class);
-        handler = new NotificationWebSocketHandler(repository, new ObjectMapper());
+        userRepository = org.mockito.Mockito.mock(com.cqlplatform.repository.UserRepository.class);
+        tenantRepository = org.mockito.Mockito.mock(com.cqlplatform.repository.TenantRepository.class);
+        org.mockito.Mockito.lenient().when(tenantRepository.findByCode("default")).thenReturn(
+                java.util.Optional.of(com.cqlplatform.entity.TenantEntity.builder().id(1L).code("default").build()));
+        handler = new NotificationWebSocketHandler(repository, userRepository, tenantRepository, new ObjectMapper());
     }
 
     private WebSocketSession session(String username) throws IOException {
@@ -55,7 +61,7 @@ class NotificationWebSocketHandlerTest {
 
     @Test
     void afterConnectionEstablished_registersSessionAndSendsInitialUnreadCount() throws Exception {
-        when(repository.countByRecipientAndReadFalse("alice")).thenReturn(3L);
+        when(repository.countByTenantIdAndRecipientAndReadFalse(1L, "alice")).thenReturn(3L);
         WebSocketSession s = session("alice");
 
         handler.afterConnectionEstablished(s);
@@ -81,7 +87,7 @@ class NotificationWebSocketHandlerTest {
 
     @Test
     void afterConnectionClosed_removesSession() throws Exception {
-        when(repository.countByRecipientAndReadFalse("alice")).thenReturn(0L);
+        when(repository.countByTenantIdAndRecipientAndReadFalse(1L, "alice")).thenReturn(0L);
         WebSocketSession s = session("alice");
         handler.afterConnectionEstablished(s);
         assertThat(handler.sessionCount("alice")).isEqualTo(1);
@@ -93,7 +99,7 @@ class NotificationWebSocketHandlerTest {
 
     @Test
     void pushToUser_sendsJsonNotificationToAllSessionsForThatUser() throws Exception {
-        when(repository.countByRecipientAndReadFalse("alice")).thenReturn(0L);
+        when(repository.countByTenantIdAndRecipientAndReadFalse(1L, "alice")).thenReturn(0L);
         WebSocketSession s1 = session("alice");
         WebSocketSession s2 = session("alice");
         WebSocketSession bobs = session("bob");
@@ -142,7 +148,7 @@ class NotificationWebSocketHandlerTest {
 
     @Test
     void sendKeepalivePings_emitsProtocolPingToEachOpenSession() throws Exception {
-        when(repository.countByRecipientAndReadFalse("alice")).thenReturn(0L);
+        when(repository.countByTenantIdAndRecipientAndReadFalse(1L, "alice")).thenReturn(0L);
         WebSocketSession s1 = session("alice");
         WebSocketSession s2 = session("bob");
         handler.afterConnectionEstablished(s1);
@@ -157,7 +163,7 @@ class NotificationWebSocketHandlerTest {
 
     @Test
     void sendKeepalivePings_skipsClosedSessions() throws Exception {
-        when(repository.countByRecipientAndReadFalse("alice")).thenReturn(0L);
+        when(repository.countByTenantIdAndRecipientAndReadFalse(1L, "alice")).thenReturn(0L);
         WebSocketSession s = session("alice");
         handler.afterConnectionEstablished(s);
         when(s.isOpen()).thenReturn(false);

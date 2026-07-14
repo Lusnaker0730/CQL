@@ -16,34 +16,47 @@ import java.util.Optional;
 public class DepartmentService {
 
     private final DepartmentRepository repository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional(readOnly = true)
     public List<DepartmentEntity> getAll() {
-        return repository.findByActiveTrue();
+        return repository.findByTenantIdAndActiveTrue(effectiveTenantId());
     }
 
     @Transactional(readOnly = true)
     public Optional<DepartmentEntity> getByCode(String code) {
-        return repository.findByCode(code);
+        return repository.findByTenantIdAndCode(effectiveTenantId(), code);
     }
 
     @Transactional(readOnly = true)
     public List<DepartmentEntity> getChildren(String parentCode) {
-        return repository.findByParentCode(parentCode);
+        return repository.findByTenantIdAndParentCode(effectiveTenantId(), parentCode);
     }
 
     @Transactional
     public DepartmentEntity create(DepartmentEntity entity) {
-        if (repository.existsByCode(entity.getCode())) {
+        if (repository.existsByTenantIdAndCode(effectiveTenantId(), entity.getCode())) {
             throw new IllegalArgumentException("Department code already exists: " + entity.getCode());
         }
+        entity.setTenantId(effectiveTenantId());
         log.info("Created department: {}", entity.getCode());
         return repository.save(entity);
     }
 
     @Transactional
     public DepartmentEntity update(String code, DepartmentEntity updated) {
-        DepartmentEntity existing = repository.findByCode(code)
+        DepartmentEntity existing = repository.findByTenantIdAndCode(effectiveTenantId(), code)
                 .orElseThrow(() -> new IllegalArgumentException("Department not found: " + code));
 
         existing.setName(updated.getName());
@@ -57,7 +70,7 @@ public class DepartmentService {
 
     @Transactional
     public void delete(String code) {
-        DepartmentEntity existing = repository.findByCode(code)
+        DepartmentEntity existing = repository.findByTenantIdAndCode(effectiveTenantId(), code)
                 .orElseThrow(() -> new IllegalArgumentException("Department not found: " + code));
         existing.setActive(false);
         repository.save(existing);
