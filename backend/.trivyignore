@@ -61,3 +61,18 @@ CVE-2026-55471
 # only a string label in CQL `using` declarations. Same family as the already-VEX'd
 # CVE-2026-45367. Risk: LOW. Tracked for the HAPI 9.x upgrade.
 CVE-2026-55470
+
+# CVE-2026-49485 — org.hl7.fhir.core 6.9.7: ReDoS via FHIRPath matches()/replaceMatches()
+# in the FHIR Validator HTTP endpoint. Fixed in 6.9.9 / 6.9.4.2. (BUG-130)
+# The standalone model libs (dstu2/dstu2016may/dstu3/dstu3.support/r4b) ARE bumped to 6.9.9
+# in pom.xml (fix applied there). The residual flagged modules are r4/r5/validation, which
+# CANNOT be bumped past the hapi-fhir 8.8.1-bundled 6.9.7: javap shows 6.9.9's
+# IValidationPolicyAdvisor adds abstract isSuppressMessageId(String,String,Object...) and
+# relativeDatePlaceHolder() that 8.8.1's FhirDefaultPolicyAdvisor does not implement ->
+# AbstractMethodError at runtime (same coupling constraint as CVE-2026-45367/55471 above).
+# Exposure assessment (VEX): NOT exposed. The platform does not run or expose the FHIR
+# Validator HTTP endpoint (validator.fhir.org-style service). FHIRPath regex evaluation in
+# our validation paths comes from trusted IG profiles (TW Core, packaged at build time),
+# not from user-supplied FHIRPath; user CQL executes on the cqframework engine, not
+# fhir-core's FHIRPathEngine. Risk: LOW. Remove when a HAPI release bundles core >= 6.9.9.
+CVE-2026-49485
