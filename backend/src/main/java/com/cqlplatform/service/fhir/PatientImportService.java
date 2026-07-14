@@ -26,6 +26,21 @@ public class PatientImportService {
     private final FhirContext fhirContext;
     private final PatientImportRepository importRepository;
     private final TestCaseService testCaseService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /**
+     * The caller's tenant, falling back to the default tenant for legacy callers without
+     * a tenant claim (same semantics as EhrConnectionService / CqlLibraryService).
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     /**
      * Import a patient's data from an EHR connection as a test case bundle.
@@ -76,6 +91,9 @@ public class PatientImportService {
         importEntity.setResourceCount(resourceCount);
         importEntity.setBundleJson(bundleJson);
         importEntity.setImportedBy(importedBy);
+        // Batch/scheduled callers run under TenantContext.callWith(job/failed-row tenant),
+        // so this resolves to the right clinic on async threads too.
+        importEntity.setTenantId(effectiveTenantId());
 
         // If a measure is specified, create a test case
         if (measureId != null) {
@@ -102,9 +120,9 @@ public class PatientImportService {
     @Transactional(readOnly = true)
     public List<PatientImportEntity> listImports(String importedBy) {
         if (importedBy != null && !importedBy.isBlank()) {
-            return importRepository.findByImportedByOrderByCreatedAtDesc(importedBy);
+            return importRepository.findByTenantIdAndImportedByOrderByCreatedAtDesc(effectiveTenantId(), importedBy);
         }
-        return importRepository.findAll();
+        return importRepository.findByTenantIdOrderByCreatedAtDesc(effectiveTenantId());
     }
 
     /**
