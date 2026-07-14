@@ -26,8 +26,13 @@ public class AuditLogSpecification {
 
     private AuditLogSpecification() {}
 
-    public static Specification<AuditLogEntity> fromSearchRequest(AuditLogSearchRequest request) {
+    /**
+     * @param tenantId the caller's tenant — ALWAYS applied as a mandatory predicate
+     *                 (Phase 2 — #698): search/export must never cross tenants.
+     */
+    public static Specification<AuditLogEntity> fromSearchRequest(AuditLogSearchRequest request, Long tenantId) {
         Specification<AuditLogEntity> spec = Specification.unrestricted();
+        spec = spec.and(tenantIdEquals(tenantId));
 
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             spec = spec.and(usernameContains(request.getUsername()));
@@ -102,5 +107,8 @@ public class AuditLogSpecification {
 
     private static Specification<AuditLogEntity> phiAccessEquals(Boolean phiAccess) {
         return (root, query, cb) -> cb.equal(root.get("phiAccess"), phiAccess);
+    }
+    private static Specification<AuditLogEntity> tenantIdEquals(Long tenantId) {
+        return (root, query, cb) -> cb.equal(root.get("tenantId"), tenantId);
     }
 }

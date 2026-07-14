@@ -27,12 +27,24 @@ import java.util.stream.Collectors;
 public class AuditService {
 
     private final AuditLogRepository auditLogRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Value("${audit.retention-days:365}")
     private int retentionDays;
 
     public AuditLogResponse searchLogs(AuditLogSearchRequest request) {
-        var spec = AuditLogSpecification.fromSearchRequest(request);
+        var spec = AuditLogSpecification.fromSearchRequest(request, effectiveTenantId());
         var pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<AuditLogEntity> page = auditLogRepository.findAll(spec, pageable);
 
@@ -50,22 +62,23 @@ public class AuditService {
         LocalDateTime startOfWeek = startOfToday.minusDays(7);
         LocalDateTime startOfMonth = startOfToday.minusDays(30);
 
-        long eventsToday = auditLogRepository.countByCreatedAtAfter(startOfToday);
-        long eventsWeek = auditLogRepository.countByCreatedAtAfter(startOfWeek);
-        long eventsMonth = auditLogRepository.countByCreatedAtAfter(startOfMonth);
-        long phiAccess = auditLogRepository.countPhiAccess(startOfToday);
-        long failedLogins = auditLogRepository.countFailedLoginAttempts(startOfToday);
-        long activeUsers = auditLogRepository.countDistinctUsernameByCreatedAtAfter(startOfToday);
+        Long tenantId = effectiveTenantId();
+        long eventsToday = auditLogRepository.countByTenantIdAndCreatedAtAfter(tenantId, startOfToday);
+        long eventsWeek = auditLogRepository.countByTenantIdAndCreatedAtAfter(tenantId, startOfWeek);
+        long eventsMonth = auditLogRepository.countByTenantIdAndCreatedAtAfter(tenantId, startOfMonth);
+        long phiAccess = auditLogRepository.countPhiAccess(tenantId, startOfToday);
+        long failedLogins = auditLogRepository.countFailedLoginAttempts(tenantId, startOfToday);
+        long activeUsers = auditLogRepository.countDistinctUsernameByCreatedAtAfter(tenantId, startOfToday);
 
         // Action distribution (last 30 days)
-        List<Object[]> actionRows = auditLogRepository.countByActionGrouped(startOfMonth);
+        List<Object[]> actionRows = auditLogRepository.countByActionGrouped(tenantId, startOfMonth);
         Map<String, Long> actionCounts = new LinkedHashMap<>();
         for (Object[] row : actionRows) {
             actionCounts.put((String) row[0], (Long) row[1]);
         }
 
         // Top users (last 30 days)
-        List<Object[]> topUserRows = auditLogRepository.findTopUsers(startOfMonth, PageRequest.of(0, 10));
+        List<Object[]> topUserRows = auditLogRepository.findTopUsers(tenantId, startOfMonth, PageRequest.of(0, 10));
         List<UserActivitySummary> topUsers = topUserRows.stream()
                 .map(row -> UserActivitySummary.builder()
                         .username((String) row[0])
@@ -76,7 +89,7 @@ public class AuditService {
 
         // Daily activity (last 14 days)
         LocalDateTime twoWeeksAgo = startOfToday.minusDays(14);
-        List<Object[]> dailyRows = auditLogRepository.countDailyActivity(twoWeeksAgo);
+        List<Object[]> dailyRows = auditLogRepository.countDailyActivity(tenantId, twoWeeksAgo);
         List<DailyActivityCount> dailyActivity = dailyRows.stream()
                 .map(row -> DailyActivityCount.builder()
                         .date(row[0].toString())
@@ -100,21 +113,21 @@ public class AuditService {
     public AuditLogResponse getPhiAccessLog(int page, int size, String startDate) {
         LocalDateTime after = parseStartDate(startDate);
         var pageable = PageRequest.of(page, size);
-        Page<AuditLogEntity> result = auditLogRepository.findPhiAccess(after, pageable);
+        Page<AuditLogEntity> result = auditLogRepository.findPhiAccess(effectiveTenantId(), after, pageable);
         return toResponse(result);
     }
 
     public AuditLogResponse getLoginActivity(int page, int size, String startDate) {
         LocalDateTime after = parseStartDate(startDate);
         var pageable = PageRequest.of(page, size);
-        Page<AuditLogEntity> result = auditLogRepository.findLoginActivity(after, pageable);
+        Page<AuditLogEntity> result = auditLogRepository.findLoginActivity(effectiveTenantId(), after, pageable);
         return toResponse(result);
     }
 
     public AuditLogResponse getSecurityEvents(int page, int size, String startDate) {
         LocalDateTime after = parseStartDate(startDate);
         var pageable = PageRequest.of(page, size);
-        Page<AuditLogEntity> result = auditLogRepository.findSecurityEvents(after, pageable);
+        Page<AuditLogEntity> result = auditLogRepository.findSecurityEvents(effectiveTenantId(), after, pageable);
         return toResponse(result);
     }
 
@@ -122,7 +135,7 @@ public class AuditService {
         // Override pagination for export, cap at 10,000
         request.setPage(0);
         request.setSize(10000);
-        var spec = AuditLogSpecification.fromSearchRequest(request);
+        var spec = AuditLogSpecification.fromSearchRequest(request, effectiveTenantId());
         var pageable = PageRequest.of(0, 10000, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<AuditLogEntity> page = auditLogRepository.findAll(spec, pageable);
         return page.getContent().stream().map(this::toEntry).toList();
@@ -159,10 +172,10 @@ public class AuditService {
         var pageable = PageRequest.of(page, Math.min(size, 200), Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<AuditLogEntity> result;
         if (connectionId != null) {
-            result = auditLogRepository.findByConnectionId(connectionId, pageable);
+            result = auditLogRepository.findByConnectionId(effectiveTenantId(), connectionId, pageable);
         } else {
             LocalDateTime after = LocalDateTime.now().minusDays(days);
-            result = auditLogRepository.findEhrOperations(after, pageable);
+            result = auditLogRepository.findEhrOperations(effectiveTenantId(), after, pageable);
         }
         return toResponse(result);
     }

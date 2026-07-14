@@ -3,6 +3,9 @@ package com.cqlplatform.service;
 import com.cqlplatform.entity.AuditLogEntity;
 import com.cqlplatform.model.audit.*;
 import com.cqlplatform.repository.AuditLogRepository;
+import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,11 +31,20 @@ class AuditServiceTest {
     @Mock
     private AuditLogRepository auditLogRepository;
 
+    @Mock
+    private TenantRepository tenantRepository;
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
+
     @InjectMocks
     private AuditService service;
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCurrentTenantId(7L);
         ReflectionTestUtils.setField(service, "retentionDays", 365);
     }
 
@@ -72,13 +84,13 @@ class AuditServiceTest {
 
     @Test
     void getStats_shouldReturnAggregatedStats() {
-        when(auditLogRepository.countByCreatedAtAfter(any())).thenReturn(10L);
-        when(auditLogRepository.countPhiAccess(any())).thenReturn(2L);
-        when(auditLogRepository.countFailedLoginAttempts(any())).thenReturn(1L);
-        when(auditLogRepository.countDistinctUsernameByCreatedAtAfter(any())).thenReturn(5L);
-        when(auditLogRepository.countByActionGrouped(any())).thenReturn(List.of());
-        when(auditLogRepository.findTopUsers(any(), any())).thenReturn(List.of());
-        when(auditLogRepository.countDailyActivity(any())).thenReturn(List.of());
+        when(auditLogRepository.countByTenantIdAndCreatedAtAfter(eq(7L), any())).thenReturn(10L);
+        when(auditLogRepository.countPhiAccess(eq(7L), any())).thenReturn(2L);
+        when(auditLogRepository.countFailedLoginAttempts(eq(7L), any())).thenReturn(1L);
+        when(auditLogRepository.countDistinctUsernameByCreatedAtAfter(eq(7L), any())).thenReturn(5L);
+        when(auditLogRepository.countByActionGrouped(eq(7L), any())).thenReturn(List.of());
+        when(auditLogRepository.findTopUsers(eq(7L), any(), any())).thenReturn(List.of());
+        when(auditLogRepository.countDailyActivity(eq(7L), any())).thenReturn(List.of());
 
         AuditStatsResponse result = service.getStats();
 
@@ -125,18 +137,18 @@ class AuditServiceTest {
     @Test
     void getPhiAccessLog_withNullStartDate_shouldDefault30DaysAgo() {
         Page<AuditLogEntity> page = new PageImpl<>(List.of());
-        when(auditLogRepository.findPhiAccess(any(), any())).thenReturn(page);
+        when(auditLogRepository.findPhiAccess(eq(7L), any(), any())).thenReturn(page);
 
         AuditLogResponse result = service.getPhiAccessLog(0, 20, null);
 
         assertThat(result).isNotNull();
-        verify(auditLogRepository).findPhiAccess(any(LocalDateTime.class), any(Pageable.class));
+        verify(auditLogRepository).findPhiAccess(eq(7L), any(LocalDateTime.class), any(Pageable.class));
     }
 
     @Test
     void getPhiAccessLog_withValidDate_shouldParse() {
         Page<AuditLogEntity> page = new PageImpl<>(List.of());
-        when(auditLogRepository.findPhiAccess(any(), any())).thenReturn(page);
+        when(auditLogRepository.findPhiAccess(eq(7L), any(), any())).thenReturn(page);
 
         AuditLogResponse result = service.getPhiAccessLog(0, 20, "2024-01-01");
 
@@ -148,7 +160,7 @@ class AuditServiceTest {
     @Test
     void getLoginActivity_shouldReturnResponse() {
         Page<AuditLogEntity> page = new PageImpl<>(List.of());
-        when(auditLogRepository.findLoginActivity(any(), any())).thenReturn(page);
+        when(auditLogRepository.findLoginActivity(eq(7L), any(), any())).thenReturn(page);
 
         AuditLogResponse result = service.getLoginActivity(0, 20, null);
 
@@ -160,7 +172,7 @@ class AuditServiceTest {
     @Test
     void getSecurityEvents_shouldReturnResponse() {
         Page<AuditLogEntity> page = new PageImpl<>(List.of());
-        when(auditLogRepository.findSecurityEvents(any(), any())).thenReturn(page);
+        when(auditLogRepository.findSecurityEvents(eq(7L), any(), any())).thenReturn(page);
 
         AuditLogResponse result = service.getSecurityEvents(0, 20, null);
 
@@ -176,7 +188,7 @@ class AuditServiceTest {
         log1.setPatientFhirId("Patient/123");
         log1.setConnectionName("Hospital A");
         Page<AuditLogEntity> page = new PageImpl<>(List.of(log1));
-        when(auditLogRepository.findByConnectionId(eq(5L), any())).thenReturn(page);
+        when(auditLogRepository.findByConnectionId(eq(7L), eq(5L), any())).thenReturn(page);
 
         AuditLogResponse result = service.getEhrOperations(0, 50, 5L, 30);
 
@@ -189,12 +201,12 @@ class AuditServiceTest {
     @Test
     void getEhrOperations_withoutConnectionId_shouldReturnAllEhrOps() {
         Page<AuditLogEntity> page = new PageImpl<>(List.of());
-        when(auditLogRepository.findEhrOperations(any(), any())).thenReturn(page);
+        when(auditLogRepository.findEhrOperations(eq(7L), any(), any())).thenReturn(page);
 
         AuditLogResponse result = service.getEhrOperations(0, 50, null, 30);
 
         assertThat(result).isNotNull();
-        verify(auditLogRepository).findEhrOperations(any(LocalDateTime.class), any(Pageable.class));
+        verify(auditLogRepository).findEhrOperations(eq(7L), any(LocalDateTime.class), any(Pageable.class));
     }
 
     // ===== manualCleanup =====
