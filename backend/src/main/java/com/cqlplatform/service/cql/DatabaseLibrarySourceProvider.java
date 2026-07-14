@@ -46,6 +46,13 @@ public class DatabaseLibrarySourceProvider implements LibrarySourceProvider {
     private final CqlLibraryRepository libraryRepository;
 
     /**
+     * Resolves the default tenant's id when the calling thread carries no
+     * {@code TenantContext} (PAT-193 / #697). Nullable — tests and non-Spring callers
+     * that construct this provider directly keep the legacy unscoped fallback.
+     */
+    private final java.util.function.Supplier<Long> defaultTenantIdSupplier;
+
+    /**
      * Identifiers whose DB resolution is suppressed. The InMemory provider (or any
      * fresher source) is expected to handle these. Keyed by id+version string pair to
      * tolerate the underlying VersionedIdentifier record's equality semantics.
@@ -53,7 +60,13 @@ public class DatabaseLibrarySourceProvider implements LibrarySourceProvider {
     private final ConcurrentHashMap<String, Boolean> excluded = new ConcurrentHashMap<>();
 
     public DatabaseLibrarySourceProvider(CqlLibraryRepository libraryRepository) {
+        this(libraryRepository, null);
+    }
+
+    public DatabaseLibrarySourceProvider(CqlLibraryRepository libraryRepository,
+                                         java.util.function.Supplier<Long> defaultTenantIdSupplier) {
         this.libraryRepository = libraryRepository;
+        this.defaultTenantIdSupplier = defaultTenantIdSupplier;
     }
 
     /**
@@ -93,9 +106,19 @@ public class DatabaseLibrarySourceProvider implements LibrarySourceProvider {
 
         // Phase 2: resolve included libraries within the caller's tenant when one is present
         // (propagated onto async translate/execute threads via TenantContext.callWith). A null
-        // tenant (legacy caller / single-tenant deployment) falls back to unscoped lookup — the
-        // pre-tenant behaviour — so nothing changes for the current deployment.
+        // tenant resolves as the DEFAULT tenant (PAT-193, same semantics as the services'
+        // effectiveTenantId()) so the unscoped path can no longer cross tenants. Only when no
+        // resolver was wired (direct construction in tests / non-Spring callers) — or the
+        // default tenant genuinely cannot be resolved — do we degrade to the legacy unscoped
+        // lookup, with a WARN so it is visible in operator telemetry.
         Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId == null && defaultTenantIdSupplier != null) {
+            tenantId = defaultTenantIdSupplier.get();
+            if (tenantId == null) {
+                log.warn("Default tenant could not be resolved; falling back to unscoped library "
+                        + "lookup for {}|{}", name, version);
+            }
+        }
         Optional<CqlLibraryEntity> entity;
         if (version != null && !version.isBlank()) {
             entity = tenantId != null

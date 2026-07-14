@@ -1,7 +1,9 @@
 package com.cqlplatform.service.cql;
 
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.repository.TenantRepository;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cqframework.cql.cql2elm.CqlCompilerOptions;
 import org.cqframework.cql.cql2elm.LibraryBuilder;
@@ -20,9 +22,21 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class LibraryManagerFactory {
 
     private static volatile ModelManager sharedModelManager;
+
+    /**
+     * Resolves the default tenant's id for {@link DatabaseLibrarySourceProvider}'s
+     * null-TenantContext fallback (PAT-193 / #697). Static because the factory methods
+     * are static; wired from the Spring-managed instance in {@link #init()}. Memoized —
+     * the id is immutable after the V57 migration, so one successful lookup suffices.
+     * Null until Spring init (tests / non-Spring callers keep the legacy behaviour).
+     */
+    private static volatile java.util.function.Supplier<Long> defaultTenantIdResolver;
+
+    private final TenantRepository tenantRepository;
 
     @PostConstruct
     void init() {
@@ -33,6 +47,31 @@ public class LibraryManagerFactory {
                 Thread.currentThread().getContextClassLoader());
         sharedModelManager = new ModelManager();
         log.info("CQL ModelManager initialized successfully");
+
+        final TenantRepository repo = tenantRepository;
+        defaultTenantIdResolver = new java.util.function.Supplier<>() {
+            private volatile Long cached;
+
+            @Override
+            public Long get() {
+                Long id = cached;
+                if (id != null) {
+                    return id;
+                }
+                try {
+                    id = repo.findByCode("default")
+                            .map(com.cqlplatform.entity.TenantEntity::getId)
+                            .orElse(null);
+                } catch (RuntimeException e) {
+                    // Degrade gracefully — the provider falls back to the legacy unscoped
+                    // lookup and WARNs; never fail a translation over tenant resolution.
+                    log.warn("Default tenant lookup failed: {}", e.getMessage());
+                    return null;
+                }
+                cached = id;
+                return id;
+            }
+        };
     }
 
     /**
@@ -74,7 +113,7 @@ public class LibraryManagerFactory {
 
         DatabaseLibrarySourceProvider dbProvider = null;
         if (libraryRepository != null) {
-            dbProvider = new DatabaseLibrarySourceProvider(libraryRepository);
+            dbProvider = new DatabaseLibrarySourceProvider(libraryRepository, defaultTenantIdResolver);
             libraryManager.getLibrarySourceLoader().registerProvider(dbProvider);
         }
 
