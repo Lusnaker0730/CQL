@@ -2,7 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { safeLocalStorage } from '../utils/safeStorage'
 
 interface AuthState {
-  user: { username: string; role: string; forcePasswordChange?: boolean; department?: string } | null
+  user: { username: string; role: string; forcePasswordChange?: boolean; department?: string; platformOperator?: boolean } | null
   token: string | null
   isAuthenticated: boolean
   loading: boolean
@@ -23,7 +23,7 @@ function isTokenExpired(token: string): boolean {
 // next refresh" instead of "module-load throw → white screen."
 const token = safeLocalStorage.getItem('token')
 const userStr = safeLocalStorage.getItem('user')
-let user: { username: string; role: string; forcePasswordChange?: boolean; department?: string } | null = null
+let user: { username: string; role: string; forcePasswordChange?: boolean; department?: string; platformOperator?: boolean } | null = null
 try {
   user = userStr ? JSON.parse(userStr) : null
 } catch {
@@ -49,15 +49,15 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token: string; username: string; role: string; forcePasswordChange?: boolean; department?: string }>
+      action: PayloadAction<{ token: string; username: string; role: string; forcePasswordChange?: boolean; department?: string; platformOperator?: boolean }>
     ) => {
-      const { token, username, role, forcePasswordChange, department } = action.payload
+      const { token, username, role, forcePasswordChange, department, platformOperator } = action.payload
       state.token = token
-      state.user = { username, role, forcePasswordChange, department }
+      state.user = { username, role, forcePasswordChange, department, platformOperator }
       state.isAuthenticated = true
       state.loading = false
       safeLocalStorage.setItem('token', token)
-      safeLocalStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange, department }))
+      safeLocalStorage.setItem('user', JSON.stringify({ username, role, forcePasswordChange, department, platformOperator }))
     },
     clearForcePasswordChange: (state) => {
       if (state.user) {

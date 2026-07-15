@@ -45,6 +45,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
@@ -132,6 +133,7 @@ public class AuthController {
                 .role(user.getRole().name())
                 .expiresIn(pair.accessExpiresIn())
                 .forcePasswordChange(Boolean.TRUE.equals(user.getForcePasswordChange()))
+                .platformOperator(platformOperatorGuard.isPlatformOperator(user.getTenantId()))
                 .build());
     }
 

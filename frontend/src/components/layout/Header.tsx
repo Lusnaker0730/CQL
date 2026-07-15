@@ -67,9 +67,24 @@ export default function Header() {
   const [helpOpen, setHelpOpen] = useState(false)
   const { isOpen: terminologyOpen, openDrawer: openTerminology, closeDrawer: closeTerminology } = useTerminologyDrawer()
 
-  const navItems = user?.role === 'ADMIN'
-    ? [...baseNavItems, { labelKey: 'nav.users', path: '/admin/users' }, { labelKey: 'nav.tenants', path: '/admin/tenants' }, { labelKey: 'nav.clinicApplications', path: '/admin/clinic-applications' }, { labelKey: 'nav.auditLog', path: '/admin/audit' }]
-    : baseNavItems
+  // Audit is tenant-scoped (any ADMIN sees only their own clinic); the rest are
+  // platform-operator only (BUG-131). Clinic-tenant admins get neither the nav entries
+  // nor — the real boundary — access, since the backend 403s these endpoints.
+  const platformOperator = user?.platformOperator === true
+  const navItems =
+    user?.role === 'ADMIN'
+      ? [
+          ...baseNavItems,
+          ...(platformOperator
+            ? [
+                { labelKey: 'nav.users', path: '/admin/users' },
+                { labelKey: 'nav.tenants', path: '/admin/tenants' },
+                { labelKey: 'nav.clinicApplications', path: '/admin/clinic-applications' },
+              ]
+            : []),
+          { labelKey: 'nav.auditLog', path: '/admin/audit' },
+        ]
+      : baseNavItems
 
   const handleLogout = () => {
     authApi.logout().catch(() => {})
