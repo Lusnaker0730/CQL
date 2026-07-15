@@ -136,5 +136,28 @@
     "createFailed": "Failed to create tenant",
     "updateFailed": "Failed to update tenant",
     "assignFailed": "Failed to assign user"
+  },
+  "applications": {
+    "title": "Clinic Applications",
+    "clinicName": "Clinic",
+    "tenantCode": "Code",
+    "adminUsername": "Admin user",
+    "adminEmail": "Email",
+    "status": "Status",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "filterAll": "All",
+    "actions": "Actions",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectTitle": "Reject application from {{name}}",
+    "rejectReason": "Reason (shown in the audit trail)",
+    "approvedTitle": "Clinic provisioned",
+    "approvedMessage": "Tenant “{{tenant}}” and admin account “{{username}}” are ready.",
+    "setupLinkHelp": "One-time password-setup link (valid 7 days). It was emailed if mail is configured — otherwise hand it to the clinic through a trusted channel. It is shown only once.",
+    "copyLink": "Copy link",
+    "approveFailed": "Approval failed",
+    "rejectFailed": "Rejection failed"
   }
 }

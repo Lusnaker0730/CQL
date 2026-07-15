@@ -5,7 +5,8 @@
     "description": "Integrated with TWCORE IG specifications, providing visual CQL editing, quality measures, CDS decision support, and more to help healthcare organizations improve care quality.",
     "learnMore": "Start Learning",
     "tryDemo": "Browse Tutorials",
-    "tutorialAttribution": "Tutorial content translated from the official HL7 CQL site (cql.hl7.org)"
+    "tutorialAttribution": "Tutorial content translated from the official HL7 CQL site (cql.hl7.org)",
+    "applyCta": "Apply for access"
   },
   "features": {
     "title": "Platform Features",
@@ -264,63 +265,121 @@
       "needsWork": "Keep learning! Review the Introduction and Core Concepts sections.",
       "correct": "Correct!",
       "incorrect": "Incorrect.",
+      "reviewTopics": "Topics to review:",
+      "topics": {
+        "terminology": "Terminology",
+        "syntax": "Syntax",
+        "concepts": "Concepts",
+        "twcore": "TWCORE",
+        "standards": "Standards"
+      },
       "q1": {
         "question": "What does CQL stand for?",
-        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
+        "options": [
+          "Clinical Query Language",
+          "Clinical Quality Language",
+          "Computer Query Language",
+          "Clinical Quantitative Language"
+        ],
         "answer": 1,
         "explanation": "CQL stands for Clinical Quality Language, developed by HL7 International."
       },
       "q2": {
         "question": "Which data model does CQL use to access clinical data?",
-        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
+        "options": [
+          "HL7 V2",
+          "CDA",
+          "FHIR",
+          "DICOM"
+        ],
         "answer": 2,
         "explanation": "CQL is built on top of the FHIR (Fast Healthcare Interoperability Resources) data model."
       },
       "q3": {
         "question": "How do you query all Condition resources in CQL?",
-        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
+        "options": [
+          "SELECT * FROM Condition",
+          "[Condition]",
+          "query Condition",
+          "get(Condition)"
+        ],
         "answer": 1,
         "explanation": "CQL uses bracket syntax [ResourceType] to query FHIR resources, e.g., [Condition] retrieves all Condition resources."
       },
       "q4": {
         "question": "What is the compiled intermediate format of CQL called?",
-        "options": ["AST", "ELM", "XML", "JSON-LD"],
+        "options": [
+          "AST",
+          "ELM",
+          "XML",
+          "JSON-LD"
+        ],
         "answer": 1,
         "explanation": "CQL is compiled to ELM (Expression Logical Model), a machine-executable logical model."
       },
       "q5": {
         "question": "Which organization developed the TWCORE IG?",
-        "options": ["HL7 International", "WHO", "Ministry of Health and Welfare (Taiwan)", "National Health Insurance Administration"],
+        "options": [
+          "HL7 International",
+          "WHO",
+          "Ministry of Health and Welfare (Taiwan)",
+          "National Health Insurance Administration"
+        ],
         "answer": 2,
         "explanation": "TWCORE IG is developed by Taiwan's Ministry of Health and Welfare based on HL7 FHIR R4."
       },
       "q6": {
         "question": "What does 'context Patient' do in CQL?",
-        "options": ["Declares a patient variable", "Scopes queries to the currently evaluated patient", "Defines patient data structure", "Imports patient database"],
+        "options": [
+          "Declares a patient variable",
+          "Scopes queries to the currently evaluated patient",
+          "Defines patient data structure",
+          "Imports patient database"
+        ],
         "answer": 1,
         "explanation": "'context Patient' scopes all subsequent queries to the currently evaluated patient."
       },
       "q7": {
         "question": "Which terminology system is primarily used for diagnoses in Taiwan?",
-        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
+        "options": [
+          "SNOMED CT",
+          "LOINC",
+          "ICD-10-CM-TW",
+          "RxNorm"
+        ],
         "answer": 2,
         "explanation": "Taiwan primarily uses ICD-10-CM-TW for diagnosis coding."
       },
       "q8": {
         "question": "What does the 'define' keyword do in CQL?",
-        "options": ["Defines a variable", "Creates a named reusable expression", "Declares a library", "Defines a data type"],
+        "options": [
+          "Defines a variable",
+          "Creates a named reusable expression",
+          "Declares a library",
+          "Defines a data type"
+        ],
         "answer": 1,
         "explanation": "'define' creates named expressions that can be referenced by other definitions — CQL's core building blocks."
       },
       "q9": {
         "question": "What lab test does LOINC code 4548-4 correspond to?",
-        "options": ["Glucose", "Creatinine", "HbA1c", "Cholesterol"],
+        "options": [
+          "Glucose",
+          "Creatinine",
+          "HbA1c",
+          "Cholesterol"
+        ],
         "answer": 2,
         "explanation": "LOINC 4548-4 corresponds to Hemoglobin A1c/Hemoglobin.total in Blood (HbA1c)."
       },
       "q10": {
         "question": "What does eCQM stand for?",
-        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
+        "options": [
+          "electronic Clinical Quality Model",
+          "electronic Clinical Quality Measure",
+          "electronic Care Quality Metric",
+          "electronic Clinical Quantitative Measure"
+        ],
         "answer": 1,
         "explanation": "eCQM stands for electronic Clinical Quality Measure, using CQL for measure logic definition."
       }
@@ -528,88 +587,6 @@
         "flattenDesc": "Flatten nested lists into a single list"
       }
     },
-    "quiz": {
-      "title": "CQL Self Quiz",
-      "subtitle": "Test your understanding of CQL core concepts",
-      "question": "Question {{current}} of {{total}}",
-      "checkAnswer": "Check Answer",
-      "next": "Next",
-      "restart": "Restart Quiz",
-      "score": "Your score: {{score}} / {{total}}",
-      "perfect": "Perfect score! You've mastered CQL core concepts.",
-      "good": "Well done! Consider reviewing the questions you missed.",
-      "needsWork": "Keep learning! Review the Introduction and Core Concepts sections.",
-      "correct": "Correct!",
-      "incorrect": "Incorrect.",
-      "reviewTopics": "Topics to review:",
-      "topics": {
-        "terminology": "Terminology",
-        "syntax": "Syntax",
-        "concepts": "Concepts",
-        "twcore": "TWCORE",
-        "standards": "Standards"
-      },
-      "q1": {
-        "question": "What does CQL stand for?",
-        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
-        "answer": 1,
-        "explanation": "CQL stands for Clinical Quality Language, developed by HL7 International."
-      },
-      "q2": {
-        "question": "Which data model does CQL use to access clinical data?",
-        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
-        "answer": 2,
-        "explanation": "CQL is built on top of the FHIR (Fast Healthcare Interoperability Resources) data model."
-      },
-      "q3": {
-        "question": "How do you query all Condition resources in CQL?",
-        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
-        "answer": 1,
-        "explanation": "CQL uses bracket syntax [ResourceType] to query FHIR resources, e.g., [Condition] retrieves all Condition resources."
-      },
-      "q4": {
-        "question": "What is the compiled intermediate format of CQL called?",
-        "options": ["AST", "ELM", "XML", "JSON-LD"],
-        "answer": 1,
-        "explanation": "CQL is compiled to ELM (Expression Logical Model), a machine-executable logical model."
-      },
-      "q5": {
-        "question": "Which organization developed the TWCORE IG?",
-        "options": ["HL7 International", "WHO", "Ministry of Health and Welfare (Taiwan)", "National Health Insurance Administration"],
-        "answer": 2,
-        "explanation": "TWCORE IG is developed by Taiwan's Ministry of Health and Welfare based on HL7 FHIR R4."
-      },
-      "q6": {
-        "question": "What does 'context Patient' do in CQL?",
-        "options": ["Declares a patient variable", "Scopes queries to the currently evaluated patient", "Defines patient data structure", "Imports patient database"],
-        "answer": 1,
-        "explanation": "'context Patient' scopes all subsequent queries to the currently evaluated patient."
-      },
-      "q7": {
-        "question": "Which terminology system is primarily used for diagnoses in Taiwan?",
-        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
-        "answer": 2,
-        "explanation": "Taiwan primarily uses ICD-10-CM-TW for diagnosis coding."
-      },
-      "q8": {
-        "question": "What does the 'define' keyword do in CQL?",
-        "options": ["Defines a variable", "Creates a named reusable expression", "Declares a library", "Defines a data type"],
-        "answer": 1,
-        "explanation": "'define' creates named expressions that can be referenced by other definitions — CQL's core building blocks."
-      },
-      "q9": {
-        "question": "What lab test does LOINC code 4548-4 correspond to?",
-        "options": ["Glucose", "Creatinine", "HbA1c", "Cholesterol"],
-        "answer": 2,
-        "explanation": "LOINC 4548-4 corresponds to Hemoglobin A1c/Hemoglobin.total in Blood (HbA1c)."
-      },
-      "q10": {
-        "question": "What does eCQM stand for?",
-        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
-        "answer": 1,
-        "explanation": "eCQM stands for electronic Clinical Quality Measure, using CQL for measure logic definition."
-      }
-    },
     "languageRef": {
       "title": "CQL Language Reference",
       "subtitle": "A comprehensive reference for CQL language features including conditionals, null handling, type system, date/time operations, and string manipulation.",
@@ -723,5 +700,19 @@
   },
   "footer": {
     "contactPrompt": "Business inquiries / bug reports:"
+  },
+  "apply": {
+    "title": "Apply for clinic access",
+    "subtitle": "Submit your clinic's details — the platform team reviews every application and will contact you by email.",
+    "clinicName": "Clinic name",
+    "tenantCode": "Clinic code",
+    "tenantCodeHelp": "Lowercase identifier for your clinic (a-z, 0-9, -)",
+    "adminUsername": "Administrator username",
+    "adminUsernameHelp": "At least 3 characters — this becomes your clinic's admin account",
+    "adminEmail": "Contact email",
+    "submit": "Submit application",
+    "successMessage": "Application received. The platform team will review it and contact you by email.",
+    "backToHome": "Back to home",
+    "failed": "Failed to submit the application. Please try again later."
   }
 }

@@ -68,7 +68,7 @@ export default function Header() {
   const { isOpen: terminologyOpen, openDrawer: openTerminology, closeDrawer: closeTerminology } = useTerminologyDrawer()
 
   const navItems = user?.role === 'ADMIN'
-    ? [...baseNavItems, { labelKey: 'nav.users', path: '/admin/users' }, { labelKey: 'nav.tenants', path: '/admin/tenants' }, { labelKey: 'nav.auditLog', path: '/admin/audit' }]
+    ? [...baseNavItems, { labelKey: 'nav.users', path: '/admin/users' }, { labelKey: 'nav.tenants', path: '/admin/tenants' }, { labelKey: 'nav.clinicApplications', path: '/admin/clinic-applications' }, { labelKey: 'nav.auditLog', path: '/admin/audit' }]
     : baseNavItems
 
   const handleLogout = () => {
