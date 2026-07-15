@@ -100,6 +100,7 @@ public class CdsHooksService {
         if (ownerUsername != null) {
             entity.setOwnerUsername(ownerUsername);
         }
+        entity.setTenantId(effectiveTenantId());
         entity = repository.save(entity);
 
         syncCqlLibrary(entity.getCqlContent());
@@ -132,7 +133,16 @@ public class CdsHooksService {
      * comparison so existing un-owned rows aren't accidentally locked out.
      */
     private void verifyOwnership(CdsServiceConfigEntity entity, String username, boolean isAdmin, String action) {
-        if (isAdmin) return;
+        if (isAdmin) {
+            // Admin bypass is bounded to the admin's own clinic (Phase 2 — #698 PR-C2).
+            // A null entity tenant is legacy data (pre-V64 rows are backfilled, so this
+            // only occurs in non-Spring test wiring) and keeps the old behaviour.
+            Long entityTenant = entity.getTenantId();
+            if (entityTenant == null || entityTenant.equals(effectiveTenantId())) {
+                return;
+            }
+            throw new AccessDeniedException("You can only " + action + " services in your own clinic");
+        }
         String owner = entity.getOwnerUsername();
         if (owner == null || owner.equals(username)) return;
         throw new AccessDeniedException("You can only " + action + " your own services");
@@ -253,14 +263,14 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getAllServices() {
-        return repository.findAllWithPrefetch().stream()
+        return repository.findAllByTenantIdWithPrefetch(effectiveTenantId()).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getServicesForUser(String username) {
-        return repository.findByOwnerUsernameOrSharedTrue(username).stream()
+        return repository.findByTenantIdAndOwnerUsernameOrSharedTrue(effectiveTenantId(), username).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
@@ -277,7 +287,9 @@ public class CdsHooksService {
     @Transactional(readOnly = true)
     public List<CdsServiceDefinition> getServiceDefinitionsForUser(String username) {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
-        List<CdsServiceConfigEntity> entities = repository.findByOwnerUsernameAndEnabledTrue(username);
+        // Tenant-scoped since PR-C2; the API-key auth path sets TenantContext (PAT-198).
+        List<CdsServiceConfigEntity> entities =
+                repository.findByTenantIdAndOwnerUsernameAndEnabledTrue(effectiveTenantId(), username);
 
         for (CdsServiceConfigEntity entity : entities) {
             definitions.add(toDefinition(entityToConfig(entity)));
@@ -290,7 +302,10 @@ public class CdsHooksService {
     public List<CdsServiceDefinition> getSharedServiceDefinitions() {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
 
-        List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
+        // Option A (#698 PR-C2): the anonymous discovery surface lists ONLY services a
+        // clinic explicitly published (shared=true) — private services are no longer
+        // enumerable across tenants. The shared surface is deliberately tenant-agnostic.
+        List<CdsServiceConfigEntity> entities = repository.findBySharedTrueAndEnabledTrue();
 
         Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
         for (CdsServiceConfigEntity entity : entities) {
@@ -358,6 +373,28 @@ public class CdsHooksService {
                     .cards(List.of(tupleStrategy.createInfoCard("Service not found",
                             "The requested CDS service '" + serviceId + "' is not available.")))
                     .build();
+        }
+
+        // Option A (#698 PR-C2): only shared services are invocable anonymously. A
+        // private service may be invoked by its owner (per-user API-key path or the
+        // authenticated builder UI). Legacy un-owned rows require any authenticated
+        // caller — they were platform-global before ownership existed. Unauthorized
+        // callers get the same not-found card as a missing service, so private
+        // service ids are not confirmable by probing.
+        if (!Boolean.TRUE.equals(config.getShared())) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication();
+            String caller = (auth != null && auth.isAuthenticated()
+                    && !"anonymousUser".equals(auth.getName())) ? auth.getName() : null;
+            String owner = config.getOwnerUsername();
+            boolean allowed = caller != null && (owner == null || owner.equals(caller));
+            if (!allowed) {
+                log.info("CDS invoke denied for non-shared service {} (caller={})", serviceId, caller);
+                return CdsResponse.builder()
+                        .cards(List.of(tupleStrategy.createInfoCard("Service not found",
+                                "The requested CDS service '" + serviceId + "' is not available.")))
+                        .build();
+            }
         }
 
         // Validate hook type matches config
@@ -544,6 +581,9 @@ public class CdsHooksService {
                 .planDefinitionJson(entity.getPlanDefinitionJson())
                 .cardGenerationMode(entity.getCardGenerationMode())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
+                .shared(entity.getShared())
+                .ownerUsername(entity.getOwnerUsername())
+                .tenantId(entity.getTenantId())
                 .build();
     }
 
@@ -672,5 +712,10 @@ public class CdsHooksService {
         private String planDefinitionJson;
         private String cardGenerationMode;
         private Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch;
+        // Phase 2 (#698 PR-C2): carried so invokeService can authorize from the cache
+        // without a DB round-trip — shared services are the anonymous surface.
+        private Boolean shared;
+        private String ownerUsername;
+        private Long tenantId;
     }
 }

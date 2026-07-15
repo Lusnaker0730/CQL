@@ -48,6 +48,7 @@ class CdsHooksServiceTest {
                 .hook("patient-view")
                 .title("Custom Service")
                 .description("A custom CDS service")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
 
@@ -61,6 +62,7 @@ class CdsHooksServiceTest {
                 .id("new-service")
                 .hook("order-select")
                 .title("New Service")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
 
         cdsHooksService.registerService(config);
@@ -75,6 +77,7 @@ class CdsHooksServiceTest {
                 .id("temp-service")
                 .hook("patient-view")
                 .title("Temp")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
         cdsHooksService.unregisterService("temp-service");
@@ -112,6 +115,7 @@ class CdsHooksServiceTest {
                 .title("Test CQL Service")
                 .cqlContent("library Test version '1.0'\ndefine IsTrue: true")
                 .defaultIndicator("warning")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
 
@@ -160,6 +164,7 @@ class CdsHooksServiceTest {
                 .hook("patient-view")
                 .title("Patient View Service")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
 
@@ -181,6 +186,7 @@ class CdsHooksServiceTest {
                 .hook("patient-view")
                 .title("Patient View")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
 
@@ -205,6 +211,7 @@ class CdsHooksServiceTest {
                 .hook("order-select")
                 .title("Order Select")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
 
@@ -231,6 +238,7 @@ class CdsHooksServiceTest {
                 .hook("encounter-start")
                 .title("Encounter Start")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
+                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
                 .build();
         cdsHooksService.registerService(config);
 
@@ -264,5 +272,65 @@ class CdsHooksServiceTest {
         assertThatThrownBy(() -> cdsHooksService.createService(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid hook type");
+    }
+
+    // ===== PR-C2 (option A): invoke authorization gate =====
+
+    @Test
+    void invokeService_privateService_anonymousCaller_returnsNotFoundCard() {
+        CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                .id("private-svc")
+                .hook("patient-view")
+                .ownerUsername("alice")
+                // shared deliberately NOT set — private service
+                .build();
+        cdsHooksService.registerService(config);
+
+        CdsResponse.Card notFoundCard = CdsResponse.Card.builder()
+                .summary("Service not found")
+                .detail("The requested CDS service 'private-svc' is not available.")
+                .indicator("info")
+                .build();
+        when(tupleStrategy.createInfoCard(eq("Service not found"), contains("private-svc")))
+                .thenReturn(notFoundCard);
+
+        CdsRequest request = new CdsRequest();
+        CdsResponse response = cdsHooksService.invokeService("private-svc", request);
+
+        // Same card as a missing service — private ids are not confirmable by probing
+        assertThat(response.getCards()).hasSize(1);
+        assertThat(response.getCards().get(0).getSummary()).isEqualTo("Service not found");
+        verify(invocationService, never()).invoke(any(), any());
+    }
+
+    @Test
+    void invokeService_privateService_ownerAuthenticated_delegates() {
+        org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "alice", null, List.of()));
+        try {
+            CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                    .id("alice-private")
+                    .hook("patient-view")
+                    .cqlContent("library T version '1.0' define X: true")
+                    .ownerUsername("alice")
+                    .build();
+            cdsHooksService.registerService(config);
+            when(invocationService.invoke(any(), any())).thenReturn(CdsResponse.builder()
+                    .cards(List.of(CdsResponse.Card.builder().summary("ok").build())).build());
+
+            CdsRequest request = new CdsRequest();
+            CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+            ctx.setUserId("Practitioner/1");
+            ctx.setPatientId("p1");
+            request.setContext(ctx);
+
+            CdsResponse response = cdsHooksService.invokeService("alice-private", request);
+
+            assertThat(response.getCards()).hasSize(1);
+            verify(invocationService).invoke(any(), any());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }
