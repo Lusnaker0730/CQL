@@ -20,6 +20,20 @@ public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConf
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems")
     List<CdsServiceConfigEntity> findAllWithPrefetch();
 
+    // Tenant-scoped variants (Phase 2 — #698 PR-C2). The service NAME namespace stays
+    // global (shared services are addressed by name on the anonymous surface); tenancy
+    // applies to visibility and management, not naming.
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems WHERE c.tenantId = :tenantId")
+    List<CdsServiceConfigEntity> findAllByTenantIdWithPrefetch(Long tenantId);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE (c.tenantId = :tenantId AND c.ownerUsername = :username) OR c.shared = true")
+    List<CdsServiceConfigEntity> findByTenantIdAndOwnerUsernameOrSharedTrue(Long tenantId, String username);
+
+    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
+            "WHERE c.tenantId = :tenantId AND c.ownerUsername = :username AND c.enabled = true")
+    List<CdsServiceConfigEntity> findByTenantIdAndOwnerUsernameAndEnabledTrue(Long tenantId, String username);
+
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
             "WHERE c.ownerUsername = :username")
     List<CdsServiceConfigEntity> findByOwnerUsernameWithPrefetch(String username);
