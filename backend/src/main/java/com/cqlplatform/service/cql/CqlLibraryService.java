@@ -347,14 +347,14 @@ public class CqlLibraryService {
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getLibrariesByOwner(String ownerUsername) {
-        return libraryRepository.findByOwnerUsername(ownerUsername).stream()
+        return libraryRepository.findByTenantIdAndOwnerUsername(effectiveTenantId(), ownerUsername).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<CqlLibrary> getSharedLibraries(String username) {
-        return libraryRepository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
+        return libraryRepository.findSharedWithUser(effectiveTenantId(), "%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -364,7 +364,7 @@ public class CqlLibraryService {
     @Transactional(readOnly = true)
     public List<CqlLibrary> getDependents(String libraryName) {
         // Find all libraries that include this library in their dependencies
-        return libraryRepository.findByDependenciesContaining(libraryName).stream()
+        return libraryRepository.findByTenantIdAndDependenciesContaining(effectiveTenantId(), libraryName).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }

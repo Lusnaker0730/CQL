@@ -499,4 +499,33 @@ class MeasureDefinitionServiceTest {
                 .isInstanceOf(CqlTranslationException.class)
                 .hasMessageContaining("translator crashed");
     }
+
+    // ===== Tenant boundary (BUG-135) =====
+    //
+    // These two reads had NO test coverage before, which is how they shipped unscoped.
+    // /measures/owner/{username} and /shared/{username} let a ROLE_ADMIN pass an arbitrary
+    // username; the tenant predicate is what stops that reaching another tenant's measures.
+    // Sharing ('public' / sharedWith) is likewise a within-tenant concept.
+
+    @Test
+    void getMeasuresByOwner_shouldScopeToCallersTenant() {
+        when(repository.findByTenantIdAndOwnerUsername(7L, "someone-else"))
+                .thenReturn(List.of(createEntity(1L, "M", "1.0.0")));
+
+        assertThat(service.getMeasuresByOwner("someone-else")).hasSize(1);
+
+        // The unscoped findByOwnerUsername no longer exists on the repository at all —
+        // that is the durable part of the fix; this verifies the tenant actually flows through.
+        verify(repository).findByTenantIdAndOwnerUsername(7L, "someone-else");
+    }
+
+    @Test
+    void getSharedMeasures_shouldScopeToCallersTenant() {
+        when(repository.findSharedWithUser(eq(7L), anyString()))
+                .thenReturn(List.of(createEntity(1L, "M", "1.0.0")));
+
+        assertThat(service.getSharedMeasures("bob")).hasSize(1);
+
+        verify(repository).findSharedWithUser(eq(7L), anyString());
+    }
 }

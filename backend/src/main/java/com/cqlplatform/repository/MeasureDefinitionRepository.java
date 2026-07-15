@@ -28,12 +28,19 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
 
     boolean existsByNameAndVersion(String name, String version);
 
-    List<MeasureDefinitionEntity> findByOwnerUsername(String ownerUsername);
+    /**
+     * BUG-135 — tenant-scoped. The unscoped predecessors returned every tenant's rows:
+     * sharing ('public' / sharedWith) is a within-tenant concept, and the /owner and /shared
+     * endpoints let a ROLE_ADMIN pass an arbitrary username, so without the tenant predicate
+     * a clinic ADMIN read another tenant's measures.
+     */
+    List<MeasureDefinitionEntity> findByTenantIdAndOwnerUsername(Long tenantId, String ownerUsername);
 
     @org.springframework.data.jpa.repository.Query(
-        "SELECT e FROM MeasureDefinitionEntity e WHERE e.accessLevel = 'public' " +
-        "OR e.sharedWith LIKE :pattern")
+        "SELECT e FROM MeasureDefinitionEntity e WHERE e.tenantId = :tenantId " +
+        "AND (e.accessLevel = 'public' OR e.sharedWith LIKE :pattern)")
     List<MeasureDefinitionEntity> findSharedWithUser(
+        @org.springframework.data.repository.query.Param("tenantId") Long tenantId,
         @org.springframework.data.repository.query.Param("pattern") String pattern);
 
     // Phase 2 — tenant-scoped MANAGEMENT queries.
