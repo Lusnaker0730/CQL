@@ -178,6 +178,23 @@ export default function LandingPage() {
                   >
                     {t('hero.learnMore')}
                   </Button>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => navigate('/apply')}
+                    sx={(theme) => ({
+                      color: 'common.white',
+                      borderColor: alpha(theme.palette.common.white, 0.6),
+                      fontWeight: 700,
+                      px: 3,
+                      py: 1.2,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      '&:hover': { borderColor: 'common.white', bgcolor: alpha(theme.palette.common.white, 0.08) },
+                    })}
+                  >
+                    {t('hero.applyCta')}
+                  </Button>
                 </Box>
                 <Typography
                   variant="caption"

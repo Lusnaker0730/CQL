@@ -17,7 +17,8 @@
     "auditLog": "稽核日誌",
     "mainNavigation": "主導覽列",
     "goToHome": "前往首頁",
-    "tenants": "租戶管理"
+    "tenants": "租戶管理",
+    "clinicApplications": "診所申請"
   },
   "toolbar": {
     "switchToLight": "切換至淺色模式",

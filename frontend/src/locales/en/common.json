@@ -17,7 +17,8 @@
     "auditLog": "Audit Log",
     "mainNavigation": "Main navigation",
     "goToHome": "Go to home page",
-    "tenants": "Tenants"
+    "tenants": "Tenants",
+    "clinicApplications": "Applications"
   },
   "toolbar": {
     "switchToLight": "Switch to light mode",

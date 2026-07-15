@@ -24,6 +24,8 @@ const FhirPage = lazy(() => import('./pages/FhirPage'))
 const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const TenantManagementPage = lazy(() => import('./pages/TenantManagementPage'))
+const ClinicApplicationsAdminPage = lazy(() => import('./pages/ClinicApplicationsAdminPage'))
+const ClinicApplyPage = lazy(() => import('./pages/ClinicApplyPage'))
 const AuditDashboardPage = lazy(() => import('./pages/AuditDashboardPage'))
 const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
 const EcqmPage = lazy(() => import('./pages/EcqmPage'))
@@ -54,6 +56,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LandingPage />} />
         <Route path="/learn" element={<Suspense fallback={<PageLoadingFallback />}><LearnPage /></Suspense>} />
+        <Route path="/apply" element={<Suspense fallback={<PageLoadingFallback />}><ClinicApplyPage /></Suspense>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/okta/callback" element={<Suspense fallback={<PageLoadingFallback />}><OktaCallbackPage /></Suspense>} />
@@ -165,6 +168,16 @@ export default function App() {
                           <AdminRoute>
                             <ErrorBoundary fallbackTitle={t('errors.adminError')}>
                               <TenantManagementPage />
+                            </ErrorBoundary>
+                          </AdminRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/clinic-applications"
+                        element={
+                          <AdminRoute>
+                            <ErrorBoundary fallbackTitle={t('errors.adminError')}>
+                              <ClinicApplicationsAdminPage />
                             </ErrorBoundary>
                           </AdminRoute>
                         }

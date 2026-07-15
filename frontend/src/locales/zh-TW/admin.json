@@ -136,5 +136,28 @@
     "createFailed": "建立租戶失敗",
     "updateFailed": "更新租戶失敗",
     "assignFailed": "指派使用者失敗"
+  },
+  "applications": {
+    "title": "診所申請審核",
+    "clinicName": "診所",
+    "tenantCode": "代碼",
+    "adminUsername": "管理員帳號",
+    "adminEmail": "Email",
+    "status": "狀態",
+    "statusPending": "待審核",
+    "statusApproved": "已核准",
+    "statusRejected": "已婉拒",
+    "filterAll": "全部",
+    "actions": "操作",
+    "approve": "核准",
+    "reject": "婉拒",
+    "rejectTitle": "婉拒 {{name}} 的申請",
+    "rejectReason": "原因(將記錄於審核軌跡)",
+    "approvedTitle": "診所已開通",
+    "approvedMessage": "租戶「{{tenant}}」與管理員帳號「{{username}}」已建立完成。",
+    "setupLinkHelp": "一次性密碼設定連結(7 天有效)。若已設定郵件服務會同步寄出;否則請透過可信管道轉交給診所。此連結僅顯示這一次。",
+    "copyLink": "複製連結",
+    "approveFailed": "核准失敗",
+    "rejectFailed": "婉拒失敗"
   }
 }
