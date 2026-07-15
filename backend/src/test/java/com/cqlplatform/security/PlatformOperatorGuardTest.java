@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.lenient;
@@ -61,5 +62,23 @@ class PlatformOperatorGuardTest {
         when(tenantRepository.findByCode("default")).thenReturn(Optional.empty());
         TenantContext.setCurrentTenantId(1L);
         assertThatThrownBy(guard::require).isInstanceOf(IllegalStateException.class);
+    }
+
+    // ===== isPlatformOperator(tenantId) — used by the login response (BUG-131) =====
+
+    @Test
+    void isPlatformOperator_nullTenant_true() {
+        // Legacy/platform account (tenant_id NULL) — never queries the tenant table.
+        assertThat(guard.isPlatformOperator(null)).isTrue();
+    }
+
+    @Test
+    void isPlatformOperator_defaultTenant_true() {
+        assertThat(guard.isPlatformOperator(1L)).isTrue();
+    }
+
+    @Test
+    void isPlatformOperator_clinicTenant_false() {
+        assertThat(guard.isPlatformOperator(42L)).isFalse();
     }
 }

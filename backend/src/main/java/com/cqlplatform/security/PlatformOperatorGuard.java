@@ -22,14 +22,25 @@ public class PlatformOperatorGuard {
     private final TenantRepository tenantRepository;
 
     public void require() {
+        if (!isPlatformOperator(TenantContext.getCurrentTenantId())) {
+            throw new AccessDeniedException("This operation is restricted to the platform operator");
+        }
+    }
+
+    /**
+     * Whether a caller in the given tenant is the platform operator. A null tenant is a
+     * legacy platform account (tenant_id NULL, resolves to the default tenant) — allowed.
+     * Used both by {@link #require()} (from the request thread's TenantContext) and by
+     * the login response, which computes the flag from {@code user.tenantId} directly
+     * because TenantContext isn't set yet on the login path.
+     */
+    public boolean isPlatformOperator(Long tenantId) {
+        if (tenantId == null) {
+            return true;
+        }
         Long defaultTenantId = tenantRepository.findByCode(DEFAULT_TENANT_CODE)
                 .map(TenantEntity::getId)
                 .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
-        Long callerTenant = TenantContext.getCurrentTenantId();
-        // A null claim is a legacy platform account (tenant_id NULL) — resolves to default.
-        if (callerTenant == null || callerTenant.equals(defaultTenantId)) {
-            return;
-        }
-        throw new AccessDeniedException("This operation is restricted to the platform operator");
+        return tenantId.equals(defaultTenantId);
     }
 }

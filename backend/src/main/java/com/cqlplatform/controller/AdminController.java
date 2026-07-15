@@ -35,6 +35,11 @@ import java.util.List;
 @PreAuthorize("hasAnyRole('ADMIN', 'DEPARTMENT_ADMIN')")
 public class AdminController {
 
+    // BUG-131: platform user management is platform-operator only. The role check
+    // above is the first layer; guardPlatformOperator() enforces the tenant boundary
+    // so a clinic tenant's ADMIN (from #700 onboarding) cannot manage platform users.
+    private void guardPlatformOperator() { platformOperatorGuard.require(); }
+
     private final UserRepository userRepository;
     private final PasswordResetService passwordResetService;
     private final PasswordEncoder passwordEncoder;
@@ -42,15 +47,18 @@ public class AdminController {
     private final TokenVersionService tokenVersionService;
     private final RefreshTokenService refreshTokenService;
     private final CdsRecentInvocationsService cdsRecentInvocationsService;
+    private final com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
 
     @GetMapping("/cds/recent-invocations")
     public ResponseEntity<List<CdsRecentInvocationsService.InvocationRecord>> recentCdsInvocations(
             @RequestParam(defaultValue = "50") int limit) {
+        guardPlatformOperator();
         return ResponseEntity.ok(cdsRecentInvocationsService.recent(Math.min(Math.max(1, limit), 100)));
     }
 
     @GetMapping("/users")
     public ResponseEntity<List<UserSummary>> listUsers() {
+        guardPlatformOperator();
         List<UserSummary> users = userRepository.findAll().stream()
                 .map(this::toUserSummary)
                 .toList();
@@ -59,6 +67,7 @@ public class AdminController {
 
     @PostMapping("/users")
     public ResponseEntity<UserSummary> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
+        guardPlatformOperator();
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateResourceException("User", "username", request.getUsername());
         }
@@ -81,6 +90,7 @@ public class AdminController {
     public ResponseEntity<UserSummary> updateUserRole(
             @PathVariable Long userId,
             @Valid @RequestBody RoleUpdateRequest request) {
+        guardPlatformOperator();
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
@@ -103,6 +113,7 @@ public class AdminController {
     public ResponseEntity<UserSummary> updateUserEnabled(
             @PathVariable Long userId,
             @Valid @RequestBody EnabledUpdateRequest request) {
+        guardPlatformOperator();
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
@@ -126,6 +137,7 @@ public class AdminController {
 
     @PostMapping("/users/{userId}/reset-password")
     public ResponseEntity<?> resetUserPassword(@PathVariable Long userId) {
+        guardPlatformOperator();
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
@@ -159,6 +171,7 @@ public class AdminController {
      */
     @PostMapping("/users/{userId}/unlock")
     public ResponseEntity<?> unlockUser(@PathVariable Long userId) {
+        guardPlatformOperator();
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setFailedLoginAttempts(0);

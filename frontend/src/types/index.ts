@@ -16,6 +16,8 @@ export interface AuthResponse {
   role: string
   expiresIn: number
   forcePasswordChange: boolean
+  /** True only for the platform operator (default-tenant admin) — gates platform-level nav. */
+  platformOperator?: boolean
 }
 
 export interface User {

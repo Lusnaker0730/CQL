@@ -120,6 +120,7 @@ export default function LoginForm() {
         username: response.username,
         role: response.role,
         forcePasswordChange: response.forcePasswordChange,
+        platformOperator: response.platformOperator,
       }))
       navigate('/')
     } catch (err: unknown) {
