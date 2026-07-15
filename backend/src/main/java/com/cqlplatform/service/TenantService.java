@@ -7,10 +7,8 @@ import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.repository.TenantRepository;
 import com.cqlplatform.repository.UserRepository;
-import com.cqlplatform.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +36,7 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
+    private final com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
     private final TokenVersionService tokenVersionService;
     private final RefreshTokenService refreshTokenService;
 
@@ -142,16 +141,8 @@ public class TenantService {
         return saved;
     }
 
-    /** See the class javadoc — platform operator = ADMIN in the default tenant (transition). */
+    /** See the class javadoc — delegated to the shared PlatformOperatorGuard (#700 refactor). */
     private void requirePlatformOperator() {
-        Long defaultTenantId = tenantRepository.findByCode(DEFAULT_TENANT_CODE)
-                .map(TenantEntity::getId)
-                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
-        Long callerTenant = TenantContext.getCurrentTenantId();
-        // A null claim is a legacy platform account (tenant_id NULL) — resolves to default.
-        if (callerTenant == null || callerTenant.equals(defaultTenantId)) {
-            return;
-        }
-        throw new AccessDeniedException("Tenant management is restricted to the platform operator");
+        platformOperatorGuard.require();
     }
 }

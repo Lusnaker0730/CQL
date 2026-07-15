@@ -42,6 +42,9 @@ class TenantServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
+
     @InjectMocks
     private TenantService service;
 
@@ -61,8 +64,10 @@ class TenantServiceTest {
     // ===== platform-operator guard =====
 
     @Test
-    void managementOps_clinicTenantAdmin_denied() {
-        TenantContext.setCurrentTenantId(42L);  // a clinic tenant, not the platform
+    void managementOps_guardDenies_allBlocked() {
+        // The tenant-boundary logic itself is covered in PlatformOperatorGuardTest;
+        // here we verify every management op consults the guard and stops on denial.
+        doThrow(new AccessDeniedException("no")).when(platformOperatorGuard).require();
 
         assertThatThrownBy(() -> service.createTenant("clinic-x", "X"))
                 .isInstanceOf(AccessDeniedException.class);
@@ -76,16 +81,6 @@ class TenantServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
         verify(repo, never()).save(any());
         verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void managementOps_legacyPlatformAdminWithoutClaim_allowed() {
-        TenantContext.clear();  // legacy admin: no tenant claim -> resolves to default
-        when(repo.existsByCode("clinic-a")).thenReturn(false);
-        when(repo.save(any())).thenAnswer(i -> i.getArgument(0));
-
-        TenantEntity t = service.createTenant("clinic-a", "Clinic A");
-        assertThat(t.getCode()).isEqualTo("clinic-a");
     }
 
     // ===== createTenant =====

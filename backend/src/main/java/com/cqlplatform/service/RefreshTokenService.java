@@ -27,6 +27,7 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -107,6 +108,20 @@ public class RefreshTokenService {
             log.warn("Disabled user {} attempted token refresh, revoking family {}", user.getUsername(), oldToken.getFamilyId());
             refreshTokenRepository.revokeByFamilyId(oldToken.getFamilyId());
             throw new InvalidRefreshTokenException("User account is disabled");
+        }
+
+        // #700: same treatment when the user's clinic has been deactivated — refresh is
+        // the long-lived credential, so it must die with the tenant.
+        if (user.getTenantId() != null) {
+            boolean tenantActive = tenantRepository.findById(user.getTenantId())
+                    .map(t -> Boolean.TRUE.equals(t.getActive()))
+                    .orElse(false);
+            if (!tenantActive) {
+                log.warn("User {} of deactivated tenant {} attempted token refresh, revoking family {}",
+                        user.getUsername(), user.getTenantId(), oldToken.getFamilyId());
+                refreshTokenRepository.revokeByFamilyId(oldToken.getFamilyId());
+                throw new InvalidRefreshTokenException("Clinic account is deactivated");
+            }
         }
 
         // Revoke old token
