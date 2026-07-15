@@ -97,7 +97,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             // clients hit refresh frequently, and AUTH's low RPM would break them.
             if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")
                     || path.startsWith("/api/auth/forgot-password")
-                    || path.startsWith("/api/auth/reset-password")) {
+                    || path.startsWith("/api/auth/reset-password")
+                    || path.startsWith("/api/auth/clinic-applications")) {
                 return RateTier.AUTH;
             }
             if (path.startsWith("/cds-services/") && "POST".equalsIgnoreCase(method)) {

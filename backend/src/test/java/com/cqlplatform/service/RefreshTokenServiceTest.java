@@ -31,6 +31,9 @@ class RefreshTokenServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    @Mock
     private JwtTokenProvider jwtTokenProvider;
 
     @InjectMocks
@@ -209,6 +212,41 @@ class RefreshTokenServiceTest {
                 .hasMessageContaining("disabled");
 
         verify(refreshTokenRepository).revokeByFamilyId("family-5");
+    }
+
+    @Test
+    void refreshTokens_deactivatedTenant_shouldRevokeFamilyAndThrow() {
+        String rawToken = "deactivated-tenant-token";
+        String hash = DigestUtils.sha256Hex(rawToken);
+
+        UserEntity clinicUser = UserEntity.builder()
+                .id(3L)
+                .username("clinicuser")
+                .role(UserEntity.Role.USER)
+                .enabled(true)
+                .tenantId(9L)
+                .build();
+
+        RefreshTokenEntity token = RefreshTokenEntity.builder()
+                .id(11L)
+                .tokenHash(hash)
+                .userId(3L)
+                .familyId("family-9")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .absoluteExpiresAt(LocalDateTime.now().plusDays(30))
+                .revoked(false)
+                .build();
+
+        when(refreshTokenRepository.findByTokenHash(hash)).thenReturn(Optional.of(token));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(clinicUser));
+        when(tenantRepository.findById(9L)).thenReturn(Optional.of(
+                com.cqlplatform.entity.TenantEntity.builder().id(9L).code("clinic-b").active(false).build()));
+
+        assertThatThrownBy(() -> refreshTokenService.refreshTokens(rawToken))
+                .isInstanceOf(RefreshTokenService.InvalidRefreshTokenException.class)
+                .hasMessageContaining("deactivated");
+
+        verify(refreshTokenRepository).revokeByFamilyId("family-9");
     }
 
     @Test
