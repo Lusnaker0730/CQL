@@ -58,11 +58,10 @@ public class BatchImportJobEntity {
 
     /**
      * Tenant (clinic) this row belongs to — the isolation boundary (Phase 2, V64 / #698).
-     * Foundation only: nullable, existing rows backfilled to the default tenant; the
-     * per-table enforcement PR assigns it server-side and scopes the reads.
+     * NOT NULL since V66; assigned server-side on every write path (PAT-195..199).
      */
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
-    @Column(name = "tenant_id")
+    @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
     @PrePersist

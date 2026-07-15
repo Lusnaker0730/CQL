@@ -60,7 +60,7 @@ public class FailedImportEntity {
      * primary containment for its PHI exposure.
      */
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
-    @Column(name = "tenant_id")
+    @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
     @PrePersist

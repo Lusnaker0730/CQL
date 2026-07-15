@@ -107,6 +107,7 @@ class PhiEncryptionIntegrationTest {
         entity.setResourceCount(10);
         entity.setBundleJson("{\"resourceType\":\"Bundle\",\"entry\":[{\"name\":\"王小明\"}]}");
         entity.setImportedBy("test-user");
+        entity.setTenantId(1L);  // tenant_id NOT NULL since V66
 
         PatientImportEntity saved = patientImportRepository.saveAndFlush(entity);
 
