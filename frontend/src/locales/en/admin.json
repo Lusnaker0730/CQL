@@ -109,5 +109,32 @@
       "timeMs": "Time (ms)",
       "noEntries": "No audit log entries found"
     }
+  },
+  "tenants": {
+    "title": "Clinic Tenants",
+    "create": "New Tenant",
+    "createTitle": "Provision a clinic tenant",
+    "code": "Code",
+    "codeHelp": "Lowercase slug (a-z, 0-9, -), immutable after creation",
+    "name": "Name",
+    "status": "Status",
+    "statusActive": "Active",
+    "statusInactive": "Deactivated",
+    "active": "Enabled",
+    "defaultProtected": "The default tenant cannot be deactivated",
+    "members": "Members",
+    "viewMembers": "Members",
+    "membersTitle": "Members of {{name}}",
+    "username": "Username",
+    "role": "Role",
+    "enabled": "Enabled",
+    "userEnabled": "Enabled",
+    "userDisabled": "Disabled",
+    "assignUser": "Assign user",
+    "assign": "Assign",
+    "assignNote": "Assigning a user invalidates their active sessions — they must sign in again.",
+    "createFailed": "Failed to create tenant",
+    "updateFailed": "Failed to update tenant",
+    "assignFailed": "Failed to assign user"
   }
 }

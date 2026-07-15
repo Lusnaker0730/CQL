@@ -16,7 +16,8 @@
     "users": "使用者管理",
     "auditLog": "稽核日誌",
     "mainNavigation": "主導覽列",
-    "goToHome": "前往首頁"
+    "goToHome": "前往首頁",
+    "tenants": "租戶管理"
   },
   "toolbar": {
     "switchToLight": "切換至淺色模式",
