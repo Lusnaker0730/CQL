@@ -1,6 +1,7 @@
 package com.cqlplatform.entity;
 
 import com.cqlplatform.security.EncryptionConverter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +21,15 @@ public class SandboxPresetEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Tenant (clinic) that owns this preset — the isolation boundary (BUG-134). Assigned
+     * server-side; backfilled in V68. The {@code shared = true} branch of findAccessible
+     * used to cross tenants; it is now scoped by this column.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
 
     @Column(nullable = false, length = 255)
     private String name;

@@ -135,6 +135,7 @@ class PhiEncryptionIntegrationTest {
         SandboxPresetEntity entity = SandboxPresetEntity.builder()
                 .name("Diabetes Preset")
                 .ownerUsername("clinician-a")
+                .tenantId(1L)   // BUG-134: tenant_id is NOT NULL on sandbox_preset
                 .serviceId("svc-1")
                 .patientId("pid-diabetes-001")
                 .prefetchJson("{\"Condition\":{\"resourceType\":\"Condition\",\"code\":\"E11\"}}")

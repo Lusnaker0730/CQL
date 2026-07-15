@@ -6,7 +6,11 @@ import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.repository.CdsArtifactRepository;
+import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.security.TenantContext;
 import com.cqlplatform.service.cql.CqlTranslationService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,8 +36,25 @@ class CqlGenerationServiceTest {
     @Mock
     private CqlTranslationService translationService;
 
+    @Mock
+    private TenantRepository tenantRepository;
+
     @InjectMocks
     private CqlGenerationService service;
+
+    // BUG-134: the artifact lookup is tenant-scoped. With TenantContext set,
+    // effectiveTenantId() returns early and never touches tenantRepository.
+    private static final Long TENANT = 7L;
+
+    @BeforeEach
+    void setTenant() {
+        TenantContext.setCurrentTenantId(TENANT);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
 
     private CdsArtifactEntity createEntity(Long id, String name) {
         return CdsArtifactEntity.builder()
@@ -48,7 +69,7 @@ class CqlGenerationServiceTest {
 
     @Test
     void generateCql_notFound_shouldThrow() {
-        when(artifactRepository.findById(999L)).thenReturn(Optional.empty());
+        when(artifactRepository.findByIdAndTenantId(999L, TENANT)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.generateCql(999L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -58,7 +79,7 @@ class CqlGenerationServiceTest {
     @Test
     void generateCql_found_shouldReturnBuiltCql() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
@@ -71,7 +92,7 @@ class CqlGenerationServiceTest {
     void generateCql_explicitFhirVersion_shouldAlwaysUseR4() {
         // Authoring locked to R4 — even if caller passes a different version, R4 is used
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
@@ -83,7 +104,7 @@ class CqlGenerationServiceTest {
     @Test
     void generateCql_nullFhirVersion_shouldUseR4() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
@@ -95,7 +116,7 @@ class CqlGenerationServiceTest {
     @Test
     void generateAndTranslate_shouldReturnTranslationResponse() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
@@ -113,7 +134,7 @@ class CqlGenerationServiceTest {
     @Test
     void validateArtifactCql_shouldReturnValidationResult() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", List.of()));
 
@@ -131,7 +152,7 @@ class CqlGenerationServiceTest {
     @Test
     void generateCql_builderThrowsClassCast_shouldWrapInCqlGenerationException() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenThrow(new ClassCastException("Cannot cast String to Map"));
 
@@ -144,7 +165,7 @@ class CqlGenerationServiceTest {
     @Test
     void generateCql_builderThrowsNPE_shouldWrapInCqlGenerationException() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenThrow(new NullPointerException("some null"));
 
@@ -157,7 +178,7 @@ class CqlGenerationServiceTest {
     @Test
     void generateCqlWithWarnings_shouldReturnWarnings() {
         CdsArtifactEntity entity = createEntity(1L, "TestArtifact");
-        when(artifactRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(artifactRepository.findByIdAndTenantId(1L, TENANT)).thenReturn(Optional.of(entity));
         List<String> warnings = List.of("Unknown element type 'Foo' for element 'Bar'; defaulting to 'true'");
         when(cqlBuilder.buildCql(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("R4")))
                 .thenReturn(new CqlBuildResult("library Test version '1.0'", warnings));
