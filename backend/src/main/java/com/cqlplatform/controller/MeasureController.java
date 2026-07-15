@@ -553,6 +553,12 @@ public class MeasureController {
     @GetMapping("/{measureId}/test-cases")
     @Operation(summary = "List Test Cases", description = "List test cases for a measure")
     public ResponseEntity<List<TestCase>> listTestCases(@PathVariable Long measureId) {
+        // BUG-133: test cases carry patient_bundle_json — real $everything bundles imported
+        // from a clinic's EHR (PatientImportService.importAsTestCase). test_case has no
+        // tenant_id; its tenant is its parent measure's, so the parent gate IS the boundary
+        // (as in getTestCase below). Without this line any authenticated user of any tenant
+        // could read another clinic's PHI by enumerating measureId.
+        requireMeasure(measureId);
         return ResponseEntity.ok(testCaseService.getTestCasesForMeasure(measureId));
     }
 
