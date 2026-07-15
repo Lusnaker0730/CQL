@@ -28,6 +28,7 @@ public class AuditService {
 
     private final AuditLogRepository auditLogRepository;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
 
     /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
     private Long effectiveTenantId() {
@@ -180,8 +181,17 @@ public class AuditService {
         return toResponse(result);
     }
 
+    /**
+     * BUG-132 — the delete below is deliberately global (retention is a uniform system
+     * policy, same as {@link #cleanupOldLogs()}), so this manual trigger must stay in
+     * platform-operator hands. {@code hasRole('ADMIN')} alone is no longer a platform
+     * boundary: #700 provisions each clinic's first user as ROLE_ADMIN, which would let
+     * any clinic admin call this with olderThanDays=0 and irreversibly wipe every
+     * tenant's audit trail.
+     */
     @Transactional
     public int manualCleanup(int olderThanDays) {
+        platformOperatorGuard.require();
         LocalDateTime before = LocalDateTime.now().minusDays(olderThanDays);
         int deleted = auditLogRepository.deleteByCreatedAtBefore(before);
         log.info("Manual audit cleanup: {} logs deleted (older than {} days)", deleted, olderThanDays);

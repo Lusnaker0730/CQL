@@ -4,6 +4,7 @@ import com.cqlplatform.entity.AuditLogEntity;
 import com.cqlplatform.model.audit.*;
 import com.cqlplatform.repository.AuditLogRepository;
 import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.security.PlatformOperatorGuard;
 import com.cqlplatform.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,9 @@ class AuditServiceTest {
 
     @Mock
     private TenantRepository tenantRepository;
+
+    @Mock
+    private PlatformOperatorGuard platformOperatorGuard;
 
     @AfterEach
     void clearTenant() {
@@ -219,6 +224,38 @@ class AuditServiceTest {
 
         assertThat(deleted).isEqualTo(100);
         verify(auditLogRepository).deleteByCreatedAtBefore(any(LocalDateTime.class));
+    }
+
+    // BUG-132: the delete crosses every tenant, so a clinic ADMIN must not reach it.
+
+    @Test
+    void manualCleanup_shouldRequirePlatformOperator() {
+        when(auditLogRepository.deleteByCreatedAtBefore(any())).thenReturn(100);
+
+        service.manualCleanup(90);
+
+        verify(platformOperatorGuard).require();
+    }
+
+    @Test
+    void manualCleanup_whenNotPlatformOperator_shouldDenyBeforeDeleting() {
+        doThrow(new AccessDeniedException("restricted")).when(platformOperatorGuard).require();
+
+        assertThatThrownBy(() -> service.manualCleanup(0))
+                .isInstanceOf(AccessDeniedException.class);
+
+        // The guard must run first — a rejected caller deletes nothing.
+        verify(auditLogRepository, never()).deleteByCreatedAtBefore(any());
+    }
+
+    @Test
+    void cleanupOldLogs_shouldNotRequirePlatformOperator() {
+        // The @Scheduled sweep has no request thread / TenantContext; it stays global.
+        when(auditLogRepository.deleteByCreatedAtBefore(any())).thenReturn(50);
+
+        service.cleanupOldLogs();
+
+        verify(platformOperatorGuard, never()).require();
     }
 
     // ===== toEntry EHR fields =====

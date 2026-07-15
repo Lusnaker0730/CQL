@@ -58,7 +58,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long>,
      * transaction don't return stale (already-deleted) rows.
      *
      * <p>Intentionally NOT tenant-scoped: retention is a uniform system policy
-     * applied by the scheduled cleanup (and the ADMIN-only manual cleanup).
+     * applied by the scheduled cleanup and by the manual trigger. Because this
+     * crosses every tenant, callers reachable from a request thread must gate on
+     * PlatformOperatorGuard first — see AuditService.manualCleanup (BUG-132).
      */
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM AuditLogEntity a WHERE a.createdAt < :before")
