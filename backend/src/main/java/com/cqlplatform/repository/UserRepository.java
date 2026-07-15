@@ -13,6 +13,10 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByUsername(String username);
     boolean existsByUsername(String username);
+
+    // Tenant management (PAT-201 / #699)
+    java.util.List<UserEntity> findByTenantId(Long tenantId);
+    java.util.List<UserEntity> findByTenantIdIsNull();
     Optional<UserEntity> findByEmailHash(String emailHash);
     Optional<UserEntity> findByAuthProviderAndExternalId(UserEntity.AuthProvider authProvider, String externalId);
 
