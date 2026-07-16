@@ -242,6 +242,30 @@ export default function LandingPage() {
             textAlign: 'center',
           }}
         >
+          {/* Internal public pages */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
+            {[
+              { label: t('catalog.pageTitle'), to: '/templates' },
+              { label: t('status.pageTitle'), to: '/status' },
+            ].map((link) => (
+              <Typography
+                key={link.to}
+                component="button"
+                onClick={() => navigate(link.to)}
+                variant="body2"
+                sx={(theme) => ({
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  p: 0,
+                  color: alpha(theme.palette.common.white, 0.6),
+                  '&:hover': { color: theme.palette.primary.light },
+                })}
+              >
+                {link.label}
+              </Typography>
+            ))}
+          </Box>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 1.5 }}>
             {[
               { label: 'CQL Specification', href: 'https://cql.hl7.org/' },

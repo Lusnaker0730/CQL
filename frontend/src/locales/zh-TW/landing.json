@@ -49,6 +49,20 @@
     "copyCode": "複製 CQL",
     "toggleCode": "顯示 / 隱藏 CQL"
   },
+  "status": {
+    "pageTitle": "服務狀態",
+    "components": "各項元件",
+    "lastChecked": "最後檢查於 {{time}}",
+    "overall": {
+      "operational": "所有系統運作正常",
+      "degraded": "部分服務中斷",
+      "outage": "服務無法連線"
+    },
+    "component": {
+      "api": "API",
+      "database": "資料庫"
+    }
+  },
   "learn": {
     "nav": {
       "introduction": "CQL 入門",

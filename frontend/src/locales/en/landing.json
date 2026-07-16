@@ -49,6 +49,20 @@
     "copyCode": "Copy CQL",
     "toggleCode": "Show / hide CQL"
   },
+  "status": {
+    "pageTitle": "Service Status",
+    "components": "Components",
+    "lastChecked": "Last checked {{time}}",
+    "overall": {
+      "operational": "All systems operational",
+      "degraded": "Partial service disruption",
+      "outage": "Service unreachable"
+    },
+    "component": {
+      "api": "API",
+      "database": "Database"
+    }
+  },
   "learn": {
     "nav": {
       "introduction": "CQL Introduction",

@@ -203,7 +203,9 @@ public class SecurityConfig {
                 // Actuator: health is always public
                 .requestMatchers("/actuator/health").permitAll()
                 // Deploy-change detection for SPA cache-bust — no sensitive data exposed
-                .requestMatchers(HttpMethod.GET, "/api/version").permitAll();
+                .requestMatchers(HttpMethod.GET, "/api/version").permitAll()
+                // PAT-209: public status page. Coarse reachability only, no sensitive data.
+                .requestMatchers(HttpMethod.GET, "/api/status").permitAll();
 
         // /actuator/prometheus is handled by the dedicated @Order(0) chain
         // (prometheusSecurityChain) — this chain never sees that path.

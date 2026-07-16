@@ -1374,6 +1374,13 @@ export interface PatientImport {
   createdAt?: string
 }
 
+// PAT-209: public platform status for the /status page.
+export interface PlatformStatus {
+  status: 'operational' | 'degraded'
+  timestamp: string
+  components: { name: string; ok: boolean }[]
+}
+
 // PAT-206: result of uploading a FHIR bundle. Conformance counts are present only when
 // validation was requested (validate=true).
 export interface FhirBundleImportResult {
