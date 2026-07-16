@@ -257,15 +257,14 @@ public class CdsHooksService {
         log.info("Deleted CDS service: {}", id);
     }
 
-    @Transactional(readOnly = true)
     /**
-     * BUG-137 — tenant-scoped read: the caller's own tenant, plus any tenant's shared
-     * service (the shared surface is deliberately tenant-agnostic, Option A #698, so the
-     * detail view agrees with getServicesForUser's list). Not usable as an authorisation
-     * gate for mutations — see rollbackService / toggleShared, which scope strictly.
+     * BUG-139 — strictly tenant-scoped read. With shared collapsed to within-tenant, a service
+     * in another tenant is not found whether shared or not, so read and mutation lookups are the
+     * same. (BUG-137's cross-tenant shared read surface is gone.)
      */
+    @Transactional(readOnly = true)
     public CdsServiceConfigResponse getService(String id) {
-        CdsServiceConfigEntity entity = repository.findReadableByIdWithPrefetch(id, effectiveTenantId())
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         return entityToResponse(entity);
     }
@@ -307,29 +306,17 @@ public class CdsHooksService {
         return definitions;
     }
 
+    /**
+     * BUG-139 — the anonymous, tenant-agnostic discovery surface (Option A, #698) is retired:
+     * with shared collapsed to within-tenant, "shared" no longer means "published platform-wide",
+     * so there is nothing for an anonymous, tenant-less caller to enumerate. Returns empty; the
+     * standard {@code /cds-services} response stays valid ({@code {"services":[]}}). External
+     * integrators use the authenticated, tenant-scoped per-user surface
+     * ({@code /cds-services/u/{username}} → {@link #getServiceDefinitionsForUser}).
+     */
     @Transactional(readOnly = true)
     public List<CdsServiceDefinition> getSharedServiceDefinitions() {
-        List<CdsServiceDefinition> definitions = new ArrayList<>();
-
-        // Option A (#698 PR-C2): the anonymous discovery surface lists ONLY services a
-        // clinic explicitly published (shared=true) — private services are no longer
-        // enumerable across tenants. The shared surface is deliberately tenant-agnostic.
-        List<CdsServiceConfigEntity> entities = repository.findBySharedTrueAndEnabledTrue();
-
-        Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
-        for (CdsServiceConfigEntity entity : entities) {
-            String key = entity.getServiceName() != null ? entity.getServiceName() : entity.getId();
-            CdsServiceConfigEntity existing = latestByServiceName.get(key);
-            if (existing == null || entity.getVersion() > existing.getVersion()) {
-                latestByServiceName.put(key, entity);
-            }
-        }
-
-        for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
-            definitions.add(toDefinition(entityToConfig(entity)));
-        }
-
-        return definitions;
+        return List.of();
     }
 
     @Transactional
@@ -384,26 +371,33 @@ public class CdsHooksService {
                     .build();
         }
 
-        // Option A (#698 PR-C2): only shared services are invocable anonymously. A
-        // private service may be invoked by its owner (per-user API-key path or the
-        // authenticated builder UI). Legacy un-owned rows require any authenticated
-        // caller — they were platform-global before ownership existed. Unauthorized
-        // callers get the same not-found card as a missing service, so private
-        // service ids are not confirmable by probing.
-        if (!Boolean.TRUE.equals(config.getShared())) {
-            var auth = org.springframework.security.core.context.SecurityContextHolder
-                    .getContext().getAuthentication();
-            String caller = (auth != null && auth.isAuthenticated()
-                    && !"anonymousUser".equals(auth.getName())) ? auth.getName() : null;
+        // BUG-139: shared is now within-tenant, so there is no anonymous invocation any more.
+        // Every call needs an authenticated caller: a shared service is invocable by anyone in
+        // its OWN tenant, a private one only by its owner. Legacy un-owned / un-tenanted rows stay
+        // permissive (they predate ownership/tenancy). Unauthorized callers get the same not-found
+        // card as a missing service, so service ids are not confirmable by probing.
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        String caller = (auth != null && auth.isAuthenticated()
+                && !"anonymousUser".equals(auth.getName())) ? auth.getName() : null;
+        boolean allowed;
+        if (caller == null) {
+            allowed = false;
+        } else if (Boolean.TRUE.equals(config.getShared())) {
+            // Same-tenant caller. TenantContext is set by the API-key auth path (PAT-198).
+            Long callerTenant = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+            allowed = config.getTenantId() == null
+                    || (callerTenant != null && callerTenant.equals(config.getTenantId()));
+        } else {
             String owner = config.getOwnerUsername();
-            boolean allowed = caller != null && (owner == null || owner.equals(caller));
-            if (!allowed) {
-                log.info("CDS invoke denied for non-shared service {} (caller={})", serviceId, caller);
-                return CdsResponse.builder()
-                        .cards(List.of(tupleStrategy.createInfoCard("Service not found",
-                                "The requested CDS service '" + serviceId + "' is not available.")))
-                        .build();
-            }
+            allowed = owner == null || owner.equals(caller);
+        }
+        if (!allowed) {
+            log.info("CDS invoke denied for service {} (caller={})", serviceId, caller);
+            return CdsResponse.builder()
+                    .cards(List.of(tupleStrategy.createInfoCard("Service not found",
+                            "The requested CDS service '" + serviceId + "' is not available.")))
+                    .build();
         }
 
         // Validate hook type matches config

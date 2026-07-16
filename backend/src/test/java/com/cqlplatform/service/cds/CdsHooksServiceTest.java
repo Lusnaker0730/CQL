@@ -31,14 +31,21 @@ class CdsHooksServiceTest {
     private static final Long TENANT = 7L;
 
     @org.junit.jupiter.api.AfterEach
-    void clearTenantContext() {
+    void clearContext() {
         com.cqlplatform.security.TenantContext.clear();
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
         com.cqlplatform.security.TenantContext.setCurrentTenantId(TENANT);
+        // BUG-139: invocation now requires an authenticated caller (anonymous invoke retired).
+        // Shared configs in these tests carry no tenantId, so an authenticated caller suffices
+        // for the downstream-logic tests (hook validation, delegation) to proceed.
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "test-caller", null, java.util.List.of()));
         cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
                 java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty());
     }
@@ -56,7 +63,7 @@ class CdsHooksServiceTest {
                 .hook("patient-view")
                 .title("Custom Service")
                 .description("A custom CDS service")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
 
@@ -70,7 +77,7 @@ class CdsHooksServiceTest {
                 .id("new-service")
                 .hook("order-select")
                 .title("New Service")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
 
         cdsHooksService.registerService(config);
@@ -85,7 +92,7 @@ class CdsHooksServiceTest {
                 .id("temp-service")
                 .hook("patient-view")
                 .title("Temp")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
         cdsHooksService.unregisterService("temp-service");
@@ -123,7 +130,7 @@ class CdsHooksServiceTest {
                 .title("Test CQL Service")
                 .cqlContent("library Test version '1.0'\ndefine IsTrue: true")
                 .defaultIndicator("warning")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
 
@@ -172,7 +179,7 @@ class CdsHooksServiceTest {
                 .hook("patient-view")
                 .title("Patient View Service")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
 
@@ -194,7 +201,7 @@ class CdsHooksServiceTest {
                 .hook("patient-view")
                 .title("Patient View")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
 
@@ -219,7 +226,7 @@ class CdsHooksServiceTest {
                 .hook("order-select")
                 .title("Order Select")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
 
@@ -246,7 +253,7 @@ class CdsHooksServiceTest {
                 .hook("encounter-start")
                 .title("Encounter Start")
                 .cqlContent("library Test version '1.0'\ndefine Check: true")
-                .shared(true)  // anonymous invoke surface = shared services (PR-C2 option A)
+                .shared(true)  // BUG-139: shared = invocable by same-tenant authenticated callers
                 .build();
         cdsHooksService.registerService(config);
 
@@ -342,22 +349,22 @@ class CdsHooksServiceTest {
         }
     }
 
-    // ===== Tenant boundary (BUG-137) =====
+    // ===== Tenant boundary (BUG-137 / BUG-139) =====
     //
-    // The read/write split is the whole point here: `shared` publishes a service to the
-    // anonymous discovery surface (Option A, #698), so READS may cross tenants for a shared
-    // service — but MUTATIONS never may. Without that split, a clinic ADMIN could unshare (or
-    // publish) another tenant's service, because the controller only checks isAdmin().
+    // BUG-139 collapsed `shared` to within-tenant (Option A reversed): reads AND mutations are
+    // now strictly the caller's own tenant. A shared service in another tenant is simply not
+    // found — there is no cross-tenant read surface any more.
 
     @Test
-    void getService_shouldUseReadableLookupAllowingSharedServices() {
-        when(repository.findReadableByIdWithPrefetch("svc-1", TENANT))
+    void getService_shouldUseStrictTenantLookup() {
+        when(repository.findByIdAndTenantIdWithPrefetch("svc-1", TENANT))
                 .thenReturn(java.util.Optional.of(com.cqlplatform.entity.CdsServiceConfigEntity.builder()
                         .id("svc-1").hook("patient-view").title("T").tenantId(TENANT).build()));
 
         cdsHooksService.getService("svc-1");
 
-        verify(repository).findReadableByIdWithPrefetch("svc-1", TENANT);
+        // BUG-139: even reads use the strict tenant lookup — no cross-tenant shared read.
+        verify(repository).findByIdAndTenantIdWithPrefetch("svc-1", TENANT);
     }
 
     @Test
@@ -373,6 +380,24 @@ class CdsHooksServiceTest {
 
         verify(repository).findByIdAndTenantIdWithPrefetch("foreign-svc", TENANT);
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void getSharedServiceDefinitions_shouldReturnEmpty_anonymousSurfaceRetired() {
+        // BUG-139: the anonymous, tenant-agnostic discovery surface is retired. It must never
+        // enumerate services across tenants — it returns empty.
+        assertThat(cdsHooksService.getSharedServiceDefinitions()).isEmpty();
+    }
+
+    @Test
+    void getServicesForUser_shouldScopeSharedToCallersTenant() {
+        // The list surface binds `shared` to the caller's tenant (no cross-tenant shared).
+        when(repository.findByTenantIdAndOwnerUsernameOrSharedTrue(TENANT, "bob"))
+                .thenReturn(java.util.List.of());
+
+        cdsHooksService.getServicesForUser("bob");
+
+        verify(repository).findByTenantIdAndOwnerUsernameOrSharedTrue(TENANT, "bob");
     }
 
     @Test
