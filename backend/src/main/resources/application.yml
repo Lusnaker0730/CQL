@@ -51,8 +51,12 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:}
   servlet:
     multipart:
-      max-file-size: 1MB
-      max-request-size: 2MB
+      # PAT-206 follow-up: raised from 1MB. A real 健康存摺 / My Health Bank FHIR bundle (years
+      # of encounters/meds/labs for a patient) is routinely several MB, so 1MB rejected genuine
+      # uploads. 10MB covers realistic single-patient bundles; the import service also caps the
+      # entry count as defence-in-depth. Override via MULTIPART_MAX_FILE_SIZE if needed.
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:12MB}
   jackson:
     # Jackson 3 (Spring Boot 4) moved WRITE_DATES_AS_TIMESTAMPS from
     # SerializationFeature to DateTimeFeature and changed the default to

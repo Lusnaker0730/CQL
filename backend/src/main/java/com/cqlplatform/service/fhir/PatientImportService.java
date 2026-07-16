@@ -28,6 +28,9 @@ public class PatientImportService {
     private final TestCaseService testCaseService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
 
+    /** Max entries in an uploaded single-patient bundle (PAT-206 follow-up). */
+    private static final int MAX_BUNDLE_ENTRIES = 10_000;
+
     /**
      * The caller's tenant, falling back to the default tenant for legacy callers without
      * a tenant claim (same semantics as EhrConnectionService / CqlLibraryService).
@@ -89,6 +92,14 @@ public class PatientImportService {
         if (!bundle.hasEntry()) {
             throw new com.cqlplatform.exception.ValidationException(
                     "Uploaded FHIR Bundle contains no entries.");
+        }
+        // PAT-206 follow-up: bound the work a single upload can trigger. A genuine
+        // single-patient 健康存摺 export is hundreds of resources; anything far larger is
+        // either a batch export (not what this endpoint is for) or pathological input.
+        if (bundle.getEntry().size() > MAX_BUNDLE_ENTRIES) {
+            throw new com.cqlplatform.exception.ValidationException(
+                    "Uploaded FHIR Bundle has too many entries (" + bundle.getEntry().size()
+                            + "); the limit is " + MAX_BUNDLE_ENTRIES + ".");
         }
 
         // Identify the patient the bundle is about. Uploaded bundles (health-bank exports)
