@@ -13,21 +13,10 @@ import java.util.Optional;
 public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConfigEntity, String> {
 
     /**
-     * BUG-137 — READ lookup: the caller's own tenant, plus any tenant's shared service.
-     * The shared surface is deliberately tenant-agnostic (Option A, #698) — a published
-     * service is visible to everyone, mirroring findByTenantIdAndOwnerUsernameOrSharedTrue
-     * so the list and the detail view agree. Do NOT use this for mutations: see
-     * findByIdAndTenantIdWithPrefetch.
-     */
-    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems "
-            + "WHERE c.id = :id AND (c.tenantId = :tenantId OR c.shared = true)")
-    Optional<CdsServiceConfigEntity> findReadableByIdWithPrefetch(@Param("id") String id,
-                                                                  @Param("tenantId") Long tenantId);
-
-    /**
-     * BUG-137 — MUTATION lookup: strictly the caller's own tenant, never the shared surface.
-     * Being able to see a published service must not imply being able to change it: without
-     * this, a clinic ADMIN could unshare (or publish) another tenant's service.
+     * BUG-139 — the only by-id lookup: strictly the caller's own tenant. With shared collapsed
+     * to within-tenant (Option A reversed), read and mutation lookups are the same — a service
+     * in another tenant is simply not found, whether it is shared or not. (BUG-137 had a
+     * separate READ lookup that allowed cross-tenant shared reads; that surface is gone.)
      */
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems "
             + "WHERE c.id = :id AND c.tenantId = :tenantId")
@@ -46,8 +35,14 @@ public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConf
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems WHERE c.tenantId = :tenantId")
     List<CdsServiceConfigEntity> findAllByTenantIdWithPrefetch(Long tenantId);
 
+    /**
+     * BUG-139 — shared is now a WITHIN-TENANT concept (Option A reversed): a service the user
+     * owns, or one a colleague in the SAME tenant published. The bare {@code OR c.shared = true}
+     * used to cross tenants; the tenant predicate now wraps the whole OR so a shared service is
+     * only visible to its own tenant, mirroring cql_library.accessLevel='public' (BUG-135).
+     */
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
-            "WHERE (c.tenantId = :tenantId AND c.ownerUsername = :username) OR c.shared = true")
+            "WHERE c.tenantId = :tenantId AND (c.ownerUsername = :username OR c.shared = true)")
     List<CdsServiceConfigEntity> findByTenantIdAndOwnerUsernameOrSharedTrue(Long tenantId, String username);
 
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
@@ -59,16 +54,11 @@ public interface CdsServiceConfigRepository extends JpaRepository<CdsServiceConf
     List<CdsServiceConfigEntity> findByOwnerUsernameWithPrefetch(String username);
 
     @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
-            "WHERE c.ownerUsername = :username OR c.shared = true")
-    List<CdsServiceConfigEntity> findByOwnerUsernameOrSharedTrue(String username);
-
-    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
             "WHERE c.ownerUsername = :username AND c.enabled = true")
     List<CdsServiceConfigEntity> findByOwnerUsernameAndEnabledTrue(String username);
-
-    @Query("SELECT DISTINCT c FROM CdsServiceConfigEntity c LEFT JOIN FETCH c.prefetchItems " +
-            "WHERE c.shared = true AND c.enabled = true")
-    List<CdsServiceConfigEntity> findBySharedTrueAndEnabledTrue();
+    // BUG-139: findByOwnerUsernameOrSharedTrue and findBySharedTrueAndEnabledTrue removed —
+    // both were the cross-tenant shared surface (Option A), now retired. Shared is within-tenant
+    // via findByTenantIdAndOwnerUsernameOrSharedTrue.
 
     boolean existsById(String id);
 
