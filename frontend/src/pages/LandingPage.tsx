@@ -248,6 +248,8 @@ export default function LandingPage() {
               { label: t('docs.pageTitle'), to: '/docs' },
               { label: t('catalog.pageTitle'), to: '/templates' },
               { label: t('status.pageTitle'), to: '/status' },
+              { label: t('legal.terms.title'), to: '/terms' },
+              { label: t('legal.privacy.title'), to: '/privacy' },
             ].map((link) => (
               <Typography
                 key={link.to}
