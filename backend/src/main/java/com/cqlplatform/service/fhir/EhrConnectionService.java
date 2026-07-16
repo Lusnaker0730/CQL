@@ -144,8 +144,10 @@ public class EhrConnectionService {
         // setLastTestMessage → save) needs an explicit transactional boundary so the
         // success and failure paths atomically commit; same convention as the
         // create / update / delete methods in this class.
-        EhrConnectionEntity connection = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
+        // BUG-138: tenant-scoped, matching update() / delete(). The raw findById let a clinic
+        // ADMIN/DEPARTMENT_ADMIN test ANY tenant's connection — which both mutates its status
+        // fields and hands back the entity, credentials and cert material included.
+        EhrConnectionEntity connection = getById(id);
         try {
             IGenericClient client = fhirClientFactory.createAuthenticatedClient(connection);
             CapabilityStatement capabilities = client.capabilities()

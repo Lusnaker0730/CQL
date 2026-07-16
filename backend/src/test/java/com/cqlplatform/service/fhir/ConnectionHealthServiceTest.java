@@ -203,6 +203,8 @@ class ConnectionHealthServiceTest {
 
     @Test
     void getHistory_shouldReturnRecentChecks() {
+        // BUG-138: getHistory now gates on the tenant-scoped connection lookup first.
+        when(connectionService.getById(1L)).thenReturn(new EhrConnectionEntity());
         ConnectionHealthCheckEntity check1 = createHealthCheck(1L, "healthy", 100L);
         ConnectionHealthCheckEntity check2 = createHealthCheck(1L, "healthy", 120L);
         when(healthCheckRepository.findRecentByConnectionId(eq(1L), any(LocalDateTime.class)))
@@ -212,6 +214,19 @@ class ConnectionHealthServiceTest {
 
         assertThat(history).hasSize(2);
         verify(healthCheckRepository).findRecentByConnectionId(eq(1L), any(LocalDateTime.class));
+    }
+
+    @Test
+    void getHistory_whenConnectionNotInCallersTenant_shouldNotReadHealthChecks() {
+        // getById is tenant-scoped (findByIdAndTenantId) and throws for a foreign tenant.
+        // The endpoint has no @PreAuthorize, so this gate is the entire boundary.
+        when(connectionService.getById(99L))
+                .thenThrow(new IllegalArgumentException("EHR connection not found: 99"));
+
+        assertThatThrownBy(() -> service.getHistory(99L, 24))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(healthCheckRepository, never()).findRecentByConnectionId(any(), any());
     }
 
     // ===== getCircuitBreakerStatuses =====
