@@ -89,4 +89,20 @@ class EhrConnectionServiceTest {
         assertThat(service.getByIdUnscoped(9L)).isSameAs(conn);
         verifyNoInteractions(tenantRepository);
     }
+
+    // ===== testConnection tenant boundary (BUG-138) =====
+
+    @Test
+    void testConnection_crossTenant_readsAsNotFound() {
+        // testConnection now resolves via the tenant-scoped getById (findByIdAndTenantId).
+        // A foreign tenant's connection reads as not-found, so its status is never mutated and
+        // its credentials / cert material are never handed back. The raw findById is not used.
+        TenantContext.setCurrentTenantId(5L);
+        when(repository.findByIdAndTenantId(9L, 5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.testConnection(9L))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(repository, never()).findById(any());
+    }
 }

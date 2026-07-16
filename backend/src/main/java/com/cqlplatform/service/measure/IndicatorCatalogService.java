@@ -18,6 +18,19 @@ import java.util.Optional;
 public class IndicatorCatalogService {
 
     private final IndicatorCatalogRepository repository;
+    private final com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
+
+    /**
+     * BUG-138 — indicator_catalog is a PLATFORM-level catalog: it has no tenant_id because
+     * the indicator definitions (national / TFDA quality indicators) are shared reference
+     * data that every clinic reads. That makes reads deliberately open — but it also means
+     * a write here changes what EVERY tenant sees, so writes belong to the platform operator.
+     * hasRole('ADMIN') stopped being that boundary once #700 started provisioning each
+     * clinic's first user as ROLE_ADMIN (same root cause as BUG-131 / BUG-132).
+     */
+    private void requirePlatformOperator() {
+        platformOperatorGuard.require();
+    }
 
     @Transactional(readOnly = true)
     public List<IndicatorCatalogEntity> search(String source, String category, String searchTerm) {
@@ -44,6 +57,7 @@ public class IndicatorCatalogService {
 
     @Transactional
     public IndicatorCatalogEntity create(IndicatorCatalogEntity entity) {
+        requirePlatformOperator();
         if (repository.existsByCodeAndSource(entity.getCode(), entity.getSource())) {
             throw new IllegalArgumentException(
                     "Indicator already exists: " + entity.getCode() + " (" + entity.getSource() + ")");
@@ -53,6 +67,7 @@ public class IndicatorCatalogService {
 
     @Transactional
     public IndicatorCatalogEntity update(String code, String source, IndicatorCatalogEntity updated) {
+        requirePlatformOperator();
         IndicatorCatalogEntity existing = repository.findByCodeAndSource(code, source)
                 .orElseThrow(() -> new IllegalArgumentException("Indicator not found: " + code));
 
@@ -69,6 +84,7 @@ public class IndicatorCatalogService {
 
     @Transactional
     public void delete(String code, String source) {
+        requirePlatformOperator();
         IndicatorCatalogEntity existing = repository.findByCodeAndSource(code, source)
                 .orElseThrow(() -> new IllegalArgumentException("Indicator not found: " + code + " (" + source + ")"));
         repository.delete(existing);
@@ -78,6 +94,7 @@ public class IndicatorCatalogService {
     @Transactional
     @SuppressWarnings("unchecked")
     public Map<String, Object> bulkImport(List<Map<String, Object>> entries) {
+        requirePlatformOperator();
         int created = 0;
         int skipped = 0;
         List<String> errors = new ArrayList<>();
