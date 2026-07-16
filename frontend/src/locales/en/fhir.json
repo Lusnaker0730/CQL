@@ -12,7 +12,9 @@
     "chooseFile": "Choose file",
     "import": "Import",
     "importing": "Importing…",
+    "validate": "Validate against TW Core (slower for large files)",
     "success": "Imported patient {{name}} ({{count}} resources).",
+    "conformance": "{{valid}}/{{total}} resources conform to TW Core.",
     "error": "Import failed: {{message}}"
   },
   "browser": {

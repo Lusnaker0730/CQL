@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { EhrConnection, PatientSearchResult, PatientImportPreview, PatientImport } from '../types'
+import type { EhrConnection, PatientSearchResult, PatientImportPreview, PatientImport, FhirBundleImportResult } from '../types'
 
 const BASE = '/ehr'
 
@@ -82,10 +82,17 @@ export const ehrApi = {
 
   // PAT-206: import an uploaded FHIR bundle file (e.g. a 健康存摺 / My Health Bank export).
   // No EHR connection required — the bundle is parsed and landed as a tenant-scoped import.
-  importFhirBundle: async (file: File, measureId?: number): Promise<PatientImport> => {
+  // TW Core conformance validation is opt-in (slow for large bundles); when requested the
+  // result carries the conformant / non-conformant resource counts.
+  importFhirBundle: async (
+    file: File,
+    measureId?: number,
+    validate = false,
+  ): Promise<FhirBundleImportResult> => {
     const form = new FormData()
     form.append('file', file)
-    const params = measureId ? { measureId } : {}
+    const params: Record<string, unknown> = { validate }
+    if (measureId) params.measureId = measureId
     const { data } = await api.post(`${BASE}/import/fhir-bundle`, form, {
       params,
       headers: { 'Content-Type': 'multipart/form-data' },

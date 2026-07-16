@@ -107,4 +107,20 @@ class PatientImportServiceTest {
                 .isInstanceOf(ValidationException.class);
         verify(importRepository, never()).save(any());
     }
+
+    @Test
+    void importUploadedBundle_tooManyEntries_shouldThrowValidationAndNotSave() {
+        // PAT-206 follow-up: bound the work a single upload can trigger (cap is 10,000).
+        StringBuilder sb = new StringBuilder("{\"resourceType\":\"Bundle\",\"type\":\"collection\",\"entry\":[");
+        for (int i = 0; i < 10_001; i++) {
+            if (i > 0) sb.append(',');
+            sb.append("{\"resource\":{\"resourceType\":\"Patient\",\"id\":\"p").append(i).append("\"}}");
+        }
+        sb.append("]}");
+
+        assertThatThrownBy(() -> service.importUploadedBundle(sb.toString(), null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("too many entries");
+        verify(importRepository, never()).save(any());
+    }
 }

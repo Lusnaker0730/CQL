@@ -12,7 +12,9 @@
     "chooseFile": "選擇檔案",
     "import": "匯入",
     "importing": "匯入中…",
+    "validate": "驗證 TW Core 一致性（大檔較慢）",
     "success": "已匯入病人 {{name}}（{{count}} 筆資源）。",
+    "conformance": "{{valid}}/{{total}} 筆資源符合 TW Core。",
     "error": "匯入失敗：{{message}}"
   },
   "browser": {

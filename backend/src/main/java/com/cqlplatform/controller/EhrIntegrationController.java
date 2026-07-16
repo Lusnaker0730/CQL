@@ -43,6 +43,7 @@ public class EhrIntegrationController {
     private final ImportRetryService importRetryService;
     private final FhirSubscriptionService subscriptionService;
     private final ConnectionHealthService connectionHealthService;
+    private final com.cqlplatform.service.fhir.FhirValidationService fhirValidationService;
 
     // ===== Connection Management =====
 
@@ -143,15 +144,28 @@ public class EhrIntegrationController {
     @Operation(summary = "Import FHIR Bundle File",
             description = "Import an uploaded FHIR bundle (e.g. a 健康存摺 / My Health Bank export) as a "
                     + "patient / test case. No EHR connection required.")
-    public ResponseEntity<PatientImportEntity> importFhirBundle(
+    public ResponseEntity<com.cqlplatform.model.fhir.FhirBundleImportResult> importFhirBundle(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
-            @RequestParam(required = false) Long measureId) throws java.io.IOException {
+            @RequestParam(required = false) Long measureId,
+            @RequestParam(defaultValue = "false") boolean validate) throws java.io.IOException {
         if (file == null || file.isEmpty()) {
             throw new com.cqlplatform.exception.ValidationException("No file uploaded.");
         }
         String bundleJson = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(patientImportService.importUploadedBundle(bundleJson, measureId));
+        PatientImportEntity imported = patientImportService.importUploadedBundle(bundleJson, measureId);
+
+        // TW Core conformance validation is opt-in: per-resource IG validation is slow for
+        // large bundles, so only run it when the caller asks. Non-blocking — the import has
+        // already happened; the counts are informational.
+        com.cqlplatform.model.fhir.FhirBundleImportResult result;
+        if (validate) {
+            var v = fhirValidationService.validateBundle(bundleJson);
+            result = new com.cqlplatform.model.fhir.FhirBundleImportResult(
+                    imported, true, v.totalResources(), v.validResources(), v.invalidResources());
+        } else {
+            result = com.cqlplatform.model.fhir.FhirBundleImportResult.withoutValidation(imported);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     // ===== Batch Import =====

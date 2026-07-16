@@ -1362,7 +1362,7 @@ export interface PatientImportPreview {
 
 export interface PatientImport {
   id?: number
-  connectionId: number
+  connectionId?: number
   patientFhirId: string
   patientIdentifier?: string
   patientName?: string
@@ -1370,5 +1370,16 @@ export interface PatientImport {
   targetMeasureId?: number
   targetTestCaseId?: number
   importedBy?: string
+  source?: string
   createdAt?: string
+}
+
+// PAT-206: result of uploading a FHIR bundle. Conformance counts are present only when
+// validation was requested (validate=true).
+export interface FhirBundleImportResult {
+  patientImport: PatientImport
+  validated: boolean
+  totalResources?: number
+  validResources?: number
+  invalidResources?: number
 }

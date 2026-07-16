@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } from '@mui/material'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { ehrApi } from '../../api/ehrApi'
-import type { PatientImport } from '../../types'
+import type { FhirBundleImportResult } from '../../types'
 
 /**
  * PAT-206 — upload a FHIR bundle file (e.g. a 健康存摺 / My Health Bank export) and import it
@@ -15,9 +15,10 @@ export default function FhirBundleUpload() {
   const { t } = useTranslation('fhir')
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [validate, setValidate] = useState(false)
 
-  const mutation = useMutation<PatientImport, Error, File>({
-    mutationFn: (f) => ehrApi.importFhirBundle(f),
+  const mutation = useMutation<FhirBundleImportResult, Error, File>({
+    mutationFn: (f) => ehrApi.importFhirBundle(f, undefined, validate),
   })
 
   const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +66,21 @@ export default function FhirBundleUpload() {
               {mutation.isPending ? t('bundleUpload.importing') : t('bundleUpload.import')}
             </Button>
           </Stack>
+          <FormControlLabel
+            sx={{ mt: 0.5 }}
+            control={
+              <Checkbox
+                size="small"
+                checked={validate}
+                onChange={(e) => setValidate(e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2" color="text.secondary">
+                {t('bundleUpload.validate')}
+              </Typography>
+            }
+          />
         </Box>
 
         {mutation.isError && (
@@ -75,11 +91,20 @@ export default function FhirBundleUpload() {
           </Alert>
         )}
         {mutation.isSuccess && (
-          <Alert severity="success">
+          <Alert severity={mutation.data.invalidResources ? 'warning' : 'success'}>
             {t('bundleUpload.success', {
-              name: mutation.data.patientName ?? '—',
-              count: mutation.data.resourceCount ?? 0,
+              name: mutation.data.patientImport.patientName ?? '—',
+              count: mutation.data.patientImport.resourceCount ?? 0,
             })}
+            {mutation.data.validated && (
+              <>
+                {' '}
+                {t('bundleUpload.conformance', {
+                  valid: mutation.data.validResources ?? 0,
+                  total: mutation.data.totalResources ?? 0,
+                })}
+              </>
+            )}
           </Alert>
         )}
       </Stack>
