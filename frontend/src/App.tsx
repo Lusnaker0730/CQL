@@ -33,6 +33,7 @@ const OktaCallbackPage = lazy(() => import('./pages/OktaCallbackPage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
 const TemplateCatalogPage = lazy(() => import('./pages/TemplateCatalogPage'))
 const StatusPage = lazy(() => import('./pages/StatusPage'))
+const DocsPage = lazy(() => import('./pages/DocsPage'))
 const PatientGeneratorPage = lazy(() => import('./pages/PatientGeneratorPage'))
 const CqlLibrariesPage = lazy(() => import('./pages/CqlLibrariesPage'))
 
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/learn" element={<Suspense fallback={<PageLoadingFallback />}><LearnPage /></Suspense>} />
         <Route path="/templates" element={<Suspense fallback={<PageLoadingFallback />}><TemplateCatalogPage /></Suspense>} />
         <Route path="/status" element={<Suspense fallback={<PageLoadingFallback />}><StatusPage /></Suspense>} />
+        <Route path="/docs" element={<Suspense fallback={<PageLoadingFallback />}><DocsPage /></Suspense>} />
         <Route path="/apply" element={<Suspense fallback={<PageLoadingFallback />}><ClinicApplyPage /></Suspense>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
