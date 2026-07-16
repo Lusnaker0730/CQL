@@ -23,6 +23,31 @@ public class CdsAnalyticsService {
 
     private final CdsServiceAnalyticsRepository analyticsRepository;
     private final CdsFeedbackRepository feedbackRepository;
+    private final com.cqlplatform.repository.CdsServiceConfigRepository configRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
+
+    /**
+     * BUG-137 — cds_service_analytics / cds_feedback carry no tenant_id: service_id is
+     * NOT NULL REFERENCES cds_service_config(id) ON DELETE CASCADE (V7), so their tenant is
+     * definitionally their service's and the parent gate IS the boundary. Strictly
+     * own-tenant: publishing a service to the shared surface does not publish its
+     * invocation counts, error rates or clinician feedback.
+     */
+    private void requireOwnService(String serviceId) {
+        configRepository.findByIdAndTenantIdWithPrefetch(serviceId, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + serviceId));
+    }
 
     @Transactional
     public void recordInvocation(String serviceId, long responseTimeMs, boolean success) {
@@ -52,6 +77,7 @@ public class CdsAnalyticsService {
 
     @Transactional(readOnly = true)
     public CdsServiceAnalyticsDTO getServiceAnalytics(String serviceId) {
+        requireOwnService(serviceId);
         CdsServiceAnalyticsEntity analytics = analyticsRepository
                 .findCurrentPeriodByServiceId(serviceId)
                 .orElse(null);
@@ -76,7 +102,8 @@ public class CdsAnalyticsService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceAnalyticsDTO> getAllServiceAnalytics() {
-        List<CdsServiceAnalyticsEntity> allAnalytics = analyticsRepository.findAllCurrentPeriod();
+        List<CdsServiceAnalyticsEntity> allAnalytics =
+                analyticsRepository.findAllCurrentPeriodByTenantId(effectiveTenantId());
 
         return allAnalytics.stream()
                 .map(analytics -> {

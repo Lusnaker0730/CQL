@@ -150,7 +150,10 @@ public class CdsHooksService {
 
     @Transactional
     public CdsServiceConfigResponse toggleShared(String id, boolean shared) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        // BUG-137: strictly own-tenant. The controller only checks isAdmin(), and a clinic's
+        // ADMIN is not a platform operator — without this scope they could publish another
+        // tenant's private service onto the anonymous discovery surface, or unshare theirs.
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         entity.setShared(shared);
         entity = repository.save(entity);
@@ -168,7 +171,7 @@ public class CdsHooksService {
     @Transactional
     public CdsServiceConfigResponse updateServiceIfOwnedBy(
             String id, CdsServiceConfigRequest request, String username, boolean isAdmin) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         verifyOwnership(entity, username, isAdmin, "modify");
         return updateService(id, request);
@@ -177,7 +180,7 @@ public class CdsHooksService {
     /** Same as {@link #deleteService(String)} but enforces ownership in the service layer. */
     @Transactional
     public void deleteServiceIfOwnedBy(String id, String username, boolean isAdmin) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         verifyOwnership(entity, username, isAdmin, "delete");
         deleteService(id);
@@ -187,7 +190,7 @@ public class CdsHooksService {
     @Transactional
     public CdsServiceConfigResponse toggleServiceEnabledIfOwnedBy(
             String id, boolean enabled, String username, boolean isAdmin) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         verifyOwnership(entity, username, isAdmin, enabled ? "enable" : "disable");
         return toggleServiceEnabled(id, enabled);
@@ -197,7 +200,7 @@ public class CdsHooksService {
     public CdsServiceConfigResponse updateService(String id, CdsServiceConfigRequest request) {
         HookTypeValidator.validate(request.getHook());
 
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
 
         entity.setHook(request.getHook());
@@ -255,8 +258,14 @@ public class CdsHooksService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * BUG-137 — tenant-scoped read: the caller's own tenant, plus any tenant's shared
+     * service (the shared surface is deliberately tenant-agnostic, Option A #698, so the
+     * detail view agrees with getServicesForUser's list). Not usable as an authorisation
+     * gate for mutations — see rollbackService / toggleShared, which scope strictly.
+     */
     public CdsServiceConfigResponse getService(String id) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findReadableByIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         return entityToResponse(entity);
     }
@@ -325,7 +334,7 @@ public class CdsHooksService {
 
     @Transactional
     public CdsServiceConfigResponse toggleServiceEnabled(String id, boolean enabled) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
 
         entity.setEnabled(enabled);
@@ -456,6 +465,12 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsFeedbackEntity> getFeedback(String serviceId) {
+        // BUG-137: cds_feedback has no tenant_id — its tenant is its parent service's
+        // (service_id is NOT NULL REFERENCES cds_service_config ON DELETE CASCADE), so the
+        // parent gate IS the boundary. Strictly own-tenant, not findReadableById: publishing
+        // a service to the shared surface does not publish who overrode its cards and why.
+        repository.findByIdAndTenantIdWithPrefetch(serviceId, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + serviceId));
         return feedbackRepository
                 .map(repo -> repo.findByServiceIdOrderByCreatedAtDesc(serviceId))
                 .orElseGet(List::of);
@@ -478,14 +493,17 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getServiceVersions(String serviceName) {
-        return repository.findByServiceNameOrderByVersionDesc(serviceName).stream()
+        return repository.findByTenantIdAndServiceNameOrderByVersionDesc(effectiveTenantId(), serviceName).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public CdsServiceConfigResponse rollbackService(String serviceName, int targetVersion) {
-        List<CdsServiceConfigEntity> versions = repository.findByServiceNameOrderByVersionDesc(serviceName);
+        // BUG-137: strictly own-tenant — a rollback rewrites the live service, so seeing a
+        // shared service must not imply being able to roll it back.
+        List<CdsServiceConfigEntity> versions =
+                repository.findByTenantIdAndServiceNameOrderByVersionDesc(effectiveTenantId(), serviceName);
 
         if (versions.isEmpty()) {
             throw new IllegalArgumentException("No service found with name: " + serviceName);
