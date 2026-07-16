@@ -53,7 +53,10 @@ public class FhirImplementationGuideService {
 
             packageMetadata = new PackageMetadata(
                     "tw.gov.mohw.twcore",
-                    "0.3.2",
+                    // Matches the bundled package.tgz (package.json → version). The on-disk
+                    // package was already v1.0.0 while this string still read "0.3.2" — the
+                    // metadata under-reported the IG version. Keep in sync when swapping the tgz.
+                    "1.0.0",
                     "TW Core IG (臺灣核心實作指引)",
                     "https://twcore.mohw.gov.tw/ig/twcore",
                     "4.0.1",

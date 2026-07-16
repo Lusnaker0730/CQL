@@ -6,6 +6,15 @@
     "tabTwCoreIg": "TW Core IG",
     "tabEhrConnections": "EHR Connections"
   },
+  "bundleUpload": {
+    "title": "Import a FHIR bundle file",
+    "description": "Upload a FHIR bundle exported from My Health Bank (健康存摺) or another system. No EHR connection needed — the bundle is imported as a patient in your clinic.",
+    "chooseFile": "Choose file",
+    "import": "Import",
+    "importing": "Importing…",
+    "success": "Imported patient {{name}} ({{count}} resources).",
+    "error": "Import failed: {{message}}"
+  },
   "browser": {
     "title": "FHIR Browser",
     "resourceTypeLabel": "Resource Type",

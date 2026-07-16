@@ -138,6 +138,22 @@ public class EhrIntegrationController {
         }
     }
 
+    @PostMapping(value = "/import/fhir-bundle", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','DEPARTMENT_ADMIN')")
+    @Operation(summary = "Import FHIR Bundle File",
+            description = "Import an uploaded FHIR bundle (e.g. a 健康存摺 / My Health Bank export) as a "
+                    + "patient / test case. No EHR connection required.")
+    public ResponseEntity<PatientImportEntity> importFhirBundle(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(required = false) Long measureId) throws java.io.IOException {
+        if (file == null || file.isEmpty()) {
+            throw new com.cqlplatform.exception.ValidationException("No file uploaded.");
+        }
+        String bundleJson = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(patientImportService.importUploadedBundle(bundleJson, measureId));
+    }
+
     // ===== Batch Import =====
 
     @PostMapping("/connections/{id}/patients/batch-import")
