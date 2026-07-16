@@ -18,9 +18,13 @@ public interface CqlLibraryRepository extends JpaRepository<CqlLibraryEntity, Lo
 
     boolean existsByNameAndVersion(String name, String version);
 
-    List<CqlLibraryEntity> findByOwnerUsername(String ownerUsername);
+    /**
+     * BUG-135 — tenant-scoped. See findSharedWithUser below: the unscoped predecessors
+     * returned every tenant's libraries (cqlContent included).
+     */
+    List<CqlLibraryEntity> findByTenantIdAndOwnerUsername(Long tenantId, String ownerUsername);
 
-    List<CqlLibraryEntity> findByDependenciesContaining(String libraryName);
+    List<CqlLibraryEntity> findByTenantIdAndDependenciesContaining(Long tenantId, String libraryName);
 
     // Phase 2 — tenant-scoped MANAGEMENT queries (request thread). The execution-path DB
     // library provider is deliberately NOT scoped here yet (that needs async tenant
@@ -41,10 +45,16 @@ public interface CqlLibraryRepository extends JpaRepository<CqlLibraryEntity, Lo
         @org.springframework.data.repository.query.Param("tenantId") Long tenantId,
         @org.springframework.data.repository.query.Param("term") String term);
 
+    /**
+     * BUG-135 — tenant-scoped: sharing is a within-tenant concept. Unscoped, the
+     * {@code accessLevel = 'public'} branch alone returned every tenant's public libraries
+     * to any authenticated caller.
+     */
     @org.springframework.data.jpa.repository.Query(
-        "SELECT e FROM CqlLibraryEntity e WHERE e.accessLevel = 'public' " +
-        "OR e.sharedWith LIKE :pattern")
+        "SELECT e FROM CqlLibraryEntity e WHERE e.tenantId = :tenantId " +
+        "AND (e.accessLevel = 'public' OR e.sharedWith LIKE :pattern)")
     List<CqlLibraryEntity> findSharedWithUser(
+        @org.springframework.data.repository.query.Param("tenantId") Long tenantId,
         @org.springframework.data.repository.query.Param("pattern") String pattern);
 
     /**

@@ -489,14 +489,14 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getMeasuresByOwner(String ownerUsername) {
-        return repository.findByOwnerUsername(ownerUsername).stream()
+        return repository.findByTenantIdAndOwnerUsername(effectiveTenantId(), ownerUsername).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
+        return repository.findSharedWithUser(effectiveTenantId(), "%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }

@@ -302,4 +302,41 @@ class CqlLibraryServiceTest {
         assertThat(versions.get(0).getVersion()).isEqualTo("2.0");
         assertThat(versions.get(1).getVersion()).isEqualTo("1.0");
     }
+
+    // ===== Tenant boundary (BUG-135) =====
+    //
+    // All three reads had NO test coverage before, which is how they shipped unscoped.
+    // /libraries/owner and /shared let a ROLE_ADMIN pass an arbitrary username, and
+    // /dependents had no role check at all — any authenticated user of any tenant could
+    // enumerate library names and read cqlContent. Sharing is a within-tenant concept.
+
+    @Test
+    void getLibrariesByOwner_shouldScopeToCallersTenant() {
+        when(libraryRepository.findByTenantIdAndOwnerUsername(7L, "someone-else"))
+                .thenReturn(List.of(createTestEntity()));
+
+        assertThat(libraryService.getLibrariesByOwner("someone-else")).hasSize(1);
+
+        verify(libraryRepository).findByTenantIdAndOwnerUsername(7L, "someone-else");
+    }
+
+    @Test
+    void getSharedLibraries_shouldScopeToCallersTenant() {
+        when(libraryRepository.findSharedWithUser(eq(7L), anyString()))
+                .thenReturn(List.of(createTestEntity()));
+
+        assertThat(libraryService.getSharedLibraries("bob")).hasSize(1);
+
+        verify(libraryRepository).findSharedWithUser(eq(7L), anyString());
+    }
+
+    @Test
+    void getDependents_shouldScopeToCallersTenant() {
+        when(libraryRepository.findByTenantIdAndDependenciesContaining(7L, "SharedLogic"))
+                .thenReturn(List.of(createTestEntity()));
+
+        assertThat(libraryService.getDependents("SharedLogic")).hasSize(1);
+
+        verify(libraryRepository).findByTenantIdAndDependenciesContaining(7L, "SharedLogic");
+    }
 }
