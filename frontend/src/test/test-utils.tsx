@@ -4,6 +4,7 @@ import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import editorReducer from '../store/editorSlice'
 import executionReducer from '../store/executionSlice'
 import authReducer from '../store/authSlice'
@@ -49,19 +50,21 @@ function customRender(
 
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
-      <Provider store={store}>
-        <QueryClientProvider client={queryClient}>
-          <PreferencesProvider>
-            <NotificationProvider>
-              <ThemeProvider theme={theme}>
-                <MemoryRouter initialEntries={[route]}>
-                  {children}
-                </MemoryRouter>
-              </ThemeProvider>
-            </NotificationProvider>
-          </PreferencesProvider>
-        </QueryClientProvider>
-      </Provider>
+      <HelmetProvider>
+        <Provider store={store}>
+          <QueryClientProvider client={queryClient}>
+            <PreferencesProvider>
+              <NotificationProvider>
+                <ThemeProvider theme={theme}>
+                  <MemoryRouter initialEntries={[route]}>
+                    {children}
+                  </MemoryRouter>
+                </ThemeProvider>
+              </NotificationProvider>
+            </PreferencesProvider>
+          </QueryClientProvider>
+        </Provider>
+      </HelmetProvider>
     )
   }
 

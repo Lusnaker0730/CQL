@@ -42,6 +42,13 @@
     "codeSystems": "台灣術語系統",
     "templates": "CQL 範本"
   },
+  "catalog": {
+    "pageTitle": "範本庫",
+    "title": "官方 CQL 範本庫",
+    "subtitle": "{{count}} 個現成的 TW Core CQL 範本，可直接複製套用。",
+    "copyCode": "複製 CQL",
+    "toggleCode": "顯示 / 隱藏 CQL"
+  },
   "learn": {
     "nav": {
       "introduction": "CQL 入門",

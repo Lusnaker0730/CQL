@@ -31,6 +31,7 @@ const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
 const EcqmPage = lazy(() => import('./pages/EcqmPage'))
 const OktaCallbackPage = lazy(() => import('./pages/OktaCallbackPage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
+const TemplateCatalogPage = lazy(() => import('./pages/TemplateCatalogPage'))
 const PatientGeneratorPage = lazy(() => import('./pages/PatientGeneratorPage'))
 const CqlLibrariesPage = lazy(() => import('./pages/CqlLibrariesPage'))
 
@@ -56,6 +57,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LandingPage />} />
         <Route path="/learn" element={<Suspense fallback={<PageLoadingFallback />}><LearnPage /></Suspense>} />
+        <Route path="/templates" element={<Suspense fallback={<PageLoadingFallback />}><TemplateCatalogPage /></Suspense>} />
         <Route path="/apply" element={<Suspense fallback={<PageLoadingFallback />}><ClinicApplyPage /></Suspense>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

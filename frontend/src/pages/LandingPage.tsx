@@ -74,6 +74,12 @@ export default function LandingPage() {
             >
               {t('hero.tryDemo')}
             </Button>
+            <Button
+              onClick={() => navigate('/templates')}
+              sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.9), textTransform: 'none', fontWeight: 600 })}
+            >
+              {t('catalog.pageTitle')}
+            </Button>
             <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.8) })}>
               <TranslateIcon fontSize="small" />
             </IconButton>

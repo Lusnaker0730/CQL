@@ -42,6 +42,13 @@
     "codeSystems": "Taiwan Code Systems",
     "templates": "CQL Templates"
   },
+  "catalog": {
+    "pageTitle": "Template Catalog",
+    "title": "Official CQL Template Catalog",
+    "subtitle": "{{count}} ready-made TW Core CQL templates you can copy and adapt.",
+    "copyCode": "Copy CQL",
+    "toggleCode": "Show / hide CQL"
+  },
   "learn": {
     "nav": {
       "introduction": "CQL Introduction",
