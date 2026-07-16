@@ -3,6 +3,9 @@ package com.cqlplatform.service.authoring;
 import com.cqlplatform.entity.CdsArtifactEntity;
 import com.cqlplatform.model.authoring.CqlBuildResult;
 import com.cqlplatform.repository.CdsArtifactRepository;
+import com.cqlplatform.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -52,6 +55,21 @@ class CqlGenerationServiceLibraryIntegrationTest {
     private CqlGenerationService cqlGenerationService;
     @Autowired
     private CdsArtifactRepository artifactRepository;
+
+    // BUG-134: artifact lookups are tenant-scoped, so the saved fixture and the caller
+    // must sit in the same tenant. No tenant row is needed — tenant_id is a plain column
+    // here (the FK lives in the Flyway migration, and Flyway is off for the H2 test profile).
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void setTenant() {
+        TenantContext.setCurrentTenantId(TENANT);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
 
     @Test
     void externalCqlRefInBaseElements_survivesPersistenceAndEmitsInclude() {
@@ -167,6 +185,7 @@ class CqlGenerationServiceLibraryIntegrationTest {
         entity.setName(name);
         entity.setVersion("1.0.0");
         entity.setOwnerUsername("test-user");
+        entity.setTenantId(TENANT);
         entity.setStatus("draft");
         // Start with empty inclusion/exclusion trees — individual tests layer in
         // their specific tree content via setters.

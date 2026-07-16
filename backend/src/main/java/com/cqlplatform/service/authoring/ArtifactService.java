@@ -23,17 +23,35 @@ public class ArtifactService {
     private final CdsArtifactRepository artifactRepository;
     private final CdsExternalCqlLibraryRepository externalCqlRepository;
     private final ExpressionTreeValidator expressionTreeValidator;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional(readOnly = true)
     public List<ArtifactSummary> listByOwner(String ownerUsername) {
-        return artifactRepository.findByOwnerUsername(ownerUsername).stream()
+        return artifactRepository.findByOwnerUsernameAndTenantId(ownerUsername, effectiveTenantId()).stream()
                 .map(this::entityToSummary)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Tenant-scoped: an artifact in another tenant reads as not-found. This is the whole
+     * cross-tenant boundary for the authoring surface (BUG-134) — AuthoringController's
+     * verifyArtifactOwnership resolves through here before calling OwnershipVerifier, whose
+     * ROLE_ADMIN bypass would otherwise let a clinic ADMIN through to any tenant's artifact.
+     */
     @Transactional(readOnly = true)
     public Optional<ArtifactResponse> getById(Long id) {
-        return artifactRepository.findById(id).map(this::entityToResponse);
+        return artifactRepository.findByIdAndTenantId(id, effectiveTenantId()).map(this::entityToResponse);
     }
 
     @Transactional
@@ -41,6 +59,7 @@ public class ArtifactService {
         expressionTreeValidator.validate(request);
         CdsArtifactEntity entity = requestToEntity(request);
         entity.setOwnerUsername(ownerUsername);
+        entity.setTenantId(effectiveTenantId());
         entity = artifactRepository.save(entity);
         log.info("Created CDS artifact: {} v{} by {}", entity.getName(), entity.getVersion(), ownerUsername);
         return entityToResponse(entity);
@@ -48,7 +67,7 @@ public class ArtifactService {
 
     @Transactional
     public ArtifactResponse update(Long id, ArtifactRequest request, String currentUser) {
-        CdsArtifactEntity entity = artifactRepository.findById(id)
+        CdsArtifactEntity entity = artifactRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
 
         checkOwner(entity, currentUser);
@@ -112,7 +131,7 @@ public class ArtifactService {
 
     @Transactional
     public void delete(Long id, String currentUser) {
-        CdsArtifactEntity entity = artifactRepository.findById(id)
+        CdsArtifactEntity entity = artifactRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -123,7 +142,7 @@ public class ArtifactService {
 
     @Transactional
     public ArtifactResponse duplicate(Long id, String currentUser) {
-        CdsArtifactEntity original = artifactRepository.findById(id)
+        CdsArtifactEntity original = artifactRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Artifact not found: " + id));
         checkOwner(original, currentUser);
 
@@ -159,6 +178,8 @@ public class ArtifactService {
                 .parametersList(new ArrayList<>(original.getParametersList()))
                 .errorStatementMap(original.getErrorStatementMap() != null ? new LinkedHashMap<>(original.getErrorStatementMap()) : null)
                 .ownerUsername(currentUser)
+                // The original was resolved within this tenant, so the copy stays here too.
+                .tenantId(original.getTenantId())
                 .build();
 
         copy = artifactRepository.save(copy);
