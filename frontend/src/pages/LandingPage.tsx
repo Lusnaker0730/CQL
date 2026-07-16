@@ -245,6 +245,7 @@ export default function LandingPage() {
           {/* Internal public pages */}
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
             {[
+              { label: t('docs.pageTitle'), to: '/docs' },
               { label: t('catalog.pageTitle'), to: '/templates' },
               { label: t('status.pageTitle'), to: '/status' },
             ].map((link) => (

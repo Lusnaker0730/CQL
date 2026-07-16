@@ -63,6 +63,91 @@
       "database": "Database"
     }
   },
+  "docs": {
+    "pageTitle": "Documentation",
+    "title": "CQL Platform Documentation",
+    "subtitle": "How to apply, onboard, import data, and build clinical quality measures and CDS services on the platform. To learn the CQL language itself, see the Learning Center.",
+    "gettingStarted": {
+      "title": "Getting Started",
+      "steps": {
+        "apply": {
+          "title": "Apply for a clinic account",
+          "desc": "Submit your clinic details on the apply page; once approved you receive a one-time setup link to set your password."
+        },
+        "onboard": {
+          "title": "Sign in and set up",
+          "desc": "Set your password via the setup link and sign in — you land in your clinic's own tenant, fully isolated from other clinics."
+        },
+        "import": {
+          "title": "Import patient data",
+          "desc": "Fetch from an EHR connection, or upload a FHIR bundle exported from My Health Bank (健康存摺), as patient data for testing and evaluation."
+        },
+        "build": {
+          "title": "Build measures and CDS",
+          "desc": "Use the CQL Builder to visually create quality measures and CDS Hooks services, run them against imported patients, and view results."
+        }
+      }
+    },
+    "features": {
+      "title": "Platform Features",
+      "items": {
+        "builder": {
+          "title": "CQL Builder",
+          "desc": "Visually assemble CQL logic with live translation and validation, backed by the Monaco editor."
+        },
+        "measures": {
+          "title": "Quality Measures (eCQM)",
+          "desc": "Build proportion / ratio / continuous-variable / cohort measures, score them against patient data, and view dashboards."
+        },
+        "cds": {
+          "title": "CDS Hooks",
+          "desc": "Build clinical decision support services that can be shared within your clinic; standard CDS Hooks invocation."
+        },
+        "fhirImport": {
+          "title": "FHIR Data Import",
+          "desc": "Import patient data from an EHR connection or by uploading a My Health Bank FHIR bundle."
+        },
+        "patientGen": {
+          "title": "Synthetic Patient Generator",
+          "desc": "Generate TW Core IG-conformant synthetic patients for testing."
+        },
+        "terminology": {
+          "title": "Terminology Browser",
+          "desc": "Browse ICD-10, LOINC, NHI drug codes and other TW Core terminologies and value sets."
+        }
+      }
+    },
+    "integration": {
+      "title": "Integration",
+      "items": {
+        "cdsHooks": {
+          "title": "CDS Hooks endpoint",
+          "desc": "External EHRs discover and invoke your clinic's CDS services via the authenticated per-user endpoint /cds-services/u/{username} (API-key auth, tenant-isolated)."
+        },
+        "apiKey": {
+          "title": "API Key",
+          "desc": "Generate an API key in account settings for programmatic access and CDS Hooks authentication."
+        },
+        "fhirBundle": {
+          "title": "FHIR bundle upload",
+          "desc": "Upload a My Health Bank or other FHIR bundle file on the FHIR page to import a patient; optionally validate TW Core conformance."
+        }
+      }
+    },
+    "resources": {
+      "title": "Resources & Links",
+      "learn": "CQL Learning Center",
+      "templates": "Template Catalog",
+      "status": "Service Status",
+      "cqlSpec": "CQL Specification",
+      "twcore": "TW Core IG",
+      "cdsHooks": "CDS Hooks"
+    },
+    "open": {
+      "learn": "Open Learning Center",
+      "templates": "Open Template Catalog"
+    }
+  },
   "learn": {
     "nav": {
       "introduction": "CQL Introduction",

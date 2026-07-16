@@ -63,6 +63,91 @@
       "database": "資料庫"
     }
   },
+  "docs": {
+    "pageTitle": "文件中心",
+    "title": "CQL Platform 使用文件",
+    "subtitle": "如何在平台上申請、開通、匯入資料、建立臨床品質指標與 CDS 服務。想學 CQL 語言本身,請見「學習中心」。",
+    "gettingStarted": {
+      "title": "快速開始",
+      "steps": {
+        "apply": {
+          "title": "申請診所帳號",
+          "desc": "在申請頁填寫診所資訊送出;審核通過後會收到一次性的設定連結來設定密碼。"
+        },
+        "onboard": {
+          "title": "登入並設定",
+          "desc": "以設定連結設定密碼後登入,即進入您診所專屬、與其他診所完全隔離的租戶。"
+        },
+        "import": {
+          "title": "匯入病人資料",
+          "desc": "透過 EHR 連線抓取,或直接上傳健康存摺匯出的 FHIR bundle 檔案,作為測試/評估用的病人資料。"
+        },
+        "build": {
+          "title": "建立指標與 CDS",
+          "desc": "用 CQL Builder 視覺化建立品質量測與 CDS Hooks 服務,對匯入的病人資料執行、檢視結果。"
+        }
+      }
+    },
+    "features": {
+      "title": "平台功能",
+      "items": {
+        "builder": {
+          "title": "CQL Builder",
+          "desc": "視覺化組裝 CQL 邏輯,即時翻譯與驗證,搭配 Monaco 編輯器。"
+        },
+        "measures": {
+          "title": "品質量測 eCQM",
+          "desc": "建立比例/比率/連續變數/世代型品質量測,對病人資料評分並檢視儀表板。"
+        },
+        "cds": {
+          "title": "CDS Hooks",
+          "desc": "建立臨床決策支援服務,可在院內共享;支援標準 CDS Hooks 呼叫。"
+        },
+        "fhirImport": {
+          "title": "FHIR 資料匯入",
+          "desc": "從 EHR 連線或上傳健康存摺 FHIR bundle 匯入病人資料。"
+        },
+        "patientGen": {
+          "title": "假病人產生器",
+          "desc": "依 TW Core IG 產生符合台灣核心規範的假病人資料,供測試使用。"
+        },
+        "terminology": {
+          "title": "術語瀏覽",
+          "desc": "瀏覽 ICD-10、LOINC、健保藥碼等 TW Core 術語與值集。"
+        }
+      }
+    },
+    "integration": {
+      "title": "整合",
+      "items": {
+        "cdsHooks": {
+          "title": "CDS Hooks 端點",
+          "desc": "外部 EHR 可透過已認證的 per-user 端點 /cds-services/u/{username} 探索與呼叫您診所的 CDS 服務(API Key 認證,租戶隔離)。"
+        },
+        "apiKey": {
+          "title": "API Key",
+          "desc": "在帳號設定產生 API Key,供程式化存取與 CDS Hooks 認證。"
+        },
+        "fhirBundle": {
+          "title": "FHIR bundle 上傳",
+          "desc": "在 FHIR 頁上傳健康存摺等 FHIR bundle 檔案匯入病人;可選擇驗證是否符合 TW Core。"
+        }
+      }
+    },
+    "resources": {
+      "title": "資源與連結",
+      "learn": "CQL 學習中心",
+      "templates": "官方範本庫",
+      "status": "服務狀態",
+      "cqlSpec": "CQL 規範",
+      "twcore": "TW Core IG",
+      "cdsHooks": "CDS Hooks"
+    },
+    "open": {
+      "learn": "前往學習中心",
+      "templates": "前往範本庫"
+    }
+  },
   "learn": {
     "nav": {
       "introduction": "CQL 入門",
