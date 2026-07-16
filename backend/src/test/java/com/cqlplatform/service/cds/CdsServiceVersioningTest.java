@@ -32,11 +32,21 @@ class CdsServiceVersioningTest {
 
     private CdsHooksService cdsHooksService;
 
+    private static final Long TENANT = 7L;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
+    }
+
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
         cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
                 java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty());
+        // BUG-137: version queries are tenant-scoped. tenantRepository is Optional.empty() in
+        // this wiring, so TenantContext must be set for effectiveTenantId() to resolve.
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(TENANT);
     }
 
     @Test
@@ -90,7 +100,7 @@ class CdsServiceVersioningTest {
                 .enabled(true).version(2).serviceName("my-service")
                 .prefetchItems(new ArrayList<>()).build();
 
-        when(repository.findByServiceNameOrderByVersionDesc("my-service"))
+        when(repository.findByTenantIdAndServiceNameOrderByVersionDesc(TENANT, "my-service"))
                 .thenReturn(List.of(v2, v1));
 
         List<CdsServiceConfigResponse> versions = cdsHooksService.getServiceVersions("my-service");
@@ -111,7 +121,7 @@ class CdsServiceVersioningTest {
                 .enabled(true).version(2).serviceName("my-service")
                 .prefetchItems(new ArrayList<>()).build();
 
-        when(repository.findByServiceNameOrderByVersionDesc("my-service"))
+        when(repository.findByTenantIdAndServiceNameOrderByVersionDesc(TENANT, "my-service"))
                 .thenReturn(List.of(v2, v1));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -126,7 +136,7 @@ class CdsServiceVersioningTest {
 
     @Test
     void rollbackService_nonexistentService_shouldThrow() {
-        when(repository.findByServiceNameOrderByVersionDesc("nonexistent"))
+        when(repository.findByTenantIdAndServiceNameOrderByVersionDesc(TENANT, "nonexistent"))
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> cdsHooksService.rollbackService("nonexistent", 1))
@@ -141,7 +151,7 @@ class CdsServiceVersioningTest {
                 .enabled(true).version(1).serviceName("my-service")
                 .prefetchItems(new ArrayList<>()).build();
 
-        when(repository.findByServiceNameOrderByVersionDesc("my-service"))
+        when(repository.findByTenantIdAndServiceNameOrderByVersionDesc(TENANT, "my-service"))
                 .thenReturn(List.of(v1));
 
         assertThatThrownBy(() -> cdsHooksService.rollbackService("my-service", 99))

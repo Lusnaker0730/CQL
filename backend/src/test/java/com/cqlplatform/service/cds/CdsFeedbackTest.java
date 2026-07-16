@@ -32,6 +32,13 @@ class CdsFeedbackTest {
 
     private CdsHooksService cdsHooksService;
 
+    private static final Long TENANT = 7L;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
+    }
+
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
@@ -40,6 +47,7 @@ class CdsFeedbackTest {
         // since this test doesn't exercise CQL library sync.
         cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
                 java.util.Optional.of(feedbackRepository), java.util.Optional.empty(), java.util.Optional.empty());
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(TENANT);
     }
 
     @Test
@@ -165,6 +173,11 @@ class CdsFeedbackTest {
         CdsFeedbackEntity entity = CdsFeedbackEntity.builder()
                 .serviceId("test-svc").cardUuid("card-1").outcome("accepted").build();
 
+        // BUG-137: getFeedback gates on the parent service config being in the caller's tenant.
+        when(repository.findByIdAndTenantIdWithPrefetch("test-svc", TENANT))
+                .thenReturn(java.util.Optional.of(
+                        com.cqlplatform.entity.CdsServiceConfigEntity.builder()
+                                .id("test-svc").tenantId(TENANT).build()));
         when(feedbackRepository.findByServiceIdOrderByCreatedAtDesc("test-svc"))
                 .thenReturn(List.of(entity));
 

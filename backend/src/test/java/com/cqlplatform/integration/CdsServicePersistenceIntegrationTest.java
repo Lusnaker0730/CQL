@@ -48,7 +48,7 @@ class CdsServicePersistenceIntegrationTest {
 
         repository.save(entity);
 
-        Optional<CdsServiceConfigEntity> found = repository.findByIdWithPrefetch("test-svc");
+        Optional<CdsServiceConfigEntity> found = repository.findByIdAndTenantIdWithPrefetch("test-svc", 1L);
         assertThat(found).isPresent();
         assertThat(found.get().getTitle()).isEqualTo("Test Service");
         assertThat(found.get().getPrefetchItems()).hasSize(1);
@@ -71,7 +71,7 @@ class CdsServicePersistenceIntegrationTest {
         entity.setTitle("Updated Title");
         repository.save(entity);
 
-        Optional<CdsServiceConfigEntity> found = repository.findByIdWithPrefetch("update-svc");
+        Optional<CdsServiceConfigEntity> found = repository.findByIdAndTenantIdWithPrefetch("update-svc", 1L);
         assertThat(found.get().getTitle()).isEqualTo("Updated Title");
     }
 

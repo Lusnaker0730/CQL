@@ -28,9 +28,17 @@ class CdsHooksServiceTest {
 
     private CdsHooksService cdsHooksService;
 
+    private static final Long TENANT = 7L;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        com.cqlplatform.security.TenantContext.clear();
+    }
+
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(TENANT);
         cdsHooksService = new CdsHooksService(repository, objectMapper, invocationService, tupleStrategy,
                 java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty());
     }
@@ -332,5 +340,50 @@ class CdsHooksServiceTest {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // ===== Tenant boundary (BUG-137) =====
+    //
+    // The read/write split is the whole point here: `shared` publishes a service to the
+    // anonymous discovery surface (Option A, #698), so READS may cross tenants for a shared
+    // service — but MUTATIONS never may. Without that split, a clinic ADMIN could unshare (or
+    // publish) another tenant's service, because the controller only checks isAdmin().
+
+    @Test
+    void getService_shouldUseReadableLookupAllowingSharedServices() {
+        when(repository.findReadableByIdWithPrefetch("svc-1", TENANT))
+                .thenReturn(java.util.Optional.of(com.cqlplatform.entity.CdsServiceConfigEntity.builder()
+                        .id("svc-1").hook("patient-view").title("T").tenantId(TENANT).build()));
+
+        cdsHooksService.getService("svc-1");
+
+        verify(repository).findReadableByIdWithPrefetch("svc-1", TENANT);
+    }
+
+    @Test
+    void toggleShared_shouldUseStrictTenantLookupNotTheSharedSurface() {
+        // A service that is merely visible (shared, other tenant) must not be togglable:
+        // the strict lookup returns empty, so the caller gets not-found rather than
+        // silently republishing someone else's service.
+        when(repository.findByIdAndTenantIdWithPrefetch("foreign-svc", TENANT))
+                .thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> cdsHooksService.toggleShared("foreign-svc", true))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(repository).findByIdAndTenantIdWithPrefetch("foreign-svc", TENANT);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void getServiceVersions_shouldScopeToCallersTenant() {
+        when(repository.findByTenantIdAndServiceNameOrderByVersionDesc(TENANT, "my-service"))
+                .thenReturn(java.util.List.of());
+
+        cdsHooksService.getServiceVersions("my-service");
+
+        // Version history carries each version's cqlContent — it stays in the owning tenant
+        // even for a shared service.
+        verify(repository).findByTenantIdAndServiceNameOrderByVersionDesc(TENANT, "my-service");
     }
 }
