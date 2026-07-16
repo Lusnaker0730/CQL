@@ -148,6 +148,84 @@
       "templates": "Open Template Catalog"
     }
   },
+  "legal": {
+    "draftBanner": "This document is a DRAFT pending legal review and does not constitute formal or binding legal terms. Do not rely on this page as legal authority until an official version is published.",
+    "draftLabel": "Draft — pending legal review",
+    "terms": {
+      "title": "Terms of Service",
+      "sections": {
+        "service": {
+          "heading": "Description of Service",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "eligibility": {
+          "heading": "Eligibility",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "responsibilities": {
+          "heading": "User Responsibilities",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "ip": {
+          "heading": "Intellectual Property",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "disclaimer": {
+          "heading": "Disclaimer",
+          "body": "(Draft placeholder.) The platform is a Clinical Quality Language (CQL) authoring and execution tool and does not provide medical diagnosis or treatment advice; the authoritative disclaimer is pending legal review."
+        },
+        "liability": {
+          "heading": "Limitation of Liability",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "changes": {
+          "heading": "Changes to Terms",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "governingLaw": {
+          "heading": "Governing Law",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        }
+      }
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "sections": {
+        "dataCollected": {
+          "heading": "Data We Collect",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "purpose": {
+          "heading": "How We Use Data",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "phi": {
+          "heading": "Protected Health Information (PHI)",
+          "body": "(Draft placeholder.) Imported patient data is tenant-isolated and accessible only to that clinic; the authoritative PHI handling and protection terms are pending legal review."
+        },
+        "retention": {
+          "heading": "Data Retention",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "sharing": {
+          "heading": "Data Sharing & Third Parties",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "security": {
+          "heading": "Security Measures",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "rights": {
+          "heading": "Your Rights",
+          "body": "(Draft placeholder.) The authoritative wording for this section is pending legal review."
+        },
+        "contact": {
+          "heading": "Contact",
+          "body": "(Draft placeholder.) The authoritative contact point for privacy enquiries is pending."
+        }
+      }
+    }
+  },
   "learn": {
     "nav": {
       "introduction": "CQL Introduction",
