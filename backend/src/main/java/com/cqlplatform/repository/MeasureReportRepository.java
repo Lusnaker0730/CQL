@@ -56,21 +56,29 @@ public interface MeasureReportRepository extends JpaRepository<MeasureReportEnti
 
     List<MeasureReportEntity> findTop50ByOrderByCreatedAtDesc();
 
-    List<MeasureReportEntity> findTop10ByOrderByCreatedAtDesc();
+    // BUG-136 — dashboard reads. Reports carry evaluation scores over PHI, so every
+    // dashboard query is tenant-scoped; the unscoped predecessors of these four were
+    // reachable from /api/measures/dashboard/* with no gate at all.
 
-    @Query("SELECT r FROM MeasureReportEntity r WHERE r.createdAt IS NOT NULL " +
+    List<MeasureReportEntity> findTop10ByTenantIdOrderByCreatedAtDesc(Long tenantId);
+
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.tenantId = :tenantId " +
+            "AND r.createdAt IS NOT NULL " +
             "AND (:measureId IS NULL OR r.measureDefinitionId = :measureId) " +
             "ORDER BY r.createdAt DESC")
     List<MeasureReportEntity> findRecentByOptionalMeasure(
+            @Param("tenantId") Long tenantId,
             @Param("measureId") Long measureId,
             org.springframework.data.domain.Pageable pageable);
 
-    List<MeasureReportEntity> findByDepartmentOrderByCreatedAtDesc(String department);
+    List<MeasureReportEntity> findByTenantIdAndDepartmentOrderByCreatedAtDesc(Long tenantId, String department);
 
-    @Query("SELECT r FROM MeasureReportEntity r WHERE r.measureDefinitionId = :measureId " +
+    @Query("SELECT r FROM MeasureReportEntity r WHERE r.tenantId = :tenantId " +
+            "AND r.measureDefinitionId = :measureId " +
             "AND r.createdAt = (SELECT MAX(r2.createdAt) FROM MeasureReportEntity r2 " +
-            "WHERE r2.measureDefinitionId = :measureId)")
-    List<MeasureReportEntity> findLatestByMeasureDefinitionId(@Param("measureId") Long measureId);
+            "WHERE r2.tenantId = :tenantId AND r2.measureDefinitionId = :measureId)")
+    List<MeasureReportEntity> findLatestByMeasureDefinitionId(@Param("tenantId") Long tenantId,
+                                                              @Param("measureId") Long measureId);
 
     // Phase 2 — tenant-scoped MANAGEMENT queries (reports carry PHI; must not leak cross-tenant).
     java.util.Optional<MeasureReportEntity> findByIdAndTenantId(Long id, Long tenantId);

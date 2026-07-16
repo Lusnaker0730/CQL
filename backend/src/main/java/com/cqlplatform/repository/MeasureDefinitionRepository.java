@@ -50,6 +50,14 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
 
     List<MeasureDefinitionEntity> findByTenantId(Long tenantId);
 
+    /**
+     * BUG-136 — tenant-scoped bulk lookup by id. Its caller (DashboardService trend labels)
+     * derives the ids from already-scoped reports, so an unscoped findAllById would be safe
+     * today; scoping it here means that safety no longer depends on reasoning about the
+     * caller, and survives someone changing where the ids come from.
+     */
+    List<MeasureDefinitionEntity> findByTenantIdAndIdIn(Long tenantId, java.util.Collection<Long> ids);
+
     List<MeasureDefinitionEntity> findByTenantIdAndName(Long tenantId, String name);
 
     List<MeasureDefinitionEntity> findByTenantIdAndDepartment(Long tenantId, String department);

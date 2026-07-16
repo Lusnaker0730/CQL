@@ -939,6 +939,9 @@ public class MeasureController {
     @Operation(summary = "Get Thresholds", description = "Returns thresholds for a measure")
     public ResponseEntity<List<com.cqlplatform.entity.MeasureThresholdEntity>> getThresholds(
             @PathVariable Long id) {
+        // BUG-136: measure_threshold has no tenant_id — its tenant is its parent measure's,
+        // so the parent gate IS the boundary here (same shape as listTestCases, BUG-133).
+        requireMeasure(id);
         return ResponseEntity.ok(dashboardService.getThresholds(id));
     }
 
