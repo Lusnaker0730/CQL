@@ -13,8 +13,13 @@ public class PatientImportEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "connection_id", nullable = false)
+    /** Null for non-connection imports (e.g. an uploaded 健康存摺 FHIR bundle) — see {@link #source}. */
+    @Column(name = "connection_id")
     private Long connectionId;
+
+    /** Where the bundle came from: {@code 'ehr'} (live connection $everything) or {@code 'fhir-upload'} (PAT-206). */
+    @Column(name = "source", nullable = false, length = 20)
+    private String source = "ehr";
 
     /** FHIR-server-assigned patient ID. Encrypted at rest — direct PHI identifier.
      *  Column is not queried by equality (see PatientImportRepository). */

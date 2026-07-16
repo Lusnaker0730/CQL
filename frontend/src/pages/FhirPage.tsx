@@ -10,6 +10,7 @@ import {
 import FhirBrowser from '../components/fhir/FhirBrowser'
 import ImplementationGuideBrowser from '../components/fhir/ImplementationGuideBrowser'
 import EhrConnectionList from '../components/ehr/EhrConnectionList'
+import FhirBundleUpload from '../components/ehr/FhirBundleUpload'
 
 export default function FhirPage() {
   const { t } = useTranslation('fhir')
@@ -48,7 +49,12 @@ export default function FhirPage() {
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {tabIndex === 0 && <FhirBrowser />}
         {tabIndex === 1 && <ImplementationGuideBrowser />}
-        {tabIndex === 2 && <EhrConnectionList />}
+        {tabIndex === 2 && (
+          <>
+            <FhirBundleUpload />
+            <EhrConnectionList />
+          </>
+        )}
       </Box>
     </Box>
   );

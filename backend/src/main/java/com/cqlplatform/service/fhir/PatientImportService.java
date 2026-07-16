@@ -64,7 +64,56 @@ public class PatientImportService {
             patientBundle = fetchPatientDataManually(client, patientId);
         }
 
-        // Extract patient info
+        return persistBundleImport(patientBundle, patientId, connectionId, "ehr",
+                "EHR connection '" + connection.getName() + "'", measureId);
+    }
+
+    /**
+     * PAT-206 — import a FHIR bundle uploaded as a file (e.g. a 健康存摺 / My Health Bank
+     * export) rather than fetched from a live EHR connection. Same landing as the connection
+     * path — a tenant-scoped patient_import row (source='fhir-upload', connection_id null),
+     * plus an optional test case when a measure is given.
+     *
+     * @param bundleJson the raw FHIR JSON of a Bundle
+     * @param measureId  optional measure to attach the import to as a test case
+     */
+    @Transactional
+    public PatientImportEntity importUploadedBundle(String bundleJson, Long measureId) {
+        Bundle bundle;
+        try {
+            bundle = fhirContext.newJsonParser().parseResource(Bundle.class, bundleJson);
+        } catch (Exception e) {
+            throw new com.cqlplatform.exception.ValidationException(
+                    "Uploaded file is not a valid FHIR Bundle: " + e.getMessage());
+        }
+        if (!bundle.hasEntry()) {
+            throw new com.cqlplatform.exception.ValidationException(
+                    "Uploaded FHIR Bundle contains no entries.");
+        }
+
+        // Identify the patient the bundle is about. Uploaded bundles (health-bank exports)
+        // carry a Patient resource; fall back to a placeholder id when absent so the row still
+        // records the import.
+        String patientFhirId = bundle.getEntry().stream()
+                .map(Bundle.BundleEntryComponent::getResource)
+                .filter(r -> r instanceof Patient)
+                .map(r -> r.getIdElement().getIdPart())
+                .filter(id -> id != null && !id.isBlank())
+                .findFirst()
+                .orElse("uploaded-" + System.identityHashCode(bundle));
+
+        return persistBundleImport(bundle, patientFhirId, null, "fhir-upload",
+                "Uploaded FHIR bundle", measureId);
+    }
+
+    /**
+     * Shared landing for both ingress paths (EHR $everything fetch and uploaded bundle):
+     * extract patient info, serialise, and persist a tenant-scoped patient_import row plus an
+     * optional test case.
+     */
+    private PatientImportEntity persistBundleImport(Bundle patientBundle, String patientFhirId,
+                                                    Long connectionId, String source,
+                                                    String sourceDescription, Long measureId) {
         String patientName = "Unknown";
         String patientIdentifier = null;
         for (Bundle.BundleEntryComponent entry : patientBundle.getEntry()) {
@@ -75,17 +124,14 @@ public class PatientImportService {
             }
         }
 
-        // Serialize bundle to JSON
         String bundleJson = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(patientBundle);
         int resourceCount = patientBundle.getEntry().size();
-
-        // Get current user
         String importedBy = SecurityUtils.getCurrentUsername("system");
 
-        // Create import record
         PatientImportEntity importEntity = new PatientImportEntity();
         importEntity.setConnectionId(connectionId);
-        importEntity.setPatientFhirId(patientId);
+        importEntity.setSource(source);
+        importEntity.setPatientFhirId(patientFhirId);
         importEntity.setPatientIdentifier(patientIdentifier);
         importEntity.setPatientName(patientName);
         importEntity.setResourceCount(resourceCount);
@@ -95,25 +141,23 @@ public class PatientImportService {
         // so this resolves to the right clinic on async threads too.
         importEntity.setTenantId(effectiveTenantId());
 
-        // If a measure is specified, create a test case
         if (measureId != null) {
             importEntity.setTargetMeasureId(measureId);
 
             TestCase testCase = TestCase.builder()
-                    .title("Imported: " + patientName + " (" + patientId + ")")
-                    .description("Imported from EHR connection '" + connection.getName() + "' on " + java.time.LocalDate.now())
+                    .title("Imported: " + patientName + " (" + patientFhirId + ")")
+                    .description("Imported from " + sourceDescription + " on " + java.time.LocalDate.now())
                     .patientBundleJson(bundleJson)
                     .status("pending")
                     .build();
 
             TestCase created = testCaseService.create(measureId, testCase);
             importEntity.setTargetTestCaseId(created.getId());
-            log.info("Created test case {} from patient import {}", created.getId(), patientId);
+            log.info("Created test case {} from patient import {}", created.getId(), patientFhirId);
         }
 
         importEntity = importRepository.save(importEntity);
-        log.info("Imported patient {} from connection '{}' ({} resources)",
-                patientId, connection.getName(), resourceCount);
+        log.info("Imported patient {} from {} ({} resources)", patientFhirId, sourceDescription, resourceCount);
         return importEntity;
     }
 

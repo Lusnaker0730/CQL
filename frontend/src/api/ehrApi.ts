@@ -80,6 +80,19 @@ export const ehrApi = {
     return data
   },
 
+  // PAT-206: import an uploaded FHIR bundle file (e.g. a 健康存摺 / My Health Bank export).
+  // No EHR connection required — the bundle is parsed and landed as a tenant-scoped import.
+  importFhirBundle: async (file: File, measureId?: number): Promise<PatientImport> => {
+    const form = new FormData()
+    form.append('file', file)
+    const params = measureId ? { measureId } : {}
+    const { data } = await api.post(`${BASE}/import/fhir-bundle`, form, {
+      params,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
   getImportHistory: async (importedBy?: string): Promise<PatientImport[]> => {
     const params = importedBy ? { importedBy } : {}
     const { data } = await api.get(`${BASE}/imports`, { params })
