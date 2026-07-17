@@ -5,6 +5,7 @@ import com.cqlplatform.security.JwtAuthenticationFilter;
 import com.cqlplatform.security.RateLimitFilter;
 import com.cqlplatform.security.RequestTracingFilter;
 import com.cqlplatform.security.UserRateLimitFilter;
+import com.cqlplatform.security.TenantRateLimitFilter;
 import com.cqlplatform.security.XssFilter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class SecurityConfig {
     private final AuditFilter auditFilter;
     private final RateLimitFilter rateLimitFilter;
     private final UserRateLimitFilter userRateLimitFilter;
+    private final TenantRateLimitFilter tenantRateLimitFilter;
     private final XssFilter xssFilter;
 
     @Value("${spring.h2.console.enabled:false}")
@@ -171,7 +173,8 @@ public class SecurityConfig {
                 .addFilterBefore(xssFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(userRateLimitFilter, JwtAuthenticationFilter.class)
-                .addFilterAfter(auditFilter, UserRateLimitFilter.class);
+                .addFilterAfter(tenantRateLimitFilter, UserRateLimitFilter.class)
+                .addFilterAfter(auditFilter, TenantRateLimitFilter.class);
 
         return http.build();
     }

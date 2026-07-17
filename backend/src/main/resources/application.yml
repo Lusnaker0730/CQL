@@ -144,6 +144,12 @@ rate-limit:
   user-execute-rpm: ${RATE_LIMIT_USER_EXECUTE_RPM:8}
   user-fix-suggestion-rpm: ${RATE_LIMIT_USER_FIX_SUGGESTION_RPM:3}
   user-default-rpm: ${RATE_LIMIT_USER_DEFAULT_RPM:40}
+  # Per-tenant limits (aggregate ceiling across all of a clinic's users)
+  tenant-limit-enabled: ${RATE_LIMIT_TENANT_ENABLED:true}
+  tenant-translate-rpm: ${RATE_LIMIT_TENANT_TRANSLATE_RPM:60}
+  tenant-execute-rpm: ${RATE_LIMIT_TENANT_EXECUTE_RPM:32}
+  tenant-fix-suggestion-rpm: ${RATE_LIMIT_TENANT_FIX_SUGGESTION_RPM:12}
+  tenant-default-rpm: ${RATE_LIMIT_TENANT_DEFAULT_RPM:160}
   # Payload weighting thresholds (bytes)
   payload-tier2: 10240
   payload-tier3: 51200
