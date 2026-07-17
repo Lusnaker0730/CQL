@@ -55,11 +55,11 @@ interface FhirBundle extends Record<string, unknown> {
 const PAGE_SIZE = 20
 
 interface SearchTabProps {
-  fhirServer: string
+  connectionId: number | null
   resourceType: string
 }
 
-export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) {
+export default function SearchTab({ connectionId, resourceType }: SearchTabProps) {
   const { t } = useTranslation('fhir')
   const [searchParams, setSearchParams] = useState('')
   const [searchMode, setSearchMode] = useState<'structured' | 'raw'>('structured')
@@ -75,12 +75,12 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
     mutationFn: (params?: { type?: string; raw?: string }) => {
       const rt = params?.type || resourceType
       const p = params?.raw ?? searchParams
-      return fhirApi.search(rt, p, fhirServer)
+      return fhirApi.search(rt, p, connectionId)
     },
     onSuccess: (data) => {
       setSearchResult(data as FhirBundle)
       setCurrentPage(0)
-      addEntry(resourceType, searchParams, fhirServer)
+      addEntry(resourceType, searchParams, connectionId)
     },
   })
 
@@ -278,7 +278,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         resource={selectedResource}
         resourceType={selectedResource?.resourceType || resourceType}
         resourceId={selectedResource?.id || ''}
-        fhirServer={fhirServer}
+        connectionId={connectionId}
         onClose={() => setDetailOpen(false)}
         onDeleted={handleRefresh}
         onUpdated={handleRefresh}
@@ -287,7 +287,7 @@ export default function SearchTab({ fhirServer, resourceType }: SearchTabProps) 
         open={createOpen}
         mode="create"
         resourceType={resourceType}
-        fhirServer={fhirServer}
+        connectionId={connectionId}
         onClose={() => setCreateOpen(false)}
         onSaved={() => {
           setCreateOpen(false)

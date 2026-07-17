@@ -19,6 +19,8 @@
   },
   "browser": {
     "title": "FHIR Browser",
+    "connectionLabel": "EHR Connection",
+    "sandboxOption": "Sandbox (default)",
     "resourceTypeLabel": "Resource Type",
     "tabSearch": "Search",
     "tabRead": "Read",

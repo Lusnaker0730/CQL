@@ -13,18 +13,18 @@ import { fhirApi } from '../../api'
 import ResourceDetailDialog from './ResourceDetailDialog'
 
 interface ReadTabProps {
-  fhirServer: string
+  connectionId: number | null
   resourceType: string
 }
 
-export default function ReadTab({ fhirServer, resourceType }: ReadTabProps) {
+export default function ReadTab({ connectionId, resourceType }: ReadTabProps) {
   const { t } = useTranslation('fhir')
   const [resourceId, setResourceId] = useState('')
   const [readResult, setReadResult] = useState<object | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
   const readMutation = useMutation({
-    mutationFn: () => fhirApi.read(resourceType, resourceId, fhirServer),
+    mutationFn: () => fhirApi.read(resourceType, resourceId, connectionId),
     onSuccess: (data) => {
       setReadResult(data as object)
       setDetailOpen(true)
@@ -75,7 +75,7 @@ export default function ReadTab({ fhirServer, resourceType }: ReadTabProps) {
         resource={readResult}
         resourceType={resourceType}
         resourceId={resourceId}
-        fhirServer={fhirServer}
+        connectionId={connectionId}
         onClose={() => setDetailOpen(false)}
         onDeleted={() => {
           setReadResult(null)

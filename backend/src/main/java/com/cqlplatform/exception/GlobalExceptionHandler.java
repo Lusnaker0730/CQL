@@ -201,6 +201,18 @@ public class GlobalExceptionHandler {
                 "Request body is not valid JSON or does not match the expected schema.");
     }
 
+    // A query/path param that can't be bound to its declared type (e.g. connectionId=abc
+    // for a Long) is a client mistake, not a server fault. Without this it falls through to
+    // the generic 500 handler. (PAT-212)
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        String expected = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "the expected type";
+        log.warn("Parameter type mismatch: {}={} (expected {})", ex.getName(), ex.getValue(), expected);
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request",
+                "Parameter '" + ex.getName() + "' has an invalid value for " + expected + ".");
+    }
+
     // Thrown when an AbortPolicy-backed thread pool is saturated. Today that's
     // patientImportExecutor (bulk EHR import). 503 + Retry-After lets the client
     // back off rather than interpret a 500 as a platform bug.

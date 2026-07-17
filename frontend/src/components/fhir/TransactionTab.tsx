@@ -23,7 +23,7 @@ import GradientButton from '../common/GradientButton'
 import { formatJson } from '../../utils/fhirBrowserUtils'
 
 interface TransactionTabProps {
-  fhirServer: string
+  connectionId: number | null
 }
 
 const TRANSACTION_TEMPLATE = JSON.stringify(
@@ -47,7 +47,7 @@ const TRANSACTION_TEMPLATE = JSON.stringify(
   2
 )
 
-export default function TransactionTab({ fhirServer }: TransactionTabProps) {
+export default function TransactionTab({ connectionId }: TransactionTabProps) {
   const { t } = useTranslation('fhir')
   const theme = useTheme()
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -61,7 +61,7 @@ export default function TransactionTab({ fhirServer }: TransactionTabProps) {
   const executeMutation = useMutation({
     mutationFn: () => {
       const value = editorRef.current?.getValue() || ''
-      return fhirApi.executeTransaction(value, fhirServer)
+      return fhirApi.executeTransaction(value, connectionId)
     },
     onSuccess: (data) => {
       setResult(data as object)
