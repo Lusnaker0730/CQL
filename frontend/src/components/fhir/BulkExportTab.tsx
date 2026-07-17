@@ -37,10 +37,10 @@ import { fhirApi } from '../../api'
 import type { BulkExportParams, BulkExportStatusResult } from '../../types'
 
 interface BulkExportTabProps {
-  fhirServer: string
+  connectionId: number | null
 }
 
-export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
+export default function BulkExportTab({ connectionId }: BulkExportTabProps) {
   const { t } = useTranslation('fhir')
   const [exportType, setExportType] = useState('system')
   const [exportResourceTypes, setExportResourceTypes] = useState('')
@@ -108,7 +108,7 @@ export default function BulkExportTab({ fhirServer }: BulkExportTabProps) {
     setExportStatus(null)
     setExportStatusUrl(null)
     const params: BulkExportParams = {
-      fhirServer,
+      connectionId,
       exportType,
       _outputFormat: exportOutputFormat,
     }

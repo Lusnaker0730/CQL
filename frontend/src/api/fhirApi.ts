@@ -18,19 +18,26 @@ import type {
 } from '../types'
 import { api } from './client'
 
+// PAT-212: the FHIR browser no longer accepts an arbitrary server URL. The only
+// server selector is a tenant-scoped EHR connectionId (null/undefined = the shared
+// sandbox). This helper appends it as a query param only when a connection is chosen.
+function connectionQuery(connectionId?: number | null): string {
+  return connectionId != null ? `connectionId=${connectionId}` : ''
+}
+
 export const fhirApi = {
-  search: async (resourceType: string, params?: string, fhirServer?: string): Promise<unknown> => {
+  search: async (resourceType: string, params?: string, connectionId?: number | null): Promise<unknown> => {
     const queryParams = new URLSearchParams()
     if (params) queryParams.append('params', params)
-    if (fhirServer) queryParams.append('fhirServer', fhirServer)
+    if (connectionId != null) queryParams.append('connectionId', String(connectionId))
 
     const response = await api.get(`/fhir/${resourceType}?${queryParams.toString()}`)
     return response.data
   },
 
-  read: async (resourceType: string, id: string, fhirServer?: string): Promise<unknown> => {
-    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
-    const response = await api.get(`/fhir/${resourceType}/${id}${params}`)
+  read: async (resourceType: string, id: string, connectionId?: number | null): Promise<unknown> => {
+    const q = connectionQuery(connectionId)
+    const response = await api.get(`/fhir/${resourceType}/${id}${q ? `?${q}` : ''}`)
     return response.data
   },
 
@@ -74,21 +81,21 @@ export const fhirApi = {
 
   searchPatientsByDemographics: async (
     params: PatientSearchParams,
-    fhirServer?: string
+    connectionId?: number | null
   ): Promise<unknown> => {
     const queryParams = new URLSearchParams()
     if (params.family) queryParams.append('family', params.family)
     if (params.given) queryParams.append('given', params.given)
     if (params.birthdate) queryParams.append('birthdate', params.birthdate)
     if (params.identifier) queryParams.append('identifier', params.identifier)
-    if (fhirServer) queryParams.append('fhirServer', fhirServer)
+    if (connectionId != null) queryParams.append('connectionId', String(connectionId))
     const response = await api.get(`/fhir/Patient/$search-by-demographics?${queryParams.toString()}`)
     return response.data
   },
 
-  executeTransaction: async (bundleJson: string, fhirServer?: string): Promise<unknown> => {
-    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
-    const response = await api.post(`/fhir/Bundle/$transaction${params}`, bundleJson, {
+  executeTransaction: async (bundleJson: string, connectionId?: number | null): Promise<unknown> => {
+    const q = connectionQuery(connectionId)
+    const response = await api.post(`/fhir/Bundle/$transaction${q ? `?${q}` : ''}`, bundleJson, {
       headers: { 'Content-Type': 'application/json' },
     })
     return response.data
@@ -111,7 +118,8 @@ export const fhirApi = {
   },
 
   kickOffExport: async (params: BulkExportParams): Promise<BulkExportKickOffResult> => {
-    const queryParams = new URLSearchParams({ fhirServer: params.fhirServer })
+    const queryParams = new URLSearchParams()
+    if (params.connectionId != null) queryParams.append('connectionId', String(params.connectionId))
     if (params.exportType) queryParams.append('exportType', params.exportType)
     if (params._outputFormat) queryParams.append('_outputFormat', params._outputFormat)
     if (params._since) queryParams.append('_since', params._since)
@@ -194,24 +202,24 @@ export const fhirApi = {
     return response.data
   },
 
-  createResource: async (resourceType: string, resourceJson: string, fhirServer?: string): Promise<unknown> => {
-    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
-    const response = await api.post(`/fhir/${resourceType}${params}`, resourceJson, {
+  createResource: async (resourceType: string, resourceJson: string, connectionId?: number | null): Promise<unknown> => {
+    const q = connectionQuery(connectionId)
+    const response = await api.post(`/fhir/${resourceType}${q ? `?${q}` : ''}`, resourceJson, {
       headers: { 'Content-Type': 'application/json' },
     })
     return response.data
   },
 
-  updateResource: async (resourceType: string, id: string, resourceJson: string, fhirServer?: string): Promise<unknown> => {
-    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
-    const response = await api.put(`/fhir/${resourceType}/${id}${params}`, resourceJson, {
+  updateResource: async (resourceType: string, id: string, resourceJson: string, connectionId?: number | null): Promise<unknown> => {
+    const q = connectionQuery(connectionId)
+    const response = await api.put(`/fhir/${resourceType}/${id}${q ? `?${q}` : ''}`, resourceJson, {
       headers: { 'Content-Type': 'application/json' },
     })
     return response.data
   },
 
-  deleteResource: async (resourceType: string, id: string, fhirServer?: string): Promise<void> => {
-    const params = fhirServer ? `?fhirServer=${encodeURIComponent(fhirServer)}` : ''
-    await api.delete(`/fhir/${resourceType}/${id}${params}`)
+  deleteResource: async (resourceType: string, id: string, connectionId?: number | null): Promise<void> => {
+    const q = connectionQuery(connectionId)
+    await api.delete(`/fhir/${resourceType}/${id}${q ? `?${q}` : ''}`)
   },
 }

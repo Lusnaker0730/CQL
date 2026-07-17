@@ -19,6 +19,8 @@
   },
   "browser": {
     "title": "FHIR 瀏覽器",
+    "connectionLabel": "EHR 連線",
+    "sandboxOption": "沙盒（預設）",
     "resourceTypeLabel": "資源類型",
     "tabSearch": "搜尋",
     "tabRead": "讀取",

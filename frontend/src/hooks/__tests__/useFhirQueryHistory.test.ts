@@ -28,7 +28,7 @@ describe('useFhirQueryHistory — PAT-134 user-scoped storage (P0)', () => {
     const { result } = renderHook(() => useFhirQueryHistory())
 
     act(() => {
-      result.current.addEntry('Patient', 'name=Smith', 'https://hapi.example')
+      result.current.addEntry('Patient', 'name=Smith', 7)
     })
 
     const scoped = localStorage.getItem(SCOPED_KEY('alice'))
@@ -38,7 +38,7 @@ describe('useFhirQueryHistory — PAT-134 user-scoped storage (P0)', () => {
     expect(parsed[0]).toMatchObject({
       resourceType: 'Patient',
       params: 'name=Smith',
-      fhirServer: 'https://hapi.example',
+      connectionId: 7,
     })
 
     // Legacy key should be cleared on first save (migration cleanup)
@@ -50,7 +50,7 @@ describe('useFhirQueryHistory — PAT-134 user-scoped storage (P0)', () => {
     localStorage.setItem(
       SCOPED_KEY('alice'),
       JSON.stringify([
-        { id: '1', resourceType: 'Patient', params: 'identifier=A123456789', fhirServer: 's', timestamp: 1, isFavorite: false },
+        { id: '1', resourceType: 'Patient', params: 'identifier=A123456789', connectionId: null, timestamp: 1, isFavorite: false },
       ]),
     )
 
@@ -66,7 +66,7 @@ describe('useFhirQueryHistory — PAT-134 user-scoped storage (P0)', () => {
     localStorage.setItem(
       LEGACY_KEY,
       JSON.stringify([
-        { id: '1', resourceType: 'Observation', params: 'subject=Patient/x', fhirServer: 's', timestamp: 1, isFavorite: false },
+        { id: '1', resourceType: 'Observation', params: 'subject=Patient/x', connectionId: null, timestamp: 1, isFavorite: false },
       ]),
     )
 
@@ -81,7 +81,7 @@ describe('useFhirQueryHistory — PAT-134 user-scoped storage (P0)', () => {
     const { result } = renderHook(() => useFhirQueryHistory())
 
     act(() => {
-      result.current.addEntry('Patient', 'name=Smith', 's')
+      result.current.addEntry('Patient', 'name=Smith', null)
     })
 
     expect(localStorage.getItem(LEGACY_KEY)).toBeTruthy()

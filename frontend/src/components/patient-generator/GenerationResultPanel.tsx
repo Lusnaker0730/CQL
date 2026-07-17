@@ -14,6 +14,10 @@ import {
   IconButton,
   Tooltip,
   LinearProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import {
   ExpandMore as ExpandMoreIcon,
@@ -23,12 +27,17 @@ import {
   Delete as ClearIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
 import { fhirApi } from '../../api/fhirApi'
-import FhirServerUrlField from '../common/FhirServerUrlField'
+import { ehrApi } from '../../api/ehrApi'
 import type { GeneratedPatientData } from '../../config/twcore'
+
+// PAT-212: fake patients upload into a tenant-scoped EHR connection instead of an
+// arbitrary server URL. "" selects the shared sandbox (connectionId = null).
+const SANDBOX = ''
 
 interface GenerationResultPanelProps {
   results: GeneratedPatientData[]
@@ -53,7 +62,14 @@ export default function GenerationResultPanel({
 
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
-  const [fhirServer, setFhirServer] = useState('')
+  const [connectionValue, setConnectionValue] = useState<string>(SANDBOX)
+
+  const { data: connections } = useQuery({
+    queryKey: ['ehr', 'connections'],
+    queryFn: () => ehrApi.getConnections(),
+  })
+
+  const connectionId = connectionValue === SANDBOX ? null : Number(connectionValue)
 
   // Lazy JSON cache: only the patient whose Accordion the user expanded
   // gets serialized. With 100 patients × ~10KB JSON each, eager serialization
@@ -123,7 +139,7 @@ export default function GenerationResultPanel({
       try {
         // Per-patient try/catch lets one bad transaction fail without aborting
         // the rest. Failure list goes into the final notification.
-        await fhirApi.executeTransaction(JSON.stringify(bundle), fhirServer || undefined)
+        await fhirApi.executeTransaction(JSON.stringify(bundle), connectionId)
       } catch (err) {
         failures.push({ patientId, error: extractApiError(err) })
       }
@@ -152,7 +168,7 @@ export default function GenerationResultPanel({
         'warning',
       )
     }
-  }, [results, fhirServer, showNotification, t])
+  }, [results, connectionId, showNotification, t])
 
   if (results.length === 0) return null
 
@@ -182,12 +198,21 @@ export default function GenerationResultPanel({
         </Button>
       </Stack>
       <Box sx={{ mb: 2 }}>
-        <FhirServerUrlField
-          label={t('result.uploadServerLabel')}
-          value={fhirServer}
-          onChange={setFhirServer}
-          helperText={t('result.uploadServerHelperText')}
-        />
+        <FormControl fullWidth size="small">
+          <InputLabel>{t('result.uploadServerLabel')}</InputLabel>
+          <Select
+            value={connectionValue}
+            onChange={(e) => setConnectionValue(e.target.value)}
+            label={t('result.uploadServerLabel')}
+          >
+            <MenuItem value={SANDBOX}>{t('result.uploadSandboxOption')}</MenuItem>
+            {(connections ?? []).map((c) => (
+              <MenuItem key={c.id} value={String(c.id)}>
+                {c.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
         <Button

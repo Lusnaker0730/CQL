@@ -787,7 +787,8 @@ export interface PatientSearchParams {
 
 // Bulk Export types
 export interface BulkExportParams {
-  fhirServer: string
+  // PAT-212: tenant-scoped EHR connection id; null/omitted = the shared sandbox.
+  connectionId?: number | null
   exportType?: string
   _outputFormat?: string
   _since?: string

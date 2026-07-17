@@ -25,19 +25,25 @@ class FhirBulkExportServiceTest {
     @Mock
     private IRestfulClientFactory clientFactory;
 
+    @Mock
+    private com.cqlplatform.service.fhir.FhirClientFactory fhirClientFactory;
+
     private FhirBulkExportService bulkExportService;
 
     @BeforeEach
     void setUp() {
-        bulkExportService = new FhirBulkExportService(fhirContext);
+        bulkExportService = new FhirBulkExportService(fhirContext, fhirClientFactory);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                bulkExportService, "defaultFhirServerUrl", "http://hapi-fhir:8080/fhir");
     }
 
     @Test
     void kickOffExport_serverError_shouldThrow() {
-        when(fhirContext.newRestfulGenericClient(anyString())).thenThrow(new RuntimeException("Connection refused"));
+        // PAT-212: no connection → sandbox client via fhirClientFactory.createClient.
+        when(fhirClientFactory.createClient(anyString())).thenThrow(new RuntimeException("Connection refused"));
 
         assertThrows(RuntimeException.class, () ->
-                bulkExportService.kickOffExport("http://localhost:9999/fhir", "system", null, null, null));
+                bulkExportService.kickOffExport(null, "system", null, null, null));
     }
 
     @Test

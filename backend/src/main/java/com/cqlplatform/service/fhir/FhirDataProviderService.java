@@ -49,6 +49,17 @@ public class FhirDataProviderService {
     public IGenericClient createClient(String fhirServerUrl) {
         return fhirClientFactory.createClient(fhirServerUrl);
     }
+    /**
+     * PAT-212 — resolve the client for a browse/CRUD request: an authenticated client for the
+     * caller's own (tenant-scoped) EHR connection, or an unauthenticated client for the shared
+     * sandbox HAPI when no connection is given. Callers no longer pass an arbitrary URL.
+     */
+    private IGenericClient resolveClient(com.cqlplatform.entity.EhrConnectionEntity connection) {
+        return connection != null
+                ? fhirClientFactory.createAuthenticatedClient(connection)
+                : createClient(defaultFhirServerUrl);
+    }
+
 
     /**
      * Batch-fetch all resources of the given types for a patient in a single FHIR Batch request.
@@ -276,8 +287,8 @@ public class FhirDataProviderService {
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "searchResourcesFallback")
     @Retry(name = "fhirDataProvider")
-    public Bundle searchResources(String fhirServerUrl, String resourceType, String searchParams) {
-        IGenericClient client = createClient(fhirServerUrl);
+    public Bundle searchResources(com.cqlplatform.entity.EhrConnectionEntity connection, String resourceType, String searchParams) {
+        IGenericClient client = resolveClient(connection);
         try {
             Bundle bundle = client.search()
                     .forResource(resourceType)
@@ -313,15 +324,15 @@ public class FhirDataProviderService {
     }
 
     @SuppressWarnings("unused")
-    private Bundle searchResourcesFallback(String fhirServerUrl, String resourceType, String searchParams, Throwable t) {
+    private Bundle searchResourcesFallback(com.cqlplatform.entity.EhrConnectionEntity connection, String resourceType, String searchParams, Throwable t) {
         log.warn("Circuit breaker fallback for searchResources: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "getResourceFallback")
     @Retry(name = "fhirDataProvider")
-    public Resource getResource(String fhirServerUrl, String resourceType, String id) {
-        IGenericClient client = createClient(fhirServerUrl);
+    public Resource getResource(com.cqlplatform.entity.EhrConnectionEntity connection, String resourceType, String id) {
+        IGenericClient client = resolveClient(connection);
         try {
             return (Resource) client.read()
                     .resource(resourceType)
@@ -334,15 +345,15 @@ public class FhirDataProviderService {
     }
 
     @SuppressWarnings("unused")
-    private Resource getResourceFallback(String fhirServerUrl, String resourceType, String id, Throwable t) {
+    private Resource getResourceFallback(com.cqlplatform.entity.EhrConnectionEntity connection, String resourceType, String id, Throwable t) {
         log.warn("Circuit breaker fallback for getResource: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "createResourceFallback")
     @Retry(name = "fhirDataProvider")
-    public Resource createResource(String fhirServerUrl, Resource resource) {
-        IGenericClient client = createClient(fhirServerUrl);
+    public Resource createResource(com.cqlplatform.entity.EhrConnectionEntity connection, Resource resource) {
+        IGenericClient client = resolveClient(connection);
         try {
             return (Resource) client.create()
                     .resource(resource)
@@ -355,15 +366,15 @@ public class FhirDataProviderService {
     }
 
     @SuppressWarnings("unused")
-    private Resource createResourceFallback(String fhirServerUrl, Resource resource, Throwable t) {
+    private Resource createResourceFallback(com.cqlplatform.entity.EhrConnectionEntity connection, Resource resource, Throwable t) {
         log.warn("Circuit breaker fallback for createResource: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "updateResourceFallback")
     @Retry(name = "fhirDataProvider")
-    public Resource updateResource(String fhirServerUrl, Resource resource) {
-        IGenericClient client = createClient(fhirServerUrl);
+    public Resource updateResource(com.cqlplatform.entity.EhrConnectionEntity connection, Resource resource) {
+        IGenericClient client = resolveClient(connection);
         try {
             return (Resource) client.update()
                     .resource(resource)
@@ -376,15 +387,15 @@ public class FhirDataProviderService {
     }
 
     @SuppressWarnings("unused")
-    private Resource updateResourceFallback(String fhirServerUrl, Resource resource, Throwable t) {
+    private Resource updateResourceFallback(com.cqlplatform.entity.EhrConnectionEntity connection, Resource resource, Throwable t) {
         log.warn("Circuit breaker fallback for updateResource: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "deleteResourceFallback")
     @Retry(name = "fhirDataProvider")
-    public void deleteResource(String fhirServerUrl, String resourceType, String id) {
-        IGenericClient client = createClient(fhirServerUrl);
+    public void deleteResource(com.cqlplatform.entity.EhrConnectionEntity connection, String resourceType, String id) {
+        IGenericClient client = resolveClient(connection);
         try {
             client.delete()
                     .resourceById(resourceType, id)
@@ -396,7 +407,7 @@ public class FhirDataProviderService {
     }
 
     @SuppressWarnings("unused")
-    private void deleteResourceFallback(String fhirServerUrl, String resourceType, String id, Throwable t) {
+    private void deleteResourceFallback(com.cqlplatform.entity.EhrConnectionEntity connection, String resourceType, String id, Throwable t) {
         log.warn("Circuit breaker fallback for deleteResource: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
@@ -449,6 +460,7 @@ public class FhirDataProviderService {
                 "Unable to fetch patient list from FHIR server: " + t.getMessage(), t);
     }
 
+    // Internal (CQL execution / prefetch) transaction path — targets a URL directly.
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "executeTransactionFallback")
     @Retry(name = "fhirDataProvider")
     public Bundle executeTransaction(String fhirServerUrl, Bundle bundle) {
@@ -470,11 +482,34 @@ public class FhirDataProviderService {
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
     }
 
+    // PAT-212 — controller-facing transaction path: authenticated client for the caller's own
+    // tenant-scoped connection, or the sandbox when no connection is given.
+    @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "executeTransactionForConnectionFallback")
+    @Retry(name = "fhirDataProvider")
+    public Bundle executeTransactionForConnection(com.cqlplatform.entity.EhrConnectionEntity connection, Bundle bundle) {
+        if (bundle.getType() != Bundle.BundleType.BATCH && bundle.getType() != Bundle.BundleType.TRANSACTION) {
+            throw new IllegalArgumentException("Bundle type must be BATCH or TRANSACTION");
+        }
+        IGenericClient client = resolveClient(connection);
+        try {
+            return client.transaction().withBundle(bundle).execute();
+        } catch (Exception e) {
+            log.error("Failed to execute FHIR transaction", e);
+            throw new FhirServerUnavailableException("FHIR transaction failed: " + e.getMessage(), e);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Bundle executeTransactionForConnectionFallback(com.cqlplatform.entity.EhrConnectionEntity connection, Bundle bundle, Throwable t) {
+        log.warn("Circuit breaker fallback for executeTransactionForConnection: {}", t.getMessage());
+        throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
+    }
+
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "searchPatientsByDemographicsFallback")
     @Retry(name = "fhirDataProvider")
-    public Bundle searchPatientsByDemographics(String fhirServerUrl,
+    public Bundle searchPatientsByDemographics(com.cqlplatform.entity.EhrConnectionEntity connection,
                                                 String family, String given, String birthdate, String identifier) {
-        IGenericClient client = createClient(fhirServerUrl);
+        IGenericClient client = resolveClient(connection);
         try {
             var search = client.search().forResource(Patient.class);
 
@@ -499,7 +534,7 @@ public class FhirDataProviderService {
     }
 
     @SuppressWarnings("unused")
-    private Bundle searchPatientsByDemographicsFallback(String fhirServerUrl,
+    private Bundle searchPatientsByDemographicsFallback(com.cqlplatform.entity.EhrConnectionEntity connection,
                                                          String family, String given, String birthdate, String identifier, Throwable t) {
         log.warn("Circuit breaker fallback for searchPatientsByDemographics: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable: " + t.getMessage(), t);
