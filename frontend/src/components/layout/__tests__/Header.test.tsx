@@ -57,6 +57,8 @@ describe('Header', () => {
     expect(screen.queryByText('nav.clinicApplications')).not.toBeInTheDocument()
     // Audit is tenant-scoped, so an ADMIN still gets it
     expect(screen.getByText('nav.auditLog')).toBeInTheDocument()
+    // PAT-214: a clinic admin manages the staff of their own tenant instead.
+    expect(screen.getByText('nav.tenantUsers')).toBeInTheDocument()
   })
 
   it('shows platform-level nav to the platform operator', () => {
@@ -65,5 +67,8 @@ describe('Header', () => {
     expect(screen.getByText('nav.tenants')).toBeInTheDocument()
     expect(screen.getByText('nav.clinicApplications')).toBeInTheDocument()
     expect(screen.getByText('nav.auditLog')).toBeInTheDocument()
+    // The platform operator uses the fuller platform-wide Users page, not the
+    // per-tenant staff nav.
+    expect(screen.queryByText('nav.tenantUsers')).not.toBeInTheDocument()
   })
 })

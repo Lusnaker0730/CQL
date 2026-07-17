@@ -23,6 +23,7 @@ const MeasuresPage = lazy(() => import('./pages/MeasuresPage'))
 const FhirPage = lazy(() => import('./pages/FhirPage'))
 const TerminologyPage = lazy(() => import('./pages/TerminologyPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
+const TenantUsersPage = lazy(() => import('./pages/TenantUsersPage'))
 const TenantManagementPage = lazy(() => import('./pages/TenantManagementPage'))
 const ClinicApplicationsAdminPage = lazy(() => import('./pages/ClinicApplicationsAdminPage'))
 const ClinicApplyPage = lazy(() => import('./pages/ClinicApplyPage'))
@@ -167,6 +168,16 @@ export default function App() {
                           <AdminRoute>
                             <ErrorBoundary fallbackTitle={t('errors.adminError')}>
                               <AdminUsersPage />
+                            </ErrorBoundary>
+                          </AdminRoute>
+                        }
+                      />
+                      <Route
+                        path="/tenant/users"
+                        element={
+                          <AdminRoute>
+                            <ErrorBoundary fallbackTitle={t('errors.adminError')}>
+                              <TenantUsersPage />
                             </ErrorBoundary>
                           </AdminRoute>
                         }

@@ -1,4 +1,74 @@
 {
+  "tenantUsers": {
+    "title": "Staff Management",
+    "subtitle": "Manage the staff accounts of your clinic — create accounts, set roles, enable or disable access, and reset passwords. You only see and manage users in your own clinic.",
+    "createUser": "Add Staff",
+    "youChip": "You",
+    "noUsersFound": "No staff accounts yet.",
+    "resetPasswordButton": "Reset Password",
+    "roles": {
+      "admin": "Admin",
+      "departmentAdmin": "Department Admin",
+      "user": "User"
+    },
+    "columns": {
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "status": {
+      "forceChange": "Must change password",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "tooltips": {
+      "cannotDisableSelf": "You cannot disable your own account",
+      "disableUser": "Disable this account",
+      "enableUser": "Enable this account",
+      "resetPassword": "Generate a password-setup link for this staff member"
+    },
+    "success": {
+      "userCreated": "Staff account created.",
+      "roleUpdated": "{{username}}'s role changed to {{role}}.",
+      "userDisabled": "{{username}} has been disabled.",
+      "userEnabled": "{{username}} has been enabled."
+    },
+    "errors": {
+      "usernameExists": "That username is already taken.",
+      "createFailed": "Failed to create the staff account.",
+      "resetFailed": "Failed to reset the password.",
+      "updateRoleFailed": "Failed to change the role.",
+      "toggleFailed": "Failed to update the account."
+    },
+    "confirmDialog": {
+      "changeRoleTitle": "Change Role",
+      "changeRoleMessage": "Change {{username}}'s role to {{role}}? Their current sessions will end and they'll sign in again with the new role.",
+      "disableUserTitle": "Disable Account",
+      "enableUserTitle": "Enable Account",
+      "disableMessage": "Are you sure you want to disable {{username}}? Their sessions and API keys will be revoked immediately.",
+      "enableMessage": "Are you sure you want to enable {{username}}?"
+    },
+    "createDialog": {
+      "title": "Add a Staff Account",
+      "usernameLabel": "Username",
+      "passwordLabel": "Initial Password",
+      "passwordHelperText": "At least 8 characters with upper, lower, and a digit. The staff member must change it on first login.",
+      "emailLabel": "Email (optional)",
+      "roleLabel": "Role",
+      "createButton": "Create"
+    },
+    "resetDialog": {
+      "title": "Password Setup Link",
+      "info": "Send this one-time link to the staff member so they can set a new password.",
+      "copyTooltip": "Copy link",
+      "copiedTooltip": "Copied",
+      "copyAriaLabel": "Copy setup link",
+      "shareWarning": "This link is shown only once. Share it through a trusted channel; anyone with it can set this account's password."
+    }
+  },
   "users": {
     "title": "User Management",
     "createUser": "Create User",

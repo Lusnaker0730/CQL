@@ -81,7 +81,9 @@ export default function Header() {
                 { labelKey: 'nav.tenants', path: '/admin/tenants' },
                 { labelKey: 'nav.clinicApplications', path: '/admin/clinic-applications' },
               ]
-            : []),
+            : // A clinic ADMIN manages the staff of their own tenant (PAT-214). The
+              // platform operator has the fuller platform-wide Users page instead.
+              [{ labelKey: 'nav.tenantUsers', path: '/tenant/users' }]),
           { labelKey: 'nav.auditLog', path: '/admin/audit' },
         ]
       : baseNavItems
