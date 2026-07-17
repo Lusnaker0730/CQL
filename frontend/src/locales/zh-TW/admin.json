@@ -38,6 +38,7 @@
     },
     "errors": {
       "usernameExists": "此帳號已被使用。",
+      "invalidInput": "請檢查輸入內容。密碼須至少 8 碼，並含大寫、小寫字母與數字；帳號須為 3–50 字。",
       "createFailed": "建立員工帳號失敗。",
       "resetFailed": "重設密碼失敗。",
       "updateRoleFailed": "變更角色失敗。",
@@ -129,7 +130,8 @@
       "userToggled": "{{username}} 已被{{action}}"
     },
     "errors": {
-      "usernameExists": "使用者名稱已存在或輸入無效",
+      "usernameExists": "此帳號已被使用。",
+      "invalidInput": "請檢查輸入內容。密碼須至少 8 碼，並含大寫、小寫字母與數字；帳號須為 3–50 字。",
       "createFailed": "建立使用者失敗",
       "resetFailed": "重設密碼失敗",
       "updateRoleFailed": "更新角色失敗",
