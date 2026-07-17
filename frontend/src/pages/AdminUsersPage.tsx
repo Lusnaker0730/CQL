@@ -41,6 +41,10 @@ import { adminApi } from '../api'
 import type { AdminResetPasswordResponse, AdminCreateUserRequest } from '../types'
 import { getStoredUsername } from '../utils/validation'
 
+// Mirrors the backend AdminCreateUserRequest.password rule so a non-compliant password
+// is rejected up front instead of surfacing as a misleading "username taken" message.
+const PASSWORD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,100}$/
+
 export default function AdminUsersPage() {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation('common')
@@ -95,11 +99,18 @@ export default function AdminUsersPage() {
       setSuccess(t('users.success.userCreated'))
       refreshUsers()
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string }; status?: number } }
-      if (axiosErr.response?.status === 400) {
+      const axiosErr = err as {
+        response?: { data?: { message?: string; details?: string[]; error?: string }; status?: number }
+      }
+      const status = axiosErr.response?.status
+      const data = axiosErr.response?.data
+      if (status === 409) {
         setError(t('users.errors.usernameExists'))
+      } else if (status === 400) {
+        const detail = data?.details?.length ? data.details.join('; ') : data?.message
+        setError(detail || t('users.errors.invalidInput'))
       } else {
-        setError(axiosErr.response?.data?.error || t('users.errors.createFailed'))
+        setError(data?.message || t('users.errors.createFailed'))
       }
     } finally {
       setCreateLoading(false)
@@ -360,6 +371,7 @@ export default function AdminUsersPage() {
               onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
               fullWidth
               required
+              error={createForm.password.length > 0 && !PASSWORD_RE.test(createForm.password)}
               helperText={t('users.createDialog.passwordHelperText')}
               slotProps={{
                 htmlInput: { maxLength: 100 }
@@ -395,7 +407,7 @@ export default function AdminUsersPage() {
           <Button
             onClick={handleCreateUser}
             variant="contained"
-            disabled={createLoading || !createForm.username || createForm.password.length < 8}
+            disabled={createLoading || !createForm.username || !PASSWORD_RE.test(createForm.password)}
             startIcon={createLoading ? <CircularProgress size={16} /> : undefined}
             sx={{ borderRadius: 2 }}
           >
