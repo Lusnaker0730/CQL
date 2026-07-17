@@ -18,7 +18,8 @@
     "mainNavigation": "Main navigation",
     "goToHome": "Go to home page",
     "tenants": "Tenants",
-    "clinicApplications": "Applications"
+    "clinicApplications": "Applications",
+    "tenantUsers": "Staff"
   },
   "toolbar": {
     "switchToLight": "Switch to light mode",

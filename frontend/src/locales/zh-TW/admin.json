@@ -1,4 +1,74 @@
 {
+  "tenantUsers": {
+    "title": "員工管理",
+    "subtitle": "管理貴診所的員工帳號 —— 建立帳號、設定角色、啟用或停用存取、重設密碼。你只會看到並管理自己診所的使用者。",
+    "createUser": "新增員工",
+    "youChip": "你",
+    "noUsersFound": "尚無員工帳號。",
+    "resetPasswordButton": "重設密碼",
+    "roles": {
+      "admin": "管理員",
+      "departmentAdmin": "部門管理員",
+      "user": "一般使用者"
+    },
+    "columns": {
+      "username": "帳號",
+      "email": "電子郵件",
+      "role": "角色",
+      "status": "狀態",
+      "created": "建立時間",
+      "actions": "操作"
+    },
+    "status": {
+      "forceChange": "須變更密碼",
+      "active": "使用中",
+      "disabled": "已停用"
+    },
+    "tooltips": {
+      "cannotDisableSelf": "無法停用自己的帳號",
+      "disableUser": "停用此帳號",
+      "enableUser": "啟用此帳號",
+      "resetPassword": "為此員工產生密碼設定連結"
+    },
+    "success": {
+      "userCreated": "員工帳號已建立。",
+      "roleUpdated": "{{username}} 的角色已變更為 {{role}}。",
+      "userDisabled": "{{username}} 已停用。",
+      "userEnabled": "{{username}} 已啟用。"
+    },
+    "errors": {
+      "usernameExists": "此帳號已被使用。",
+      "createFailed": "建立員工帳號失敗。",
+      "resetFailed": "重設密碼失敗。",
+      "updateRoleFailed": "變更角色失敗。",
+      "toggleFailed": "更新帳號失敗。"
+    },
+    "confirmDialog": {
+      "changeRoleTitle": "變更角色",
+      "changeRoleMessage": "確定將 {{username}} 的角色改為 {{role}} 嗎？其現有工作階段將結束，需以新角色重新登入。",
+      "disableUserTitle": "停用帳號",
+      "enableUserTitle": "啟用帳號",
+      "disableMessage": "確定要停用 {{username}} 嗎？其工作階段與 API 金鑰將立即被撤銷。",
+      "enableMessage": "確定要啟用 {{username}} 嗎？"
+    },
+    "createDialog": {
+      "title": "新增員工帳號",
+      "usernameLabel": "帳號",
+      "passwordLabel": "初始密碼",
+      "passwordHelperText": "至少 8 碼，須含大寫、小寫與數字。員工首次登入時須自行變更。",
+      "emailLabel": "電子郵件（選填）",
+      "roleLabel": "角色",
+      "createButton": "建立"
+    },
+    "resetDialog": {
+      "title": "密碼設定連結",
+      "info": "將這個一次性連結交給員工，讓他們設定新密碼。",
+      "copyTooltip": "複製連結",
+      "copiedTooltip": "已複製",
+      "copyAriaLabel": "複製設定連結",
+      "shareWarning": "此連結只顯示這一次。請透過可信管道轉交；任何取得連結者皆可設定此帳號密碼。"
+    }
+  },
   "users": {
     "title": "使用者管理",
     "createUser": "建立使用者",
