@@ -35,8 +35,9 @@
         <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
         <thymeleaf.version>3.1.5.RELEASE</thymeleaf.version>
         <spring-security.version>6.5.9</spring-security.version>
-        <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10. Fixed in 42.7.11. -->
-        <postgresql.version>42.7.11</postgresql.version>
+        <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10 (fixed 42.7.11).
+             CVE-2026-54291: scram-client auth vuln in pgjdbc 42.7.11 (fixed 42.7.12). -->
+        <postgresql.version>42.7.12</postgresql.version>
     </properties>
 
     <dependencyManagement>
