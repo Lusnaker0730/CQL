@@ -276,6 +276,14 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.21.4</version>
         </dependency>
+        <!-- 2.21.4: GHSA-r7wm-3cxj-wff9 (jackson-core Async parser maxNumberLength
+             bypass). The Spring Boot 4.0.6 BOM holds jackson-core (2.x) at 2.21.2 and
+             the databind pin above does not lift core, so pin it directly. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.21.4</version>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
