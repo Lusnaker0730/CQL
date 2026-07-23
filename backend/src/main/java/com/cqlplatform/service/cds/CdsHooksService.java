@@ -157,6 +157,17 @@ public class CdsHooksService {
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         entity.setShared(shared);
         entity = repository.save(entity);
+        // BUG-142: keep the in-memory registry in step with the DB. Without this,
+        // toggling shared only touched the DB row and invokeService's authorization
+        // kept reading the stale `shared` flag from the cached config until the next
+        // restart — so "make private" (or "make shared") had no effect on invocation.
+        synchronized (serviceConfigs) {
+            if (Boolean.TRUE.equals(entity.getEnabled())) {
+                serviceConfigs.put(id, entityToConfig(entity));
+            } else {
+                serviceConfigs.remove(id);
+            }
+        }
         log.info("Set service {} shared={}", id, shared);
         return entityToResponse(entity);
     }
@@ -380,17 +391,25 @@ public class CdsHooksService {
                 .getContext().getAuthentication();
         String caller = (auth != null && auth.isAuthenticated()
                 && !"anonymousUser".equals(auth.getName())) ? auth.getName() : null;
+        String owner = config.getOwnerUsername();
         boolean allowed;
         if (caller == null) {
             allowed = false;
+        } else if (owner != null && owner.equals(caller)) {
+            // BUG-142: the owner can ALWAYS invoke their own service — shared or
+            // private, regardless of tenant. Otherwise an owner whose tenant differs
+            // from the service's stamped tenant (e.g. a null-tenant platform admin who
+            // owns a service tagged to a clinic tenant) is locked out of a service they
+            // created. The shared→same-tenant rule below still gates non-owner callers.
+            allowed = true;
         } else if (Boolean.TRUE.equals(config.getShared())) {
             // Same-tenant caller. TenantContext is set by the API-key auth path (PAT-198).
             Long callerTenant = com.cqlplatform.security.TenantContext.getCurrentTenantId();
             allowed = config.getTenantId() == null
                     || (callerTenant != null && callerTenant.equals(config.getTenantId()));
         } else {
-            String owner = config.getOwnerUsername();
-            allowed = owner == null || owner.equals(caller);
+            // Private service, non-owner caller. Legacy un-owned rows stay permissive.
+            allowed = owner == null;
         }
         if (!allowed) {
             log.info("CDS invoke denied for service {} (caller={})", serviceId, caller);
