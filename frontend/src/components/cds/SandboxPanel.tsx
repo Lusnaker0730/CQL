@@ -43,14 +43,14 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import {
-  useCdsServices,
+  useCdsServiceConfigs,
   useSandboxInvoke,
   useSandboxPresets,
   useCreateSandboxPreset,
   useUpdateSandboxPreset,
   useDeleteSandboxPreset,
 } from '../../hooks/useCdsHooks'
-import type { CdsServiceDefinition, CdsCard, CdsResponse, SandboxPresetResponse } from '../../types'
+import type { CdsServiceConfigResponse, CdsCard, CdsResponse, SandboxPresetResponse } from '../../types'
 import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
@@ -141,7 +141,10 @@ export default function SandboxPanel() {
 
 function SandboxPanelInner() {
   const theme = useTheme()
-  const { data: servicesData } = useCdsServices()
+  // BUG-141: feed the service dropdown from the authenticated, tenant-scoped
+  // /cds/services list. The old discovery endpoint (useCdsServices) was
+  // emptied by BUG-139, so the dropdown was always empty.
+  const { data: serviceConfigs } = useCdsServiceConfigs()
   const sandboxMutation = useSandboxInvoke()
   const { state, dispatch } = useBundleBuilder()
   const { showNotification } = useNotification()
@@ -222,8 +225,8 @@ function SandboxPanelInner() {
   }, [contextFields, testDataJson, draftStorageKey])
 
   const services = useMemo(
-    () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
-    [servicesData?.services]
+    () => (Array.isArray(serviceConfigs) ? serviceConfigs.filter((s) => s.enabled) : []),
+    [serviceConfigs]
   )
 
   const selectedHook = useMemo(() => {
@@ -539,7 +542,7 @@ function SandboxPanelInner() {
       <FormControl fullWidth size="small">
         <InputLabel>{t('sandbox.serviceLabel')}</InputLabel>
         <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('sandbox.serviceLabel')}>
-          {services.map((service: CdsServiceDefinition) => (
+          {services.map((service: CdsServiceConfigResponse) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
             </MenuItem>
