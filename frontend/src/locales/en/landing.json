@@ -883,7 +883,8 @@
     }
   },
   "footer": {
-    "contactPrompt": "Business inquiries / bug reports:"
+    "contactPrompt": "Business inquiries / bug reports:",
+    "learn": "Learn CQL"
   },
   "apply": {
     "title": "Apply for clinic access",

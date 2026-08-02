@@ -17,6 +17,7 @@ import {
   CQL_EXAMPLE_MEDICATION,
   CQL_EXAMPLE_ENCOUNTER,
 } from '../../constants/cqlExamples'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const TEMPLATES = [
   { key: 'starter', code: CQL_PLAYGROUND_STARTER },
@@ -92,7 +93,7 @@ export default function CqlPlayground() {
       </Typography>
       <Grid container spacing={3}>
         <Grid size={12}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             {/* Toolbar */}
             <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button

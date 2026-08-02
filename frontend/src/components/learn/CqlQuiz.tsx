@@ -14,6 +14,7 @@ import {
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
+import { CARD_RADIUS, INNER_RADIUS } from '../../constants/layout'
 
 const QUESTION_COUNT = 10
 
@@ -116,7 +117,7 @@ export default function CqlQuiz() {
           elevation={0}
           sx={{
             p: 4,
-            borderRadius: 3,
+            borderRadius: CARD_RADIUS,
             border: '1px solid',
             borderColor: 'divider',
             textAlign: 'center',
@@ -224,7 +225,7 @@ export default function CqlQuiz() {
         elevation={0}
         sx={{
           p: 3,
-          borderRadius: 3,
+          borderRadius: CARD_RADIUS,
           border: '1px solid',
           borderColor: 'divider',
           maxWidth: 700,
@@ -263,7 +264,7 @@ export default function CqlQuiz() {
                   mb: 1,
                   p: 1,
                   mx: 0,
-                  borderRadius: 2,
+                  borderRadius: INNER_RADIUS,
                   bgcolor,
                   border: '1px solid',
                   borderColor: checked && index === question.answer ? 'success.main' :

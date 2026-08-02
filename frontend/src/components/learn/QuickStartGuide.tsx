@@ -4,6 +4,7 @@ import {
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
 
@@ -29,7 +30,7 @@ export default function QuickStartGuide() {
         }}>
         {t('learn.quickStart.subtitle')}
       </Typography>
-      <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+      <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', mb: 3 }}>
         <Stepper orientation="vertical">
           {STEPS.map((key, index) => (
             <Step key={key} active expanded>
@@ -72,7 +73,7 @@ export default function QuickStartGuide() {
           ))}
         </Stepper>
       </Paper>
-      <Alert severity="info" sx={{ borderRadius: 3 }}>
+      <Alert severity="info">
         <Typography variant="subtitle2" gutterBottom sx={{
           fontWeight: 700
         }}>

@@ -1,6 +1,7 @@
 import { Box, Typography, Paper, Stepper, Step, StepLabel, StepContent, Alert, Grid } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const ECQM_STRUCTURE_CODE = `// eCQM Population Criteria Flow (Proportion Measure)
 //
@@ -330,7 +331,7 @@ export default function EcqmTutorial() {
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -343,7 +344,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -357,7 +358,7 @@ export default function EcqmTutorial() {
               </Grid>
             </Grid>
 
-            <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+            <Alert severity="info" sx={{ mt: 2 }}>
               {t('learn.ecqmTutorial.step1.keyPoints')}
             </Alert>
           </StepContent>
@@ -388,7 +389,7 @@ export default function EcqmTutorial() {
 
             <Grid container spacing={2}>
               <Grid size={12}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -401,7 +402,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -414,7 +415,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -427,7 +428,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -440,7 +441,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -453,7 +454,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={12}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -494,7 +495,7 @@ export default function EcqmTutorial() {
 
             <Grid container spacing={2}>
               <Grid size={12}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -508,7 +509,7 @@ export default function EcqmTutorial() {
               </Grid>
             </Grid>
 
-            <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+            <Alert severity="warning" sx={{ mt: 2 }}>
               {t('learn.ecqmTutorial.step3.debuggingTips')}
             </Alert>
           </StepContent>
@@ -539,7 +540,7 @@ export default function EcqmTutorial() {
 
             <Grid container spacing={2}>
               <Grid size={12}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -552,7 +553,7 @@ export default function EcqmTutorial() {
                 </Paper>
               </Grid>
               <Grid size={12}>
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -566,7 +567,7 @@ export default function EcqmTutorial() {
               </Grid>
             </Grid>
 
-            <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+            <Alert severity="info" sx={{ mt: 2 }}>
               {t('learn.ecqmTutorial.step4.keyPoints')}
             </Alert>
           </StepContent>

@@ -19,6 +19,7 @@ import {
   CQL_EXAMPLE_MEDICATION,
   CQL_EXAMPLE_ENCOUNTER,
 } from '../../constants/cqlExamples'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const EXAMPLE_KEYS = ['diabetes', 'hypertension', 'medication', 'encounter'] as const
 const EXAMPLE_CODES = [CQL_EXAMPLE_DIABETES, CQL_EXAMPLE_HYPERTENSION, CQL_EXAMPLE_MEDICATION, CQL_EXAMPLE_ENCOUNTER]
@@ -78,7 +79,7 @@ export default function InteractiveExamples() {
       <Grid container spacing={3}>
         {/* Example List */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             <List disablePadding>
               {EXAMPLES.map(({ key, icon: Icon, color }, index) => (
                 <ListItemButton
@@ -114,7 +115,7 @@ export default function InteractiveExamples() {
 
         {/* Code + Explanation */}
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography
                 variant="subtitle1"
