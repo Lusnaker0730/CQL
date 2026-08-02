@@ -6,8 +6,10 @@
 
     <parent>
         <groupId>org.springframework.boot</groupId>
+        <!-- 4.0.7: brings spring-framework 7.0.8 (CVE-2026-41842 / 41845 / 41850) and
+             spring-data-bom 2025.1.6 → spring-data-commons 4.0.6 (CVE-2026-41695). -->
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.6</version>
+        <version>4.0.7</version>
         <relativePath/>
     </parent>
 
@@ -29,7 +31,7 @@
         <kotlin.version>2.3.10</kotlin.version>
         <!-- jackson 3.1.4: CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization) -->
         <jackson-bom.version>3.1.4</jackson-bom.version>
-        <!-- CVE overrides above the versions shipped with Spring Boot 4.0.6 -->
+        <!-- CVE overrides above the versions shipped with Spring Boot 4.0.7 -->
         <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513 -->
         <tomcat.version>10.1.55</tomcat.version>
         <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
