@@ -6,10 +6,13 @@
 
     <parent>
         <groupId>org.springframework.boot</groupId>
-        <!-- 4.0.7: brings spring-framework 7.0.8 (CVE-2026-41842 / 41845 / 41850) and
-             spring-data-bom 2025.1.6 → spring-data-commons 4.0.6 (CVE-2026-41695). -->
+        <!-- 4.1.x: 4.0.x OSS support ends 2026-12 — moved off it ahead of the next CVE wave
+             (PAT-218). Same spring-framework (7.0.8) as 4.0.7; bumps micrometer to 1.17 and
+             spring-data-bom to 2026.0.0. micrometer 1.17 dropped its transitive LatencyUtils
+             dependency, so we declare it directly below — without it every Timer bean in
+             MetricsConfig dies at context startup (NoClassDefFoundError: PauseDetector). -->
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.7</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
@@ -31,7 +34,7 @@
         <kotlin.version>2.3.10</kotlin.version>
         <!-- jackson 3.1.4: CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization) -->
         <jackson-bom.version>3.1.4</jackson-bom.version>
-        <!-- CVE overrides above the versions shipped with Spring Boot 4.0.7 -->
+        <!-- CVE overrides above the versions shipped with Spring Boot 4.1.0 -->
         <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513 -->
         <tomcat.version>10.1.55</tomcat.version>
         <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
@@ -159,6 +162,17 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- micrometer-core 1.17 (Spring Boot 4.1 BOM) no longer pulls LatencyUtils
+             transitively, but AbstractTimer still references org.LatencyUtils.PauseDetector —
+             without this jar every Timer bean in MetricsConfig fails at context startup
+             (PAT-218 / the reason dependabot's bare 4.1.0 bump failed CI for a month). -->
+        <dependency>
+            <groupId>org.latencyutils</groupId>
+            <artifactId>LatencyUtils</artifactId>
+            <version>2.0.3</version>
             <scope>runtime</scope>
         </dependency>
 
