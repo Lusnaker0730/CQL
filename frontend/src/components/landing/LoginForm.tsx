@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { authApi } from '../../api'
 import { setCredentials } from '../../store/authSlice'
 import { validateUsername, validatePassword } from '../../utils/validation'
+import { CARD_RADIUS } from '../../constants/layout'
 
 export default function LoginForm() {
   const navigate = useNavigate()
@@ -140,7 +141,7 @@ export default function LoginForm() {
       sx={{
         maxWidth: 400,
         width: '100%',
-        borderRadius: 3,
+        borderRadius: CARD_RADIUS,
         backdropFilter: 'blur(10px)',
         bgcolor: 'rgba(255,255,255,0.95)',
       }}

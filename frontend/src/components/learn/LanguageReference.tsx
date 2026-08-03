@@ -2,6 +2,7 @@ import { Box, Typography, Paper, Accordion, AccordionSummary, AccordionDetails, 
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const CONDITIONAL_IF_CODE = `// if/then/else — basic conditional
 define "Risk Level":
@@ -336,7 +337,7 @@ export default function LanguageReference() {
             <Grid container spacing={2}>
               {codes.map(({ code, label }) => (
                 <Grid key={label} size={12}>
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                     <Typography
                       variant="subtitle2"
                       sx={{
@@ -351,7 +352,7 @@ export default function LanguageReference() {
               ))}
             </Grid>
 
-            <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+            <Alert severity="info" sx={{ mt: 2 }}>
               {t(`learn.languageRef.${key}.keyPoints`)}
             </Alert>
           </AccordionDetails>

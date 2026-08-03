@@ -1,6 +1,7 @@
 import { Box, Typography, Paper, Grid } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const AGGREGATE_CODE = `library AggregateExample version '1.0.0'
 using FHIR version '4.0.1'
@@ -139,7 +140,7 @@ export default function AdvancedTopics() {
       <Grid container spacing={3}>
         {TOPICS.map(({ key, code }) => (
           <Grid key={key} size={12}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
               <Typography
                 variant="h6"
                 gutterBottom

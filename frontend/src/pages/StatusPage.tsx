@@ -1,31 +1,25 @@
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   alpha,
-  Box,
-  Button,
   CircularProgress,
   Container,
   Paper,
   Stack,
   Typography,
-  useTheme,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'
 import { Helmet } from 'react-helmet-async'
 import { statusApi } from '../api/statusApi'
+import PublicLayout from '../components/common/PublicLayout'
 
 /**
  * PAT-209 — public service status page. Polls the anonymous /api/status endpoint and shows
  * coarse reachability (operational / degraded) plus per-component up/down. No auth required.
  */
 export default function StatusPage() {
-  const theme = useTheme()
-  const navigate = useNavigate()
   const { t } = useTranslation('landing')
   const { t: tc } = useTranslation()
 
@@ -47,30 +41,11 @@ export default function StatusPage() {
       <Helmet>
         <title>{t('status.pageTitle')} — {tc('app.title')}</title>
       </Helmet>
-      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-        <Box
-          sx={{
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-            px: 3,
-            py: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/login')}
-            sx={{ color: alpha(theme.palette.common.white, 0.9), textTransform: 'none', mr: 2 }}
-          >
-            {t('learn.backToHome')}
-          </Button>
-          <MonitorHeartIcon sx={{ color: 'common.white', fontSize: 22, mr: 1 }} />
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'common.white' }}>
-            {t('status.pageTitle')}
-          </Typography>
-        </Box>
-
-        <Container maxWidth="sm" sx={{ py: 5, flex: 1 }}>
+      <PublicLayout
+        icon={<MonitorHeartIcon sx={{ color: 'common.white', fontSize: 22 }} />}
+        title={t('status.pageTitle')}
+      >
+        <Container maxWidth="sm" sx={{ py: 5 }}>
           {isLoading ? (
             <Stack sx={{ alignItems: 'center', py: 6 }}>
               <CircularProgress />
@@ -122,7 +97,7 @@ export default function StatusPage() {
             </>
           )}
         </Container>
-      </Box>
+      </PublicLayout>
     </>
   )
 }
