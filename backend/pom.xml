@@ -9,7 +9,7 @@
         <!-- 4.0.7: brings spring-framework 7.0.8 (CVE-2026-41842 / 41845 / 41850) and
              spring-data-bom 2025.1.6 → spring-data-commons 4.0.6 (CVE-2026-41695). -->
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.7</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
