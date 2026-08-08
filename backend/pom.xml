@@ -27,7 +27,7 @@
     <properties>
         <java.version>21</java.version>
         <cql.version>4.8.0</cql.version>
-        <hapi.fhir.version>8.8.1</hapi.fhir.version>
+        <hapi.fhir.version>8.10.1</hapi.fhir.version>
         <mockito.version>5.23.0</mockito.version>
         <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.4.0</resilience4j.version>
@@ -64,32 +64,32 @@
                 <!-- 6.9.10: CVE-2026-55470 (incomplete fix for CVE-2026-45367, DSTU2). convertors is
                      ABI-compatible with hapi-fhir 8.8.1 and already overridden, so we bump it; the same
                      CVE on org.hl7.fhir.validation (coupled to core, no independent fix) is VEX'd in .trivyignore. -->
-                <version>6.9.10</version>
+                <version>6.10.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2</artifactId>
-                <version>6.9.9</version>
+                <version>6.10.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2016may</artifactId>
-                <version>6.9.9</version>
+                <version>6.10.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.9</version>
+                <version>6.10.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3.support</artifactId>
-                <version>6.9.9</version>
+                <version>6.10.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4b</artifactId>
-                <version>6.9.9</version>
+                <version>6.10.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
