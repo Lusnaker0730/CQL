@@ -18,7 +18,7 @@ jobs:
     name: Generate TFDA Regulatory Documents
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # --- Backend tests (for Surefire XML) ---
       - name: Set up JDK 21
