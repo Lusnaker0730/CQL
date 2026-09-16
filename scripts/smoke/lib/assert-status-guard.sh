@@ -17,10 +17,14 @@
 # reuses assert.sh so the post-approval result is checked exactly like any
 # other eCQM scenario — the guard must lift cleanly, not just stop throwing.
 #
-# Usage:  lib/assert-status-guard.sh <draft.raw> <approved.raw> <expected.json>
+# Optional 4th / 5th args (PAT-222): the GET body captured right after create
+# (asserts `createdOwnerUsername`) and the PUT envelope from a status-change
+# attempt (asserts `statusEditHttpStatus` / `statusEditMessageContains`).
+#
+# Usage:  lib/assert-status-guard.sh <draft.raw> <approved.raw> <expected.json> [<measure-get.json>] [<status-edit.raw>]
 set -euo pipefail
 
-DRAFT_RAW_FILE="${1:?usage: assert-status-guard.sh <draft.raw> <approved.raw> <expected.json>}"
+DRAFT_RAW_FILE="${1:?usage: assert-status-guard.sh <draft.raw> <approved.raw> <expected.json> [measure-get.json] [status-edit.raw]}"
 APPROVED_RAW_FILE="${2:?approved.raw path missing}"
 EXPECTED="${3:?expected.json path missing}"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,6 +35,51 @@ split_status() { head -n1 "$1" | tr -d '\r'; }
 split_body()   { awk '/^---HTTP_STATUS_BODY---$/{seen=1; next} seen' "$1"; }
 
 fail=0
+
+# ── Phase 0 (optional, PAT-222): creator stamped as owner + status edit via PUT refused ──
+MEASURE_GET_FILE="${4:-}"
+STATUS_EDIT_RAW_FILE="${5:-}"
+exp_owner=$(jq -r '.createdOwnerUsername // empty' "$EXPECTED" | tr -d '\r')
+if [ -n "$exp_owner" ]; then
+    if [ -z "$MEASURE_GET_FILE" ] || [ ! -f "$MEASURE_GET_FILE" ]; then
+        echo "    ✗ createdOwnerUsername asserted but run.sh captured no GET body" >&2
+        fail=1
+    else
+        actual_owner=$(jq -r '.ownerUsername // empty' "$MEASURE_GET_FILE" | tr -d '\r')
+        if [ "$actual_owner" = "$exp_owner" ]; then
+            echo "    ✓ owner stamped on create: $actual_owner"
+        else
+            echo "    ✗ owner on create: got '${actual_owner:-<null>}', expected '$exp_owner'" >&2
+            fail=1
+        fi
+    fi
+fi
+exp_edit_status=$(jq -r '.statusEditHttpStatus // empty' "$EXPECTED" | tr -d '\r')
+if [ -n "$exp_edit_status" ]; then
+    if [ -z "$STATUS_EDIT_RAW_FILE" ] || [ ! -f "$STATUS_EDIT_RAW_FILE" ]; then
+        echo "    ✗ statusEditHttpStatus asserted but run.sh captured no PUT envelope" >&2
+        fail=1
+    else
+        edit_status=$(split_status "$STATUS_EDIT_RAW_FILE")
+        edit_body=$(split_body "$STATUS_EDIT_RAW_FILE")
+        if [ "$edit_status" = "$exp_edit_status" ]; then
+            echo "    ✓ status edit via PUT refused with HTTP $edit_status"
+        else
+            echo "    ✗ status edit via PUT: got HTTP $edit_status, expected $exp_edit_status" >&2
+            echo "      body: $(echo "$edit_body" | head -c 300)" >&2
+            fail=1
+        fi
+        exp_edit_msg=$(jq -r '.statusEditMessageContains // empty' "$EXPECTED" | tr -d '\r')
+        if [ -n "$exp_edit_msg" ]; then
+            if echo "$edit_body" | jq -r '.message // empty' 2>/dev/null | grep -qF -- "$exp_edit_msg"; then
+                echo "    ✓ status edit message mentions '$exp_edit_msg'"
+            else
+                echo "    ✗ status edit message missing '$exp_edit_msg'" >&2
+                fail=1
+            fi
+        fi
+    fi
+fi
 
 # ── Phase 1: draft must be refused ──
 draft_status=$(split_status "$DRAFT_RAW_FILE")

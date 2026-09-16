@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import com.cqlplatform.exception.MeasureNotEvaluableException;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.model.measure.TestCase;
@@ -143,5 +144,42 @@ class MeasureControllerTest {
         mockMvc.perform(get("/api/measures/7/test-cases"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("tc-1"));
+    }
+    // ===== PAT-222: update carries the authenticated caller; status is not editable via PUT =====
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateMeasure_shouldPassTheAuthenticatedCallerToTheService() throws Exception {
+        MeasureDefinition owned = MeasureDefinition.builder()
+                .id(7L).name("m").version("1.0.0").status("draft").scoringType("proportion")
+                .ownerUsername("alice").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(owned));
+        when(definitionService.update(eq(7L), any(), eq("alice"))).thenReturn(owned);
+
+        mockMvc.perform(put("/api/measures/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"m\",\"version\":\"1.0.0\",\"status\":\"draft\",\"scoringType\":\"proportion\"}"))
+                .andExpect(status().isOk());
+
+        verify(definitionService).update(eq(7L), any(), eq("alice"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateMeasure_statusChangeRefusedByService_shouldSurfaceAs400WithGuidance() throws Exception {
+        MeasureDefinition owned = MeasureDefinition.builder()
+                .id(7L).name("m").version("1.0.0").status("draft").scoringType("proportion")
+                .ownerUsername("alice").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(owned));
+        when(definitionService.update(eq(7L), any(), eq("alice")))
+                .thenThrow(new ValidationException("Measure status cannot be changed through update (current: 'draft', "
+                        + "requested: 'active'). Use the review workflow: submit-for-review, approve, reject or retire."));
+
+        mockMvc.perform(put("/api/measures/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"m\",\"version\":\"1.0.0\",\"status\":\"active\",\"scoringType\":\"proportion\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Error"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("review workflow")));
     }
 }

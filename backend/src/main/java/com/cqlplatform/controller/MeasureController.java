@@ -156,7 +156,7 @@ public class MeasureController {
             @PathVariable Long id,
             @Valid @RequestBody MeasureDefinition definition) {
         requireOwnedMeasure(id);
-        MeasureDefinition updated = definitionService.update(id, definition);
+        MeasureDefinition updated = definitionService.update(id, definition, ownershipVerifier.getCurrentUsername());
         return ResponseEntity.ok(updated);
     }
 
