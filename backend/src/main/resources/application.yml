@@ -6,6 +6,10 @@
 app:
   commit-sha: ${APP_COMMIT_SHA:unknown}
   version: ${APP_VERSION:1.0.0-SNAPSHOT}
+  # PAT-223: refuse to start when Row-Level Security is not enforced for the application
+  # role (superuser / BYPASSRLS / policies missing). Default off: log ERROR + gauge only.
+  tenant-rls:
+    strict: ${TENANT_RLS_STRICT:false}
   security:
     lockout:
       # Password-lockout thresholds (PAT-094). After N consecutive failed logins the
@@ -75,8 +79,11 @@ spring:
   # Default datasource - PostgreSQL (overridden by dev profile for H2)
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/cqlplatform}
-    username: ${DB_USERNAME:cqlplatform}
-    password: ${DB_PASSWORD:cqlplatform}
+    # PAT-223: the APPLICATION connects as a least-privilege role (NOSUPERUSER / NOBYPASSRLS)
+    # so PostgreSQL Row-Level Security actually applies; it falls back to the owner role when
+    # DB_APP_USERNAME is unset — then TenantRlsStartupCheck logs that RLS is NOT enforced.
+    username: ${DB_APP_USERNAME:${DB_USERNAME:cqlplatform}}
+    password: ${DB_APP_PASSWORD:${DB_PASSWORD:cqlplatform}}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20
@@ -116,6 +123,11 @@ spring:
     baseline-on-migrate: false
     locations: classpath:db/migration
     lock-retry-count: ${FLYWAY_LOCK_RETRY_COUNT:10}
+    # PAT-223: migrations keep running as the table OWNER (DDL + default privileges for the
+    # app role), on a Flyway-private DataSource — never through the tenant-scoped one.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cqlplatform}
+    user: ${DB_USERNAME:cqlplatform}
+    password: ${DB_PASSWORD:cqlplatform}
 
 # JWT Configuration
 jwt:

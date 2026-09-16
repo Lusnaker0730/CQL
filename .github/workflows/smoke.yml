@@ -94,6 +94,10 @@ jobs:
             echo "METRICS_SCRAPE_PASSWORD=$(openssl rand -hex 16)"
             echo "GF_SECURITY_ADMIN_USER=admin"
             echo "GF_SECURITY_ADMIN_PASSWORD=$(openssl rand -hex 12)"
+            # PAT-223: run the stack under real Row-Level Security (app role, strict).
+            echo "DB_APP_USERNAME=cqlplatform_app"
+            echo "DB_APP_PASSWORD=$(openssl rand -hex 16)"
+            echo "TENANT_RLS_STRICT=true"
           } > docker/.env
 
       - name: Run smoke harness
