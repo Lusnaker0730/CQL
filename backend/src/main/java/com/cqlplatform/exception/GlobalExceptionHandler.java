@@ -40,6 +40,17 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
+    /**
+     * PAT-219: a stored measure that is not {@code active} was asked to evaluate. 409 rather
+     * than 400 — the request is well-formed, it conflicts with the measure's lifecycle state.
+     * The distinct {@code error} label lets EHR integrators tell "not approved yet" apart from
+     * a duplicate-resource conflict without parsing the message.
+     */
+    @ExceptionHandler(MeasureNotEvaluableException.class)
+    public ResponseEntity<ErrorResponse> handleMeasureNotEvaluableException(MeasureNotEvaluableException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Measure Not Evaluable", ex.getMessage());
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", ex.getMessage(), ex.getDetails());

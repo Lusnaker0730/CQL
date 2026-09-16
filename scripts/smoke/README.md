@@ -51,6 +51,7 @@ is why we need all four, not just one:
 | `26-concurrent-evaluation` | `proportion` (concurrency stress) | Fires 5 parallel `$evaluate-measure` calls and asserts all produce identical score+populations. Stress-tests connection pools (HikariCP, HAPI client, `cqlExecutionExecutor`) and concurrent `MeasureReportService.saveReport` inserts. Catches pool starvation, thread-leak, and concurrent-insert collisions that don't surface in single-call tests. |
 | `27-multi-group-stratifier` | `proportion` (2 groups + per-group stratifier) | BUG-474 stratifier follow-up. Two groups (`working-age` / `seniors`), each with its own gender stratifier define (`Stratifier gender 1` / `Stratifier gender 2`). Pre-fix `StratifierEvaluator.evaluatePatientStratifiers` looked up populations against unsuffixed canonical names that didn't exist in multi-group CQL output, causing strata counts to be 0. Fix routes per-group canonicalization via `PopulationEvaluator.buildExpressionMap` so each stratifier resolves populations against its own group's results. Asserts per-group `stratifiers[]` via the `groups[].stratifiers[]` knob. |
 | `29-multi-group-cv-counts` | `continuous-variable` (2 groups, Count) | Issue #539 regression lock. Two groups (`adults` / `seniors`), each with its own observation define emitted as `Measure Observation Value 1` / `Measure Observation Value 2`. Pre-fix `aggregateCvPatientResults` only looked up the unsuffixed canonical name → both groups' scores were null. Fix: 5-arg overload accepts per-group observation expression names, `MeasureEvaluationService.AggregationState` tracks `observationValuesByGroup` per group, multi-group dispatch routes CV to `buildMultiGroupResult` (which now learns to compute CV scores per group). Adults score=4.0, seniors score=2.0 — independent Count aggregations from disjoint population thresholds. |
+| `31-measure-status-guard` | Measure lifecycle guard (PAT-219) | Readiness-review Critical #2 lock. Creates a raw `MeasureDefinition` via `POST /api/measures` (stays `draft`), calls `$evaluate-measure` and asserts **HTTP 409** with `error = "Measure Not Evaluable"` — the refusal must happen before any FHIR/CQL work. Then `submit-for-review` + `approve` (→ `active`) and the identical evaluate call must return 200 with IP=4 / score=4.0 (4 of 6 seeded patients are adults at 2021-12-31). Proves the guard keys on lifecycle status, not on the eCQM publish path, and that approval lifts it without a restart. |
 | `30-authoring-library-reference` | CDS authoring → CQL generation | POSTs an `ArtifactRequest` whose `expTreeInclude` contains the exact `externalCqlElement` node shape the `LibraryDefinitionPicker` emits, then calls the generate-CQL endpoint. Asserts the generated CQL contains `include SharedLogic version '1.2.0' called shared` + the `\"shared\".\"HasDiabetes\"` body reference, and that no internal tree-node marker (`externalCqlElement`) leaks through. PAT-103 contract lock at the integration-smoke level. |
 
 **eCQM scenarios also support** the following per-scenario flags in `expected.json`:
@@ -71,6 +72,8 @@ is why we need all four, not just one:
 **CQL-execute scenario files**: `request.json` (CqlExecutionRequest — body posted verbatim to `/api/cql/execute`), `expected.json` with `type: \"cql-execute\"` plus `expectedHttpStatus` / `success` / `expressionTracesMinCount` / `expressionTraceRequiredFields` / `retrieveTracesMinCount` / `elmJsonNonEmpty` / `totalTimeMsPresent` / `errorInfoPhase` / `errorInfoRequiredFields` assertions. No FHIR seeding; pure debug-trace / error-contract test. `execute-cql.sh` emits `HTTP_STATUS\n---HTTP_STATUS_BODY---\nBODY` so both success and error paths flow through the same assertion script.
 
 **Authoring-CQL scenario files**: `artifact.json` (ArtifactRequest — body posted verbatim to `/api/authoring/artifacts`), `expected.json` with `type: \"authoring-cql\"` plus `cqlContains` / `cqlDoesNotContain` string-match arrays. `generate-authoring-cql.sh` saves the artifact then calls `POST /artifacts/{id}/cql` — the response body (`{cql, warnings}`) is what `assert-authoring-cql.sh` checks. No FHIR seeding; pure authoring → CQL-generation contract.
+
+**Measure-status-guard scenario files** (PAT-219): `measure.json` (a raw `MeasureDefinition` — body posted verbatim to `POST /api/measures`, so it lands as `draft`; the eCQM publish path can't be used because publish always creates the definition as `active`), `bundle.json` (FHIR seed), `expected.json` with `type: \"measure-status-guard\"` plus `draftHttpStatus` (default 409) / `draftErrorField` / `draftMessageContains` / `approvedHttpStatus` (default 200) and the usual `populations` / `score` knobs for the post-approval result. `run.sh` does create → `evaluate-raw.sh` (draft phase) → `approve-measure.sh` (submit-for-review + approve) → `evaluate-raw.sh` again, then `assert-status-guard.sh` checks the refusal contract on the first envelope and forwards the second body to `assert.sh`.
 
 > **aggregateMethod naming (since #PAT-088)**: Canonical forms are `count` / `sum` / `average` / `median` / `minimum` / `maximum`. Case-insensitive aliases accepted: `Min`→`minimum`, `Max`→`maximum`, `Avg`/`Mean`→`average`. Unknown methods (typos like `\"Minumum\"`) return `null` score with a logged warning — they no longer silently fall through to Average.
 
@@ -99,6 +102,21 @@ scripts/smoke/run.sh --keep
 
 # Custom ports (default 18080/18081/18432)
 SMOKE_BACKEND_PORT=28080 SMOKE_FHIR_PORT=28081 scripts/smoke/run.sh
+
+# Skip the in-compose image build and run a prebuilt backend image instead.
+# For CI (build once via buildx with a warm cache) and for machines whose
+# TLS-inspecting proxy / antivirus breaks Maven inside the build container
+# (PKIX errors): build the jar on the host, wrap it in eclipse-temurin:21-jre-alpine,
+# tag it ghcr.io/lusnaker0730/cql/backend:<tag>, then:
+SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=<tag> scripts/smoke/run.sh
+
+# Cold machine / CI runner: the backend's first boot (Flyway ~70 migrations +
+# Spring context) can exceed the laptop-tuned 90s default. Raise per run:
+SMOKE_BACKEND_HEALTH_TIMEOUT=300 SMOKE_FHIR_HEALTH_TIMEOUT=180 scripts/smoke/run.sh
+
+# Keep the container logs (backend / hapi-fhir / postgres) after teardown —
+# the only way to read a backend stack trace once the stack is gone:
+SMOKE_LOG_DIR=./smoke-logs scripts/smoke/run.sh
 ```
 
 Teardown is automatic on exit (success or failure). Use `--keep` when debugging
@@ -128,6 +146,22 @@ Create `scenarios/<NN-name>/` with three files:
   }
   ```
 
+### Auth and rate limits
+
+- Every `lib/*.sh` call — including `invoke-cds.sh` — sends the seeded admin's
+  JWT. Since BUG-139 there is no anonymous CDS invocation: the route is
+  `permitAll` at the Spring Security layer, but `invokeService` authorizes the
+  caller and answers an unauthenticated one with the same "not available" card
+  as a missing service. Without the token every CDS scenario "passes" the HTTP
+  call and fails its card assertions.
+- `compose.override.yml` lifts all `RATE_LIMIT_*` ceilings for the backend
+  (per-IP / per-user / per-tenant, plus the relaxed-binding
+  `RATE_LIMIT_CDSINVOKERPM` / `RATE_LIMIT_AUTHRPM` that have no yml
+  placeholder). The suite makes 150+ authenticated calls in a few minutes as
+  one user from one IP; production defaults (user DEFAULT 40 RPM) 429'd
+  scenarios 24–31 on the first CI run. Smoke-only — production keeps its
+  limits.
+
 ### Isolation between scenarios
 
 Scenarios share the stack — Docker is expensive to bring up. To avoid cross-
@@ -148,6 +182,25 @@ No special handling needed. `AgeRange` elements in eCQM artifacts emit
 `AgeInYearsAt(end of "Measurement Period")` (since #PAT-081), so ages are
 computed at the period-end reference point and are reproducible regardless of
 when the scenario runs.
+
+## CI
+
+`.github/workflows/smoke.yml` (PAT-220) runs this harness on every push to
+`main` and on pull requests that touch `backend/`, `docker/`, `scripts/smoke/`
+or the workflow itself (frontend-only / docs-only PRs print a notice and skip).
+The job:
+
+1. builds the backend image once with buildx (`cache-from/to: type=gha,scope=backend`,
+   the same cache the Docker Build job populates), tagged `…/backend:smoke`;
+2. writes a throwaway `docker/.env` (`openssl rand` values, nothing committed);
+3. runs `run.sh` with `SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=smoke`,
+   `SMOKE_BACKEND_HEALTH_TIMEOUT=180 SMOKE_FHIR_HEALTH_TIMEOUT=180` and
+   `SMOKE_LOG_DIR=smoke-logs`;
+4. uploads `smoke-logs/` as the `smoke-stack-logs` artifact (7 days) on every
+   run, so a red job still leaves the backend stack trace behind.
+
+Budget ~8–12 min on a cold runner. Whether the job is a required status check
+is a repository setting, not something the workflow decides.
 
 ## Exit codes
 

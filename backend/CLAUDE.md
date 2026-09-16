@@ -48,6 +48,7 @@ public class XxxService {
 |-----------|-------------|
 | `ResourceNotFoundException` | 404 |
 | `DuplicateResourceException` | 409 |
+| `MeasureNotEvaluableException` | 409 `Measure Not Evaluable`（PAT-219：非 `active` 指標不得評估） |
 | `ValidationException` | 400 (附 details list) |
 | `CqlTranslationException` | 400 (附 error list) |
 | `CqlGenerationException` | 422 (附 details) |

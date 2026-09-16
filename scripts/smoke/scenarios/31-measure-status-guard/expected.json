@@ -1,0 +1,15 @@
+{
+  "type": "measure-status-guard",
+  "periodStart": "2021-07-01",
+  "periodEnd": "2021-12-31",
+  "draftHttpStatus": 409,
+  "draftErrorField": "Measure Not Evaluable",
+  "draftMessageContains": "active",
+  "approvedHttpStatus": 200,
+  "score": 4.0,
+  "scoreTolerance": 0.001,
+  "populations": {
+    "initial-population": 4
+  },
+  "_note": "PAT-219 lifecycle guard (readiness review Critical #2). Phase 1: the measure is created via POST /api/measures and stays `draft`, so $evaluate-measure must be refused with HTTP 409 + ErrorResponse.error = 'Measure Not Evaluable' BEFORE any FHIR/CQL work happens. Phase 2: submit-for-review + approve flips it to `active`; the identical evaluate call now returns 200 with a real cohort result (4 of the 6 seeded patients are >=18 at 2021-12-31). Proves the guard is keyed on lifecycle status, not on the eCQM publish path, and that the approval workflow lifts it without a restart. The measure is deliberately created WITHOUT ownerUsername — the shape the UI's create dialog and most API clients produce — which is also the BUG-143 regression lock: approve/reject of an ownerless measure used to hit notification.recipient NOT NULL and roll back with a misleading 409."
+}
