@@ -340,6 +340,16 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
                 failed_scenarios+=("$name"); continue
             fi
             guard_tmp=$(mktemp -d)
+            # PAT-222: the creator must come back as ownerUsername (server-stamped, the
+            # request body sent none), and a PUT that flips the lifecycle status must be
+            # refused — otherwise the review workflow the PAT-219 guard trusts is bypassable.
+            if ! bash "$SCRIPT_DIR/lib/get-measure.sh" "$measure_id" > "$guard_tmp/measure.json"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            jq '.status = "active"' "$guard_tmp/measure.json" > "$guard_tmp/status-edit.json"
+            if ! bash "$SCRIPT_DIR/lib/update-measure-raw.sh" "$measure_id" "$guard_tmp/status-edit.json" > "$guard_tmp/status-edit.raw"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
             if ! bash "$SCRIPT_DIR/lib/evaluate-raw.sh" "$measure_id" "$period_start" "$period_end" > "$guard_tmp/draft.raw"; then
                 rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
             fi
@@ -349,7 +359,8 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             if ! bash "$SCRIPT_DIR/lib/evaluate-raw.sh" "$measure_id" "$period_start" "$period_end" > "$guard_tmp/approved.raw"; then
                 rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
             fi
-            if bash "$SCRIPT_DIR/lib/assert-status-guard.sh" "$guard_tmp/draft.raw" "$guard_tmp/approved.raw" "$expected_file"; then
+            if bash "$SCRIPT_DIR/lib/assert-status-guard.sh" "$guard_tmp/draft.raw" "$guard_tmp/approved.raw" "$expected_file" \
+                    "$guard_tmp/measure.json" "$guard_tmp/status-edit.raw"; then
                 passed_scenarios+=("$name")
             else
                 failed_scenarios+=("$name")
