@@ -102,6 +102,11 @@ public class MeasureEvaluationService {
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request,
                                                     Long measureDefinitionId,
                                                     MeasureDefinition measureDefinition) {
+        // PAT-219: lifecycle gate FIRST — before counters, timers, and any FHIR / CQL work. Every
+        // stored-definition path (controller, batch, scheduled, composite components) funnels
+        // through here; a null definition is an ad-hoc inline-CQL run and is not gated.
+        MeasureStatusGuard.requireEvaluable(measureDefinitionId, measureDefinition);
+
         log.info("Evaluating measure: {} for patient: {}", request.getMeasureId(), request.getPatientId());
         if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
         Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;

@@ -442,7 +442,8 @@
     "evaluateMeasure": "評估指標",
     "schedules": "排程",
     "evaluationFailed": "評估失敗：{{error}}",
-    "emptyState": "點擊「評估指標」以對病患資料執行指標評估。"
+    "emptyState": "點擊「評估指標」以對病患資料執行指標評估。",
+    "notActiveWarning": "只有「啟用」狀態的指標才能對病患資料執行評估。草稿邏輯請改用「測試案例」分頁驗證，或先將此指標送審並核准。"
   },
   "testCases": {
     "title": "測試案例",

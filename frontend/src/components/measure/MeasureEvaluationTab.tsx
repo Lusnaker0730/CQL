@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
+import StatusChip from '../common/StatusChip'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { measureApi } from '../../api'
@@ -46,6 +47,13 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
   const [showSchedules, setShowSchedules] = useState(false)
   const [dateError, setDateError] = useState<string | null>(null)
   const [fhirError, setFhirError] = useState<string | null>(null)
+
+  // PAT-219: the backend refuses to evaluate a stored measure that is not `active`
+  // (409 Measure Not Evaluable). Surface that up front instead of after a click.
+  // An unsaved measure goes through the ad-hoc inline-CQL path, which has no
+  // lifecycle and is not gated.
+  const isStoredMeasure = measure.id != null
+  const isEvaluable = !isStoredMeasure || measure.status === 'active'
 
   const evaluateMutation = useMutation({
     mutationFn: () => {
@@ -98,6 +106,15 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
         <HelpTooltip text={helpContent.measures.evaluate} />
       </Stack>
       <Stack spacing={2}>
+        {!isEvaluable && (
+          <Alert severity="warning" data-testid="measure-not-active-warning">
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <StatusChip status={measure.status || 'draft'} />
+              <span>{t('evaluation.notActiveWarning')}</span>
+            </Stack>
+          </Alert>
+        )}
+
         <FhirServerUrlField
           value={fhirServer}
           onChange={(value) => {
@@ -148,7 +165,7 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
         <Stack direction="row" spacing={1}>
           <GradientButton
             onClick={handleEvaluate}
-            disabled={evaluateMutation.isPending || (!cqlContent && !measure.cqlContent)}
+            disabled={!isEvaluable || evaluateMutation.isPending || (!cqlContent && !measure.cqlContent)}
             startIcon={
               evaluateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <AssessmentIcon />
             }

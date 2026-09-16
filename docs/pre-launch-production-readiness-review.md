@@ -50,7 +50,7 @@
   2. Draft / in-review 要走 sandbox endpoint 才能執行（不碰 production FHIR server）
   3. UI 顯示警告 badge 於非 active measure
 - **驗證**：新 smoke scenario — draft measure evaluate 回 4xx；active 才回 200
-- **Status**: `[ ] TODO`
+- **Status**: `[x] Done — PAT-219`（`MeasureStatusGuard.requireEvaluable` 於 `MeasureEvaluationService.evaluateMeasure(request, id, def)` 與 `CompositeMeasureService.evaluateComposite` 入口先於任何 FHIR / CQL 工作檢查；非 `active` 拋 `MeasureNotEvaluableException` → HTTP 409 `Measure Not Evaluable`。controller / batch / scheduled / composite 元件全部經此漏斗。修法步驟 2：草稿邏輯的沙盒即既有測試案例（`TestCaseService` 走 in-memory bundle）與 inline CQL ad-hoc 評估，刻意不擋。步驟 3：`MeasureEvaluationTab` 對已儲存且非 active 的指標顯示警示 + 停用評估按鈕（`StatusChip` 早已存在於 editor / library）。驗證：smoke `31-measure-status-guard`（draft → 409；submit-for-review + approve → 200 + IP=4）+ 單元 / MockMvc 測試。殘餘：`PUT /api/measures/{id}` 仍可由 body 直接改 status、未走 `validateTransition` —— 審核流程強制屬另案。）
 
 ### #3 Evaluation 結果沒綁 measure 版本
 

@@ -1,0 +1,9 @@
+{
+  "name": "SmokeStatusGuard",
+  "version": "1.0.0",
+  "title": "Smoke — PAT-219 measure lifecycle guard",
+  "description": "Raw MeasureDefinition (POST /api/measures, NOT the eCQM publish path — publish always lands as active). Created as draft, evaluated (expect 409 Measure Not Evaluable), then submit-for-review + approve, evaluated again (expect 200, IP=4 adults).",
+  "status": "draft",
+  "scoringType": "cohort",
+  "cqlContent": "library SmokeStatusGuard version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\nparameter \"Measurement Period\" Interval<DateTime>\n\ncontext Patient\n\ndefine \"Initial Population\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 18\n"
+}
