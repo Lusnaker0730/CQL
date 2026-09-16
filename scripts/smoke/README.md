@@ -167,6 +167,25 @@ No special handling needed. `AgeRange` elements in eCQM artifacts emit
 computed at the period-end reference point and are reproducible regardless of
 when the scenario runs.
 
+## CI
+
+`.github/workflows/smoke.yml` (PAT-220) runs this harness on every push to
+`main` and on pull requests that touch `backend/`, `docker/`, `scripts/smoke/`
+or the workflow itself (frontend-only / docs-only PRs print a notice and skip).
+The job:
+
+1. builds the backend image once with buildx (`cache-from/to: type=gha,scope=backend`,
+   the same cache the Docker Build job populates), tagged `…/backend:smoke`;
+2. writes a throwaway `docker/.env` (`openssl rand` values, nothing committed);
+3. runs `run.sh` with `SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=smoke`,
+   `SMOKE_BACKEND_HEALTH_TIMEOUT=180 SMOKE_FHIR_HEALTH_TIMEOUT=180` and
+   `SMOKE_LOG_DIR=smoke-logs`;
+4. uploads `smoke-logs/` as the `smoke-stack-logs` artifact (7 days) on every
+   run, so a red job still leaves the backend stack trace behind.
+
+Budget ~8–12 min on a cold runner. Whether the job is a required status check
+is a repository setting, not something the workflow decides.
+
 ## Exit codes
 
 - `0` — all scenarios passed
