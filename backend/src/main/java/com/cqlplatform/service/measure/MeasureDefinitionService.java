@@ -3,6 +3,7 @@ package com.cqlplatform.service.measure;
 import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.exception.CqlTranslationException;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
@@ -34,6 +35,7 @@ public class MeasureDefinitionService {
     private final NotificationService notificationService;
     private final CqlTranslationService cqlTranslationService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -56,6 +58,31 @@ public class MeasureDefinitionService {
                     "Measure already exists: " + definition.getName() + " v" + definition.getVersion());
         }
 
+        // PAT-222: the creator IS the owner. Measures created through the UI (and by API
+        // clients that omit ownerUsername) used to land ownerless, which meant only admins
+        // could ever update / delete them (OwnershipVerifier is fail-closed on a null owner)
+        // and the review workflow could not notify anyone (BUG-143). A body-supplied owner is
+        // ignored — ownership moves only through the /transfer endpoint.
+        String creator = ownershipVerifier.getCurrentUsername();
+        if (definition.getOwnerUsername() != null && !creator.equals(definition.getOwnerUsername())) {
+            log.warn("Ignoring ownerUsername '{}' supplied on create of measure '{}'; owner is the caller '{}'",
+                    definition.getOwnerUsername(), definition.getName(), creator);
+        }
+        definition.setOwnerUsername(creator);
+        if (definition.getCreatedBy() == null || definition.getCreatedBy().isBlank()) {
+            definition.setCreatedBy(creator);
+        }
+        // PAT-222: every measure starts its lifecycle as a draft. The review workflow
+        // (submit-for-review → approve) is the only way to reach `active`, which is what the
+        // PAT-219 evaluation guard keys on — accepting `status` from the body would let a
+        // caller skip review entirely. Imported FHIR Measures are no exception: an external
+        // "active" is not this deployment's approval.
+        if (definition.getStatus() != null && !DRAFT.equals(definition.getStatus())) {
+            log.info("Ignoring status '{}' supplied on create of measure '{}'; measures always start as draft",
+                    definition.getStatus(), definition.getName());
+        }
+        definition.setStatus(DRAFT);
+
         MeasureDefinitionEntity entity = modelToEntity(definition);
         // Pre-compile CQL on create, same as update — surfaces translation errors at
         // save time rather than at first evaluation.
@@ -68,24 +95,41 @@ public class MeasureDefinitionService {
         return entityToModel(entity);
     }
 
+    /**
+     * Update a measure's content and metadata.
+     *
+     * @param currentUser the authenticated caller (from the controller). Used for the lock
+     *                    check and the audit row — it used to be smuggled in through the
+     *                    body's {@code ownerUsername}, which is wrong for a shared editor
+     *                    (PAT-222).
+     */
     @Transactional
-    public MeasureDefinition update(Long id, MeasureDefinition definition) {
+    public MeasureDefinition update(Long id, MeasureDefinition definition, String currentUser) {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         // Check lock — only the lock holder can save while locked
         if (entity.getLockedBy() != null && !isLockExpired(entity)) {
-            String currentUser = definition.getOwnerUsername(); // caller identity passed via ownerUsername
             if (currentUser == null || !entity.getLockedBy().equals(currentUser)) {
                 throw new IllegalArgumentException("Measure is locked by " + entity.getLockedBy());
             }
+        }
+
+        // PAT-222: lifecycle status is NOT editable here. Until now a PUT could flip a draft
+        // straight to `active` (or an active measure back to draft) without submit-for-review /
+        // approve / reject / retire — which made the review workflow, and the PAT-219
+        // evaluation guard that trusts `active`, bypassable by anyone allowed to edit.
+        if (definition.getStatus() != null && !definition.getStatus().equals(entity.getStatus())) {
+            throw new ValidationException(
+                    "Measure status cannot be changed through update (current: '" + entity.getStatus()
+                            + "', requested: '" + definition.getStatus() + "'). Use the review workflow: "
+                            + "submit-for-review, approve, reject or retire.");
         }
 
         entity.setName(definition.getName());
         entity.setVersion(definition.getVersion());
         entity.setTitle(definition.getTitle());
         entity.setDescription(definition.getDescription());
-        entity.setStatus(definition.getStatus());
         entity.setScoringType(definition.getScoringType());
         entity.setCqlLibraryId(definition.getCqlLibraryId());
         boolean cqlChanged = !java.util.Objects.equals(definition.getCqlContent(), entity.getCqlContent());
@@ -124,9 +168,14 @@ public class MeasureDefinitionService {
         entity.setIndicatorCategory(definition.getIndicatorCategory());
         entity.setDepartment(definition.getDepartment());
 
-        // Sharing fields from update
-        if (definition.getOwnerUsername() != null) {
-            entity.setOwnerUsername(definition.getOwnerUsername());
+        // Sharing fields from update. PAT-222: ownerUsername is deliberately NOT taken from
+        // the body — that was a second way to transfer ownership without the /transfer
+        // endpoint's checks and notification. The UI sends the whole object back, so a
+        // matching owner is the normal case; anything else is logged and dropped.
+        if (definition.getOwnerUsername() != null
+                && !definition.getOwnerUsername().equals(entity.getOwnerUsername())) {
+            log.warn("Ignoring ownerUsername change '{}' -> '{}' on update of measure {} by '{}'; use /transfer",
+                    entity.getOwnerUsername(), definition.getOwnerUsername(), id, currentUser);
         }
         if (definition.getSharedWith() != null) {
             entity.setSharedWithList(definition.getSharedWith());
@@ -137,7 +186,7 @@ public class MeasureDefinitionService {
 
         entity = repository.save(entity);
         log.info("Updated measure definition: {} v{}", entity.getName(), entity.getVersion());
-        recordAudit(entity.getId(), "UPDATE", null, "Updated " + entity.getName() + " v" + entity.getVersion(), null, null);
+        recordAudit(entity.getId(), "UPDATE", currentUser, "Updated " + entity.getName() + " v" + entity.getVersion(), null, null);
         return entityToModel(entity);
     }
 
@@ -204,9 +253,9 @@ public class MeasureDefinitionService {
             throw new IllegalArgumentException("Version already exists: " + existing.getName() + " v" + newVersion);
         }
 
-        // Set current to active
-        existing.setStatus(ACTIVE);
-        repository.save(existing);
+        // PAT-222: the source version keeps whatever lifecycle status it has. This used to
+        // force it to `active`, i.e. creating a new version of a draft silently approved the
+        // old one without review — a third bypass of the workflow.
 
         // Create new draft copy
         MeasureDefinitionEntity newEntity = modelToEntity(entityToModel(existing));
