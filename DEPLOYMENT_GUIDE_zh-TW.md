@@ -43,7 +43,7 @@
 | 服務 | 技術 | 用途 |
 |------|------|------|
 | **Frontend** | React + TypeScript + Nginx | SPA 前端，透過 Nginx 反向代理 API |
-| **Backend** | Spring Boot 4.0 + Java 21 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
+| **Backend** | Spring Boot 4.0 + Java 25 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
 | **PostgreSQL** | PostgreSQL 16 Alpine | 使用者、CQL 程式庫、指標定義等資料儲存 |
 | **HAPI FHIR** | HAPI FHIR Server (R4) | FHIR 資料儲存與術語服務 |
 | **Ollama** | Ollama + qwen2.5-coder:7b | 本地 GPU AI — CQL 錯誤修正建議（選用） |
@@ -388,8 +388,8 @@ AI_CLOUD_TIMEOUT=60
 ### 6.1 Backend（Spring Boot 4.0）
 
 **映像建置**：多階段 Docker Build
-- 建置階段：`maven:3.9-eclipse-temurin-21`
-- 執行階段：`eclipse-temurin:21-jre-alpine`（非 root 使用者 `appuser`）
+- 建置階段：`maven:3.9-eclipse-temurin-25`
+- 執行階段：`eclipse-temurin:25-jre-alpine`（非 root 使用者 `appuser`）
 
 **主要相依版本**：Spring Boot 4.0.6 / HAPI FHIR 8.8.1 / Spring Security 6.5.9 / Jackson 3.1.1 / Tomcat 10.1.54 / CQL Framework 4.5.0
 

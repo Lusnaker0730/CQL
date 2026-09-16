@@ -1,4 +1,4 @@
-# Backend — Spring Boot 4.0 / Java 21
+# Backend — Spring Boot 4.0 / Java 25
 
 ## 架構：Controller → Service → Repository
 

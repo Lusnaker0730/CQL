@@ -106,7 +106,7 @@ SMOKE_BACKEND_PORT=28080 SMOKE_FHIR_PORT=28081 scripts/smoke/run.sh
 # Skip the in-compose image build and run a prebuilt backend image instead.
 # For CI (build once via buildx with a warm cache) and for machines whose
 # TLS-inspecting proxy / antivirus breaks Maven inside the build container
-# (PKIX errors): build the jar on the host, wrap it in eclipse-temurin:21-jre-alpine,
+# (PKIX errors): build the jar on the host, wrap it in eclipse-temurin:25-jre-alpine,
 # tag it ghcr.io/lusnaker0730/cql/backend:<tag>, then:
 SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=<tag> scripts/smoke/run.sh
 
