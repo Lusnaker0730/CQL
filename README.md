@@ -665,7 +665,7 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 ## Key Dependencies
 
 ### Backend
-- Spring Boot 4.1.0 (Java 25, Tomcat 10.1.55)
+- Spring Boot 4.1.0 (Java 25, Tomcat 10.1.60)
 - CQL Framework (cql-to-elm, engine) 4.5.0
 - HAPI FHIR 8.8.1
 - CQF Clinical Reasoning
