@@ -1,5 +1,6 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.exception.MeasureNotEvaluableException;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.model.measure.TestCase;
@@ -75,6 +76,27 @@ class MeasureControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
+    }
+
+    // ===== PAT-219: stored measure must be active to evaluate =====
+
+    @Test
+    @WithMockUser
+    void evaluateMeasure_storedMeasureNotActive_shouldReturn409WithDistinctErrorLabel() throws Exception {
+        MeasureDefinition draft = MeasureDefinition.builder()
+                .id(7L).name("draft-measure").status("draft").scoringType("proportion")
+                .cqlContent("library D version '1.0'").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(draft));
+        when(measureService.evaluateMeasure(any(), eq(7L), any()))
+                .thenThrow(new MeasureNotEvaluableException(7L, "draft"));
+
+        mockMvc.perform(post("/api/measures/7/$evaluate-measure")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Measure Not Evaluable"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("'draft'")));
     }
 
     @Test
