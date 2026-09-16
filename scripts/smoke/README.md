@@ -146,6 +146,22 @@ Create `scenarios/<NN-name>/` with three files:
   }
   ```
 
+### Auth and rate limits
+
+- Every `lib/*.sh` call — including `invoke-cds.sh` — sends the seeded admin's
+  JWT. Since BUG-139 there is no anonymous CDS invocation: the route is
+  `permitAll` at the Spring Security layer, but `invokeService` authorizes the
+  caller and answers an unauthenticated one with the same "not available" card
+  as a missing service. Without the token every CDS scenario "passes" the HTTP
+  call and fails its card assertions.
+- `compose.override.yml` lifts all `RATE_LIMIT_*` ceilings for the backend
+  (per-IP / per-user / per-tenant, plus the relaxed-binding
+  `RATE_LIMIT_CDSINVOKERPM` / `RATE_LIMIT_AUTHRPM` that have no yml
+  placeholder). The suite makes 150+ authenticated calls in a few minutes as
+  one user from one IP; production defaults (user DEFAULT 40 RPM) 429'd
+  scenarios 24–31 on the first CI run. Smoke-only — production keeps its
+  limits.
+
 ### Isolation between scenarios
 
 Scenarios share the stack — Docker is expensive to bring up. To avoid cross-
