@@ -55,7 +55,10 @@ public class MeasureReportBackfillService {
             return;
         }
         try {
-            int converted = runBackfill();
+            // PAT-223: the backfill is a system job spanning every tenant. Under Row-Level
+            // Security a connection without a tenant sees only the default tenant's reports,
+            // so the loop runs with the explicit bypass — the only place it is meant for.
+            int converted = com.cqlplatform.security.TenantContext.runWithRlsBypass(this::runBackfill);
             if (converted == 0) {
                 log.info("measure_report normalized-table backfill: nothing to do (all reports already normalized)");
             } else {
