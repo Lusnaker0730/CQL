@@ -38,6 +38,17 @@ export SMOKE_BACKEND_PORT="${SMOKE_BACKEND_PORT:-18080}"
 export SMOKE_FHIR_PORT="${SMOKE_FHIR_PORT:-18081}"
 export SMOKE_PG_PORT="${SMOKE_PG_PORT:-18432}"
 
+# PAT-223: run the backend as the least-privilege app role so the whole suite executes
+# under REAL Row-Level Security (postgres-init/10-app-role.sh creates the role on the
+# fresh tmpfs volume; docker-compose passes DB_APP_* to both containers). A throwaway
+# password per run — nothing is committed. Set SMOKE_RLS_APP_ROLE=0 to run as the owner
+# (RLS bypassed) when bisecting a failure.
+if [ "${SMOKE_RLS_APP_ROLE:-1}" = "1" ]; then
+    export DB_APP_USERNAME="${DB_APP_USERNAME:-cqlplatform_app}"
+    export DB_APP_PASSWORD="${DB_APP_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || date +%s%N)}"
+    export TENANT_RLS_STRICT="${TENANT_RLS_STRICT:-true}"
+fi
+
 # Env wired to lib/*.sh via export
 export API_BASE="${API_BASE:-http://localhost:${SMOKE_BACKEND_PORT}/api}"
 export FHIR_BASE="${FHIR_BASE:-http://localhost:${SMOKE_FHIR_PORT}/fhir}"

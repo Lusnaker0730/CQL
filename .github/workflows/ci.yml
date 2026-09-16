@@ -163,7 +163,7 @@ jobs:
         run: |
           mvn test -B \
             -Dspring.profiles.active=ci-pg \
-            -Dtest=com.cqlplatform.CqlPlatformApplicationTest \
+            -Dtest=com.cqlplatform.CqlPlatformApplicationTest,com.cqlplatform.config.TenantRlsIntegrationTest \
             -DfailIfNoTests=false
 
       - name: Flyway validate (standalone)
