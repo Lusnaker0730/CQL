@@ -146,6 +146,22 @@ Create `scenarios/<NN-name>/` with three files:
   }
   ```
 
+### Auth and rate limits
+
+- Every `lib/*.sh` call — including `invoke-cds.sh` — sends the seeded admin's
+  JWT. Since BUG-139 there is no anonymous CDS invocation: the route is
+  `permitAll` at the Spring Security layer, but `invokeService` authorizes the
+  caller and answers an unauthenticated one with the same "not available" card
+  as a missing service. Without the token every CDS scenario "passes" the HTTP
+  call and fails its card assertions.
+- `compose.override.yml` lifts all `RATE_LIMIT_*` ceilings for the backend
+  (per-IP / per-user / per-tenant, plus the relaxed-binding
+  `RATE_LIMIT_CDSINVOKERPM` / `RATE_LIMIT_AUTHRPM` that have no yml
+  placeholder). The suite makes 150+ authenticated calls in a few minutes as
+  one user from one IP; production defaults (user DEFAULT 40 RPM) 429'd
+  scenarios 24–31 on the first CI run. Smoke-only — production keeps its
+  limits.
+
 ### Isolation between scenarios
 
 Scenarios share the stack — Docker is expensive to bring up. To avoid cross-
@@ -166,6 +182,25 @@ No special handling needed. `AgeRange` elements in eCQM artifacts emit
 `AgeInYearsAt(end of "Measurement Period")` (since #PAT-081), so ages are
 computed at the period-end reference point and are reproducible regardless of
 when the scenario runs.
+
+## CI
+
+`.github/workflows/smoke.yml` (PAT-220) runs this harness on every push to
+`main` and on pull requests that touch `backend/`, `docker/`, `scripts/smoke/`
+or the workflow itself (frontend-only / docs-only PRs print a notice and skip).
+The job:
+
+1. builds the backend image once with buildx (`cache-from/to: type=gha,scope=backend`,
+   the same cache the Docker Build job populates), tagged `…/backend:smoke`;
+2. writes a throwaway `docker/.env` (`openssl rand` values, nothing committed);
+3. runs `run.sh` with `SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=smoke`,
+   `SMOKE_BACKEND_HEALTH_TIMEOUT=180 SMOKE_FHIR_HEALTH_TIMEOUT=180` and
+   `SMOKE_LOG_DIR=smoke-logs`;
+4. uploads `smoke-logs/` as the `smoke-stack-logs` artifact (7 days) on every
+   run, so a red job still leaves the backend stack trace behind.
+
+Budget ~8–12 min on a cold runner. Whether the job is a required status check
+is a repository setting, not something the workflow decides.
 
 ## Exit codes
 
