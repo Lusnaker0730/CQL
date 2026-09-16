@@ -38,6 +38,17 @@ export SMOKE_BACKEND_PORT="${SMOKE_BACKEND_PORT:-18080}"
 export SMOKE_FHIR_PORT="${SMOKE_FHIR_PORT:-18081}"
 export SMOKE_PG_PORT="${SMOKE_PG_PORT:-18432}"
 
+# PAT-223: run the backend as the least-privilege app role so the whole suite executes
+# under REAL Row-Level Security (postgres-init/10-app-role.sh creates the role on the
+# fresh tmpfs volume; docker-compose passes DB_APP_* to both containers). A throwaway
+# password per run — nothing is committed. Set SMOKE_RLS_APP_ROLE=0 to run as the owner
+# (RLS bypassed) when bisecting a failure.
+if [ "${SMOKE_RLS_APP_ROLE:-1}" = "1" ]; then
+    export DB_APP_USERNAME="${DB_APP_USERNAME:-cqlplatform_app}"
+    export DB_APP_PASSWORD="${DB_APP_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || date +%s%N)}"
+    export TENANT_RLS_STRICT="${TENANT_RLS_STRICT:-true}"
+fi
+
 # Env wired to lib/*.sh via export
 export API_BASE="${API_BASE:-http://localhost:${SMOKE_BACKEND_PORT}/api}"
 export FHIR_BASE="${FHIR_BASE:-http://localhost:${SMOKE_FHIR_PORT}/fhir}"
@@ -340,6 +351,16 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
                 failed_scenarios+=("$name"); continue
             fi
             guard_tmp=$(mktemp -d)
+            # PAT-222: the creator must come back as ownerUsername (server-stamped, the
+            # request body sent none), and a PUT that flips the lifecycle status must be
+            # refused — otherwise the review workflow the PAT-219 guard trusts is bypassable.
+            if ! bash "$SCRIPT_DIR/lib/get-measure.sh" "$measure_id" > "$guard_tmp/measure.json"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            jq '.status = "active"' "$guard_tmp/measure.json" > "$guard_tmp/status-edit.json"
+            if ! bash "$SCRIPT_DIR/lib/update-measure-raw.sh" "$measure_id" "$guard_tmp/status-edit.json" > "$guard_tmp/status-edit.raw"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
             if ! bash "$SCRIPT_DIR/lib/evaluate-raw.sh" "$measure_id" "$period_start" "$period_end" > "$guard_tmp/draft.raw"; then
                 rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
             fi
@@ -349,7 +370,8 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             if ! bash "$SCRIPT_DIR/lib/evaluate-raw.sh" "$measure_id" "$period_start" "$period_end" > "$guard_tmp/approved.raw"; then
                 rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
             fi
-            if bash "$SCRIPT_DIR/lib/assert-status-guard.sh" "$guard_tmp/draft.raw" "$guard_tmp/approved.raw" "$expected_file"; then
+            if bash "$SCRIPT_DIR/lib/assert-status-guard.sh" "$guard_tmp/draft.raw" "$guard_tmp/approved.raw" "$expected_file" \
+                    "$guard_tmp/measure.json" "$guard_tmp/status-edit.raw"; then
                 passed_scenarios+=("$name")
             else
                 failed_scenarios+=("$name")

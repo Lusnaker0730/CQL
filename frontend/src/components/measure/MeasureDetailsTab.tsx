@@ -186,13 +186,16 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                     htmlInput: { maxLength: MEASURE.version.maxLength }
                   }}
                 />
+                {/* PAT-222: lifecycle status is read-only here — the backend refuses a
+                    status change on PUT; it moves only via submit / approve / reject / retire. */}
                 <TextField
                   label={t('details.fields.status')}
                   select
                   size="small"
                   fullWidth
                   value={form.status}
-                  onChange={(e) => updateField('status', e.target.value)}
+                  disabled
+                  helperText={t('details.fields.statusReadOnly')}
                 >
                   {MEASURE_STATUS_OPTIONS.map((opt) => (
                     <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>

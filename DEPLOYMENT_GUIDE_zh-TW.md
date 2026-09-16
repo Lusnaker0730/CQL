@@ -43,7 +43,7 @@
 | 服務 | 技術 | 用途 |
 |------|------|------|
 | **Frontend** | React + TypeScript + Nginx | SPA 前端，透過 Nginx 反向代理 API |
-| **Backend** | Spring Boot 4.0 + Java 21 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
+| **Backend** | Spring Boot 4.0 + Java 25 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
 | **PostgreSQL** | PostgreSQL 16 Alpine | 使用者、CQL 程式庫、指標定義等資料儲存 |
 | **HAPI FHIR** | HAPI FHIR Server (R4) | FHIR 資料儲存與術語服務 |
 | **Ollama** | Ollama + qwen2.5-coder:7b | 本地 GPU AI — CQL 錯誤修正建議（選用） |
@@ -150,6 +150,51 @@ docker compose build backend        # 本地建置並以同名 image tag 標記
 docker compose up -d --build         # 建置 + 重啟
 ```
 
+### 3.6 啟用 Row-Level Security 的應用角色（PAT-223）
+
+從 migration V70 起，PHI 相關表（`measure_report` 及其 `_group` / `_population` /
+`_stratifier`、`test_case`、`patient_import`、`ehr_connection`）有 PostgreSQL
+**Row-Level Security** 政策：一條連線只看得到 `app.tenant_id` 那個租戶的列（backend
+每次取連線都會設定），忘了加 tenant 條件的 query 也漏不出去。
+
+但 **`POSTGRES_USER` 是 superuser，superuser 無條件繞過 RLS**。所以 backend 必須改用一個
+NOSUPERUSER / NOBYPASSRLS 的應用角色連線；Flyway 仍用 owner（`DB_USERNAME`）跑 migration。
+
+**新部署（空 volume）**：在 `docker/.env` 設好 `DB_APP_USERNAME` / `DB_APP_PASSWORD` 再
+`up`，`docker/postgres-init/10-app-role.sh` 會在首次初始化時自動建角色並授權。
+
+**既有資料庫（正式機 VM）**：
+
+```bash
+cd /opt/CQL && git pull && cd docker
+
+# 1. docker/.env 加兩行（密碼自行產生：openssl rand -base64 24）
+#    DB_APP_USERNAME=cqlplatform_app
+#    DB_APP_PASSWORD=...
+
+# 2. 讓 postgres 容器掛進新的 postgres-init/（只重建容器、不動資料）
+docker compose up -d --no-build postgres
+
+# 3. 建角色 + 授權（冪等，可重跑；existing role 只會刷新密碼與屬性）
+docker compose exec -e DB_APP_USERNAME -e DB_APP_PASSWORD postgres \
+    bash /docker-entrypoint-initdb.d/10-app-role.sh
+
+# 4. backend 以新角色重啟
+docker compose up -d --no-build backend
+
+# 5. 確認
+docker compose logs backend | grep "Tenant RLS"
+#    → Tenant RLS ENFORCED for role 'cqlplatform_app' on 7 tables: [...]
+```
+
+**未設定時的行為**：backend 以 owner 連線、啟動時記 `ERROR Tenant RLS is NOT enforced`、
+Prometheus 指標 `tenant_rls_effective` = 0，功能照舊（隔離仍靠程式碼的 tenant 條件）。
+角色到位後可設 `TENANT_RLS_STRICT=true`，讓 backend 在 RLS 沒生效時拒絕啟動。
+
+**日後 migration 注意**：這些表是 `FORCE ROW LEVEL SECURITY`。superuser owner 不受影響；
+若 Flyway 改用非 superuser 的 owner 跑「資料」migration，要先 `SET LOCAL app.rls_bypass = 'on'`。
+詳見 `docs/runbooks/tenant-rls.md`。
+
 ---
 
 ## 4. 環境變數說明
@@ -166,6 +211,9 @@ docker compose up -d --build         # 建置 + 重啟
 | `DB_PASSWORD` | 同 `POSTGRES_PASSWORD` | **必須設定** |
 | `JWT_SECRET` | JWT 簽章金鑰（HS256，至少 256 bits） | **必須設定** |
 | `ENCRYPTION_KEY` | AES 加密金鑰（恰好 32 bytes） | **必須設定** |
+| `DB_APP_USERNAME` | RLS 應用角色（NOSUPERUSER / NOBYPASSRLS，見 §3.6）；未設則退回 `DB_USERNAME`，RLS 不生效 | 未設 |
+| `DB_APP_PASSWORD` | 應用角色密碼 | 未設 |
+| `TENANT_RLS_STRICT` | `true` 時 RLS 未生效即拒絕啟動（角色到位後再開） | `false` |
 
 ### 4.2 FHIR 相關
 
@@ -340,8 +388,8 @@ AI_CLOUD_TIMEOUT=60
 ### 6.1 Backend（Spring Boot 4.0）
 
 **映像建置**：多階段 Docker Build
-- 建置階段：`maven:3.9-eclipse-temurin-21`
-- 執行階段：`eclipse-temurin:21-jre-alpine`（非 root 使用者 `appuser`）
+- 建置階段：`maven:3.9-eclipse-temurin-25`
+- 執行階段：`eclipse-temurin:25-jre-alpine`（非 root 使用者 `appuser`）
 
 **主要相依版本**：Spring Boot 4.0.6 / HAPI FHIR 8.8.1 / Spring Security 6.5.9 / Jackson 3.1.1 / Tomcat 10.1.54 / CQL Framework 4.5.0
 
@@ -386,6 +434,9 @@ AI_CLOUD_TIMEOUT=60
 **WAL 歸檔**：已啟用（`wal_level=replica`），備份至 `/backups/wal/`
 
 **健康檢查**：`pg_isready`（10 秒間隔）
+
+**Row-Level Security**（PAT-223）：V70 起 PHI 表有 `tenant_isolation` 政策；backend 需以
+`DB_APP_USERNAME` 角色連線才生效（§3.6）。`postgres-init/` 掛在 `/docker-entrypoint-initdb.d`。
 
 ### 6.4 HAPI FHIR
 

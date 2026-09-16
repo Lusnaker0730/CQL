@@ -22,6 +22,11 @@ services:
       - "${SMOKE_PG_PORT:-18432}:5432"
     volumes: !override
       - smoke_pg_data:/var/lib/postgresql/data
+      # `!override` replaces the base list, so re-mount the init scripts: this is
+      # what creates the RLS app role (PAT-223) on the fresh tmpfs volume. Relative
+      # paths resolve against the PROJECT directory (docker/, where the first compose
+      # file lives), not against this file.
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
 
   backend:
     ports: !override
