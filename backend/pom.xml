@@ -35,8 +35,15 @@
         <!-- jackson 3.1.4: CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization) -->
         <jackson-bom.version>3.1.4</jackson-bom.version>
         <!-- CVE overrides above the versions shipped with Spring Boot 4.1.0 -->
-        <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513 -->
-        <tomcat.version>10.1.55</tomcat.version>
+        <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513
+             tomcat 10.1.60: CVE-2026-65182 (CRITICAL, security constraint bypass) + 65905/68525 (PAT-221).
+             Fixed in 10.1.58 per the advisory, but that vote never shipped to Maven Central (10.1.57 -> 10.1.59);
+             10.1.60 is the current 10.1.x release. -->
+        <tomcat.version>10.1.60</tomcat.version>
+        <!-- PAT-221: httpcore5 / httpcore5-h2 5.4.2 -> 5.4.3: CVE-2026-54399 / 54428 (HIGH, DoS).
+             Transitive via hapi-fhir-structures-r4 -> org.hl7.fhir.utilities -> Saxon-HE -> xmlresolver
+             -> httpclient5 5.6.1. Overrides the Spring Boot 4.1 BOM property, which manages both artifacts. -->
+        <httpcore5.version>5.4.3</httpcore5.version>
         <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
         <thymeleaf.version>3.1.5.RELEASE</thymeleaf.version>
         <spring-security.version>6.5.9</spring-security.version>
@@ -90,6 +97,14 @@
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4b</artifactId>
                 <version>6.9.9</version>
+            </dependency>
+            <!-- PAT-221: libthrift 0.22.0 -> 0.24.0: CVE-2026-43871 (HIGH, DoS via infinite loop).
+                 Transitive via hapi-fhir-structures-r4 -> jena-shex 5.5.0 -> jena-arq; the platform never
+                 parses RDF Thrift, but the artifact ships in the jar and a fixed version exists. -->
+            <dependency>
+                <groupId>org.apache.thrift</groupId>
+                <artifactId>libthrift</artifactId>
+                <version>0.24.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

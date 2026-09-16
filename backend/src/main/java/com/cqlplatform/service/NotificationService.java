@@ -108,6 +108,9 @@ public class NotificationService {
     }
 
     public void notifyMeasureApproved(String approver, String owner, String measureName, Long measureId) {
+        if (!hasRecipient(owner, "MEASURE_APPROVED", measureId)) {
+            return;
+        }
         if (!approver.equals(owner)) {
             createNotification(owner, "MEASURE_APPROVED",
                     "Measure approved: " + measureName,
@@ -117,6 +120,9 @@ public class NotificationService {
     }
 
     public void notifyMeasureRejected(String reviewer, String owner, String measureName, Long measureId, String reason) {
+        if (!hasRecipient(owner, "MEASURE_REJECTED", measureId)) {
+            return;
+        }
         if (!reviewer.equals(owner)) {
             createNotification(owner, "MEASURE_REJECTED",
                     "Measure rejected: " + measureName,
@@ -124,6 +130,22 @@ public class NotificationService {
                             + (reason != null && !reason.isBlank() ? ": " + reason : "."),
                     "/measures/" + measureId);
         }
+    }
+
+    /**
+     * BUG-143: measures created through the UI (and by any API client that omits
+     * {@code ownerUsername}) have no owner. Building a notification with a null
+     * recipient used to hit {@code notification.recipient NOT NULL}, roll back the whole
+     * approve / reject transaction and surface as a misleading 409 "database constraint"
+     * error — the review workflow could never complete for such measures. No recipient
+     * simply means there is nobody to tell.
+     */
+    private boolean hasRecipient(String recipient, String type, Long measureId) {
+        if (recipient == null || recipient.isBlank()) {
+            log.info("Skipping {} notification for measure {}: measure has no owner to notify", type, measureId);
+            return false;
+        }
+        return true;
     }
 
     public void notifyMeasureShared(String sharer, String targetUser, String measureName, Long measureId) {

@@ -16,6 +16,12 @@
 #   scripts/smoke/run.sh                 # run all scenarios
 #   scripts/smoke/run.sh --keep          # don't tear down on success (debugging)
 #   scripts/smoke/run.sh 01-proportion*  # glob-filter scenarios by name
+#   SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=smoke-local scripts/smoke/run.sh
+#                                        # use a prebuilt backend image (CI / host-built jar)
+#   SMOKE_BACKEND_HEALTH_TIMEOUT=300 SMOKE_FHIR_HEALTH_TIMEOUT=180 scripts/smoke/run.sh
+#                                        # cold machine / CI runner (defaults 90 / 60)
+#   SMOKE_LOG_DIR=./smoke-logs scripts/smoke/run.sh
+#                                        # dump container logs before teardown
 #
 # Requires: docker compose v2, jq, curl, bash.
 set -euo pipefail
@@ -49,6 +55,18 @@ for arg in "$@"; do
 done
 
 cleanup() {
+    # SMOKE_LOG_DIR: dump container logs before teardown so a failed run can be
+    # diagnosed afterwards (CI uploads the directory as an artifact). The stack
+    # is gone by the time anyone reads the job output, so this is the only
+    # place the backend's stack trace survives.
+    if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+        mkdir -p "$SMOKE_LOG_DIR"
+        for svc in backend hapi-fhir postgres; do
+            $COMPOSE logs --no-color "$svc" > "$SMOKE_LOG_DIR/$svc.log" 2>&1 || true
+        done
+        echo ""
+        echo "── Container logs written to $SMOKE_LOG_DIR ──"
+    fi
     if [ "$KEEP_STACK" -eq 0 ]; then
         echo ""
         echo "── Tearing down ──"
@@ -87,12 +105,27 @@ check_port "$SMOKE_PG_PORT" "postgres"
 
 echo ""
 echo "── Bringing up stack (project: $PROJECT_NAME) ──"
-$COMPOSE up -d --build backend hapi-fhir postgres >/dev/null
+# SMOKE_SKIP_BUILD=1 skips the in-compose backend image build and runs whatever
+# ghcr.io/lusnaker0730/cql/backend:${BACKEND_IMAGE_TAG:-latest} is already loaded.
+# Two users: CI (builds once via buildx with a warm GHA cache, then runs the
+# harness against it) and machines whose TLS-inspecting proxy / antivirus breaks
+# Maven inside the build container (PKIX errors) — build the jar on the host,
+# wrap it in the runtime image, tag it, and point BACKEND_IMAGE_TAG at it.
+BUILD_FLAG="--build"
+if [ "${SMOKE_SKIP_BUILD:-0}" = "1" ]; then
+    BUILD_FLAG=""
+    echo "  SMOKE_SKIP_BUILD=1 — using prebuilt backend image tag '${BACKEND_IMAGE_TAG:-latest}'"
+fi
+# shellcheck disable=SC2086  # BUILD_FLAG is intentionally word-split (empty or --build)
+$COMPOSE up -d $BUILD_FLAG backend hapi-fhir postgres >/dev/null
 
 echo ""
 echo "── Waiting for services ──"
-bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_BACKEND_PORT}/actuator/health" 90
-bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_FHIR_PORT}/fhir/metadata" 60
+# Defaults are tuned for a warm laptop. A cold machine or CI runner (Flyway's
+# ~70 migrations + Spring context + HAPI JPA init on a fresh volume) can need
+# 2-4 min for the backend alone — override per environment rather than editing.
+bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_BACKEND_PORT}/actuator/health" "${SMOKE_BACKEND_HEALTH_TIMEOUT:-90}"
+bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_FHIR_PORT}/fhir/metadata" "${SMOKE_FHIR_HEALTH_TIMEOUT:-60}"
 
 echo ""
 echo "── Authenticating ──"
@@ -281,8 +314,62 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        measure-status-guard)
+            # PAT-219 lifecycle guard. A raw MeasureDefinition (POST /api/measures —
+            # NOT the eCQM publish path, which always lands as `active`) is created
+            # as draft, evaluated (must be refused with 409), walked through
+            # submit-for-review + approve, then evaluated again (must succeed with
+            # the real cohort result). Locks that the guard keys on lifecycle
+            # status and that the approval workflow lifts it without a restart.
+            measure_file="$scenario_dir/measure.json"
+            bundle_file="$scenario_dir/bundle.json"
+            for f in "$measure_file" "$bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+
+            if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
+                failed_scenarios+=("$name"); continue
+            fi
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/create-measure-definition.sh" "$measure_file"); then
+                failed_scenarios+=("$name"); continue
+            fi
+            guard_tmp=$(mktemp -d)
+            # PAT-222: the creator must come back as ownerUsername (server-stamped, the
+            # request body sent none), and a PUT that flips the lifecycle status must be
+            # refused — otherwise the review workflow the PAT-219 guard trusts is bypassable.
+            if ! bash "$SCRIPT_DIR/lib/get-measure.sh" "$measure_id" > "$guard_tmp/measure.json"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            jq '.status = "active"' "$guard_tmp/measure.json" > "$guard_tmp/status-edit.json"
+            if ! bash "$SCRIPT_DIR/lib/update-measure-raw.sh" "$measure_id" "$guard_tmp/status-edit.json" > "$guard_tmp/status-edit.raw"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/evaluate-raw.sh" "$measure_id" "$period_start" "$period_end" > "$guard_tmp/draft.raw"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$measure_id"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/evaluate-raw.sh" "$measure_id" "$period_start" "$period_end" > "$guard_tmp/approved.raw"; then
+                rm -rf "$guard_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if bash "$SCRIPT_DIR/lib/assert-status-guard.sh" "$guard_tmp/draft.raw" "$guard_tmp/approved.raw" "$expected_file" \
+                    "$guard_tmp/measure.json" "$guard_tmp/status-edit.raw"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$guard_tmp"
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard)" >&2
             failed_scenarios+=("$name")
             ;;
     esac
