@@ -2,6 +2,7 @@ import { Box, Typography, Paper, Accordion, AccordionSummary, AccordionDetails, 
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const FHIRPATH_TRAVERSAL_CODE = `// FHIRPath navigation in CQL
 // Dot notation traverses FHIR resource structure
@@ -254,7 +255,7 @@ export default function FhirPathElmGuide() {
 
           <Grid container spacing={2}>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -267,7 +268,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -280,7 +281,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -293,7 +294,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -306,7 +307,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -319,7 +320,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -333,7 +334,7 @@ export default function FhirPathElmGuide() {
             </Grid>
           </Grid>
 
-          <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+          <Alert severity="info" sx={{ mt: 2 }}>
             {t('learn.fhirpathElm.fhirpath.keyPoints')}
           </Alert>
         </AccordionDetails>
@@ -363,7 +364,7 @@ export default function FhirPathElmGuide() {
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -376,7 +377,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -389,7 +390,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -402,7 +403,7 @@ export default function FhirPathElmGuide() {
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -416,7 +417,7 @@ export default function FhirPathElmGuide() {
             </Grid>
           </Grid>
 
-          <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+          <Alert severity="info" sx={{ mt: 2 }}>
             {t('learn.fhirpathElm.elm.keyPoints')}
           </Alert>
         </AccordionDetails>

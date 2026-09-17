@@ -6,6 +6,7 @@ import {
   MedicalServices as AppIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { CARD_RADIUS, INNER_RADIUS } from '../../constants/layout'
 
 export default function CqlIntroduction() {
   const { t } = useTranslation('landing')
@@ -24,7 +25,7 @@ export default function CqlIntroduction() {
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* What is CQL */}
         <Grid size={12}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
             <Typography
               variant="h6"
               gutterBottom
@@ -47,7 +48,7 @@ export default function CqlIntroduction() {
 
         {/* Why CQL */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography
               variant="h6"
               gutterBottom
@@ -88,7 +89,7 @@ export default function CqlIntroduction() {
 
         {/* CQL + FHIR Relationship */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography
               variant="h6"
               gutterBottom
@@ -121,7 +122,7 @@ export default function CqlIntroduction() {
 
         {/* Application Scenarios */}
         <Grid size={12}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
             <Typography
               variant="h6"
               gutterBottom
@@ -138,7 +139,7 @@ export default function CqlIntroduction() {
                   <Box
                     sx={{
                       p: 2,
-                      borderRadius: 2,
+                      borderRadius: INNER_RADIUS,
                       bgcolor: 'action.hover',
                       height: '100%',
                     }}

@@ -7,9 +7,16 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: "--data-checksums"
+      # PAT-223: least-privilege application role for Row-Level Security. Created by
+      # postgres-init/10-app-role.sh on FIRST init of a fresh volume; for an existing
+      # database run that script by hand (DEPLOYMENT_GUIDE §3.6). Unset = backend runs
+      # as POSTGRES_USER (a superuser) and RLS is NOT enforced.
+      DB_APP_USERNAME: ${DB_APP_USERNAME:-}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - postgres-backup:/backups
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     networks:
       - cql-network
     healthcheck:
@@ -57,6 +64,12 @@ services:
       - DB_URL=${DB_URL}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
+      # PAT-223: the app connects as DB_APP_* (RLS-enforced role); Flyway keeps DB_* (owner).
+      # Falls back to the owner when DB_APP_* is unset so an un-migrated .env still boots —
+      # with a loud "Tenant RLS is NOT enforced" ERROR from TenantRlsStartupCheck.
+      - DB_APP_USERNAME=${DB_APP_USERNAME:-${DB_USERNAME}}
+      - DB_APP_PASSWORD=${DB_APP_PASSWORD:-${DB_PASSWORD}}
+      - TENANT_RLS_STRICT=${TENANT_RLS_STRICT:-false}
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - FHIR_SERVER_URL=${FHIR_SERVER_URL}

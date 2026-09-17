@@ -6,6 +6,7 @@ import {
   Storage as FhirIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const FEATURES = [
   { key: 'editor', icon: EditorIcon, color: '#0D7377' },
@@ -55,7 +56,7 @@ export default function FeatureCards() {
               sx={{
                 p: 3,
                 height: '100%',
-                borderRadius: 3,
+                borderRadius: CARD_RADIUS,
                 border: '1px solid',
                 borderColor: 'divider',
                 transition: 'all 0.3s ease',

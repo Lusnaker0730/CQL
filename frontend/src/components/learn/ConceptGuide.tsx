@@ -9,6 +9,7 @@ import {
   CQL_CONCEPT_QUERY,
   CQL_CONCEPT_DEFINE,
 } from '../../constants/cqlExamples'
+import { CARD_RADIUS, INNER_RADIUS } from '../../constants/layout'
 
 const CONCEPTS = [
   { key: 'library', code: CQL_CONCEPT_LIBRARY },
@@ -39,7 +40,7 @@ export default function ConceptGuide() {
             <Paper
               elevation={0}
               sx={{
-                borderRadius: 3,
+                borderRadius: CARD_RADIUS,
                 border: '1px solid',
                 borderColor: 'divider',
                 overflow: 'hidden',
@@ -95,7 +96,7 @@ export default function ConceptGuide() {
                     display: 'block',
                     bgcolor: 'action.hover',
                     p: 1.5,
-                    borderRadius: 1.5,
+                    borderRadius: INNER_RADIUS,
                     lineHeight: 1.6
                   }}>
                   {t(`learn.concepts.${key}.explanation`)}

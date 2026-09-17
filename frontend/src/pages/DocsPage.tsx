@@ -1,26 +1,19 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  alpha,
   Box,
   Button,
   Card,
   CardActionArea,
   CardContent,
   Container,
-  IconButton,
-  Menu,
-  MenuItem,
   Stack,
   Typography,
-  useTheme,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import TranslateIcon from '@mui/icons-material/Translate'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import LaunchIcon from '@mui/icons-material/Launch'
 import { Helmet } from 'react-helmet-async'
+import PublicLayout from '../components/common/PublicLayout'
 
 type LinkTarget = { labelKey: string; route?: string; href?: string }
 
@@ -30,11 +23,9 @@ type LinkTarget = { labelKey: string; route?: string; href?: string }
  * the CQL language itself. No auth required.
  */
 export default function DocsPage() {
-  const theme = useTheme()
   const navigate = useNavigate()
-  const { t, i18n } = useTranslation('landing')
+  const { t } = useTranslation('landing')
   const { t: tc } = useTranslation()
-  const [langAnchor, setLangAnchor] = useState<null | HTMLElement>(null)
 
   const steps: string[] = ['apply', 'onboard', 'import', 'build']
   const features: { key: string; target: LinkTarget }[] = [
@@ -66,54 +57,12 @@ export default function DocsPage() {
         <title>{t('docs.pageTitle')} — {tc('app.title')}</title>
         <meta name="description" content={t('docs.subtitle')} />
       </Helmet>
-      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-        <Box
-          sx={{
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-            px: 3,
-            py: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => navigate('/login')}
-              sx={{ color: alpha(theme.palette.common.white, 0.9), textTransform: 'none', mr: 2 }}
-            >
-              {t('learn.backToHome')}
-            </Button>
-            <MenuBookIcon sx={{ color: 'common.white', fontSize: 22 }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'common.white' }}>
-              {t('docs.pageTitle')}
-            </Typography>
-          </Box>
-          <Box>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => navigate('/apply')}
-              sx={{ mr: 1, textTransform: 'none', bgcolor: alpha(theme.palette.common.white, 0.2) }}
-            >
-              {t('hero.applyCta')}
-            </Button>
-            <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={{ color: alpha(theme.palette.common.white, 0.8) }}>
-              <TranslateIcon fontSize="small" />
-            </IconButton>
-            <Menu anchorEl={langAnchor} open={Boolean(langAnchor)} onClose={() => setLangAnchor(null)}>
-              <MenuItem onClick={() => { i18n.changeLanguage('en'); setLangAnchor(null) }} selected={i18n.language === 'en'}>
-                {tc('language.english')}
-              </MenuItem>
-              <MenuItem onClick={() => { i18n.changeLanguage('zh-TW'); setLangAnchor(null) }} selected={i18n.language === 'zh-TW'}>
-                {tc('language.traditionalChinese')}
-              </MenuItem>
-            </Menu>
-          </Box>
-        </Box>
-
-        <Container maxWidth="lg" sx={{ py: 4, flex: 1 }}>
+      <PublicLayout
+        icon={<MenuBookIcon sx={{ color: 'common.white', fontSize: 22 }} />}
+        title={t('docs.pageTitle')}
+        showApplyCta
+      >
+        <Container maxWidth="lg" sx={{ py: 4 }}>
           <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
             {t('docs.title')}
           </Typography>
@@ -214,7 +163,7 @@ export default function DocsPage() {
             ))}
           </Stack>
         </Container>
-      </Box>
+      </PublicLayout>
     </>
   )
 }

@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Grid, Chip } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CQL_SHOWCASE_EXAMPLE } from '../../constants/cqlExamples'
+import { CARD_RADIUS } from '../../constants/layout'
 
 export default function CqlShowcase() {
   const { t } = useTranslation('landing')
@@ -47,7 +48,7 @@ export default function CqlShowcase() {
           <Paper
             elevation={0}
             sx={{
-              borderRadius: 3,
+              borderRadius: CARD_RADIUS,
               overflow: 'hidden',
               border: '1px solid',
               borderColor: 'divider',
@@ -112,7 +113,7 @@ export default function CqlShowcase() {
         {/* Explanation */}
         <Grid size={{ xs: 12, md: 5 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
               <Typography
                 variant="subtitle1"
                 gutterBottom
@@ -131,7 +132,7 @@ export default function CqlShowcase() {
                 {t('showcase.whatIsCqlContent')}
               </Typography>
             </Paper>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
               <Typography
                 variant="subtitle1"
                 gutterBottom
@@ -165,7 +166,6 @@ export default function CqlShowcase() {
                     bgcolor: `${stat.color}15`,
                     color: stat.color,
                     fontWeight: 600,
-                    borderRadius: 2,
                   }}
                 />
               ))}

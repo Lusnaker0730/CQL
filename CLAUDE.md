@@ -1,77 +1,91 @@
 # CQL Platform — AI 開發指引
 
 > 臨床品質語言 (CQL) 視覺化編輯 + 執行平台
+> 本檔的版本與數量為 2026-09-16 實測快照；改動技術棧 / 新增目錄時請一併更新，別讓它再落後四個月。
 
 ## 技術棧
 
 | 層 | 技術 | 版本 |
 |----|------|------|
-| Backend | Spring Boot / Java / Maven | 4.0.6 / 21 |
-| Frontend | React / TypeScript / Vite | 18 / 5.3 / 5.0 |
-| UI | Material-UI (MUI) | 5.14 |
-| Editor | Monaco Editor | 4.6 |
-| State | Redux Toolkit + TanStack React Query | 2.0 / 5.8 |
-| i18n | i18next + react-i18next | 25 / 16 |
-| DB | PostgreSQL (prod & dev) / H2 (test only) | — |
+| Backend | Spring Boot / Java / Maven | 4.1.0 / 25 |
+| Frontend | React / TypeScript / Vite | 19.2 / 5.9 / 7.3 |
+| UI | Material-UI (MUI) | 9.1 |
+| Editor | Monaco Editor (+ @monaco-editor/react) | 0.55 / 4.7 |
+| State | Redux Toolkit + TanStack React Query | 2.11 / 5.100 |
+| i18n | i18next + react-i18next | 25.8 / 16.5 |
+| DB | PostgreSQL 16 (prod & dev) / H2 (test only) | — |
 | Cache | Caffeine (in-process) | — |
-| CQL Engine | CQL Framework + HAPI FHIR | 3.29 / 7.0 |
+| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 4.8.0 / 8.8.1 |
 | Templates | FreeMarker (.ftl) | — |
+| Test | JUnit 5 + Mockito / Vitest + React Testing Library | — / 4.1 |
 
 ## 目錄結構
 
 ```
 backend/src/main/java/com/cqlplatform/
-  config/          — Spring 配置 (Security, CORS, Cache, Async)
-  controller/      — REST API (19 controllers)
-  entity/          — JPA 實體 (29 entities)
+  config/          — Spring 配置 (Security, CORS, Cache, Async, Metrics)
+  controller/      — REST API (25 controllers)
+  entity/          — JPA 實體 (39 entities；17 個帶 tenant_id)
   exception/       — 自訂例外 + GlobalExceptionHandler
+  fhir/            — FHIR 相關基礎元件
   model/           — DTO / Request / Response
-  repository/      — Spring Data JPA
-  security/        — JWT 認證、API Key、Token Version 即時撤銷
+  repository/      — Spring Data JPA (38 repositories)
+  security/        — JWT 認證、API Key、Token Version 即時撤銷、TenantContext、Rate limit
   service/
+    ai/            — AI 修 CQL 建議 (Ollama / OpenAI-compatible cloud)
     authoring/     — CQL 產生引擎 (★ 核心)
     cds/           — CDS Hooks
     cql/           — CQL 翻譯 / 執行 / 程式庫
     ecqm/          — eCQM 邏輯
     fhir/          — FHIR 伺服器互動
-    measure/       — 品質量測
+    measure/       — 品質量測 (最大的一包，~7.6k LOC)
   util/            — 工具類
   validation/      — 輸入驗證
+backend/src/main/java/db/migration/ — Java-based Flyway migration (V56)
 
 frontend/src/
-  api/             — Axios API 模組 (17 modules)
+  api/             — Axios API 模組 (23 modules)
   components/
     auth/          — 登入 / 密碼重設
     authoring/     — CDS Authoring 視覺化
-    builder/       — CQL Builder 元件 (★ 核心)
+    builder/       — CQL Builder 元件 (★ 核心, 27 元件)
     cds/           — CDS Hooks UI
     common/        — 共用元件
+    cql-libraries/ — CQL 程式庫管理
+    dashboard/     — 品質 dashboard
+    debug/         — 執行除錯 / trace 檢視
     ecqm/          — eCQM 建構器
     editor/        — Monaco CQL 編輯器
-    patient-generator/ — TW Core IG 假病人產生器
+    ehr/           — EHR 連線 (SMART Backend Services)
     execution/     — CQL 執行面板
     fhir/          — FHIR 瀏覽器
+    landing/, layout/, learn/ — 公開頁 / 版面 / 教學中心
     measure/       — 品質量測
+    patient-generator/ — TW Core IG 假病人產生器 (7 元件)
     terminology/   — 術語瀏覽器
-  contexts/        — React Context (6 providers)
+    testcase-builder/ — 測試案例建構
+  contexts/        — React Context (7 providers)
   config/
     twcore/        — TW Core IG 假病人產生器設定 (5 JSON + types)
-  hooks/           — 自訂 Hooks (55 files)
-  locales/{en,zh-TW}/ — i18n JSON (12 namespaces)
-  constants/       — 集中常數 (17 modules: timing, layout, queryConstants 等)
-  pages/           — 路由頁面 (27 pages, 11 lazy-loaded routes)
+  hooks/           — 自訂 Hooks (36 files)
+  locales/{en,zh-TW}/ — i18n JSON (14 namespaces)
+  constants/       — 集中常數 (24 modules: timing, layout, queryConstants 等)
+  pages/           — 路由頁面 (26 pages, 全部 lazy-loaded)
   store/           — Redux slices (editor, execution, auth, artifact)
-  utils/           — 共用工具 (22 modules)
+  types/           — 手寫 TS 型別 (index.ts 148 個 export；尚未從 OpenAPI 生成)
+  utils/           — 共用工具 (25 modules)
 
 backend/src/main/resources/
-  templates/cql/   — FreeMarker 模板 (31 files)
+  templates/cql/   — FreeMarker 模板 (32 files)
     artifact.ftl, ecqm-artifact.ftl    — 主模板
-    modifiers/     — 19 modifier templates
+    modifiers/     — 23 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway forward migrations (V1~V43)
-  db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理）
+  db/migration/    — Flyway forward migrations (V1~V69；V56 為 Java migration)
+  db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
+
+scripts/smoke/     — 本機 / CI 整合 smoke harness (31 scenarios)
 ```
 
 ## 開發指令
@@ -80,38 +94,54 @@ backend/src/main/resources/
 # Dev DB (PostgreSQL via Docker — 首次需先啟動)
 docker compose -f docker/docker-compose.dev-pg.yml up -d
 
-# Backend
-"/c/Program Files/apache-maven-3.9.9/bin/mvn" -f backend/pom.xml test     # 執行測試
-"/c/Program Files/apache-maven-3.9.9/bin/mvn" -f backend/pom.xml compile  # 編譯
+# Backend（本機 Maven 在 C:\Users\alumi\apache-maven-3.9.12）
+mvn=/c/Users/alumi/apache-maven-3.9.12/bin/mvn
+$mvn -f backend/pom.xml test                       # 執行測試
+$mvn -f backend/pom.xml compile                    # 編譯
+$mvn -f backend/pom.xml test -Dtest=XxxTest        # 單一測試
+# 改了 service / repository 簽名後，Maven incremental compile 不會重編相依的測試類：
+#   rm -rf backend/target/classes backend/target/test-classes 再跑，才是真的 fresh verify
 
 # Frontend
 cd frontend && npm run dev          # 開發伺服器 (port 5173)
 cd frontend && npm test             # Vitest 測試
 cd frontend && npm run build        # 產出建置
 cd frontend && npx tsc --noEmit     # 型別檢查
+cd frontend && npm run lint         # ESLint（CI 用 --max-warnings 0，一個 warning 就紅）
+cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查（CI 會跑）
 ```
 
 ## 開發慣例
 
 ### Commit 與 Changelog
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
-- 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）
+- 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-220 / BUG-143
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
+- PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
 ### i18n（必須遵守）
 - 所有 UI 文字使用 `useTranslation('namespace')`，**禁止硬編碼字串**
 - 新增/修改文字時，**必須同時更新** `locales/en/*.json` 和 `locales/zh-TW/*.json`
-- 12 個 namespace: common, validation, editor, builder, measures, cds, fhir, terminology, authoring, admin, ecqm, patientGenerator
+- 14 個 namespace: common, validation, editor, builder, measures, cds, fhir, terminology, authoring, admin, ecqm, patientGenerator, cqlLibraries, landing
+
+### 多租戶隔離（必須遵守）
+- 租戶來源：`security/TenantContext`（ThreadLocal），由 `JwtAuthenticationFilter` 從 JWT `tenant` claim 填入；API-key 認證由 key 擁有者的 user 紀錄解析。非 JWT 路徑可能為 `null`
+- **沒有 Hibernate `@Filter`、沒有 Postgres RLS、沒有 AOP**——隔離完全靠每條 query 手寫。新增 repository 方法一律要 tenant-scoped（慣例：`findByIdAndTenantId(...)`、`existsByTenantIdAnd...`），service 用各自的 `effectiveTenantId()`（null → `default` 租戶）。BUG-131~139 就是一整串「忘了加條件」的跨租戶洩漏
+- 跨租戶存取一律回 **404 not-found**（不可探測），不要回 403
+- 平台操作員限定的操作（全平台使用者管理、稽核清除、IndicatorCatalog 全域表）用 `PlatformOperatorGuard.require()`；擁有者檢查用 `OwnershipVerifier`
+- 新增含租戶資料的表：migration 加 `tenant_id`（NOT NULL + 回填），rollback 腳本對應
+- CDS 服務有 in-memory registry（`CdsHooksService.serviceConfigs`），任何改 DB 的路徑都必須同步 put / remove，否則 `invokeService` 讀舊值到重啟為止（BUG-142）
 
 ### Backend 模式
 - Controller → Service → Repository 分層架構
 - Service 層**禁止使用** HTTP 概念 (`HttpServletRequest`, `@ResponseStatus`)
 - 使用 `@RequiredArgsConstructor` + `final` 欄位做依賴注入，不用 `@Autowired`
 - 多步驟變更必須加 `@Transactional`
-- 拋出領域例外（`ResourceNotFoundException`, `ValidationException` 等），GlobalExceptionHandler 統一處理
+- 拋出領域例外（`ResourceNotFoundException`, `ValidationException`, `MeasureNotEvaluableException` 等），GlobalExceptionHandler 統一處理（對照表見 `backend/CLAUDE.md`）
 - CQL 產生：`CqlArtifactBuilder` 組裝 context Map → 呼叫 FreeMarker 模板
+- **儲存指標的評估一律經 `MeasureEvaluationService.evaluateMeasure(request, id, def)`**（3-arg overload）：`MeasureStatusGuard` 在此只放行 `active`（PAT-219）。新增評估路徑不要繞過這個 overload，否則守門會漏
 
 ### CQL 執行（BUG-107 規範）
 **翻譯 + 執行使用者 CQL 一律走 `seedCompiledLibrary(...)` helper**（`CqlExecutionService` 中）：
@@ -139,12 +169,15 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - Redux 用於全局狀態（editor content, auth token）
 - Context 用於功能性狀態（preferences, notifications, terminology drawer）
 - 效能：善用 `useMemo` / `useCallback`，大列表用 `react-window`
+- 測試 render 用 `src/test/test-utils.tsx`（含 Redux / Query / Router / Theme providers）；它**不**初始化 i18next，測試要 mock `react-i18next` 讓 `t` 回傳 key
 
 ### 安全機制
 - JWT Token Version 即時撤銷：`TokenVersionService` + Caffeine cache (30s TTL)
 - 登出/改密碼/改角色/停用帳號 → `bumpVersion()` → 舊 JWT 30 秒內失效
 - JWT claim `"tv"` 攜帶 token version，`JwtAuthenticationFilter` 驗證時比對 DB 版本
 - V41 migration: `app_user.token_version` 欄位
+- Rate limit 三層：`RateLimitFilter`（per-IP tier）、`UserRateLimitFilter`、`TenantRateLimitFilter`（PAT-213 每租戶合計）
+- 密碼鎖定：`LoginAttemptListener`（PAT-094）；PHI 欄位 `@Convert(EncryptionConverter.class)`（PAT-100）
 
 ### 前端常數集中管理
 - `constants/timing.ts` — 防抖、自動儲存、通知延遲時間
@@ -153,16 +186,18 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - 禁止在元件中硬編碼 magic number，統一從 `constants/` import
 
 ### 測試
-- Backend: JUnit 5 + Mockito，83 個測試檔案
-- Frontend: Vitest + React Testing Library，56 個測試檔案
+- Backend: JUnit 5 + Mockito，157 個測試檔案（36 個 `@SpringBootTest`，其餘純 Mockito）
+- Frontend: Vitest + React Testing Library，122 個測試檔案
 - 型別安全: 修改 tsx 後執行 `npx tsc --noEmit` 驗證
+- 目前**沒有** coverage 門檻（jacoco 無 `check`、vitest 無 `thresholds`）、沒有 E2E；整合面靠下面的 smoke harness
 
 ### 本機整合 Smoke Test（push 前必跑）
 ```bash
-scripts/smoke/run.sh          # 全部 scenarios，~60-120s
+scripts/smoke/run.sh          # 全部 scenarios，~60-120s（首次要 build image，較久）
+scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
-每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort），走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。
+31 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
 
 ## 關鍵檔案速查
 
@@ -172,7 +207,10 @@ scripts/smoke/run.sh --keep   # debug 時保留 stack
 | 表達式引擎 | `service/authoring/ExpressionCqlEngine.java` |
 | FreeMarker 引擎 | `service/authoring/CqlTemplateEngine.java` |
 | CQL 翻譯 | `service/cql/CqlTranslationService.java` |
+| CQL 執行 | `service/cql/CqlExecutionService.java` |
+| 指標評估入口 | `service/measure/MeasureEvaluationService.java` + `MeasureStatusGuard.java` |
 | 例外處理 | `exception/GlobalExceptionHandler.java` |
+| 租戶上下文 / 平台操作員 | `security/TenantContext.java`, `security/PlatformOperatorGuard.java` |
 | JWT Token Version | `service/TokenVersionService.java` |
 | CQL Builder UI | `components/builder/` (27 元件) |
 | CDS Authoring UI | `components/authoring/` |
@@ -183,10 +221,12 @@ scripts/smoke/run.sh --keep   # debug 時保留 stack
 | Monaco CQL 語法 | `utils/cqlSyntax.ts` (48KB) |
 | API 客戶端 | `api/client.ts` (Axios instance) |
 | 前端常數 | `constants/timing.ts`, `layout.ts`, `queryConstants.ts` |
-| 路由 | `App.tsx` (11 routes, lazy-loaded) |
+| 路由 | `App.tsx` (26 routes, lazy-loaded) |
 | 主配置 | `backend/src/main/resources/application.yml` |
 | Flyway 遷移 | `backend/src/main/resources/db/migration/` |
 | Docker | `docker/docker-compose.yml` |
+| Smoke harness | `scripts/smoke/run.sh` + `scenarios/` |
+| 上線前 review 清單 | `docs/pre-launch-production-readiness-review.md`（每項有 Status，還有幾項 TODO） |
 
 ## TFDA 法規文件工作流（必須遵守）
 
@@ -205,10 +245,12 @@ scripts/smoke/run.sh --keep   # debug 時保留 stack
 ### Issue 建立規則
 
 1. **標題前綴**：`[需求]`、`[設計]`、`[風險]`、`[驗證]` — 必須使用
-2. **Labels**：自動套用（`IEC62304:需求`、`IEC62304:設計`、`ISO14971:風險`、`IEC62304:驗證`）
+2. **Labels**：用 `gh issue create` 時模板不會自動套標籤，**要自己加** `--label`（`IEC62304:需求`、`IEC62304:設計`、`ISO14971:風險`、`IEC62304:驗證`）
 3. **追溯連結**：設計/風險/驗證 Issue 中**必須用 `#編號` 引用對應的需求 Issue**，這是追溯矩陣自動建構的依據
 4. **內容語言**：中文（直接匯出為 TFDA 文件，不需翻譯）
 5. **安全性等級標籤**：需求 Issue 需額外加上 `安全性等級-A`、`安全性等級-B` 或 `安全性等級-C`
+6. **別在 issue / PR 內文寫無關的 `#數字`**（例如「readiness review #2」）——會被當成 issue 連結拉進追溯；寫「第 2 項」
+7. dropdown 欄位（風險等級、安全性等級、嚴重度、發生機率、測試結論）要用模板裡的選項字串（如 `3 - 嚴重 (Serious)`、`通過 (Pass)`）
 
 ### Issue Body 格式（YAML 表單解析用）
 
@@ -224,7 +266,7 @@ scripts/smoke/run.sh --keep   # debug 時保留 stack
 （內容）
 ```
 
-使用 `gh issue create` 搭配 `--body` 參數時，須遵守此 `### heading\n\nvalue` 格式。
+使用 `gh issue create` 搭配 `--body-file` 時，須遵守此 `### heading\n\nvalue` 格式（Windows 上內文含 emoji 別走 stdin，走檔案）。
 
 ### PR 法規追溯（CI 強制檢查）
 
@@ -233,10 +275,12 @@ PR 描述自動載入中文模板（`.github/pull_request_template.md`），**�
 
 **CI 自動檢查（`.github/workflows/regulatory-check.yml`）：**
 - ❌ Block：PR 描述未包含任何 `#NNN` Issue 引用
-- ❌ Block：安全性等級 B/C 的需求 Issue 缺少對應的設計/風險/驗證 Issue
+- ❌ Block：安全性等級 B/C 的需求 Issue 缺少對應的設計/風險/驗證 Issue（**PR 內文每一個 `#NNN` 都會被追溯**，順帶提到的 B 級 issue 也算——前瞻引用請寫「issue 700」不加 `#`）
 - ⚠️ Warn：需求 Issue 缺少安全性等級標籤
 - ⚠️ Warn：法規 Issue 內容缺少 `### 標題` 格式（腳本無法解析）
 - ✅ Skip：`docs:` 開頭的 PR 標題不觸發檢查
+
+其他 PR gate：GitGuardian 掃 PR **全部 commit**（測試 fixture 裡 `"password":"literal"` 也會中，改用 Map 組 JSON；中了要 squash 重寫歷史）、Security Scan（Trivy backend + frontend，一次只報第一個發現）。
 
 ### 法規文件產生
 
@@ -262,6 +306,11 @@ regulatory_docs/
 └── output/           — 產出檔案
 ```
 
+## 部署（重點）
+
+- merge 到 main → CI 綠 → `deploy.yml` 只把 image 推到 GHCR（`:latest` + `sha-xxxxxxx`），**不會**部署到 VM
+- 上線是手動 SSH 到 VM `docker compose pull backend frontend && up -d --no-build`（見 `DEPLOYMENT_GUIDE_zh-TW.md` §3.5）；**絕不在 VM 上 `docker compose build`**（2 核，會把跑中的 backend 餓死）
+
 ## 注意事項
 
 - FHIR resource properties 定義在 `frontend/src/utils/cqlSyntax.ts` 的 `fhirResourceProperties`
@@ -275,3 +324,4 @@ regulatory_docs/
 - Docker 部署: `docker/docker-compose.yml`（postgres, backend, frontend, hapi-fhir, monitoring stack）
 - 病人產生器上傳 Bundle 用 `PUT ResourceType/id` 保留 client-side ID（`GenerationResultPanel.tsx`）；不要改回 `POST ResourceType`，否則 HAPI 重配 ID 而前端搜尋原 id 會找不到
 - TWCDI CQL 範本語法慣例（`constants/twcdiTemplates.json`）：choice type 用 `(X.value as Quantity)` / `(X.medication as CodeableConcept)` 存取；日期排序用 `return { ..., date: X.dateField.value } sort by date desc` 而不要 `sort by X.dateField desc`（HAPI DateTimeType 不實作 Comparable 會爆）；避免 `FHIRHelpers.ToDateTime(X)` 直接當欄位值（null 時 dispatcher 在 dateTime/instant 重載間歧義）
+- `*.sh` 與 Docker 相關檔案 `.gitattributes` 強制 LF；Windows 工作區可能是 CRLF，commit 時 git 會正規化

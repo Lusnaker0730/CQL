@@ -2,6 +2,7 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.exception.CqlTranslationException;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.measure.MeasureDefinition;
@@ -44,6 +45,9 @@ class MeasureDefinitionServiceTest {
     @Mock
     private com.cqlplatform.repository.TenantRepository tenantRepository;
 
+    @Mock
+    private com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+
     @InjectMocks
     private MeasureDefinitionService service;
 
@@ -81,6 +85,7 @@ class MeasureDefinitionServiceTest {
                 .build();
 
         when(repository.existsByTenantIdAndNameAndVersion(7L, "TestMeasure", "1.0.0")).thenReturn(false);
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("alice");
         when(repository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity e = inv.getArgument(0);
             e.setId(1L);
@@ -452,7 +457,7 @@ class MeasureDefinitionServiceTest {
                 .cqlContent("library Test version '1.0.0'\ndefine \"X\": missingThing")
                 .build();
 
-        assertThatThrownBy(() -> service.update(1L, update))
+        assertThatThrownBy(() -> service.update(1L, update, "owner"))
                 .isInstanceOf(CqlTranslationException.class)
                 .satisfies(ex -> assertThat(((CqlTranslationException) ex).getErrors())
                         .anyMatch(e -> "Cannot resolve identifier".equals(e.getMessage())));
@@ -476,7 +481,7 @@ class MeasureDefinitionServiceTest {
                 .cqlContent("library Test version '1.0.0'\ndefine \"X\": true")
                 .build();
 
-        service.update(1L, update);
+        service.update(1L, update, "owner");
 
         verify(cqlTranslationService, never()).translate(any());
     }
@@ -527,5 +532,96 @@ class MeasureDefinitionServiceTest {
         assertThat(service.getSharedMeasures("bob")).hasSize(1);
 
         verify(repository).findSharedWithUser(eq(7L), anyString());
+    }
+    // ===== PAT-222: creator is the owner; lifecycle status is not editable outside the workflow =====
+
+    @Test
+    void create_shouldStampCallerAsOwnerAndStartAsDraft_ignoringBodyOwnerAndStatus() {
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("Stamped").version("1.0.0")
+                .ownerUsername("mallory")   // body-supplied owner must not win
+                .status("active")           // body-supplied status must not skip review
+                .build();
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Stamped", "1.0.0")).thenReturn(false);
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("alice");
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition result = service.create(definition);
+
+        assertThat(result.getOwnerUsername()).isEqualTo("alice");
+        assertThat(result.getCreatedBy()).isEqualTo("alice");
+        assertThat(result.getStatus()).isEqualTo("draft");
+    }
+
+    @Test
+    void update_statusChange_shouldBeRejectedBeforeAnythingIsSaved() {
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0"); // draft
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        MeasureDefinition body = MeasureDefinition.builder().name("M").version("1.0.0").status("active").build();
+
+        assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("review workflow")
+                .hasMessageContaining("'draft'")
+                .hasMessageContaining("'active'");
+
+        verify(repository, never()).save(any());
+        assertThat(entity.getStatus()).isEqualTo("draft");
+    }
+
+    @Test
+    void update_sameStatus_shouldSaveButKeepOwnerDespiteBodyOwnerChange() {
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0"); // owner "owner"
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("M").version("1.0.0").status("draft").title("Renamed")
+                .ownerUsername("mallory")   // ownership moves only via /transfer
+                .build();
+
+        MeasureDefinition result = service.update(1L, body, "owner");
+
+        assertThat(result.getTitle()).isEqualTo("Renamed");
+        assertThat(result.getOwnerUsername()).isEqualTo("owner");
+        assertThat(result.getStatus()).isEqualTo("draft");
+    }
+
+    @Test
+    void update_lockedByAnother_shouldJudgeTheAuthenticatedCallerNotTheBodyOwner() {
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");
+        entity.setLockedBy("bob");
+        entity.setLockedAt(java.time.LocalDateTime.now());
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        // The body claims to be bob (the old smuggling channel); the real caller is alice.
+        MeasureDefinition body = MeasureDefinition.builder().name("M").version("1.0.0").ownerUsername("bob").build();
+
+        assertThatThrownBy(() -> service.update(1L, body, "alice"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("locked by bob");
+    }
+
+    @Test
+    void createVersion_shouldLeaveTheSourceVersionStatusUntouched() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.2.3"); // draft
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Test", "1.3.0")).thenReturn(false);
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(2L);
+            return e;
+        });
+
+        MeasureDefinition created = service.createVersion(1L, "minor");
+
+        assertThat(created.getStatus()).isEqualTo("draft");
+        // Creating a version used to force the SOURCE to active — a silent approval.
+        assertThat(entity.getStatus()).isEqualTo("draft");
+        verify(repository, times(1)).save(any());   // only the new copy is written
     }
 }

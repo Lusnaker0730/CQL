@@ -1,0 +1,122 @@
+name: Smoke
+
+# PAT-220 — run the integration smoke harness (scripts/smoke, 31 scenarios) in CI.
+# Unit tests green ≠ the stack works (BUG-110 / BUG-111 / #230 family); until now
+# the only gate was "remember to run it before push".
+#
+# Cost control: on PRs the job only runs when backend/, docker/, scripts/smoke/
+# or this workflow changed; pushes to main always run. The backend image is
+# built once via buildx (same GHA cache scope as the Docker Build job in ci.yml)
+# and the harness is told to reuse it (SMOKE_SKIP_BUILD=1) instead of rebuilding
+# inside `docker compose up --build`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Integration Smoke (Docker stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether this change can affect the stack
+        id: gate
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha }}"
+          changed=$(git diff --name-only "$base...HEAD")
+          printf 'Changed files:\n%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -qE '^(backend/|docker/|scripts/smoke/|\.github/workflows/smoke\.yml)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No backend / docker / smoke changes — integration smoke skipped."
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.gate.outputs.run == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image (GHA cache shared with the Docker Build job)
+        if: steps.gate.outputs.run == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: false
+          load: true
+          tags: ghcr.io/lusnaker0730/cql/backend:smoke
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Write throwaway docker/.env
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          # One-shot values generated per run. Nothing here is committed, reused,
+          # or reachable from outside the runner; the stack is torn down at the end.
+          pg_pw=$(openssl rand -hex 16)
+          {
+            echo "BACKEND_IMAGE_TAG=smoke"
+            echo "POSTGRES_DB=cqlplatform"
+            echo "POSTGRES_USER=cqlplatform"
+            echo "POSTGRES_PASSWORD=${pg_pw}"
+            echo "DB_URL=jdbc:postgresql://postgres:5432/cqlplatform"
+            echo "DB_USERNAME=cqlplatform"
+            echo "DB_PASSWORD=${pg_pw}"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "ENCRYPTION_KEY=$(openssl rand -hex 16)"
+            echo "FHIR_SERVER_URL=http://hapi-fhir:8080/fhir"
+            echo "FHIR_TERMINOLOGY_URL=http://tx.fhir.org/r4"
+            echo "APP_BASE_URL=http://localhost:18080"
+            echo "SMART_ISSUER=http://localhost:18080"
+            echo "SMART_AUTH_ENDPOINT=http://localhost:18080/api/auth/login"
+            echo "SMART_TOKEN_ENDPOINT=http://localhost:18080/api/auth/login"
+            echo "AI_PROVIDER=none"
+            echo "METRICS_SCRAPE_USER=prometheus"
+            echo "METRICS_SCRAPE_PASSWORD=$(openssl rand -hex 16)"
+            echo "GF_SECURITY_ADMIN_USER=admin"
+            echo "GF_SECURITY_ADMIN_PASSWORD=$(openssl rand -hex 12)"
+            # PAT-223: run the stack under real Row-Level Security (app role, strict).
+            echo "DB_APP_USERNAME=cqlplatform_app"
+            echo "DB_APP_PASSWORD=$(openssl rand -hex 16)"
+            echo "TENANT_RLS_STRICT=true"
+          } > docker/.env
+
+      - name: Run smoke harness
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        env:
+          SMOKE_SKIP_BUILD: "1"
+          BACKEND_IMAGE_TAG: smoke
+          # Cold runner: HAPI JPA server + Flyway on a fresh PG take longer than a warm laptop.
+          SMOKE_BACKEND_HEALTH_TIMEOUT: "180"
+          SMOKE_FHIR_HEALTH_TIMEOUT: "180"
+          SMOKE_LOG_DIR: ${{ github.workspace }}/smoke-logs
+        run: bash scripts/smoke/run.sh
+
+      - name: Upload stack logs
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-stack-logs
+          path: smoke-logs/
+          if-no-files-found: ignore
+          retention-days: 7

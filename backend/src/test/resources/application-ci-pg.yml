@@ -14,6 +14,11 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+    # PAT-223: base application.yml points Flyway at DB_USERNAME (the owner); the CI
+    # database has a single superuser, so migrations use the same credentials here.
+    url: jdbc:postgresql://localhost:5432/cqlplatform_test
+    user: cqltest
+    password: cqltest
 
   h2:
     console:

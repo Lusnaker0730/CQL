@@ -1,28 +1,22 @@
-import { Box, Typography, Button, Container, IconButton, Menu, MenuItem } from '@mui/material'
+import { Box, Typography, Button, Container } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
   LocalHospital as MedicalIcon,
-  Translate as TranslateIcon,
   School as LearnIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
+import LanguageMenu from '../components/common/LanguageMenu'
+import PublicFooter from '../components/common/PublicFooter'
 import LoginForm from '../components/landing/LoginForm'
 import FeatureCards from '../components/landing/FeatureCards'
 import CqlShowcase from '../components/landing/CqlShowcase'
 
 export default function LandingPage() {
-  const { t, i18n } = useTranslation('landing')
+  const { t } = useTranslation('landing')
   const { t: tc } = useTranslation()
   const navigate = useNavigate()
-  const [langAnchor, setLangAnchor] = useState<null | HTMLElement>(null)
-
-  const handleLanguageChange = (lang: string) => {
-    i18n.changeLanguage(lang)
-    setLangAnchor(null)
-  }
 
   return (
     <>
@@ -80,21 +74,7 @@ export default function LandingPage() {
             >
               {t('catalog.pageTitle')}
             </Button>
-            <IconButton onClick={(e) => setLangAnchor(e.currentTarget)} sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.8) })}>
-              <TranslateIcon fontSize="small" />
-            </IconButton>
-            <Menu
-              anchorEl={langAnchor}
-              open={Boolean(langAnchor)}
-              onClose={() => setLangAnchor(null)}
-            >
-              <MenuItem onClick={() => handleLanguageChange('en')} selected={i18n.language === 'en'}>
-                {tc('language.english')}
-              </MenuItem>
-              <MenuItem onClick={() => handleLanguageChange('zh-TW')} selected={i18n.language === 'zh-TW'}>
-                {tc('language.traditionalChinese')}
-              </MenuItem>
-            </Menu>
+            <LanguageMenu />
           </Box>
         </Box>
 
@@ -233,91 +213,7 @@ export default function LandingPage() {
         {/* CQL Showcase */}
         <CqlShowcase />
 
-        {/* Footer */}
-        <Box
-          sx={{
-            py: 3,
-            px: 3,
-            bgcolor: 'secondary.dark',
-            textAlign: 'center',
-          }}
-        >
-          {/* Internal public pages */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
-            {[
-              { label: t('docs.pageTitle'), to: '/docs' },
-              { label: t('catalog.pageTitle'), to: '/templates' },
-              { label: t('status.pageTitle'), to: '/status' },
-              { label: t('legal.terms.title'), to: '/terms' },
-              { label: t('legal.privacy.title'), to: '/privacy' },
-            ].map((link) => (
-              <Typography
-                key={link.to}
-                component="button"
-                onClick={() => navigate(link.to)}
-                variant="body2"
-                sx={(theme) => ({
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  p: 0,
-                  color: alpha(theme.palette.common.white, 0.6),
-                  '&:hover': { color: theme.palette.primary.light },
-                })}
-              >
-                {link.label}
-              </Typography>
-            ))}
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 1.5 }}>
-            {[
-              { label: 'CQL Specification', href: 'https://cql.hl7.org/' },
-              { label: 'HL7 FHIR', href: 'https://www.hl7.org/fhir/' },
-              { label: 'TWCORE IG', href: 'https://twcore.mohw.gov.tw/ig/twcore/' },
-              { label: 'CDS Hooks', href: 'https://cds-hooks.org/' },
-            ].map((link) => (
-              <Typography
-                key={link.label}
-                component="a"
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="body2"
-                sx={(theme) => ({
-                  color: alpha(theme.palette.common.white, 0.6),
-                  textDecoration: 'none',
-                  '&:hover': { color: theme.palette.primary.light },
-                })}
-              >
-                {link.label}
-              </Typography>
-            ))}
-          </Box>
-          <Typography
-            variant="caption"
-            sx={(theme) => ({
-              display: 'block',
-              mb: 0.5,
-              color: alpha(theme.palette.common.white, 0.5),
-            })}
-          >
-            {t('footer.contactPrompt')}{' '}
-            <Box
-              component="a"
-              href="mailto:aluminum001@gmail.com"
-              sx={(theme) => ({
-                color: alpha(theme.palette.common.white, 0.75),
-                textDecoration: 'none',
-                '&:hover': { color: theme.palette.primary.light, textDecoration: 'underline' },
-              })}
-            >
-              aluminum001@gmail.com
-            </Box>
-          </Typography>
-          <Typography variant="caption" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.35) })}>
-            {tc('app.title')} — Clinical Quality Language
-          </Typography>
-        </Box>
+        <PublicFooter />
       </Box>
     </>
   );

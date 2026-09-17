@@ -1,6 +1,7 @@
 import { Box, Typography, Paper, Grid, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const ERROR_FIXES: Record<string, string> = {
   resolveType: `library MyLibrary version '1.0.0'
@@ -123,7 +124,7 @@ export default function TroubleshootingGuide() {
       <Grid container spacing={3}>
         {ERROR_KEYS.map((key) => (
           <Grid key={key} size={12}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
               <Typography
                 variant="h6"
                 gutterBottom

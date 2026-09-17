@@ -349,6 +349,75 @@ class CdsHooksServiceTest {
         }
     }
 
+    // ===== BUG-142: share-toggle cache consistency + owner-always-invoke =====
+
+    @Test
+    void toggleShared_shouldRefreshInMemoryConfig_soInvokeSeesNewValue() {
+        // Toggling shared must update the in-memory registry, not just the DB row —
+        // otherwise invokeService keeps authorizing against the stale shared flag until
+        // the next restart (so "make private"/"make shared" had no effect on invocation).
+        var entity = com.cqlplatform.entity.CdsServiceConfigEntity.builder()
+                .id("svc").hook("patient-view").title("T")
+                .cqlContent("library T version '1.0' define X: true")
+                .ownerUsername("alice").tenantId(TENANT).enabled(true).shared(false)
+                .build();
+        when(repository.findByIdAndTenantIdWithPrefetch("svc", TENANT))
+                .thenReturn(java.util.Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Publish it (shared=true) — the fix must push the refreshed config into the map.
+        cdsHooksService.toggleShared("svc", true);
+
+        // setUp's caller "test-caller" is in TENANT but is NOT the owner. It can invoke
+        // "svc" only if the map now holds shared=true (same-tenant rule). Before the fix
+        // the map held no config for it and this delegation never happened.
+        when(invocationService.invoke(any(), any())).thenReturn(CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("ok").build())).build());
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setUserId("Practitioner/1");
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+
+        CdsResponse response = cdsHooksService.invokeService("svc", request);
+
+        assertThat(response.getCards()).hasSize(1);
+        verify(invocationService).invoke(any(), any());
+    }
+
+    @Test
+    void invokeService_ownerOfSharedServiceWithMismatchedTenant_delegates() {
+        // The owner can ALWAYS invoke their own service — even shared and stamped to a
+        // tenant the caller is not in (e.g. a null-tenant admin who owns a tenant-tagged
+        // service). Before the fix the shared→same-tenant check locked the owner out.
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "owner-admin", null, List.of()));
+        com.cqlplatform.security.TenantContext.clear(); // caller has no tenant
+        try {
+            CdsHooksService.CdsServiceConfig config = CdsHooksService.CdsServiceConfig.builder()
+                    .id("owned-shared").hook("patient-view")
+                    .cqlContent("library T version '1.0' define X: true")
+                    .ownerUsername("owner-admin").shared(true).tenantId(99L)
+                    .build();
+            cdsHooksService.registerService(config);
+            when(invocationService.invoke(any(), any())).thenReturn(CdsResponse.builder()
+                    .cards(List.of(CdsResponse.Card.builder().summary("ok").build())).build());
+            CdsRequest request = new CdsRequest();
+            CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+            ctx.setUserId("Practitioner/1");
+            ctx.setPatientId("p1");
+            request.setContext(ctx);
+
+            CdsResponse response = cdsHooksService.invokeService("owned-shared", request);
+
+            assertThat(response.getCards()).hasSize(1);
+            verify(invocationService).invoke(any(), any());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
     // ===== Tenant boundary (BUG-137 / BUG-139) =====
     //
     // BUG-139 collapsed `shared` to within-tenant (Option A reversed): reads AND mutations are

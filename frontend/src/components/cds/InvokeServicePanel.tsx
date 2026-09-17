@@ -40,12 +40,11 @@ import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { alpha } from '@mui/material/styles'
 import {
-  useCdsServices,
   useInvokeCdsService,
   useCdsServiceConfigs,
   useSubmitCdsFeedback,
 } from '../../hooks/useCdsHooks'
-import type { CdsServiceDefinition, CdsCard, CdsResponse } from '../../types'
+import type { CdsServiceConfigResponse, CdsCard, CdsResponse } from '../../types'
 import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
@@ -100,8 +99,11 @@ interface InvokeServicePanelProps {
 }
 
 export default function InvokeServicePanel({ initialService = '' }: InvokeServicePanelProps = {}) {
-  const { data: servicesData, isLoading: loadingServices, isError: servicesError } = useCdsServices()
-  const { data: serviceConfigs } = useCdsServiceConfigs()
+  // BUG-141: the service dropdown must be fed by the authenticated,
+  // tenant-scoped /cds/services list. The old anonymous discovery endpoint
+  // (useCdsServices) was emptied by BUG-139's tenant-isolation change, so it
+  // returned nothing and no service ever appeared here.
+  const { data: serviceConfigs, isLoading: loadingServices, isError: servicesError } = useCdsServiceConfigs()
   const dispatch = useDispatch()
   const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const invokeMutation = useInvokeCdsService()
@@ -139,9 +141,12 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
   // overwrite user edits when they switch the service dropdown.
   const lastAutoLoadedCqlRef = useRef<string>('')
 
+  // Only enabled services are invocable (the backend's in-memory registry only
+  // holds enabled ones); a disabled service selected here would just return a
+  // "Service not found" card.
   const services = useMemo(
-    () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
-    [servicesData?.services]
+    () => (Array.isArray(serviceConfigs) ? serviceConfigs.filter((s) => s.enabled) : []),
+    [serviceConfigs]
   )
   const allCards = useMemo(() => cdsResponse?.cards ?? [], [cdsResponse?.cards])
 
@@ -333,7 +338,7 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
             them reliably. */}
         <InputLabel id="invoke-service-label">{t('invoke.serviceLabel')}</InputLabel>
         <Select labelId="invoke-service-label" value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
-          {services.map((service: CdsServiceDefinition) => (
+          {services.map((service: CdsServiceConfigResponse) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
             </MenuItem>

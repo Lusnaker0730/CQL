@@ -883,7 +883,8 @@
     }
   },
   "footer": {
-    "contactPrompt": "商業合作 / 錯誤回報："
+    "contactPrompt": "商業合作 / 錯誤回報：",
+    "learn": "CQL 教學"
   },
   "apply": {
     "title": "申請診所帳號",

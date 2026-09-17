@@ -407,8 +407,11 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 <Stack direction="row" spacing={2}>
                   <TextField label={t('library.editDialog.version')} size="small" fullWidth
                     value={editMeasure.version} onChange={(e) => setEditMeasure({ ...editMeasure, version: e.target.value })} />
+                  {/* PAT-222: lifecycle status is read-only here — the backend refuses a
+                      status change on PUT; it moves only via submit / approve / reject / retire. */}
                   <TextField label={t('library.editDialog.status')} select size="small" fullWidth
-                    value={editMeasure.status} onChange={(e) => setEditMeasure({ ...editMeasure, status: e.target.value })}>
+                    value={editMeasure.status} disabled
+                    helperText={t('library.editDialog.statusReadOnly')}>
                     {MEASURE_STATUS_OPTIONS.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                     ))}
