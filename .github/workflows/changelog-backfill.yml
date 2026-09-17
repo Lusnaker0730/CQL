@@ -11,11 +11,13 @@ name: CHANGE_LOG Hash Backfill
 # Why a PR and not direct push: main has branch protection (PRs required +
 # status checks). Previously this workflow tried `git push origin main` and
 # was rejected (#564 post-merge run failed with GH013). Opening a PR respects
-# protection. Limitation: PRs created with GITHUB_TOKEN do NOT trigger other
-# workflows (GitHub security policy against recursion), so required status
-# checks won't fire automatically — an admin must close+reopen the PR or
-# manually approve. To enable full automation, replace GITHUB_TOKEN with a
-# PAT_TOKEN secret in the create-pr step.
+# protection. Token: pushes + `gh pr create` use the CHANGELOG_PAT secret
+# (fine-grained PAT, this repo only: Contents R/W + Pull requests R/W) when it
+# is set, because PRs created with GITHUB_TOKEN do NOT trigger other workflows
+# (GitHub security policy against recursion) and main's ruleset requires four
+# status checks with no bypass — #848 sat BLOCKED for that reason. If the
+# secret is missing/expired it falls back to GITHUB_TOKEN and a human must
+# push an empty commit (or close + reopen) to trigger the checks (PAT-225).
 
 on:
   push:
@@ -54,7 +56,7 @@ jobs:
           # Need history so `git log --grep` can find the commits referenced
           # in CHANGE_LOG. fetch-depth:0 fetches everything.
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CHANGELOG_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -68,7 +70,7 @@ jobs:
 
       - name: Open PR if changed
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CHANGELOG_PAT || secrets.GITHUB_TOKEN }}
           TRIGGER_SHA: ${{ github.sha }}
           TRIGGER_MSG: ${{ github.event.head_commit.message }}
         run: |
@@ -110,7 +112,7 @@ jobs:
             echo
             echo "Fills in the commit hash column in \`docs/CHANGE_LOG.md\` for any PAT-NNN / BUG-NNN row whose hash was left empty. Safe to merge once CI is green."
             echo
-            echo "**Note:** PRs opened with \`GITHUB_TOKEN\` don't auto-trigger required status checks (GitHub security policy). To unblock merge, an admin should close + reopen this PR, or merge with admin override after eyeballing the diff (it's docs-only)."
+            echo "**Note:** opened with the \`CHANGELOG_PAT\` secret when configured, so required checks run on their own. If this PR shows no CI checks, the secret is missing or expired — push an empty commit to the branch (or close + reopen) to trigger them, then renew the secret (PAT-225)."
             echo
             echo "🤖 Auto-generated"
           } > "$BODY_FILE"
